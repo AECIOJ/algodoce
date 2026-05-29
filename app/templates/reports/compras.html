@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Relatório de Compras</h2>
+<p class="text-muted">Quantidade de ingredientes necessária para produzir todos os pedidos em um período.</p>
+
+<form method="POST" class="row g-3 mb-4">
+  <div class="col-md-4">
+    <label class="form-label">Data Início</label>
+    <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}" required>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Data Fim</label>
+    <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}" required>
+  </div>
+  <div class="col-md-4 d-flex align-items-end">
+    <button type="submit" class="btn btn-primary">Gerar Relatório</button>
+  </div>
+</form>
+
+{% if resultado is not none %}
+  <div class="table-responsive">
+    <table class="table table-hover sortable">
+      <thead>
+        <tr>
+          <th>Ingrediente</th>
+          <th>Unidade</th>
+          <th>Quantidade Necessária</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for nome, unidade, total in resultado %}
+          <tr>
+            <td>{{ nome }}</td>
+            <td>{{ unidade }}</td>
+            <td>{{ "%.3f"|format(total|float) }}</td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="3" class="text-center text-muted">Nenhum pedido encontrado no período.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Produtos</h2>
+  <a href="{{ url_for('products.new') }}" class="btn btn-primary">Novo Produto</a>
+</div>
+
+<div class="text-center mb-3">
+  <div class="autocomplete-wrapper" style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; position: relative;">
+    <input type="text" id="search-input" class="form-control form-control-sm" style="width: 200px;" placeholder="Buscar produto..." autocomplete="off">
+    <div id="search-results" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; width: 200px; max-height: 200px; overflow-y: auto;"></div>
+  </div>
+  <div class="form-check form-check-inline ms-3">
+    <input type="checkbox" class="form-check-input" id="filter-check" checked>
+    <label class="form-check-label" for="filter-check">Produtos ativos</label>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover sortable">
+    <thead>
+      <tr>
+        <th>Imagem</th>
+        <th>Nome</th>
+        <th>Preço</th>
+        <th>Un.</th>
+        <th>Ativo</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+        <tr>
+          <td>
+            {% if p.imagem %}
+              <img src="{{ url_for('static', filename='uploads/' + p.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+          <td>{{ p.nome }}</td>
+          <td>R$ {{ "%.2f"|format(p.preco) }}</td>
+          <td>{{ p.unidade }}</td>
+          <td>
+            {% if p.ativo %}
+              <span class="badge bg-success">Sim</span>
+            {% else %}
+              <span class="badge bg-secondary">Não</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('products.detail', id=p.id) }}" class="btn btn-sm btn-outline-info">Detalhes</a>
+            <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="6" class="text-center text-muted">Nenhum produto cadastrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.autocomplete-wrapper .dropdown-item { cursor: pointer; }
+.autocomplete-wrapper .dropdown-item:hover { background-color: #f8f9fa; }
+</style>
+<script>
+const searchInput = document.getElementById('search-input');
+const resultsDiv = document.getElementById('search-results');
+let timeout;
+
+searchInput.addEventListener('input', function() {
+  clearTimeout(timeout);
+  const q = this.value.trim();
+  if (q.length < 2) { resultsDiv.style.display = 'none'; return; }
+  timeout = setTimeout(() => {
+    fetch('/produtos/search?q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(data => {
+        resultsDiv.innerHTML = '';
+        if (data.length === 0) { resultsDiv.style.display = 'none'; return; }
+        data.forEach(p => {
+          const a = document.createElement('a');
+          a.className = 'dropdown-item';
+          a.href = '/produtos/' + p.id;
+          a.textContent = p.nome;
+          resultsDiv.appendChild(a);
+        });
+        resultsDiv.style.display = 'block';
+      });
+  }, 300);
+});
+searchInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    const first = resultsDiv.querySelector('.dropdown-item');
+    if (first) location.href = first.href;
+  }
+});
+searchInput.addEventListener('blur', function() {
+  setTimeout(() => { resultsDiv.style.display = 'none'; }, 200);
+});
+searchInput.addEventListener('focus', function() {
+  if (resultsDiv.children.length > 0) resultsDiv.style.display = 'block';
+});
+
+function aplicarFiltro() {
+  const checked = document.getElementById('filter-check').checked;
+  document.querySelectorAll('tbody tr').forEach(row => {
+    const badge = row.querySelector('.badge');
+    if (!badge) return;
+    row.style.display = (checked && badge.textContent.trim() === 'Não') ? 'none' : '';
+  });
+}
+document.getElementById('filter-check').addEventListener('change', aplicarFiltro);
+aplicarFiltro();
+</script>
+{% endblock %}

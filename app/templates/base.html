@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALGODOCE</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+  <div class="sticky-top bg-white">
+    <header class="bg-white border-bottom shadow-sm">
+      <div class="container text-center py-3">
+        <a href="/" class="text-decoration-none">
+          <img src="{{ url_for('static', filename='imagens/Logo.png') }}" alt="AlgoDoce" height="100" class="brand-logo" style="cursor:pointer">
+        </a>
+      </div>
+    </header>
+
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #e91e63;">
+    <div class="container">
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav mx-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/">Início</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/clientes">Clientes</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/ingredientes">Ingredientes</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/produtos">Produtos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/pedidos">Pedidos</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/relatorios/compras">Compras</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+    </nav>
+  </div>
+
+  <div class="modal fade" id="qrModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-body text-center py-4">
+          <div id="qrcode" class="mb-3 d-inline-block"></div>
+          <p class="text-muted small mb-0">Aponte a câmera do celular para o QR code</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <main class="container mb-5">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const logo = document.querySelector('.brand-logo');
+      const modalEl = document.getElementById('qrModal');
+      const modal = new bootstrap.Modal(modalEl);
+
+      logo.addEventListener('click', function (e) {
+        e.preventDefault();
+        fetch('/ngrok-url')
+          .then(r => r.json())
+          .then(data => {
+            const container = document.getElementById('qrcode');
+            container.innerHTML = '';
+            if (data.url) {
+              new QRCode(container, { text: data.url, width: 256, height: 256 });
+            } else {
+              container.innerHTML = '<p class="text-muted">ngrok não disponível</p>';
+            }
+            modal.show();
+          });
+      });
+
+      modalEl.addEventListener('click', function () {
+        modal.hide();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') modal.hide();
+      });
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('table.sortable').forEach(function (table) {
+    var headers = table.querySelectorAll('th');
+    var tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    headers.forEach(function (th, col) {
+      var text = th.textContent.trim();
+      if (!text || text === 'Ações' || text === 'Imagem' || th.classList.contains('no-sort')) return;
+
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', function () {
+        var ascending = !th.classList.contains('asc');
+
+        headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
+        th.classList.add(ascending ? 'asc' : 'desc');
+
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var dataRows = rows.filter(function (r) { return !r.querySelector('td[colspan]'); });
+        if (dataRows.length === 0) return;
+
+        dataRows.sort(function (a, b) {
+          var aVal = (a.cells[col] ? a.cells[col].textContent.trim() : '');
+          var bVal = (b.cells[col] ? b.cells[col].textContent.trim() : '');
+
+          var aNum = parseFloat(aVal.replace(/[R$\s]/g, '').replace(',', '.'));
+          var bNum = parseFloat(bVal.replace(/[R$\s]/g, '').replace(',', '.'));
+          if (!isNaN(aNum) && !isNaN(bNum)) {
+            return ascending ? aNum - bNum : bNum - aNum;
+          }
+
+          var aDate = parseDate(aVal);
+          var bDate = parseDate(bVal);
+          if (aDate && bDate) {
+            return ascending ? aDate - bDate : bDate - aDate;
+          }
+
+          return ascending
+            ? aVal.localeCompare(bVal, 'pt-BR')
+            : bVal.localeCompare(aVal, 'pt-BR');
+        });
+
+        dataRows.forEach(function (r) { tbody.appendChild(r); });
+      });
+    });
+  });
+});
+
+function parseDate(str) {
+  var m = str.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  return null;
+}
+</script>
+</body>
+</html>

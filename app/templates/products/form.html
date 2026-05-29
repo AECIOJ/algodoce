@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% from "components/form_nav.html" import form_nav %}
+{% block content %}
+
+<h2>{{ 'Editar' if product else 'Novo' }} Produto</h2>
+
+{% if product %}
+{% call form_nav(back_url=url_for('products.list'), nome=product.nome, entity_id=product.id, nav=nav, edit_endpoint='products.edit') %}
+  <a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-outline-{{ 'danger' if product.ativo else 'success' }} btn-sm">
+    {{ 'Desativar' if product.ativo else 'Ativar' }}
+  </a>
+  <button type="button" class="btn btn-outline-danger btn-sm" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
+{% endcall %}
+{% endif %}
+
+<form method="POST" enctype="multipart/form-data">
+  <div class="mb-3">
+    <label class="form-label">Nome *</label>
+    <input type="text" name="nome" class="form-control" required value="{{ product.nome if product else '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Descrição</label>
+    <textarea name="descricao" class="form-control" rows="2">{{ product.descricao if product else '' }}</textarea>
+  </div>
+  <div class="row mb-3">
+    <div class="col-md-3">
+      <label class="form-label">Preço *</label>
+      <input type="number" name="preco" class="form-control" step="0.01" required value="{{ product.preco if product else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Unidade *</label>
+      <select name="unidade" class="form-select" required>
+        <option value="cento" {% if not product or product.unidade == 'cento' %}selected{% endif %}>cento</option>
+        <option value="un" {% if product and product.unidade == 'un' %}selected{% endif %}>un</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Imagem do Produto</label>
+    <input type="file" name="imagem" class="form-control" accept="image/png,image/jpeg,image/gif,image/webp">
+    {% if product and product.imagem %}
+      <div class="mt-2">
+        <img src="{{ url_for('static', filename='uploads/' + product.imagem) }}" class="img-thumbnail" style="max-height: 120px;">
+        <label class="ms-2 text-muted small">
+          <input type="checkbox" name="remover_imagem" value="1"> Remover imagem
+        </label>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header bg-light fw-bold">Ingredientes da Receita</div>
+    <div class="card-body">
+      <div id="ingredientes-list">
+        {% if product and product.ingredients.count() %}
+          {% for pi in product.ingredients %}
+            <div class="row mb-2 ingrediente-row">
+              <div class="col-md-4">
+                <select name="ingredient_id" class="form-select">
+                  <option value="">Selecione</option>
+                  {% for ing in ingredients %}
+                    <option value="{{ ing.id }}" {% if pi.ingredient_id == ing.id %}selected{% endif %}>{{ ing.nome }} ({{ ing.id }})</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
+                <input type="number" name="quantidade" class="form-control" step="0.001" placeholder="Qtd" value="{{ pi.quantidade }}">
+              </div>
+              <div class="col-md-3">
+                <select name="unidade" class="form-select">
+                  {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+                    <option value="{{ un }}" {% if pi.unidade == un %}selected{% endif %}>{{ un }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger btn-remove" onclick="this.closest('.row').remove()">Remover</button>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="row mb-2 ingrediente-row">
+            <div class="col-md-4">
+              <select name="ingredient_id" class="form-select">
+                <option value="">Selecione</option>
+                {% for ing in ingredients %}
+                    <option value="{{ ing.id }}">{{ ing.nome }} ({{ ing.id }})</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
+                <input type="number" name="quantidade" class="form-control" step="0.001" placeholder="Qtd">
+              </div>
+              <div class="col-md-3">
+                <select name="unidade" class="form-select">
+                  {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+                    <option value="{{ un }}">{{ un }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger btn-remove" onclick="this.closest('.row').remove()">Remover</button>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+        <button type="button" class="btn btn-outline-success btn-sm mt-2" onclick="addIngrediente()">+ Adicionar Ingrediente</button>
+      </div>
+    </div>
+
+  <button type="submit" class="btn btn-primary">Salvar</button>
+  <a href="{{ url_for('products.list') }}" class="btn btn-outline-secondary">Cancelar</a>
+</form>
+
+{% if product %}
+<div class="modal fade" id="modalExcluir" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Excluir Produto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modalExcluirBody"></div>
+      <div class="modal-footer" id="modalExcluirFooter"></div>
+    </div>
+  </div>
+</div>
+
+<form method="POST" id="formExcluir" style="display:none"></form>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addIngrediente() {
+  const container = document.getElementById('ingredientes-list');
+  const row = document.createElement('div');
+  row.className = 'row mb-2 ingrediente-row';
+  row.innerHTML = `
+    <div class="col-md-4">
+      <select name="ingredient_id" class="form-select">
+        <option value="">Selecione</option>
+        {% for ing in ingredients %}
+          <option value="{{ ing.id }}">{{ ing.nome }} ({{ ing.id }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <input type="number" name="quantidade" class="form-control" step="0.001" placeholder="Qtd">
+    </div>
+    <div class="col-md-3">
+      <select name="unidade" class="form-select">
+        {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+          <option value="{{ un }}">{{ un }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button type="button" class="btn btn-outline-danger btn-remove" onclick="this.closest('.row').remove()">Remover</button>
+    </div>
+  `;
+  container.appendChild(row);
+}
+
+{% if product %}
+function confirmarExclusao(btn) {
+  const id = btn.dataset.produtoId;
+  const nome = btn.dataset.produtoNome;
+  const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
+  const body = document.getElementById('modalExcluirBody');
+  const footer = document.getElementById('modalExcluirFooter');
+
+  fetch('/produtos/' + id + '/uso')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.em_uso) {
+        body.innerHTML = '<div class="alert alert-danger mb-0">' +
+          '<strong>' + nome + '</strong> está em <strong>' + data.quantidade + '</strong> pedido(s). ' +
+          'Remova o produto dos pedidos antes de excluí-lo.</div>';
+        footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>';
+      } else {
+        body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
+        footer.innerHTML =
+          '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>' +
+          '<button type="button" class="btn btn-danger" onclick="efetuarExclusao(' + id + ')">Excluir</button>';
+      }
+      modal.show();
+    });
+}
+
+function efetuarExclusao(id) {
+  var form = document.getElementById('formExcluir');
+  form.action = '/produtos/' + id + '/excluir';
+  form.submit();
+}
+{% endif %}
+</script>
+{% endblock %}

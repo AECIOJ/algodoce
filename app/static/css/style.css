@@ -1,0 +1,25 @@
+body {
+  background-color: #fdf2f5;
+  min-height: 100vh;
+}
+
+.navbar .nav-link {
+  color: rgba(255,255,255,.85) !important;
+  font-weight: 500;
+}
+.navbar .nav-link:hover {
+  color: #fff !important;
+}
+
+.table th {
+  background-color: #fce4ec;
+  user-select: none;
+}
+.table th.asc::after {
+  content: " ▲";
+  font-size: 0.7em;
+}
+.table th.desc::after {
+  content: " ▼";
+  font-size: 0.7em;
+}

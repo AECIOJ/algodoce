@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Pedidos</h2>
+  <a href="{{ url_for('orders.new') }}" class="btn btn-primary">Novo Pedido</a>
+</div>
+
+<div class="text-center mb-3">
+  <div class="btn-group btn-group-sm" role="group">
+    <input type="radio" class="btn-check" name="status-filter" id="filtro-pendentes" value="pendentes" autocomplete="off" checked>
+    <label class="btn btn-outline-primary" for="filtro-pendentes">Pendentes</label>
+    <input type="radio" class="btn-check" name="status-filter" id="filtro-em-producao" value="em_producao" autocomplete="off">
+    <label class="btn btn-outline-primary" for="filtro-em-producao">Em Produção</label>
+    <input type="radio" class="btn-check" name="status-filter" id="filtro-prontos" value="pronto" autocomplete="off">
+    <label class="btn btn-outline-primary" for="filtro-prontos">Prontos</label>
+    <input type="radio" class="btn-check" name="status-filter" id="filtro-entregues" value="entregue" autocomplete="off">
+    <label class="btn btn-outline-primary" for="filtro-entregues">Entregues</label>
+    <input type="radio" class="btn-check" name="status-filter" id="filtro-todos" value="todos" autocomplete="off">
+    <label class="btn btn-outline-primary" for="filtro-todos">Todos</label>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover sortable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Cliente</th>
+        <th>Data Pedido</th>
+        <th>Data Entrega</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orders %}
+        <tr>
+          <td>{{ o.id }}</td>
+          <td>{{ o.client.nome }}</td>
+          <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>{{ o.data_entrega.strftime('%d/%m/%Y') }}</td>
+          <td>R$ {{ "%.2f"|format(o.total or 0) }}</td>
+          <td>
+            <span class="badge bg-{{ 'warning' if o.status == 'pendente' else 'info' if o.status == 'em_producao' else 'success' if o.status == 'pronto' else 'secondary' if o.status == 'entregue' else 'danger' }}">
+              {{ o.status }}
+            </span>
+          </td>
+          <td>
+            <a href="{{ url_for('orders.edit', id=o.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-muted">Nenhum pedido cadastrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('input[name="status-filter"]').forEach(function(radio) {
+  radio.addEventListener('change', function() {
+    const filtro = this.value;
+    document.querySelectorAll('tbody tr').forEach(function(row) {
+      const badge = row.querySelector('.badge');
+      if (!badge) return;
+      const status = badge.textContent.trim();
+      if (filtro === 'todos') {
+        row.style.display = '';
+      } else if (filtro === 'pendentes') {
+        row.style.display = (status === 'pendente' || status === 'em_producao') ? '' : 'none';
+      } else {
+        row.style.display = status === filtro ? '' : 'none';
+      }
+    });
+  });
+});
+</script>
+{% endblock %}
