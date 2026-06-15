@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row align-items-center mb-3">
+  <div class="col">
+    <h2 class="mb-0">Orçamentos</h2>
+  </div>
+  <div class="col text-center">
+    <div class="btn-group btn-group-sm" role="group">
+      <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary {{ 'active' if filtro == 'todos' }}">Todos</a>
+      <a href="{{ url_for('orders.orcamentos', status=0) }}" class="btn btn-outline-secondary {{ 'active' if filtro == '0' }}">Pendente</a>
+      <a href="{{ url_for('orders.orcamentos', status=1) }}" class="btn btn-outline-secondary {{ 'active' if filtro == '1' }}">Negociação</a>
+      <a href="{{ url_for('orders.orcamentos', status=9) }}" class="btn btn-outline-secondary {{ 'active' if filtro == '9' }}">Aprovado</a>
+      <a href="{{ url_for('orders.orcamentos', status=2) }}" class="btn btn-outline-secondary {{ 'active' if filtro == '2' }}">Recusado</a>
+    </div>
+  </div>
+  <div class="col text-end">
+    <a href="{{ url_for('orders.quote_new') }}" class="btn btn-success">+ Novo</a>
+  </div>
+</div>
+
+<div class="table-responsive table-scroll">
+  <table class="table table-hover sortable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Pedido</th>
+        <th>Cliente</th>
+        <th>Telefone</th>
+        <th>Data</th>
+        <th class="text-end">Total</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orders %}
+        <tr>
+          <td>{{ o.id }}</td>
+          <td>
+            {% if o.pedido_id %}
+              <a href="{{ url_for('orders.edit', id=o.pedido_id) }}" class="btn btn-sm btn-outline-success" style="min-width:90px">{{ o.pedido_id }}</a>
+            {% else %}
+              <a href="{{ url_for('orders.quote_edit', id=o.id) }}" class="btn btn-sm btn-outline-primary" style="min-width:90px">Converter</a>
+            {% endif %}
+          </td>
+          <td>{{ o.cliente_nome }}</td>
+          <td>{{ o.cliente_telefone }}</td>
+          <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
+          <td>
+            <span class="badge bg-{{ 'secondary' if o.status == 0 else 'primary' if o.status == 1 else 'success' if o.status == 9 else 'danger' if o.status == 2 else 'dark' if o.status == 3 else 'warning' }}" style="min-width:95px">
+              {{ QUOTE_STATUS[o.status] }}
+            </span>
+          </td>
+          <td>
+            <a href="{{ url_for('orders.quote_edit', id=o.id) }}" class="btn btn-sm btn-outline-primary">Revisar</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-muted">Nenhum orçamento encontrado.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

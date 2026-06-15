@@ -35,7 +35,7 @@
       <div class="card-header"><strong>Cliente</strong></div>
       <div class="card-body">
         <p class="mb-1"><strong>{{ order.client.nome }}</strong></p>
-        <p class="mb-1">{{ order.client.email }}</p>
+        <p class="mb-1">{{ order.client.email or '' }}</p>
         <p class="mb-0">{{ order.client.telefone or '' }}</p>
       </div>
     </div>
@@ -45,7 +45,7 @@
       <div class="card-header"><strong>Informações</strong></div>
       <div class="card-body">
         <p class="mb-1">Pedido: {{ order.data_pedido.strftime('%d/%m/%Y %H:%M') }}</p>
-        <p class="mb-1">Entrega: <strong>{{ order.data_entrega.strftime('%d/%m/%Y') }}</strong></p>
+        <p class="mb-1">Entrega: <strong>{{ order.data_entrega.strftime('%d/%m/%Y') if order.data_entrega else '-' }}</strong></p>
         <p class="mb-0">
           Status:
           <span class="badge bg-{{ 'warning' if order.status == 'pendente' else 'info' if order.status == 'em_producao' else 'success' if order.status == 'pronto' else 'secondary' if order.status == 'entregue' else 'danger' }}">
@@ -66,7 +66,7 @@
           <tr>
             <th>Produto</th>
             <th>Qtd</th>
-            <th>Preço Un.</th>
+            <th>Preço Und.</th>
             <th>Subtotal</th>
           </tr>
         </thead>
@@ -74,16 +74,16 @@
           {% for item in order.items %}
             <tr>
               <td>{{ item.product.nome }}</td>
-              <td>{{ item.quantidade }} {{ item.product.unidade }}</td>
-              <td>R$ {{ "%.2f"|format(item.preco_unitario) }}</td>
-              <td>R$ {{ "%.2f"|format(item.preco_unitario * item.quantidade) }}</td>
+              <td>{{ item.quantidade }}</td>
+              <td>R$ {{ (item.preco_unitario or 0) | brl }}</td>
+              <td>R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</td>
             </tr>
           {% endfor %}
         </tbody>
         <tfoot>
           <tr>
             <th colspan="3" class="text-end">Total</th>
-            <th>R$ {{ "%.2f"|format(order.total or 0) }}</th>
+            <th>R$ {{ (order.total or 0) | brl }}</th>
           </tr>
         </tfoot>
       </table>

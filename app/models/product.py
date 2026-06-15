@@ -8,9 +8,11 @@ class Product(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     descricao = db.Column(db.Text)
     preco = db.Column(db.Numeric(10, 2), nullable=False)
-    unidade = db.Column(db.String(20), nullable=False, default="cento")
+    qtd_minima = db.Column(db.Integer, nullable=False, default=0)
     imagem = db.Column(db.String(255))
     ativo = db.Column(db.Boolean, default=True)
+    category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=True)
+    category = db.relationship("Category", backref="products")
 
     ingredients = db.relationship(
         "ProductIngredient", backref="product", lazy="dynamic",

@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_required
 from app.extensions import db
 from app.models.ingredient import Ingredient
 from app.models.product import Product
@@ -6,6 +7,12 @@ from app.models.product_ingredient import ProductIngredient
 from app.models.unit_conversion import UnitConversion
 
 bp = Blueprint("ingredients", __name__)
+
+
+@bp.before_request
+@login_required
+def protect():
+    pass
 
 
 @bp.route("/ingredientes")

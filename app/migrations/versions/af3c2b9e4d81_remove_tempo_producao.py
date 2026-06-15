@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    op.drop_column('products', 'tempo_producao')
+    op.execute("ALTER TABLE products DROP COLUMN IF EXISTS tempo_producao")
 
 
 def downgrade():

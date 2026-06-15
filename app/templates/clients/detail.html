@@ -41,7 +41,7 @@
       <div class="card-body">
         <div class="row">
           <div class="col-md-6">
-            <p class="mb-1"><strong>Email:</strong> {{ client.email }}</p>
+            <p class="mb-1"><strong>Email:</strong> {{ client.email or '—' }}</p>
             <p class="mb-1"><strong>Telefone:</strong> {{ client.telefone or '—' }}</p>
           </div>
           <div class="col-md-6">
@@ -50,8 +50,8 @@
               <strong>Ativo:</strong>
               {% if client.ativo %}
                 <span class="badge bg-success">Sim</span>
-              {% else %}
-                <span class="badge bg-secondary">Não</span>
+                {% else %}
+                <span class="badge bg-light text-muted border">Não</span>
               {% endif %}
             </p>
           </div>
@@ -81,8 +81,8 @@
             <tr>
               <td>{{ o.id }}</td>
               <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
-              <td>{{ o.data_entrega.strftime('%d/%m/%Y') }}</td>
-              <td>R$ {{ "%.2f"|format(o.total or 0) }}</td>
+              <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
+              <td>R$ {{ (o.total or 0) | brl }}</td>
               <td>
                 <span class="badge bg-{{ 'warning' if o.status == 'pendente' else 'info' if o.status == 'em_producao' else 'success' if o.status == 'pronto' else 'secondary' if o.status == 'entregue' else 'danger' }}">
                   {{ o.status }}

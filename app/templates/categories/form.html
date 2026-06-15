@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "components/form_nav.html" import form_nav %}
+{% block content %}
+
+<h2>{{ 'Editar' if category else 'Nova' }} Categoria</h2>
+
+{% if category %}
+{% call form_nav(back_url=url_for('categories.list'), nome=category.nome, entity_id=category.id, nav=nav, edit_endpoint='categories.edit') %}
+  <a href="{{ url_for('categories.toggle', id=category.id) }}" class="btn btn-{{ 'success' if category.ativo else 'outline-secondary' }} btn-sm">
+    {{ 'Desativar' if category.ativo else 'Ativar' }}
+  </a>
+{% endcall %}
+{% endif %}
+
+<form method="POST">
+  <div class="mb-3">
+    <label class="form-label">Nome *</label>
+    <input type="text" name="nome" class="form-control" required value="{{ category.nome if category else '' }}">
+  </div>
+  <div class="row mb-3">
+    <div class="col-md-3">
+      <label class="form-label">Ordem</label>
+      <input type="number" name="ordem" class="form-control" value="{{ category.ordem if category else 0 }}">
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <div class="form-check">
+        <input type="checkbox" name="ativo" class="form-check-input" id="ativo" {% if not category or category.ativo %}checked{% endif %}>
+        <label class="form-check-label" for="ativo">Ativo</label>
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Salvar</button>
+  <a href="{{ url_for('categories.list') }}" class="btn btn-outline-secondary">Cancelar</a>
+</form>
+
+{% endblock %}

@@ -3,13 +3,14 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Ingredientes</h2>
-  <a href="{{ url_for('ingredients.new') }}" class="btn btn-primary">Novo Ingrediente</a>
+  <a href="{{ url_for('ingredients.new') }}" class="btn btn-primary">Novo</a>
 </div>
 
-<div class="table-responsive">
+<div class="table-responsive table-scroll">
   <table class="table table-hover sortable">
     <thead>
       <tr>
+        <th>#</th>
         <th>Nome</th>
         <th>Unidade de Medida</th>
         <th>Ações</th>
@@ -18,7 +19,8 @@
     <tbody>
       {% for i in ingredients %}
         <tr>
-          <td>{{ i.nome }} ({{ i.id }})</td>
+          <td>{{ i.id }}</td>
+          <td>{{ i.nome }}</td>
           <td>{{ i.unidade_medida }}</td>
           <td>
             <a href="{{ url_for('ingredients.edit', id=i.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
@@ -26,7 +28,7 @@
         </tr>
       {% else %}
         <tr>
-          <td colspan="3" class="text-center text-muted">Nenhum ingrediente cadastrado.</td>
+          <td colspan="4" class="text-center text-muted">Nenhum ingrediente cadastrado.</td>
         </tr>
       {% endfor %}
     </tbody>

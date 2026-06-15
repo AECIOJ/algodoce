@@ -6,6 +6,10 @@
   <title>ALGODOCE</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <style>
+    .navbar-nav .nav-link.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    .bar-link.active { border-bottom-color: #e91e63 !important; }
+  </style>
 </head>
 <body>
   <div class="sticky-top bg-white">
@@ -27,14 +31,13 @@
           <li class="nav-item">
             <a class="nav-link" href="/">Início</a>
           </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/clientes">Clientes</a>
+          <li class="nav-item dropdown" id="cadastroMenu">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+              Cadastro
+            </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/ingredientes">Ingredientes</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/produtos">Produtos</a>
+            <a class="nav-link" href="/orcamentos">Orçamentos</a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="/pedidos">Pedidos</a>
@@ -42,10 +45,21 @@
           <li class="nav-item">
             <a class="nav-link" href="/relatorios/compras">Compras</a>
           </li>
+          <li class="nav-item ms-lg-3">
+            <a class="nav-link" href="/logout" style="color: #fff !important;">🚪 Sair</a>
+          </li>
         </ul>
       </div>
     </div>
     </nav>
+    <div id="cadastroBar" class="d-none" style="background: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 0.3rem 0;">
+      <div class="container d-flex gap-3 justify-content-center">
+        <a href="/categorias" class="bar-link text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
+        <a href="/ingredientes" class="bar-link text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Ingredientes</a>
+        <a href="/produtos" class="bar-link text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
+        <a href="/clientes" class="bar-link text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Clientes</a>
+      </div>
+    </div>
   </div>
 
   <div class="modal fade" id="qrModal" tabindex="-1">
@@ -84,18 +98,15 @@
 
       logo.addEventListener('click', function (e) {
         e.preventDefault();
-        fetch('/ngrok-url')
-          .then(r => r.json())
-          .then(data => {
-            const container = document.getElementById('qrcode');
-            container.innerHTML = '';
-            if (data.url) {
-              new QRCode(container, { text: data.url, width: 256, height: 256 });
-            } else {
-              container.innerHTML = '<p class="text-muted">ngrok não disponível</p>';
-            }
-            modal.show();
-          });
+        const container = document.getElementById('qrcode');
+        container.innerHTML = '';
+        var url = '{{ ngrok_url }}' || window.location.origin;
+        if (url) {
+          new QRCode(container, { text: url, width: 256, height: 256 });
+        } else {
+          container.innerHTML = '<p class="text-muted">URL indisponível</p>';
+        }
+        modal.show();
       });
 
       modalEl.addEventListener('click', function () {
@@ -162,6 +173,98 @@ function parseDate(str) {
   if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
   return null;
 }
+</script>
+<script>
+// Active menu state + Cadastro submenu bar
+(function() {
+  var links = document.querySelectorAll('.navbar-nav .nav-link');
+  var menuItem = document.getElementById('cadastroMenu');
+  var bar = document.getElementById('cadastroBar');
+
+  function setActive(el) {
+    links.forEach(function(l) { l.classList.remove('active'); });
+    if (el) el.classList.add('active');
+  }
+
+  // Mark current page on load — cadastro subpages first
+  var path = window.location.pathname;
+  var cadastroPaths = ['/categorias', '/ingredientes', '/produtos', '/clientes'];
+  var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });
+  if (onCadastro) {
+    var cadastroLink = document.querySelector('#cadastroMenu > .nav-link');
+    if (cadastroLink) setActive(cadastroLink);
+    if (bar) {
+      bar.classList.remove('d-none');
+      bar.querySelectorAll('.bar-link').forEach(function(l) {
+        if (path.indexOf(l.getAttribute('href')) === 0) l.classList.add('active');
+      });
+    }
+  } else {
+    links.forEach(function(l) {
+      var href = l.getAttribute('href');
+      if (href && href !== '#' && path.indexOf(href) === 0) setActive(l);
+    });
+  }
+
+  if (!menuItem || !bar) return;
+  var timeout;
+
+  function showBar() {
+    clearTimeout(timeout);
+    bar.classList.remove('d-none');
+    var cl = document.querySelector('#cadastroMenu > .nav-link');
+    if (cl) setActive(cl);
+  }
+  function hideBar() {
+    timeout = setTimeout(function() {
+      if (!bar.classList.contains('keep')) bar.classList.add('d-none');
+    }, 300);
+  }
+
+  function toggleBar(e) {
+    e.preventDefault();
+    if (bar.classList.contains('d-none')) {
+      showBar();
+      bar.classList.add('keep');
+    } else {
+      bar.classList.add('d-none');
+      bar.classList.remove('keep');
+    }
+    if (!window._cadastroListener) {
+      window._cadastroListener = function(ev) {
+        if (!menuItem.contains(ev.target) && !bar.contains(ev.target)) {
+          bar.classList.add('d-none');
+          bar.classList.remove('keep');
+        }
+      };
+      setTimeout(function() { document.addEventListener('click', window._cadastroListener); }, 0);
+    }
+  }
+
+  menuItem.addEventListener('mouseenter', function() { clearTimeout(timeout); });
+  menuItem.addEventListener('mouseleave', function() {
+    if (!bar.classList.contains('keep')) {
+      timeout = setTimeout(function() { bar.classList.add('d-none'); }, 300);
+    }
+  });
+  bar.addEventListener('mouseenter', function() { clearTimeout(timeout); });
+  bar.addEventListener('mouseleave', function() {
+    if (!bar.classList.contains('keep')) {
+      timeout = setTimeout(function() { bar.classList.add('d-none'); }, 300);
+    }
+  });
+  menuItem.addEventListener('click', toggleBar);
+
+  // Deactivate bar when another nav link is clicked
+  links.forEach(function(l) {
+    if (l.closest('li') !== menuItem) {
+      l.addEventListener('click', function() {
+        bar.classList.add('d-none');
+        bar.classList.remove('keep');
+      });
+    }
+  });
+})();
 </script>
 </body>
 </html>

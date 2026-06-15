@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from flask import Blueprint, render_template, request
+from flask_login import login_required
 from sqlalchemy import func
 from app.extensions import db
 from app.models.order import Order
@@ -9,6 +10,12 @@ from app.models.ingredient import Ingredient
 from app.models.unit_conversion import UnitConversion
 
 bp = Blueprint("reports", __name__)
+
+
+@bp.before_request
+@login_required
+def protect():
+    pass
 
 
 @bp.route("/relatorios/compras", methods=["GET", "POST"])
@@ -55,7 +62,7 @@ def compras():
                     (UnitConversion.unidade == ProductIngredient.unidade)
                 )
                 .filter(Order.data_entrega.between(dt_inicio, dt_fim))
-                .filter(Order.status != "cancelado")
+                .filter(Order.status != 3)
                 .group_by(Ingredient.id, Ingredient.nome, Ingredient.unidade_medida)
                 .order_by(Ingredient.nome)
                 .all()

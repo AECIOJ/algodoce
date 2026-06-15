@@ -1,9 +1,17 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import login_required
 from app.extensions import db
 from app.models.client import Client
 from app.models.order import Order
+from app.routes.orders import ORDER_STATUS
 
 bp = Blueprint("clients", __name__)
+
+
+@bp.before_request
+@login_required
+def protect():
+    pass
 
 
 @bp.route("/clientes")
@@ -32,7 +40,7 @@ def new():
     if request.method == "POST":
         client = Client(
             nome=request.form["nome"],
-            email=request.form["email"],
+            email=(request.form["email"] or None),
             telefone=request.form.get("telefone", ""),
             endereco=request.form.get("endereco", ""),
         )
@@ -48,7 +56,7 @@ def edit(id):
     client = Client.query.get_or_404(id)
     if request.method == "POST":
         client.nome = request.form["nome"]
-        client.email = request.form["email"]
+        client.email = (request.form["email"] or None)
         client.telefone = request.form.get("telefone", "")
         client.endereco = request.form.get("endereco", "")
         db.session.commit()
@@ -69,7 +77,7 @@ def edit(id):
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
     orders = client.orders.order_by(Order.data_pedido.desc()).all()
-    return render_template("clients/form.html", client=client, nav=nav, orders=orders)
+    return render_template("clients/form.html", client=client, nav=nav, orders=orders, ORDER_STATUS=ORDER_STATUS)
 
 
 @bp.route("/clientes/<int:id>/toggle")

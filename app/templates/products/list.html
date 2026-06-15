@@ -1,62 +1,76 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>Produtos</h2>
-  <a href="{{ url_for('products.new') }}" class="btn btn-primary">Novo Produto</a>
+<div class="row align-items-center mb-3">
+  <div class="col">
+    <h2 class="mb-0">Produtos</h2>
+  </div>
+  <div class="col text-center">
+    <div class="d-inline-flex align-items-center gap-2">
+      <div class="autocomplete-wrapper" style="position:relative;">
+        <input type="text" id="search-input" class="form-control form-control-sm" style="width:200px;" placeholder="Buscar produto..." autocomplete="off">
+        <div id="search-results" class="dropdown-menu" style="position:absolute;top:100%;left:0;width:200px;max-height:200px;overflow-y:auto;"></div>
+      </div>
+      <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
+        <option value="">Todas as categorias</option>
+        {% for cat in categories %}
+          <option value="{{ cat.nome }}">{{ cat.nome }}</option>
+        {% endfor %}
+      </select>
+      <div class="form-check form-check-inline mb-0">
+        <input type="checkbox" class="form-check-input" id="filter-check" checked>
+        <label class="form-check-label small" for="filter-check">Ativos</label>
+      </div>
+    </div>
+  </div>
+  <div class="col text-end">
+    <a href="{{ url_for('products.new') }}" class="btn btn-primary">Novo</a>
+  </div>
 </div>
 
-<div class="text-center mb-3">
-  <div class="autocomplete-wrapper" style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; position: relative;">
-    <input type="text" id="search-input" class="form-control form-control-sm" style="width: 200px;" placeholder="Buscar produto..." autocomplete="off">
-    <div id="search-results" class="dropdown-menu" style="position: absolute; top: 100%; left: 0; width: 200px; max-height: 200px; overflow-y: auto;"></div>
-  </div>
-  <div class="form-check form-check-inline ms-3">
-    <input type="checkbox" class="form-check-input" id="filter-check" checked>
-    <label class="form-check-label" for="filter-check">Produtos ativos</label>
-  </div>
-</div>
-
-<div class="table-responsive">
+<div class="table-responsive table-scroll">
   <table class="table table-hover sortable">
     <thead>
       <tr>
+        <th>#</th>
         <th>Imagem</th>
         <th>Nome</th>
         <th>Preço</th>
-        <th>Un.</th>
+        <th>Qtd. Mín.</th>
+        <th>Categoria</th>
         <th>Ativo</th>
         <th>Ações</th>
       </tr>
     </thead>
     <tbody>
       {% for p in products %}
-        <tr>
+        <tr data-ativo="{{ p.ativo|lower }}" data-categoria="{{ p.category.nome if p.category else '' }}">
+          <td>{{ p.id }}</td>
           <td>
             {% if p.imagem %}
-              <img src="{{ url_for('static', filename='uploads/' + p.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
+              <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
             {% else %}
               <span class="text-muted">—</span>
             {% endif %}
           </td>
           <td>{{ p.nome }}</td>
-          <td>R$ {{ "%.2f"|format(p.preco) }}</td>
-          <td>{{ p.unidade }}</td>
+          <td>R$ {{ (p.preco or 0) | brl }}</td>
+          <td>{{ p.qtd_minima if p.qtd_minima else '—' }}</td>
+          <td>{{ p.category.nome if p.category else '—' }}</td>
           <td>
             {% if p.ativo %}
               <span class="badge bg-success">Sim</span>
             {% else %}
-              <span class="badge bg-secondary">Não</span>
+              <span class="badge bg-light text-muted border">Não</span>
             {% endif %}
           </td>
           <td>
-            <a href="{{ url_for('products.detail', id=p.id) }}" class="btn btn-sm btn-outline-info">Detalhes</a>
             <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
           </td>
         </tr>
       {% else %}
         <tr>
-          <td colspan="6" class="text-center text-muted">Nenhum produto cadastrado.</td>
+          <td colspan="8" class="text-center text-muted">Nenhum produto cadastrado.</td>
         </tr>
       {% endfor %}
     </tbody>
@@ -88,7 +102,7 @@ searchInput.addEventListener('input', function() {
         data.forEach(p => {
           const a = document.createElement('a');
           a.className = 'dropdown-item';
-          a.href = '/produtos/' + p.id;
+          a.href = '/produtos/' + p.id + '/editar';
           a.textContent = p.nome;
           resultsDiv.appendChild(a);
         });
@@ -110,14 +124,18 @@ searchInput.addEventListener('focus', function() {
 });
 
 function aplicarFiltro() {
-  const checked = document.getElementById('filter-check').checked;
+  const ativos = document.getElementById('filter-check').checked;
+  const cat = document.getElementById('filter-categoria').value;
   document.querySelectorAll('tbody tr').forEach(row => {
-    const badge = row.querySelector('.badge');
-    if (!badge) return;
-    row.style.display = (checked && badge.textContent.trim() === 'Não') ? 'none' : '';
+    const ativo = row.dataset.ativo === 'true';
+    const categoria = row.dataset.categoria;
+    const mostraAtivo = !ativos || ativo;
+    const mostraCat = !cat || categoria === cat;
+    row.style.display = (mostraAtivo && mostraCat) ? '' : 'none';
   });
 }
 document.getElementById('filter-check').addEventListener('change', aplicarFiltro);
+document.getElementById('filter-categoria').addEventListener('change', aplicarFiltro);
 aplicarFiltro();
 </script>
 {% endblock %}

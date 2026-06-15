@@ -1,0 +1,368 @@
+{% extends "site/base.html" %}
+{% block content %}
+<style>
+  .cat-toggle {
+    display: none;
+    background: var(--rosa); border: none;
+    color: #fff; font-size: 1.1rem;
+    cursor: pointer; width: 30px; height: 40px;
+    border-radius: 0 6px 6px 0;
+    position: fixed; left: 0; top: 130px; z-index: 1035;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+  }
+  .cat-sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 1041;
+    width: 220px; background: #fff;
+    transform: translateX(-100%); transition: transform 0.25s ease;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+    padding-top: 130px; overflow-y: auto;
+  }
+  .cat-sidebar.open { transform: translateX(0); }
+  .cat-sidebar .bar-link {
+    display: block; padding: 0.8rem 1.2rem;
+    color: var(--rosa); font-weight: 500; text-decoration: none;
+    border-left: 3px solid transparent;
+  }
+  .cat-sidebar .bar-link.active { border-left-color: var(--rosa); background: #fce4ec; }
+  .cat-sidebar-overlay {
+    position: fixed; inset: 0; z-index: 1040;
+    background: rgba(0,0,0,0.4); display: none;
+  }
+  .cat-sidebar-overlay.show { display: block; }
+  .cat-titulo-mobile { display: none; }
+  @media (max-width: 575.98px) {
+    body { padding-top: 130px; }
+    main.container {
+      max-width: 100%; padding-left: 0; padding-right: 0;
+      margin-bottom: 0;
+      display: flex; flex-direction: column;
+      min-height: calc(100vh - 145px);
+    }
+    .cat-badges { display: none; }
+    .cat-titulo-mobile {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 6px; padding: 6px 12px;
+      flex-shrink: 0;
+      color: var(--rosa); font-weight: 600; font-size: 1rem;
+    }
+    .cat-titulo-mobile .cat-toggle {
+      display: inline-flex; position: relative;
+      width: auto; height: auto; border-radius: 4px;
+      padding: 3px 8px; box-shadow: none;
+      top: auto; left: auto; z-index: auto;
+      align-items: center; justify-content: center;
+    }
+    #carrossel {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 0 0.5rem 1.8rem 0.5rem !important;
+      margin-bottom: 0; position: relative;
+    }
+    #carrossel .produto-item:not(.d-none) {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    #carrossel .produto-item .row {
+      flex: 1; display: flex; flex-direction: column;
+      margin: 0;
+    }
+    #carrossel .produto-item .col-md-6:first-child {
+      flex: 0 0 auto; height: 30vh; min-height: 180px;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; margin-bottom: 0;
+      padding: 0 1.8rem;
+    }
+    #carrossel .produto-item .col-md-6:first-child img {
+      max-height: 100%; max-width: 100%;
+      object-fit: contain;
+    }
+    #carrossel .produto-item .col-md-6:last-child {
+      flex: 1; display: flex; flex-direction: column;
+      overflow-y: auto; padding-left: 0;
+    }
+    #carrossel .produto-item .col-md-6:last-child > div:first-child {
+      flex: 1;
+    }
+    #prev-btn, #next-btn {
+      top: 15vh !important;
+    }
+    .controles-row {
+      display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;
+      padding: 0.25rem 0 0.25rem 1rem;
+    }
+    .controles-row > div:first-child { max-width: 50%; }
+    .controles-row .qtd-label { font-size: 0.9rem; white-space: nowrap; }
+    .controles-row .qtd-input { width: 50px !important; font-size: 1rem; padding: 0.15rem; }
+    .controles-row .btn { padding: 0.15rem 0.35rem; font-size: 0.95rem; }
+    .controles-row .incluir-btn { font-size: 0.95rem; padding: 0.2rem 0.5rem; white-space: nowrap; }
+  }
+</style>
+<div class="cat-sidebar-overlay" id="catOverlay" onclick="toggleCategorias()"></div>
+<div class="cat-sidebar" id="catSidebar">
+  <a href="/vitrine/" class="bar-link {% if not categoria_id %}active{% endif %}">Todos</a>
+  {% for cat in categorias %}
+  <a href="/vitrine/?categoria={{ cat.id }}" class="bar-link {% if categoria_id == cat.id %}active{% endif %}">{{ cat.nome }}</a>
+  {% endfor %}
+</div>
+<div class="mb-3 cat-badges">
+  <a href="/vitrine" class="badge bg-rosa me-1 mb-1 px-3 py-2 categoria-btn {% if not categoria_id %}opacity-100{% else %}opacity-50{% endif %}"
+     style="background: var(--rosa); cursor:pointer; text-decoration:none;">Todas</a>
+  {% for cat in categorias %}
+    <a href="/vitrine?categoria={{ cat.id }}" class="badge bg-rosa me-1 mb-1 px-3 py-2 categoria-btn {% if categoria_id == cat.id %}opacity-100{% else %}opacity-50{% endif %}"
+       style="background: var(--rosa); cursor:pointer; text-decoration:none;">
+      {{ cat.nome }}
+    </a>
+  {% endfor %}
+</div>
+
+<div class="cat-titulo-mobile">
+  <button class="cat-toggle" id="catToggle" onclick="toggleCategorias()">☰</button>
+  <span>{% if categoria_id %}{% for cat in categorias %}{% if cat.id == categoria_id %}{{ cat.nome }}{% endif %}{% endfor %}{% endif %}</span>
+</div>
+
+<div id="carrossel" class="card shadow-sm border-0 p-4 text-center position-relative">
+  {% if produtos %}
+    {% for p in produtos %}
+      <div class="produto-item {% if not loop.first %}d-none{% endif %}" data-categoria="{{ p.category_id or '' }}">
+        <div class="row justify-content-center align-items-stretch">
+          <div class="col-md-6 mb-3 d-flex align-items-center">
+            {% if p.imagem %}
+              <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}"
+                   class="img-fluid rounded shadow-sm" style="max-height: 300px; object-fit: contain;">
+            {% else %}
+              <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                   style="height: 250px; color: #ccc; font-size: 4rem;">
+                📸
+              </div>
+            {% endif %}
+          </div>
+          <div class="col-md-6 text-start d-flex flex-column">
+            <div>
+              <h3 style="color: var(--rosa);">{{ p.nome }}</h3>
+              {% if p.descricao %}
+                <p style="font-size:0.9rem; line-height:1.4;">{{ p.descricao }}</p>
+              {% endif %}
+            </div>
+            <div class="d-flex align-items-center mt-auto gap-1 flex-wrap controles-row">
+              <div class="d-flex align-items-center gap-1">
+                <label class="form-label small text-muted mb-0 qtd-label">Qtd.</label>
+                <button class="btn btn-outline-secondary btn-sm qtd-minus">−</button>
+                <input type="number" class="form-control form-control-sm qtd-input"
+                       style="width:60px;text-align:center;" value="{{ p.qtd_minima or 1 }}"
+                       min="0" step="1" data-minima="{{ p.qtd_minima or 0 }}">
+                <button class="btn btn-outline-secondary btn-sm qtd-plus">+</button>
+              </div>
+              <button class="btn btn-verde incluir-btn" data-id="{{ p.id }}">
++ Orçar
+              </button>
+              {% if p.qtd_minima and p.qtd_minima > 0 %}
+              <span class="text-muted small" style="font-size:0.7rem;">Mín: {{ p.qtd_minima }} und</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+    <button id="prev-btn" class="btn border-0 position-absolute top-50 translate-middle-y"
+            style="left: 0; color: var(--rosa); font-size: 2.5rem; z-index: 5;">‹</button>
+    <button id="next-btn" class="btn border-0 position-absolute top-50 translate-middle-y"
+            style="right: 0; color: var(--rosa); font-size: 2.5rem; z-index: 5;">›</button>
+    <div class="position-absolute bottom-0 start-50 translate-middle-x mb-2">
+      <span class="text-muted small" id="produtoCounter">1 / {{ produtos|length }}</span>
+    </div>
+  {% else %}
+    <p class="text-muted">Nenhum produto disponível no momento.</p>
+  {% endif %}
+</div>
+
+<div class="sticky-bar" id="stickyBar">
+  <span id="stickyCount">🧾 0 itens no orçamento</span>
+  <a href="/orcamento" class="btn btn-sm text-white" style="background:rgba(255,255,255,0.2);">
+    Finalizar →
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var pendingItem = null;
+var clientPopup = null;
+
+function phoneMask(input) {
+  input.addEventListener('input', function() {
+    let value = this.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length > 6) {
+      value = '(' + value.slice(0, 2) + ') ' + value.slice(2, 7) + '-' + value.slice(7);
+    } else if (value.length > 2) {
+      value = '(' + value.slice(0, 2) + ') ' + value.slice(2);
+    } else if (value.length > 0) {
+      value = '(' + value;
+    }
+    this.value = value;
+  });
+}
+
+function adicionarItem(id, qtd, btn) {
+  fetch('/vitrine/' + id + '/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quantidade: qtd })
+  }).then(function(r) {
+    if (r.status === 401) {
+      showClientPopup();
+      return null;
+    }
+    return r.json();
+  }).then(function(data) {
+    if (data && data.success) {
+      document.getElementById('stickyCount').textContent =
+        '🧾 ' + data.total_itens + ' itens no orçamento';
+      document.getElementById('stickyBar').classList.add('show');
+      btn.textContent = '✓ Adicionado';
+      btn.classList.remove('btn-verde');
+      btn.classList.add('btn-success');
+      setTimeout(function() {
+        btn.textContent = '+ Orçar';
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-verde');
+      }, 1500);
+    }
+  });
+}
+
+function showClientPopup() {
+  if (clientPopup) return;
+  clientPopup = document.createElement('div');
+  clientPopup.id = 'client-popup';
+  clientPopup.innerHTML = `
+    <div class="auth-overlay" onclick="fecharClientPopup()"></div>
+    <div class="auth-card">
+      <div class="auth-card-inner">
+        <span class="auth-close" onclick="fecharClientPopup()">&times;</span>
+        <div class="auth-icon">🧑‍🍳</div>
+        <h4>Identifique-se</h4>
+        <p class="text-muted small mb-3">Informe seus dados para adicionar ao orçamento</p>
+        <input type="text" id="client-nome" placeholder="Seu nome" autofocus>
+        <input type="tel" id="client-telefone" placeholder="Seu WhatsApp (com DDD)" oninput="phoneMask(this)">
+        <div id="client-error" class="auth-error"></div>
+        <button onclick="submitClient()" class="auth-btn">Continuar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(clientPopup);
+  setTimeout(function() { clientPopup.classList.add('show'); }, 10);
+  var onEnter = function(e) { if (e.key === 'Enter') submitClient(); };
+  document.getElementById('client-nome').addEventListener('keydown', onEnter);
+  document.getElementById('client-telefone').addEventListener('keydown', onEnter);
+  document.getElementById('client-nome').focus();
+}
+
+function fecharClientPopup() {
+  if (clientPopup) {
+    clientPopup.classList.remove('show');
+    setTimeout(function() { clientPopup.remove(); clientPopup = null; }, 200);
+  }
+}
+
+function submitClient() {
+  var nome = document.getElementById('client-nome').value.trim();
+  var telefone = document.getElementById('client-telefone').value.trim();
+  var err = document.getElementById('client-error');
+  err.textContent = '';
+
+  if (!nome || !telefone) {
+    err.textContent = 'Preencha nome e telefone.';
+    return;
+  }
+
+  fetch('/api/cliente', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome: nome, telefone: telefone })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      fecharClientPopup();
+      if (pendingItem) {
+        adicionarItem(pendingItem.id, pendingItem.qtd, pendingItem.btn);
+        pendingItem = null;
+      }
+    } else {
+      err.textContent = data.error || 'Erro ao identificar';
+    }
+  }).catch(function() {
+    err.textContent = 'Erro de conexão';
+  });
+}
+
+function toggleCategorias() {
+  document.getElementById('catSidebar').classList.toggle('open');
+  document.getElementById('catOverlay').classList.toggle('show');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Carousel navigation
+  var allItems = document.querySelectorAll('.produto-item');
+  var counter = document.getElementById('produtoCounter');
+  var currentIndex = 0;
+
+  function showProduto(index) {
+    allItems.forEach(function(i, idx) {
+      i.classList.toggle('d-none', idx !== index);
+    });
+    currentIndex = index;
+    if (counter) counter.textContent = (index + 1) + ' / ' + allItems.length;
+  }
+
+  document.getElementById('prev-btn').addEventListener('click', function() {
+    showProduto(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1);
+  });
+
+  document.getElementById('next-btn').addEventListener('click', function() {
+    showProduto(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0);
+  });
+
+  // Quantity controls
+  document.querySelectorAll('.qtd-minus').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var input = this.closest('.row').querySelector('.qtd-input');
+      var val = parseInt(input.value) || 0;
+      var minima = parseInt(input.dataset.minima) || 0;
+      var step = parseInt(input.step) || 1;
+      input.value = Math.max(val - step, minima || step);
+    });
+  });
+  document.querySelectorAll('.qtd-plus').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var input = this.closest('.row').querySelector('.qtd-input');
+      var val = parseInt(input.value) || 0;
+      var step = parseInt(input.step) || 1;
+      input.value = val + step;
+    });
+  });
+
+  // Add to quote button
+  document.querySelectorAll('.incluir-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var card = this.closest('.produto-item');
+      var qtd = parseInt(card.querySelector('.qtd-input').value) || 0;
+      var minima = parseInt(card.querySelector('.qtd-input').dataset.minima) || 0;
+      var id = this.dataset.id;
+      var nome = card.querySelector('h3').textContent;
+
+      if (qtd <= 0) {
+        alert('A quantidade deve ser maior que zero.');
+        return;
+      }
+      if (minima > 0 && qtd < minima) {
+        alert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
+        return;
+      }
+
+      pendingItem = { id: id, qtd: qtd, btn: btn };
+      adicionarItem(id, qtd, btn);
+    });
+  });
+});
+</script>
+{% endblock %}

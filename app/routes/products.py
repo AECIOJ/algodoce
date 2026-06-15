@@ -4,13 +4,22 @@ from flask import (
     Blueprint, render_template, request,
     redirect, url_for, flash, current_app, jsonify
 )
+from flask_login import login_required
 from app.extensions import db
 from app.models.product import Product
 from app.models.ingredient import Ingredient
 from app.models.product_ingredient import ProductIngredient
+from app.models.category import Category
 from app.models.order_item import OrderItem
+from app.models.quote_item import QuoteItem
 
 bp = Blueprint("products", __name__)
+
+
+@bp.before_request
+@login_required
+def protect():
+    pass
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
@@ -23,7 +32,8 @@ def allowed_file(filename):
 @bp.route("/produtos")
 def list():
     products = Product.query.order_by(Product.nome).all()
-    return render_template("products/list.html", products=products)
+    categories = Category.query.filter_by(ativo=True).order_by(Category.ordem).all()
+    return render_template("products/list.html", products=products, categories=categories)
 
 
 @bp.route("/produtos/novo", methods=["GET", "POST"])
@@ -33,10 +43,22 @@ def new():
             nome=request.form["nome"],
             descricao=request.form.get("descricao", ""),
             preco=request.form["preco"],
-            unidade=request.form.get("unidade", "cento"),
+            qtd_minima=request.form.get("qtd_minima", 0, type=int) or 0,
+            category_id=request.form.get("category_id", type=int) or None,
         )
         db.session.add(product)
         db.session.flush()
+
+        temp_imagem = request.form.get("temp_imagem")
+        if temp_imagem and temp_imagem.startswith("temp_"):
+            upload_dir = os.path.join(current_app.root_path, "..", "dados", "uploads")
+            old = os.path.join(upload_dir, temp_imagem)
+            ext = temp_imagem.rsplit(".", 1)[1].lower()
+            new_name = f"prod_{product.id}_crop.{ext}"
+            new_path = os.path.join(upload_dir, new_name)
+            if os.path.exists(old):
+                os.rename(old, new_path)
+                product.imagem = new_name
 
         _handle_imagem(request, product)
 
@@ -54,8 +76,9 @@ def new():
         flash("Produto cadastrado!", "success")
         return redirect(url_for("products.list"))
 
+    categorias = Category.query.order_by(Category.ordem, Category.nome).all()
     ingredients = Ingredient.query.order_by(Ingredient.nome).all()
-    return render_template("products/form.html", ingredients=ingredients)
+    return render_template("products/form.html", ingredients=ingredients, categorias=categorias)
 
 
 @bp.route("/produtos/<int:id>/editar", methods=["GET", "POST"])
@@ -65,7 +88,8 @@ def edit(id):
         product.nome = request.form["nome"]
         product.descricao = request.form.get("descricao", "")
         product.preco = request.form["preco"]
-        product.unidade = request.form.get("unidade", "cento")
+        product.qtd_minima = request.form.get("qtd_minima", 0, type=int) or 0
+        product.category_id = request.form.get("category_id", type=int) or None
 
         if request.form.get("remover_imagem"):
             _remove_imagem(product)
@@ -89,6 +113,7 @@ def edit(id):
         flash("Produto atualizado!", "success")
         return redirect(url_for("products.list"))
 
+    categorias = Category.query.order_by(Category.ordem, Category.nome).all()
     ingredients = Ingredient.query.order_by(Ingredient.nome).all()
 
     query = Product.query.with_entities(Product.id).order_by(Product.id)
@@ -105,7 +130,7 @@ def edit(id):
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
     return render_template(
-        "products/form.html", product=product, ingredients=ingredients, nav=nav
+        "products/form.html", product=product, ingredients=ingredients, categorias=categorias, nav=nav
     )
 
 
@@ -124,33 +149,12 @@ def search():
     return jsonify([{"id": p.id, "nome": p.nome} for p in products])
 
 
-@bp.route("/produtos/<int:id>")
-def detail(id):
-    product = Product.query.get_or_404(id)
-    ativos = request.args.get("ativos", "1") == "1"
-
-    query = Product.query.with_entities(Product.id).order_by(Product.id)
-    if ativos:
-        query = query.filter(Product.ativo == True)
-    ids = [p.id for p in query.all()]
-
-    try:
-        current_idx = ids.index(id)
-        nav = {
-            "first_id": ids[0],
-            "last_id": ids[-1],
-            "prev_id": ids[current_idx - 1] if current_idx > 0 else None,
-            "next_id": ids[current_idx + 1] if current_idx < len(ids) - 1 else None,
-        }
-    except ValueError:
-        nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
-
-    return render_template("products/detail.html", product=product, nav=nav, ativos=ativos)
-
-
 @bp.route("/produtos/<int:id>/uso")
 def usage(id):
-    qtd = OrderItem.query.filter_by(product_id=id).count()
+    qtd = (
+        OrderItem.query.filter_by(product_id=id).count()
+        + QuoteItem.query.filter_by(product_id=id).count()
+    )
     return jsonify({"em_uso": qtd > 0, "quantidade": qtd})
 
 
@@ -158,7 +162,10 @@ def usage(id):
 def delete(id):
     product = Product.query.get_or_404(id)
 
-    usage = OrderItem.query.filter_by(product_id=id).count()
+    usage = (
+        OrderItem.query.filter_by(product_id=id).count()
+        + QuoteItem.query.filter_by(product_id=id).count()
+    )
     if usage > 0:
         flash(
             f"Não é possível excluir '{product.nome}' — está em {usage} pedido(s). "
@@ -183,11 +190,68 @@ def toggle(id):
     return redirect(url_for("products.edit", id=id))
 
 
+@bp.route("/produtos/upload-temp", methods=["POST"])
+def upload_temp():
+    data = request.get_json(silent=True)
+    if not data or "imagem" not in data:
+        return jsonify(error="Nenhuma imagem"), 400
+
+    import base64, re, uuid
+    match = re.match(r"data:image/(\w+);base64,(.+)", data["imagem"])
+    if not match:
+        return jsonify(error="Formato inválido"), 400
+    ext = match.group(1)
+    if ext not in ("png", "jpeg", "gif", "webp"):
+        return jsonify(error="Formato não permitido"), 400
+
+    raw = base64.b64decode(match.group(2))
+    upload_dir = os.path.join(current_app.root_path, "..", "dados", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    nome = f"temp_{uuid.uuid4().hex}.{ext}"
+    path = os.path.join(upload_dir, nome)
+    with open(path, "wb") as f:
+        f.write(raw)
+    return jsonify(success=True, filename=nome)
+
+
+@bp.route("/produtos/<int:id>/upload-foto", methods=["POST"])
+def upload_foto(id):
+    product = Product.query.get_or_404(id)
+    data = request.get_json(silent=True)
+    if not data or "imagem" not in data:
+        return jsonify(error="Nenhuma imagem enviada"), 400
+
+    import base64, re
+    match = re.match(r"data:image/(\w+);base64,(.+)", data["imagem"])
+    if not match:
+        return jsonify(error="Formato inválido"), 400
+
+    ext = match.group(1)
+    if ext not in ("png", "jpeg", "gif", "webp"):
+        return jsonify(error="Formato não permitido"), 400
+
+    raw = base64.b64decode(match.group(2))
+
+    if product.imagem:
+        _remove_imagem(product)
+
+    upload_dir = os.path.join(current_app.root_path, "..", "dados", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    nome = f"prod_{id}_crop.{ext}"
+    path = os.path.join(upload_dir, nome)
+    with open(path, "wb") as f:
+        f.write(raw)
+    product.imagem = nome
+    db.session.commit()
+
+    return jsonify(success=True, filename=nome, url=url_for("uploads.uploaded_file", filename=nome))
+
+
 def _remove_imagem(product):
     if not product.imagem:
         return
     upload_dir = os.path.join(
-        current_app.root_path, "static", "uploads"
+        current_app.root_path, "..", "dados", "uploads"
     )
     filepath = os.path.join(upload_dir, product.imagem)
     if os.path.exists(filepath):
@@ -209,7 +273,7 @@ def _handle_imagem(request, product):
         _remove_imagem(product)
 
     upload_dir = os.path.join(
-        current_app.root_path, "static", "uploads"
+        current_app.root_path, "..", "dados", "uploads"
     )
     os.makedirs(upload_dir, exist_ok=True)
 

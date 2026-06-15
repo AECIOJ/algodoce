@@ -2,100 +2,32 @@
 {% from "components/form_nav.html" import form_nav %}
 {% block content %}
 
-<h2>{% if order %}Editar Pedido #{{ order.id }}{% else %}Novo Pedido{% endif %}</h2>
-
 {% if order %}
-{% call form_nav(back_url=url_for('orders.list'), nome='Pedido #' ~ order.id, nav=nav, edit_endpoint='orders.edit') %}
-  <div class="d-flex gap-2 align-items-center">
-    <form method="POST" action="{{ url_for('orders.status', id=order.id) }}" class="d-inline">
-      <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-        <option value="pendente" {{ 'selected' if order.status == 'pendente' }}>Pendente</option>
-        <option value="em_producao" {{ 'selected' if order.status == 'em_producao' }}>Em Produção</option>
-        <option value="pronto" {{ 'selected' if order.status == 'pronto' }}>Pronto</option>
-        <option value="entregue" {{ 'selected' if order.status == 'entregue' }}>Entregue</option>
-      </select>
-    </form>
-    {% if order.status in ("pendente", "em_producao") %}
-    <form method="POST" action="{{ url_for('orders.cancel', id=order.id) }}" onsubmit="return confirm('Cancelar pedido?')" class="d-inline">
-      <button type="submit" class="btn btn-outline-danger btn-sm">Cancelar</button>
-    </form>
-    {% endif %}
-  </div>
+{% set status_html %}
+<form method="POST" action="{{ url_for('orders.status', id=order.id) }}" class="d-inline">
+  <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+    <option value="0" {{ 'selected' if order.status == 0 }}>Pendente</option>
+    <option value="1" {{ 'selected' if order.status == 1 }}>Em Produção</option>
+    <option value="2" {{ 'selected' if order.status == 2 }}>Pronto</option>
+    <option value="9" {{ 'selected' if order.status == 9 }}>Entregue</option>
+  </select>
+</form>
+{% endset %}
+{% call form_nav(back_url=url_for('orders.list'), nome='Pedido #' ~ order.id, nav=nav, edit_endpoint='orders.edit', status=status_html) %}
+  {% if order.quote_id %}
+    <a href="{{ url_for('orders.quote_edit', id=order.quote_id) }}" class="btn btn-outline-info btn-sm">Orçamento #{{ order.quote_id }}</a>
+  {% endif %}
+  {% if order.status in (0, 1) %}
+  <form method="POST" action="{{ url_for('orders.cancel', id=order.id) }}" onsubmit="return confirm('Cancelar pedido?')" class="d-inline">
+    <button type="submit" class="btn btn-outline-danger btn-sm">Cancelar</button>
+  </form>
+  {% endif %}
 {% endcall %}
-
-<div class="row mb-4">
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header"><strong>Cliente</strong></div>
-      <div class="card-body">
-        <p class="mb-1"><strong>{{ order.client.nome }}</strong></p>
-        <p class="mb-1">{{ order.client.email }}</p>
-        <p class="mb-0">{{ order.client.telefone or '' }}</p>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header"><strong>Informações</strong></div>
-      <div class="card-body">
-        <p class="mb-1">Pedido: {{ order.data_pedido.strftime('%d/%m/%Y %H:%M') }}</p>
-        <p class="mb-1">Entrega: <strong>{{ order.data_entrega.strftime('%d/%m/%Y') }}</strong></p>
-        <p class="mb-0">
-          Status:
-          <span class="badge bg-{{ 'warning' if order.status == 'pendente' else 'info' if order.status == 'em_producao' else 'success' if order.status == 'pronto' else 'secondary' if order.status == 'entregue' else 'danger' }}">
-            {{ order.status }}
-          </span>
-        </p>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="card mb-4">
-  <div class="card-header"><strong>Itens</strong></div>
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table mb-0 sortable">
-        <thead>
-          <tr>
-            <th>Produto</th>
-            <th>Qtd</th>
-            <th>Preço Un.</th>
-            <th>Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in order.items %}
-            <tr>
-              <td>{{ item.product.nome }}</td>
-              <td>{{ item.quantidade }} {{ item.product.unidade }}</td>
-              <td>R$ {{ "%.2f"|format(item.preco_unitario) }}</td>
-              <td>R$ {{ "%.2f"|format(item.preco_unitario * item.quantidade) }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-        <tfoot>
-          <tr>
-            <th colspan="3" class="text-end">Total</th>
-            <th>R$ {{ "%.2f"|format(order.total or 0) }}</th>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  </div>
-</div>
-
-{% if order.observacao %}
-  <div class="mb-4">
-    <strong>Observação:</strong>
-    <p class="text-muted">{{ order.observacao }}</p>
-  </div>
-{% endif %}
 {% endif %}
 
-<form method="POST" action="{% if order %}{{ url_for('orders.edit', id=order.id) }}{% else %}{{ url_for('orders.new') }}{% endif %}">
+<form method="POST" action="{% if order %}{{ url_for('orders.edit', id=order.id) }}{% else %}{{ url_for('orders.new') }}{% endif %}" {% if order %}data-editing{% endif %}>
   <div class="row mb-3">
-    <div class="col-md-6">
+    <div class="col">
       <label class="form-label">Cliente *</label>
       <select name="client_id" class="form-select" required>
         <option value="">Selecione</option>
@@ -104,124 +36,181 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-6">
-      <label class="form-label">Data de Entrega *</label>
-      <input type="date" name="data_entrega" class="form-control" required value="{{ order.data_entrega if order else '' }}">
-    </div>
-  </div>
-
-  <div class="row mb-3">
-    <div class="col-md-6">
-      <label class="form-label">Observação</label>
-      <textarea name="observacao" class="form-control" rows="2">{{ order.observacao if order else '' }}</textarea>
-    </div>
-    {% if order %}
-      <div class="col-md-6">
-        <label class="form-label">Status</label>
-        <select name="status" class="form-select">
-          <option value="pendente" {{ 'selected' if order.status == 'pendente' }}>Pendente</option>
-          <option value="em_producao" {{ 'selected' if order.status == 'em_producao' }}>Em Produção</option>
-          <option value="pronto" {{ 'selected' if order.status == 'pronto' }}>Pronto</option>
-          <option value="entregue" {{ 'selected' if order.status == 'entregue' }}>Entregue</option>
-          <option value="cancelado" {{ 'selected' if order.status == 'cancelado' }}>Cancelado</option>
-        </select>
+    <div class="col">
+      <label class="form-label">Telefone</label>
+      <div class="input-group">
+        <input type="text" name="cliente_telefone" class="form-control" readonly value="{{ order.client.telefone if order and order.client else '' }}">
+        <a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success">Enviar</a>
       </div>
-    {% endif %}
+    </div>
+    <div class="col">
+      <label class="form-label">Data do Pedido</label>
+      <input type="datetime-local" name="data_pedido" class="form-control" value="{{ order.data_pedido.strftime('%Y-%m-%dT%H:%M') if order else '' }}">
+    </div>
+    <div class="col">
+      <label class="form-label">Previsão Entrega</label>
+      <input type="datetime-local" name="data_previsao_entrega" class="form-control" value="{{ order.data_previsao_entrega.strftime('%Y-%m-%dT%H:%M') if order.data_previsao_entrega else '' }}">
+    </div>
+    <div class="col">
+      <label class="form-label">Data de Entrega</label>
+      <input type="datetime-local" name="data_entrega" class="form-control" value="{{ order.data_entrega.strftime('%Y-%m-%dT%H:%M') if order.data_entrega else '' }}">
+    </div>
   </div>
 
   <div class="card mb-3">
-    <div class="card-header bg-light fw-bold">Editar Itens do Pedido</div>
-    <div class="card-body">
-      <div id="itens-list">
-        {% if order and order.items %}
-          {% for item in order.items %}
-            <div class="row mb-2 item-row">
-              <div class="col-md-6">
-                <select name="product_id" class="form-select product-select">
-                  <option value="" data-unidade="">Selecione</option>
-                  {% for p in products %}
-                    <option value="{{ p.id }}" data-unidade="{{ p.unidade }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }} — R$ {{ "%.2f"|format(p.preco) }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="col-md-4">
-                <div class="input-group">
-                  <input type="number" name="quantidade" class="form-control" min="0" step="0.5" placeholder="Qtd" value="{{ item.quantidade }}">
-                  <span class="input-group-text und-label" style="min-width:60px">{{ item.product.unidade }}</span>
-                </div>
-              </div>
-              <div class="col-md-2">
-                <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.row').remove()">Remover</button>
-              </div>
-            </div>
-          {% endfor %}
-        {% else %}
-          <div class="row mb-2 item-row">
-            <div class="col-md-6">
-              <select name="product_id" class="form-select product-select">
-                <option value="" data-unidade="">Selecione</option>
-                {% for p in products %}
-                  <option value="{{ p.id }}" data-unidade="{{ p.unidade }}">{{ p.nome }} — R$ {{ "%.2f"|format(p.preco) }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4">
-              <div class="input-group">
-                <input type="number" name="quantidade" class="form-control" min="0" step="0.5" placeholder="Qtd">
-                <span class="input-group-text und-label" style="min-width:60px">—</span>
-              </div>
-            </div>
-            <div class="col-md-2">
-              <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.row').remove()">Remover</button>
-            </div>
-          </div>
-        {% endif %}
+    <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+      <span>Itens do Pedido</span>
+      <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0" id="itens-table">
+          <thead>
+            <tr>
+              <th style="min-width:200px">Produto</th>
+              <th class="text-end" style="width:80px">Qtd</th>
+              <th class="text-end" style="width:110px">Preço</th>
+              <th class="text-end" style="width:110px">Valor</th>
+              <th style="min-width:140px">Obs</th>
+              <th style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody id="itens-body">
+            {% if order and order.items %}
+              {% for item in order.items %}
+              <tr class="item-row">
+                <td>
+                  <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)">
+                    <option value="">Selecione</option>
+                    {% for p in products %}
+                      <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)"></td>
+                <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario else '' }}" oninput="calcValor(this)"></td>
+                <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
+                <td><input type="text" name="observacao_item" class="form-control form-control-sm" value="{{ item.observacao or '' }}"></td>
+                <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()">✕</button></td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr class="item-row">
+                <td>
+                  <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)">
+                    <option value="">Selecione</option>
+                    {% for p in products %}
+                      <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)"></td>
+                <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
+                <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
+                <td><input type="text" name="observacao_item" class="form-control form-control-sm"></td>
+                <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()">✕</button></td>
+              </tr>
+            {% endif %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="3" class="text-end">Total</th>
+              <th id="total-geral" class="text-end">R$ {{ (order.total or 0) | brl if order else 'R$ 0,00' }}</th>
+              <th colspan="2">
+                <button type="button" class="btn btn-outline-info btn-sm" onclick="atualizarPrecos()">Atualizar</button>
+              </th>
+            </tr>
+          </tfoot>
+        </table>
       </div>
-      <button type="button" class="btn btn-outline-success btn-sm mt-2" onclick="addItem()">+ Adicionar Item</button>
     </div>
   </div>
 
+  <div class="card mb-3">
+    <div class="card-header bg-light fw-bold">Evento</div>
+    <div class="card-body">
+      <div class="row mb-2">
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Tipo</label>
+          <select name="evento_tipo" class="form-select">
+            <option value="">—</option>
+            <option value="Aniversário" {{ 'selected' if order and order.event and order.event.tipo == 'Aniversário' }}>Aniversário</option>
+            <option value="Casamento" {{ 'selected' if order and order.event and order.event.tipo == 'Casamento' }}>Casamento</option>
+            <option value="Debutante" {{ 'selected' if order and order.event and order.event.tipo == 'Debutante' }}>Debutante</option>
+            <option value="Corporativo" {{ 'selected' if order and order.event and order.event.tipo == 'Corporativo' }}>Corporativo</option>
+            <option value="Infantil" {{ 'selected' if order and order.event and order.event.tipo == 'Infantil' }}>Infantil</option>
+            <option value="Família" {{ 'selected' if order and order.event and order.event.tipo == 'Família' }}>Família</option>
+            <option value="Confraternização" {{ 'selected' if order and order.event and order.event.tipo == 'Confraternização' }}>Confraternização</option>
+            <option value="Religioso" {{ 'selected' if order and order.event and order.event.tipo == 'Religioso' }}>Religioso</option>
+            <option value="Outros" {{ 'selected' if order and order.event and order.event.tipo == 'Outros' }}>Outros</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Tema</label>
+          <input type="text" name="evento_tema" class="form-control" value="{{ order.event.tema if order and order.event else '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Obs</label>
+          <input type="text" name="evento_complemento" class="form-control" value="{{ order.event.obs if order and order.event else '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Nº Convidados</label>
+          <input type="number" name="evento_convidados" class="form-control" min="1" step="1" value="{{ order.event.convidados if order and order.event else '' }}">
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Data</label>
+          <input type="date" name="evento_data" class="form-control" value="{{ order.event.data.strftime('%Y-%m-%d') if order and order.event and order.event.data else '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Hora</label>
+          <input type="time" name="evento_hora" class="form-control" value="{{ order.event.hora.strftime('%H:%M') if order and order.event and order.event.hora else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-0">Local</label>
+          <input type="text" name="evento_local" class="form-control" value="{{ order.event.local if order and order.event else '' }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Observação</label>
+    <textarea name="observacao" class="form-control" rows="2">{{ order.observacao if order else '' }}</textarea>
+  </div>
+
+  <input type="hidden" name="status" value="{{ order.status if order else 0 }}">
   <button type="submit" class="btn btn-primary">{% if order %}Salvar{% else %}Criar Pedido{% endif %}</button>
-  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary">Cancelar</a>
+  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary">Voltar</a>
 </form>
 
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/itens.js') }}"></script>
 <script>
 function addItem() {
-  const container = document.getElementById('itens-list');
-  const row = document.createElement('div');
-  row.className = 'row mb-2 item-row';
-  row.innerHTML = `
-    <div class="col-md-6">
-      <select name="product_id" class="form-select product-select">
-        <option value="" data-unidade="">Selecione</option>
+  markModified();
+  const tbody = document.getElementById('itens-body');
+  const tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.innerHTML = `
+    <td>
+      <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)">
+        <option value="">Selecione</option>
         {% for p in products %}
-          <option value="{{ p.id }}" data-unidade="{{ p.unidade }}">{{ p.nome }} — R$ {{ "%.2f"|format(p.preco) }}</option>
+          <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
         {% endfor %}
       </select>
-    </div>
-    <div class="col-md-4">
-      <div class="input-group">
-        <input type="number" name="quantidade" class="form-control" min="0" step="0.5" placeholder="Qtd">
-        <span class="input-group-text und-label" style="min-width:60px">—</span>
-      </div>
-    </div>
-    <div class="col-md-2">
-      <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.row').remove()">Remover</button>
-    </div>
+    </td>
+    <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)"></td>
+    <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
+    <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
+    <td><input type="text" name="observacao_item" class="form-control form-control-sm"></td>
+    <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="markModified(); this.closest('tr').remove()">✕</button></td>
   `;
-  container.appendChild(row);
+  tbody.appendChild(tr);
 }
-
-document.addEventListener('change', function(e) {
-  if (e.target.classList.contains('product-select')) {
-    const row = e.target.closest('.item-row');
-    const undLabel = row.querySelector('.und-label');
-    const selected = e.target.options[e.target.selectedIndex];
-    undLabel.textContent = selected.dataset.unidade || '—';
-  }
-});
 </script>
 {% endblock %}

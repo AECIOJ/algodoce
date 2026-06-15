@@ -1,0 +1,56 @@
+services:
+  db:
+    container_name: algodoce_db
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./dados/pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - internal
+
+  app:
+    container_name: algodoce
+    restart: unless-stopped
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    volumes:
+      - ./dados/uploads:/app/dados/uploads
+      - .:/app
+    depends_on:
+      - db
+    networks:
+      - internal
+      - proxy
+
+  ngrok:
+    container_name: algodoce_ngrok
+    image: ngrok/ngrok:latest
+    restart: unless-stopped
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command:
+      - 'http'
+      - 'algodoce:5000'
+      - '--host-header=algodoce.local'
+    depends_on:
+      - app
+    networks:
+      - internal
+      - proxy
+
+networks:
+  internal:
+  proxy:
+    external: true

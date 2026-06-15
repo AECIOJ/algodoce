@@ -1,50 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>Pedidos</h2>
-  <a href="{{ url_for('orders.new') }}" class="btn btn-primary">Novo Pedido</a>
-</div>
-
-<div class="text-center mb-3">
-  <div class="btn-group btn-group-sm" role="group">
-    <input type="radio" class="btn-check" name="status-filter" id="filtro-pendentes" value="pendentes" autocomplete="off" checked>
-    <label class="btn btn-outline-primary" for="filtro-pendentes">Pendentes</label>
-    <input type="radio" class="btn-check" name="status-filter" id="filtro-em-producao" value="em_producao" autocomplete="off">
-    <label class="btn btn-outline-primary" for="filtro-em-producao">Em Produção</label>
-    <input type="radio" class="btn-check" name="status-filter" id="filtro-prontos" value="pronto" autocomplete="off">
-    <label class="btn btn-outline-primary" for="filtro-prontos">Prontos</label>
-    <input type="radio" class="btn-check" name="status-filter" id="filtro-entregues" value="entregue" autocomplete="off">
-    <label class="btn btn-outline-primary" for="filtro-entregues">Entregues</label>
-    <input type="radio" class="btn-check" name="status-filter" id="filtro-todos" value="todos" autocomplete="off">
-    <label class="btn btn-outline-primary" for="filtro-todos">Todos</label>
+<div class="row align-items-center mb-3">
+  <div class="col">
+    <h2 class="mb-0">Pedidos</h2>
+  </div>
+  <div class="col text-center">
+    <div class="btn-group btn-group-sm" role="group">
+      <input type="radio" class="btn-check" name="status-filter" id="filtro-pendentes" value="0,1" autocomplete="off" checked>
+      <label class="btn btn-outline-primary" for="filtro-pendentes">Pendentes</label>
+      <input type="radio" class="btn-check" name="status-filter" id="filtro-producao" value="1" autocomplete="off">
+      <label class="btn btn-outline-primary" for="filtro-producao">Em Produção</label>
+      <input type="radio" class="btn-check" name="status-filter" id="filtro-prontos" value="2" autocomplete="off">
+      <label class="btn btn-outline-primary" for="filtro-prontos">Prontos</label>
+      <input type="radio" class="btn-check" name="status-filter" id="filtro-entregues" value="9" autocomplete="off">
+      <label class="btn btn-outline-primary" for="filtro-entregues">Entregues</label>
+      <input type="radio" class="btn-check" name="status-filter" id="filtro-todos" value="todos" autocomplete="off">
+      <label class="btn btn-outline-primary" for="filtro-todos">Todos</label>
+    </div>
+  </div>
+  <div class="col text-end">
+    <a href="{{ url_for('orders.new') }}" class="btn btn-primary">+ Novo</a>
   </div>
 </div>
 
-<div class="table-responsive">
+<div class="table-responsive table-scroll">
   <table class="table table-hover sortable">
     <thead>
       <tr>
         <th>#</th>
+        <th>Orçamento</th>
         <th>Cliente</th>
         <th>Data Pedido</th>
+        <th>Prev. Entrega</th>
         <th>Data Entrega</th>
-        <th>Total</th>
+        <th class="text-end">Total</th>
         <th>Status</th>
         <th>Ações</th>
       </tr>
     </thead>
     <tbody>
       {% for o in orders %}
-        <tr>
+        <tr data-status="{{ o.status }}">
           <td>{{ o.id }}</td>
+          <td>
+            {% if o.quote_id %}
+              <a href="{{ url_for('orders.quote_edit', id=o.quote_id) }}" class="btn btn-sm btn-outline-info" style="min-width:90px">{{ o.quote_id }}</a>
+            {% endif %}
+          </td>
           <td>{{ o.client.nome }}</td>
           <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
-          <td>{{ o.data_entrega.strftime('%d/%m/%Y') }}</td>
-          <td>R$ {{ "%.2f"|format(o.total or 0) }}</td>
+          <td>{{ o.data_previsao_entrega.strftime('%d/%m/%Y %H:%M') if o.data_previsao_entrega else '-' }}</td>
+          <td>{{ o.data_entrega.strftime('%d/%m/%Y %H:%M') if o.data_entrega else '-' }}</td>
+          <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
           <td>
-            <span class="badge bg-{{ 'warning' if o.status == 'pendente' else 'info' if o.status == 'em_producao' else 'success' if o.status == 'pronto' else 'secondary' if o.status == 'entregue' else 'danger' }}">
-              {{ o.status }}
+            <span class="badge bg-{{ 'warning' if o.status == 0 else 'info' if o.status == 1 else 'success' if o.status == 2 else 'secondary' if o.status == 9 else 'danger' }}" style="min-width:95px">
+              {{ ORDER_STATUS.get(o.status, o.status) }}
             </span>
           </td>
           <td>
@@ -53,7 +64,7 @@
         </tr>
       {% else %}
         <tr>
-          <td colspan="7" class="text-center text-muted">Nenhum pedido cadastrado.</td>
+          <td colspan="9" class="text-center text-muted">Nenhum pedido cadastrado.</td>
         </tr>
       {% endfor %}
     </tbody>
@@ -68,15 +79,12 @@ document.querySelectorAll('input[name="status-filter"]').forEach(function(radio)
   radio.addEventListener('change', function() {
     const filtro = this.value;
     document.querySelectorAll('tbody tr').forEach(function(row) {
-      const badge = row.querySelector('.badge');
-      if (!badge) return;
-      const status = badge.textContent.trim();
+      const status = row.dataset.status;
       if (filtro === 'todos') {
         row.style.display = '';
-      } else if (filtro === 'pendentes') {
-        row.style.display = (status === 'pendente' || status === 'em_producao') ? '' : 'none';
       } else {
-        row.style.display = status === filtro ? '' : 'none';
+        const values = filtro.split(',');
+        row.style.display = values.includes(status) ? '' : 'none';
       }
     });
   });

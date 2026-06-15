@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% from "components/form_nav.html" import form_nav %}
+{% block content %}
+
+{% if quote %}
+{% set status_html %}
+<form method="POST" action="{{ url_for('orders.quote_status', id=quote.id) }}" class="d-inline">
+  <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()" {{ 'disabled' if ro }}>
+    <option value="0" {{ 'selected' if quote.status == 0 }}>Pendente</option>
+    <option value="1" {{ 'selected' if quote.status == 1 }}>Negociação</option>
+    <option value="2" {{ 'selected' if quote.status == 2 }}>Recusado</option>
+    <option value="3" {{ 'selected' if quote.status == 3 }}>Cancelado</option>
+    <option value="8" {{ 'selected' if quote.status == 8 }}>Expirado</option>
+    <option value="9" {{ 'selected' if quote.status == 9 }}>Aprovado</option>
+  </select>
+</form>
+{% endset %}
+{% call form_nav(back_url=url_for('orders.orcamentos'), nome='Orçamento #' ~ quote.id, nav=nav, edit_endpoint='orders.quote_edit', status=status_html) %}
+  {% if quote.pedido_id %}
+    <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id }}</a>
+  {% else %}
+    <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#converterModal">Converter</a>
+  {% endif %}
+  <form method="POST" action="{{ url_for('orders.quote_delete', id=quote.id) }}" class="d-inline" onsubmit="return confirm('Excluir orçamento #{{ quote.id }}?')">
+    <button type="submit" class="btn btn-outline-danger btn-sm" {{ 'disabled' if ro }}>Excluir</button>
+  </form>
+{% endcall %}
+{% endif %}
+
+<form method="POST" action="{% if quote %}{{ url_for('orders.quote_edit', id=quote.id) }}{% else %}{{ url_for('orders.quote_new') }}{% endif %}" {% if quote %}data-editing{% endif %}>
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label class="form-label">Nome *</label>
+      <input type="text" name="cliente_nome" class="form-control" required
+             value="{{ quote.cliente_nome if quote else '' }}" {{ 'disabled' if ro }}>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Telefone *</label>
+      <div class="input-group">
+        <input type="text" name="cliente_telefone" class="form-control" required
+               value="{{ quote.cliente_telefone if quote else '' }}" {{ 'disabled' if ro }}>
+        <a href="{{ url_for('orders.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success {{ 'disabled' if ro }}">Enviar</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+      <span>Itens do Orçamento</span>
+      {% if not ro %}
+      <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button>
+      {% endif %}
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0" id="itens-table">
+          <thead>
+            <tr>
+              <th style="min-width:200px">Produto</th>
+              <th class="text-end" style="width:80px">Qtd</th>
+              <th class="text-end" style="width:110px">Preço</th>
+              <th class="text-end" style="width:110px">Valor</th>
+              <th style="min-width:140px">Obs</th>
+              <th style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody id="itens-body">
+            {% if quote and quote.items %}
+              {% for item in quote.items %}
+              <tr class="item-row">
+                <td>
+                  <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+                    <option value="">Selecione</option>
+                    {% for p in products %}
+                      <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+                <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+                <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
+                <td><input type="text" name="observacao_item" class="form-control form-control-sm"  value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
+                <td>{% if not ro %}<button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()">✕</button>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr class="item-row">
+                <td>
+                  <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+                    <option value="">Selecione</option>
+                    {% for p in products %}
+                      <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+                    {% endfor %}
+                </td>
+                <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+                <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+                <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
+                <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
+                <td>{% if not ro %}<button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()">✕</button>{% endif %}</td>
+              </tr>
+            {% endif %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="3" class="text-end">Total</th>
+              <th id="total-geral" class="text-end">R$ {{ (quote.total or 0) | brl if quote else 'R$ 0,00' }}</th>
+              <th colspan="2">
+                {% if not ro %}
+                <button type="button" class="btn btn-outline-info btn-sm" onclick="atualizarPrecos()">Atualizar</button>
+                {% endif %}
+              </th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header bg-light fw-bold">Evento</div>
+    <div class="card-body">
+      <div class="row mb-2">
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Tipo</label>
+          <select name="evento_tipo" class="form-select" {{ 'disabled' if ro }}>
+            <option value="">—</option>
+            {% for t in tipos_evento %}
+              <option value="{{ t }}" {{ 'selected' if quote and quote.event and quote.event.tipo == t }}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Tema</label>
+          <input type="text" name="evento_tema" class="form-control" value="{{ quote.event.tema if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Obs</label>
+          <input type="text" name="evento_complemento" class="form-control" value="{{ quote.event.obs if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Nº Convidados</label>
+          <input type="number" name="evento_convidados" class="form-control" min="1" step="1" value="{{ quote.event.convidados if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Data</label>
+          <input type="date" name="evento_data" class="form-control" value="{{ quote.event.data.strftime('%Y-%m-%d') if quote and quote.event and quote.event.data else '' }}" {{ 'disabled' if ro }}>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Hora</label>
+          <input type="time" name="evento_hora" class="form-control" value="{{ quote.event.hora.strftime('%H:%M') if quote and quote.event and quote.event.hora else '' }}" {{ 'disabled' if ro }}>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-0">Local</label>
+          <input type="text" name="evento_local" class="form-control" value="{{ quote.event.local if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Observação</label>
+    <textarea name="observacao" class="form-control" rows="2" {{ 'disabled' if ro }}>{{ quote.observacao or '' }}</textarea>
+  </div>
+
+  {% if not ro %}
+  <button type="submit" class="btn btn-primary">Salvar</button>
+  {% endif %}
+  <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary">Voltar</a>
+</form>
+
+{% if quote and not quote.pedido_id %}
+<div class="modal fade" id="converterModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Converter Orçamento #{{ quote.id }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Os itens do orçamento serão convertidos em um pedido.</p>
+          <div class="mb-3">
+            <label class="form-label">Selecione o Cliente *</label>
+            <select name="client_id" class="form-select" required>
+              <option value="">— Selecione —</option>
+              {% for c in clients %}
+                <option value="{{ c.id }}" {{ 'selected' if c.telefone == quote.cliente_telefone }}>{{ c.nome }} — {{ c.telefone }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <p class="text-muted small mb-0">O status do orçamento será alterado para <strong>Fechado</strong> e um novo pedido será gerado.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Confirmar Conversão</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/itens.js') }}"></script>
+{% if not ro %}
+<script>
+function addItem() {
+  markModified();
+  const tbody = document.getElementById('itens-body');
+  const tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.innerHTML = `
+    <td>
+      <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)">
+        <option value="">Selecione</option>
+        {% for p in products %}
+          <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)"></td>
+    <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
+    <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
+    <td><input type="text" name="observacao_item" class="form-control form-control-sm" ></td>
+    <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="markModified(); this.closest('tr').remove()">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -1,58 +1,35 @@
 {% extends "base.html" %}
+{% from "components/form_nav.html" import form_nav %}
 {% block content %}
 
 {% if client %}
-
-<div class="d-flex flex-column flex-md-row align-items-center sticky-top gap-2" style="top:188px; z-index:1021; background:#f8f9fa; padding:0.75rem 0; margin-bottom:1rem; border-bottom:1px solid #dee2e6; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-  <a href="{{ url_for('clients.list') }}" class="btn btn-outline-secondary btn-sm text-nowrap">&larr; Voltar</a>
-  <div class="d-flex align-items-center gap-1 flex-fill justify-content-center flex-wrap">
-    <div class="btn-group btn-group-sm" role="group">
-      <a href="{{ url_for('clients.edit', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">&laquo;&laquo;</a>
-      {% if nav.prev_id %}
-        <a href="{{ url_for('clients.edit', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">&laquo;</a>
-      {% else %}
-        <a class="btn btn-outline-secondary disabled" title="Anterior">&laquo;</a>
-      {% endif %}
-    </div>
-    <div class="autocomplete-wrapper" style="display:inline-flex; align-items:center; gap:4px; position:relative; min-width:160px;">
-      <input type="text" id="client-search" class="form-control form-control-sm" placeholder="Buscar cliente..." autocomplete="off">
-      <div id="search-results" class="dropdown-menu" style="position:absolute; top:100%; left:0; width:100%; max-height:200px; overflow-y:auto;"></div>
-    </div>
-    <div class="btn-group btn-group-sm" role="group">
-      {% if nav.next_id %}
-        <a href="{{ url_for('clients.edit', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">&raquo;</a>
-      {% else %}
-        <a class="btn btn-outline-secondary disabled" title="Próximo">&raquo;</a>
-      {% endif %}
-      <a href="{{ url_for('clients.edit', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">&raquo;&raquo;</a>
-    </div>
-  </div>
-  <a href="{{ url_for('clients.toggle', id=client.id) }}" class="btn btn-outline-{{ 'danger' if client.ativo else 'success' }} btn-sm text-nowrap">
+{% call form_nav(back_url=url_for('clients.list'), nome='Cliente #' ~ client.id, nav=nav, edit_endpoint='clients.edit') %}
+  <a href="{{ url_for('clients.toggle', id=client.id) }}" class="btn btn-{{ 'success' if client.ativo else 'outline-secondary' }} btn-sm">
     {{ 'Desativar' if client.ativo else 'Ativar' }}
   </a>
-</div>
+{% endcall %}
 {% endif %}
 
-<h2>{{ 'Editar' if client else 'Novo' }} Cliente</h2>
-
 <form method="POST">
-  <div class="mb-3">
-    <label class="form-label">Nome *</label>
-    <input type="text" name="nome" class="form-control" required value="{{ client.nome if client else '' }}">
-  </div>
-  <div class="mb-3">
-    <label class="form-label">Email *</label>
-    <input type="email" name="email" class="form-control" required value="{{ client.email if client else '' }}">
-  </div>
-  <div class="mb-3">
-    <label class="form-label">Telefone</label>
-    <input type="text" name="telefone" class="form-control" value="{{ client.telefone if client else '' }}">
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <label class="form-label">Nome *</label>
+      <input type="text" name="nome" class="form-control" required value="{{ client.nome if client else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Telefone</label>
+      <input type="text" name="telefone" class="form-control" value="{{ client.telefone if client else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Email</label>
+      <input type="email" name="email" class="form-control" value="{{ client.email if client else '' }}">
+    </div>
   </div>
   <div class="mb-3">
     <label class="form-label">Endereço</label>
     <textarea name="endereco" class="form-control" rows="2">{{ client.endereco if client else '' }}</textarea>
   </div>
-  <button type="submit" class="btn btn-primary">Salvar</button>
+  <button type="submit" class="btn btn-primary">{% if client %}Salvar{% else %}Criar Cliente{% endif %}</button>
   <a href="{{ url_for('clients.list') }}" class="btn btn-outline-secondary">Cancelar</a>
 </form>
 
@@ -77,11 +54,11 @@
             <tr>
               <td>{{ o.id }}</td>
               <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
-              <td>{{ o.data_entrega.strftime('%d/%m/%Y') }}</td>
-              <td>R$ {{ "%.2f"|format(o.total or 0) }}</td>
+              <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
+              <td>R$ {{ (o.total or 0) | brl }}</td>
               <td>
-                <span class="badge bg-{{ 'warning' if o.status == 'pendente' else 'info' if o.status == 'em_producao' else 'success' if o.status == 'pronto' else 'secondary' if o.status == 'entregue' else 'danger' }}">
-                  {{ o.status }}
+                <span class="badge bg-{{ 'warning' if o.status == 0 else 'info' if o.status == 1 else 'success' if o.status == 2 else 'secondary' if o.status == 9 else 'danger' }}">
+                  {{ ORDER_STATUS[o.status] }}
                 </span>
               </td>
               <td>
@@ -103,48 +80,5 @@
 {% endblock %}
 
 {% block scripts %}
-<style>
-.autocomplete-wrapper .dropdown-item { cursor: pointer; }
-.autocomplete-wrapper .dropdown-item:hover { background-color: #f8f9fa; }
-</style>
-<script>
-const searchInput = document.getElementById('client-search');
-const resultsDiv = document.getElementById('search-results');
-let timeout;
-
-searchInput.addEventListener('input', function() {
-  clearTimeout(timeout);
-  const q = this.value.trim();
-  if (q.length < 2) { resultsDiv.style.display = 'none'; return; }
-  timeout = setTimeout(() => {
-    fetch('/clientes/search?q=' + encodeURIComponent(q))
-      .then(r => r.json())
-      .then(data => {
-        resultsDiv.innerHTML = '';
-        if (data.length === 0) { resultsDiv.style.display = 'none'; return; }
-        data.forEach(c => {
-          const a = document.createElement('a');
-          a.className = 'dropdown-item';
-          a.href = '/clientes/' + c.id + '/editar';
-          a.textContent = c.nome;
-          resultsDiv.appendChild(a);
-        });
-        resultsDiv.style.display = 'block';
-      });
-  }, 300);
-});
-searchInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    const first = resultsDiv.querySelector('.dropdown-item');
-    if (first) location.href = first.href;
-  }
-});
-searchInput.addEventListener('blur', function() {
-  setTimeout(() => { resultsDiv.style.display = 'none'; }, 200);
-});
-searchInput.addEventListener('focus', function() {
-  if (resultsDiv.children.length > 0) resultsDiv.style.display = 'block';
-});
-</script>
 <script src="{{ url_for('static', filename='js/phone-mask.js') }}"></script>
 {% endblock %}

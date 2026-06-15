@@ -5,52 +5,40 @@
   <h2 class="mb-0 text-nowrap">Produção</h2>
   <div class="d-flex align-items-center gap-2 gap-md-3 flex-wrap justify-content-center flex-fill">
     <div class="form-check form-check-inline mb-0">
-      <input type="checkbox" class="form-check-input" id="chk-pendente" checked onchange="toggleGrupo('pendente')">
-      <label class="form-check-label" for="chk-pendente">Pendentes</label>
+      <input type="checkbox" class="form-check-input" id="chk-0" checked onchange="toggleGrupo(0)">
+      <label class="form-check-label" for="chk-0">Pendentes</label>
     </div>
     <div class="form-check form-check-inline mb-0">
-      <input type="checkbox" class="form-check-input" id="chk-em_producao" checked onchange="toggleGrupo('em_producao')">
-      <label class="form-check-label" for="chk-em_producao">Em Produção</label>
+      <input type="checkbox" class="form-check-input" id="chk-1" checked onchange="toggleGrupo(1)">
+      <label class="form-check-label" for="chk-1">Em Produção</label>
     </div>
     <div class="form-check form-check-inline mb-0">
-      <input type="checkbox" class="form-check-input" id="chk-pronto" onchange="toggleGrupo('pronto')">
-      <label class="form-check-label" for="chk-pronto">Prontos</label>
+      <input type="checkbox" class="form-check-input" id="chk-2" onchange="toggleGrupo(2)">
+      <label class="form-check-label" for="chk-2">Prontos</label>
     </div>
     <div class="form-check form-check-inline mb-0">
-      <input type="checkbox" class="form-check-input" id="chk-entregue" onchange="toggleGrupo('entregue')">
-      <label class="form-check-label" for="chk-entregue">Entregues</label>
-    </div>
-    <div class="form-check form-check-inline mb-0">
-      <input type="checkbox" class="form-check-input" id="chk-cancelado" onchange="toggleGrupo('cancelado')">
-      <label class="form-check-label" for="chk-cancelado">Cancelados</label>
+      <input type="checkbox" class="form-check-input" id="chk-9" onchange="toggleGrupo(9)">
+      <label class="form-check-label" for="chk-9">Entregues</label>
     </div>
   </div>
   <a href="{{ url_for('orders.new') }}" class="btn btn-primary btn-sm text-nowrap">Novo Pedido</a>
 </div>
 
-{% set labels = {
-  'pendente': 'Pendentes',
-  'em_producao': 'Em Produção',
-  'pronto': 'Prontos',
-  'entregue': 'Entregues',
-  'cancelado': 'Cancelados'
-} %}
-
 {% set cores = {
-  'pendente': 'warning',
-  'em_producao': 'info',
-  'pronto': 'success',
-  'entregue': 'secondary',
-  'cancelado': 'danger'
+  0: 'warning',
+  1: 'info',
+  2: 'success',
+  9: 'secondary'
 } %}
 
 {% for status, lista in grupos.items() %}
 <div class="card mb-4 grupo-card" id="grupo-{{ status }}">
   <div class="card-header d-flex justify-content-between align-items-center bg-{{ cores[status] }} text-white fw-bold">
-    <span>{{ labels[status] }} ({{ lista|length }})</span>
+    <span>{{ ORDER_STATUS[status] }} ({{ lista|length }})</span>
   </div>
   <div class="card-body p-0">
     {% if lista %}
+      <div class="table-responsive table-scroll">
       <table class="table table-hover table-sm mb-0 sortable tabela-producao" style="width:100%;">
         <thead>
           <tr>
@@ -68,15 +56,16 @@
             <td>{{ o.id }}</td>
             <td>{{ o.client.nome }}</td>
             <td style="white-space:nowrap;">{{ o.data_pedido.strftime('%d/%m/%Y') }}</td>
-            <td style="white-space:nowrap;">{{ o.data_entrega.strftime('%d/%m/%Y') }}</td>
-            <td class="d-none d-sm-table-cell" style="white-space:nowrap;">R$ {{ "%.2f"|format(o.total or 0) }}</td>
+            <td style="white-space:nowrap;">{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
+            <td class="d-none d-sm-table-cell" style="white-space:nowrap;">R$ {{ (o.total or 0) | brl }}</td>
             <td>
-              <span class="badge bg-{{ cores[o.status] }}">{{ o.status }}</span>
+              <span class="badge bg-{{ cores[o.status] }}">{{ ORDER_STATUS[o.status] }}</span>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
+      </div>
     {% else %}
     <div class="p-3 text-muted text-center">Nenhum pedido com este status.</div>
     {% endif %}
@@ -104,7 +93,7 @@ function toggleGrupo(status) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  ['pendente', 'em_producao', 'pronto', 'entregue', 'cancelado'].forEach(toggleGrupo);
+  [0, 1, 2, 9].forEach(toggleGrupo);
 
   document.querySelectorAll('.clickable-row').forEach(function(row) {
     row.addEventListener('click', function(e) {

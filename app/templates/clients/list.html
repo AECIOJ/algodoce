@@ -17,16 +17,17 @@
       <label class="form-check-label" for="chk-inativos">Inativos</label>
     </div>
   </div>
-  <a href="{{ url_for('clients.new') }}" class="btn btn-primary btn-sm text-nowrap">Novo Cliente</a>
+  <a href="{{ url_for('clients.new') }}" class="btn btn-primary btn-sm text-nowrap">Novo</a>
 </div>
 
-<div class="table-responsive">
+<div class="table-responsive table-scroll">
   <table class="table table-hover table-sm sortable">
     <thead>
       <tr>
+        <th>#</th>
         <th>Nome</th>
-        <th>Email</th>
-        <th class="d-none d-sm-table-cell">Telefone</th>
+        <th>Telefone</th>
+        <th class="d-none d-sm-table-cell">Email</th>
         <th>Ativo</th>
         <th>Ações</th>
       </tr>
@@ -34,14 +35,15 @@
     <tbody>
       {% for c in clients %}
         <tr class="cliente-row" data-ativo="{{ 'true' if c.ativo else 'false' }}">
+          <td>{{ c.id }}</td>
           <td>{{ c.nome }}</td>
-          <td>{{ c.email }}</td>
-          <td class="d-none d-sm-table-cell">{{ c.telefone or '-' }}</td>
+          <td>{{ c.telefone or '-' }}</td>
+          <td class="d-none d-sm-table-cell">{{ c.email or '-' }}</td>
           <td>
             {% if c.ativo %}
               <span class="badge bg-success">Sim</span>
             {% else %}
-              <span class="badge bg-secondary">Não</span>
+              <span class="badge bg-light text-muted border">Não</span>
             {% endif %}
           </td>
           <td>
@@ -50,7 +52,7 @@
         </tr>
       {% else %}
         <tr>
-          <td colspan="5" class="text-center text-muted">Nenhum cliente cadastrado.</td>
+          <td colspan="6" class="text-center text-muted">Nenhum cliente cadastrado.</td>
         </tr>
       {% endfor %}
     </tbody>

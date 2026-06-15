@@ -2,11 +2,9 @@
 {% from "components/form_nav.html" import form_nav %}
 {% block content %}
 
-<h2>{{ 'Editar' if product else 'Novo' }} Produto</h2>
-
 {% if product %}
-{% call form_nav(back_url=url_for('products.list'), nome=product.nome, entity_id=product.id, nav=nav, edit_endpoint='products.edit') %}
-  <a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-outline-{{ 'danger' if product.ativo else 'success' }} btn-sm">
+{% call form_nav(back_url=url_for('products.list'), nome='Produto #' ~ product.id, nav=nav, edit_endpoint='products.edit') %}
+  <a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm">
     {{ 'Desativar' if product.ativo else 'Ativar' }}
   </a>
   <button type="button" class="btn btn-outline-danger btn-sm" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
@@ -28,25 +26,38 @@
       <input type="number" name="preco" class="form-control" step="0.01" required value="{{ product.preco if product else '' }}">
     </div>
     <div class="col-md-3">
-      <label class="form-label">Unidade *</label>
-      <select name="unidade" class="form-select" required>
-        <option value="cento" {% if not product or product.unidade == 'cento' %}selected{% endif %}>cento</option>
-        <option value="un" {% if product and product.unidade == 'un' %}selected{% endif %}>un</option>
+      <label class="form-label">Qtd. Mínima</label>
+      <input type="number" name="qtd_minima" class="form-control" min="0" step="1"
+             value="{{ product.qtd_minima if product else '0' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Categoria</label>
+      <select name="category_id" class="form-select">
+        <option value="">Sem categoria</option>
+        {% for cat in categorias %}
+          <option value="{{ cat.id }}" {% if product and product.category_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
+        {% endfor %}
       </select>
     </div>
   </div>
 
   <div class="mb-3">
     <label class="form-label">Imagem do Produto</label>
-    <input type="file" name="imagem" class="form-control" accept="image/png,image/jpeg,image/gif,image/webp">
-    {% if product and product.imagem %}
-      <div class="mt-2">
-        <img src="{{ url_for('static', filename='uploads/' + product.imagem) }}" class="img-thumbnail" style="max-height: 120px;">
-        <label class="ms-2 text-muted small">
+    <div class="d-flex align-items-center gap-3">
+      {% if product and product.imagem %}
+        <img id="foto-preview" src="{{ url_for('uploads.uploaded_file', filename=product.imagem) }}"
+             class="img-thumbnail" style="max-height: 120px;">
+        <label class="text-muted small">
           <input type="checkbox" name="remover_imagem" value="1"> Remover imagem
         </label>
-      </div>
-    {% endif %}
+      {% else %}
+        <div id="foto-placeholder" class="bg-light rounded d-flex align-items-center justify-content-center"
+             style="width:120px;height:120px;color:#ccc;font-size:3rem;">📸</div>
+      {% endif %}
+      <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirCrop()">Editar Foto</button>
+    </div>
+    <input type="file" id="crop-input" accept="image/*" style="display:none">
+    <input type="hidden" name="temp_imagem" id="temp-imagem" value="">
   </div>
 
   <div class="card mb-3">
@@ -128,11 +139,39 @@
 </div>
 
 <form method="POST" id="formExcluir" style="display:none"></form>
+
+<!-- Crop Modal -->
+<div class="modal fade" id="modalCrop" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Foto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div id="crop-dropzone" class="border-2 border-dashed rounded p-5"
+             style="border-style:dashed;border-color:#ccc;cursor:pointer;min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+          <div style="font-size:3rem;color:#ccc;">📷</div>
+          <p class="text-muted mb-0">Clique para escolher uma imagem</p>
+          <p class="text-muted small mb-0">ou cole uma imagem da área de transferência (Ctrl+V)</p>
+        </div>
+        <img id="crop-image" style="max-width:100%;display:none;">
+        <input type="file" id="crop-input" accept="image/*" style="display:none">
+      </div>
+      <div class="modal-footer">
+        <span id="crop-status" class="text-muted small me-auto"></span>
+        <button type="button" class="btn btn-outline-secondary" id="crop-cancel" onclick="fecharCrop()">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="crop-confirm" disabled onclick="salvarCrop()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 {% endblock %}
 
 {% block scripts %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
 <script>
 function addIngrediente() {
   const container = document.getElementById('ingredientes-list');
@@ -196,5 +235,143 @@ function efetuarExclusao(id) {
   form.submit();
 }
 {% endif %}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<script>
+var cropper = null;
+var cropModal = null;
+var productId = {{ product.id if product else 'null' }};
+
+function abrirCrop() {
+  cropModal = new bootstrap.Modal(document.getElementById('modalCrop'));
+  cropModal.show();
+  setTimeout(function() {
+    document.getElementById('crop-dropzone').focus();
+  }, 300);
+}
+
+function carregarImagem(src) {
+  var dropzone = document.getElementById('crop-dropzone');
+  var img = document.getElementById('crop-image');
+  dropzone.style.display = 'none';
+  img.style.display = 'block';
+  img.src = src;
+
+  if (cropper) cropper.destroy();
+  cropper = new Cropper(img, {
+    aspectRatio: NaN,
+    viewMode: 1,
+    autoCropArea: 1,
+    responsive: true,
+  });
+  document.getElementById('crop-confirm').disabled = false;
+  document.getElementById('crop-status').textContent = 'Arraste para ajustar o corte';
+}
+
+// Click dropzone to pick file
+document.getElementById('crop-dropzone').addEventListener('click', function() {
+  document.getElementById('crop-input').click();
+});
+
+// File input change
+document.getElementById('crop-input').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) { carregarImagem(ev.target.result); };
+  reader.readAsDataURL(file);
+});
+
+// Paste from clipboard
+document.getElementById('modalCrop').addEventListener('shown.bs.modal', function() {
+  document.addEventListener('paste', handlePaste);
+});
+document.getElementById('modalCrop').addEventListener('hidden.bs.modal', function() {
+  document.removeEventListener('paste', handlePaste);
+  limparCrop();
+});
+
+// Also listen on dropzone for keyboard paste
+document.getElementById('crop-dropzone').addEventListener('paste', function(e) {
+  handlePaste(e);
+});
+
+function handlePaste(e) {
+  var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') === 0) {
+      e.preventDefault();
+      var blob = items[i].getAsFile();
+      var reader = new FileReader();
+      reader.onload = function(ev) { carregarImagem(ev.target.result); };
+      reader.readAsDataURL(blob);
+      return;
+    }
+  }
+}
+
+function limparCrop() {
+  if (cropper) { cropper.destroy(); cropper = null; }
+  document.getElementById('crop-image').style.display = 'none';
+  document.getElementById('crop-dropzone').style.display = '';
+  document.getElementById('crop-image').src = '';
+  document.getElementById('crop-input').value = '';
+  document.getElementById('crop-confirm').disabled = true;
+  document.getElementById('crop-status').textContent = '';
+}
+
+function fecharCrop() {
+  if (cropModal) cropModal.hide();
+}
+
+function salvarCrop() {
+  if (!cropper) return;
+  var canvas = cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
+  var btn = document.getElementById('crop-confirm');
+  var status = document.getElementById('crop-status');
+  btn.disabled = true;
+  status.textContent = 'Enviando...';
+
+  canvas.toBlob(function(blob) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      var url = productId
+        ? '/produtos/' + productId + '/upload-foto'
+        : '/produtos/upload-temp';
+
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imagem: reader.result })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          if (productId) {
+            var preview = document.getElementById('foto-preview');
+            var placeholder = document.getElementById('foto-placeholder');
+            if (preview) {
+              preview.src = data.url + '?t=' + Date.now();
+            } else if (placeholder) {
+              placeholder.outerHTML = '<img id="foto-preview" src="' + data.url + '?t=' + Date.now() + '" class="img-thumbnail" style="max-height:120px;">';
+            }
+          } else {
+            document.getElementById('temp-imagem').value = data.filename;
+          }
+          if (cropModal) cropModal.hide();
+        } else {
+          status.textContent = 'Erro: ' + (data.error || 'desconhecido');
+          btn.disabled = false;
+        }
+      })
+      .catch(function() {
+        status.textContent = 'Erro de conexão';
+        btn.disabled = false;
+      });
+    };
+    reader.readAsDataURL(blob);
+  }, 'image/jpeg', 0.92);
+}
 </script>
 {% endblock %}
