@@ -2,7 +2,19 @@
 {% block content %}
 
 <div class="d-flex flex-column flex-md-row align-items-center sticky-top gap-2 gap-md-3" style="top:188px; z-index:1021; background:#f8f9fa; padding:0.75rem 0; margin-bottom:1rem; border-bottom:1px solid #dee2e6; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
-  <h2 class="mb-0 text-nowrap">Produção</h2>
+  <div class="d-flex justify-content-between align-items-center w-100 d-md-none">
+    <select class="form-select fw-bold border-0 pe-4" style="font-size:1.25rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+      <option value="/dashboard" selected>Produção</option>
+      <option value="/orcamentos">Orçamentos</option>
+      <option value="/pedidos">Pedidos</option>
+    </select>
+    <a href="{{ url_for('orders.new') }}" class="btn btn-primary btn-sm text-nowrap">Novo Pedido</a>
+  </div>
+  <select class="form-select fw-bold border-0 pe-4 d-none d-md-inline-block" style="font-size:1.5rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+    <option value="/dashboard" selected>Produção</option>
+    <option value="/orcamentos">Orçamentos</option>
+    <option value="/pedidos">Pedidos</option>
+  </select>
   <div class="d-flex align-items-center gap-2 gap-md-3 flex-wrap justify-content-center flex-fill">
     <div class="form-check form-check-inline mb-0">
       <input type="checkbox" class="form-check-input" id="chk-0" checked onchange="toggleGrupo(0)">
@@ -21,7 +33,7 @@
       <label class="form-check-label" for="chk-9">Entregues</label>
     </div>
   </div>
-  <a href="{{ url_for('orders.new') }}" class="btn btn-primary btn-sm text-nowrap">Novo Pedido</a>
+  <a href="{{ url_for('orders.new') }}" class="btn btn-primary btn-sm text-nowrap d-none d-md-block">Novo Pedido</a>
 </div>
 
 {% set cores = {

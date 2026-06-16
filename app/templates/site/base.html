@@ -12,7 +12,7 @@
       --verde-menta: #26A69A;
       --bg-claro: #F5F5F5;
     }
-    body { background-color: var(--bg-claro); padding-top: 120px; }
+    body { background-color: var(--bg-claro); padding-top: 150px; }
     .site-header {
       position: fixed; top: 0; left: 0; right: 0; z-index: 1030;
       backdrop-filter: blur(10px); background: rgba(255,255,255,0.95);
@@ -23,7 +23,7 @@
     .nav-site a:hover, .nav-site a.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
     .bar-link.active { border-bottom-color: var(--rosa) !important; }
     @media (max-width: 575.98px) {
-      body { padding-top: 130px; }
+      body { padding-top: 170px; }
       .nav-site a { padding: 0.3rem 0.3rem; font-size: 0.82rem; }
       .nav-site .container { gap: 0 !important; }
       #produtosBar { display: none !important; }
@@ -70,7 +70,7 @@
   <header class="site-header">
     <div class="container text-center py-2">
       <img src="{{ url_for('static', filename='imagens/Logo.png') }}"
-           alt="AlgoDoce" class="brand-logo" onclick="showAuthPopup()"
+           alt="AlgoDoce" class="brand-logo" id="siteLogo"
            title="Área da Doceira">
       <div class="mt-1" style="font-size: 0.85rem; color: var(--rosa); font-weight: 500; letter-spacing: 0.5px;">
         O doce sabor do seu evento!
@@ -84,14 +84,6 @@
         <a href="/contato" class="text-white text-decoration-none fw-medium" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Contato</a>
       </div>
     </nav>
-    <div id="produtosBar" class="d-none" style="background: #fff; border-bottom: 1px solid #eee; padding: 0.3rem 0;">
-      <div class="container d-flex gap-3 justify-content-center flex-wrap">
-        <a href="/vitrine/" class="bar-link text-decoration-none" style="color: var(--rosa); font-weight: 500; font-size: 0.9rem; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Todos</a>
-        {% for cat in site_categories %}
-        <a href="/vitrine/?categoria={{ cat.id }}" class="bar-link text-decoration-none" style="color: var(--rosa); font-weight: 500; font-size: 0.9rem; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">{{ cat.nome }}</a>
-        {% endfor %}
-      </div>
-    </div>
   </header>
 
   <main class="container mb-5">
@@ -108,75 +100,149 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
   <script>
-  // Active menu state + Produtos submenu bar
+  var _popup = null;
+
+  function _fecharPopup() {
+    if (_popup) { _popup.remove(); _popup = null; }
+  }
+
+  function _criarPopup(html) {
+    _fecharPopup();
+    _popup = document.createElement('div');
+    _popup.innerHTML = html;
+    document.body.appendChild(_popup);
+    setTimeout(function() {
+      var inp = _popup.querySelector('input');
+      if (inp) inp.focus();
+    }, 100);
+    _popup.querySelectorAll('input').forEach(function(el) {
+      el.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          var btn = _popup.querySelector('.auth-btn');
+          if (btn) btn.click();
+        }
+      });
+    });
+  }
+
+  function _xhrGet(url, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        try { cb(JSON.parse(xhr.responseText)); } catch(e) { cb(null); }
+      }
+    };
+    xhr.send();
+  }
+
+  function _xhrPost(url, data, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4) {
+        try { cb(xhr.status, JSON.parse(xhr.responseText)); } catch(e) { cb(xhr.status, null); }
+      }
+    };
+    xhr.send(JSON.stringify(data));
+  }
+
+  function showSistemaPopup() {
+    _criarPopup(
+      '<div class="auth-overlay" onclick="_fecharPopup()"></div>' +
+      '<div class="auth-card"><div class="auth-card-inner">' +
+        '<span class="auth-close" onclick="_fecharPopup()">&times;</span>' +
+        '<div class="auth-icon">🔐</div>' +
+        '<h4>Acesso ao Sistema</h4>' +
+        '<input type="text" id="popup-user" placeholder="Usuário" autofocus>' +
+        '<input type="password" id="popup-pass" placeholder="Senha">' +
+        '<input type="password" id="popup-chave" placeholder="Chave" style="display:none">' +
+        '<div id="popup-error" class="auth-error"></div>' +
+        '<button onclick="submitSistema()" class="auth-btn">Entrar</button>' +
+      '</div></div>'
+    );
+    _xhrGet('/api/check-chave', function(d) {
+      if (d && d.tem) {
+        document.getElementById('popup-chave').style.display = '';
+      }
+    });
+  }
+
+  window.submitSistema = function() {
+    var u = document.getElementById('popup-user').value;
+    var p = document.getElementById('popup-pass').value;
+    var c = document.getElementById('popup-chave').value;
+    var err = document.getElementById('popup-error');
+    err.textContent = '';
+    _xhrPost('/api/login-sistema', { username: u, password: p, chave: c }, function(status, body) {
+      if (status === 200) window.location.href = body.redirect;
+      else err.textContent = (body && body.error) || 'Erro';
+    });
+  };
+
+  function showAdminPopup() {
+    _criarPopup(
+      '<div class="auth-overlay" onclick="_fecharPopup()"></div>' +
+      '<div class="auth-card"><div class="auth-card-inner">' +
+        '<span class="auth-close" onclick="_fecharPopup()">&times;</span>' +
+        '<div class="auth-icon">🔑</div>' +
+        '<h4>Administrador</h4>' +
+        '<input type="text" id="admin-user" placeholder="Usuário" autofocus>' +
+        '<input type="password" id="admin-pass" placeholder="Senha" style="display:none">' +
+        '<input type="password" id="admin-chave" placeholder="Chave">' +
+        '<div id="admin-error" class="auth-error"></div>' +
+        '<button onclick="submitAdmin()" class="auth-btn">Entrar</button>' +
+      '</div></div>'
+    );
+    _xhrGet('/api/admin-config', function(d) {
+      if (d && d.tem_usuario) document.getElementById('admin-user').style.display = '';
+      if (d && d.tem_senha) document.getElementById('admin-pass').style.display = '';
+    });
+  }
+
+  window.submitAdmin = function() {
+    var u = document.getElementById('admin-user').value;
+    var p = document.getElementById('admin-pass').value;
+    var c = document.getElementById('admin-chave').value;
+    var err = document.getElementById('admin-error');
+    err.textContent = '';
+    _xhrPost('/api/login-admin', { username: u, password: p, chave: c }, function(status, body) {
+      if (status === 200) window.location.href = body.redirect;
+      else err.textContent = (body && body.error) || 'Erro';
+    });
+  };
+
   (function() {
     var links = document.querySelectorAll('.nav-site a');
-    var produtosLink = document.getElementById('produtosNavLink');
-    var bar = document.getElementById('produtosBar');
-
-    function setActive(el) {
-      links.forEach(function(l) { l.classList.remove('active'); });
-      if (el) el.classList.add('active');
-    }
-
-    // Mark current page on load
     var path = window.location.pathname;
     links.forEach(function(l) {
-      if (l.getAttribute('href') === path) setActive(l);
+      if (l.getAttribute('href') === path) l.classList.add('active');
     });
-    // Produtos active + bar visible if on /vitrine
     if (path.indexOf('/vitrine') === 0) {
-      setActive(produtosLink);
-      if (bar) {
-        bar.classList.remove('d-none');
-        var catId = new URLSearchParams(window.location.search).get('categoria');
-        bar.querySelectorAll('.bar-link').forEach(function(l) {
-          l.classList.remove('active');
-          if (catId && l.getAttribute('href').indexOf('categoria=' + catId) > -1) l.classList.add('active');
-          if (!catId && l.getAttribute('href').indexOf('/vitrine/') > -1 && l.getAttribute('href').indexOf('categoria=') === -1) l.classList.add('active');
-        });
-      }
+      document.getElementById('produtosNavLink').classList.add('active');
     }
-
-    if (!produtosLink || !bar) return;
-    var timeout;
-
-    function showBar(keep) {
-      clearTimeout(timeout);
-      bar.classList.remove('d-none');
-      setActive(produtosLink);
-      if (keep) bar.classList.add('keep');
-    }
-    function hideBar() {
-      timeout = setTimeout(function() {
-        if (!bar.classList.contains('keep')) bar.classList.add('d-none');
-      }, 300);
-    }
-
-    produtosLink.addEventListener('mouseenter', function() { clearTimeout(timeout); });
-    produtosLink.addEventListener('mouseleave', function() {
-      if (!bar.classList.contains('keep')) {
-        timeout = setTimeout(function() { bar.classList.add('d-none'); }, 300);
-      }
-    });
-    bar.addEventListener('mouseenter', function() { clearTimeout(timeout); });
-    bar.addEventListener('mouseleave', function() {
-      if (!bar.classList.contains('keep')) {
-        timeout = setTimeout(function() { bar.classList.add('d-none'); }, 300);
-      }
-    });
-    // Hide produtos bar when another nav link is clicked
-    links.forEach(function(l) {
-      if (l !== produtosLink) {
-        l.addEventListener('click', function() {
-          bar.classList.add('d-none');
-          bar.classList.remove('keep');
-        });
-      }
-    });
   })();
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var logo = document.getElementById('siteLogo');
+    var clickTimer = null;
+
+    logo.addEventListener('click', function(e) {
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        clickTimer = null;
+        showAdminPopup();
+      } else {
+        e.preventDefault();
+        clickTimer = setTimeout(function() {
+          clickTimer = null;
+          showSistemaPopup();
+        }, 300);
+      }
+    });
+  });
   </script>
   {% block scripts %}{% endblock %}
 </body>

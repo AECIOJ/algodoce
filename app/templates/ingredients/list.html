@@ -1,7 +1,11 @@
 {% extends "base.html" %}
+{% block cadastro_toolbar %}
+<h5 class="mb-0">Ingredientes</h5>
+<a href="{{ url_for('ingredients.new') }}" class="btn btn-sm btn-primary">Novo</a>
+{% endblock %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-none d-lg-flex justify-content-between align-items-center mb-3">
   <h2>Ingredientes</h2>
   <a href="{{ url_for('ingredients.new') }}" class="btn btn-primary">Novo</a>
 </div>

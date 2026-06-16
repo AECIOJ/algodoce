@@ -1,7 +1,11 @@
 {% extends "base.html" %}
+{% block cadastro_toolbar %}
+<h5 class="mb-0">Produtos</h5>
+<a href="{{ url_for('products.new') }}" class="btn btn-sm btn-primary">Novo</a>
+{% endblock %}
 {% block content %}
 
-<div class="row align-items-center mb-3">
+<div class="d-none d-lg-flex row align-items-center mb-3">
   <div class="col">
     <h2 class="mb-0">Produtos</h2>
   </div>
@@ -25,6 +29,20 @@
   </div>
   <div class="col text-end">
     <a href="{{ url_for('products.new') }}" class="btn btn-primary">Novo</a>
+  </div>
+</div>
+
+<!-- Mobile filters -->
+<div class="d-lg-none d-flex flex-wrap align-items-center gap-2 mb-2">
+  <select id="filter-categoria-mobile" class="form-select form-select-sm" style="width:auto;flex:1;min-width:120px;">
+    <option value="">Todas as categorias</option>
+    {% for cat in categories %}
+      <option value="{{ cat.nome }}">{{ cat.nome }}</option>
+    {% endfor %}
+  </select>
+  <div class="form-check form-check-inline mb-0">
+    <input type="checkbox" class="form-check-input" id="filter-check-mobile" checked>
+    <label class="form-check-label small" for="filter-check-mobile">Ativos</label>
   </div>
 </div>
 
@@ -124,8 +142,15 @@ searchInput.addEventListener('focus', function() {
 });
 
 function aplicarFiltro() {
-  const ativos = document.getElementById('filter-check').checked;
-  const cat = document.getElementById('filter-categoria').value;
+  const desktopCheck = document.getElementById('filter-check');
+  const mobileCheck = document.getElementById('filter-check-mobile');
+  const desktopCat = document.getElementById('filter-categoria');
+  const mobileCat = document.getElementById('filter-categoria-mobile');
+  // Sync values
+  if (desktopCheck && mobileCheck) mobileCheck.checked = desktopCheck.checked;
+  if (desktopCat && mobileCat) mobileCat.value = desktopCat.value;
+  const ativos = desktopCheck.checked;
+  const cat = desktopCat.value;
   document.querySelectorAll('tbody tr').forEach(row => {
     const ativo = row.dataset.ativo === 'true';
     const categoria = row.dataset.categoria;
@@ -136,6 +161,14 @@ function aplicarFiltro() {
 }
 document.getElementById('filter-check').addEventListener('change', aplicarFiltro);
 document.getElementById('filter-categoria').addEventListener('change', aplicarFiltro);
+document.getElementById('filter-check-mobile').addEventListener('change', function() {
+  document.getElementById('filter-check').checked = this.checked;
+  aplicarFiltro();
+});
+document.getElementById('filter-categoria-mobile').addEventListener('change', function() {
+  document.getElementById('filter-categoria').value = this.value;
+  aplicarFiltro();
+});
 aplicarFiltro();
 </script>
 {% endblock %}

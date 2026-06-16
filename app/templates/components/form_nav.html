@@ -1,25 +1,38 @@
 {% macro form_nav(back_url, nome, nav, edit_endpoint, entity_id=none, status=none) %}
+{% set s = url_for('static', filename='setas/') %}
 <div class="d-flex align-items-center mb-3 mt-2">
   <div class="d-flex align-items-center" style="flex:1">
     <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">&larr; Voltar</a>
   </div>
   <div class="d-flex align-items-center gap-1">
     <div class="btn-group btn-group-sm" role="group">
-      <a href="{{ url_for(edit_endpoint, id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro" style="font-size:1.2rem;line-height:1">&#10094;&#10094;</a>
+      <a href="{{ url_for(edit_endpoint, id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
+        <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
+      </a>
       {% if nav.prev_id %}
-        <a href="{{ url_for(edit_endpoint, id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior" style="font-size:1.2rem;line-height:1">&#10094;</a>
+        <a href="{{ url_for(edit_endpoint, id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
+          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+        </a>
       {% else %}
-        <a class="btn btn-outline-secondary disabled" title="Anterior" style="font-size:1.2rem;line-height:1">&#10094;</a>
+        <a class="btn btn-outline-secondary disabled" title="Anterior">
+          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+        </a>
       {% endif %}
     </div>
     <span class="mx-2 fs-5 fw-bold text-nowrap">{{ nome }}</span>
     <div class="btn-group btn-group-sm" role="group">
       {% if nav.next_id %}
-        <a href="{{ url_for(edit_endpoint, id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo" style="font-size:1.2rem;line-height:1">&#10095;</a>
+        <a href="{{ url_for(edit_endpoint, id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
+          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+        </a>
       {% else %}
-        <a class="btn btn-outline-secondary disabled" title="Próximo" style="font-size:1.2rem;line-height:1">&#10095;</a>
+        <a class="btn btn-outline-secondary disabled" title="Próximo">
+          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+        </a>
       {% endif %}
-      <a href="{{ url_for(edit_endpoint, id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último" style="font-size:1.2rem;line-height:1">&#10095;&#10095;</a>
+      <a href="{{ url_for(edit_endpoint, id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
+        <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
+      </a>
     </div>
     {% if status %}<span class="mx-1"></span>{{ status | safe }}{% endif %}
   </div>

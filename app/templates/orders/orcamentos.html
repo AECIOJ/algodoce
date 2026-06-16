@@ -1,22 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="row align-items-center mb-3">
-  <div class="col">
-    <h2 class="mb-0">Orçamentos</h2>
-  </div>
-  <div class="col text-center">
-    <div class="btn-group btn-group-sm" role="group">
-      <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary {{ 'active' if filtro == 'todos' }}">Todos</a>
-      <a href="{{ url_for('orders.orcamentos', status=0) }}" class="btn btn-outline-secondary {{ 'active' if filtro == '0' }}">Pendente</a>
-      <a href="{{ url_for('orders.orcamentos', status=1) }}" class="btn btn-outline-secondary {{ 'active' if filtro == '1' }}">Negociação</a>
-      <a href="{{ url_for('orders.orcamentos', status=9) }}" class="btn btn-outline-secondary {{ 'active' if filtro == '9' }}">Aprovado</a>
-      <a href="{{ url_for('orders.orcamentos', status=2) }}" class="btn btn-outline-secondary {{ 'active' if filtro == '2' }}">Recusado</a>
-    </div>
-  </div>
-  <div class="col text-end">
-    <a href="{{ url_for('orders.quote_new') }}" class="btn btn-success">+ Novo</a>
-  </div>
+<div class="d-flex align-items-baseline mb-1 gap-1">
+  <select class="form-select fw-bold border-0 pe-4" style="font-size:1.25rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+    <option value="/orcamentos" selected>Orçamentos</option>
+    <option value="/pedidos">Pedidos</option>
+  </select>
+  <select id="filter-status" class="form-select" style="width:auto;min-width:80px;" onchange="if(this.value) window.location=this.value;">
+    <option value="{{ url_for('orders.orcamentos') }}" {{ 'selected' if filtro == 'todos' }}>Todos</option>
+    <option value="{{ url_for('orders.orcamentos', status=0) }}" {{ 'selected' if filtro == '0' }}>Pendente</option>
+    <option value="{{ url_for('orders.orcamentos', status=1) }}" {{ 'selected' if filtro == '1' }}>Negociação</option>
+    <option value="{{ url_for('orders.orcamentos', status=9) }}" {{ 'selected' if filtro == '9' }}>Aprovado</option>
+    <option value="{{ url_for('orders.orcamentos', status=2) }}" {{ 'selected' if filtro == '2' }}>Recusado</option>
+  </select>
+  <a href="{{ url_for('orders.quote_new') }}" class="btn btn-success text-nowrap ms-auto" style="flex-shrink:0;">+ Novo</a>
 </div>
 
 <div class="table-responsive table-scroll">

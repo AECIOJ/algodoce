@@ -5,7 +5,7 @@
 <h2>{{ 'Editar' if ingredient else 'Novo' }} Ingrediente</h2>
 
 {% if ingredient %}
-{% call form_nav(back_url=url_for('ingredients.list'), nome=ingredient.nome, entity_id=ingredient.id, nav=nav, edit_endpoint='ingredients.edit') %}
+{% call form_nav(back_url=url_for('ingredients.list'), nome='Ingrediente #' ~ ingredient.id, nav=nav, edit_endpoint='ingredients.edit') %}
   <button type="button" class="btn btn-outline-danger btn-sm" data-ingrediente-id="{{ ingredient.id }}" data-ingrediente-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
 {% endcall %}
 {% endif %}

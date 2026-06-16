@@ -10,23 +10,36 @@
   </div>
 </div>
 
+{% set s = url_for('static', filename='setas/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
-    <a href="{{ url_for('ingredients.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">&laquo;&laquo;</a>
+    <a href="{{ url_for('ingredients.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
+      <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
+    </a>
     {% if nav.prev_id %}
-      <a href="{{ url_for('ingredients.detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">&laquo;</a>
+      <a href="{{ url_for('ingredients.detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
+        <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+      </a>
     {% else %}
-      <a class="btn btn-outline-secondary disabled" title="Anterior">&laquo;</a>
+      <a class="btn btn-outline-secondary disabled" title="Anterior">
+        <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+      </a>
     {% endif %}
   </div>
   <span class="mx-2 small text-muted">{{ ingredient.nome }}</span>
   <div class="btn-group btn-group-sm" role="group">
     {% if nav.next_id %}
-      <a href="{{ url_for('ingredients.detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">&raquo;</a>
+      <a href="{{ url_for('ingredients.detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
+        <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+      </a>
     {% else %}
-      <a class="btn btn-outline-secondary disabled" title="Próximo">&raquo;</a>
+      <a class="btn btn-outline-secondary disabled" title="Próximo">
+        <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+      </a>
     {% endif %}
-    <a href="{{ url_for('ingredients.detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">&raquo;&raquo;</a>
+    <a href="{{ url_for('ingredients.detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
+      <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
+    </a>
   </div>
 </div>
 

@@ -60,7 +60,7 @@ def create_app():
 
     with app.app_context():
         from app.routes import clients, products, ingredients, orders, reports
-        from app.routes import auth, site, sistema, uploads, vitrine, orcamento, categories
+        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca
 
         app.register_blueprint(clients.bp)
         app.register_blueprint(products.bp)
@@ -69,18 +69,21 @@ def create_app():
         app.register_blueprint(reports.bp)
         app.register_blueprint(auth.bp)
         app.register_blueprint(site.bp)
-        app.register_blueprint(sistema.bp)
         app.register_blueprint(uploads.bp)
         app.register_blueprint(vitrine.bp)
         app.register_blueprint(orcamento.bp)
         app.register_blueprint(categories.bp)
+        app.register_blueprint(seguranca.bp)
 
         from app.models import client, product, ingredient, product_ingredient, unit_conversion, order, category, quote  # noqa
         from app.models.event import Event  # noqa
         from app.models.quote_item import QuoteItem  # noqa
         from app.models.order_item import OrderItem  # noqa
+        from app.models.setting import Setting  # noqa
 
         upgrade()
+
+        Setting.ensure_keys()
 
         db.session.execute(
             sa.text("SELECT setval('quotes_id_seq', COALESCE((SELECT MAX(id) FROM quotes), 1))")
@@ -90,8 +93,8 @@ def create_app():
         )
         db.session.commit()
 
-        admin_username = os.getenv("ADMIN_USERNAME", "doceira")
-        admin_password = os.getenv("ADMIN_PASSWORD", "1234")
+        admin_username = os.getenv("ADMIN_USERNAME", "admin")
+        admin_password = os.getenv("ADMIN_PASSWORD", "admin")
         admin = User.query.filter_by(username=admin_username).first()
         if not admin:
             admin = User(username=admin_username)

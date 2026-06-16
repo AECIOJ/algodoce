@@ -1,3 +1,20 @@
+import os
+import markdown
+
+
+def render_pagina(nome):
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "dados", "paginas", f"{nome}.md",
+    )
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return markdown.markdown(content, extensions=["extra"])
+    except FileNotFoundError:
+        return None
+
+
 def parse_brl(value):
     if not value:
         return None

@@ -4,6 +4,7 @@ from app.models.client import Client
 from app.models.quote import Quote
 from app.models.quote_item import QuoteItem
 from app.models.event import Event
+from app.ntfy import notificar as ntfy_notificar
 from datetime import datetime, timezone, date, time
 
 
@@ -33,6 +34,7 @@ def _save_event(obj, form):
     event.local = _clean(form.get("evento_local"))
     conv_str = form.get("evento_convidados")
     event.convidados = int(conv_str) if conv_str else None
+    event.cerimonial = _clean(form.get("evento_cerimonial"))
     return event
 
 
@@ -86,6 +88,44 @@ def atualizar(id):
     return redirect(url_for("orcamento.lista"))
 
 
+@bp.route("/orcamento/salvar", methods=["POST"])
+def salvar_tudo():
+    cliente_id = session.get("cliente_id")
+    if not cliente_id:
+        return redirect(url_for("orcamento.lista"))
+
+    from app.models.client import Client
+    cliente = Client.query.get(cliente_id)
+    if not cliente:
+        return redirect(url_for("orcamento.lista"))
+
+    quote = Quote.query.filter_by(
+        cliente_telefone=cliente.telefone, status=0
+    ).order_by(Quote.id.desc()).first()
+    if not quote:
+        return redirect(url_for("orcamento.lista"))
+
+    items = QuoteItem.query.filter_by(quote_id=quote.id).all()
+    for item in items:
+        qtd_key = f"quantidade_{item.id}"
+        obs_key = f"observacao_{item.id}"
+
+        if qtd_key in request.form:
+            try:
+                nova_qtd = int(request.form[qtd_key])
+                minima = item.product.qtd_minima or 1
+                if nova_qtd >= minima:
+                    item.quantidade = nova_qtd
+            except (ValueError, TypeError):
+                pass
+
+        if obs_key in request.form:
+            item.observacao = request.form[obs_key].strip() or None
+
+    db.session.commit()
+    return redirect(url_for("orcamento.lista"))
+
+
 @bp.route("/api/cliente", methods=["POST"])
 def identificar():
     data = request.get_json(silent=True) or {}
@@ -128,5 +168,6 @@ def enviar():
     _save_event(quote, request.form)
 
     db.session.commit()
+    ntfy_notificar(quote)
     session.pop("cliente_id", None)
     return render_template("orcamento/confirmacao.html")

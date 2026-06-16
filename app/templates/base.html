@@ -8,7 +8,24 @@
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
   <style>
     .navbar-nav .nav-link.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
-    .bar-link.active { border-bottom-color: #e91e63 !important; }
+    .cadastro-section { background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+    .cadastro-section .navbar-toggler {
+      border: 1px solid #e91e63; padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+    .cadastro-section .navbar-toggler-icon {
+      display: inline-block; width: 1.2em; height: 1.2em;
+      vertical-align: middle;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23e91e63' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    }
+    .cadastro-section .bar-link {
+      display: block; padding: 0.6rem 1rem;
+      color: #e91e63; font-weight: 500; text-decoration: none;
+      text-align: center; border-bottom: 1px solid #f0f0f0;
+    }
+    .cadastro-section .bar-link:last-child { border-bottom: none; }
+    .cadastro-section .bar-link.active { background: #fce4ec; }
+    .bar-link-lg.active { border-bottom-color: #e91e63 !important; }
   </style>
 </head>
 <body>
@@ -21,43 +38,41 @@
       </div>
     </header>
 
-    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #e91e63;">
-    <div class="container">
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav mx-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="/">Início</a>
-          </li>
-          <li class="nav-item dropdown" id="cadastroMenu">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-              Cadastro
-            </a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/orcamentos">Orçamentos</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/pedidos">Pedidos</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/relatorios/compras">Compras</a>
-          </li>
-          <li class="nav-item ms-lg-3">
-            <a class="nav-link" href="/logout" style="color: #fff !important;">🚪 Sair</a>
-          </li>
-        </ul>
+    <nav class="navbar navbar-expand navbar-dark px-2" style="background-color: #e91e63;">
+      <div class="navbar-nav d-flex flex-wrap justify-content-center gap-1 px-2 w-100">
+        <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu">Cadastro</a>
+        <a class="nav-link" href="/orcamentos" id="comercialMenu">Comercial</a>
+        <a class="nav-link" href="/relatorios/compras">Compras</a>
+        <a class="nav-link ms-lg-3" href="/logout" style="color: #fff !important;">🚪 Sair</a>
       </div>
-    </div>
     </nav>
-    <div id="cadastroBar" class="d-none" style="background: #f8f9fa; border-bottom: 1px solid #dee2e6; padding: 0.3rem 0;">
-      <div class="container d-flex gap-3 justify-content-center">
-        <a href="/categorias" class="bar-link text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
-        <a href="/ingredientes" class="bar-link text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Ingredientes</a>
-        <a href="/produtos" class="bar-link text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
-        <a href="/clientes" class="bar-link text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Clientes</a>
+    <div class="cadastro-section py-1 d-none" id="cadastroSection">
+      <div class="container">
+        {% if request.endpoint and request.endpoint.endswith('.list') %}
+        <!-- Mobile: toolbar row -->
+        <div class="d-lg-none d-flex align-items-center gap-2">
+          <button class="navbar-toggler flex-shrink-0" type="button" data-bs-toggle="collapse" data-bs-target="#cadastroCollapse" aria-expanded="false">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="d-flex align-items-center justify-content-between w-100">
+            {% block cadastro_toolbar %}{% endblock %}
+          </div>
+        </div>
+        <!-- Mobile: collapse (vertical) -->
+        <div class="collapse d-lg-none" id="cadastroCollapse">
+          <a href="{{ url_for('categories.list') }}" class="bar-link">Categorias</a>
+          <a href="{{ url_for('ingredients.list') }}" class="bar-link">Ingredientes</a>
+          <a href="{{ url_for('products.list') }}" class="bar-link">Produtos</a>
+          <a href="{{ url_for('clients.list') }}" class="bar-link">Clientes</a>
+        </div>
+        {% endif %}
+        <!-- Desktop: horizontal bar (always visible) -->
+        <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+          <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
+          <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Ingredientes</a>
+          <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
+          <a href="{{ url_for('clients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Clientes</a>
+        </div>
       </div>
     </div>
   </div>
@@ -175,95 +190,39 @@ function parseDate(str) {
 }
 </script>
 <script>
-// Active menu state + Cadastro submenu bar
+// Active menu state + section toggles
 (function() {
   var links = document.querySelectorAll('.navbar-nav .nav-link');
-  var menuItem = document.getElementById('cadastroMenu');
-  var bar = document.getElementById('cadastroBar');
+  var cadastroSection = document.getElementById('cadastroSection');
 
   function setActive(el) {
     links.forEach(function(l) { l.classList.remove('active'); });
     if (el) el.classList.add('active');
   }
 
-  // Mark current page on load — cadastro subpages first
-  var path = window.location.pathname;
-  var cadastroPaths = ['/categorias', '/ingredientes', '/produtos', '/clientes'];
-  var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });
-  if (onCadastro) {
-    var cadastroLink = document.querySelector('#cadastroMenu > .nav-link');
-    if (cadastroLink) setActive(cadastroLink);
-    if (bar) {
-      bar.classList.remove('d-none');
-      bar.querySelectorAll('.bar-link').forEach(function(l) {
+  function activateSection(section, menuId, path) {
+    var menuLink = document.getElementById(menuId);
+    if (menuLink) setActive(menuLink);
+    if (section) {
+      section.classList.remove('d-none');
+      section.querySelectorAll('.bar-link, .bar-link-lg').forEach(function(l) {
         if (path.indexOf(l.getAttribute('href')) === 0) l.classList.add('active');
       });
     }
+  }
+
+  var path = window.location.pathname;
+  var cadastroPaths = ['/categorias', '/ingredientes', '/produtos', '/clientes'];
+  var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });
+
+  if (onCadastro) {
+    activateSection(cadastroSection, 'cadastroMenu', path);
   } else {
     links.forEach(function(l) {
       var href = l.getAttribute('href');
       if (href && href !== '#' && path.indexOf(href) === 0) setActive(l);
     });
   }
-
-  if (!menuItem || !bar) return;
-  var timeout;
-
-  function showBar() {
-    clearTimeout(timeout);
-    bar.classList.remove('d-none');
-    var cl = document.querySelector('#cadastroMenu > .nav-link');
-    if (cl) setActive(cl);
-  }
-  function hideBar() {
-    timeout = setTimeout(function() {
-      if (!bar.classList.contains('keep')) bar.classList.add('d-none');
-    }, 300);
-  }
-
-  function toggleBar(e) {
-    e.preventDefault();
-    if (bar.classList.contains('d-none')) {
-      showBar();
-      bar.classList.add('keep');
-    } else {
-      bar.classList.add('d-none');
-      bar.classList.remove('keep');
-    }
-    if (!window._cadastroListener) {
-      window._cadastroListener = function(ev) {
-        if (!menuItem.contains(ev.target) && !bar.contains(ev.target)) {
-          bar.classList.add('d-none');
-          bar.classList.remove('keep');
-        }
-      };
-      setTimeout(function() { document.addEventListener('click', window._cadastroListener); }, 0);
-    }
-  }
-
-  menuItem.addEventListener('mouseenter', function() { clearTimeout(timeout); });
-  menuItem.addEventListener('mouseleave', function() {
-    if (!bar.classList.contains('keep')) {
-      timeout = setTimeout(function() { bar.classList.add('d-none'); }, 300);
-    }
-  });
-  bar.addEventListener('mouseenter', function() { clearTimeout(timeout); });
-  bar.addEventListener('mouseleave', function() {
-    if (!bar.classList.contains('keep')) {
-      timeout = setTimeout(function() { bar.classList.add('d-none'); }, 300);
-    }
-  });
-  menuItem.addEventListener('click', toggleBar);
-
-  // Deactivate bar when another nav link is clicked
-  links.forEach(function(l) {
-    if (l.closest('li') !== menuItem) {
-      l.addEventListener('click', function() {
-        bar.classList.add('d-none');
-        bar.classList.remove('keep');
-      });
-    }
-  });
 })();
 </script>
 </body>

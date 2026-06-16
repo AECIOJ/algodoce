@@ -1,80 +1,129 @@
 {% extends "site/base.html" %}
 {% block content %}
+<style>
+.item-row {
+  display: flex; align-items: center; gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.item-row .item-nome {
+  font-weight: 600; min-width: 120px; flex-shrink: 0;
+}
+.item-row .item-obs {
+  flex: 1; min-width: 140px;
+}
+.item-row .item-obs input { width: 100%; }
+.item-row .item-ctrl {
+  display: flex; align-items: center; gap: 0.25rem;
+  flex-shrink: 0;
+}
+.item-row .item-ctrl input[type="number"] {
+  width: 55px; height: 30px; text-align: center; padding: 0;
+}
+@media (max-width: 575.98px) {
+  .item-row { flex-direction: column; align-items: stretch; }
+  .item-row .item-nome { min-width: 0; }
+  .item-row .item-ctrl { justify-content: center; }
+}
+.evento-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+.evento-grid label { white-space: nowrap; margin: 0; font-size: 0.9rem; }
+.evento-grid .full-width { grid-column: 1 / -1; }
+.evento-linha {
+  display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;
+}
+.evento-linha label { white-space: nowrap; margin: 0; font-size: 0.9rem; flex-shrink: 0; }
+.evento-linha input, .evento-linha select { flex: 1; min-width: 0; }
+@media (max-width: 575.98px) {
+  .evento-grid { grid-template-columns: 1fr; gap: 0.25rem; }
+  .evento-grid label { grid-column: 1; }
+  .evento-linha { flex-direction: column; align-items: stretch; }
+  .evento-linha input, .evento-linha select { width: 100%; }
+}
+#btn-incluir.disabled { pointer-events: none; opacity: 0.5; }
+</style>
+
 <h2 style="color: var(--rosa);">🧾 Meu Orçamento</h2>
 {% if cliente %}
   <p class="text-muted">Para: {{ cliente.nome }} · {{ cliente.telefone }}</p>
 {% endif %}
 
 {% if items %}
+<form method="POST" action="{{ url_for('orcamento.salvar_tudo') }}" id="orcamento-form">
   <div class="list-group mb-3">
     {% for item in items %}
       <div class="list-group-item">
-        <form method="POST" action="{{ url_for('orcamento.atualizar', id=item.id) }}"
-              class="d-flex align-items-center gap-2 flex-nowrap">
-          <strong class="text-nowrap" style="min-width:90px;">{{ item.product.nome }}</strong>
-
-          <div class="d-flex align-items-center gap-1 ms-auto">
-            <input type="text" name="observacao" value="{{ item.observacao or '' }}"
-                   placeholder="Obs" class="form-control form-control-sm"
-                   style="width:360px;">
+        <div class="item-row">
+          <div class="item-nome">{{ item.product.nome }}</div>
+          <div class="item-obs">
+            <input type="text" name="observacao_{{ item.id }}" value="{{ item.observacao or '' }}"
+                   placeholder="Observação" class="form-control form-control-sm campo-item"
+                   data-original="{{ item.observacao or '' }}">
           </div>
-
-          <div class="d-flex align-items-center gap-1">
-            <button type="button" class="btn btn-sm btn-outline-secondary qty-minus px-1"
-                    style="line-height:1;">−</button>
-            <input type="number" name="quantidade" value="{{ item.quantidade }}"
+          <div class="item-ctrl">
+            <button type="button" class="btn btn-sm btn-outline-secondary qty-minus px-1">−</button>
+            <input type="number" name="quantidade_{{ item.id }}" value="{{ item.quantidade }}"
                    min="{{ item.product.qtd_minima or 1 }}" step="1"
-                   class="form-control form-control-sm text-center p-0"
-                   style="width:55px;height:30px;">
-            <button type="button" class="btn btn-sm btn-outline-secondary qty-plus px-1"
-                    style="line-height:1;">+</button>
-            <button type="submit" class="btn btn-sm btn-verde px-2">💾</button>
-            <button type="submit" formaction="{{ url_for('orcamento.remover', id=item.id) }}"
-                    class="btn btn-sm btn-outline-danger px-2">🗑️</button>
+                   class="form-control form-control-sm campo-item"
+                   data-original="{{ item.quantidade }}">
+            <button type="button" class="btn btn-sm btn-outline-secondary qty-plus px-1">+</button>
           </div>
-        </form>
+          <button type="submit" formaction="{{ url_for('orcamento.remover', id=item.id) }}"
+                  formmethod="POST" class="btn btn-sm btn-outline-danger px-2" title="Remover">🗑️</button>
+        </div>
       </div>
     {% endfor %}
   </div>
 
-  <a href="/vitrine" class="btn btn-outline-secondary mb-4">＋ Incluir mais itens</a>
+  <div class="d-flex flex-column align-items-center gap-2 mb-3">
+    <button type="submit" class="btn btn-primary w-100" id="btn-salvar" disabled style="max-width: 400px;">Salvar</button>
+    <a href="/vitrine" class="btn btn-outline-secondary" id="btn-incluir">＋ Incluir mais itens</a>
+  </div>
+</form>
 
-  <hr>
-  <h5 style="color: var(--rosa);">📅 Dados do Evento</h5>
-  <form method="POST" action="{{ url_for('orcamento.enviar') }}">
-    <div class="mb-2 d-flex align-items-center gap-2 flex-wrap">
-      <label class="text-nowrap mb-0">Tipo</label>
-      <select class="form-select form-select-sm w-auto" name="evento_tipo">
-        <option value="">Selecione</option>
-        <option value="aniversario">Aniversário</option>
-        <option value="casamento">Casamento</option>
-        <option value="cha_de_bebe">Chá de Bebê</option>
-        <option value="cha_de_panela">Chá de Panela</option>
-        <option value="confraternizacao">Confraternização</option>
-        <option value="formatura">Formatura</option>
-        <option value="15_anos">15 anos</option>
-        <option value="cafe">Café</option>
-        <option value="outros">Outros</option>
-      </select>
-      <label class="text-nowrap mb-0 ms-1">Tema</label>
-      <input type="text" class="form-control form-control-sm" name="evento_tema" style="width:360px;">
-      <label class="text-nowrap mb-0 ms-1">Obs</label>
-      <input type="text" class="form-control form-control-sm" name="evento_complemento" style="width:540px;">
-    </div>
+<hr>
+<h5 style="color: var(--rosa);">📅 Dados do Evento</h5>
+<form method="POST" action="{{ url_for('orcamento.enviar') }}">
+  <div class="evento-grid">
+    <label>Tipo</label>
+    <select class="form-select form-select-sm" name="evento_tipo">
+      <option value="">Selecione</option>
+      <option value="aniversario">Aniversário</option>
+      <option value="casamento">Casamento</option>
+      <option value="cha_de_bebe">Chá de Bebê</option>
+      <option value="cha_de_panela">Chá de Panela</option>
+      <option value="confraternizacao">Confraternização</option>
+      <option value="formatura">Formatura</option>
+      <option value="15_anos">15 anos</option>
+      <option value="cafe">Café</option>
+      <option value="outros">Outros</option>
+    </select>
 
-    <div class="mb-2 d-flex align-items-center gap-2 flex-wrap">
-      <label class="text-nowrap mb-0">Data</label>
-      <input type="date" class="form-control form-control-sm w-auto" name="evento_data">
-      <label class="text-nowrap mb-0 ms-1">Hora</label>
-      <input type="time" class="form-control form-control-sm w-auto" name="evento_hora">
-      <label class="text-nowrap mb-0 ms-1">Convidados</label>
-      <input type="number" class="form-control form-control-sm" name="evento_convidados" min="1" style="width:80px;">
-      <label class="text-nowrap mb-0 ms-1">Local</label>
-      <input type="text" class="form-control form-control-sm" name="evento_local" style="flex:1;">
-    </div>
+    <label>Tema</label>
+    <input type="text" class="form-control form-control-sm" name="evento_tema">
 
-    <button type="submit" class="btn btn-verde btn-lg w-100">🚀 Enviar Orçamento</button>
-  </form>
+    <label class="full-width" style="margin-top: 0.25rem;">Observações</label>
+    <input type="text" class="form-control form-control-sm full-width" name="evento_complemento">
+  </div>
+
+  <div class="evento-linha mt-2">
+    <label>Data</label>
+    <input type="date" class="form-control form-control-sm" name="evento_data">
+    <label>Hora</label>
+    <input type="time" class="form-control form-control-sm" name="evento_hora">
+    <label>Convidados</label>
+    <input type="number" class="form-control form-control-sm" name="evento_convidados" min="1" style="max-width:100px;">
+    <label>Local</label>
+    <input type="text" class="form-control form-control-sm" name="evento_local">
+    <label>Cerimonial</label>
+    <input type="text" class="form-control form-control-sm" name="evento_cerimonial">
+  </div>
+
+  <button type="submit" class="btn btn-verde btn-lg w-100 mt-3">🚀 Enviar Orçamento</button>
+</form>
 {% else %}
   <div class="text-center py-5">
     <p class="text-muted">Seu orçamento está vazio.</p>
@@ -87,18 +136,42 @@
 <script>
 document.querySelectorAll('.qty-minus').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var input = this.closest('.d-flex').querySelector('input[name="quantidade"]');
+    var input = this.parentNode.querySelector('input[name^="quantidade_"]');
     var val = parseInt(input.value) || 0;
     var min = parseInt(input.min) || 1;
     input.value = Math.max(val - 1, min);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 });
 document.querySelectorAll('.qty-plus').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var input = this.closest('.d-flex').querySelector('input[name="quantidade"]');
+    var input = this.parentNode.querySelector('input[name^="quantidade_"]');
     var val = parseInt(input.value) || 0;
     input.value = val + 1;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+});
+
+var btnSalvar = document.getElementById('btn-salvar');
+var btnIncluir = document.getElementById('btn-incluir');
+function verificarAlteracoes() {
+  var alterou = false;
+  document.querySelectorAll('.campo-item').forEach(function(input) {
+    var original = input.dataset.original;
+    var atual = input.value;
+    if (input.type === 'number') {
+      atual = parseInt(atual) || 0;
+      original = parseInt(original) || 0;
+    }
+    if (atual !== original) alterou = true;
+  });
+  btnSalvar.disabled = !alterou;
+  btnIncluir.classList.toggle('disabled', alterou);
+  if (alterou) btnIncluir.removeAttribute('href');
+  else btnIncluir.setAttribute('href', '/vitrine');
+}
+document.querySelectorAll('.campo-item').forEach(function(input) {
+  input.addEventListener('input', verificarAlteracoes);
 });
 </script>
 {% endblock %}

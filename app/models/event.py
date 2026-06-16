@@ -18,6 +18,7 @@ class Event(db.Model):
     hora = db.Column(db.Time, nullable=True)
     local = db.Column(db.String(200), nullable=True)
     convidados = db.Column(db.Integer, nullable=True)
+    cerimonial = db.Column(db.String(200), nullable=True)
 
     quote = db.relationship("Quote", back_populates="event", foreign_keys=[quote_id])
     order = db.relationship("Order", back_populates="event", foreign_keys=[order_id])

@@ -1,7 +1,11 @@
 {% extends "base.html" %}
+{% block cadastro_toolbar %}
+<h5 class="mb-0">Clientes</h5>
+<a href="{{ url_for('clients.new') }}" class="btn btn-sm btn-primary">Novo</a>
+{% endblock %}
 {% block content %}
 
-<div class="d-flex flex-column flex-md-row align-items-center sticky-top gap-2 gap-md-3" style="top:188px; z-index:1021; background:#f8f9fa; padding:0.75rem 0; margin-bottom:1rem; border-bottom:1px solid #dee2e6; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+<div class="d-none d-lg-flex flex-column flex-md-row align-items-center sticky-top gap-2 gap-md-3" style="top:188px; z-index:1021; background:#f8f9fa; padding:0.75rem 0; margin-bottom:1rem; border-bottom:1px solid #dee2e6; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
   <h2 class="mb-0 text-nowrap">Clientes</h2>
   <div class="autocomplete-wrapper" style="display:inline-flex; align-items:center; gap:4px; position:relative; flex:1; min-width:150px;">
     <input type="text" id="search-input" class="form-control form-control-sm" style="width:100%;" placeholder="Buscar cliente..." autocomplete="off">

@@ -49,6 +49,7 @@ def _save_event(obj, form):
     event.local = _clean(form.get("evento_local"))
     conv_str = form.get("evento_convidados")
     event.convidados = int(conv_str) if conv_str else None
+    event.cerimonial = _clean(form.get("evento_cerimonial"))
     return event
 
 
@@ -220,8 +221,8 @@ def quote_edit(id):
     quote = Quote.query.get_or_404(id)
 
     if request.method == "POST":
-        if quote.pedido_id:
-            flash("Orçamento não pode ser alterado — já foi convertido no Pedido #{}.".format(quote.pedido_id), "warning")
+        if quote.pedido_id or quote.status == 9:
+            flash("Orçamento não pode ser alterado — já está aprovado.", "warning")
             return redirect(url_for("orders.quote_edit", id=id))
 
         quote.cliente_nome = request.form["cliente_nome"]
@@ -271,7 +272,7 @@ def quote_edit(id):
     return render_template(
         "orders/quote_form.html", quote=quote, products=products, nav=nav,
         tipos_evento=tipos_evento, clients=clients,
-        QUOTE_STATUS=QUOTE_STATUS, ro=bool(quote.pedido_id)
+        QUOTE_STATUS=QUOTE_STATUS, ro=bool(quote.pedido_id or quote.status == 9)
     )
 
 

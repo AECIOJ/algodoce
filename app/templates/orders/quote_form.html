@@ -131,15 +131,15 @@
         </div>
         <div class="col-md-3">
           <label class="form-label small mb-0">Tema</label>
-          <input type="text" name="evento_tema" class="form-control" value="{{ quote.event.tema if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+          <input type="text" name="evento_tema" class="form-control" value="{{ quote.event.tema or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
         </div>
-        <div class="col-md-3">
-          <label class="form-label small mb-0">Obs</label>
-          <input type="text" name="evento_complemento" class="form-control" value="{{ quote.event.obs if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
-        </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
           <label class="form-label small mb-0">Nº Convidados</label>
-          <input type="number" name="evento_convidados" class="form-control" min="1" step="1" value="{{ quote.event.convidados if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+          <input type="number" name="evento_convidados" class="form-control" min="1" step="1" value="{{ quote.event.convidados or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small mb-0">Obs</label>
+          <input type="text" name="evento_complemento" class="form-control" value="{{ quote.event.obs or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
         </div>
       </div>
       <div class="row">
@@ -151,9 +151,13 @@
           <label class="form-label small mb-0">Hora</label>
           <input type="time" name="evento_hora" class="form-control" value="{{ quote.event.hora.strftime('%H:%M') if quote and quote.event and quote.event.hora else '' }}" {{ 'disabled' if ro }}>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-3">
           <label class="form-label small mb-0">Local</label>
-          <input type="text" name="evento_local" class="form-control" value="{{ quote.event.local if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+          <input type="text" name="evento_local" class="form-control" value="{{ quote.event.local or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Cerimonial</label>
+          <input type="text" name="evento_cerimonial" class="form-control" value="{{ quote.event.cerimonial or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
         </div>
       </div>
     </div>

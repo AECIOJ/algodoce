@@ -20,7 +20,6 @@ th { background: #f0f0f0; text-align: center; }
 </style>
 
 <div class="text-center mb-4 no-print">
-  <button class="btn btn-success btn-lg" onclick="enviarWhatsApp()"><strong>Enviar via WhatsApp</strong></button>
   <button class="btn btn-outline-secondary btn-lg" onclick="window.print()">Imprimir</button>
 </div>
 
@@ -84,23 +83,4 @@ th { background: #f0f0f0; text-align: center; }
   <p style="color:#666;">{{ order.observacao }}</p>
 </div>
 {% endif %}
-{% endblock %}
-
-{% block scripts %}
-<script>
-function enviarWhatsApp() {
-  {% if ngrok_url %}
-  var pdfUrl = '{{ ngrok_url }}/pedidos/{{ order.id }}/pdf';
-  {% else %}
-  var pdfUrl = '{{ url_for("orders.pdf_order", id=order.id, _external=True) }}';
-  {% endif %}
-  var msg = 'Pedido #{{ order.id }} - Algodoce Doçaria\n\nConfira o PDF: ' + pdfUrl;
-  var tel = '{{ order.client.telefone or "" }}'.replace(/\D/g, '');
-  if (tel) {
-    window.open('https://wa.me/55' + tel + '?text=' + encodeURIComponent(msg), '_blank');
-  } else {
-    alert('Cliente sem telefone cadastrado.');
-  }
-}
-</script>
 {% endblock %}
