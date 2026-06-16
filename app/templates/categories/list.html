@@ -1,12 +1,23 @@
 {% extends "base.html" %}
 {% block cadastro_toolbar %}
-<h5 class="mb-0">Categorias</h5>
+<select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="if(this.value) window.location=this.value;">
+  <option value="?status=todos" {% if status == 'todos' %}selected{% endif %}>Todas</option>
+  <option value="?status=ativos" {% if status == 'ativos' %}selected{% endif %}>Ativas</option>
+  <option value="?status=inativos" {% if status == 'inativos' %}selected{% endif %}>Inativas</option>
+</select>
 <a href="{{ url_for('categories.new') }}" class="btn btn-sm btn-primary">Nova</a>
 {% endblock %}
 {% block content %}
 
 <div class="d-none d-lg-flex justify-content-between align-items-center mb-3">
-  <h2>Categorias</h2>
+  <div class="d-flex align-items-center gap-2">
+    <h2 class="mb-0">Categorias</h2>
+    <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value;">
+      <option value="?status=todos" {% if status == 'todos' %}selected{% endif %}>Todas</option>
+      <option value="?status=ativos" {% if status == 'ativos' %}selected{% endif %}>Ativas</option>
+      <option value="?status=inativos" {% if status == 'inativos' %}selected{% endif %}>Inativas</option>
+    </select>
+  </div>
   <a href="{{ url_for('categories.new') }}" class="btn btn-primary">Nova</a>
 </div>
 

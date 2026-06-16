@@ -3,7 +3,7 @@
 {% block content %}
 
 {% if product %}
-{% call form_nav(back_url=url_for('products.list'), nome='Produto #' ~ product.id, nav=nav, edit_endpoint='products.edit') %}
+{% call form_nav(back_url=url_for('products.list'), nome='Produto #' ~ product.id, nav=nav, edit_endpoint='products.edit', entity_id=product.id) %}
   <a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm">
     {{ 'Desativar' if product.ativo else 'Ativar' }}
   </a>

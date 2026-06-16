@@ -3,7 +3,7 @@ from flask_login import current_user
 from app.extensions import db
 from app.models.product import Product
 from app.models.category import Category
-from app.models.client import Client
+from app.models.client import Conta
 from app.models.quote import Quote
 from app.models.quote_item import QuoteItem
 from datetime import datetime, timezone
@@ -33,7 +33,7 @@ def adicionar(id):
     cliente_id = session.get("cliente_id")
     if not cliente_id:
         return jsonify(error="identificar"), 401
-    client = Client.query.get(cliente_id)
+    client = Conta.query.get(cliente_id)
     if not client:
         return jsonify(error="identificar"), 401
 

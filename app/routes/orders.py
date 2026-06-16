@@ -6,7 +6,7 @@ from flask_login import login_required
 import os
 from sqlalchemy import func
 from app.extensions import db
-from app.models.client import Client
+from app.models.client import Conta
 from app.models.product import Product
 from app.models.order import Order
 from app.models.order_item import OrderItem
@@ -171,19 +171,39 @@ def quote_detail(id):
 
 @bp.route("/orcamentos/<int:id>/converter", methods=["POST"])
 def converter_orcamento(id):
-    quote = Quote.query.get_or_404(id)
+    quote = Quote.query.get(id)
+    if not quote:
+        flash("Código inexistente", "warning")
+        return redirect(url_for("orders.orcamentos"))
     if quote.pedido_id:
         flash("Orçamento já foi convertido!", "warning")
         return redirect(url_for("orders.orcamentos"))
 
-    client_id = request.form.get("client_id", type=int)
-    client = Client.query.get(client_id)
-    if not client:
-        flash("Selecione um cliente para converter.", "warning")
-        return redirect(url_for("orders.quote_edit", id=id))
+    tipo = request.form.get("converter_tipo", "existente")
+
+    if tipo == "nova":
+        nome = request.form.get("novo_nome", "").strip()
+        telefone = request.form.get("novo_telefone", "").strip()
+        if not nome:
+            flash("Informe o nome da nova conta.", "warning")
+            return redirect(url_for("orders.quote_edit", id=id))
+        conta = Conta(
+            nome=nome,
+            telefone=telefone or None,
+            email=None,
+            tipo=0,
+        )
+        db.session.add(conta)
+        db.session.flush()
+    else:
+        client_id = request.form.get("client_id", type=int)
+        conta = Conta.query.get(client_id)
+        if not conta:
+            flash("Selecione um cliente para converter.", "warning")
+            return redirect(url_for("orders.quote_edit", id=id))
 
     order = Order(
-        client_id=client.id,
+        client_id=conta.id,
         data_entrega=None,
         observacao=quote.observacao,
         status=0,
@@ -218,7 +238,10 @@ def converter_orcamento(id):
 
 @bp.route("/orcamentos/<int:id>/editar", methods=["GET", "POST"])
 def quote_edit(id):
-    quote = Quote.query.get_or_404(id)
+    quote = Quote.query.get(id)
+    if not quote:
+        flash("Código inexistente", "warning")
+        return redirect(url_for("orders.orcamentos"))
 
     if request.method == "POST":
         if quote.pedido_id or quote.status == 9:
@@ -254,7 +277,7 @@ def quote_edit(id):
             order.quote_id = quote.id
             db.session.commit()
 
-    clients = Client.query.filter_by(ativo=True).order_by(Client.nome).all()
+    clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
 
     query = Quote.query.with_entities(Quote.id).order_by(Quote.id)
     ids = [q.id for q in query.all()]
@@ -320,7 +343,7 @@ def quote_new():
         "Aniversário", "Casamento", "Debutante", "Corporativo",
         "Infantil", "Família", "Confraternização", "Religioso", "Outros"
     ]
-    clients = Client.query.filter_by(ativo=True).order_by(Client.nome).all()
+    clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     return render_template(
         "orders/quote_form.html", quote=None, products=products,
         tipos_evento=tipos_evento, clients=clients, QUOTE_STATUS=QUOTE_STATUS
@@ -389,7 +412,7 @@ def new():
         flash("Pedido criado!", "success")
         return redirect(url_for("orders.list"))
 
-    clients = Client.query.filter_by(ativo=True).order_by(Client.nome).all()
+    clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
     return render_template(
         "orders/form.html", clients=clients, products=products,
@@ -399,7 +422,10 @@ def new():
 
 @bp.route("/pedidos/<int:id>/editar", methods=["GET", "POST"])
 def edit(id):
-    order = Order.query.get_or_404(id)
+    order = Order.query.get(id)
+    if not order:
+        flash("Código inexistente", "warning")
+        return redirect(url_for("orders.list"))
     if request.method == "POST":
         order.client_id = request.form["client_id"]
         data_pedido_str = request.form.get("data_pedido")
@@ -441,7 +467,7 @@ def edit(id):
             order.quote_id = q.id
             db.session.commit()
 
-    clients = Client.query.filter_by(ativo=True).order_by(Client.nome).all()
+    clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
 
     query = Order.query.with_entities(Order.id).order_by(Order.id)

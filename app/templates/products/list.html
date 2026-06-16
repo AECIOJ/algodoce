@@ -1,35 +1,25 @@
 {% extends "base.html" %}
 {% block cadastro_toolbar %}
-<h5 class="mb-0">Produtos</h5>
-<a href="{{ url_for('products.new') }}" class="btn btn-sm btn-primary">Novo</a>
+<a href="{{ url_for('products.new') }}" class="btn btn-sm btn-primary ms-auto">Novo</a>
 {% endblock %}
 {% block content %}
 
-<div class="d-none d-lg-flex row align-items-center mb-3">
-  <div class="col">
+<div class="d-none d-lg-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex align-items-center gap-2">
     <h2 class="mb-0">Produtos</h2>
+    <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
+      <option value="">Todas as categorias</option>
+      {% for cat in categories %}
+        <option value="{{ cat.nome }}">{{ cat.nome }}</option>
+      {% endfor %}
+    </select>
+    <select id="filter-ativo" class="form-select form-select-sm" style="width:auto;">
+      <option value="todos">Tudo</option>
+      <option value="ativos" selected>Ativos</option>
+      <option value="inativos">Inativos</option>
+    </select>
   </div>
-  <div class="col text-center">
-    <div class="d-inline-flex align-items-center gap-2">
-      <div class="autocomplete-wrapper" style="position:relative;">
-        <input type="text" id="search-input" class="form-control form-control-sm" style="width:200px;" placeholder="Buscar produto..." autocomplete="off">
-        <div id="search-results" class="dropdown-menu" style="position:absolute;top:100%;left:0;width:200px;max-height:200px;overflow-y:auto;"></div>
-      </div>
-      <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
-        <option value="">Todas as categorias</option>
-        {% for cat in categories %}
-          <option value="{{ cat.nome }}">{{ cat.nome }}</option>
-        {% endfor %}
-      </select>
-      <div class="form-check form-check-inline mb-0">
-        <input type="checkbox" class="form-check-input" id="filter-check" checked>
-        <label class="form-check-label small" for="filter-check">Ativos</label>
-      </div>
-    </div>
-  </div>
-  <div class="col text-end">
-    <a href="{{ url_for('products.new') }}" class="btn btn-primary">Novo</a>
-  </div>
+  <a href="{{ url_for('products.new') }}" class="btn btn-primary">Novo</a>
 </div>
 
 <!-- Mobile filters -->
@@ -40,10 +30,11 @@
       <option value="{{ cat.nome }}">{{ cat.nome }}</option>
     {% endfor %}
   </select>
-  <div class="form-check form-check-inline mb-0">
-    <input type="checkbox" class="form-check-input" id="filter-check-mobile" checked>
-    <label class="form-check-label small" for="filter-check-mobile">Ativos</label>
-  </div>
+  <select id="filter-ativo-mobile" class="form-select form-select-sm" style="width:auto;">
+    <option value="todos">Tudo</option>
+    <option value="ativos" selected>Ativos</option>
+    <option value="inativos">Inativos</option>
+  </select>
 </div>
 
 <div class="table-responsive table-scroll">
@@ -98,71 +89,31 @@
 {% endblock %}
 
 {% block scripts %}
-<style>
-.autocomplete-wrapper .dropdown-item { cursor: pointer; }
-.autocomplete-wrapper .dropdown-item:hover { background-color: #f8f9fa; }
-</style>
 <script>
-const searchInput = document.getElementById('search-input');
-const resultsDiv = document.getElementById('search-results');
-let timeout;
-
-searchInput.addEventListener('input', function() {
-  clearTimeout(timeout);
-  const q = this.value.trim();
-  if (q.length < 2) { resultsDiv.style.display = 'none'; return; }
-  timeout = setTimeout(() => {
-    fetch('/produtos/search?q=' + encodeURIComponent(q))
-      .then(r => r.json())
-      .then(data => {
-        resultsDiv.innerHTML = '';
-        if (data.length === 0) { resultsDiv.style.display = 'none'; return; }
-        data.forEach(p => {
-          const a = document.createElement('a');
-          a.className = 'dropdown-item';
-          a.href = '/produtos/' + p.id + '/editar';
-          a.textContent = p.nome;
-          resultsDiv.appendChild(a);
-        });
-        resultsDiv.style.display = 'block';
-      });
-  }, 300);
-});
-searchInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    const first = resultsDiv.querySelector('.dropdown-item');
-    if (first) location.href = first.href;
-  }
-});
-searchInput.addEventListener('blur', function() {
-  setTimeout(() => { resultsDiv.style.display = 'none'; }, 200);
-});
-searchInput.addEventListener('focus', function() {
-  if (resultsDiv.children.length > 0) resultsDiv.style.display = 'block';
-});
-
 function aplicarFiltro() {
-  const desktopCheck = document.getElementById('filter-check');
-  const mobileCheck = document.getElementById('filter-check-mobile');
+  const desktopAtivo = document.getElementById('filter-ativo');
+  const mobileAtivo = document.getElementById('filter-ativo-mobile');
   const desktopCat = document.getElementById('filter-categoria');
   const mobileCat = document.getElementById('filter-categoria-mobile');
   // Sync values
-  if (desktopCheck && mobileCheck) mobileCheck.checked = desktopCheck.checked;
+  if (desktopAtivo && mobileAtivo) mobileAtivo.value = desktopAtivo.value;
   if (desktopCat && mobileCat) mobileCat.value = desktopCat.value;
-  const ativos = desktopCheck.checked;
+  const ativoFiltro = desktopAtivo.value;
   const cat = desktopCat.value;
   document.querySelectorAll('tbody tr').forEach(row => {
     const ativo = row.dataset.ativo === 'true';
     const categoria = row.dataset.categoria;
-    const mostraAtivo = !ativos || ativo;
+    let mostraAtivo = true;
+    if (ativoFiltro === 'ativos') mostraAtivo = ativo;
+    else if (ativoFiltro === 'inativos') mostraAtivo = !ativo;
     const mostraCat = !cat || categoria === cat;
     row.style.display = (mostraAtivo && mostraCat) ? '' : 'none';
   });
 }
-document.getElementById('filter-check').addEventListener('change', aplicarFiltro);
+document.getElementById('filter-ativo').addEventListener('change', aplicarFiltro);
 document.getElementById('filter-categoria').addEventListener('change', aplicarFiltro);
-document.getElementById('filter-check-mobile').addEventListener('change', function() {
-  document.getElementById('filter-check').checked = this.checked;
+document.getElementById('filter-ativo-mobile').addEventListener('change', function() {
+  document.getElementById('filter-ativo').value = this.value;
   aplicarFiltro();
 });
 document.getElementById('filter-categoria-mobile').addEventListener('change', function() {

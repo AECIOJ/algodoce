@@ -3,28 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='icons/favicon.ico') }}">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32x32.png') }}">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/favicon-16x16.png') }}">
   <title>ALGODOCE</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
   <style>
     .navbar-nav .nav-link.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
     .cadastro-section { background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
-    .cadastro-section .navbar-toggler {
-      border: 1px solid #e91e63; padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-    }
-    .cadastro-section .navbar-toggler-icon {
-      display: inline-block; width: 1.2em; height: 1.2em;
-      vertical-align: middle;
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23e91e63' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
-    }
-    .cadastro-section .bar-link {
-      display: block; padding: 0.6rem 1rem;
-      color: #e91e63; font-weight: 500; text-decoration: none;
-      text-align: center; border-bottom: 1px solid #f0f0f0;
-    }
-    .cadastro-section .bar-link:last-child { border-bottom: none; }
-    .cadastro-section .bar-link.active { background: #fce4ec; }
     .bar-link-lg.active { border-bottom-color: #e91e63 !important; }
   </style>
 </head>
@@ -42,28 +29,24 @@
       <div class="navbar-nav d-flex flex-wrap justify-content-center gap-1 px-2 w-100">
         <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu">Cadastro</a>
         <a class="nav-link" href="/orcamentos" id="comercialMenu">Comercial</a>
-        <a class="nav-link" href="/relatorios/compras">Compras</a>
+
         <a class="nav-link ms-lg-3" href="/logout" style="color: #fff !important;">🚪 Sair</a>
       </div>
     </nav>
     <div class="cadastro-section py-1 d-none" id="cadastroSection">
       <div class="container">
         {% if request.endpoint and request.endpoint.endswith('.list') %}
-        <!-- Mobile: toolbar row -->
+        <!-- Mobile: toolbar row with select -->
         <div class="d-lg-none d-flex align-items-center gap-2">
-          <button class="navbar-toggler flex-shrink-0" type="button" data-bs-toggle="collapse" data-bs-target="#cadastroCollapse" aria-expanded="false">
-            <span class="navbar-toggler-icon"></span>
-          </button>
+          <select class="form-select fw-bold border-0 pe-4" style="font-size:1.25rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+            <option value="{{ url_for('categories.list') }}" {% if request.path.startswith('/categorias') %}selected{% endif %}>Categorias</option>
+            <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/ingredientes') %}selected{% endif %}>Ingredientes</option>
+            <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
+            <option value="{{ url_for('contas.list') }}" {% if request.path.startswith('/contas') %}selected{% endif %}>Contas</option>
+          </select>
           <div class="d-flex align-items-center justify-content-between w-100">
             {% block cadastro_toolbar %}{% endblock %}
           </div>
-        </div>
-        <!-- Mobile: collapse (vertical) -->
-        <div class="collapse d-lg-none" id="cadastroCollapse">
-          <a href="{{ url_for('categories.list') }}" class="bar-link">Categorias</a>
-          <a href="{{ url_for('ingredients.list') }}" class="bar-link">Ingredientes</a>
-          <a href="{{ url_for('products.list') }}" class="bar-link">Produtos</a>
-          <a href="{{ url_for('clients.list') }}" class="bar-link">Clientes</a>
         </div>
         {% endif %}
         <!-- Desktop: horizontal bar (always visible) -->
@@ -71,7 +54,30 @@
           <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
           <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Ingredientes</a>
           <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
-          <a href="{{ url_for('clients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Clientes</a>
+          <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas</a>
+        </div>
+      </div>
+    </div>
+    <div class="cadastro-section py-1 d-none" id="comercialSection">
+      <div class="container">
+        {% if request.path.startswith('/orcamentos') or request.path.startswith('/pedidos') or request.path.startswith('/relatorios/compras') %}
+        <!-- Mobile: title row with select + toolbar -->
+        <div class="d-lg-none d-flex align-items-center gap-2">
+          <select class="form-select fw-bold border-0 pe-4" style="font-size:1.25rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+            <option value="/orcamentos" {% if request.path.startswith('/orcamentos') %}selected{% endif %}>Orçamentos</option>
+            <option value="/pedidos" {% if request.path.startswith('/pedidos') %}selected{% endif %}>Pedidos</option>
+            <option value="/relatorios/compras" {% if request.path.startswith('/relatorios/compras') %}selected{% endif %}>Compras</option>
+          </select>
+          <div class="d-flex align-items-center justify-content-between w-100">
+            {% block comercial_toolbar %}{% endblock %}
+          </div>
+        </div>
+        {% endif %}
+        <!-- Desktop: horizontal bar (always visible) -->
+        <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+          <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Orçamentos</a>
+          <a href="/pedidos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Pedidos</a>
+          <a href="/relatorios/compras" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Compras</a>
         </div>
       </div>
     </div>
@@ -133,6 +139,36 @@
     });
   </script>
   {% block scripts %}{% endblock %}
+
+<script>
+document.getElementById('nav-title')?.addEventListener('click', function() {
+  if (!this.dataset.entityId) return;
+  if (document.getElementById('nav-id-input')) return;
+  const currentId = this.dataset.entityId;
+  const baseUrl = this.dataset.editUrl;
+  const originalText = this.textContent;
+
+  this.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;">' +
+    '<input type="number" id="nav-id-input" class="form-control form-control-sm" style="width:80px;" value="' + currentId + '" min="1">' +
+    '<button id="nav-id-ok" class="btn btn-sm btn-primary">OK</button>' +
+    '<button id="nav-id-cancel" class="btn btn-sm btn-outline-secondary">Cancelar</button>' +
+    '</span>';
+
+  document.getElementById('nav-id-input')?.focus();
+  document.getElementById('nav-id-input')?.select();
+
+  document.getElementById('nav-id-ok').addEventListener('click', function(e) {
+    e.stopPropagation();
+    const id = document.getElementById('nav-id-input').value;
+    if (id) window.location = baseUrl.replace('999999', id);
+  });
+
+  document.getElementById('nav-id-cancel').addEventListener('click', function(e) {
+    e.stopPropagation();
+    document.getElementById('nav-title').textContent = originalText;
+  });
+});
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -205,18 +241,22 @@ function parseDate(str) {
     if (menuLink) setActive(menuLink);
     if (section) {
       section.classList.remove('d-none');
-      section.querySelectorAll('.bar-link, .bar-link-lg').forEach(function(l) {
+      section.querySelectorAll('.bar-link-lg').forEach(function(l) {
         if (path.indexOf(l.getAttribute('href')) === 0) l.classList.add('active');
       });
     }
   }
 
   var path = window.location.pathname;
-  var cadastroPaths = ['/categorias', '/ingredientes', '/produtos', '/clientes'];
+  var cadastroPaths = ['/categorias', '/ingredientes', '/produtos', '/contas'];
+  var comercialPaths = ['/orcamentos', '/pedidos', '/relatorios/compras'];
   var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });
+  var onComercial = comercialPaths.some(function(p) { return path.indexOf(p) === 0; });
 
   if (onCadastro) {
     activateSection(cadastroSection, 'cadastroMenu', path);
+  } else if (onComercial) {
+    activateSection(document.getElementById('comercialSection'), 'comercialMenu', path);
   } else {
     links.forEach(function(l) {
       var href = l.getAttribute('href');

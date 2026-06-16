@@ -2,18 +2,20 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>{{ client.nome }}</h2>
-  <a href="{{ url_for('clients.list') }}" class="btn btn-outline-secondary">Voltar</a>
+  <h2>{{ conta.nome }}</h2>
+  <a href="{{ url_for('contas.list') }}" class="btn btn-outline-secondary btn-sm">
+    <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
+  </a>
 </div>
 
 {% set s = url_for('static', filename='setas/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
-    <a href="{{ url_for('clients.detail', id=nav.first_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Primeiro">
+    <a href="{{ url_for('contas.detail', id=nav.first_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Primeiro">
       <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
     </a>
     {% if nav.prev_id %}
-      <a href="{{ url_for('clients.detail', id=nav.prev_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Anterior">
+      <a href="{{ url_for('contas.detail', id=nav.prev_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Anterior">
         <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
       </a>
     {% else %}
@@ -24,16 +26,16 @@
   </div>
   <div class="autocomplete-wrapper" style="display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; margin: 0 6px; position: relative;">
     <span class="small">Ir para:</span>
-    <input type="text" id="client-search" class="form-control form-control-sm" style="width: 200px;" placeholder="Buscar cliente..." autocomplete="off">
+    <input type="text" id="conta-search" class="form-control form-control-sm" style="width: 200px;" placeholder="Buscar conta..." autocomplete="off">
     <div id="search-results" class="dropdown-menu" style="position: absolute; top: 100%; left: 54px; width: 200px; max-height: 200px; overflow-y: auto;"></div>
   </div>
   <div class="form-check form-check-inline ms-2">
     <input type="checkbox" class="form-check-input" id="filter-check" {{ 'checked' if ativos }}>
-    <label class="form-check-label small" for="filter-check">Clientes ativos</label>
+    <label class="form-check-label small" for="filter-check">Contas ativas</label>
   </div>
   <div class="btn-group btn-group-sm" role="group">
     {% if nav.next_id %}
-      <a href="{{ url_for('clients.detail', id=nav.next_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Próximo">
+      <a href="{{ url_for('contas.detail', id=nav.next_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Próximo">
         <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
       </a>
     {% else %}
@@ -41,7 +43,7 @@
         <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
       </a>
     {% endif %}
-    <a href="{{ url_for('clients.detail', id=nav.last_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Último">
+    <a href="{{ url_for('contas.detail', id=nav.last_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Último">
       <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
     </a>
   </div>
@@ -50,18 +52,18 @@
 <div class="row mb-4">
   <div class="col-md-12">
     <div class="card">
-      <div class="card-header"><strong>Informações do Cliente</strong></div>
+      <div class="card-header"><strong>Informações da Conta</strong></div>
       <div class="card-body">
         <div class="row">
           <div class="col-md-6">
-            <p class="mb-1"><strong>Email:</strong> {{ client.email or '—' }}</p>
-            <p class="mb-1"><strong>Telefone:</strong> {{ client.telefone or '—' }}</p>
+            <p class="mb-1"><strong>Email:</strong> {{ conta.email or '—' }}</p>
+            <p class="mb-1"><strong>Telefone:</strong> {{ conta.telefone or '—' }}</p>
           </div>
           <div class="col-md-6">
-            <p class="mb-1"><strong>Endereço:</strong> {{ client.endereco or '—' }}</p>
+            <p class="mb-1"><strong>Endereço:</strong> {{ conta.endereco or '—' }}</p>
             <p class="mb-0">
               <strong>Ativo:</strong>
-              {% if client.ativo %}
+              {% if conta.ativo %}
                 <span class="badge bg-success">Sim</span>
                 {% else %}
                 <span class="badge bg-light text-muted border">Não</span>
@@ -107,7 +109,7 @@
             </tr>
           {% else %}
             <tr>
-              <td colspan="6" class="text-center text-muted">Nenhum pedido encontrado para este cliente.</td>
+              <td colspan="6" class="text-center text-muted">Nenhum pedido encontrado para esta conta.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -117,7 +119,7 @@
 </div>
 
 <div class="d-flex gap-2">
-  <a href="{{ url_for('clients.edit', id=client.id) }}" class="btn btn-primary">Editar</a>
+  <a href="{{ url_for('contas.edit', id=conta.id) }}" class="btn btn-primary">Editar</a>
 </div>
 
 {% endblock %}
@@ -132,7 +134,7 @@
 }
 </style>
 <script>
-const searchInput = document.getElementById('client-search');
+const searchInput = document.getElementById('conta-search');
 const resultsDiv = document.getElementById('search-results');
 let timeout;
 
@@ -144,7 +146,7 @@ searchInput.addEventListener('input', function() {
     return;
   }
   timeout = setTimeout(() => {
-    fetch('/clientes/search?q=' + encodeURIComponent(q))
+    fetch('/contas/search?q=' + encodeURIComponent(q))
       .then(r => r.json())
       .then(data => {
         resultsDiv.innerHTML = '';
@@ -155,7 +157,7 @@ searchInput.addEventListener('input', function() {
         data.forEach(c => {
           const a = document.createElement('a');
           a.className = 'dropdown-item';
-          a.href = '/clientes/' + c.id;
+          a.href = '/contas/' + c.id;
           a.textContent = c.nome;
           resultsDiv.appendChild(a);
         });

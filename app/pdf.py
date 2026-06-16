@@ -39,7 +39,7 @@ def gerar_pdf_pedido(order, logo_path):
 
     # Client info
     pdf.set_font("Helvetica", "", 10)
-    client = order.client
+    client = order.conta
     col_left = 10
     col_right = pdf.w - 10
     mid = pdf.w / 2

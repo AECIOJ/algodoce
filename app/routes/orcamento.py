@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from app.extensions import db
-from app.models.client import Client
+from app.models.client import Conta
 from app.models.quote import Quote
 from app.models.quote_item import QuoteItem
 from app.models.event import Event
@@ -48,7 +48,7 @@ def lista():
     items = []
     quote = None
     if cliente_id:
-        cliente = Client.query.get(cliente_id)
+        cliente = Conta.query.get(cliente_id)
         if cliente:
             quote = Quote.query.filter_by(
                 cliente_telefone=cliente.telefone, status=0
@@ -94,8 +94,7 @@ def salvar_tudo():
     if not cliente_id:
         return redirect(url_for("orcamento.lista"))
 
-    from app.models.client import Client
-    cliente = Client.query.get(cliente_id)
+    cliente = Conta.query.get(cliente_id)
     if not cliente:
         return redirect(url_for("orcamento.lista"))
 
@@ -135,9 +134,9 @@ def identificar():
     if not telefone or not nome:
         return jsonify(error="Telefone e nome são obrigatórios"), 400
 
-    cliente = Client.query.filter_by(telefone=telefone).first()
+    cliente = Conta.query.filter_by(telefone=telefone).first()
     if not cliente:
-        cliente = Client(nome=nome, telefone=telefone, email=f"{telefone}@temp.com")
+        cliente = Conta(nome=nome, telefone=telefone, email=f"{telefone}@temp.com")
         cliente.ativo = True
         db.session.add(cliente)
         db.session.flush()
@@ -154,7 +153,7 @@ def enviar():
     cliente_id = session.get("cliente_id")
     if not cliente_id:
         return redirect(url_for("orcamento.lista"))
-    cliente = Client.query.get(cliente_id)
+    cliente = Conta.query.get(cliente_id)
     if not cliente:
         return redirect(url_for("orcamento.lista"))
 

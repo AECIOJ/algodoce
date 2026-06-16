@@ -59,10 +59,10 @@ def create_app():
         return User.query.get(int(user_id))
 
     with app.app_context():
-        from app.routes import clients, products, ingredients, orders, reports
+        from app.routes import clients as contas, products, ingredients, orders, reports
         from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca
 
-        app.register_blueprint(clients.bp)
+        app.register_blueprint(contas.bp)
         app.register_blueprint(products.bp)
         app.register_blueprint(ingredients.bp)
         app.register_blueprint(orders.bp)
@@ -75,7 +75,7 @@ def create_app():
         app.register_blueprint(categories.bp)
         app.register_blueprint(seguranca.bp)
 
-        from app.models import client, product, ingredient, product_ingredient, unit_conversion, order, category, quote  # noqa
+        from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote  # noqa
         from app.models.event import Event  # noqa
         from app.models.quote_item import QuoteItem  # noqa
         from app.models.order_item import OrderItem  # noqa

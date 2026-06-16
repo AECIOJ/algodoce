@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% from "components/form_nav.html" import form_nav %}
+{% block content %}
+
+{% if conta %}
+{% call form_nav(back_url=url_for('contas.list'), nome='Conta #' ~ conta.id, nav=nav, edit_endpoint='contas.edit', entity_id=conta.id) %}
+  <a href="{{ url_for('contas.toggle', id=conta.id) }}" class="btn btn-{{ 'success' if conta.ativo else 'outline-secondary' }} btn-sm">
+    {{ 'Desativar' if conta.ativo else 'Ativar' }}
+  </a>
+{% endcall %}
+{% endif %}
+
+<form method="POST">
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label class="form-label">Nome *</label>
+      <input type="text" name="nome" class="form-control" required value="{{ conta.nome if conta else '' }}">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Tipo</label>
+      <select name="tipo" class="form-select">
+        {% for val, label in TIPO_CONTA.items() %}
+          <option value="{{ val }}" {{ 'selected' if conta and conta.tipo == val }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Telefone</label>
+      <input type="text" name="telefone" class="form-control" value="{{ conta.telefone or '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Email</label>
+      <input type="text" name="email" class="form-control" value="{{ conta.email or '' }}">
+    </div>
+  </div>
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label class="form-label">CPF</label>
+      <input type="text" name="cpf" class="form-control" value="{{ conta.cpf or '' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">CNPJ</label>
+      <input type="text" name="cnpj" class="form-control" value="{{ conta.cnpj or '' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Inscrição Estadual</label>
+      <input type="text" name="insc_estadual" class="form-control" value="{{ conta.insc_estadual or '' }}">
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Endereço</label>
+    <textarea name="endereco" class="form-control" rows="2">{{ conta.endereco or '' }}</textarea>
+  </div>
+  <button type="submit" class="btn btn-primary">{% if conta %}Salvar{% else %}Criar Conta{% endif %}</button>
+  <a href="{{ url_for('contas.list') }}" class="btn btn-outline-secondary">Cancelar</a>
+</form>
+
+{% if conta %}
+<div class="card mb-4">
+  <div class="card-header"><strong>Pedidos ({{ orders|length }})</strong></div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0 sortable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Data Pedido</th>
+            <th>Data Entrega</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in orders %}
+            <tr>
+              <td>{{ o.id }}</td>
+              <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
+              <td>R$ {{ (o.total or 0) | brl }}</td>
+              <td>
+                <span class="badge bg-{{ 'warning' if o.status == 0 else 'info' if o.status == 1 else 'success' if o.status == 2 else 'secondary' if o.status == 9 else 'danger' }}">
+                  {{ ORDER_STATUS[o.status] }}
+                </span>
+              </td>
+              <td>
+                <a href="{{ url_for('orders.edit', id=o.id) }}" class="btn btn-sm btn-outline-info">Detalhes</a>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="6" class="text-center text-muted">Nenhum pedido encontrado para esta conta.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/phone-mask.js') }}"></script>
+<script>
+function cpfValido(n) {
+  var s = n.replace(/\D/g, '');
+  if (s.length !== 11) return false;
+  if (/^(\d)\1+$/.test(s)) return false;
+  var soma = 0;
+  for (var i = 1; i <= 9; i++) soma += parseInt(s.charAt(i - 1)) * (11 - i);
+  var resto = (soma * 10) % 11;
+  if (resto === 10) resto = 0;
+  if (resto !== parseInt(s.charAt(9))) return false;
+  soma = 0;
+  for (var i = 1; i <= 10; i++) soma += parseInt(s.charAt(i - 1)) * (12 - i);
+  resto = (soma * 10) % 11;
+  if (resto === 10) resto = 0;
+  return resto === parseInt(s.charAt(10));
+}
+
+function cnpjValido(n) {
+  var s = n.replace(/\D/g, '');
+  if (s.length !== 14) return false;
+  if (/^(\d)\1+$/.test(s)) return false;
+  var w1 = [5,4,3,2,9,8,7,6,5,4,3,2];
+  var soma = 0;
+  for (var i = 0; i < 12; i++) soma += parseInt(s.charAt(i)) * w1[i];
+  var resto = soma % 11;
+  var d1 = resto < 2 ? 0 : 11 - resto;
+  if (d1 !== parseInt(s.charAt(12))) return false;
+  var w2 = [6,5,4,3,2,9,8,7,6,5,4,3,2];
+  soma = 0;
+  for (var i = 0; i < 13; i++) soma += parseInt(s.charAt(i)) * w2[i];
+  resto = soma % 11;
+  var d2 = resto < 2 ? 0 : 11 - resto;
+  return d2 === parseInt(s.charAt(13));
+}
+
+function docToggle() {
+  var cpf = document.querySelector('input[name="cpf"]');
+  var cnpj = document.querySelector('input[name="cnpj"]');
+  var ie = document.querySelector('input[name="insc_estadual"]');
+  var temCpf = cpf.value.replace(/\D/g, '').length > 0;
+  var temCnpj = cnpj.value.replace(/\D/g, '').length > 0;
+  cnpj.disabled = temCpf;
+  cpf.disabled = temCnpj;
+  ie.disabled = !temCnpj;
+}
+
+function validarDoc(input, tipo) {
+  var v = input.value.replace(/\D/g, '');
+  if (!v) { input.setCustomValidity(''); return; }
+  var valido = tipo === 'cpf' ? cpfValido(v) : cnpjValido(v);
+  if (!valido) {
+    input.setCustomValidity(tipo === 'cpf' ? 'CPF inválido' : 'CNPJ inválido');
+  } else {
+    input.setCustomValidity('');
+  }
+  input.reportValidity();
+}
+
+document.querySelectorAll('input[name="cpf"], input[name="cnpj"]').forEach(function(el) {
+  el.addEventListener('input', docToggle);
+  el.addEventListener('blur', function() {
+    validarDoc(this, this.name);
+  });
+});
+
+docToggle();
+</script>
+{% endblock %}

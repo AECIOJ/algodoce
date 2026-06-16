@@ -1,11 +1,11 @@
 {% extends "base.html" %}
+{% block comercial_toolbar %}
+<a href="{{ url_for('orders.new') }}" class="btn btn-primary text-nowrap ms-auto" style="flex-shrink:0;">+ Novo</a>
+{% endblock %}
 {% block content %}
 
-<div class="d-flex align-items-baseline mb-1 gap-1">
-  <select class="form-select fw-bold border-0 pe-4" style="font-size:1.25rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
-    <option value="/orcamentos">Orçamentos</option>
-    <option value="/pedidos" selected>Pedidos</option>
-  </select>
+<div class="d-none d-lg-flex align-items-baseline mb-1 gap-1">
+  <h2 class="mb-0">Pedidos</h2>
   <select id="filter-status" class="form-select" style="width:auto;min-width:80px;" onchange="filtrarPedidos(this.value)">
     <option value="todos" selected>Todos</option>
     <option value="0">Pendente</option>
@@ -14,6 +14,16 @@
     <option value="9">Entregue</option>
   </select>
   <a href="{{ url_for('orders.new') }}" class="btn btn-primary text-nowrap ms-auto" style="flex-shrink:0;">+ Novo</a>
+</div>
+
+<div class="d-lg-none mb-2">
+  <select id="filter-status-mobile" class="form-select" style="width:auto;min-width:80px;" onchange="filtrarPedidos(this.value)">
+    <option value="todos" selected>Todos</option>
+    <option value="0">Pendente</option>
+    <option value="1">Produzindo</option>
+    <option value="2">Pronto</option>
+    <option value="9">Entregue</option>
+  </select>
 </div>
 
 {% block scripts %}
@@ -51,7 +61,7 @@ function filtrarPedidos(filtro) {
               <a href="{{ url_for('orders.quote_edit', id=o.quote_id) }}" class="btn btn-sm btn-outline-info" style="min-width:90px">{{ o.quote_id }}</a>
             {% endif %}
           </td>
-          <td>{{ o.client.nome }}</td>
+          <td>{{ o.conta.nome }}</td>
           <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
           <td>{{ o.data_previsao_entrega.strftime('%d/%m/%Y %H:%M') if o.data_previsao_entrega else '-' }}</td>
           <td>{{ o.data_entrega.strftime('%d/%m/%Y %H:%M') if o.data_entrega else '-' }}</td>

@@ -7,6 +7,7 @@
       <option value="/dashboard" selected>Produção</option>
       <option value="/orcamentos">Orçamentos</option>
       <option value="/pedidos">Pedidos</option>
+      <option value="/relatorios/compras">Compras</option>
     </select>
     <a href="{{ url_for('orders.new') }}" class="btn btn-primary btn-sm text-nowrap">Novo Pedido</a>
   </div>
@@ -14,6 +15,7 @@
     <option value="/dashboard" selected>Produção</option>
     <option value="/orcamentos">Orçamentos</option>
     <option value="/pedidos">Pedidos</option>
+    <option value="/relatorios/compras">Compras</option>
   </select>
   <div class="d-flex align-items-center gap-2 gap-md-3 flex-wrap justify-content-center flex-fill">
     <div class="form-check form-check-inline mb-0">
@@ -66,7 +68,7 @@
           {% for o in lista %}
           <tr class="clickable-row" data-href="{{ url_for('orders.edit', id=o.id) }}" style="cursor:pointer">
             <td>{{ o.id }}</td>
-            <td>{{ o.client.nome }}</td>
+            <td>{{ o.conta.nome }}</td>
             <td style="white-space:nowrap;">{{ o.data_pedido.strftime('%d/%m/%Y') }}</td>
             <td style="white-space:nowrap;">{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
             <td class="d-none d-sm-table-cell" style="white-space:nowrap;">R$ {{ (o.total or 0) | brl }}</td>

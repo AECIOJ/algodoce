@@ -7,7 +7,7 @@ class Order(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     client_id = db.Column(
-        db.Integer, db.ForeignKey("clients.id"), nullable=False
+        db.Integer, db.ForeignKey("conta.id"), nullable=False
     )
     data_pedido = db.Column(
         db.DateTime, nullable=False,

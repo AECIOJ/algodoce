@@ -5,7 +5,7 @@
 <h2>{{ 'Editar' if category else 'Nova' }} Categoria</h2>
 
 {% if category %}
-{% call form_nav(back_url=url_for('categories.list'), nome='Categoria #' ~ category.id, nav=nav, edit_endpoint='categories.edit') %}
+{% call form_nav(back_url=url_for('categories.list'), nome='Categoria #' ~ category.id, nav=nav, edit_endpoint='categories.edit', entity_id=category.id) %}
   <a href="{{ url_for('categories.toggle', id=category.id) }}" class="btn btn-{{ 'success' if category.ativo else 'outline-secondary' }} btn-sm">
     {{ 'Desativar' if category.ativo else 'Ativar' }}
   </a>
@@ -35,3 +35,5 @@
 </form>
 
 {% endblock %}
+
+

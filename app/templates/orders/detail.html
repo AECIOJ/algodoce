@@ -3,7 +3,9 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Pedido #{{ order.id }}</h2>
-  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary">Voltar</a>
+  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary btn-sm">
+    <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
+  </a>
 </div>
 
 {% set s = url_for('static', filename='setas/') %}
@@ -47,9 +49,9 @@
     <div class="card">
       <div class="card-header"><strong>Cliente</strong></div>
       <div class="card-body">
-        <p class="mb-1"><strong>{{ order.client.nome }}</strong></p>
-        <p class="mb-1">{{ order.client.email or '' }}</p>
-        <p class="mb-0">{{ order.client.telefone or '' }}</p>
+        <p class="mb-1"><strong>{{ order.conta.nome }}</strong></p>
+        <p class="mb-1">{{ order.conta.email or '' }}</p>
+        <p class="mb-0">{{ order.conta.telefone or '' }}</p>
       </div>
     </div>
   </div>

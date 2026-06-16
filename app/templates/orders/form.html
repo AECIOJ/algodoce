@@ -13,7 +13,7 @@
   </select>
 </form>
 {% endset %}
-{% call form_nav(back_url=url_for('orders.list'), nome='Pedido #' ~ order.id, nav=nav, edit_endpoint='orders.edit', status=status_html) %}
+{% call form_nav(back_url=url_for('orders.list'), nome='Pedido #' ~ order.id, nav=nav, edit_endpoint='orders.edit', entity_id=order.id, status=status_html) %}
   {% if order.quote_id %}
     <a href="{{ url_for('orders.quote_edit', id=order.quote_id) }}" class="btn btn-outline-info btn-sm">Orçamento #{{ order.quote_id }}</a>
   {% endif %}
@@ -39,7 +39,7 @@
     <div class="col">
       <label class="form-label">Telefone</label>
       <div class="input-group">
-        <input type="text" name="cliente_telefone" class="form-control" readonly value="{{ order.client.telefone if order and order.client else '' }}">
+        <input type="text" name="cliente_telefone" class="form-control" readonly value="{{ order.conta.telefone if order and order.conta else '' }}">
         <a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success">Enviar</a>
       </div>
     </div>
@@ -186,7 +186,9 @@
 
   <input type="hidden" name="status" value="{{ order.status if order else 0 }}">
   <button type="submit" class="btn btn-primary">{% if order %}Salvar{% else %}Criar Pedido{% endif %}</button>
-  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary">Voltar</a>
+  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary btn-sm">
+    <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
+  </a>
 </form>
 
 {% endblock %}

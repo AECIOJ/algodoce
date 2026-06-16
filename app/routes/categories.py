@@ -14,8 +14,14 @@ def protect():
 
 @bp.route("/")
 def list():
-    categorias = Category.query.order_by(Category.ordem, Category.nome).all()
-    return render_template("categories/list.html", categorias=categorias)
+    status = request.args.get("status", "todos")
+    query = Category.query.order_by(Category.ordem, Category.nome)
+    if status == "ativos":
+        query = query.filter_by(ativo=True)
+    elif status == "inativos":
+        query = query.filter_by(ativo=False)
+    categorias = query.all()
+    return render_template("categories/list.html", categorias=categorias, status=status)
 
 
 @bp.route("/novo", methods=["GET", "POST"])
@@ -35,7 +41,10 @@ def new():
 
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
 def edit(id):
-    category = Category.query.get_or_404(id)
+    category = Category.query.get(id)
+    if not category:
+        flash("Código inexistente", "warning")
+        return redirect(url_for("categories.list"))
     if request.method == "POST":
         category.nome = request.form["nome"]
         category.ativo = request.form.get("ativo") in ("on", "1", 1, True)
@@ -44,7 +53,7 @@ def edit(id):
         flash("Categoria atualizada!", "success")
         return redirect(url_for("categories.list"))
 
-    query = Category.query.with_entities(Category.id).order_by(Category.ordem, Category.nome)
+    query = Category.query.with_entities(Category.id).order_by(Category.id)
     ids = [c.id for c in query.all()]
     try:
         current_idx = ids.index(id)

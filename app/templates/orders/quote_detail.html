@@ -3,7 +3,9 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Orçamento #{{ quote.id }}</h2>
-  <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary">Voltar</a>
+  <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary btn-sm">
+    <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
+  </a>
 </div>
 
 {% set s = url_for('static', filename='setas/') %}

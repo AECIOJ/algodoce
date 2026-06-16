@@ -37,7 +37,10 @@ def new():
 
 @bp.route("/ingredientes/<int:id>/editar", methods=["GET", "POST"])
 def edit(id):
-    ingredient = Ingredient.query.get_or_404(id)
+    ingredient = Ingredient.query.get(id)
+    if not ingredient:
+        flash("Código inexistente", "warning")
+        return redirect(url_for("ingredients.list"))
     if request.method == "POST":
         ingredient.nome = request.form["nome"]
         ingredient.unidade_medida = request.form["unidade_medida"]
@@ -59,7 +62,7 @@ def edit(id):
         flash("Ingrediente atualizado!", "success")
         return redirect(url_for("ingredients.list"))
 
-    query = Ingredient.query.with_entities(Ingredient.id).order_by(Ingredient.nome)
+    query = Ingredient.query.with_entities(Ingredient.id).order_by(Ingredient.id)
     ids = [i.id for i in query.all()]
     try:
         current_idx = ids.index(id)
@@ -92,7 +95,7 @@ def edit(id):
 def detail(id):
     ingredient = Ingredient.query.get_or_404(id)
 
-    query = Ingredient.query.with_entities(Ingredient.id).order_by(Ingredient.nome)
+    query = Ingredient.query.with_entities(Ingredient.id).order_by(Ingredient.id)
     ids = [i.id for i in query.all()]
 
     try:

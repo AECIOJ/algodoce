@@ -32,9 +32,9 @@ th { background: #f0f0f0; text-align: center; }
 <div class="row mb-4">
   <div class="col-6">
     <strong>Cliente:</strong><br>
-    {{ order.client.nome }}<br>
-    {{ order.client.telefone or '' }}<br>
-    {{ order.client.email or '' }}
+    {{ order.conta.nome }}<br>
+    {{ order.conta.telefone or '' }}<br>
+    {{ order.conta.email or '' }}
   </div>
   <div class="col-6 text-end">
     <strong>Data do Pedido:</strong><br>

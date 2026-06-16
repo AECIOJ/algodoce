@@ -83,7 +83,10 @@ def new():
 
 @bp.route("/produtos/<int:id>/editar", methods=["GET", "POST"])
 def edit(id):
-    product = Product.query.get_or_404(id)
+    product = Product.query.get(id)
+    if not product:
+        flash("Código inexistente", "warning")
+        return redirect(url_for("products.list"))
     if request.method == "POST":
         product.nome = request.form["nome"]
         product.descricao = request.form.get("descricao", "")

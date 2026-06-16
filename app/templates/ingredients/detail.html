@@ -6,7 +6,9 @@
   <div>
     <button type="button" class="btn btn-outline-danger" data-ingrediente-id="{{ ingredient.id }}" data-ingrediente-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
     <a href="{{ url_for('ingredients.edit', id=ingredient.id) }}" class="btn btn-primary">Editar</a>
-    <a href="{{ url_for('ingredients.list') }}" class="btn btn-outline-secondary">Voltar</a>
+    <a href="{{ url_for('ingredients.list') }}" class="btn btn-outline-secondary btn-sm">
+      <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
+    </a>
   </div>
 </div>
 
