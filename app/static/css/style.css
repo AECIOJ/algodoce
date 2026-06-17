@@ -39,3 +39,75 @@ body {
   top: 0;
   z-index: 1;
 }
+
+.form-nav-wrap {
+  justify-content: center;
+  background: #fdf2f5;
+  z-index: 102;
+}
+.form-nav-wrap .nav-side {
+  flex: 1;
+}
+
+@media (max-width: 991.98px) {
+  .form-nav-wrap {
+    flex-wrap: wrap;
+    row-gap: 0.2rem;
+    background: #fff;
+    border-radius: 8px;
+    padding: 0.3rem 0.5rem;
+    margin-left: 0;
+    margin-right: 0;
+    justify-content: center;
+  }
+  .form-nav-wrap .nav-side {
+    flex: 0 0 auto !important;
+  }
+  .form-nav-wrap > .d-flex.align-items-center.gap-1 {
+    min-width: 0;
+    flex: 0 1 auto;
+    gap: 0.15rem;
+  }
+  .form-nav-wrap .nav-title {
+    font-size: 0.95rem !important;
+    margin-left: 0.25rem !important;
+    margin-right: 0.25rem !important;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .form-nav-wrap .btn {
+    padding: 0.2rem 0.35rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+  .form-nav-wrap .btn img {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* === Paginas de listagem: sem scroll na pagina === */
+html.list-page,
+html.list-page body {
+  height: 100%;
+  overflow: hidden;
+}
+html.list-page body {
+  display: flex;
+  flex-direction: column;
+}
+html.list-page main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-bottom: 0 !important;
+}
+html.list-page .table-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  max-height: none !important;
+}

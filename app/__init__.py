@@ -8,7 +8,7 @@ from app.extensions import db, migrate, login_manager
 from flask_migrate import upgrade
 import sqlalchemy as sa
 
-from app.utils import fmt_brl
+from app.utils import fmt_brl, fmt_id
 
 _ngrok_url = None
 
@@ -103,6 +103,7 @@ def create_app():
         db.session.commit()
 
     app.jinja_env.filters['brl'] = fmt_brl
+    app.jinja_env.filters['fmtid'] = fmt_id
 
     @app.context_processor
     def inject_globals():

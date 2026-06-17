@@ -4,7 +4,7 @@
 {% endblock %}
 {% block content %}
 
-<div class="d-none d-lg-flex justify-content-between align-items-center mb-3">
+<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2">
   <div class="d-flex align-items-center gap-2">
     <h2 class="mb-0">Contas</h2>
     <select id="filter-tipo" class="form-select form-select-sm" style="width:auto;" onchange="aplicarFiltro()">
@@ -21,7 +21,7 @@
   <a href="{{ url_for('contas.new') }}" class="btn btn-primary btn-sm text-nowrap">Novo</a>
 </div>
 
-<div class="d-lg-none d-flex flex-wrap gap-2 mb-2">
+<div class="d-lg-none d-flex flex-wrap justify-content-center gap-2 mb-2">
   <select id="filter-tipo-mobile" class="form-select form-select-sm" style="width:auto;" onchange="document.getElementById('filter-tipo').value=this.value;aplicarFiltro()">
     <option value="todos" {{ 'selected' if filtro_tipo == 'todos' }}>Todos</option>
     <option value="clientes" {{ 'selected' if filtro_tipo == 'clientes' }}>Clientes</option>
@@ -49,9 +49,9 @@
     <tbody>
       {% for c in contas %}
         <tr class="conta-row" data-ativo="{{ 'true' if c.ativo else 'false' }}" data-tipo="{{ c.tipo }}">
-          <td>{{ c.id }}</td>
+          <td>{{ c.id|fmtid }}</td>
           <td>{{ c.nome }}</td>
-          <td>{{ TIPO_CONTA[c.tipo] }}</td>
+          <td>{{ {'Cliente': 'C', 'Cliente/Fornecedor': 'C/F', 'Fornecedor': 'F'}[TIPO_CONTA[c.tipo]] }}</td>
           <td>{{ c.telefone or '-' }}</td>
           <td>
             {% if c.ativo %}

@@ -15,19 +15,22 @@
   </select>
 </form>
 {% endset %}
-{% call form_nav(back_url=url_for('orders.orcamentos'), nome='Orçamento #' ~ quote.id, nav=nav, edit_endpoint='orders.quote_edit', entity_id=quote.id, status=status_html) %}
+{% set quote_id_raw = quote.id|fmtid %}
+{% set quote_secondary %}
   {% if quote.pedido_id %}
-    <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id }}</a>
+    <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id|fmtid }}</a>
   {% else %}
     <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#converterModal">Converter</a>
   {% endif %}
-  <form method="POST" action="{{ url_for('orders.quote_delete', id=quote.id) }}" class="d-inline" onsubmit="return confirm('Excluir orçamento #{{ quote.id }}?')">
+{% endset %}
+{% call form_nav(back_url=url_for('orders.orcamentos'), nome='Orçamento ' ~ quote_id_raw, nav=nav, edit_endpoint='orders.quote_edit', entity_id=quote.id, status=status_html, actions2=quote_secondary) %}
+  <form method="POST" action="{{ url_for('orders.quote_delete', id=quote.id) }}" class="d-inline" onsubmit="return confirm('Excluir orçamento #{{ quote.id|fmtid }}?')">
     <button type="submit" class="btn btn-outline-danger btn-sm" {{ 'disabled' if ro }}>Excluir</button>
   </form>
 {% endcall %}
 {% endif %}
 
-<form method="POST" action="{% if quote %}{{ url_for('orders.quote_edit', id=quote.id) }}{% else %}{{ url_for('orders.quote_new') }}{% endif %}" {% if quote %}data-editing{% endif %}>
+<form method="POST" id="main-form" action="{% if quote %}{{ url_for('orders.quote_edit', id=quote.id) }}{% else %}{{ url_for('orders.quote_new') }}{% endif %}" {% if quote %}data-editing{% endif %}>
   <div class="row mb-3">
     <div class="col-md-4">
       <label class="form-label">Nome *</label>
@@ -39,7 +42,7 @@
       <div class="input-group">
         <input type="text" name="cliente_telefone" class="form-control" required
                value="{{ quote.cliente_telefone if quote else '' }}" {{ 'disabled' if ro }}>
-        <a href="{{ url_for('orders.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success {{ 'disabled' if ro }}">Enviar</a>
+        {% if quote %}<a href="{{ url_for('orders.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success {{ 'disabled' if ro }}">Enviar</a>{% endif %}
       </div>
     </div>
   </div>
@@ -47,19 +50,26 @@
   <div class="card mb-3">
     <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
       <span>Itens do Orçamento</span>
-      {% if not ro %}
-      <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button>
-      {% endif %}
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
         <table class="table mb-0" id="itens-table">
+          <style>
+            #itens-table th:nth-child(2), #itens-table td:nth-child(2) { width: 80px; }
+            #itens-table th:nth-child(3), #itens-table td:nth-child(3) { width: 100px; }
+            #itens-table th:nth-child(4), #itens-table td:nth-child(4) { width: 100px; }
+            @media (max-width: 991.98px) {
+              #itens-table th:nth-child(2), #itens-table td:nth-child(2) { width: auto; min-width: 90px; }
+              #itens-table th:nth-child(3), #itens-table td:nth-child(3) { width: auto; min-width: 120px; }
+              #itens-table th:nth-child(4), #itens-table td:nth-child(4) { width: auto; min-width: 120px; }
+            }
+          </style>
           <thead>
             <tr>
               <th style="min-width:200px">Produto</th>
-              <th class="text-end" style="width:80px">Qtd</th>
-              <th class="text-end" style="width:110px">Preço</th>
-              <th class="text-end" style="width:110px">Valor</th>
+              <th class="text-end">Qtd</th>
+              <th class="text-end">Preço</th>
+              <th class="text-end">Valor</th>
               <th style="min-width:140px">Obs</th>
               <th style="width:40px"></th>
             </tr>
@@ -77,7 +87,7 @@
                   </select>
                 </td>
                 <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
-                <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+                <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm"  value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
                 <td>{% if not ro %}<button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()">✕</button>{% endif %}</td>
@@ -100,15 +110,12 @@
               </tr>
             {% endif %}
           </tbody>
+          <tbody id="add-item-container"><tr><td colspan="6" class="py-2">{% if not ro %}<div class="d-flex gap-2"><button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm" onclick="atualizarESalvar()">Atualizar Preço 0,00</button></div>{% endif %}</td></tr></tbody>
           <tfoot>
             <tr>
               <th colspan="3" class="text-end">Total</th>
               <th id="total-geral" class="text-end">R$ {{ (quote.total or 0) | brl if quote else 'R$ 0,00' }}</th>
-              <th colspan="2">
-                {% if not ro %}
-                <button type="button" class="btn btn-outline-info btn-sm" onclick="atualizarPrecos()">Atualizar</button>
-                {% endif %}
-              </th>
+              <th colspan="2"></th>
             </tr>
           </tfoot>
         </table>
@@ -168,6 +175,7 @@
     <textarea name="observacao" class="form-control" rows="2" {{ 'disabled' if ro }}>{{ quote.observacao or '' }}</textarea>
   </div>
 
+  <input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
   {% if not ro %}
   <button type="submit" class="btn btn-primary">Salvar</button>
   {% endif %}
@@ -182,7 +190,7 @@
     <div class="modal-content">
       <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
         <div class="modal-header">
-          <h5 class="modal-title">Converter Orçamento #{{ quote.id }}</h5>
+          <h5 class="modal-title">Converter Orçamento #{{ quote.id|fmtid }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
@@ -235,6 +243,12 @@ function toggleConvTipo() {
 <script src="{{ url_for('static', filename='js/phone-mask.js') }}"></script>
 {% if not ro %}
 <script>
+function atualizarESalvar() {
+  atualizarPrecos();
+  document.getElementById('atualizar-precos-field').value = '1';
+  document.getElementById('main-form').submit();
+}
+
 function addItem() {
   markModified();
   const tbody = document.getElementById('itens-body');

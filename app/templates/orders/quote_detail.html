@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>Orçamento #{{ quote.id }}</h2>
+  <h2>Orçamento #{{ quote.id|fmtid }}</h2>
   <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary btn-sm">
     <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
   </a>
@@ -61,7 +61,7 @@
         </p>
         {% if quote.pedido_id %}
           <p class="mt-1 mb-0">
-            <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-sm btn-outline-success">Ver Pedido #{{ quote.pedido_id }}</a>
+            <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-sm btn-outline-success">Ver Pedido #{{ quote.pedido_id|fmtid }}</a>
           </p>
         {% endif %}
       </div>

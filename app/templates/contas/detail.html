@@ -94,7 +94,7 @@
         <tbody>
           {% for o in orders %}
             <tr>
-              <td>{{ o.id }}</td>
+              <td>{{ o.id|fmtid }}</td>
               <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
               <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
               <td>R$ {{ (o.total or 0) | brl }}</td>

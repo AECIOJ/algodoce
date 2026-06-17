@@ -67,7 +67,7 @@
         <tbody>
           {% for o in lista %}
           <tr class="clickable-row" data-href="{{ url_for('orders.edit', id=o.id) }}" style="cursor:pointer">
-            <td>{{ o.id }}</td>
+            <td>{{ o.id|fmtid }}</td>
             <td>{{ o.conta.nome }}</td>
             <td style="white-space:nowrap;">{{ o.data_pedido.strftime('%d/%m/%Y') }}</td>
             <td style="white-space:nowrap;">{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>

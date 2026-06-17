@@ -25,7 +25,7 @@ th { background: #f0f0f0; text-align: center; }
 
 <div class="text-center mb-4">
   <img src="{{ url_for('static', filename='imagens/Logo.png') }}" alt="Logo" class="logo">
-    <h1 class="mt-3">Pedido #{{ order.id }}</h1>
+    <h1 class="mt-3">Pedido #{{ order.id|fmtid }}</h1>
   <hr class="w-50 mx-auto">
 </div>
 

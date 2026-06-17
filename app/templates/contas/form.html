@@ -3,14 +3,14 @@
 {% block content %}
 
 {% if conta %}
-{% call form_nav(back_url=url_for('contas.list'), nome='Conta #' ~ conta.id, nav=nav, edit_endpoint='contas.edit', entity_id=conta.id) %}
+{% call form_nav(back_url=url_for('contas.list'), nome='Conta ' ~ conta.id|fmtid, nav=nav, edit_endpoint='contas.edit', entity_id=conta.id) %}
   <a href="{{ url_for('contas.toggle', id=conta.id) }}" class="btn btn-{{ 'success' if conta.ativo else 'outline-secondary' }} btn-sm">
     {{ 'Desativar' if conta.ativo else 'Ativar' }}
   </a>
 {% endcall %}
 {% endif %}
 
-<form method="POST">
+<form method="POST" id="main-form">
   <div class="row mb-3">
     <div class="col-md-4">
       <label class="form-label">Nome *</label>
@@ -74,7 +74,7 @@
         <tbody>
           {% for o in orders %}
             <tr>
-              <td>{{ o.id }}</td>
+              <td>{{ o.id|fmtid }}</td>
               <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
               <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
               <td>R$ {{ (o.total or 0) | brl }}</td>

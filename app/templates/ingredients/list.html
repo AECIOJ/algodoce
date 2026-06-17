@@ -4,7 +4,7 @@
 {% endblock %}
 {% block content %}
 
-<div class="d-none d-lg-flex justify-content-between align-items-center mb-3">
+<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2">
   <h2>Ingredientes</h2>
   <a href="{{ url_for('ingredients.new') }}" class="btn btn-primary">Novo</a>
 </div>
@@ -22,7 +22,7 @@
     <tbody>
       {% for i in ingredients %}
         <tr>
-          <td>{{ i.id }}</td>
+          <td>{{ i.id|fmtid }}</td>
           <td>{{ i.nome }}</td>
           <td>{{ i.unidade_medida }}</td>
           <td>

@@ -11,6 +11,7 @@ from app.models.product import Product
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.quote_item import QuoteItem
+from app.models.event import Event
 from app.models.quote import Quote
 from app.pdf import gerar_pdf_pedido, gerar_pdf_orcamento
 
@@ -92,7 +93,8 @@ def _replace_order_items(order, form):
             continue
         product = Product.query.get(int(pid))
         qtd_val = int(qtd)
-        prc_val = parse_brl(prc) or product.preco
+        _prc = parse_brl(prc)
+        prc_val = product.preco if _prc is None else _prc
         item = OrderItem(
             order_id=order.id, product_id=product.id,
             quantidade=qtd_val, preco_unitario=prc_val,
@@ -262,7 +264,10 @@ def quote_edit(id):
         db.session.flush()
 
         db.session.commit()
-        flash("Orçamento atualizado!", "success")
+        if request.form.get("atualizar_precos"):
+            flash("Preços zerados foram atualizados!", "success")
+        else:
+            flash("Orçamento atualizado!", "success")
         return redirect(url_for("orders.quote_edit", id=id))
 
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
@@ -427,6 +432,17 @@ def edit(id):
         flash("Código inexistente", "warning")
         return redirect(url_for("orders.list"))
     if request.method == "POST":
+        if order.status == 9:
+            data_entrega_str = request.form.get("data_entrega")
+            if data_entrega_str:
+                flash("Pedido entregue não pode ser alterado.", "warning")
+            else:
+                order.data_entrega = None
+                order.status = 2
+                db.session.commit()
+                flash("Data de entrega removida. Pedido reaberto como Pronto.", "success")
+            return redirect(url_for("orders.edit", id=id))
+
         order.client_id = request.form["client_id"]
         data_pedido_str = request.form.get("data_pedido")
         if data_pedido_str:
@@ -457,7 +473,10 @@ def edit(id):
                 order.quote_id = quote.id
 
         db.session.commit()
-        flash("Pedido atualizado!", "success")
+        if request.form.get("atualizar_precos"):
+            flash("Preços zerados foram atualizados!", "success")
+        else:
+            flash("Pedido atualizado!", "success")
         return redirect(url_for("orders.edit", id=id))
 
     # Backfill quote_id on load if missing
@@ -485,14 +504,21 @@ def edit(id):
 
     return render_template(
         "orders/form.html", order=order, clients=clients, products=products, nav=nav,
-        ORDER_STATUS=ORDER_STATUS
+        ORDER_STATUS=ORDER_STATUS,
+        ro=order.status == 9
     )
 
 
 @bp.route("/pedidos/<int:id>/status", methods=["POST"])
 def status(id):
     order = Order.query.get_or_404(id)
+    if order.status == 9:
+        flash("Pedido entregue não pode ter status alterado.", "warning")
+        return redirect(url_for("orders.edit", id=id))
     novo_status = request.form["status"]
+    if novo_status == "9" and not order.data_entrega:
+        flash("Status Entregue só pode ser definido preenchendo a data de entrega.", "warning")
+        return redirect(url_for("orders.edit", id=id))
     if novo_status in ("0", "1", "2", "9"):
         order.status = int(novo_status)
         db.session.commit()
@@ -503,6 +529,9 @@ def status(id):
 @bp.route("/pedidos/<int:id>/cancelar", methods=["POST"])
 def cancel(id):
     order = Order.query.get_or_404(id)
+    if order.status == 9:
+        flash("Pedido entregue não pode ser cancelado.", "warning")
+        return redirect(url_for("orders.edit", id=id))
     order.status = 3
     db.session.commit()
     flash("Pedido cancelado!", "success")

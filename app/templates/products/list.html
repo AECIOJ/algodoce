@@ -4,7 +4,7 @@
 {% endblock %}
 {% block content %}
 
-<div class="d-none d-lg-flex justify-content-between align-items-center mb-3">
+<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2">
   <div class="d-flex align-items-center gap-2">
     <h2 class="mb-0">Produtos</h2>
     <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
@@ -23,7 +23,7 @@
 </div>
 
 <!-- Mobile filters -->
-<div class="d-lg-none d-flex flex-wrap align-items-center gap-2 mb-2">
+<div class="d-lg-none d-flex flex-wrap align-items-center justify-content-center gap-2 mb-2">
   <select id="filter-categoria-mobile" class="form-select form-select-sm" style="width:auto;flex:1;min-width:120px;">
     <option value="">Todas as categorias</option>
     {% for cat in categories %}
@@ -47,14 +47,15 @@
         <th>Preço</th>
         <th>Qtd. Mín.</th>
         <th>Categoria</th>
-        <th>Ativo</th>
+        <th>Status</th>
         <th>Ações</th>
       </tr>
     </thead>
     <tbody>
       {% for p in products %}
-        <tr data-ativo="{{ p.ativo|lower }}" data-categoria="{{ p.category.nome if p.category else '' }}">
-          <td>{{ p.id }}</td>
+        {% set ativo = p.ativo and (not p.category or p.category.ativo) %}
+        <tr data-ativo="{{ ativo|lower }}" data-categoria="{{ p.category.nome if p.category else '' }}">
+          <td>{{ p.id|fmtid }}</td>
           <td>
             {% if p.imagem %}
               <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
@@ -65,12 +66,22 @@
           <td>{{ p.nome }}</td>
           <td>R$ {{ (p.preco or 0) | brl }}</td>
           <td>{{ p.qtd_minima if p.qtd_minima else '—' }}</td>
-          <td>{{ p.category.nome if p.category else '—' }}</td>
           <td>
-            {% if p.ativo %}
-              <span class="badge bg-success">Sim</span>
+            {% if p.category %}
+              {% if p.category.ativo %}
+                {{ p.category.nome }}
+              {% else %}
+                <span class="text-muted">{{ p.category.nome }}</span>
+              {% endif %}
             {% else %}
-              <span class="badge bg-light text-muted border">Não</span>
+              —
+            {% endif %}
+          </td>
+          <td>
+            {% if ativo %}
+              <span class="badge bg-success">Ativo</span>
+            {% else %}
+              <span class="badge bg-danger">Inativo</span>
             {% endif %}
           </td>
           <td>

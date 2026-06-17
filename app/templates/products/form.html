@@ -3,15 +3,19 @@
 {% block content %}
 
 {% if product %}
-{% call form_nav(back_url=url_for('products.list'), nome='Produto #' ~ product.id, nav=nav, edit_endpoint='products.edit', entity_id=product.id) %}
-  <a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm">
+{% set product_actions %}
+  {% if not product.ativo %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
+  <a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm" style="min-width:90px">
     {{ 'Desativar' if product.ativo else 'Ativar' }}
   </a>
-  <button type="button" class="btn btn-outline-danger btn-sm" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
+  <button type="button" class="btn btn-danger btn-sm" style="min-width:90px" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
+{% endset %}
+{% call form_nav(back_url=url_for('products.list'), nome='Produto ' ~ product.id|fmtid, nav=nav, edit_endpoint='products.edit', entity_id=product.id, actions2=product_actions) %}
+  {{ product_actions }}
 {% endcall %}
 {% endif %}
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" id="main-form">
   <div class="mb-3">
     <label class="form-label">Nome *</label>
     <input type="text" name="nome" class="form-control" required value="{{ product.nome if product else '' }}">
@@ -71,7 +75,7 @@
                 <select name="ingredient_id" class="form-select">
                   <option value="">Selecione</option>
                   {% for ing in ingredients %}
-                    <option value="{{ ing.id }}" {% if pi.ingredient_id == ing.id %}selected{% endif %}>{{ ing.nome }} ({{ ing.id }})</option>
+                    <option value="{{ ing.id }}" {% if pi.ingredient_id == ing.id %}selected{% endif %}>{{ ing.nome }} ({{ ing.id|fmtid }})</option>
                   {% endfor %}
                 </select>
               </div>
@@ -96,7 +100,7 @@
               <select name="ingredient_id" class="form-select">
                 <option value="">Selecione</option>
                 {% for ing in ingredients %}
-                    <option value="{{ ing.id }}">{{ ing.nome }} ({{ ing.id }})</option>
+                    <option value="{{ ing.id }}">{{ ing.nome }} ({{ ing.id|fmtid }})</option>
                   {% endfor %}
                 </select>
               </div>
@@ -115,8 +119,12 @@
               </div>
             </div>
           {% endif %}
+        <div class="row mb-2" id="add-ingrediente-row">
+          <div class="col-12">
+            <button type="button" class="btn btn-outline-success btn-sm" onclick="addIngrediente()">+ Adicionar Ingrediente</button>
+          </div>
         </div>
-        <button type="button" class="btn btn-outline-success btn-sm mt-2" onclick="addIngrediente()">+ Adicionar Ingrediente</button>
+        </div>
       </div>
     </div>
 
@@ -182,7 +190,7 @@ function addIngrediente() {
       <select name="ingredient_id" class="form-select">
         <option value="">Selecione</option>
         {% for ing in ingredients %}
-          <option value="{{ ing.id }}">{{ ing.nome }} ({{ ing.id }})</option>
+          <option value="{{ ing.id }}">{{ ing.nome }} ({{ ing.id|fmtid }})</option>
         {% endfor %}
       </select>
     </div>
@@ -200,7 +208,7 @@ function addIngrediente() {
       <button type="button" class="btn btn-outline-danger btn-remove" onclick="this.closest('.row').remove()">Remover</button>
     </div>
   `;
-  container.appendChild(row);
+  container.insertBefore(row, document.getElementById('add-ingrediente-row'));
 }
 
 {% if product %}

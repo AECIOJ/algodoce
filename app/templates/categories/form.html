@@ -2,31 +2,28 @@
 {% from "components/form_nav.html" import form_nav %}
 {% block content %}
 
-<h2>{{ 'Editar' if category else 'Nova' }} Categoria</h2>
-
 {% if category %}
-{% call form_nav(back_url=url_for('categories.list'), nome='Categoria #' ~ category.id, nav=nav, edit_endpoint='categories.edit', entity_id=category.id) %}
-  <a href="{{ url_for('categories.toggle', id=category.id) }}" class="btn btn-{{ 'success' if category.ativo else 'outline-secondary' }} btn-sm">
+{% set category_actions %}
+  {% if not category.ativo %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
+  <a href="{{ url_for('categories.toggle', id=category.id) }}" class="btn btn-{{ 'success' if category.ativo else 'outline-secondary' }} btn-sm" style="min-width:90px">
     {{ 'Desativar' if category.ativo else 'Ativar' }}
   </a>
+  <button type="button" class="btn btn-danger btn-sm" style="min-width:90px" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
+{% endset %}
+{% call form_nav(back_url=url_for('categories.list'), nome='Categoria ' ~ category.id|fmtid, nav=nav, edit_endpoint='categories.edit', entity_id=category.id, actions2=category_actions) %}
+  {{ category_actions }}
 {% endcall %}
 {% endif %}
 
-<form method="POST">
-  <div class="mb-3">
-    <label class="form-label">Nome *</label>
-    <input type="text" name="nome" class="form-control" required value="{{ category.nome if category else '' }}">
-  </div>
-  <div class="row mb-3">
-    <div class="col-md-3">
-      <label class="form-label">Ordem</label>
-      <input type="number" name="ordem" class="form-control" value="{{ category.ordem if category else 0 }}">
+<form method="POST" id="main-form">
+  <div class="d-flex gap-2 mb-3 align-items-baseline flex-nowrap">
+    <div style="flex:1;min-width:0">
+      <label class="form-label">Nome *</label>
+      <input type="text" name="nome" class="form-control" required value="{{ category.nome if category else '' }}">
     </div>
-    <div class="col-md-3 d-flex align-items-end">
-      <div class="form-check">
-        <input type="checkbox" name="ativo" class="form-check-input" id="ativo" {% if not category or category.ativo %}checked{% endif %}>
-        <label class="form-check-label" for="ativo">Ativo</label>
-      </div>
+    <div style="flex:0 0 auto">
+      <label class="form-label">Ordem</label>
+      <input type="number" name="ordem" class="form-control" style="max-width:70px" min="0" max="99" value="{{ category.ordem if category else 0 }}">
     </div>
   </div>
 
@@ -34,6 +31,58 @@
   <a href="{{ url_for('categories.list') }}" class="btn btn-outline-secondary">Cancelar</a>
 </form>
 
+{% if category %}
+<div class="modal fade" id="modalExcluir" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Excluir Categoria</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modalExcluirBody"></div>
+      <div class="modal-footer" id="modalExcluirFooter"></div>
+    </div>
+  </div>
+</div>
+
+<form method="POST" id="formExcluir" style="display:none"></form>
+{% endif %}
+
 {% endblock %}
 
+{% block scripts %}
+<script>
+{% if category %}
+function confirmarExclusao(btn) {
+  const id = btn.dataset.categoryId;
+  const nome = btn.dataset.categoryNome;
+  const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
+  const body = document.getElementById('modalExcluirBody');
+  const footer = document.getElementById('modalExcluirFooter');
 
+  fetch('/categorias/' + id + '/uso')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.em_uso) {
+        body.innerHTML = '<div class="alert alert-danger mb-0">' +
+          '<strong>' + nome + '</strong> está em <strong>' + data.quantidade + '</strong> produto(s). ' +
+          'Remova a categoria dos produtos antes de excluí-la.</div>';
+        footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>';
+      } else {
+        body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
+        footer.innerHTML =
+          '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>' +
+          '<button type="button" class="btn btn-danger" onclick="efetuarExclusao(' + id + ')">Excluir</button>';
+      }
+      modal.show();
+    });
+}
+
+function efetuarExclusao(id) {
+  var form = document.getElementById('formExcluir');
+  form.action = '/categorias/' + id + '/excluir';
+  form.submit();
+}
+{% endif %}
+</script>
+{% endblock %}

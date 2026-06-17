@@ -1,7 +1,7 @@
 function capturarPreco(select) {
   const opt = select.options[select.selectedIndex];
   const precoTotal = opt && parseFloat(opt.dataset.preco);
-  if (precoTotal) {
+  if (opt && !isNaN(precoTotal)) {
     const row = select.closest('tr');
     const precoInput = row.querySelector('.preco-input');
     const qtdMinima = parseInt(opt.dataset.qtdMinima) || 1;

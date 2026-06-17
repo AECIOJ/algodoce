@@ -2,10 +2,8 @@
 {% from "components/form_nav.html" import form_nav %}
 {% block content %}
 
-<h2>{{ 'Editar' if ingredient else 'Novo' }} Ingrediente</h2>
-
 {% if ingredient %}
-{% call form_nav(back_url=url_for('ingredients.list'), nome='Ingrediente #' ~ ingredient.id, nav=nav, edit_endpoint='ingredients.edit', entity_id=ingredient.id) %}
+{% call form_nav(back_url=url_for('ingredients.list'), nome='Ingrediente ' ~ ingredient.id|fmtid, nav=nav, edit_endpoint='ingredients.edit', entity_id=ingredient.id) %}
   <button type="button" class="btn btn-outline-danger btn-sm" data-ingrediente-id="{{ ingredient.id }}" data-ingrediente-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
 {% endcall %}
 {% endif %}
@@ -104,7 +102,7 @@
         {% for p in products_using %}
           {% for pi in p.ingredients.filter_by(ingredient_id=ingredient.id) %}
             <tr>
-              <td>{{ p.nome }} ({{ p.id }})</td>
+              <td>{{ p.nome }} ({{ p.id|fmtid }})</td>
               <td>{{ pi.quantidade }}</td>
               <td>{{ pi.unidade }}</td>
               <td><a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary">Editar Produto</a></td>

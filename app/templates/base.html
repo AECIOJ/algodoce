@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br" data-bs-theme="light">
+<html lang="pt-br" data-bs-theme="light" class="{% if request.endpoint and (request.endpoint.endswith('.list') or request.endpoint == 'orders.orcamentos') %}list-page{% endif %}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,7 +18,7 @@
 <body>
   <div class="sticky-top bg-white">
     <header class="bg-white border-bottom shadow-sm">
-      <div class="container text-center py-3">
+      <div class="container text-center py-0">
         <a href="/" class="text-decoration-none">
           <img src="{{ url_for('static', filename='imagens/Logo.png') }}" alt="AlgoDoce" height="100" class="brand-logo" style="cursor:pointer">
         </a>
@@ -37,8 +37,8 @@
       <div class="container">
         {% if request.endpoint and request.endpoint.endswith('.list') %}
         <!-- Mobile: toolbar row with select -->
-        <div class="d-lg-none d-flex align-items-center gap-2">
-          <select class="form-select fw-bold border-0 pe-4" style="font-size:1.25rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+        <div class="d-lg-none d-flex align-items-center gap-1">
+          <select class="form-select fw-bold border-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
             <option value="{{ url_for('categories.list') }}" {% if request.path.startswith('/categorias') %}selected{% endif %}>Categorias</option>
             <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/ingredientes') %}selected{% endif %}>Ingredientes</option>
             <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
@@ -60,10 +60,10 @@
     </div>
     <div class="cadastro-section py-1 d-none" id="comercialSection">
       <div class="container">
-        {% if request.path.startswith('/orcamentos') or request.path.startswith('/pedidos') or request.path.startswith('/relatorios/compras') %}
+        {% if request.endpoint and (request.endpoint.endswith('.list') or request.endpoint == 'orders.orcamentos') %}
         <!-- Mobile: title row with select + toolbar -->
-        <div class="d-lg-none d-flex align-items-center gap-2">
-          <select class="form-select fw-bold border-0 pe-4" style="font-size:1.25rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+        <div class="d-lg-none d-flex align-items-center gap-1">
+          <select class="form-select fw-bold border-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
             <option value="/orcamentos" {% if request.path.startswith('/orcamentos') %}selected{% endif %}>Orçamentos</option>
             <option value="/pedidos" {% if request.path.startswith('/pedidos') %}selected{% endif %}>Pedidos</option>
             <option value="/relatorios/compras" {% if request.path.startswith('/relatorios/compras') %}selected{% endif %}>Compras</option>
@@ -140,6 +140,109 @@
   </script>
   {% block scripts %}{% endblock %}
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var nav = document.querySelector('.form-nav-wrap');
+  if (!nav) return;
+  var bg = window.getComputedStyle(document.body).backgroundColor;
+  var main = document.querySelector('main.container');
+  if (!main) return;
+
+  // Flex layout: body sem scroll, main como scroll container
+  document.documentElement.style.overflow = 'hidden';
+  document.documentElement.style.height = '100%';
+  document.body.style.display = 'flex';
+  document.body.style.flexDirection = 'column';
+  document.body.style.height = '100%';
+  document.body.style.overflow = 'hidden';
+  main.style.flex = '1';
+  main.style.overflowY = 'auto';
+  main.style.minHeight = '0';
+  main.style.marginBottom = '0';
+
+  var form = document.getElementById('main-form');
+  if (!form) return;
+
+  var firstField = form.querySelector('.row.mb-3, .mb-3');
+  if (!firstField || !firstField.querySelector('input, select, textarea')) return;
+
+  // Nav sticky no topo de main
+  nav.style.position = 'sticky';
+  nav.style.top = '0';
+  nav.style.zIndex = '102';
+  nav.style.marginBottom = '0';
+
+  // Ajustes permanentes na row
+  if (firstField.classList.contains('row')) {
+    firstField.style.marginLeft = '0';
+    firstField.style.marginRight = '0';
+    firstField.style.paddingLeft = '15px';
+    firstField.style.paddingRight = '15px';
+  }
+
+  // Desktop ou mb-3 simples: sticky normal no primeiro campo
+  // Mobile com row: usa clone fixed (abaixo)
+  var navHeight = nav.offsetHeight;
+  var isMobile = window.innerWidth < 992;
+  if (!isMobile || !firstField.classList.contains('row')) {
+    firstField.style.position = 'sticky';
+    firstField.style.top = navHeight + 'px';
+    firstField.style.zIndex = '101';
+    firstField.style.background = bg;
+  }
+
+  // Mobile: se for row com colunas, cria clone fixed da primeira coluna
+  if (isMobile && firstField.classList.contains('row')) {
+    var col = firstField.querySelector('[class^="col"]');
+    if (col && col.querySelector('input, select, textarea')) {
+      // Primeira coluna ocupa toda a linha
+      col.style.width = '100%';
+      col.style.flex = 'none';
+
+      // Cria clone fixed para quando o sticky do pai falhar
+      var clone = col.cloneNode(true);
+      clone.style.position = 'fixed';
+      clone.style.display = 'none';
+      clone.style.zIndex = '101';
+      clone.style.background = bg;
+      clone.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+      document.body.appendChild(clone);
+
+      // Sincroniza input do clone com original
+      var origInput = col.querySelector('input, select, textarea');
+      var cloneInput = clone.querySelector('input, select, textarea');
+      if (origInput && cloneInput) {
+        cloneInput.addEventListener('input', function() { origInput.value = this.value; });
+        cloneInput.addEventListener('change', function() { origInput.value = this.value; });
+      }
+
+      function fixarClone() {
+        var colRect = col.getBoundingClientRect();
+        var mainRect = main.getBoundingClientRect();
+        var stickAt = mainRect.top + navHeight;
+
+        if (colRect.top < stickAt) {
+          clone.style.display = 'block';
+          clone.style.top = stickAt + 'px';
+          clone.style.left = mainRect.left + 'px';
+          clone.style.width = mainRect.width + 'px';
+          col.style.visibility = 'hidden';
+        } else {
+          clone.style.display = 'none';
+          col.style.visibility = 'visible';
+        }
+      }
+
+      fixarClone();
+      main.addEventListener('scroll', fixarClone);
+      window.addEventListener('resize', function() {
+        navHeight = nav.offsetHeight;
+        fixarClone();
+      });
+    }
+  }
+});
+</script>
 <script>
 document.getElementById('nav-title')?.addEventListener('click', function() {
   if (!this.dataset.entityId) return;

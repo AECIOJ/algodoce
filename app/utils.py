@@ -23,6 +23,13 @@ def parse_brl(value):
     return float(value)
 
 
+def fmt_id(value):
+    if value is None:
+        return '0'
+    formatted = f'{value:,}'.replace(',', '.')
+    return ('%7s' % formatted).replace(' ', '\u00A0')
+
+
 def fmt_brl(value):
     if value is None:
         return '0,00'

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required
 from app.extensions import db
 from app.models.category import Category
@@ -67,6 +67,31 @@ def edit(id):
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
     return render_template("categories/form.html", category=category, nav=nav)
+
+
+@bp.route("/<int:id>/uso")
+def usage(id):
+    from app.models.product import Product
+    qtd = Product.query.filter_by(category_id=id).count()
+    return jsonify({"em_uso": qtd > 0, "quantidade": qtd})
+
+
+@bp.route("/<int:id>/excluir", methods=["POST"])
+def delete(id):
+    from app.models.product import Product
+    category = Category.query.get_or_404(id)
+    usage = Product.query.filter_by(category_id=id).count()
+    if usage > 0:
+        flash(
+            f"Não é possível excluir '{category.nome}' — está em {usage} produto(s). "
+            f"Remova a categoria dos produtos primeiro.",
+            "danger",
+        )
+        return redirect(url_for("categories.edit", id=id))
+    db.session.delete(category)
+    db.session.commit()
+    flash("Categoria excluída!", "success")
+    return redirect(url_for("categories.list"))
 
 
 @bp.route("/<int:id>/toggle")
