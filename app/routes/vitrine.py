@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session
 from flask_login import current_user
+from sqlalchemy import or_
 from app.extensions import db
 from app.models.product import Product
 from app.models.category import Category
@@ -15,7 +16,13 @@ bp = Blueprint("vitrine", __name__, url_prefix="/vitrine")
 def listar():
     categoria_id = request.args.get("categoria", type=int)
     categorias = Category.query.filter_by(ativo=True).order_by(Category.ordem).all()
-    query = Product.query.filter_by(ativo=True)
+    query = Product.query.filter(
+        Product.ativo == True,
+        or_(
+            Product.category_id == None,
+            Product.category.has(Category.ativo == True)
+        )
+    )
     if categoria_id:
         query = query.filter_by(category_id=categoria_id)
     produtos = query.all()

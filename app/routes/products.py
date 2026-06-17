@@ -32,7 +32,7 @@ def allowed_file(filename):
 @bp.route("/produtos")
 def list():
     products = Product.query.order_by(Product.nome).all()
-    categories = Category.query.filter_by(ativo=True).order_by(Category.ordem).all()
+    categories = Category.query.order_by(Category.ordem).all()
     return render_template("products/list.html", products=products, categories=categories)
 
 

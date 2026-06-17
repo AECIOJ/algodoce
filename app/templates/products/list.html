@@ -10,12 +10,12 @@
     <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
       <option value="">Todas as categorias</option>
       {% for cat in categories %}
-        <option value="{{ cat.nome }}">{{ cat.nome }}</option>
+        <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
       {% endfor %}
     </select>
     <select id="filter-ativo" class="form-select form-select-sm" style="width:auto;">
-      <option value="todos">Tudo</option>
-      <option value="ativos" selected>Ativos</option>
+      <option value="todos" selected>Tudo</option>
+      <option value="ativos">Ativos</option>
       <option value="inativos">Inativos</option>
     </select>
   </div>
@@ -27,12 +27,12 @@
   <select id="filter-categoria-mobile" class="form-select form-select-sm" style="width:auto;flex:1;min-width:120px;">
     <option value="">Todas as categorias</option>
     {% for cat in categories %}
-      <option value="{{ cat.nome }}">{{ cat.nome }}</option>
+      <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
     {% endfor %}
   </select>
   <select id="filter-ativo-mobile" class="form-select form-select-sm" style="width:auto;">
-    <option value="todos">Tudo</option>
-    <option value="ativos" selected>Ativos</option>
+    <option value="todos" selected>Tudo</option>
+    <option value="ativos">Ativos</option>
     <option value="inativos">Inativos</option>
   </select>
 </div>
