@@ -41,8 +41,8 @@
           <select class="form-select fw-bold border-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
             <option value="{{ url_for('categories.list') }}" {% if request.path.startswith('/categorias') %}selected{% endif %}>Categorias</option>
             <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/ingredientes') %}selected{% endif %}>Ingredientes</option>
+            <option value="{{ url_for('etapas.list') }}" {% if request.path.startswith('/etapas') %}selected{% endif %}>Etapas</option>
             <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
-            <option value="{{ url_for('contas.list') }}" {% if request.path.startswith('/contas') %}selected{% endif %}>Contas</option>
           </select>
           <div class="d-flex align-items-center justify-content-between w-100">
             {% block cadastro_toolbar %}{% endblock %}
@@ -53,6 +53,7 @@
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
           <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
           <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Ingredientes</a>
+          <a href="{{ url_for('etapas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Etapas</a>
           <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
           <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas</a>
         </div>
@@ -351,7 +352,7 @@ function parseDate(str) {
   }
 
   var path = window.location.pathname;
-  var cadastroPaths = ['/categorias', '/ingredientes', '/produtos', '/contas'];
+  var cadastroPaths = ['/categorias', '/ingredientes', '/produtos', '/contas', '/etapas'];
   var comercialPaths = ['/orcamentos', '/pedidos', '/relatorios/compras'];
   var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });
   var onComercial = comercialPaths.some(function(p) { return path.indexOf(p) === 0; });

@@ -60,7 +60,7 @@ def create_app():
 
     with app.app_context():
         from app.routes import clients as contas, products, ingredients, orders, reports
-        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca
+        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, etapas
 
         app.register_blueprint(contas.bp)
         app.register_blueprint(products.bp)
@@ -74,12 +74,14 @@ def create_app():
         app.register_blueprint(orcamento.bp)
         app.register_blueprint(categories.bp)
         app.register_blueprint(seguranca.bp)
+        app.register_blueprint(etapas.bp)
 
         from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote  # noqa
         from app.models.event import Event  # noqa
         from app.models.quote_item import QuoteItem  # noqa
         from app.models.order_item import OrderItem  # noqa
         from app.models.setting import Setting  # noqa
+        from app.models.etapa import Etapa  # noqa
 
         upgrade()
 
