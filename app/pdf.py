@@ -1,5 +1,7 @@
+from datetime import timedelta
 from io import BytesIO
 from fpdf import FPDF
+from app.constants import FORMA_PAGAMENTO, FORMINHAS
 
 
 class DocPDF(FPDF):
@@ -122,6 +124,11 @@ def gerar_pdf_pedido(order, logo_path):
     pdf.cell(w_prod + w_qtd + w_preco, 7, "Total", border=1, align="R")
     pdf.cell(w_valor, 7, _fmt(order.total or 0), border=1, align="R", new_x="LMARGIN", new_y="NEXT")
 
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(pdf.w / 2 - 10, 6, f"Forminhas: {FORMINHAS.get(order.forminhas, '-')}")
+    pdf.cell(pdf.w / 2 - 10, 6, f"Forma de Pagamento: {FORMA_PAGAMENTO.get(order.forma_pagamento, '-')}", align="R", new_x="LMARGIN", new_y="NEXT")
+
     # Observation
     if order.observacao:
         pdf.ln(6)
@@ -172,6 +179,15 @@ def gerar_pdf_orcamento(quote, logo_path):
     data = quote.data_pedido.strftime("%d/%m/%Y %H:%M") if quote.data_pedido else "-"
     pdf.cell(col_right - mid, 6, data, align="R", new_x="END")
 
+    ref = quote.data_renovacao or quote.data_pedido
+    venc = (ref + timedelta(days=quote.validade or 3)).strftime("%d/%m/%Y") if ref else "-"
+    txt = f"Validade: {venc} ({quote.validade} dias)"
+    if quote.data_renovacao:
+        txt = f"Renovado: {quote.data_renovacao.strftime('%d/%m/%Y')} | {txt}"
+    pdf.set_xy(mid, y0 + 12)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(col_right - mid, 6, txt, align="R", new_x="END")
+
     pdf.set_xy(x0, y0 + 12)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(mid - x0, 6, quote.cliente_telefone or "", new_x="END")
@@ -207,6 +223,11 @@ def gerar_pdf_orcamento(quote, logo_path):
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(w_prod + w_qtd + w_preco, 7, "Total", border=1, align="R")
     pdf.cell(w_valor, 7, _fmt(quote.total or 0), border=1, align="R", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(pdf.w / 2 - 10, 6, f"Forminhas: {FORMINHAS.get(quote.forminhas, '-')}")
+    pdf.cell(pdf.w / 2 - 10, 6, f"Forma de Pagamento: {FORMA_PAGAMENTO.get(quote.forma_pagamento, '-')}", align="R", new_x="LMARGIN", new_y="NEXT")
 
     if quote.event and quote.event.tipo:
         pdf.ln(6)

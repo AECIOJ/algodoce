@@ -1,6 +1,7 @@
 import os
 import threading
 import time
+from datetime import timedelta
 import requests
 from flask import Flask
 from app.config import Config
@@ -8,7 +9,7 @@ from app.extensions import db, migrate, login_manager
 from flask_migrate import upgrade
 import sqlalchemy as sa
 
-from app.utils import fmt_brl, fmt_id
+from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int
 
 _ngrok_url = None
 
@@ -60,7 +61,7 @@ def create_app():
 
     with app.app_context():
         from app.routes import clients as contas, products, ingredients, orders, reports
-        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, etapas
+        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, producao
 
         app.register_blueprint(contas.bp)
         app.register_blueprint(products.bp)
@@ -74,14 +75,16 @@ def create_app():
         app.register_blueprint(orcamento.bp)
         app.register_blueprint(categories.bp)
         app.register_blueprint(seguranca.bp)
-        app.register_blueprint(etapas.bp)
+        app.register_blueprint(producao.bp)
 
         from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote  # noqa
         from app.models.event import Event  # noqa
         from app.models.quote_item import QuoteItem  # noqa
         from app.models.order_item import OrderItem  # noqa
         from app.models.setting import Setting  # noqa
-        from app.models.etapa import Etapa  # noqa
+        from app.models.producao import Producao  # noqa
+        from app.models.producao_insumo import ProducaoInsumo  # noqa
+        from app.models.producao_produto import ProducaoProduto  # noqa
 
         upgrade()
 
@@ -106,10 +109,12 @@ def create_app():
 
     app.jinja_env.filters['brl'] = fmt_brl
     app.jinja_env.filters['fmtid'] = fmt_id
+    app.jinja_env.filters['fmtzero'] = fmt_zero
+    app.jinja_env.filters['fmtzeroi'] = fmt_zero_int
 
     @app.context_processor
     def inject_globals():
-        return dict(ngrok_url=get_ngrok_url())
+        return dict(ngrok_url=get_ngrok_url(), timedelta=timedelta)
 
     @app.context_processor
     def inject_site_categories():

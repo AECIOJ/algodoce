@@ -26,11 +26,13 @@
     </header>
 
     <nav class="navbar navbar-expand navbar-dark px-2" style="background-color: #e91e63;">
-      <div class="navbar-nav d-flex flex-wrap justify-content-center gap-1 px-2 w-100">
-        <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu">Cadastro</a>
-        <a class="nav-link" href="/orcamentos" id="comercialMenu">Comercial</a>
-
-        <a class="nav-link ms-lg-3" href="/logout" style="color: #fff !important;">🚪 Sair</a>
+      <div class="navbar-nav d-flex w-100 px-2">
+        <div class="d-flex justify-content-center flex-grow-1 gap-1">
+          <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu">Cadastro</a>
+          <a class="nav-link" href="/orcamentos" id="comercialMenu">Comercial</a>
+          <a class="nav-link" href="/producao" id="producaoMenu">Produção</a>
+        </div>
+        <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/setas/log-out.png" alt="Sair" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Sair</a>
       </div>
     </nav>
     <div class="cadastro-section py-1 d-none" id="cadastroSection">
@@ -40,8 +42,7 @@
         <div class="d-lg-none d-flex align-items-center gap-1">
           <select class="form-select fw-bold border-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
             <option value="{{ url_for('categories.list') }}" {% if request.path.startswith('/categorias') %}selected{% endif %}>Categorias</option>
-            <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/ingredientes') %}selected{% endif %}>Ingredientes</option>
-            <option value="{{ url_for('etapas.list') }}" {% if request.path.startswith('/etapas') %}selected{% endif %}>Etapas</option>
+            <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/insumos') %}selected{% endif %}>Insumos</option>
             <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
           </select>
           <div class="d-flex align-items-center justify-content-between w-100">
@@ -52,8 +53,7 @@
         <!-- Desktop: horizontal bar (always visible) -->
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
           <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
-          <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Ingredientes</a>
-          <a href="{{ url_for('etapas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Etapas</a>
+          <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Insumos</a>
           <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
           <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas</a>
         </div>
@@ -76,7 +76,7 @@
         {% endif %}
         <!-- Desktop: horizontal bar (always visible) -->
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
-          <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Orçamentos</a>
+            <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Orçamentos</a>
           <a href="/pedidos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Pedidos</a>
           <a href="/relatorios/compras" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Compras</a>
         </div>
@@ -352,15 +352,18 @@ function parseDate(str) {
   }
 
   var path = window.location.pathname;
-  var cadastroPaths = ['/categorias', '/ingredientes', '/produtos', '/contas', '/etapas'];
+  var cadastroPaths = ['/categorias', '/insumos', '/produtos', '/contas'];
   var comercialPaths = ['/orcamentos', '/pedidos', '/relatorios/compras'];
   var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });
   var onComercial = comercialPaths.some(function(p) { return path.indexOf(p) === 0; });
+  var onProducao = path.indexOf('/producao') === 0;
 
   if (onCadastro) {
     activateSection(cadastroSection, 'cadastroMenu', path);
   } else if (onComercial) {
     activateSection(document.getElementById('comercialSection'), 'comercialMenu', path);
+  } else if (onProducao) {
+    setActive(document.getElementById('producaoMenu'));
   } else {
     links.forEach(function(l) {
       var href = l.getAttribute('href');

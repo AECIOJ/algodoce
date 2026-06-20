@@ -5,6 +5,7 @@ from app.models.ingredient import Ingredient
 from app.models.product import Product
 from app.models.product_ingredient import ProductIngredient
 from app.models.unit_conversion import UnitConversion
+from app.constants import TIPO_INGREDIENTE
 
 bp = Blueprint("ingredients", __name__)
 
@@ -15,27 +16,32 @@ def protect():
     pass
 
 
-@bp.route("/ingredientes")
+@bp.route("/insumos")
 def list():
-    ingredients = Ingredient.query.order_by(Ingredient.nome).all()
-    return render_template("ingredients/list.html", ingredients=ingredients)
+    filtro_tipo = request.args.get("tipo", "todos")
+    query = Ingredient.query.order_by(Ingredient.nome)
+    if filtro_tipo != "todos":
+        query = query.filter_by(tipo=int(filtro_tipo))
+    ingredients = query.all()
+    return render_template("ingredients/list.html", ingredients=ingredients, TIPO_INGREDIENTE=TIPO_INGREDIENTE, filtro_tipo=filtro_tipo)
 
 
-@bp.route("/ingredientes/novo", methods=["GET", "POST"])
+@bp.route("/insumos/novo", methods=["GET", "POST"])
 def new():
     if request.method == "POST":
         ingredient = Ingredient(
             nome=request.form["nome"],
             unidade_medida=request.form["unidade_medida"],
+            tipo=request.form.get("tipo", 0, type=int),
         )
         db.session.add(ingredient)
         db.session.commit()
-        flash("Ingrediente cadastrado!", "success")
+        flash("Insumo cadastrado!", "success")
         return redirect(url_for("ingredients.list"))
-    return render_template("ingredients/form.html")
+    return render_template("ingredients/form.html", TIPO_INGREDIENTE=TIPO_INGREDIENTE)
 
 
-@bp.route("/ingredientes/<int:id>/editar", methods=["GET", "POST"])
+@bp.route("/insumos/<int:id>/editar", methods=["GET", "POST"])
 def edit(id):
     ingredient = Ingredient.query.get(id)
     if not ingredient:
@@ -44,6 +50,7 @@ def edit(id):
     if request.method == "POST":
         ingredient.nome = request.form["nome"]
         ingredient.unidade_medida = request.form["unidade_medida"]
+        ingredient.tipo = request.form.get("tipo", 0, type=int)
 
         UnitConversion.query.filter_by(ingredient_id=ingredient.id).delete()
         db.session.flush()
@@ -59,7 +66,7 @@ def edit(id):
                 ))
 
         db.session.commit()
-        flash("Ingrediente atualizado!", "success")
+        flash("Insumo atualizado!", "success")
         return redirect(url_for("ingredients.list"))
 
     query = Ingredient.query.with_entities(Ingredient.id).order_by(Ingredient.id)
@@ -88,10 +95,11 @@ def edit(id):
         ingredient=ingredient,
         nav=nav,
         products_using=products_using,
+        TIPO_INGREDIENTE=TIPO_INGREDIENTE,
     )
 
 
-@bp.route("/ingredientes/<int:id>")
+@bp.route("/insumos/<int:id>")
 def detail(id):
     ingredient = Ingredient.query.get_or_404(id)
 
@@ -122,16 +130,17 @@ def detail(id):
         ingredient=ingredient,
         nav=nav,
         products_using=products_using,
+        TIPO_INGREDIENTE=TIPO_INGREDIENTE,
     )
 
 
-@bp.route("/ingredientes/<int:id>/uso")
+@bp.route("/insumos/<int:id>/uso")
 def usage(id):
     qtd = ProductIngredient.query.filter_by(ingredient_id=id).count()
     return jsonify({"em_uso": qtd > 0, "quantidade": qtd})
 
 
-@bp.route("/ingredientes/<int:id>/excluir", methods=["POST"])
+@bp.route("/insumos/<int:id>/excluir", methods=["POST"])
 def delete(id):
     ingredient = Ingredient.query.get_or_404(id)
 
@@ -139,7 +148,7 @@ def delete(id):
     if usage > 0:
         flash(
             f"Não é possível excluir '{ingredient.nome}' — está em {usage} receita(s). "
-            f"Remova o ingrediente das receitas primeiro.",
+            f"Remova o insumo das receitas primeiro.",
             "danger",
         )
         return redirect(url_for("ingredients.detail", id=id))
@@ -147,5 +156,5 @@ def delete(id):
     UnitConversion.query.filter_by(ingredient_id=id).delete()
     db.session.delete(ingredient)
     db.session.commit()
-    flash("Ingrediente excluído!", "success")
+    flash("Insumo excluído!", "success")
     return redirect(url_for("ingredients.list"))

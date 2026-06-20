@@ -77,6 +77,11 @@ th { background: #f0f0f0; text-align: center; }
   </tfoot>
 </table>
 
+<div class="d-flex justify-content-between mb-2">
+  <div><strong>Forminhas:</strong> {{ FORMINHAS[order.forminhas] }}</div>
+  <div><strong>Forma de Pagamento:</strong> {{ FORMA_PAGAMENTO[order.forma_pagamento] }}</div>
+</div>
+
 {% if order.observacao %}
 <div class="mb-4">
   <strong>Observação:</strong>

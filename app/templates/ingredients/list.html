@@ -1,11 +1,25 @@
 {% extends "base.html" %}
 {% block cadastro_toolbar %}
+<select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="if(this.value) window.location=this.value;">
+  <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
+  {% for val, label in TIPO_INGREDIENTE.items() %}
+    <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
+  {% endfor %}
+</select>
 <a href="{{ url_for('ingredients.new') }}" class="btn btn-sm btn-primary ms-auto">Novo</a>
 {% endblock %}
 {% block content %}
 
 <div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2">
-  <h2>Ingredientes</h2>
+  <div class="d-flex align-items-center gap-2">
+    <h2 class="mb-0">Insumos</h2>
+    <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value;">
+      <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
+      {% for val, label in TIPO_INGREDIENTE.items() %}
+        <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
   <a href="{{ url_for('ingredients.new') }}" class="btn btn-primary">Novo</a>
 </div>
 
@@ -15,6 +29,7 @@
       <tr>
         <th>#</th>
         <th>Nome</th>
+        <th>Tipo</th>
         <th>Unidade de Medida</th>
         <th>Ações</th>
       </tr>
@@ -24,6 +39,7 @@
         <tr>
           <td>{{ i.id|fmtid }}</td>
           <td>{{ i.nome }}</td>
+          <td>{{ TIPO_INGREDIENTE[i.tipo] }}</td>
           <td>{{ i.unidade_medida }}</td>
           <td>
             <a href="{{ url_for('ingredients.edit', id=i.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
@@ -31,7 +47,7 @@
         </tr>
       {% else %}
         <tr>
-          <td colspan="4" class="text-center text-muted">Nenhum ingrediente cadastrado.</td>
+          <td colspan="5" class="text-center text-muted">Nenhum insumo cadastrado.</td>
         </tr>
       {% endfor %}
     </tbody>

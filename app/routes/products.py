@@ -9,6 +9,7 @@ from app.extensions import db
 from app.models.product import Product
 from app.models.ingredient import Ingredient
 from app.models.product_ingredient import ProductIngredient
+from app.constants import PRODUCAO_ETAPAS
 from app.models.category import Category
 from app.models.order_item import OrderItem
 from app.models.quote_item import QuoteItem
@@ -62,13 +63,14 @@ def new():
 
         _handle_imagem(request, product)
 
-        ingredientes = _parse_ingredients(request)
-        for ing_id, qtd, un in ingredientes:
+        insumos = _parse_insumos(request)
+        for ing_id, qtd, un, eta in insumos:
             pi = ProductIngredient(
                 product_id=product.id,
                 ingredient_id=ing_id,
                 quantidade=qtd,
                 unidade=un,
+                etapa_id=eta,
             )
             db.session.add(pi)
 
@@ -78,7 +80,8 @@ def new():
 
     categorias = Category.query.order_by(Category.ordem, Category.nome).all()
     ingredients = Ingredient.query.order_by(Ingredient.nome).all()
-    return render_template("products/form.html", ingredients=ingredients, categorias=categorias)
+    etapas = [type('_Etapa', (), {'id': i, 'nome': n})() for i, n in PRODUCAO_ETAPAS.items()]
+    return render_template("products/form.html", ingredients=ingredients, categorias=categorias, etapas=etapas)
 
 
 @bp.route("/produtos/<int:id>/editar", methods=["GET", "POST"])
@@ -102,13 +105,14 @@ def edit(id):
         ProductIngredient.query.filter_by(product_id=product.id).delete()
         db.session.flush()
 
-        ingredientes = _parse_ingredients(request)
-        for ing_id, qtd, un in ingredientes:
+        insumos = _parse_insumos(request)
+        for ing_id, qtd, un, eta in insumos:
             pi = ProductIngredient(
                 product_id=product.id,
                 ingredient_id=ing_id,
                 quantidade=qtd,
                 unidade=un,
+                etapa_id=eta,
             )
             db.session.add(pi)
 
@@ -118,6 +122,7 @@ def edit(id):
 
     categorias = Category.query.order_by(Category.ordem, Category.nome).all()
     ingredients = Ingredient.query.order_by(Ingredient.nome).all()
+    etapas = [type('_Etapa', (), {'id': i, 'nome': n})() for i, n in PRODUCAO_ETAPAS.items()]
 
     query = Product.query.with_entities(Product.id).order_by(Product.id)
     ids = [p.id for p in query.all()]
@@ -133,7 +138,7 @@ def edit(id):
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
     return render_template(
-        "products/form.html", product=product, ingredients=ingredients, categorias=categorias, nav=nav
+        "products/form.html", product=product, ingredients=ingredients, categorias=categorias, etapas=etapas, nav=nav
     )
 
 
@@ -290,12 +295,13 @@ def _handle_imagem(request, product):
 UNIDADES_RECEITA = ["kg", "g", "L", "ml", "un", "cx", "pacote", "colher", "colher_sopa", "xicara", "pitada", "litro"]
 
 
-def _parse_ingredients(request):
+def _parse_insumos(request):
     result = []
     ing_ids = request.form.getlist("ingredient_id")
     quantities = request.form.getlist("quantidade")
     unidades = request.form.getlist("unidade")
-    for ing_id, qtd, un in zip(ing_ids, quantities, unidades):
+    etapas = request.form.getlist("etapa_id")
+    for ing_id, qtd, un, eta in zip(ing_ids, quantities, unidades, etapas):
         if ing_id and qtd and un:
-            result.append((int(ing_id), float(qtd), un))
+            result.append((int(ing_id), float(qtd), un, int(eta) if eta else None))
     return result

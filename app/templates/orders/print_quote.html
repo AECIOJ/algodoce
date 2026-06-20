@@ -29,16 +29,11 @@ th { background: #f0f0f0; text-align: center; }
   <hr class="w-50 mx-auto">
 </div>
 
-<div class="row mb-4">
-  <div class="col-6">
-    <strong>Cliente:</strong><br>
-    {{ quote.cliente_nome }}<br>
-    {{ quote.cliente_telefone }}
-  </div>
-  <div class="col-6 text-end">
-    <strong>Data:</strong><br>
-    {{ quote.data_pedido.strftime('%d/%m/%Y %H:%M') if quote.data_pedido else '-' }}<br>
-  </div>
+<div class="text-center mb-4">
+  <strong>Cliente:</strong> {{ quote.cliente_nome }} — {{ quote.cliente_telefone }} &nbsp;|&nbsp;
+  <strong>Data:</strong> {{ quote.data_pedido.strftime('%d/%m/%Y %H:%M') if quote.data_pedido else '-' }} &nbsp;|&nbsp;
+  {% set ref = quote.data_renovacao or quote.data_pedido %}
+  {% if quote.data_renovacao %}<strong>Renovado:</strong> {{ quote.data_renovacao.strftime('%d/%m/%Y') }} &nbsp;|&nbsp; {% endif %}<strong>Validade:</strong> {{ (ref.replace(tzinfo=None) + timedelta(days=quote.validade or 3)).strftime('%d/%m/%Y') }} ({{ quote.validade }} dias)
 </div>
 
 <table>
@@ -67,6 +62,11 @@ th { background: #f0f0f0; text-align: center; }
     </tr>
   </tfoot>
 </table>
+
+<div class="d-flex justify-content-between mb-2">
+  <div><strong>Forminhas:</strong> {{ FORMINHAS[quote.forminhas] }}</div>
+  <div><strong>Forma de Pagamento:</strong> {{ FORMA_PAGAMENTO[quote.forma_pagamento] }}</div>
+</div>
 
 {% if quote.event and quote.event.tipo %}
 <div class="row mb-4">

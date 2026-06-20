@@ -14,14 +14,7 @@ from app.models.quote_item import QuoteItem
 from app.models.event import Event
 from app.models.quote import Quote
 from app.pdf import gerar_pdf_pedido, gerar_pdf_orcamento
-
-
-ORDER_STATUS = {0: "Pendente", 1: "Produzindo", 2: "Pronto", 9: "Entregue"}
-QUOTE_STATUS = {0: "Pendente", 1: "Negociação", 2: "Recusado", 3: "Cancelado",
-                8: "Expirado", 9: "Aprovado"}
-QUOTE_STATUS_FILTER = [("todos", "Todos"), ("0", "Pendente"), ("1", "Negociação"),
-                       ("2", "Recusado"), ("3", "Cancelado"),
-                       ("8", "Expirado"), ("9", "Aprovado")]
+from app.constants import ORDER_STATUS, QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMA_PAGAMENTO, FORMINHAS
 
 
 def _clean(val):
@@ -133,7 +126,7 @@ def dashboard():
 @bp.route("/pedidos", endpoint="list")
 def order_list():
     orders = Order.query.order_by(Order.data_entrega).all()
-    return render_template("orders/list.html", orders=orders, ORDER_STATUS=ORDER_STATUS)
+    return render_template("orders/list.html", orders=orders, ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS)
 
 
 @bp.route("/orcamentos")
@@ -145,8 +138,9 @@ def orcamentos():
     quotes = query.all()
     return render_template(
         "orders/orcamentos.html", orders=quotes,
+        FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS,
         filtro=str(status) if status is not None else "todos",
-        QUOTE_STATUS=QUOTE_STATUS
+        QUOTE_STATUS=QUOTE_STATUS, QUOTE_STATUS_FILTER=QUOTE_STATUS_FILTER,
     )
 
 
@@ -168,7 +162,8 @@ def quote_detail(id):
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
     return render_template("orders/quote_detail.html", quote=quote, nav=nav,
-                           QUOTE_STATUS=QUOTE_STATUS)
+                           QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
+                           FORMINHAS=FORMINHAS)
 
 
 @bp.route("/orcamentos/<int:id>/converter", methods=["POST"])
@@ -179,6 +174,9 @@ def converter_orcamento(id):
         return redirect(url_for("orders.orcamentos"))
     if quote.pedido_id:
         flash("Orçamento já foi convertido!", "warning")
+        return redirect(url_for("orders.orcamentos"))
+    if quote.status >= 7:
+        flash("Orçamento não pode ser convertido — expirado ou reprovado.", "warning")
         return redirect(url_for("orders.orcamentos"))
 
     tipo = request.form.get("converter_tipo", "existente")
@@ -208,6 +206,8 @@ def converter_orcamento(id):
         client_id=conta.id,
         data_entrega=None,
         observacao=quote.observacao,
+        forma_pagamento=quote.forma_pagamento,
+        forminhas=quote.forminhas,
         status=0,
     )
     db.session.add(order)
@@ -246,8 +246,8 @@ def quote_edit(id):
         return redirect(url_for("orders.orcamentos"))
 
     if request.method == "POST":
-        if quote.pedido_id or quote.status == 9:
-            flash("Orçamento não pode ser alterado — já está aprovado.", "warning")
+        if quote.pedido_id or quote.status >= 7:
+            flash("Orçamento não pode ser alterado — já está finalizado.", "warning")
             return redirect(url_for("orders.quote_edit", id=id))
 
         quote.cliente_nome = request.form["cliente_nome"]
@@ -256,6 +256,9 @@ def quote_edit(id):
         if quote.status == 0:
             quote.status = 1
         quote.observacao = _clean(request.form.get("observacao"))
+        quote.validade = request.form.get("validade", 3, type=int)
+        quote.forma_pagamento = request.form.get("forma_pagamento", 0, type=int)
+        quote.forminhas = request.form.get("forminhas", 0, type=int)
 
         _save_event(quote, request.form)
 
@@ -300,7 +303,9 @@ def quote_edit(id):
     return render_template(
         "orders/quote_form.html", quote=quote, products=products, nav=nav,
         tipos_evento=tipos_evento, clients=clients,
-        QUOTE_STATUS=QUOTE_STATUS, ro=bool(quote.pedido_id or quote.status == 9)
+        QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
+        FORMINHAS=FORMINHAS,
+        ro=bool(quote.pedido_id or quote.status >= 7)
     )
 
 
@@ -315,6 +320,8 @@ def quote_new():
             cliente_telefone=cliente_telefone,
             data_pedido=datetime.now(timezone.utc),
             status=0,
+            validade=request.form.get("validade", 3, type=int),
+            forma_pagamento=request.form.get("forma_pagamento", 0, type=int),
         )
         db.session.add(quote)
         db.session.flush()
@@ -351,7 +358,9 @@ def quote_new():
     clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     return render_template(
         "orders/quote_form.html", quote=None, products=products,
-        tipos_evento=tipos_evento, clients=clients, QUOTE_STATUS=QUOTE_STATUS
+        tipos_evento=tipos_evento, clients=clients,
+        QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
+        FORMINHAS=FORMINHAS,
     )
 
 
@@ -359,10 +368,40 @@ def quote_new():
 def quote_status(id):
     quote = Quote.query.get_or_404(id)
     novo_status = request.form["status"]
-    if novo_status in ("0", "1", "2", "3", "8", "9"):
+    if novo_status in ("0", "1", "6", "7", "8", "9"):
         quote.status = int(novo_status)
         db.session.commit()
         flash("Status atualizado!", "success")
+    return redirect(url_for("orders.quote_edit", id=id))
+
+
+@bp.route("/orcamentos/validar")
+def quote_validar():
+    hoje = datetime.utcnow()
+    expirados = 0
+    quotes = Quote.query.filter(Quote.status < 7).all()
+    for q in quotes:
+        ref = q.data_renovacao or q.data_pedido
+        dias = (hoje - ref).days
+        if dias > (q.validade or 3):
+            q.status = 7
+            expirados += 1
+    db.session.commit()
+    flash(f"{expirados} orçamento(s) expirado(s) automaticamente.", "info")
+    return redirect(url_for("orders.orcamentos"))
+
+
+@bp.route("/orcamentos/<int:id>/renovar", methods=["POST"])
+def quote_renovar(id):
+    quote = Quote.query.get_or_404(id)
+    if quote.status != 7:
+        flash("Apenas orçamentos expirados podem ser renovados.", "warning")
+        return redirect(url_for("orders.orcamentos"))
+    hoje = datetime.utcnow()
+    quote.data_renovacao = hoje
+    quote.status = 6
+    db.session.commit()
+    flash("Orçamento renovado com sucesso!", "success")
     return redirect(url_for("orders.quote_edit", id=id))
 
 
@@ -404,6 +443,8 @@ def new():
             data_previsao_entrega=data_previsao_entrega,
             data_entrega=data_entrega,
             observacao=observacao,
+            forma_pagamento=request.form.get("forma_pagamento", 0, type=int),
+            forminhas=request.form.get("forminhas", 0, type=int),
             status=9 if data_entrega else 0,
         )
         db.session.add(order)
@@ -421,7 +462,8 @@ def new():
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
     return render_template(
         "orders/form.html", clients=clients, products=products,
-        ORDER_STATUS=ORDER_STATUS
+        ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
+        FORMINHAS=FORMINHAS,
     )
 
 
@@ -460,6 +502,8 @@ def edit(id):
             if data_previsao_entrega_str else None
         )
         order.observacao = request.form.get("observacao", "")
+        order.forma_pagamento = request.form.get("forma_pagamento", 0, type=int)
+        order.forminhas = request.form.get("forminhas", 0, type=int)
         _save_event(order, request.form)
 
         total = _replace_order_items(order, request.form)
@@ -504,7 +548,8 @@ def edit(id):
 
     return render_template(
         "orders/form.html", order=order, clients=clients, products=products, nav=nav,
-        ORDER_STATUS=ORDER_STATUS,
+        ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
+        FORMINHAS=FORMINHAS,
         ro=order.status == 9
     )
 
@@ -541,13 +586,13 @@ def cancel(id):
 @bp.route("/pedidos/<int:id>/print")
 def print_order(id):
     order = Order.query.get_or_404(id)
-    return render_template("orders/print_order.html", order=order)
+    return render_template("orders/print_order.html", order=order, FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS)
 
 
 @bp.route("/orcamentos/<int:id>/print")
 def print_quote(id):
     quote = Quote.query.get_or_404(id)
-    return render_template("orders/print_quote.html", quote=quote)
+    return render_template("orders/print_quote.html", quote=quote, FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS)
 
 
 @bp.route("/pedidos/<int:id>/pdf")

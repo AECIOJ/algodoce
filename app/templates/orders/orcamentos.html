@@ -1,26 +1,24 @@
 {% extends "base.html" %}
 {% block comercial_toolbar %}
 <select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="if(this.value) window.location=this.value;">
-  <option value="{{ url_for('orders.orcamentos') }}" {{ 'selected' if filtro == 'todos' }}>Todos</option>
-  <option value="{{ url_for('orders.orcamentos', status=0) }}" {{ 'selected' if filtro == '0' }}>Pendente</option>
-  <option value="{{ url_for('orders.orcamentos', status=1) }}" {{ 'selected' if filtro == '1' }}>Negociação</option>
-  <option value="{{ url_for('orders.orcamentos', status=9) }}" {{ 'selected' if filtro == '9' }}>Aprovado</option>
-  <option value="{{ url_for('orders.orcamentos', status=2) }}" {{ 'selected' if filtro == '2' }}>Recusado</option>
+  {% for val, label in QUOTE_STATUS_FILTER %}
+    <option value="{{ url_for('orders.orcamentos', status=val) if val != 'todos' else url_for('orders.orcamentos') }}" {{ 'selected' if filtro == val }}>{{ label }}</option>
+  {% endfor %}
 </select>
 <a href="{{ url_for('orders.quote_new') }}" class="btn btn-sm btn-success text-nowrap" style="flex-shrink:0;">+ Novo</a>
+<a href="{{ url_for('orders.quote_validar') }}" class="btn btn-sm btn-outline-warning text-nowrap">Validar</a>
 {% endblock %}
 {% block content %}
 
 <div class="d-none d-lg-flex justify-content-center align-items-baseline mb-1 gap-2">
   <h2 class="mb-0">Orçamentos</h2>
   <select id="filter-status" class="form-select" style="width:auto;min-width:80px;" onchange="if(this.value) window.location=this.value;">
-    <option value="{{ url_for('orders.orcamentos') }}" {{ 'selected' if filtro == 'todos' }}>Todos</option>
-    <option value="{{ url_for('orders.orcamentos', status=0) }}" {{ 'selected' if filtro == '0' }}>Pendente</option>
-    <option value="{{ url_for('orders.orcamentos', status=1) }}" {{ 'selected' if filtro == '1' }}>Negociação</option>
-    <option value="{{ url_for('orders.orcamentos', status=9) }}" {{ 'selected' if filtro == '9' }}>Aprovado</option>
-    <option value="{{ url_for('orders.orcamentos', status=2) }}" {{ 'selected' if filtro == '2' }}>Recusado</option>
+    {% for val, label in QUOTE_STATUS_FILTER %}
+      <option value="{{ url_for('orders.orcamentos', status=val) if val != 'todos' else url_for('orders.orcamentos') }}" {{ 'selected' if filtro == val }}>{{ label }}</option>
+    {% endfor %}
   </select>
   <a href="{{ url_for('orders.quote_new') }}" class="btn btn-sm btn-success text-nowrap" style="flex-shrink:0;">+ Novo</a>
+  <a href="{{ url_for('orders.quote_validar') }}" class="btn btn-sm btn-outline-warning text-nowrap">Validar</a>
 </div>
 
 <div class="table-responsive table-scroll">
@@ -32,7 +30,9 @@
         <th>Cliente</th>
         <th>Telefone</th>
         <th>Data</th>
+        <th>Validade</th>
         <th class="text-end">Total</th>
+        <th>Pagamento</th>
         <th>Status</th>
         <th>Ações</th>
       </tr>
@@ -44,16 +44,19 @@
           <td>
             {% if o.pedido_id %}
               <a href="{{ url_for('orders.edit', id=o.pedido_id) }}" class="btn btn-sm btn-outline-success" style="min-width:90px">{{ o.pedido_id }}</a>
-            {% else %}
-              <a href="{{ url_for('orders.quote_edit', id=o.id) }}" class="btn btn-sm btn-outline-primary" style="min-width:90px">Converter</a>
             {% endif %}
           </td>
           <td>{{ o.cliente_nome }}</td>
           <td>{{ o.cliente_telefone }}</td>
-          <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
-          <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
+          <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}{% if o.data_renovacao %}<br><small class="text-muted">Renovado: {{ o.data_renovacao.strftime('%d/%m/%Y') }}</small>{% endif %}</td>
           <td>
-            <span class="badge bg-{{ 'secondary' if o.status == 0 else 'primary' if o.status == 1 else 'success' if o.status == 9 else 'danger' if o.status == 2 else 'dark' if o.status == 3 else 'warning' }}" style="min-width:95px">
+            {% set ref = o.data_renovacao or o.data_pedido %}
+            {{ (ref.replace(tzinfo=None) + timedelta(days=o.validade or 3)).strftime('%d/%m/%Y') }}
+          </td>
+          <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
+          <td>{{ FORMA_PAGAMENTO[o.forma_pagamento] }}</td>
+          <td>
+            <span class="badge bg-{{ 'secondary' if o.status == 0 else 'primary' if o.status == 1 else 'info' if o.status == 6 else 'warning' if o.status == 7 else 'danger' if o.status == 8 else 'success' }}" style="min-width:95px">
               {{ QUOTE_STATUS[o.status] }}
             </span>
           </td>
@@ -63,7 +66,7 @@
         </tr>
       {% else %}
         <tr>
-          <td colspan="8" class="text-center text-muted">Nenhum orçamento encontrado.</td>
+          <td colspan="10" class="text-center text-muted">Nenhum orçamento encontrado.</td>
         </tr>
       {% endfor %}
     </tbody>

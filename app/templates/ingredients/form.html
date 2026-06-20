@@ -3,8 +3,8 @@
 {% block content %}
 
 {% if ingredient %}
-{% call form_nav(back_url=url_for('ingredients.list'), nome='Ingrediente ' ~ ingredient.id|fmtid, nav=nav, edit_endpoint='ingredients.edit', entity_id=ingredient.id) %}
-  <button type="button" class="btn btn-outline-danger btn-sm" data-ingrediente-id="{{ ingredient.id }}" data-ingrediente-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
+{% call form_nav(back_url=url_for('ingredients.list'), nome='Insumo ' ~ ingredient.id|fmtid, nav=nav, edit_endpoint='ingredients.edit', entity_id=ingredient.id) %}
+  <button type="button" class="btn btn-outline-danger btn-sm" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
 {% endcall %}
 {% endif %}
 
@@ -12,6 +12,14 @@
   <div class="mb-3">
     <label class="form-label">Nome *</label>
     <input type="text" name="nome" class="form-control" required value="{{ ingredient.nome if ingredient else '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Tipo</label>
+    <select name="tipo" class="form-select">
+      {% for val, label in TIPO_INGREDIENTE.items() %}
+        <option value="{{ val }}" {{ 'selected' if ingredient and ingredient.tipo == val }}>{{ label }}</option>
+      {% endfor %}
+    </select>
   </div>
   <div class="mb-3">
     <label class="form-label">Unidade de Medida *</label>
@@ -120,7 +128,7 @@
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Excluir Ingrediente</h5>
+        <h5 class="modal-title">Excluir Insumo</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" id="modalExcluirBody"></div>
@@ -166,19 +174,19 @@ function addConversao() {
 }
 
 function confirmarExclusao(btn) {
-  const id = btn.dataset.ingredienteId;
-  const nome = btn.dataset.ingredienteNome;
+  const id = btn.dataset.insumoId;
+  const nome = btn.dataset.insumoNome;
   const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
   const body = document.getElementById('modalExcluirBody');
   const footer = document.getElementById('modalExcluirFooter');
 
-  fetch('/ingredientes/' + id + '/uso')
+  fetch('/insumos/' + id + '/uso')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.em_uso) {
         body.innerHTML = '<div class="alert alert-danger mb-0">' +
           '<strong>' + nome + '</strong> está em <strong>' + data.quantidade + '</strong> receita(s). ' +
-          'Remova o ingrediente das receitas antes de excluí-lo.</div>';
+          'Remova o insumo das receitas antes de excluí-lo.</div>';
         footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>';
       } else {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
@@ -192,7 +200,7 @@ function confirmarExclusao(btn) {
 
 function efetuarExclusao(id) {
   var form = document.getElementById('formExcluir');
-  form.action = '/ingredientes/' + id + '/excluir';
+  form.action = '/insumos/' + id + '/excluir';
   form.submit();
 }
 </script>

@@ -53,9 +53,13 @@
       <div class="card-header"><strong>Informações</strong></div>
       <div class="card-body">
         <p class="mb-1">Data: {{ quote.data_pedido.strftime('%d/%m/%Y %H:%M') }}</p>
+        {% set ref = quote.data_renovacao or quote.data_pedido %}
+        <p class="mb-1">Validade: {{ (ref.replace(tzinfo=None) + timedelta(days=quote.validade or 3)).strftime('%d/%m/%Y') }} ({{ quote.validade }} dias){% if quote.data_renovacao %} — Renovado em: {{ quote.data_renovacao.strftime('%d/%m/%Y') }}{% endif %}</p>
+        <p class="mb-1">Forminhas: {{ FORMINHAS[quote.forminhas] }}</p>
+        <p class="mb-1">Pagamento: {{ FORMA_PAGAMENTO[quote.forma_pagamento] }}</p>
         <p class="mb-0">
           Status:
-          <span class="badge bg-{{ 'secondary' if quote.status == 0 else 'primary' if quote.status == 1 else 'danger' if quote.status == 2 else 'dark' if quote.status == 3 else 'warning' if quote.status == 8 else 'success' }}">
+          <span class="badge bg-{{ 'secondary' if quote.status == 0 else 'primary' if quote.status == 1 else 'info' if quote.status == 6 else 'warning' if quote.status == 7 else 'danger' if quote.status == 8 else 'success' }}">
             {{ QUOTE_STATUS[quote.status] }}
           </span>
         </p>
@@ -160,7 +164,7 @@
 
 <div class="d-flex flex-wrap gap-2">
   <a href="{{ url_for('orders.quote_edit', id=quote.id) }}" class="btn btn-outline-primary">Revisar</a>
-  {% if not quote.pedido_id and quote.status in (0, 1) %}
+  {% if not quote.pedido_id and quote.status < 7 %}
     <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
       <button type="submit" class="btn btn-success"
               onclick="return confirm('Converter este orçamento em pedido?')">Converter</button>

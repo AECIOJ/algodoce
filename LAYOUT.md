@@ -5,7 +5,7 @@
 - Imagem do logo centralizada horizontalmente
 - Abaixo, menu horizontal com fundo rosa e links em branco: Cadastro, Comercial, Sair
 - Abaixo do menu, submenu horizontal que aparece conforme a secao:
-  - Cadastro: links Categorias, Ingredientes, Produtos, Contas
+  - Cadastro: links Categorias, Insumos, Produtos, Contas
   - Comercial: links Orcamentos, Pedidos, Compras
 - No mobile, o submenu vira um select (dropdown) com os links, e um espaco para botoes de acao à direita.
   - O select de submenu tem `font-size: 1rem` (menor que o padrao) para economizar espaco.
@@ -34,7 +34,7 @@
 O panel de edicao tem ate 3 linhas, dependendo do contexto:
 
 ### Desktop
-1. **Linha de submenu** (se houver): links horizontais da secao (ex: Categorias, Ingredientes, Produtos, Contas).
+1. **Linha de submenu** (se houver): links horizontais da secao (ex: Categorias, Insumos, Produtos, Contas).
 2. **Linha de navegacao** (form_nav): `[Voltar]` alinhado à esquerda / navegador centralizado / `[botoes de edicao]` à direita.
    - Navegador: `[Primeiro][Anterior]` **item #X** (editavel ao clicar) `[Proximo][Ultimo]`
    - Botoes de edicao: status (select) e acoes (excluir, cancelar, converter).

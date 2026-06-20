@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2">
+  <div class="d-flex align-items-center gap-2">
+    <h2 class="mb-0">Produção</h2>
+    <form method="GET" action="{{ url_for('producao.list') }}" class="d-inline-block">
+      <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for val, label in PRODUCAO_STATUS.items() %}
+          <option value="{{ val }}" {{ 'selected' if status_filter == val }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  <a href="{{ url_for('producao.nova') }}" class="btn btn-primary">+ Nova</a>
+</div>
+
+<div class="d-lg-none d-flex flex-wrap align-items-center justify-content-center gap-2 mb-2">
+  <form method="GET" action="{{ url_for('producao.list') }}" class="d-inline-block">
+    <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+      <option value="">Todos</option>
+      {% for val, label in PRODUCAO_STATUS.items() %}
+        <option value="{{ val }}" {{ 'selected' if status_filter == val }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  <a href="{{ url_for('producao.nova') }}" class="btn btn-sm btn-primary">+ Nova</a>
+</div>
+
+<div class="table-responsive">
+  <table class="table table-hover sortable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Descrição</th>
+        <th>Previsão De</th>
+        <th>Previsão Até</th>
+        <th>Finalização</th>
+        <th>Status</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in producoes %}
+      <tr>
+        <td>{{ p.id }}</td>
+        <td>{{ p.descricao }}</td>
+        <td>{{ p.previsao_de.strftime('%d/%m/%Y') if p.previsao_de else '-' }}</td>
+        <td>{{ p.previsao_ate.strftime('%d/%m/%Y') if p.previsao_ate else '-' }}</td>
+        <td>{{ p.data_fim.strftime('%d/%m/%Y') if p.data_fim else '-' }}</td>
+        <td>
+          <span class="badge bg-{{ 'success' if p.status == 9 else 'info' }}">
+            {{ 'Finalizado' if p.status == 9 else 'Executando' }}
+          </span>
+        </td>
+        <td>
+          <a href="{{ url_for('producao.detail', id=p.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="text-center text-muted">Nenhuma produção cadastrada.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

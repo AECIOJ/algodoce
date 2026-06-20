@@ -123,7 +123,6 @@
                 <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()" {{ 'disabled' if ro }}>✕</button></td>
               </tr>
             {% endif %}
-            <tr id="add-item-row"><td colspan="6" class="py-2"><div class="d-flex gap-2">{% if not ro %}<button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm" onclick="atualizarESalvar()">Atualizar Preço 0,00</button>{% endif %}</div></td></tr>
           </tbody>
           <tfoot>
             <tr>
@@ -131,11 +130,37 @@
               <th id="total-geral" class="text-end">R$ {{ (order.total or 0) | brl if order else 'R$ 0,00' }}</th>
               <th colspan="2"></th>
             </tr>
+            <tr id="add-item-row"><td colspan="6" class="py-2"><div class="d-flex gap-2">{% if not ro %}<button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm" onclick="atualizarESalvar()">Atualizar Preço 0,00</button>{% endif %}</div></td></tr>
           </tfoot>
         </table>
       </div>
     </div>
   </div>
+
+  {% if order %}
+  <div class="row mb-3 align-items-center">
+    <div class="col-auto">
+      <label class="form-label mb-0">Forminhas</label>
+    </div>
+    <div class="col-auto">
+      <select name="forminhas" class="form-select form-select-sm" {{ 'disabled' if ro }}>
+        {% for val, label in FORMINHAS.items() %}
+          <option value="{{ val }}" {{ 'selected' if order.forminhas == val }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto ms-3">
+      <label class="form-label mb-0">Forma de Pagamento</label>
+    </div>
+    <div class="col-auto">
+      <select name="forma_pagamento" class="form-select form-select-sm" {{ 'disabled' if ro }}>
+        {% for val, label in FORMA_PAGAMENTO.items() %}
+          <option value="{{ val }}" {{ 'selected' if order.forma_pagamento == val }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="card mb-3">
     <div class="card-header bg-light fw-bold">Evento</div>
@@ -234,7 +259,7 @@ function addItem() {
     <td><input type="text" name="observacao_item" class="form-control form-control-sm"></td>
     <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="markModified(); this.closest('tr').remove()">✕</button></td>
   `;
-  tbody.insertBefore(tr, document.getElementById('add-item-row'));
+  tbody.appendChild(tr);
 }
 </script>
 {% endblock %}

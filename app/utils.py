@@ -42,3 +42,15 @@ def preco_unit(valor, qtd):
     if not qtd:
         return float(valor)
     return float(valor) / float(qtd)
+
+
+def fmt_zero(value):
+    if not value:
+        return ''
+    return "%.1f" % value
+
+
+def fmt_zero_int(value):
+    if not value:
+        return ''
+    return "%.0f" % value

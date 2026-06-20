@@ -5,6 +5,7 @@
   <option value="0">Pendente</option>
   <option value="1">Produzindo</option>
   <option value="2">Pronto</option>
+  <option value="3">Cancelado</option>
   <option value="9">Entregue</option>
 </select>
 <a href="{{ url_for('orders.new') }}" class="btn btn-sm btn-primary text-nowrap" style="flex-shrink:0;">+ Novo</a>
@@ -18,6 +19,7 @@
     <option value="0">Pendente</option>
     <option value="1">Produzindo</option>
     <option value="2">Pronto</option>
+    <option value="3">Cancelado</option>
     <option value="9">Entregue</option>
   </select>
   <a href="{{ url_for('orders.new') }}" class="btn btn-sm btn-primary text-nowrap" style="flex-shrink:0;">+ Novo</a>
@@ -44,6 +46,8 @@ function filtrarPedidos(filtro) {
         <th>Data Pedido</th>
         <th>Prev. Entrega</th>
         <th>Data Entrega</th>
+        <th>Forminhas</th>
+        <th>Pagamento</th>
         <th class="text-end">Total</th>
         <th>Status</th>
         <th>Ações</th>
@@ -62,6 +66,8 @@ function filtrarPedidos(filtro) {
           <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}</td>
           <td>{{ o.data_previsao_entrega.strftime('%d/%m/%Y %H:%M') if o.data_previsao_entrega else '-' }}</td>
           <td>{{ o.data_entrega.strftime('%d/%m/%Y %H:%M') if o.data_entrega else '-' }}</td>
+          <td>{{ FORMINHAS[o.forminhas] }}</td>
+          <td>{{ FORMA_PAGAMENTO[o.forma_pagamento] }}</td>
           <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
           <td>
             <span class="badge bg-{{ 'warning' if o.status == 0 else 'info' if o.status == 1 else 'success' if o.status == 2 else 'secondary' if o.status == 9 else 'danger' }}" style="min-width:95px">
@@ -74,7 +80,7 @@ function filtrarPedidos(filtro) {
         </tr>
       {% else %}
         <tr>
-          <td colspan="9" class="text-center text-muted">Nenhum pedido cadastrado.</td>
+          <td colspan="11" class="text-center text-muted">Nenhum pedido cadastrado.</td>
         </tr>
       {% endfor %}
     </tbody>

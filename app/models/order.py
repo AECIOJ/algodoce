@@ -18,7 +18,13 @@ class Order(db.Model):
     status = db.Column(db.Integer, nullable=False, default=0)
     observacao = db.Column(db.Text)
     total = db.Column(db.Numeric(10, 2), nullable=True)
+    forma_pagamento = db.Column(db.Integer, nullable=False, default=0)
+    forminhas = db.Column(db.Integer, nullable=False, default=0)
 
+    producao_id = db.Column(
+        db.Integer, db.ForeignKey("producao.id"), nullable=True
+    )
+    producao = db.relationship("Producao", foreign_keys=[producao_id], lazy="joined")
     quote_id = db.Column(
         db.Integer, db.ForeignKey("quotes.id"), nullable=True
     )

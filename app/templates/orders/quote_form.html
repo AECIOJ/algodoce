@@ -4,28 +4,31 @@
 
 {% if quote %}
 {% set status_html %}
-<form method="POST" action="{{ url_for('orders.quote_status', id=quote.id) }}" class="d-inline">
-  <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()" {{ 'disabled' if ro }}>
-    <option value="0" {{ 'selected' if quote.status == 0 }}>Pendente</option>
-    <option value="1" {{ 'selected' if quote.status == 1 }}>Negociação</option>
-    <option value="2" {{ 'selected' if quote.status == 2 }}>Recusado</option>
-    <option value="3" {{ 'selected' if quote.status == 3 }}>Cancelado</option>
-    <option value="8" {{ 'selected' if quote.status == 8 }}>Expirado</option>
-    <option value="9" {{ 'selected' if quote.status == 9 }}>Aprovado</option>
-  </select>
-</form>
+<div class="d-flex align-items-center gap-1" style="display:inline-flex">
+  <form method="POST" action="{{ url_for('orders.quote_status', id=quote.id) }}" class="d-inline">
+    <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()" {{ 'disabled' if ro }}>
+      <option value="0" {{ 'selected' if quote.status == 0 }}>Pendente</option>
+      <option value="1" {{ 'selected' if quote.status == 1 }}>Negociação</option>
+      <option value="6" {{ 'selected' if quote.status == 6 }}>Renovado</option>
+      <option value="7" {{ 'selected' if quote.status == 7 }}>Expirado</option>
+      <option value="8" {{ 'selected' if quote.status == 8 }}>Reprovado</option>
+      <option value="9" {{ 'selected' if quote.status == 9 }}>Aprovado</option>
+    </select>
+  </form>
+  {% if quote.status == 7 %}<form method="POST" action="{{ url_for('orders.quote_renovar', id=quote.id) }}" class="d-inline"><button type="submit" class="btn btn-sm btn-info text-white">Renovar</button></form>{% endif %}
+</div>
 {% endset %}
 {% set quote_id_raw = quote.id|fmtid %}
 {% set quote_secondary %}
   {% if quote.pedido_id %}
     <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id|fmtid }}</a>
-  {% else %}
+  {% elif quote.status < 7 %}
     <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#converterModal">Converter</a>
   {% endif %}
 {% endset %}
 {% call form_nav(back_url=url_for('orders.orcamentos'), nome='Orçamento ' ~ quote_id_raw, nav=nav, edit_endpoint='orders.quote_edit', entity_id=quote.id, status=status_html, actions2=quote_secondary) %}
   <form method="POST" action="{{ url_for('orders.quote_delete', id=quote.id) }}" class="d-inline" onsubmit="return confirm('Excluir orçamento #{{ quote.id|fmtid }}?')">
-    <button type="submit" class="btn btn-outline-danger btn-sm" {{ 'disabled' if ro }}>Excluir</button>
+    <button type="submit" class="btn btn-danger btn-sm" {{ 'disabled' if ro }}>Excluir</button>
   </form>
 {% endcall %}
 {% endif %}
@@ -34,17 +37,30 @@
   <div class="row mb-3">
     <div class="col-md-4">
       <label class="form-label">Nome *</label>
-      <input type="text" name="cliente_nome" class="form-control" required
-             value="{{ quote.cliente_nome if quote else '' }}" {{ 'disabled' if ro }}>
+      <div class="d-flex gap-2">
+        <input type="text" name="cliente_nome" class="form-control" required
+               value="{{ quote.cliente_nome if quote else '' }}" {{ 'disabled' if ro }}>
+        {% if quote %}
+        <a href="{{ url_for('orders.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success btn-sm flex-shrink-0 {{ 'disabled' if ro }}">Enviar</a>
+        {% endif %}
+      </div>
     </div>
     <div class="col-md-3">
       <label class="form-label">Telefone *</label>
-      <div class="input-group">
-        <input type="text" name="cliente_telefone" class="form-control" required
-               value="{{ quote.cliente_telefone if quote else '' }}" {{ 'disabled' if ro }}>
-        {% if quote %}<a href="{{ url_for('orders.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success {{ 'disabled' if ro }}">Enviar</a>{% endif %}
+      <input type="text" name="cliente_telefone" class="form-control" required
+             value="{{ quote.cliente_telefone if quote else '' }}" {{ 'disabled' if ro }}>
+    </div>
+    {% if quote %}
+    <div class="col-md-5">
+      <label class="form-label">Validade</label>
+      <div class="d-flex align-items-center gap-2">
+        <input type="number" name="validade" class="form-control form-control-sm" min="1" step="1" value="{{ quote.validade or 3 }}" style="width:70px;" {{ 'disabled' if ro }}>
+        {% set ref = quote.data_renovacao or quote.data_pedido %}
+        <span class="text-muted small">dias => {{ (ref.replace(tzinfo=None) + timedelta(days=quote.validade or 3)).strftime('%d/%m/%Y') }}</span>
+        {% if quote.data_renovacao %}<span class="badge bg-info text-dark">Renovado: {{ quote.data_renovacao.strftime('%d/%m/%Y') }}</span>{% endif %}
       </div>
     </div>
+    {% endif %}
   </div>
 
   <div class="card mb-3">
@@ -110,18 +126,43 @@
               </tr>
             {% endif %}
           </tbody>
-          <tbody id="add-item-container"><tr><td colspan="6" class="py-2">{% if not ro %}<div class="d-flex gap-2"><button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm" onclick="atualizarESalvar()">Atualizar Preço 0,00</button></div>{% endif %}</td></tr></tbody>
           <tfoot>
             <tr>
               <th colspan="3" class="text-end">Total</th>
               <th id="total-geral" class="text-end">R$ {{ (quote.total or 0) | brl if quote else 'R$ 0,00' }}</th>
               <th colspan="2"></th>
             </tr>
+            <tr><td colspan="6" class="py-2">{% if not ro %}<div class="d-flex gap-2"><button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm" onclick="atualizarESalvar()">Atualizar Preço 0,00</button></div>{% endif %}</td></tr>
           </tfoot>
         </table>
       </div>
     </div>
   </div>
+
+  {% if quote %}
+  <div class="row mb-3 align-items-center">
+    <div class="col-auto">
+      <label class="form-label mb-0">Forminhas</label>
+    </div>
+    <div class="col-auto">
+      <select name="forminhas" class="form-select form-select-sm" {{ 'disabled' if ro }}>
+        {% for val, label in FORMINHAS.items() %}
+          <option value="{{ val }}" {{ 'selected' if quote.forminhas == val }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto ms-3">
+      <label class="form-label mb-0">Forma de Pagamento</label>
+    </div>
+    <div class="col-auto">
+      <select name="forma_pagamento" class="form-select form-select-sm" {{ 'disabled' if ro }}>
+        {% for val, label in FORMA_PAGAMENTO.items() %}
+          <option value="{{ val }}" {{ 'selected' if quote.forma_pagamento == val }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="card mb-3">
     <div class="card-header bg-light fw-bold">Evento</div>
@@ -184,7 +225,7 @@
   </a>
 </form>
 
-{% if quote and not quote.pedido_id %}
+{% if quote and not quote.pedido_id and quote.status < 7 %}
 <div class="modal fade" id="converterModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -217,7 +258,7 @@
             <input type="text" name="novo_nome" class="form-control mb-2" placeholder="Nome">
             <input type="text" name="novo_telefone" class="form-control" placeholder="Telefone">
           </div>
-          <p class="text-muted small mt-3 mb-0">O status do orçamento será alterado para <strong>Fechado</strong> e um novo pedido será gerado.</p>
+          <p class="text-muted small mt-3 mb-0">O status do orçamento será alterado para <strong>Aprovado</strong> e um novo pedido será gerado.</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>

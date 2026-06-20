@@ -4,11 +4,9 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.client import Conta
 from app.models.order import Order
-from app.routes.orders import ORDER_STATUS
+from app.constants import ORDER_STATUS, TIPO_CONTA
 
 bp = Blueprint("contas", __name__)
-
-TIPO_CONTA = {0: "Cliente", 1: "Cliente/Fornecedor", 2: "Fornecedor"}
 
 
 def _cpf_valido(n):

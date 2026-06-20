@@ -99,8 +99,8 @@
               <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
               <td>R$ {{ (o.total or 0) | brl }}</td>
               <td>
-                <span class="badge bg-{{ 'warning' if o.status == 'pendente' else 'info' if o.status == 'em_producao' else 'success' if o.status == 'pronto' else 'secondary' if o.status == 'entregue' else 'danger' }}">
-                  {{ o.status }}
+                <span class="badge bg-{{ 'warning' if o.status == 0 else 'info' if o.status == 1 else 'success' if o.status == 2 else 'secondary' if o.status == 9 else 'danger' }}">
+                  {{ ORDER_STATUS.get(o.status, o.status) }}
                 </span>
               </td>
               <td>

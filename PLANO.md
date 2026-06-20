@@ -20,7 +20,7 @@ algodoce.sytes.net
     ├── /sistema/pedidos
     ├── /sistema/produtos
     ├── /sistema/clientes
-    ├── /sistema/ingredientes
+    ├── /sistema/insumos
     └── /sistema/relatorios
 ```
 
@@ -100,7 +100,7 @@ Templates em `app/templates/site/`, conteúdo "estático" (sem DB queries), mas 
 - Banner fixo no topo com logo
 - Menu muda conforme contexto:
   - **Site:** Início | Sobre | Produtos | Orçamento | Contato
-  - **Sistema:** Dashboard | Pedidos | Produtos | Clientes | Ingredientes | Relatórios | **Sair**
+  - **Sistema:** Dashboard | Pedidos | Produtos | Clientes | Insumos | Relatórios | **Sair**
 - Logo sempre visível; no site, click → popup de auth
 
 **Blueprint `produtos`** (`app/routes/produtos.py`):
@@ -488,7 +488,7 @@ Overlay fullscreen + card centralizado com animação fade. Erro "Senha incorret
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ [LOGO]  Dashboard Pedidos Prod. Clientes Ingred. Relat. Sair │
+│ [LOGO]  Dashboard Pedidos Prod. Clientes Insum. Relat. Sair │
 ├──────────────────────────────────────────────────────┤
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │
 │  │ 🕐 Pend. │ │ 💬 Negoc.│ │ ✅ Hoje  │ │ ⚠️ Estq │ │
@@ -521,7 +521,7 @@ Mantêm layout atual de tabelas Bootstrap, mas com novo header do sistema. Em mo
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ [LOGO]  Dashboard Pedidos Prod. Clientes Ingred. Relat. Sair │
+│ [LOGO]  Dashboard Pedidos Prod. Clientes Insum. Relat. Sair │
 ├──────────────────────────────────────────────────────┤
 │  Pedidos                                             │
 │  [🔍 Buscar...]  [Filtrar por status ▼]             │
