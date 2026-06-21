@@ -4,11 +4,11 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Pedido #{{ order.id|fmtid }}</h2>
   <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
+    <img src="{{ url_for('static', filename='icones/undo.png') }}" alt="Voltar" height="20">
   </a>
 </div>
 
-{% set s = url_for('static', filename='setas/') %}
+{% set s = url_for('static', filename='icones/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
     <a href="{{ url_for('orders.detail', id=nav.first_id, pendentes=1 if pendentes else 0) }}" class="btn btn-outline-secondary" title="Primeiro">
@@ -65,7 +65,7 @@
         <p class="mb-1">Pagamento: {{ FORMA_PAGAMENTO[order.forma_pagamento] }}</p>
         <p class="mb-0">
           Status:
-          <span class="badge bg-{{ 'warning' if order.status == 0 else 'info' if order.status == 1 else 'success' if order.status == 2 else 'secondary' if order.status == 9 else 'danger' }}">
+          <span class="badge {{ 'border border-warning text-dark bg-transparent' if order.status == 0 else 'bg-info' if order.status == 1 else 'bg-success' if order.status == 2 else 'bg-secondary' if order.status == 3 else 'bg-dark' }}">
             {{ ORDER_STATUS.get(order.status, order.status) }}
           </span>
         </p>
@@ -77,7 +77,8 @@
 <div class="card mb-4">
   <div class="card-header"><strong>Itens</strong></div>
   <div class="card-body p-0">
-    <div class="table-responsive">
+    <!-- Desktop: table -->
+    <div class="table-responsive d-none d-lg-block">
       <table class="table mb-0 sortable">
         <thead>
           <tr>
@@ -105,6 +106,31 @@
         </tfoot>
       </table>
     </div>
+    <!-- Mobile: list -->
+    <div class="d-lg-none">
+      {% for item in order.items %}
+        <div class="px-3 py-2 border-bottom">
+          <h6 class="mb-1">{{ item.product.nome }}</h6>
+          <div class="row g-0">
+            <div class="col-4">
+              <span class="card-label">Qtd</span><br>
+              <span class="card-value">{{ item.quantidade }}</span>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Preço Und.</span><br>
+              <span class="card-value">R$ {{ (item.preco_unitario or 0) | brl }}</span>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Subtotal</span><br>
+              <span class="card-value">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+      <div class="px-3 py-2 text-end fw-bold">
+        Total: R$ {{ (order.total or 0) | brl }}
+      </div>
+    </div>
   </div>
 </div>
 
@@ -116,7 +142,7 @@
 {% endif %}
 
 <div class="d-flex gap-2">
-  <a href="{{ url_for('orders.edit', id=order.id) }}" class="btn btn-outline-primary">Editar</a>
+  <a href="{{ url_for('orders.edit', id=order.id) }}" class="btn btn-primary">Editar</a>
   {% if order.status == 0 %}
     <form method="POST" action="{{ url_for('orders.status', id=order.id) }}">
       <input type="hidden" name="status" value="1">
@@ -137,7 +163,7 @@
   {% endif %}
   {% if order.status in (0, 1) %}
     <form method="POST" action="{{ url_for('orders.cancel', id=order.id) }}" onsubmit="return confirm('Cancelar pedido?')">
-      <button type="submit" class="btn btn-outline-danger">Cancelar Pedido</button>
+      <button type="submit" class="btn btn-outline-secondary">Cancelar Pedido</button>
     </form>
   {% endif %}
 </div>

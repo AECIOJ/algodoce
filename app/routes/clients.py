@@ -78,13 +78,13 @@ def new():
         insc_estadual = request.form.get("insc_estadual", "").strip() or None
         if cpf and cnpj:
             flash("Preencha apenas CPF ou CNPJ, não ambos.", "warning")
-            return render_template("contas/form.html", TIPO_CONTA=TIPO_CONTA)
+            return render_template("contas/form.html", conta=None, TIPO_CONTA=TIPO_CONTA)
         if cpf and not _cpf_valido(cpf):
             flash("CPF inválido.", "warning")
-            return render_template("contas/form.html", TIPO_CONTA=TIPO_CONTA)
+            return render_template("contas/form.html", conta=None, TIPO_CONTA=TIPO_CONTA)
         if cnpj and not _cnpj_valido(cnpj):
             flash("CNPJ inválido.", "warning")
-            return render_template("contas/form.html", TIPO_CONTA=TIPO_CONTA)
+            return render_template("contas/form.html", conta=None, TIPO_CONTA=TIPO_CONTA)
         conta = Conta(
             nome=request.form["nome"],
             email=(request.form["email"] or None),
@@ -99,7 +99,7 @@ def new():
         db.session.commit()
         flash("Conta cadastrada!", "success")
         return redirect(url_for("contas.list"))
-    return render_template("contas/form.html", TIPO_CONTA=TIPO_CONTA)
+    return render_template("contas/form.html", conta=None, TIPO_CONTA=TIPO_CONTA)
 
 
 @bp.route("/contas/<int:id>/editar", methods=["GET", "POST"])

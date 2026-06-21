@@ -11,7 +11,6 @@
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
   <style>
     .navbar-nav .nav-link.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
-    .cadastro-section { background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
     .bar-link-lg.active { border-bottom-color: #e91e63 !important; }
   </style>
 </head>
@@ -25,34 +24,53 @@
       </div>
     </header>
 
-    <nav class="navbar navbar-expand navbar-dark px-2" style="background-color: #e91e63;">
-      <div class="navbar-nav d-flex w-100 px-2">
+    <!-- Mobile: hamburger + Sair (sempre mesma linha) -->
+    <div class="d-lg-none d-flex align-items-center px-2" style="background-color:var(--cor-menu); min-height:56px; --bs-navbar-toggler-icon-bg:url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255,255,255,0.75)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e&quot;);">
+      <button class="navbar-toggler border-0" type="button" onclick="(function(){var m=document.getElementById('mainNav');m.style.display=m.style.display==='none'?'':'none'})()">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <span id="mobileMenuTitle" class="flex-grow-1 text-center text-white fw-bold" style="font-size:1.1rem;"></span>
+      <a class="text-white text-decoration-none fw-bold" href="/logout" style="display:flex;align-items:center;gap:0.25rem;"><img src="/static/icones/log-out.png" alt="Sair" style="height:1.2em;filter:brightness(0) invert(1);"> Sair</a>
+    </div>
+    <!-- Mobile: collapsible links -->
+    <div class="d-lg-none" id="mainNav" style="background-color:var(--cor-menu); display:none;">
+      <div class="d-flex flex-column px-2 pb-4" style="gap:2px;">
+        <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Cadastro</a>
+        <a class="nav-link" href="/orcamentos" id="comercialMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Comercial</a>
+        <a class="nav-link" href="/producao" id="producaoMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Produção</a>
+      </div>
+    </div>
+    <!-- Desktop: navbar original -->
+    <nav class="navbar navbar-expand-lg navbar-dark px-2 d-none d-lg-flex" style="background-color: var(--cor-menu);">
+      <div class="navbar-nav w-100 d-flex align-items-center">
         <div class="d-flex justify-content-center flex-grow-1 gap-1">
-          <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu">Cadastro</a>
-          <a class="nav-link" href="/orcamentos" id="comercialMenu">Comercial</a>
-          <a class="nav-link" href="/producao" id="producaoMenu">Produção</a>
+          <a class="nav-link" href="{{ url_for('categories.list') }}">Cadastro</a>
+          <a class="nav-link" href="/orcamentos">Comercial</a>
+          <a class="nav-link" href="/producao">Produção</a>
         </div>
-        <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/setas/log-out.png" alt="Sair" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Sair</a>
+        <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/icones/log-out.png" alt="Sair" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Sair</a>
       </div>
     </nav>
     <div class="cadastro-section py-1 d-none" id="cadastroSection">
       <div class="container">
         {% if request.endpoint and request.endpoint.endswith('.list') %}
-        <!-- Mobile: toolbar row with select -->
-        <div class="d-lg-none d-flex align-items-center gap-1">
-          <select class="form-select fw-bold border-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+        <!-- Mobile: sub-menu + toolbar -->
+        <div class="d-lg-none d-flex flex-wrap align-items-center gap-1 py-1">
+          <select class="form-select fw-bold border-0 nav-select flex-shrink-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
             <option value="{{ url_for('categories.list') }}" {% if request.path.startswith('/categorias') %}selected{% endif %}>Categorias</option>
             <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/insumos') %}selected{% endif %}>Insumos</option>
             <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
+            <option value="{{ url_for('contas.list') }}" {% if request.path.startswith('/contas') %}selected{% endif %}>Contas</option>
           </select>
-          <div class="d-flex align-items-center justify-content-between w-100">
-            {% block cadastro_toolbar %}{% endblock %}
+          <div class="d-flex gap-1 toolbar-actions flex-shrink-0">
+            {% block cadastro_actions %}{% endblock %}
           </div>
+          {% block cadastro_filter %}{% endblock %}
         </div>
         {% endif %}
         <!-- Desktop: horizontal bar (always visible) -->
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
-          <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
+          <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: var(--cor-menu); font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
           <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Insumos</a>
           <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
           <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas</a>
@@ -62,16 +80,17 @@
     <div class="cadastro-section py-1 d-none" id="comercialSection">
       <div class="container">
         {% if request.endpoint and (request.endpoint.endswith('.list') or request.endpoint == 'orders.orcamentos') %}
-        <!-- Mobile: title row with select + toolbar -->
-        <div class="d-lg-none d-flex align-items-center gap-1">
-          <select class="form-select fw-bold border-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
-            <option value="/orcamentos" {% if request.path.startswith('/orcamentos') %}selected{% endif %}>Orçamentos</option>
-            <option value="/pedidos" {% if request.path.startswith('/pedidos') %}selected{% endif %}>Pedidos</option>
-            <option value="/relatorios/compras" {% if request.path.startswith('/relatorios/compras') %}selected{% endif %}>Compras</option>
+        <!-- Mobile: sub-menu + toolbar -->
+        <div class="d-lg-none d-flex flex-wrap align-items-center gap-1 py-1">
+          <select class="form-select fw-bold border-0 nav-select flex-shrink-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+            <option value="{{ url_for('orders.orcamentos') }}" {% if request.path.startswith('/orcamentos') %}selected{% endif %}>Orçamentos</option>
+            <option value="{{ url_for('orders.list') }}" {% if request.path.startswith('/pedidos') %}selected{% endif %}>Pedidos</option>
+            <option value="{{ url_for('reports.compras') }}" {% if request.path.startswith('/compras') %}selected{% endif %}>Compras</option>
           </select>
-          <div class="d-flex align-items-center justify-content-between w-100">
-            {% block comercial_toolbar %}{% endblock %}
+          <div class="d-flex gap-1 toolbar-actions flex-shrink-0">
+            {% block comercial_actions %}{% endblock %}
           </div>
+          {% block comercial_filter %}{% endblock %}
         </div>
         {% endif %}
         <!-- Desktop: horizontal bar (always visible) -->
@@ -358,12 +377,16 @@ function parseDate(str) {
   var onComercial = comercialPaths.some(function(p) { return path.indexOf(p) === 0; });
   var onProducao = path.indexOf('/producao') === 0;
 
+  var titleEl = document.getElementById('mobileMenuTitle');
   if (onCadastro) {
     activateSection(cadastroSection, 'cadastroMenu', path);
+    if (titleEl) titleEl.textContent = 'Cadastro';
   } else if (onComercial) {
     activateSection(document.getElementById('comercialSection'), 'comercialMenu', path);
+    if (titleEl) titleEl.textContent = 'Comercial';
   } else if (onProducao) {
     setActive(document.getElementById('producaoMenu'));
+    if (titleEl) titleEl.textContent = 'Produção';
   } else {
     links.forEach(function(l) {
       var href = l.getAttribute('href');

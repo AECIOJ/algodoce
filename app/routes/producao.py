@@ -133,13 +133,8 @@ def nova():
 @bp.route("/<int:id>")
 def detail(id):
     producao = Producao.query.get_or_404(id)
-    previsao_de = producao.previsao_de or date.today()
-    previsao_ate = producao.previsao_ate or date.today()
     pedidos_disponiveis = Order.query.filter(
         Order.status == 0,
-        Order.data_previsao_entrega.isnot(None),
-        func.date(Order.data_previsao_entrega) >= previsao_de,
-        func.date(Order.data_previsao_entrega) <= previsao_ate,
         Order.producao_id.is_(None),
     ).order_by(Order.data_previsao_entrega).all()
 
@@ -194,9 +189,6 @@ def add_pedido(id):
         return redirect(url_for("producao.detail", id=id))
     if pedido.producao_id:
         flash("Pedido já está em outra produção", "warning")
-        return redirect(url_for("producao.detail", id=id))
-    if not pedido.data_previsao_entrega:
-        flash("Pedido sem data de previsão de entrega", "warning")
         return redirect(url_for("producao.detail", id=id))
     if pedido.status == 9:
         flash("Pedido já entregue", "warning")

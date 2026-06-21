@@ -8,6 +8,13 @@
     {{ 'Desativar' if conta.ativo else 'Ativar' }}
   </a>
 {% endcall %}
+{% else %}
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+  <span class="fs-5 fw-bold">Conta</span>
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
+  <a href="{{ url_for('contas.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+</div>
 {% endif %}
 
 <form method="POST" id="main-form">
@@ -51,15 +58,21 @@
     <label class="form-label">Endereço</label>
     <textarea name="endereco" class="form-control" rows="2">{{ conta.endereco or '' }}</textarea>
   </div>
-  <button type="submit" class="btn btn-primary">{% if conta %}Salvar{% else %}Criar Conta{% endif %}</button>
-  <a href="{{ url_for('contas.list') }}" class="btn btn-outline-secondary">Cancelar</a>
+  {% if conta %}<div class="form-bottom-spacer"></div>{% endif %}
 </form>
+{% if conta %}
+<div class="form-bottom-bar">
+  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
+  <a href="{{ url_for('contas.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+</div>
+{% endif %}
 
 {% if conta %}
 <div class="card mb-4">
   <div class="card-header"><strong>Pedidos ({{ orders|length }})</strong></div>
   <div class="card-body p-0">
-    <div class="table-responsive">
+    <!-- Desktop -->
+    <div class="table-responsive d-none d-md-block">
       <table class="table mb-0 sortable">
         <thead>
           <tr>
@@ -79,7 +92,7 @@
               <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
               <td>R$ {{ (o.total or 0) | brl }}</td>
               <td>
-                <span class="badge bg-{{ 'warning' if o.status == 0 else 'info' if o.status == 1 else 'success' if o.status == 2 else 'secondary' if o.status == 9 else 'danger' }}">
+<span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-dark' }}">
                   {{ ORDER_STATUS[o.status] }}
                 </span>
               </td>
@@ -94,6 +107,35 @@
           {% endfor %}
         </tbody>
       </table>
+    </div>
+    <!-- Mobile -->
+    <div class="d-md-none">
+      {% for o in orders %}
+        <div class="px-3 py-2 border-bottom">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <span class="card-label">#{{ o.id|fmtid }}</span>
+            <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-dark' }}">
+              {{ ORDER_STATUS[o.status] }}
+            </span>
+          </div>
+          <div class="row g-0">
+            <div class="col-6">
+              <span class="card-label">Data Pedido</span><br>
+              <span class="card-value">{{ o.data_pedido.strftime('%d/%m/%Y') }}</span>
+            </div>
+            <div class="col-6">
+              <span class="card-label">Data Entrega</span><br>
+              <span class="card-value">{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</span>
+            </div>
+          </div>
+          <strong>R$ {{ (o.total or 0) | brl }}</strong>
+          <div class="mt-1">
+            <a href="{{ url_for('orders.edit', id=o.id) }}" class="btn btn-sm btn-outline-info w-100">Detalhes</a>
+          </div>
+        </div>
+      {% else %}
+        <p class="text-muted text-center py-2 mb-0">Nenhum pedido encontrado para esta conta.</p>
+      {% endfor %}
     </div>
   </div>
 </div>

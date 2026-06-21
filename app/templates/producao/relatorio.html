@@ -3,7 +3,7 @@
 <div class="text-center mb-3">
   <h3 class="mb-1">Relatório - Produção #{{ producao.id }} - {{ producao.descricao }}</h3>
   <div class="d-flex justify-content-center gap-2 mt-2">
-    <a href="#" onclick="window.print()" class="btn btn-sm btn-primary">Imprimir</a>
+    <a href="#" onclick="window.print()" class="btn btn-sm btn-outline-secondary">Imprimir</a>
     <a href="{{ url_for('producao.detail', id=producao.id) }}" class="btn btn-sm btn-outline-secondary">Voltar</a>
   </div>
 </div>

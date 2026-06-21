@@ -8,28 +8,39 @@
   <a href="{{ url_for('categories.toggle', id=category.id) }}" class="btn btn-{{ 'success' if category.ativo else 'outline-secondary' }} btn-sm" style="min-width:90px">
     {{ 'Desativar' if category.ativo else 'Ativar' }}
   </a>
-  <button type="button" class="btn btn-danger btn-sm" style="min-width:90px" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
 {% endset %}
 {% call form_nav(back_url=url_for('categories.list'), nome='Categoria ' ~ category.id|fmtid, nav=nav, edit_endpoint='categories.edit', entity_id=category.id, actions2=category_actions) %}
   {{ category_actions }}
 {% endcall %}
+{% else %}
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+  <span class="fs-5 fw-bold">Categoria</span>
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
+  <a href="{{ url_for('categories.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+</div>
 {% endif %}
 
 <form method="POST" id="main-form">
-  <div class="d-flex gap-2 mb-3 align-items-baseline flex-nowrap">
-    <div style="flex:1;min-width:0">
+  <div class="row mb-3">
+    <div class="col-md-9">
       <label class="form-label">Nome *</label>
       <input type="text" name="nome" class="form-control" required value="{{ category.nome if category else '' }}">
     </div>
-    <div style="flex:0 0 auto">
+    <div class="col-md-3">
       <label class="form-label">Ordem</label>
-      <input type="number" name="ordem" class="form-control" style="max-width:70px" min="0" max="99" value="{{ category.ordem if category else 0 }}">
-    </div>
+      <input type="number" name="ordem" class="form-control" min="0" max="99" value="{{ category.ordem if category else 0 }}">
   </div>
-
-  <button type="submit" class="btn btn-primary">Salvar</button>
-  <a href="{{ url_for('categories.list') }}" class="btn btn-outline-secondary">Cancelar</a>
+  {% if category %}<div class="form-bottom-spacer"></div>{% endif %}
 </form>
+{% if category %}
+<div class="form-bottom-bar">
+  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
+  <a href="{{ url_for('categories.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+</div>
+{% endif %}
 
 {% if category %}
 <div class="modal fade" id="modalExcluir" tabindex="-1">
@@ -71,8 +82,8 @@ function confirmarExclusao(btn) {
       } else {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
         footer.innerHTML =
-          '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger" onclick="efetuarExclusao(' + id + ')">Excluir</button>';
+          '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
       }
       modal.show();
     });

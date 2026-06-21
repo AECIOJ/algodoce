@@ -4,11 +4,11 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Orçamento #{{ quote.id|fmtid }}</h2>
   <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
+    <img src="{{ url_for('static', filename='icones/undo.png') }}" alt="Voltar" height="20">
   </a>
 </div>
 
-{% set s = url_for('static', filename='setas/') %}
+{% set s = url_for('static', filename='icones/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
     <a href="{{ url_for('orders.quote_detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
@@ -59,7 +59,7 @@
         <p class="mb-1">Pagamento: {{ FORMA_PAGAMENTO[quote.forma_pagamento] }}</p>
         <p class="mb-0">
           Status:
-          <span class="badge bg-{{ 'secondary' if quote.status == 0 else 'primary' if quote.status == 1 else 'info' if quote.status == 6 else 'warning' if quote.status == 7 else 'danger' if quote.status == 8 else 'success' }}">
+          <span class="badge {{ 'border border-secondary text-dark' if quote.status == 0 else 'bg-primary' if quote.status == 1 else 'bg-info' if quote.status == 6 else 'bg-expired' if quote.status == 7 else 'bg-danger' if quote.status == 8 else 'bg-success' }}">
             {{ QUOTE_STATUS[quote.status] }}
           </span>
         </p>

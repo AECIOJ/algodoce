@@ -8,11 +8,17 @@
   <a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm" style="min-width:90px">
     {{ 'Desativar' if product.ativo else 'Ativar' }}
   </a>
-  <button type="button" class="btn btn-danger btn-sm" style="min-width:90px" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
 {% endset %}
 {% call form_nav(back_url=url_for('products.list'), nome='Produto ' ~ product.id|fmtid, nav=nav, edit_endpoint='products.edit', entity_id=product.id, actions2=product_actions) %}
   {{ product_actions }}
 {% endcall %}
+{% else %}
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+  <span class="fs-5 fw-bold">Produto</span>
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
+  <a href="{{ url_for('products.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+</div>
 {% endif %}
 
 <form method="POST" enctype="multipart/form-data" id="main-form">
@@ -67,81 +73,90 @@
   <div class="card mb-3">
     <div class="card-header bg-light fw-bold">Insumos</div>
     <div class="card-body">
-      <div class="row mb-2 fw-bold small text-muted d-none d-md-flex text-center">
-        <div class="col-md-5">Insumo</div>
-        <div class="col-md-1">Qtd</div>
-        <div class="col-md-1">Und</div>
-        <div class="col-md-3">Etapa</div>
-        <div class="col-md-2"></div>
+      <div class="row mb-2 fw-bold small text-muted d-none d-lg-flex text-center">
+        <div class="col-lg-5">Insumo</div>
+        <div class="col-lg-1">Qtd</div>
+        <div class="col-lg-1">Und</div>
+        <div class="col-lg-3">Etapa</div>
+        <div class="col-lg-2"></div>
       </div>
-      <div id="insumos-list">
+      <div id="insumos-list" data-qtd-minima="{{ product.qtd_minima if product else 0 }}">
         {% if product and product.ingredients.count() %}
           {% for pi in product.ingredients %}
-            <div class="row mb-2 insumo-row">
-              <div class="col-md-5">
-                <select name="ingredient_id" class="form-select">
-                  <option value="">Selecione</option>
-                  {% for ing in ingredients %}
-                    <option value="{{ ing.id }}" {% if pi.ingredient_id == ing.id %}selected{% endif %}>{{ ing.nome }} ({{ ing.id|fmtid }})</option>
-                  {% endfor %}
-                </select>
+            <div class="row mb-2 g-1 insumo-row align-items-start">
+              <div class="col-12 col-lg-5 mb-1 mb-lg-0">
+                <span class="card-label d-lg-none">Insumo</span>
+<select name="ingredient_id" class="form-select form-select-sm" onchange="preencherInsumo(this)">
+  <option value="">Selecione</option>
+  {% for ing in ingredients %}
+    <option value="{{ ing.id }}" data-unidade="{{ ing.unidade_medida }}" {% if pi.ingredient_id == ing.id %}selected{% endif %}>{{ ing.nome }}</option>
+  {% endfor %}
+</select>
               </div>
-              <div class="col-md-1">
-                <input type="number" name="quantidade" class="form-control text-end" step="0.1" placeholder="Qtd" value="{{ pi.quantidade }}">
+              <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+                <span class="card-label d-lg-none">Qtd</span>
+                <input type="number" name="quantidade" class="form-control form-control-sm" step="0.1" placeholder="Qtd" value="{{ pi.quantidade }}">
               </div>
-              <div class="col-md-1">
-                <select name="unidade" class="form-select">
+              <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+                <span class="card-label d-lg-none">Und</span>
+                <select name="unidade" class="form-select form-select-sm">
                   {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
                     <option value="{{ un }}" {% if pi.unidade == un %}selected{% endif %}>{{ un }}</option>
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-md-3">
-                <select name="etapa_id" class="form-select">
+              <div class="col-4 col-lg-3 mb-1 mb-lg-0">
+                <span class="card-label d-lg-none">Etapa</span>
+                <select name="etapa_id" class="form-select form-select-sm">
                   <option value="">—</option>
                   {% for e in etapas %}
                     <option value="{{ e.id }}" {% if pi.etapa_id == e.id %}selected{% endif %}>{{ e.nome }}</option>
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-md-2">
-                <button type="button" class="btn btn-outline-danger btn-remove" onclick="this.closest('.row').remove()">Remover</button>
+              <div class="col-12 col-lg-1 d-none d-lg-block">
+                <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="if(confirm('Remover insumo?'))this.closest('.row').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
               </div>
+              <button type="button" class="btn btn-danger btn-sm btn-remove-card d-lg-none" onclick="if(confirm('Remover insumo?'))this.closest('.insumo-row').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
             </div>
           {% endfor %}
         {% else %}
-          <div class="row mb-2 insumo-row">
-            <div class="col-md-5">
-              <select name="ingredient_id" class="form-select">
-                <option value="">Selecione</option>
-                {% for ing in ingredients %}
-                    <option value="{{ ing.id }}">{{ ing.nome }} ({{ ing.id|fmtid }})</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="col-md-1">
-                <input type="number" name="quantidade" class="form-control text-end" step="0.1" placeholder="Qtd">
-              </div>
-              <div class="col-md-1">
-                <select name="unidade" class="form-select">
-                  {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
-                    <option value="{{ un }}">{{ un }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="col-md-3">
-                <select name="etapa_id" class="form-select">
-                  <option value="">—</option>
-                  {% for e in etapas %}
-                    <option value="{{ e.id }}">{{ e.nome }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div class="col-md-2">
-                <button type="button" class="btn btn-outline-danger btn-remove" onclick="this.closest('.row').remove()">Remover</button>
+              <div class="row mb-2 g-1 insumo-row align-items-start">
+                <div class="col-12 col-lg-5 mb-1 mb-lg-0">
+                  <span class="card-label d-lg-none">Insumo</span>
+                  <select name="ingredient_id" class="form-select form-select-sm" onchange="preencherInsumo(this)">
+                    <option value="">Selecione</option>
+                    {% for ing in ingredients %}
+                      <option value="{{ ing.id }}" data-unidade="{{ ing.unidade_medida }}">{{ ing.nome }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+                  <span class="card-label d-lg-none">Qtd</span>
+                  <input type="number" name="quantidade" class="form-control form-control-sm" step="0.1" placeholder="Qtd">
+                </div>
+                <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+                  <span class="card-label d-lg-none">Und</span>
+                  <select name="unidade" class="form-select form-select-sm">
+                    {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+                      <option value="{{ un }}">{{ un }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-4 col-lg-3 mb-1 mb-lg-0">
+                  <span class="card-label d-lg-none">Etapa</span>
+                  <select name="etapa_id" class="form-select form-select-sm">
+                    <option value="">—</option>
+                    {% for e in etapas %}
+                      <option value="{{ e.id }}">{{ e.nome }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-12 col-lg-1">
+                <button type="button" class="btn btn-danger btn-sm btn-remove-card d-lg-none" onclick="if(confirm('Remover insumo?'))this.closest('.row').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
               </div>
             </div>
-          {% endif %}
+        {% endif %}
         <div class="row mb-2" id="add-insumo-row">
           <div class="col-12">
             <button type="button" class="btn btn-outline-success btn-sm" onclick="addInsumo()">+ Adicionar Insumo</button>
@@ -150,10 +165,16 @@
         </div>
       </div>
     </div>
-
-  <button type="submit" class="btn btn-primary">Salvar</button>
-  <a href="{{ url_for('products.list') }}" class="btn btn-outline-secondary">Cancelar</a>
+  {% if product %}<div class="form-bottom-spacer"></div>{% endif %}
 </form>
+{% if product %}
+<div class="form-bottom-bar">
+  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
+  <a href="{{ url_for('products.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+</div>
+{% endif %}
 
 {% if product %}
 <div class="modal fade" id="modalExcluir" tabindex="-1">
@@ -204,39 +225,61 @@
 {% block scripts %}
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
 <script>
+function preencherInsumo(select) {
+  var opt = select.options[select.selectedIndex];
+  if (!opt || !opt.value) return;
+  var row = select.closest('.insumo-row');
+  if (!row) return;
+  var und = opt.dataset.unidade || '';
+  var undSelect = row.querySelector('select[name="unidade"]');
+  if (undSelect) undSelect.value = und;
+  var qtdInput = row.querySelector('input[name="quantidade"]');
+  if (qtdInput) qtdInput.value = '';
+  if (und === 'un') {
+    if (qtdInput) {
+      var min = document.getElementById('insumos-list').dataset.qtdMinima;
+      qtdInput.value = min || '1';
+    }
+  }
+}
+
 function addInsumo() {
   const container = document.getElementById('insumos-list');
   const row = document.createElement('div');
-  row.className = 'row mb-2 insumo-row';
+  row.className = 'row mb-2 g-1 insumo-row align-items-start';
   row.innerHTML = `
-    <div class="col-md-5">
-      <select name="ingredient_id" class="form-select">
+    <div class="col-12 col-lg-5 mb-1 mb-lg-0">
+      <span class="card-label d-lg-none">Insumo</span>
+      <select name="ingredient_id" class="form-select form-select-sm" onchange="preencherInsumo(this)">
         <option value="">Selecione</option>
         {% for ing in ingredients %}
-          <option value="{{ ing.id }}">{{ ing.nome }} ({{ ing.id|fmtid }})</option>
+          <option value="{{ ing.id }}" data-unidade="{{ ing.unidade_medida }}">{{ ing.nome }}</option>
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-1">
-      <input type="number" name="quantidade" class="form-control text-end" step="0.1" placeholder="Qtd">
+    <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+      <span class="card-label d-lg-none">Qtd</span>
+      <input type="number" name="quantidade" class="form-control form-control-sm" step="0.1" placeholder="Qtd">
     </div>
-    <div class="col-md-1">
-      <select name="unidade" class="form-select">
+    <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+      <span class="card-label d-lg-none">Und</span>
+      <select name="unidade" class="form-select form-select-sm">
         {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
           <option value="{{ un }}">{{ un }}</option>
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-3">
-      <select name="etapa_id" class="form-select">
+    <div class="col-4 col-lg-3 mb-1 mb-lg-0">
+      <span class="card-label d-lg-none">Etapa</span>
+      <select name="etapa_id" class="form-select form-select-sm">
         <option value="">—</option>
         {% for e in etapas %}
           <option value="{{ e.id }}">{{ e.nome }}</option>
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-2">
-      <button type="button" class="btn btn-outline-danger btn-remove" onclick="this.closest('.row').remove()">Remover</button>
+    <div class="col-12 col-lg-1">
+      <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="if(confirm('Remover insumo?'))this.closest('.row').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </div>
   `;
   container.insertBefore(row, document.getElementById('add-insumo-row'));
@@ -261,8 +304,8 @@ function confirmarExclusao(btn) {
       } else {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
         footer.innerHTML =
-          '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger" onclick="efetuarExclusao(' + id + ')">Excluir</button>';
+          '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
       }
       modal.show();
     });

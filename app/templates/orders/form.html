@@ -20,17 +20,19 @@
   {% endif %}
 {% endset %}
 {% call form_nav(back_url=url_for('orders.list'), nome='Pedido ' ~ order_id_raw, nav=nav, edit_endpoint='orders.edit', entity_id=order.id, status=status_html, actions2=order_secondary) %}
-  {% if order.status in (0, 1) %}
-  <form method="POST" action="{{ url_for('orders.cancel', id=order.id) }}" onsubmit="return confirm('Cancelar pedido?')" class="d-inline">
-    <button type="submit" class="btn btn-outline-danger btn-sm">Cancelar</button>
-  </form>
-  {% endif %}
 {% endcall %}
+{% else %}
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+  <span class="fs-5 fw-bold">Pedido</span>
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
+  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+</div>
 {% endif %}
 
 <form method="POST" id="main-form" action="{% if order %}{{ url_for('orders.edit', id=order.id) }}{% else %}{{ url_for('orders.new') }}{% endif %}" {% if order %}data-editing{% endif %}>
   <div class="row mb-3">
-    <div class="col">
+    <div class="col-md-4 mb-2 mb-md-0">
       <label class="form-label">Cliente *</label>
       <select name="client_id" class="form-select" required {{ 'disabled' if ro }}>
         <option value="">Selecione</option>
@@ -39,23 +41,23 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col">
+    <div class="col-md-2 mb-2 mb-md-0">
       <label class="form-label">Telefone</label>
       <div class="input-group">
         <input type="text" name="cliente_telefone" class="form-control" readonly value="{{ order.conta.telefone if order and order.conta else '' }}">
         {% if order %}<a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success">Enviar</a>{% endif %}
       </div>
     </div>
-    <div class="col">
-      <label class="form-label">Data do Pedido</label>
+    <div class="col-md-2 mb-2 mb-md-0">
+      <label class="form-label">Data Pedido</label>
       <input type="datetime-local" name="data_pedido" class="form-control" value="{{ order.data_pedido.strftime('%Y-%m-%dT%H:%M') if order else '' }}" {{ 'disabled' if ro }}>
     </div>
-    <div class="col">
-      <label class="form-label">Previsão Entrega</label>
+    <div class="col-md-2 mb-2 mb-md-0">
+      <label class="form-label">Prev. Entrega</label>
       <input type="datetime-local" name="data_previsao_entrega" class="form-control" value="{{ order.data_previsao_entrega.strftime('%Y-%m-%dT%H:%M') if order.data_previsao_entrega else '' }}" {{ 'disabled' if ro }}>
     </div>
-    <div class="col">
-      <label class="form-label">Data de Entrega</label>
+    <div class="col-md-2 mb-2 mb-md-0">
+      <label class="form-label">Data Entrega</label>
       <input type="datetime-local" name="data_entrega" class="form-control" value="{{ order.data_entrega.strftime('%Y-%m-%dT%H:%M') if order.data_entrega else '' }}">
     </div>
   </div>
@@ -65,18 +67,9 @@
       <span>Itens do Pedido</span>
     </div>
     <div class="card-body p-0">
-      <div class="table-responsive">
+      <!-- Desktop: items table -->
+      <div class="table-responsive d-none d-md-block">
         <table class="table mb-0" id="itens-table">
-          <style>
-            #itens-table th:nth-child(2), #itens-table td:nth-child(2) { width: 80px; }
-            #itens-table th:nth-child(3), #itens-table td:nth-child(3) { width: 100px; }
-            #itens-table th:nth-child(4), #itens-table td:nth-child(4) { width: 100px; }
-            @media (max-width: 991.98px) {
-              #itens-table th:nth-child(2), #itens-table td:nth-child(2) { width: auto; min-width: 90px; }
-              #itens-table th:nth-child(3), #itens-table td:nth-child(3) { width: auto; min-width: 120px; }
-              #itens-table th:nth-child(4), #itens-table td:nth-child(4) { width: auto; min-width: 120px; }
-            }
-          </style>
           <thead>
             <tr>
               <th style="min-width:200px">Produto</th>
@@ -103,7 +96,7 @@
                 <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
-                <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()" {{ 'disabled' if ro }}>✕</button></td>
+                <td><button type="button" class="btn btn-danger btn-sm" onclick="if(confirm('Remover item?'))this.closest('tr').remove()" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
               </tr>
               {% endfor %}
             {% else %}
@@ -120,7 +113,7 @@
                 <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
-                <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('tr').remove()" {{ 'disabled' if ro }}>✕</button></td>
+                <td><button type="button" class="btn btn-danger btn-sm" onclick="if(confirm('Remover item?'))this.closest('tr').remove()" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
               </tr>
             {% endif %}
           </tbody>
@@ -133,6 +126,74 @@
             <tr id="add-item-row"><td colspan="6" class="py-2"><div class="d-flex gap-2">{% if not ro %}<button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm" onclick="atualizarESalvar()">Atualizar Preço 0,00</button>{% endif %}</div></td></tr>
           </tfoot>
         </table>
+      </div>
+      <!-- Mobile: items card list -->
+      <div class="d-md-none" id="itens-mobile-list">
+        {% if order and order.items %}
+          {% for item in order.items %}
+          <div class="px-3 py-2 border-bottom item-mobile-card">
+            <select name="product_id" class="form-select form-select-sm mb-1 product-select" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+              <option value="">Selecione</option>
+              {% for p in products %}
+                <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
+              {% endfor %}
+            </select>
+            <div class="row g-1 align-items-center">
+              <div class="col-4">
+                <span class="card-label">Qtd</span>
+                <input type="number" name="quantidade" class="form-control form-control-sm" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+              </div>
+              <div class="col-4">
+                <span class="card-label">Preço</span>
+                <input type="text" name="preco_unitario" class="form-control form-control-sm preco-input" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+              </div>
+              <div class="col-4">
+                <span class="card-label">Valor</span><br>
+                <span class="valor-item fw-bold">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span>
+              </div>
+            </div>
+            <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}>
+            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="if(confirm('Remover item?'))this.closest('.item-mobile-card').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="px-3 py-2 border-bottom item-mobile-card">
+            <select name="product_id" class="form-select form-select-sm mb-1 product-select" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+              <option value="">Selecione</option>
+              {% for p in products %}
+                <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+              {% endfor %}
+            </select>
+            <div class="row g-1 align-items-center">
+              <div class="col-4">
+                <span class="card-label">Qtd</span>
+                <input type="number" name="quantidade" class="form-control form-control-sm" min="1" step="1" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+              </div>
+              <div class="col-4">
+                <span class="card-label">Preço</span>
+                <input type="text" name="preco_unitario" class="form-control form-control-sm preco-input" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+              </div>
+              <div class="col-4">
+                <span class="card-label">Valor</span><br>
+                <span class="valor-item fw-bold">R$ 0,00</span>
+              </div>
+            </div>
+            <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" {{ 'disabled' if ro }}>
+            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="if(confirm('Remover item?'))this.closest('.item-mobile-card').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+          </div>
+        {% endif %}
+        <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
+          <span>Total</span>
+          <span id="total-geral-mobile">R$ {{ (order.total or 0) | brl if order else 'R$ 0,00' }}</span>
+        </div>
+        <div class="px-3 py-2">
+          {% if not ro %}
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-success btn-sm flex-fill" onclick="addItemMobile()">+ Adicionar</button>
+            <button type="button" class="btn btn-outline-primary btn-sm flex-fill" onclick="atualizarESalvar()">Atualizar Preços</button>
+          </div>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
@@ -222,11 +283,14 @@
 
   <input type="hidden" name="status" value="{{ order.status if order else 0 }}">
   <input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
-  <button type="submit" class="btn btn-primary">{% if order %}Salvar{% else %}Criar Pedido{% endif %}</button>
-  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
-  </a>
+  {% if order %}<div class="form-bottom-spacer"></div>{% endif %}
 </form>
+{% if order %}
+<div class="form-bottom-bar">
+  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
+  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+</div>
+{% endif %}
 
 {% endblock %}
 
@@ -257,9 +321,23 @@ function addItem() {
     <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
     <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
     <td><input type="text" name="observacao_item" class="form-control form-control-sm"></td>
-    <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="markModified(); this.closest('tr').remove()">✕</button></td>
+    <td><button type="button" class="btn btn-danger btn-sm" onclick="if(confirm('Remover item?')){markModified();this.closest('tr').remove()}"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
   `;
   tbody.appendChild(tr);
+}
+
+function addItemMobile() {
+  markModified();
+  const list = document.getElementById('itens-mobile-list');
+  const firstItem = list.querySelector('.item-mobile-card');
+  const div = document.createElement('div');
+  div.className = 'px-3 py-2 border-bottom item-mobile-card';
+  div.innerHTML = firstItem ? firstItem.innerHTML : '';
+  if (div.innerHTML) {
+    div.querySelectorAll('input').forEach(function(inp) { inp.value = ''; });
+    div.querySelector('.valor-item').textContent = 'R$ 0,00';
+    list.insertBefore(div, list.querySelector('.d-flex.justify-content-between')?.closest('.px-3') || null);
+  }
 }
 </script>
 {% endblock %}

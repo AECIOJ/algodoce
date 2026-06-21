@@ -1,9 +1,13 @@
+function container(el) {
+  return el.closest('tr') || el.closest('.item-mobile-card');
+}
+
 function capturarPreco(select) {
   const opt = select.options[select.selectedIndex];
   const precoTotal = opt && parseFloat(opt.dataset.preco);
   if (opt && !isNaN(precoTotal)) {
-    const row = select.closest('tr');
-    const precoInput = row.querySelector('.preco-input');
+    const c = container(select);
+    const precoInput = c.querySelector('.preco-input');
     const qtdMinima = parseInt(opt.dataset.qtdMinima) || 1;
     precoInput.value = fmt_brl(preco_unit(precoTotal, qtdMinima));
     calcValor(precoInput);
@@ -22,9 +26,10 @@ function preco_unit(valor, qtd) {
 
 function atualizarPrecos() {
   markModified();
-  document.querySelectorAll('#itens-body .item-row').forEach(function(row) {
-    const select = row.querySelector('.product-select');
-    const precoInput = row.querySelector('.preco-input');
+  document.querySelectorAll('.product-select').forEach(function(select) {
+    const c = container(select);
+    if (!c) return;
+    const precoInput = c.querySelector('.preco-input');
     if (!precoInput.value || parseFloat(precoInput.value.replace(/\./g, '').replace(',', '.')) === 0) {
       const opt = select.options[select.selectedIndex];
       if (opt && opt.dataset.preco) {
@@ -38,13 +43,14 @@ function atualizarPrecos() {
 }
 
 function calcValor(el) {
-  const row = el.closest('tr');
-  const qtd = parseFloat(row.querySelector('[name="quantidade"]').value) || 0;
-  const precoInput = row.querySelector('.preco-input');
+  const c = container(el);
+  if (!c) return;
+  const qtd = parseFloat(c.querySelector('[name="quantidade"]').value) || 0;
+  const precoInput = c.querySelector('.preco-input');
   const preco = parseFloat((precoInput.value || '').replace(/\./g, '').replace(',', '.')) || 0;
   precoInput.classList.toggle('bg-warning', preco === 0);
   const valor = qtd * preco;
-  row.querySelector('.valor-item').textContent = 'R$ ' + fmt_brl(valor);
+  c.querySelector('.valor-item').textContent = 'R$ ' + fmt_brl(valor);
   calcTotal();
 }
 
@@ -99,5 +105,8 @@ function calcTotal() {
     const v = parseFloat(txt.replace(/\./g, '').replace(',', '.')) || 0;
     total += v;
   });
-  document.getElementById('total-geral').textContent = 'R$ ' + fmt_brl(total);
+  const fmt = 'R$ ' + fmt_brl(total);
+  document.getElementById('total-geral').textContent = fmt;
+  const mobileTotal = document.getElementById('total-geral-mobile');
+  if (mobileTotal) mobileTotal.textContent = fmt;
 }

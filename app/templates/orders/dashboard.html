@@ -9,7 +9,7 @@
       <option value="/pedidos">Pedidos</option>
       <option value="/relatorios/compras">Compras</option>
     </select>
-    <a href="{{ url_for('orders.new') }}" class="btn btn-primary btn-sm text-nowrap">Novo Pedido</a>
+    <a href="{{ url_for('orders.new') }}" class="btn btn-success btn-sm text-nowrap">Novo Pedido</a>
   </div>
   <select class="form-select fw-bold border-0 pe-4 d-none d-md-inline-block" style="font-size:1.5rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
     <option value="/dashboard" selected>Produção</option>
@@ -35,14 +35,14 @@
       <label class="form-check-label" for="chk-9">Entregues</label>
     </div>
   </div>
-  <a href="{{ url_for('orders.new') }}" class="btn btn-primary btn-sm text-nowrap d-none d-md-block">Novo Pedido</a>
+  <a href="{{ url_for('orders.new') }}" class="btn btn-success btn-sm text-nowrap d-none d-md-block">Novo Pedido</a>
 </div>
 
 {% set cores = {
   0: 'warning',
   1: 'info',
   2: 'success',
-  9: 'secondary'
+  9: 'dark'
 } %}
 
 {% for status, lista in grupos.items() %}
@@ -73,7 +73,7 @@
             <td style="white-space:nowrap;">{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
             <td class="d-none d-sm-table-cell" style="white-space:nowrap;">R$ {{ (o.total or 0) | brl }}</td>
             <td>
-              <span class="badge bg-{{ cores[o.status] }}">{{ ORDER_STATUS[o.status] }}</span>
+              <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-dark' }}">{{ ORDER_STATUS[o.status] }}</span>
             </td>
           </tr>
           {% endfor %}

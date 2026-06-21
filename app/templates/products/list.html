@@ -1,10 +1,25 @@
 {% extends "base.html" %}
-{% block cadastro_toolbar %}
-<a href="{{ url_for('products.new') }}" class="btn btn-sm btn-primary ms-auto">Novo</a>
+{% block cadastro_filter %}
+<div class="toolbar-filter-item gap-1 align-items-center">
+  <select id="filter-categoria-mobile" class="form-select form-select-sm" style="width:auto;flex:1;min-width:100px;">
+    <option value="">Todas as categorias</option>
+    {% for cat in categories %}
+      <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
+    {% endfor %}
+  </select>
+  <select id="filter-ativo-mobile" class="form-select form-select-sm" style="width:auto;">
+    <option value="todos" selected>Tudo</option>
+    <option value="ativos">Ativos</option>
+    <option value="inativos">Inativos</option>
+  </select>
+</div>
+{% endblock %}
+{% block cadastro_actions %}
+<a href="{{ url_for('products.new') }}" class="btn btn-sm btn-success">+ Novo</a>
 {% endblock %}
 {% block content %}
 
-<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2">
+<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
   <div class="d-flex align-items-center gap-2">
     <h2 class="mb-0">Produtos</h2>
     <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
@@ -19,22 +34,7 @@
       <option value="inativos">Inativos</option>
     </select>
   </div>
-  <a href="{{ url_for('products.new') }}" class="btn btn-primary">Novo</a>
-</div>
-
-<!-- Mobile filters -->
-<div class="d-lg-none d-flex flex-wrap align-items-center justify-content-center gap-2 mb-2">
-  <select id="filter-categoria-mobile" class="form-select form-select-sm" style="width:auto;flex:1;min-width:120px;">
-    <option value="">Todas as categorias</option>
-    {% for cat in categories %}
-      <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
-    {% endfor %}
-  </select>
-  <select id="filter-ativo-mobile" class="form-select form-select-sm" style="width:auto;">
-    <option value="todos" selected>Tudo</option>
-    <option value="ativos">Ativos</option>
-    <option value="inativos">Inativos</option>
-  </select>
+  <a href="{{ url_for('products.new') }}" class="btn btn-success">+ Novo</a>
 </div>
 
 <div class="table-responsive table-scroll">
@@ -44,9 +44,9 @@
         <th>#</th>
         <th>Imagem</th>
         <th>Nome</th>
-        <th>Preço</th>
-        <th>Qtd. Mín.</th>
         <th>Categoria</th>
+        <th>Qtd. Mín.</th>
+        <th>Preço</th>
         <th>Status</th>
         <th>Ações</th>
       </tr>
@@ -64,8 +64,6 @@
             {% endif %}
           </td>
           <td>{{ p.nome }}</td>
-          <td>R$ {{ (p.preco or 0) | brl }}</td>
-          <td>{{ p.qtd_minima if p.qtd_minima else '—' }}</td>
           <td>
             {% if p.category %}
               {% if p.category.ativo %}
@@ -77,6 +75,8 @@
               —
             {% endif %}
           </td>
+          <td>{{ p.qtd_minima if p.qtd_minima else '—' }}</td>
+          <td>R$ {{ (p.preco or 0) | brl }}</td>
           <td>
             {% if ativo %}
               <span class="badge bg-success">Ativo</span>
@@ -85,7 +85,7 @@
             {% endif %}
           </td>
           <td>
-            <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+            <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-primary">Editar</a>
           </td>
         </tr>
       {% else %}
@@ -95,6 +95,51 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
+
+<!-- Mobile: card list -->
+<div class="d-lg-none">
+  {% for p in products %}
+    {% set ativo = p.ativo and (not p.category or p.category.ativo) %}
+    <div class="card mb-2 shadow-sm card-list-item" data-ativo="{{ ativo|lower }}" data-categoria="{{ p.category.nome if p.category else '' }}">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div>
+            <span class="card-label">#{{ p.id|fmtid }}</span>
+            {% if ativo %}
+              <span class="badge bg-success">Ativo</span>
+            {% else %}
+              <span class="badge bg-danger">Inativo</span>
+            {% endif %}
+          </div>
+          <a href="{{ url_for('products.edit', id=p.id) }}" style="text-decoration:none;">
+            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+          </a>
+        </div>
+        <div class="d-flex gap-2">
+          {% if p.imagem %}
+            <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}" class="rounded align-self-center" style="max-height: 80px; max-width: 80px;">
+          {% endif %}
+          <div class="flex-grow-1">
+            <h6 class="mb-1">{{ p.nome }}</h6>
+            <div><span class="card-label">Categoria:</span> <span class="card-value">{{ p.category.nome if p.category else '—' }}</span></div>
+            <div class="row g-0 mt-1">
+              <div class="col-6">
+                <span class="card-label">Qtd. Mín.</span><br>
+                <span class="card-value">{{ p.qtd_minima if p.qtd_minima else '—' }}</span>
+              </div>
+              <div class="col-6">
+                <span class="card-label">Preço</span><br>
+                <span class="card-value">R$ {{ (p.preco or 0) | brl }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted text-center">Nenhum produto cadastrado.</p>
+  {% endfor %}
 </div>
 
 {% endblock %}
@@ -111,15 +156,17 @@ function aplicarFiltro() {
   if (desktopCat && mobileCat) mobileCat.value = desktopCat.value;
   const ativoFiltro = desktopAtivo.value;
   const cat = desktopCat.value;
-  document.querySelectorAll('tbody tr').forEach(row => {
-    const ativo = row.dataset.ativo === 'true';
-    const categoria = row.dataset.categoria;
+  function match(el) {
+    const ativo = el.dataset.ativo === 'true';
+    const categoria = el.dataset.categoria;
     let mostraAtivo = true;
     if (ativoFiltro === 'ativos') mostraAtivo = ativo;
     else if (ativoFiltro === 'inativos') mostraAtivo = !ativo;
     const mostraCat = !cat || categoria === cat;
-    row.style.display = (mostraAtivo && mostraCat) ? '' : 'none';
-  });
+    el.style.display = (mostraAtivo && mostraCat) ? '' : 'none';
+  }
+  document.querySelectorAll('tbody tr').forEach(match);
+  document.querySelectorAll('.card-list-item').forEach(match);
 }
 document.getElementById('filter-ativo').addEventListener('change', aplicarFiltro);
 document.getElementById('filter-categoria').addEventListener('change', aplicarFiltro);

@@ -4,15 +4,15 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>{{ ingredient.nome }}</h2>
   <div>
-    <button type="button" class="btn btn-outline-danger" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)">Excluir</button>
+    <button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
     <a href="{{ url_for('ingredients.edit', id=ingredient.id) }}" class="btn btn-primary">Editar</a>
     <a href="{{ url_for('ingredients.list') }}" class="btn btn-outline-secondary btn-sm">
-      <img src="{{ url_for('static', filename='setas/undo.png') }}" alt="Voltar" height="20">
+      <img src="{{ url_for('static', filename='icones/undo.png') }}" alt="Voltar" height="20">
     </a>
   </div>
 </div>
 
-{% set s = url_for('static', filename='setas/') %}
+{% set s = url_for('static', filename='icones/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
     <a href="{{ url_for('ingredients.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
@@ -60,28 +60,44 @@
     <div class="card">
       <div class="card-header"><strong>Fatores de Conversão</strong></div>
       <div class="card-body p-0">
-        <table class="table mb-0 sortable">
-          <thead>
-            <tr>
-              <th>Unidade (receita)</th>
-              <th>=</th>
-              <th>{{ ingredient.unidade_medida }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for cv in ingredient.conversions %}
+        <!-- Desktop: table -->
+        <div class="d-none d-lg-block">
+          <table class="table mb-0 sortable">
+            <thead>
               <tr>
-                <td>1 {{ cv.unidade }}</td>
-                <td>=</td>
-                <td>{{ cv.fator }}</td>
+                <th>Unidade (receita)</th>
+                <th>=</th>
+                <th>{{ ingredient.unidade_medida }}</th>
               </tr>
-            {% else %}
-              <tr>
-                <td colspan="3" class="text-center text-muted">Nenhuma conversão cadastrada.</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {% for cv in ingredient.conversions %}
+                <tr>
+                  <td>1 {{ cv.unidade }}</td>
+                  <td>=</td>
+                  <td>{{ cv.fator }}</td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="3" class="text-center text-muted">Nenhuma conversão cadastrada.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <!-- Mobile: list -->
+        <div class="d-lg-none">
+          {% for cv in ingredient.conversions %}
+            <div class="px-3 py-2 border-bottom">
+              <span class="card-label">Unidade:</span>
+              <span class="card-value">1 {{ cv.unidade }}</span><br>
+              <span class="card-label">= {{ ingredient.unidade_medida }}:</span>
+              <span class="card-value">{{ cv.fator }}</span>
+            </div>
+          {% else %}
+            <p class="text-muted text-center py-2 mb-0">Nenhuma conversão cadastrada.</p>
+          {% endfor %}
+        </div>
       </div>
     </div>
   </div>
@@ -90,34 +106,54 @@
 <div class="card mb-4">
   <div class="card-header"><strong>Usado nos Produtos</strong></div>
   <div class="card-body p-0">
-    <table class="table mb-0 sortable">
-      <thead>
-        <tr>
-          <th>Produto</th>
-          <th>Quantidade</th>
-          <th>Unidade</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in products_using %}
-          {% for pi in p.ingredients.filter_by(ingredient_id=ingredient.id) %}
+    <!-- Desktop: table -->
+    <div class="d-none d-lg-block">
+      <table class="table mb-0 sortable">
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Quantidade</th>
+            <th>Unidade</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products_using %}
+            {% for pi in p.ingredients.filter_by(ingredient_id=ingredient.id) %}
+              <tr>
+                <td>{{ p.nome }}</td>
+                <td>{{ pi.quantidade }}</td>
+                <td>{{ pi.unidade }}</td>
+                <td>
+                  <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-primary">Editar Produto</a>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
             <tr>
-              <td>{{ p.nome }}</td>
-              <td>{{ pi.quantidade }}</td>
-              <td>{{ pi.unidade }}</td>
-              <td>
-                <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary">Editar Produto</a>
-              </td>
+              <td colspan="4" class="text-center text-muted">Nenhum produto utiliza este insumo.</td>
             </tr>
           {% endfor %}
-        {% else %}
-          <tr>
-            <td colspan="4" class="text-center text-muted">Nenhum produto utiliza este insumo.</td>
-          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Mobile: list -->
+    <div class="d-lg-none">
+      {% for p in products_using %}
+        {% for pi in p.ingredients.filter_by(ingredient_id=ingredient.id) %}
+          <div class="px-3 py-2 border-bottom">
+            <h6 class="mb-1">{{ p.nome }}</h6>
+            <span class="card-label">Quantidade:</span>
+            <span class="card-value">{{ pi.quantidade }} {{ pi.unidade }}</span>
+            <div class="mt-1">
+              <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary w-100">Editar Produto</a>
+            </div>
+          </div>
         {% endfor %}
-      </tbody>
-    </table>
+      {% else %}
+        <p class="text-muted text-center py-2 mb-0">Nenhum produto utiliza este insumo.</p>
+      {% endfor %}
+    </div>
   </div>
 </div>
 
@@ -165,8 +201,8 @@ function confirmarExclusao(btn) {
       } else {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
         footer.innerHTML =
-          '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger" onclick="efetuarExclusao(' + id + ')">Excluir</button>';
+          '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
       }
       modal.show();
     });

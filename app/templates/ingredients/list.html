@@ -1,26 +1,30 @@
 {% extends "base.html" %}
-{% block cadastro_toolbar %}
-<select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="if(this.value) window.location=this.value;">
-  <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
-  {% for val, label in TIPO_INGREDIENTE.items() %}
-    <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
-  {% endfor %}
-</select>
-<a href="{{ url_for('ingredients.new') }}" class="btn btn-sm btn-primary ms-auto">Novo</a>
+{% block cadastro_filter %}
+<div class="toolbar-filter-item">
+  <select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="if(this.value) window.location=this.value;">
+    <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
+    {% for val, label in TIPO_INGREDIENTE.items() %}
+      <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endblock %}
+{% block cadastro_actions %}
+<a href="{{ url_for('ingredients.new') }}" class="btn btn-sm btn-success">+ Novo</a>
 {% endblock %}
 {% block content %}
 
-<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2">
+<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
   <div class="d-flex align-items-center gap-2">
     <h2 class="mb-0">Insumos</h2>
-    <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value;">
+    <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value();">
       <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
       {% for val, label in TIPO_INGREDIENTE.items() %}
         <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
   </div>
-  <a href="{{ url_for('ingredients.new') }}" class="btn btn-primary">Novo</a>
+  <a href="{{ url_for('ingredients.new') }}" class="btn btn-success">+ Novo</a>
 </div>
 
 <div class="table-responsive table-scroll">
@@ -42,7 +46,7 @@
           <td>{{ TIPO_INGREDIENTE[i.tipo] }}</td>
           <td>{{ i.unidade_medida }}</td>
           <td>
-            <a href="{{ url_for('ingredients.edit', id=i.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+            <a href="{{ url_for('ingredients.edit', id=i.id) }}" class="btn btn-sm btn-primary">Editar</a>
           </td>
         </tr>
       {% else %}
@@ -52,6 +56,37 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
+
+<!-- Mobile: card list -->
+<div class="d-lg-none">
+  {% for i in ingredients %}
+    <div class="card mb-2 shadow-sm card-list-item">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div>
+            <span class="card-label">#{{ i.id|fmtid }}</span>
+          </div>
+          <a href="{{ url_for('ingredients.edit', id=i.id) }}" style="text-decoration:none;">
+            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+          </a>
+        </div>
+        <h6 class="mb-1">{{ i.nome }}</h6>
+        <div class="row g-0">
+          <div class="col-6">
+            <span class="card-label">Tipo</span><br>
+            <span class="card-value">{{ TIPO_INGREDIENTE[i.tipo] }}</span>
+          </div>
+          <div class="col-6">
+            <span class="card-label">Unidade</span><br>
+            <span class="card-value">{{ i.unidade_medida }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted text-center">Nenhum insumo cadastrado.</p>
+  {% endfor %}
 </div>
 
 {% endblock %}

@@ -19,7 +19,7 @@
 </form>
 
 {% if resultado is not none %}
-  <div class="table-responsive">
+  <div class="table-responsive table-scroll">
     <table class="table table-hover sortable">
       <thead>
         <tr>
@@ -42,6 +42,29 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+
+  <!-- Mobile: card list -->
+  <div class="d-lg-none">
+    {% for nome, unidade, total in resultado %}
+      <div class="card mb-2 shadow-sm card-list-item">
+        <div class="card-body py-2 px-3">
+          <h6 class="mb-1">{{ nome }}</h6>
+          <div class="row g-0">
+            <div class="col-6">
+              <span class="card-label">Unidade</span><br>
+              <span class="card-value">{{ unidade }}</span>
+            </div>
+            <div class="col-6">
+              <span class="card-label">Qtd. Necessária</span><br>
+              <span class="card-value">{{ "%.3f"|format(total|float) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <p class="text-muted text-center">Nenhum pedido encontrado no período.</p>
+    {% endfor %}
   </div>
 {% endif %}
 

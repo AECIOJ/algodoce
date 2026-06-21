@@ -1,16 +1,22 @@
 {% extends "base.html" %}
-{% block comercial_toolbar %}
-<select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="if(this.value) window.location=this.value;">
-  {% for val, label in QUOTE_STATUS_FILTER %}
-    <option value="{{ url_for('orders.orcamentos', status=val) if val != 'todos' else url_for('orders.orcamentos') }}" {{ 'selected' if filtro == val }}>{{ label }}</option>
-  {% endfor %}
-</select>
-<a href="{{ url_for('orders.quote_new') }}" class="btn btn-sm btn-success text-nowrap" style="flex-shrink:0;">+ Novo</a>
-<a href="{{ url_for('orders.quote_validar') }}" class="btn btn-sm btn-outline-warning text-nowrap">Validar</a>
+{% block comercial_filter %}
+<div class="toolbar-filter-item">
+  <select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="if(this.value) window.location=this.value;">
+    {% for val, label in QUOTE_STATUS_FILTER %}
+      <option value="{{ url_for('orders.orcamentos', status=val) if val != 'todos' else url_for('orders.orcamentos') }}" {{ 'selected' if filtro == val }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</div>
+{% endblock %}
+{% block comercial_actions %}
+<div class="d-flex gap-1">
+  <a href="{{ url_for('orders.quote_new') }}" class="btn btn-sm btn-success text-nowrap">+ Novo</a>
+  <a href="{{ url_for('orders.quote_validar') }}" class="btn btn-sm btn-validar text-nowrap">Validar</a>
+</div>
 {% endblock %}
 {% block content %}
 
-<div class="d-none d-lg-flex justify-content-center align-items-baseline mb-1 gap-2">
+<div class="d-none d-lg-flex justify-content-center align-items-baseline mb-1 gap-2 desktop-title-row">
   <h2 class="mb-0">Orçamentos</h2>
   <select id="filter-status" class="form-select" style="width:auto;min-width:80px;" onchange="if(this.value) window.location=this.value;">
     {% for val, label in QUOTE_STATUS_FILTER %}
@@ -18,7 +24,7 @@
     {% endfor %}
   </select>
   <a href="{{ url_for('orders.quote_new') }}" class="btn btn-sm btn-success text-nowrap" style="flex-shrink:0;">+ Novo</a>
-  <a href="{{ url_for('orders.quote_validar') }}" class="btn btn-sm btn-outline-warning text-nowrap">Validar</a>
+  <a href="{{ url_for('orders.quote_validar') }}" class="btn btn-sm btn-validar text-nowrap">Validar</a>
 </div>
 
 <div class="table-responsive table-scroll">
@@ -56,7 +62,7 @@
           <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
           <td>{{ FORMA_PAGAMENTO[o.forma_pagamento] }}</td>
           <td>
-            <span class="badge bg-{{ 'secondary' if o.status == 0 else 'primary' if o.status == 1 else 'info' if o.status == 6 else 'warning' if o.status == 7 else 'danger' if o.status == 8 else 'success' }}" style="min-width:95px">
+            <span class="badge {{ 'border border-secondary text-dark' if o.status == 0 else 'bg-primary' if o.status == 1 else 'bg-info' if o.status == 6 else 'bg-expired' if o.status == 7 else 'bg-danger' if o.status == 8 else 'bg-success' }}" style="min-width:95px">
               {{ QUOTE_STATUS[o.status] }}
             </span>
           </td>
@@ -71,6 +77,51 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
+
+<!-- Mobile: card list -->
+<div class="d-lg-none">
+  {% for o in orders %}
+    <div class="card mb-2 shadow-sm card-list-item">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div>
+            <span class="card-label">#{{ o.id|fmtid }}</span>
+            <span class="badge {{ 'border border-secondary text-dark' if o.status == 0 else 'bg-primary' if o.status == 1 else 'bg-info' if o.status == 6 else 'bg-expired' if o.status == 7 else 'bg-danger' if o.status == 8 else 'bg-success' }}">
+              {{ QUOTE_STATUS[o.status] }}
+            </span>
+          </div>
+          <a href="{{ url_for('orders.quote_edit', id=o.id) }}" style="text-decoration:none;">
+            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Revisar" height="18">
+          </a>
+        </div>
+        <h6 class="mb-1">{{ o.cliente_nome }}</h6>
+        <div class="row g-0">
+          <div class="col-6">
+            <span class="card-label">Telefone</span><br>
+            <span class="card-value">{{ o.cliente_telefone }}</span>
+          </div>
+          <div class="col-6">
+            <span class="card-label">Total</span><br>
+            <span class="card-value">R$ {{ (o.total or 0) | brl }}</span>
+          </div>
+          <div class="col-6 mt-1">
+            <span class="card-label">Data</span><br>
+            <span class="card-value">{{ o.data_pedido.strftime('%d/%m/%Y') }}</span>
+          </div>
+          <div class="col-6 mt-1">
+            <span class="card-label">Validade</span><br>
+            <span class="card-value">
+              {% set ref = o.data_renovacao or o.data_pedido %}
+              {{ (ref.replace(tzinfo=None) + timedelta(days=o.validade or 3)).strftime('%d/%m/%Y') }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted text-center">Nenhum orçamento encontrado.</p>
+  {% endfor %}
 </div>
 
 {% endblock %}

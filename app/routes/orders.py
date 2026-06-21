@@ -461,7 +461,7 @@ def new():
     clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
     return render_template(
-        "orders/form.html", clients=clients, products=products,
+        "orders/form.html", order=None, clients=clients, products=products,
         ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
         FORMINHAS=FORMINHAS,
     )

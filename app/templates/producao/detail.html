@@ -33,24 +33,24 @@
 {% endcall %}
 
 <form method="POST" action="{{ url_for('producao.editar', id=producao.id) }}" class="row g-2 align-items-end mb-3">
-  <div class="col">
+  <div class="col-12 col-md">
     <label class="form-label small mb-0">Descrição</label>
     <input type="text" name="descricao" class="form-control form-control-sm" value="{{ producao.descricao }}" required {{ 'readonly' if producao.status == 9 }}>
   </div>
-  <div class="col">
+  <div class="col-6 col-md">
     <label class="form-label small mb-0">Previsão De</label>
     <input type="date" name="previsao_de" class="form-control form-control-sm" value="{{ producao.previsao_de }}" {{ 'required' if producao.status == 0 }} {{ 'readonly' if producao.status == 9 }}>
   </div>
-  <div class="col">
+  <div class="col-6 col-md">
     <label class="form-label small mb-0">Previsão Até</label>
     <input type="date" name="previsao_ate" class="form-control form-control-sm" value="{{ producao.previsao_ate }}" {{ 'required' if producao.status == 0 }} {{ 'readonly' if producao.status == 9 }}>
   </div>
-  <div class="col">
+  <div class="col-6 col-md">
     <label class="form-label small mb-0">Encerramento</label>
     <input type="date" name="data_fim" class="form-control form-control-sm" value="{{ producao.data_fim.strftime('%Y-%m-%d') if producao.data_fim else '' }}">
   </div>
-  <div class="col-auto">
-    <button type="submit" class="btn btn-sm btn-primary">Salvar</button>
+  <div class="col-6 col-md-auto">
+    <button type="submit" class="btn btn-sm btn-success w-100 w-md-auto">Salvar</button>
   </div>
 </form>
 
@@ -114,7 +114,7 @@
             <td>
               {% if producao.status == 0 %}
               <form method="POST" action="{{ url_for('producao.remove_pedido', id=producao.id, order_id=pp.order_id) }}" style="display:inline" onsubmit="return confirm('Remover pedido?')">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>
+                <button type="submit" class="btn btn-sm btn-outline-danger"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover"></button>
               </form>
               {% endif %}
             </td>
@@ -130,7 +130,7 @@
         <tfoot>
           <tr>
             <td colspan="5" class="text-start border-0 pt-2">
-              <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPedidoModal">+ Incluir Pedido</button>
+              <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addPedidoModal">+ Incluir Pedido</button>
             </td>
           </tr>
         </tfoot>
@@ -191,7 +191,7 @@
               </a>
             </td>
             <td style="padding-right:0.25rem;padding-left:0.25rem">
-              <button class="btn btn-sm btn-outline-primary editar-comprado"
+              <button class="btn btn-sm btn-primary editar-comprado"
                       data-id="{{ pi.insumo_id }}"
                       data-value="{{ pi.comprado }}">Editar</button>
             </td>
@@ -401,6 +401,7 @@
                 <th>#</th>
                 <th>Cliente</th>
                 <th>Prev. Entrega</th>
+                <th>Produtos</th>
               </tr>
             </thead>
             <tbody>
@@ -412,11 +413,16 @@
                 </td>
                 <td>{{ o.id|fmtid }}</td>
                 <td>{{ o.conta.nome }}</td>
-                <td>{{ o.data_previsao_entrega.strftime('%d/%m/%Y') }}</td>
+                <td>{{ o.data_previsao_entrega.strftime('%d/%m/%Y') if o.data_previsao_entrega else '—' }}</td>
+                <td>
+                  {% for item in o.items %}
+                    {{ "%.0f"|format(item.quantidade) }} {{ item.product.nome }}{% if not loop.last %}, {% endif %}
+                  {% endfor %}
+                </td>
               </tr>
               {% else %}
               <tr>
-                <td colspan="4" class="text-center text-muted">Nenhum pedido disponível.</td>
+                <td colspan="5" class="text-center text-muted">Nenhum pedido disponível.</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -424,7 +430,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-sm btn-primary">Adicionar</button>
+          <button type="submit" class="btn btn-sm btn-success">Adicionar</button>
         </div>
       </form>
     </div>
