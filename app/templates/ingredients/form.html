@@ -63,7 +63,7 @@
               <span class="text-muted d-md-none">em {{ ingredient.unidade_medida }}</span>
             </div>
             <div class="col-md-1">
-              <button type="button" class="btn btn-danger btn-sm btn-remove-conv btn-remove-card" onclick="if(confirm('Remover conversão?'))this.closest('.row').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+              <button type="button" class="btn btn-danger btn-sm btn-remove-conv btn-remove-card" onclick="confirmRemove(this, 'Remover conversão?')">
             </div>
           </div>
         {% else %}
@@ -86,7 +86,7 @@
               <span class="text-muted d-md-none">em {{ ingredient.unidade_medida }}</span>
             </div>
             <div class="col-md-1">
-              <button type="button" class="btn btn-danger btn-sm btn-remove-conv btn-remove-card" onclick="if(confirm('Remover conversão?'))this.closest('.row').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+              <button type="button" class="btn btn-danger btn-sm btn-remove-conv btn-remove-card" onclick="confirmRemove(this, 'Remover conversão?')">
             </div>
           </div>
         {% endfor %}
@@ -199,7 +199,7 @@ function addConversao() {
       <span class="text-muted">{{ ingredient.unidade_medida }}</span>
     </div>
     <div class="col-md-1">
-      <button type="button" class="btn btn-danger btn-sm btn-remove-conv" onclick="if(confirm('Remover conversão?'))this.closest('.row').remove()">&times;</button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-conv" onclick="confirmRemove(this, 'Remover conversão?')">&times;</button>
     </div>
   `;
   container.appendChild(row);

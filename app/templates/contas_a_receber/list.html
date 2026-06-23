@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block financeiro_filter %}
+<div class="toolbar-filter-item">
+  <select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="filtrar('status', this.value)">
+    <option value="todos" {% if filtro_status == 'todos' %}selected{% endif %}>Todos</option>
+    {% for k, v in PREVISAO_STATUS.items() %}
+      <option value="{{ k }}" {% if filtro_status == k|string %}selected{% endif %}>{{ v }}</option>
+    {% endfor %}
+  </select>
+  <select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="filtrar('vencimento', this.value)">
+    <option value="todos" {% if filtro_venc == 'todos' %}selected{% endif %}>Todas</option>
+    <option value="em_atraso" {% if filtro_venc == 'em_atraso' %}selected{% endif %}>Em atraso</option>
+    <option value="hoje" {% if filtro_venc == 'hoje' %}selected{% endif %}>Hoje</option>
+    <option value="a_vencer" {% if filtro_venc == 'a_vencer' %}selected{% endif %}>A Vencer</option>
+  </select>
+</div>
+{% endblock %}
+{% block financeiro_actions %}
+<a href="{{ url_for('contas_a_receber.new') }}" class="btn btn-sm btn-success">+ Nova</a>
+{% endblock %}
+{% block content %}
+
+<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
+  <div class="d-flex align-items-center gap-2">
+    <h2 class="mb-0">Contas a Receber</h2>
+    <select class="form-select" style="width:auto;" onchange="filtrar('status', this.value)">
+      <option value="todos" {% if filtro_status == 'todos' %}selected{% endif %}>Todos</option>
+      {% for k, v in PREVISAO_STATUS.items() %}
+        <option value="{{ k }}" {% if filtro_status == k|string %}selected{% endif %}>{{ v }}</option>
+      {% endfor %}
+    </select>
+    <select class="form-select" style="width:auto;" onchange="filtrar('vencimento', this.value)">
+      <option value="todos" {% if filtro_venc == 'todos' %}selected{% endif %}>Todas</option>
+      <option value="em_atraso" {% if filtro_venc == 'em_atraso' %}selected{% endif %}>Em atraso</option>
+      <option value="hoje" {% if filtro_venc == 'hoje' %}selected{% endif %}>Hoje</option>
+      <option value="a_vencer" {% if filtro_venc == 'a_vencer' %}selected{% endif %}>A Vencer</option>
+    </select>
+    <span class="badge bg-info fs-6">Total: {{ total_saldo|brl }}</span>
+  </div>
+  <a href="{{ url_for('contas_a_receber.new') }}" class="btn btn-success">+ Nova</a>
+</div>
+
+<div class="table-responsive table-scroll">
+  <table class="table table-hover sortable">
+    <thead>
+      <tr>
+        <th>Transação</th>
+        <th>Status</th>
+        <th>Conta</th>
+        <th>Fatura</th>
+        <th>Valor</th>
+        <th>Documento</th>
+        <th>Vencimento</th>
+        <th>Previsão</th>
+        <th>Previsto</th>
+        <th>Realizado</th>
+        <th>Variação</th>
+        <th>Saldo</th>
+        <th>Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in previsoes %}
+        {% set t = p.transacao %}
+        <tr class="{{ 'table-danger' if p.vencimento < hoje and p.status not in (8,9) else '' }}">
+          <td>{{ t.id|fmtid }}</td>
+          <td>
+            {% set st = PREVISAO_STATUS.get(p.status, '') %}
+            {% if p.status == 9 %}
+              <span class="badge bg-success">{{ st }}</span>
+            {% elif p.status == 8 %}
+              <span class="badge bg-secondary">{{ st }}</span>
+            {% elif p.status == 2 %}
+              <span class="badge bg-warning">{{ st }}</span>
+            {% elif p.status == 1 %}
+              <span class="badge bg-info">{{ st }}</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ st }}</span>
+            {% endif %}
+          </td>
+          <td>{{ t.conta.nome if t.conta else '-' }}</td>
+          <td>{{ t.fatura if t.fatura else '-' }}</td>
+          <td class="text-end">{{ t.valor|brl }}</td>
+          <td>{{ p.documento if p.documento else '-' }}</td>
+          <td>{{ p.vencimento|fmtdate }}</td>
+          <td>#{{ p.id|fmtid }}</td>
+          <td class="text-end">{{ p.previsto|brl }}</td>
+          <td class="text-end">{{ p.realizado|brl if p.realizado is not none else '-' }}</td>
+          <td class="text-end">{{ p.variacao|brl if p.variacao is not none else '-' }}</td>
+          <td class="text-end {{ 'text-danger' if p.saldo > 0 else ('text-success' if p.saldo <= 0 else '') }}">{{ p.saldo|brl }}</td>
+          <td>
+            <a href="{{ url_for('contas_a_receber.edit', id=t.id) }}" class="btn btn-sm btn-primary">Editar</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr>
+          <td colspan="12" class="text-center text-muted">Nenhuma parcela encontrada.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="d-lg-none mt-3">
+  <div class="card shadow-sm">
+    <div class="card-body py-2">
+      <strong>Total:</strong> {{ total_saldo|brl }}
+    </div>
+  </div>
+  {% for p in previsoes %}
+    {% set t = p.transacao %}
+    <div class="card mb-2 shadow-sm card-list-item">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div>
+            <span class="card-label">#{{ t.id|fmtid }}</span>
+            <span class="badge bg-success">A Receber</span>
+          </div>
+          <a href="{{ url_for('contas_a_receber.edit', id=t.id) }}" style="text-decoration:none;">
+            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+          </a>
+        </div>
+        <h6 class="mb-1">{{ p.previsto|brl }}</h6>
+        {% set st = PREVISAO_STATUS.get(p.status, '') %}
+        {% if p.status == 9 %}
+          <span class="badge bg-success">{{ st }}</span>
+        {% elif p.status == 8 %}
+          <span class="badge bg-secondary">{{ st }}</span>
+        {% elif p.status == 2 %}
+          <span class="badge bg-warning">{{ st }}</span>
+        {% elif p.status == 1 %}
+          <span class="badge bg-info">{{ st }}</span>
+        {% else %}
+          <span class="badge bg-secondary">{{ st }}</span>
+        {% endif %}
+        <span class="card-label ms-2">Conta:</span>
+        <span class="card-value ms-1">{{ t.conta.nome if t.conta else '-' }}</span>
+        <span class="card-label ms-2">Fatura:</span>
+        <span class="card-value ms-1">{{ t.fatura if t.fatura else '-' }}</span>
+        <span class="card-label ms-2">Valor:</span>
+        <span class="card-value ms-1">{{ t.valor|brl }}</span>
+        <span class="card-label ms-2">Venc:</span>
+        <span class="card-value ms-1">{{ p.vencimento|fmtdate }}</span>
+        <span class="card-label ms-2">Prev #:</span>
+        <span class="card-value ms-1">{{ p.id|fmtid }}</span>
+        <span class="card-label ms-2">Prev:</span>
+        <span class="card-value ms-1">{{ p.previsto|brl }}</span>
+        <span class="card-label ms-2">Realizado:</span>
+        <span class="card-value ms-1">{{ p.realizado|brl if p.realizado is not none else '-' }}</span>
+        {% if p.variacao is not none %}
+          <span class="card-label ms-2">Variação:</span>
+          <span class="card-value ms-1">{{ p.variacao|brl }}</span>
+        {% endif %}
+        <span class="card-label ms-2">Saldo:</span>
+        <span class="card-value ms-1 {{ 'text-danger' if p.saldo > 0 else ('text-success' if p.saldo <= 0 else '') }}">{{ p.saldo|brl }}</span>
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted text-center">Nenhuma parcela encontrada.</p>
+  {% endfor %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filtrar(chave, valor) {
+  var params = new URLSearchParams(window.location.search);
+  params.set(chave, valor);
+  window.location = '?' + params.toString();
+}
+</script>
+{% endblock %}

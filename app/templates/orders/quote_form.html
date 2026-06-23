@@ -38,7 +38,7 @@
 
 <form method="POST" id="main-form" action="{% if quote %}{{ url_for('orders.quote_edit', id=quote.id) }}{% else %}{{ url_for('orders.quote_new') }}{% endif %}" {% if quote %}data-editing{% endif %}>
   <div class="row mb-3">
-    <div class="col-md-4 mb-2 mb-md-0">
+    <div class="col-md-3 mb-2 mb-md-0">
       <label class="form-label">Nome *</label>
       <div class="d-flex gap-2">
         <input type="text" name="cliente_nome" class="form-control" required
@@ -48,7 +48,7 @@
         {% endif %}
       </div>
     </div>
-    <div class="col-md-3 mb-2 mb-md-0">
+    <div class="col-md-4 mb-2 mb-md-0">
       <label class="form-label">Telefone *</label>
       <input type="text" name="cliente_telefone" class="form-control" required
              value="{{ quote.cliente_telefone if quote else '' }}" {{ 'disabled' if ro }}>
@@ -100,7 +100,7 @@
                 <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm"  value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
-                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="if(confirm('Remover item?'))this.closest('tr').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
+                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
               </tr>
               {% endfor %}
             {% else %}
@@ -116,7 +116,7 @@
                 <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
-                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="if(confirm('Remover item?'))this.closest('tr').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
+                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
               </tr>
             {% endif %}
           </tbody>
@@ -156,7 +156,7 @@
               </div>
             </div>
             <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}>
-            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="if(confirm('Remover item?'))this.closest('.item-mobile-card').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
           </div>
           {% endfor %}
         {% else %}
@@ -182,7 +182,7 @@
               </div>
             </div>
             <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" {{ 'disabled' if ro }}>
-            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="if(confirm('Remover item?'))this.closest('.item-mobile-card').remove()"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
           </div>
         {% endif %}
         <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
@@ -362,6 +362,20 @@ function toggleConvTipo() {
     </div>
   </div>
 </div>
+<div class="modal fade" id="deleteItemModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <img src="{{ url_for('static', filename='icones/trash.png') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
+        <p class="mb-3 fw-bold">Remover este item?</p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger btn-sm" id="confirm-delete-item">Remover</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 {% endblock %}
@@ -371,10 +385,39 @@ function toggleConvTipo() {
 <script src="{{ url_for('static', filename='js/phone-mask.js') }}"></script>
 {% if not ro %}
 <script>
+var pendingDeleteEl = null;
+
+function confirmDelete(el) {
+  pendingDeleteEl = el;
+  var modal = new bootstrap.Modal(document.getElementById('deleteItemModal'));
+  modal.show();
+}
+
+document.getElementById('confirm-delete-item').addEventListener('click', function() {
+  if (pendingDeleteEl) {
+    markModified();
+    var el = pendingDeleteEl.closest('.item-row') || pendingDeleteEl.closest('.item-mobile-card');
+    if (el) el.remove();
+    pendingDeleteEl = null;
+  }
+  var modalEl = document.getElementById('deleteItemModal');
+  var modal = bootstrap.Modal.getInstance(modalEl);
+  if (modal) modal.hide();
+});
+
 function atualizarESalvar() {
   atualizarPrecos();
   document.getElementById('atualizar-precos-field').value = '1';
+  disableHiddenInputs();
   document.getElementById('main-form').submit();
+}
+
+function disableHiddenInputs() {
+  if (window.innerWidth < 768) {
+    document.querySelectorAll('#itens-table input, #itens-table select').forEach(function(el) { el.disabled = true; });
+  } else {
+    document.querySelectorAll('#itens-mobile-list input, #itens-mobile-list select').forEach(function(el) { el.disabled = true; });
+  }
 }
 
 function addItem() {
@@ -395,7 +438,7 @@ function addItem() {
     <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
     <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
     <td><input type="text" name="observacao_item" class="form-control form-control-sm" ></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="if(confirm('Remover item?')){markModified();this.closest('tr').remove()}"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
   `;
   tbody.appendChild(tr);
 }
@@ -413,6 +456,8 @@ function addItemMobile() {
     list.insertBefore(div, list.querySelector('.d-flex.justify-content-between')?.closest('.px-3') || null);
   }
 }
+
+document.getElementById('main-form').addEventListener('submit', disableHiddenInputs);
 </script>
 {% endif %}
 {% endblock %}

@@ -9,7 +9,7 @@ from app.extensions import db, migrate, login_manager
 from flask_migrate import upgrade
 import sqlalchemy as sa
 
-from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int
+from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date
 
 _ngrok_url = None
 
@@ -61,7 +61,7 @@ def create_app():
 
     with app.app_context():
         from app.routes import clients as contas, products, ingredients, orders, reports
-        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, producao
+        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, producao, rubricas, previsoes, recursos, contas_a_pagar, contas_a_receber, movimentos
 
         app.register_blueprint(contas.bp)
         app.register_blueprint(products.bp)
@@ -76,8 +76,14 @@ def create_app():
         app.register_blueprint(categories.bp)
         app.register_blueprint(seguranca.bp)
         app.register_blueprint(producao.bp)
+        app.register_blueprint(rubricas.bp)
+        app.register_blueprint(previsoes.bp)
+        app.register_blueprint(recursos.bp)
+        app.register_blueprint(contas_a_pagar.bp)
+        app.register_blueprint(contas_a_receber.bp)
+        app.register_blueprint(movimentos.bp)
 
-        from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote  # noqa
+        from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, rubrica, transacao, previsao  # noqa
         from app.models.event import Event  # noqa
         from app.models.quote_item import QuoteItem  # noqa
         from app.models.order_item import OrderItem  # noqa
@@ -85,6 +91,8 @@ def create_app():
         from app.models.producao import Producao  # noqa
         from app.models.producao_insumo import ProducaoInsumo  # noqa
         from app.models.producao_produto import ProducaoProduto  # noqa
+        from app.models.recurso import Recurso  # noqa
+        from app.models.movto import Movto  # noqa
 
         upgrade()
 
@@ -111,10 +119,12 @@ def create_app():
     app.jinja_env.filters['fmtid'] = fmt_id
     app.jinja_env.filters['fmtzero'] = fmt_zero
     app.jinja_env.filters['fmtzeroi'] = fmt_zero_int
+    app.jinja_env.filters['fmtdate'] = fmt_date
 
     @app.context_processor
     def inject_globals():
-        return dict(ngrok_url=get_ngrok_url(), timedelta=timedelta)
+        from datetime import date
+        return dict(ngrok_url=get_ngrok_url(), timedelta=timedelta, hoje=date.today())
 
     @app.context_processor
     def inject_site_categories():

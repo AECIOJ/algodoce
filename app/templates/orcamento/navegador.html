@@ -402,11 +402,11 @@ document.addEventListener('DOMContentLoaded', function() {
       var nome = card.querySelector('h3').textContent;
 
       if (qtd <= 0) {
-        alert('A quantidade deve ser maior que zero.');
+        showAlert('A quantidade deve ser maior que zero.');
         return;
       }
       if (minima > 0 && qtd < minima) {
-        alert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
+        showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
         return;
       }
 

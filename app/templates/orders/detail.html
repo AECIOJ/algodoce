@@ -162,7 +162,7 @@
     </form>
   {% endif %}
   {% if order.status in (0, 1) %}
-    <form method="POST" action="{{ url_for('orders.cancel', id=order.id) }}" onsubmit="return confirm('Cancelar pedido?')">
+    <form method="POST" action="{{ url_for('orders.cancel', id=order.id) }}" onsubmit="return confirmFormSubmit(this, 'Cancelar pedido?')">
       <button type="submit" class="btn btn-outline-secondary">Cancelar Pedido</button>
     </form>
   {% endif %}

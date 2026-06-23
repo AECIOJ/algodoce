@@ -57,14 +57,22 @@ def adicionar(id):
         db.session.add(quote)
         db.session.flush()
 
-    item = QuoteItem(
-        quote_id=quote.id,
-        product_id=produto.id,
-        quantidade=quantidade,
-        preco_unitario=None,
-        observacao=observacao or None,
-    )
-    db.session.add(item)
+    existing = QuoteItem.query.filter_by(
+        quote_id=quote.id, product_id=produto.id
+    ).first()
+    if existing:
+        existing.quantidade += quantidade
+        if observacao:
+            existing.observacao = observacao
+    else:
+        item = QuoteItem(
+            quote_id=quote.id,
+            product_id=produto.id,
+            quantidade=quantidade,
+            preco_unitario=None,
+            observacao=observacao or None,
+        )
+        db.session.add(item)
     db.session.commit()
 
     total_itens = QuoteItem.query.filter_by(quote_id=quote.id).count()

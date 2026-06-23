@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% from "components/form_nav.html" import form_nav %}
+{% block content %}
+
+{% if movto %}
+{% call form_nav(back_url=url_for('movimentos.recebimentos_list' if tipo == 'E' else 'movimentos.pagamentos_list'), nome=tipo_nome ~ ' ' ~ movto.id|fmtid, nav=nav, edit_endpoint='movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', entity_id=movto.id) %}{% endcall %}
+{% else %}
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+  <span class="fs-5 fw-bold">Novo {{ tipo_nome }}</span>
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
+  <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_list') }}{% else %}{{ url_for('movimentos.pagamentos_list') }}{% endif %}" class="btn btn-outline-secondary btn-sm ms-2">Cancelar</a>
+</div>
+{% endif %}
+
+<form method="POST" id="main-form">
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-2">
+      <label class="form-label">Data *</label>
+      <input type="date" name="data" class="form-control" required value="{{ movto.data if movto else hoje }}">
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label">Recurso *</label>
+      <select name="recurso_id" class="form-select" required>
+        <option value="">Selecione...</option>
+        {% for r in recursos %}
+          <option value="{{ r.id }}" {% if movto and movto.recurso_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label">Conta</label>
+      <select name="conta_id" class="form-select" onchange="carregarPrevisoes(this.value)">
+        <option value="">Nenhuma</option>
+        {% for c in contas %}
+          <option value="{{ c.id }}" {% if movto and movto.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-4">
+      <label class="form-label">Previsão</label>
+      <div class="input-group">
+        <input type="text" id="previsao-info" class="form-control" readonly placeholder="Nenhuma" value="{{ '#%d - %s'|format(movto.previsao_id, movto.previsao.transacao.conta.nome if movto and movto.previsao and movto.previsao.transacao.conta else '') if movto and movto.previsao else '' }}">
+        <input type="hidden" name="previsao_id" id="previsao-id" value="{{ movto.previsao_id if movto else '' }}">
+        <input type="hidden" id="previsao-saldo" value="{{ movto.previsao.saldo if movto and movto.previsao else 0 }}">
+        <input type="hidden" name="acao" id="acao-field" value="">
+        <input type="hidden" name="rubrica_acrescimos_id" id="rubrica-acrescimos-id" value="">
+        {% if not movto or not movto.previsao_id %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label">Documento</label>
+      <input type="text" name="documento" class="form-control" maxlength="50" value="{{ movto.documento or '' }}">
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label">Valor *</label>
+      <input type="number" name="valor" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(movto.valor) if movto else '' }}">
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label">Rubrica *</label>
+      <select name="rubrica_id" class="form-select" required>
+        <option value="">Selecione...</option>
+        {% for r in rubricas %}
+          <option value="{{ r.id }}" {% if movto and movto.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Histórico</label>
+      <input type="text" name="historico" class="form-control" value="{{ movto.historico or '' }}">
+    </div>
+  </div>
+
+  <input type="hidden" id="valor-original" value="{{ '%.2f'|format(movto.valor) if movto else '' }}">
+  <input type="hidden" id="editando" value="{% if movto %}1{% endif %}">
+  <input type="hidden" id="variacao-original" value="{{ movto.variacao if movto else 0 }}">
+
+  {% if movto %}<div class="form-bottom-spacer"></div>{% endif %}
+</form>
+
+<div class="form-bottom-bar">
+  {% if movto %}
+  <form method="POST" action="{{ url_for('movimentos.excluir', id=movto.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Excluir {{ tipo_nome }} #{{ movto.id|fmtid }}?')">
+    <button type="submit" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+  </form>
+  {% endif %}
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
+  <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_list') }}{% else %}{{ url_for('movimentos.pagamentos_list') }}{% endif %}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+</div>
+
+<div class="modal fade" id="previsaoModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Selecionar Previsão</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="previsao-modal-body">
+        <p class="text-muted text-center">Selecione uma conta primeiro.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="descontoModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Atenção! Valor informado é menor que o saldo.</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Saldo: R$ <span id="desconto-saldo"></span></p>
+        <p>Valor informado: R$ <span id="desconto-valor"></span></p>
+        <hr>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="desconto-opcao" id="desconto-haver" value="haver" checked>
+          <label class="form-check-label" for="desconto-haver">Haver</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="desconto-opcao" id="desconto-desconto" value="desconto">
+          <label class="form-check-label" for="desconto-desconto">(-) Desconto de R$ <span id="desconto-diferenca"></span></label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="confirmarDesconto()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="erroAcrescimosModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Atenção! Valor informado é maior que o saldo.</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Saldo: R$ <span id="acrescimos-saldo"></span></p>
+        <p>Valor informado: R$ <span id="acrescimos-valor"></span></p>
+        <hr>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="acrescimos-opcao" id="acrescimos-erro" value="erro" checked onchange="onAcrescimosOpcaoChange()">
+          <label class="form-check-label" for="acrescimos-erro">Erro ao lançar</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="acrescimos-opcao" id="acrescimos-sim" value="acrescimo" onchange="onAcrescimosOpcaoChange()">
+          <label class="form-check-label" for="acrescimos-sim">(+) Acréscimos de R$ <span id="acrescimos-diferenca"></span></label>
+        </div>
+        <div id="erro-acrescimos-rubrica" style="display:none;">
+          <hr>
+          <label class="form-label">Selecionar Rubrica para o Acréscimo</label>
+          <select id="rubrica-acrescimos-select" class="form-select">
+            <option value="">Selecione...</option>
+            {% for r in rubricas %}
+              <option value="{{ r.id }}">{{ r.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="confirmarAcrescimos()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+var previsaoModal = null;
+var descontoModal = null, erroAcrescimosModal = null;
+
+function abrirModalPrevisoes() {
+  var contaId = document.querySelector('[name="conta_id"]').value;
+  if (!contaId) {
+    showAlert('Selecione uma conta primeiro.');
+    return;
+  }
+  if (!previsaoModal) {
+    previsaoModal = new bootstrap.Modal(document.getElementById('previsaoModal'));
+  }
+  carregarPrevisoes(contaId);
+  previsaoModal.show();
+}
+
+function carregarPrevisoes(contaId) {
+  var body = document.getElementById('previsao-modal-body');
+  if (!contaId) {
+    body.innerHTML = '<p class="text-muted text-center">Selecione uma conta primeiro.</p>';
+    return;
+  }
+  body.innerHTML = '<p class="text-muted text-center">Carregando...</p>';
+  var url = '{{ url_for("movimentos.api_previsoes") }}?conta_id=' + contaId + '&tipo={{ tipo }}';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.length === 0) {
+        body.innerHTML = '<p class="text-muted text-center">Nenhuma previsão disponível para esta conta.</p>';
+        return;
+      }
+      var html = '<div class="list-group">';
+      data.forEach(function(p) {
+        var selected = document.getElementById('previsao-id').value == p.id;
+        html += '<a href="#" class="list-group-item list-group-item-action' + (selected ? ' active' : '') + '" onclick="selecionarPrevisao(' + p.id + ', \'' + p.conta_nome.replace(/'/g, "\\'") + '\', \'' + (p.documento || '').replace(/'/g, "\\'") + '\', ' + p.saldo + ', \'' + p.vencimento + '\', ' + (p.rubrica_id || 'null') + '); return false;">';
+        html += '<div class="d-flex justify-content-between align-items-center">';
+        html += '<span><strong>#' + p.id + '</strong> - ' + p.conta_nome + '</span>';
+        html += '<span class="badge bg-info">R$ ' + p.saldo.toFixed(2).replace('.', ',') + '</span>';
+        html += '</div>';
+        html += '<small class="text-muted">Venc: ' + p.vencimento + ' | Doc: ' + (p.documento || '-') + ' | Fatura: ' + (p.fatura || '-') + '</small>';
+        html += '</a>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    })
+    .catch(function() {
+      body.innerHTML = '<p class="text-danger text-center">Erro ao carregar previsões.</p>';
+    });
+}
+
+function selecionarPrevisao(id, contaNome, documento, saldo, vencimento, rubricaId) {
+  document.getElementById('previsao-id').value = id;
+  document.getElementById('previsao-saldo').value = saldo;
+  document.getElementById('previsao-info').value = '#' + id + ' - ' + contaNome;
+  if (documento) document.querySelector('[name="documento"]').value = documento;
+  if (saldo > 0) document.querySelector('[name="valor"]').value = saldo.toFixed(2);
+  if (rubricaId) document.querySelector('[name="rubrica_id"]').value = rubricaId;
+  if (previsaoModal) previsaoModal.hide();
+}
+
+document.getElementById('main-form').addEventListener('submit', function(e) {
+  var valor = parseFloat(document.querySelector('[name="valor"]').value) || 0;
+  var editando = document.getElementById('editando').value === '1';
+
+  if (editando) {
+    var valorOriginal = parseFloat(document.getElementById('valor-original').value) || 0;
+    var variacaoOriginal = parseFloat(document.getElementById('variacao-original').value) || 0;
+
+    if (Math.abs(valor - valorOriginal) < 0.01) return;
+
+    if (variacaoOriginal !== 0) {
+      e.preventDefault();
+      showAlert('Registro com variação não pode ser alterado. Exclua e recrie.');
+      return;
+    }
+
+    if (valor > valorOriginal) {
+      var previsaoId = document.getElementById('previsao-id').value;
+      if (previsaoId) {
+        var saldo = parseFloat(document.getElementById('previsao-saldo').value) || 0;
+        if ((valor - valorOriginal) > saldo) {
+          e.preventDefault();
+          showAlert('Aumento do valor excede o saldo disponível. Exclua e recrie.');
+          return;
+        }
+      }
+    }
+
+    return;
+  }
+
+  var previsaoId = document.getElementById('previsao-id').value;
+  if (!previsaoId) return;
+  var saldo = parseFloat(document.getElementById('previsao-saldo').value) || 0;
+  if (Math.abs(valor - saldo) < 0.01) return;
+  e.preventDefault();
+  if (!descontoModal) descontoModal = new bootstrap.Modal(document.getElementById('descontoModal'));
+  if (!erroAcrescimosModal) erroAcrescimosModal = new bootstrap.Modal(document.getElementById('erroAcrescimosModal'));
+  if (valor < saldo) {
+    document.getElementById('desconto-valor').textContent = valor.toFixed(2).replace('.', ',');
+    document.getElementById('desconto-saldo').textContent = saldo.toFixed(2).replace('.', ',');
+    document.getElementById('desconto-diferenca').textContent = (saldo - valor).toFixed(2).replace('.', ',');
+    descontoModal.show();
+  } else {
+    document.getElementById('acrescimos-valor').textContent = valor.toFixed(2).replace('.', ',');
+    document.getElementById('acrescimos-saldo').textContent = saldo.toFixed(2).replace('.', ',');
+    document.getElementById('acrescimos-diferenca').textContent = (valor - saldo).toFixed(2).replace('.', ',');
+    document.getElementById('acrescimos-erro').checked = true;
+    document.getElementById('erro-acrescimos-rubrica').style.display = 'none';
+    erroAcrescimosModal.show();
+  }
+});
+
+function confirmarDesconto() {
+  var opcao = document.querySelector('input[name="desconto-opcao"]:checked').value;
+  document.getElementById('acao-field').value = opcao === 'desconto' ? 'desconto' : '';
+  descontoModal.hide();
+  document.getElementById('main-form').submit();
+}
+
+function onAcrescimosOpcaoChange() {
+  var opcao = document.querySelector('input[name="acrescimos-opcao"]:checked').value;
+  document.getElementById('erro-acrescimos-rubrica').style.display = opcao === 'acrescimo' ? '' : 'none';
+}
+
+function confirmarAcrescimos() {
+  var opcao = document.querySelector('input[name="acrescimos-opcao"]:checked').value;
+  if (opcao === 'erro') {
+    erroAcrescimosModal.hide();
+    flash('Valor informado é maior que o saldo da previsão. Verifique o lançamento.', 'danger');
+    return;
+  }
+  var rubricaId = document.getElementById('rubrica-acrescimos-select').value;
+  if (!rubricaId) {
+    showAlert('Selecione uma rubrica para o acréscimo.');
+    return;
+  }
+  document.getElementById('rubrica-acrescimos-id').value = rubricaId;
+  document.getElementById('acao-field').value = 'acrescimos';
+  erroAcrescimosModal.hide();
+  document.getElementById('main-form').submit();
+}
+
+function flash(msg, categoria) {
+  var div = document.createElement('div');
+  div.className = 'alert alert-' + categoria + ' alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-2';
+  div.style.zIndex = '9999';
+  div.innerHTML = msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+  document.body.appendChild(div);
+  setTimeout(function() { div.remove(); }, 5000);
+}
+</script>
+{% endblock %}

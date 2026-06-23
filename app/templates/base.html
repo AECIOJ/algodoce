@@ -38,6 +38,7 @@
         <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Cadastro</a>
         <a class="nav-link" href="/orcamentos" id="comercialMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Comercial</a>
         <a class="nav-link" href="/producao" id="producaoMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Produção</a>
+        <a class="nav-link" href="{{ url_for('contas_a_pagar.list') }}" id="financeiroMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Financeiro</a>
       </div>
     </div>
     <!-- Desktop: navbar original -->
@@ -47,6 +48,7 @@
           <a class="nav-link" href="{{ url_for('categories.list') }}">Cadastro</a>
           <a class="nav-link" href="/orcamentos">Comercial</a>
           <a class="nav-link" href="/producao">Produção</a>
+          <a class="nav-link" href="{{ url_for('contas_a_pagar.list') }}">Financeiro</a>
         </div>
         <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/icones/log-out.png" alt="Sair" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Sair</a>
       </div>
@@ -61,6 +63,7 @@
             <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/insumos') %}selected{% endif %}>Insumos</option>
             <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
             <option value="{{ url_for('contas.list') }}" {% if request.path.startswith('/contas') %}selected{% endif %}>Contas</option>
+            <option value="{{ url_for('rubricas.list') }}" {% if request.path.startswith('/rubricas') %}selected{% endif %}>Rubricas</option>
           </select>
           <div class="d-flex gap-1 toolbar-actions flex-shrink-0">
             {% block cadastro_actions %}{% endblock %}
@@ -74,6 +77,7 @@
           <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Insumos</a>
           <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
           <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas</a>
+          <a href="{{ url_for('rubricas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Rubricas</a>
         </div>
       </div>
     </div>
@@ -98,6 +102,48 @@
             <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Orçamentos</a>
           <a href="/pedidos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Pedidos</a>
           <a href="/relatorios/compras" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Compras</a>
+        </div>
+      </div>
+    </div>
+    <div class="cadastro-section py-1 d-none" id="financeiroSection">
+      <div class="container">
+        {% if request.endpoint and request.endpoint.endswith('.list') %}
+        <div class="d-lg-none d-flex flex-wrap align-items-center gap-1 py-1">
+          <select class="form-select fw-bold border-0 nav-select flex-shrink-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+            <option value="{{ url_for('recursos.list') }}" {% if request.path.startswith('/recursos') %}selected{% endif %}>Recursos</option>
+            <option value="{{ url_for('contas_a_receber.list') }}" {% if request.path.startswith('/contas-a-receber') %}selected{% endif %}>Contas a Receber</option>
+            <option value="{{ url_for('contas_a_pagar.list') }}" {% if request.path.startswith('/contas-a-pagar') %}selected{% endif %}>Contas a Pagar</option>
+            <option value="{{ url_for('movimentos.recebimentos_list') }}" {% if request.path.startswith('/movimentos/recebimentos') %}selected{% endif %}>Recebimentos</option>
+            <option value="{{ url_for('movimentos.pagamentos_list') }}" {% if request.path.startswith('/movimentos/pagamentos') %}selected{% endif %}>Pagamentos</option>
+          </select>
+          <div class="d-flex gap-1 toolbar-actions flex-shrink-0">
+            {% block financeiro_actions %}{% endblock %}
+          </div>
+          {% block financeiro_filter %}{% endblock %}
+        </div>
+        {% endif %}
+        <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+          <a href="{{ url_for('recursos.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Recursos</a>
+          <a href="{{ url_for('contas_a_receber.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas a Receber</a>
+          <a href="{{ url_for('contas_a_pagar.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas a Pagar</a>
+          <a href="{{ url_for('movimentos.recebimentos_list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Recebimentos</a>
+          <a href="{{ url_for('movimentos.pagamentos_list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Pagamentos</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmModalTitle">Confirmação</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="confirmModalBody"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" id="confirmModalOk">OK</button>
         </div>
       </div>
     </div>
@@ -159,6 +205,51 @@
     });
   </script>
   {% block scripts %}{% endblock %}
+
+<script>
+var _confirmModal = null;
+
+function _getConfirmModal() {
+  if (!_confirmModal) _confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+  return _confirmModal;
+}
+
+function showAlert(msg) {
+  document.getElementById('confirmModalTitle').textContent = 'Atenção';
+  document.getElementById('confirmModalBody').textContent = msg;
+  document.getElementById('confirmModalOk').className = 'btn btn-primary';
+  document.getElementById('confirmModalOk').textContent = 'OK';
+  document.getElementById('confirmModalOk').onclick = function() { _getConfirmModal().hide(); };
+  document.getElementById('confirmModalCancel').style.display = 'none';
+  _getConfirmModal().show();
+}
+
+function confirmFormSubmit(form, msg) {
+  showConfirm(msg, function() { form.submit(); });
+  return false;
+}
+
+function confirmRemove(el, msg) {
+  showConfirm(msg, function() { el.closest('.row').remove(); });
+}
+
+function confirmRemoveRow(el, msg) {
+  showConfirm(msg, function() { removeRow(el); });
+}
+
+function showConfirm(msg, onConfirm) {
+  document.getElementById('confirmModalTitle').textContent = 'Confirmação';
+  document.getElementById('confirmModalBody').textContent = msg;
+  document.getElementById('confirmModalOk').className = 'btn btn-danger';
+  document.getElementById('confirmModalOk').textContent = 'Confirmar';
+  document.getElementById('confirmModalOk').onclick = function() {
+    _getConfirmModal().hide();
+    if (onConfirm) onConfirm();
+  };
+  document.getElementById('confirmModalCancel').style.display = '';
+  _getConfirmModal().show();
+}
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -371,22 +462,27 @@ function parseDate(str) {
   }
 
   var path = window.location.pathname;
-  var cadastroPaths = ['/categorias', '/insumos', '/produtos', '/contas'];
+  var cadastroPaths = ['/categorias', '/insumos', '/produtos', '/contas', '/rubricas'];
   var comercialPaths = ['/orcamentos', '/pedidos', '/relatorios/compras'];
+  var financeiroPaths = ['/recursos', '/movimentos', '/contas-a-pagar', '/contas-a-receber'];
   var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });
   var onComercial = comercialPaths.some(function(p) { return path.indexOf(p) === 0; });
+  var onFinanceiro = financeiroPaths.some(function(p) { return path.indexOf(p) === 0; });
   var onProducao = path.indexOf('/producao') === 0;
 
   var titleEl = document.getElementById('mobileMenuTitle');
-  if (onCadastro) {
-    activateSection(cadastroSection, 'cadastroMenu', path);
-    if (titleEl) titleEl.textContent = 'Cadastro';
+  if (onFinanceiro) {
+    activateSection(document.getElementById('financeiroSection'), 'financeiroMenu', path);
+    if (titleEl) titleEl.textContent = 'Financeiro';
   } else if (onComercial) {
     activateSection(document.getElementById('comercialSection'), 'comercialMenu', path);
     if (titleEl) titleEl.textContent = 'Comercial';
   } else if (onProducao) {
     setActive(document.getElementById('producaoMenu'));
     if (titleEl) titleEl.textContent = 'Produção';
+  } else if (onCadastro) {
+    activateSection(cadastroSection, 'cadastroMenu', path);
+    if (titleEl) titleEl.textContent = 'Cadastro';
   } else {
     links.forEach(function(l) {
       var href = l.getAttribute('href');

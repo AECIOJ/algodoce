@@ -50,6 +50,12 @@ def fmt_zero(value):
     return "%.1f" % value
 
 
+def fmt_date(value):
+    if not value:
+        return ""
+    return value.strftime("%d/%m/%Y")
+
+
 def fmt_zero_int(value):
     if not value:
         return ''

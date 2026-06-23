@@ -18,3 +18,11 @@ PRODUCAO_ETAPAS = {0: "Preparação", 1: "Montagem", 2: "Embalagem"}
 FORMA_PAGAMENTO = {0: "À vista", 1: "50% Pedido + 50% Entrega", 2: "Na Entrega"}
 
 FORMINHAS = {0: "Simples", 1: "Fornecidas pelo Cliente"}
+
+TIPO_RUBRICA = {1: "Receitas", 2: "Despesas"}
+
+TIPO_PREVISAO = {"P": "Pagar", "R": "Receber"}
+
+PREVISAO_STATUS = {0: "Editando", 1: "Pendente", 2: "Parcial", 8: "Cancelado", 9: "Quitado"}
+
+TIPO_RECURSO = {0: "Caixa", 1: "Banco", 2: "Cartão"}

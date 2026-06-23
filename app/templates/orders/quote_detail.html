@@ -167,7 +167,7 @@
   {% if not quote.pedido_id and quote.status < 7 %}
     <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
       <button type="submit" class="btn btn-success"
-              onclick="return confirm('Converter este orçamento em pedido?')">Converter</button>
+              onclick="return confirmFormSubmit(this, 'Converter este orçamento em pedido?')">Converter</button>
     </form>
   {% endif %}
   {% if quote.cliente_telefone %}
