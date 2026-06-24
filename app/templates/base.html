@@ -15,24 +15,47 @@
   </style>
 </head>
 <body>
-  <div class="sticky-top bg-white">
+  <div id="top-fixed" style="position:fixed;top:0;width:100%;z-index:1030;background:white;">
     <header class="bg-white border-bottom shadow-sm">
       <div class="container text-center py-0">
         <a href="/" class="text-decoration-none">
-          <img src="{{ url_for('static', filename='imagens/Logo.png') }}" alt="AlgoDoce" height="100" class="brand-logo" style="cursor:pointer">
+          <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce" class="brand-logo" style="cursor:pointer;height:100px;" id="brandLogo">
         </a>
       </div>
     </header>
 
-    <!-- Mobile: hamburger + Sair (sempre mesma linha) -->
-    <div class="d-lg-none d-flex align-items-center px-2" style="background-color:var(--cor-menu); min-height:56px; --bs-navbar-toggler-icon-bg:url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255,255,255,0.75)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e&quot;);">
+    <!-- Mobile: hamburger + Encerrar (sempre mesma linha) -->
+    <div class="d-lg-none d-flex align-items-center px-2 barra-mobile" style="background-color:var(--cor-menu); min-height:56px; --bs-navbar-toggler-icon-bg:url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255,255,255,0.75)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e&quot;);">
       <button class="navbar-toggler border-0" type="button" onclick="(function(){var m=document.getElementById('mainNav');m.style.display=m.style.display==='none'?'':'none'})()">
         <span class="navbar-toggler-icon"></span>
       </button>
-      <span id="mobileMenuTitle" class="flex-grow-1 text-center text-white fw-bold" style="font-size:1.1rem;"></span>
-      <a class="text-white text-decoration-none fw-bold" href="/logout" style="display:flex;align-items:center;gap:0.25rem;"><img src="/static/icones/log-out.png" alt="Sair" style="height:1.2em;filter:brightness(0) invert(1);"> Sair</a>
+      <div class="flex-grow-1 text-center" style="line-height:1.2;">
+        <div id="mobileMenuTitle" class="text-white fw-bold" style="font-size:1.1rem;"></div>
+        <div id="mobileSubmenuSelect">
+          <select class="form-select fw-bold border-0 nav-select" id="cadastroNavSelect" style="display:none;font-size:0.85rem;width:auto;color:#e91e63;background:#fff;padding:1px 0.5rem;" onchange="if(this.value) window.location=this.value;">
+          <option value="{{ url_for('categories.list') }}" {% if request.path.startswith('/categorias') %}selected{% endif %}>Categorias</option>
+          <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/insumos') %}selected{% endif %}>Insumos</option>
+          <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
+          <option value="{{ url_for('contas.list') }}" {% if request.path.startswith('/contas') %}selected{% endif %}>Contas</option>
+          <option value="{{ url_for('rubricas.list') }}" {% if request.path.startswith('/rubricas') %}selected{% endif %}>Rubricas</option>
+        </select>
+        <select class="form-select fw-bold border-0 nav-select" id="comercialNavSelect" style="display:none;font-size:0.85rem;width:auto;color:#e91e63;background:#fff;padding:1px 0.5rem;" onchange="if(this.value) window.location=this.value;">
+          <option value="{{ url_for('orders.orcamentos') }}" {% if request.path.startswith('/orcamentos') %}selected{% endif %}>Orçamentos</option>
+          <option value="{{ url_for('orders.list') }}" {% if request.path.startswith('/pedidos') %}selected{% endif %}>Pedidos</option>
+          <option value="{{ url_for('compras.list') }}" {% if request.path.startswith('/compras') %}selected{% endif %}>Compras</option>
+        </select>
+        <select class="form-select fw-bold border-0 nav-select" id="financeiroNavSelect" style="display:none;font-size:0.85rem;width:auto;color:#e91e63;background:#fff;padding:1px 0.5rem;" onchange="if(this.value) window.location=this.value;">
+          <option value="{{ url_for('recursos.list') }}" {% if request.path.startswith('/recursos') %}selected{% endif %}>Recursos</option>
+          <option value="{{ url_for('contas_a_receber.list') }}" {% if request.path.startswith('/contas-a-receber') %}selected{% endif %}>Contas a Receber</option>
+          <option value="{{ url_for('contas_a_pagar.list') }}" {% if request.path.startswith('/contas-a-pagar') %}selected{% endif %}>Contas a Pagar</option>
+          <option value="{{ url_for('movimentos.recebimentos_list') }}" {% if request.path.startswith('/movimentos/recebimentos') %}selected{% endif %}>Recebimentos</option>
+          <option value="{{ url_for('movimentos.pagamentos_list') }}" {% if request.path.startswith('/movimentos/pagamentos') %}selected{% endif %}>Pagamentos</option>
+        </select>
+      </div>
     </div>
-    <!-- Mobile: collapsible links -->
+    <a class="text-white text-decoration-none fw-bold" href="/logout" style="display:flex;align-items:center;gap:0.25rem;white-space:nowrap;"><img src="/static/icons/log-out.png" alt="Fechar" style="height:1.2em;filter:brightness(0) invert(1);"> Fechar</a>
+  </div>
+  <!-- Mobile: collapsible links -->
     <div class="d-lg-none" id="mainNav" style="background-color:var(--cor-menu); display:none;">
       <div class="d-flex flex-column px-2 pb-4" style="gap:2px;">
         <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Cadastro</a>
@@ -50,27 +73,11 @@
           <a class="nav-link" href="/producao">Produção</a>
           <a class="nav-link" href="{{ url_for('contas_a_pagar.list') }}">Financeiro</a>
         </div>
-        <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/icones/log-out.png" alt="Sair" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Sair</a>
+        <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/icons/log-out.png" alt="Encerrar" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Encerrar</a>
       </div>
     </nav>
     <div class="cadastro-section py-1 d-none" id="cadastroSection">
       <div class="container">
-        {% if request.endpoint and request.endpoint.endswith('.list') %}
-        <!-- Mobile: sub-menu + toolbar -->
-        <div class="d-lg-none d-flex flex-wrap align-items-center gap-1 py-1">
-          <select class="form-select fw-bold border-0 nav-select flex-shrink-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
-            <option value="{{ url_for('categories.list') }}" {% if request.path.startswith('/categorias') %}selected{% endif %}>Categorias</option>
-            <option value="{{ url_for('ingredients.list') }}" {% if request.path.startswith('/insumos') %}selected{% endif %}>Insumos</option>
-            <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
-            <option value="{{ url_for('contas.list') }}" {% if request.path.startswith('/contas') %}selected{% endif %}>Contas</option>
-            <option value="{{ url_for('rubricas.list') }}" {% if request.path.startswith('/rubricas') %}selected{% endif %}>Rubricas</option>
-          </select>
-          <div class="d-flex gap-1 toolbar-actions flex-shrink-0">
-            {% block cadastro_actions %}{% endblock %}
-          </div>
-          {% block cadastro_filter %}{% endblock %}
-        </div>
-        {% endif %}
         <!-- Desktop: horizontal bar (always visible) -->
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
           <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: var(--cor-menu); font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
@@ -83,45 +90,16 @@
     </div>
     <div class="cadastro-section py-1 d-none" id="comercialSection">
       <div class="container">
-        {% if request.endpoint and (request.endpoint.endswith('.list') or request.endpoint == 'orders.orcamentos') %}
-        <!-- Mobile: sub-menu + toolbar -->
-        <div class="d-lg-none d-flex flex-wrap align-items-center gap-1 py-1">
-          <select class="form-select fw-bold border-0 nav-select flex-shrink-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
-            <option value="{{ url_for('orders.orcamentos') }}" {% if request.path.startswith('/orcamentos') %}selected{% endif %}>Orçamentos</option>
-            <option value="{{ url_for('orders.list') }}" {% if request.path.startswith('/pedidos') %}selected{% endif %}>Pedidos</option>
-            <option value="{{ url_for('reports.compras') }}" {% if request.path.startswith('/compras') %}selected{% endif %}>Compras</option>
-          </select>
-          <div class="d-flex gap-1 toolbar-actions flex-shrink-0">
-            {% block comercial_actions %}{% endblock %}
-          </div>
-          {% block comercial_filter %}{% endblock %}
-        </div>
-        {% endif %}
         <!-- Desktop: horizontal bar (always visible) -->
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
             <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Orçamentos</a>
           <a href="/pedidos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Pedidos</a>
-          <a href="/relatorios/compras" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Compras</a>
+          <a href="/compras/" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Compras</a>
         </div>
       </div>
     </div>
     <div class="cadastro-section py-1 d-none" id="financeiroSection">
       <div class="container">
-        {% if request.endpoint and request.endpoint.endswith('.list') %}
-        <div class="d-lg-none d-flex flex-wrap align-items-center gap-1 py-1">
-          <select class="form-select fw-bold border-0 nav-select flex-shrink-0" style="font-size:1rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
-            <option value="{{ url_for('recursos.list') }}" {% if request.path.startswith('/recursos') %}selected{% endif %}>Recursos</option>
-            <option value="{{ url_for('contas_a_receber.list') }}" {% if request.path.startswith('/contas-a-receber') %}selected{% endif %}>Contas a Receber</option>
-            <option value="{{ url_for('contas_a_pagar.list') }}" {% if request.path.startswith('/contas-a-pagar') %}selected{% endif %}>Contas a Pagar</option>
-            <option value="{{ url_for('movimentos.recebimentos_list') }}" {% if request.path.startswith('/movimentos/recebimentos') %}selected{% endif %}>Recebimentos</option>
-            <option value="{{ url_for('movimentos.pagamentos_list') }}" {% if request.path.startswith('/movimentos/pagamentos') %}selected{% endif %}>Pagamentos</option>
-          </select>
-          <div class="d-flex gap-1 toolbar-actions flex-shrink-0">
-            {% block financeiro_actions %}{% endblock %}
-          </div>
-          {% block financeiro_filter %}{% endblock %}
-        </div>
-        {% endif %}
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
           <a href="{{ url_for('recursos.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Recursos</a>
           <a href="{{ url_for('contas_a_receber.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas a Receber</a>
@@ -160,6 +138,7 @@
     </div>
   </div>
 
+  <div id="top-spacer"></div>
   <main class="container mb-5">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -178,6 +157,18 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script>
+    function syncTopSpacer() {
+      var fixed = document.getElementById('top-fixed');
+      var spacer = document.getElementById('top-spacer');
+      if (fixed && spacer) spacer.style.height = fixed.offsetHeight + 'px';
+    }
+    syncTopSpacer();
+    if (window.ResizeObserver) {
+      var topFixed = document.getElementById('top-fixed');
+      if (topFixed) new ResizeObserver(syncTopSpacer).observe(topFixed);
+    }
+    window.addEventListener('resize', syncTopSpacer);
+
     document.addEventListener('DOMContentLoaded', function () {
       const logo = document.querySelector('.brand-logo');
       const modalEl = document.getElementById('qrModal');
@@ -459,11 +450,17 @@ function parseDate(str) {
         if (path.indexOf(l.getAttribute('href')) === 0) l.classList.add('active');
       });
     }
+    document.querySelectorAll('#mobileSubmenuSelect > select').forEach(function(s) {
+      s.style.display = 'none';
+    });
+    var navId = menuId.replace('Menu', 'NavSelect');
+    var navSelect = document.getElementById(navId);
+    if (navSelect) navSelect.style.display = 'inline-block';
   }
 
   var path = window.location.pathname;
   var cadastroPaths = ['/categorias', '/insumos', '/produtos', '/contas', '/rubricas'];
-  var comercialPaths = ['/orcamentos', '/pedidos', '/relatorios/compras'];
+  var comercialPaths = ['/orcamentos', '/pedidos', '/compras'];
   var financeiroPaths = ['/recursos', '/movimentos', '/contas-a-pagar', '/contas-a-receber'];
   var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });
   var onComercial = comercialPaths.some(function(p) { return path.indexOf(p) === 0; });

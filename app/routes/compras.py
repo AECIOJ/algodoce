@@ -5,46 +5,18 @@ from sqlalchemy.orm import joinedload
 from app.extensions import db
 from app.models.previsao import Previsao
 from app.models.transacao import Transacao
+from app.models.compra import Compra
 from app.models.client import Conta
 from app.models.rubrica import Rubrica
+from app.models.ingredient import Ingredient
+from app.models.compra_item import CompraItem
 from app.models.movto import Movto
 from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO
 from app.utils import LinhaTransacao
 
-TIPO = ("R", "V")
+TIPO = "C"
 
-bp = Blueprint("contas_a_receber", __name__, url_prefix="/contas-a-receber")
-
-
-def _build_submitted():
-    data = {
-        "data": request.form.get("data"),
-        "conta_id": request.form.get("conta_id"),
-        "rubrica_id": request.form.get("rubrica_id"),
-        "fatura": request.form.get("fatura"),
-        "valor": request.form.get("valor"),
-        "cancelado": request.form.get("cancelado"),
-        "historico": request.form.get("historico"),
-    }
-    ids = request.form.getlist("previsao_id[]")
-    docs = request.form.getlist("previsao_documento[]")
-    vencs = request.form.getlist("previsao_vencimento[]")
-    prevs = request.form.getlist("previsao_previsto[]")
-    reals = request.form.getlist("previsao_realizado[]")
-    vars_ = request.form.getlist("previsao_variacao[]")
-    previsoes = []
-    for i in range(len(vencs)):
-        if not vencs[i] or not vencs[i].strip():
-            continue
-        previsoes.append(dict(
-            id=int(ids[i]) if ids[i] and ids[i].strip() else None,
-            documento=docs[i] if docs[i] and docs[i].strip() else None,
-            vencimento=vencs[i],
-            previsto=float(prevs[i]) if prevs[i] and prevs[i].strip() else 0,
-            realizado=float(reals[i]) if reals[i] and reals[i].strip() else None,
-            variacao=float(vars_[i]) if vars_[i] and vars_[i].strip() else 0,
-        ))
-    return data, previsoes
+bp = Blueprint("compras", __name__, url_prefix="/compras")
 
 
 @bp.before_request
@@ -61,7 +33,7 @@ def list():
     transacoes = Transacao.query.options(
         joinedload(Transacao.previsoes)
     ).filter(
-        Transacao.tipo.in_(TIPO)
+        Transacao.tipo == TIPO
     ).order_by(Transacao.data, Transacao.id).all()
 
     linhas = []
@@ -75,7 +47,7 @@ def list():
     if filtro_status != "todos":
         linhas = [l for l in linhas if l.status == int(filtro_status)]
     if filtro_venc == "em_atraso":
-        linhas = [l for l in linhas if l.vencimento < hoje and l.status not in (0, 8, 9)]
+        linhas = [l for l in linhas if l.vencimento < hoje and l.status not in (8, 9)]
     elif filtro_venc == "hoje":
         w = hoje.weekday()
         if w == 5:
@@ -92,43 +64,64 @@ def list():
 
     total_saldo = sum(l.saldo for l in linhas)
     return render_template(
-        "contas_a_receber/list.html", previsoes=linhas, total_saldo=total_saldo,
+        "compras/list.html", linhas=linhas, total_saldo=total_saldo,
         filtro_status=filtro_status, filtro_venc=filtro_venc, hoje=hoje,
         TIPO_PREVISAO=TIPO_PREVISAO, TIPO_RUBRICA=TIPO_RUBRICA,
-        PREVISAO_STATUS=PREVISAO_STATUS, TIPO_TRANSACAO=TIPO_TRANSACAO,
-    )
-
-
-@bp.route("/<int:id>/detalhes")
-def detail(id):
-    transacao = Transacao.query.options(joinedload(Transacao.previsoes)).get(id)
-    if not transacao:
-        flash("Código inexistente", "warning")
-        return redirect(url_for("contas_a_receber.list"))
-    return render_template(
-        "contas_a_receber/detalhes.html", t=transacao,
-        hoje=date.today(), PREVISAO_STATUS=PREVISAO_STATUS,
+        PREVISAO_STATUS=PREVISAO_STATUS,
+        TIPO_TRANSACAO=TIPO_TRANSACAO,
     )
 
 
 @bp.route("/novo", methods=["GET", "POST"])
 def new():
     if request.method == "POST":
-        submitted_data, submitted_previsoes = _build_submitted()
-
+        data = request.form.get("data") or date.today()
+        conta_id = request.form.get("conta_id", type=int) or None
+        rubrica_id = request.form.get("rubrica_id", type=int) or None
+        fatura = request.form.get("fatura") or None
+        historico = request.form.get("historico") or None
         cancelado = request.form.get("cancelado") or None
+
+        insumo_ids = request.form.getlist("insumo_id[]")
+        quantidades = request.form.getlist("quantidade[]")
+        precos = request.form.getlist("preco[]")
+
+        valor_total = 0.0
+        for i in range(len(insumo_ids)):
+            if not insumo_ids[i] or not insumo_ids[i].strip():
+                continue
+            qtd = float(quantidades[i]) if quantidades[i] and quantidades[i].strip() else 0
+            prc = float(precos[i]) if precos[i] and precos[i].strip() else 0
+            valor_total += qtd * prc
+
+        compra = Compra(
+            data=data, fornecedor_id=conta_id,
+            valor=valor_total, historico=historico,
+        )
+        db.session.add(compra)
+        db.session.flush()
+
         transacao = Transacao(
-            data=request.form.get("data") or date.today(),
-            tipo='R',
-            conta_id=request.form.get("conta_id", type=int) or None,
-            rubrica_id=request.form.get("rubrica_id", type=int) or None,
-            fatura=request.form.get("fatura") or None,
-            valor=float(request.form.get("valor", 0)),
-            cancelado=cancelado,
-            historico=request.form.get("historico") or None,
+            data=data, tipo=TIPO, conta_id=conta_id,
+            rubrica_id=rubrica_id, fatura=fatura,
+            valor=valor_total, cancelado=cancelado,
+            historico=historico, compra_id=compra.id,
         )
         db.session.add(transacao)
         db.session.flush()
+
+        for i in range(len(insumo_ids)):
+            if not insumo_ids[i] or not insumo_ids[i].strip():
+                continue
+            qtd = float(quantidades[i]) if quantidades[i] and quantidades[i].strip() else 0
+            prc = float(precos[i]) if precos[i] and precos[i].strip() else 0
+            if qtd and prc:
+                item = CompraItem(
+                    compra_id=compra.id,
+                    insumo_id=int(insumo_ids[i]),
+                    quantidade=qtd, preco=prc,
+                )
+                db.session.add(item)
 
         docs = request.form.getlist("previsao_documento[]")
         vencs = request.form.getlist("previsao_vencimento[]")
@@ -147,76 +140,122 @@ def new():
             previsao = Previsao(
                 transacao_id=transacao.id,
                 documento=docs[i] if docs[i] and docs[i].strip() else None,
-                vencimento=vencs[i],
-                previsto=prev_val,
-                realizado=real_val,
-                variacao=var_val,
+                vencimento=vencs[i], previsto=prev_val,
+                realizado=real_val, variacao=var_val,
             )
             db.session.add(previsao)
 
         if prev_total > transacao.valor:
             db.session.rollback()
-            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da fatura ({float(transacao.valor):.2f})", "danger")
+            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da compra ({float(transacao.valor):.2f})", "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+            insumos = Ingredient.query.order_by(Ingredient.nome).all()
             return render_template(
-                "contas_a_receber/form.html",
-                contas=contas, rubricas=rubricas, hoje=date.today(),
-                submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
+                "compras/form.html",
+                contas=contas, rubricas=rubricas, insumos=insumos, hoje=date.today(),
+                submitted_data=None, submitted_previsoes=None,
             )
 
         db.session.commit()
-        flash("Conta cadastrada!", "success")
-        return redirect(url_for("contas_a_receber.list"))
+        flash("Compra cadastrada!", "success")
+        return redirect(url_for("compras.list"))
 
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    insumos = Ingredient.query.order_by(Ingredient.nome).all()
     return render_template(
-        "contas_a_receber/form.html",
-        contas=contas, rubricas=rubricas, hoje=date.today(),
+        "compras/form.html", contas=contas, rubricas=rubricas,
+        insumos=insumos, hoje=date.today(),
         submitted_data=None, submitted_previsoes=None,
     )
 
 
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
 def edit(id):
-    transacao = Transacao.query.get(id)
+    transacao = Transacao.query.options(joinedload(Transacao.previsoes)).get(id)
     if not transacao:
         flash("Código inexistente", "warning")
-        return redirect(url_for("contas_a_receber.list"))
+        return redirect(url_for("compras.list"))
 
-    query = Transacao.query.with_entities(Transacao.id).filter(Transacao.tipo.in_(TIPO)).order_by(Transacao.id)
+    compra = transacao.compra
+    if not compra:
+        flash("Compra não encontrada", "warning")
+        return redirect(url_for("compras.list"))
+
+    query = Transacao.query.with_entities(Transacao.id).filter(Transacao.tipo == TIPO).order_by(Transacao.id)
     ids = [t.id for t in query.all()]
     try:
         current_idx = ids.index(id)
         nav = {
-            "first_id": ids[0],
-            "last_id": ids[-1],
+            "first_id": ids[0], "last_id": ids[-1],
             "prev_id": ids[current_idx - 1] if current_idx > 0 else None,
             "next_id": ids[current_idx + 1] if current_idx < len(ids) - 1 else None,
         }
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    locked = bool(transacao.pedido_id)
-
     if request.method == "POST":
-        submitted_data, submitted_previsoes = _build_submitted()
+        cancelado = request.form.get("cancelado") or None
+        compra.data = request.form.get("data") or date.today()
+        compra.fornecedor_id = request.form.get("conta_id", type=int) or None
+        compra.historico = request.form.get("historico") or None
 
-        if not locked:
-            cancelado = request.form.get("cancelado") or None
-            transacao.data = request.form.get("data") or date.today()
-            transacao.conta_id = request.form.get("conta_id", type=int) or None
-            transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
-            transacao.fatura = request.form.get("fatura") or None
-            transacao.valor = float(request.form.get("valor", 0))
-            transacao.cancelado = cancelado
-            transacao.historico = request.form.get("historico") or None
+        transacao.data = compra.data
+        transacao.conta_id = compra.fornecedor_id
+        transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
+        transacao.fatura = request.form.get("fatura") or None
+        transacao.cancelado = cancelado
+        transacao.historico = compra.historico
+
+        insumo_ids = request.form.getlist("insumo_id[]")
+        quantidades = request.form.getlist("quantidade[]")
+        precos = request.form.getlist("preco[]")
+        item_ids = request.form.getlist("item_id[]")
+        item_removes = request.form.getlist("item_remover[]")
+
+        valor_total = 0.0
+        existing_items = {ci.id for ci in compra.items}
+        submitted_items = set()
+
+        for i in range(len(insumo_ids)):
+            if not insumo_ids[i] or not insumo_ids[i].strip():
+                continue
+            qtd = float(quantidades[i]) if quantidades[i] and quantidades[i].strip() else 0
+            prc = float(precos[i]) if precos[i] and precos[i].strip() else 0
+            iid = int(item_ids[i]) if item_ids[i] and item_ids[i].strip() else None
+
+            if item_removes[i] == "1" if i < len(item_removes) else False:
+                if iid:
+                    db.session.delete(CompraItem.query.get(iid))
+                continue
+
+            submitted_items.add(iid)
+            if iid:
+                ci = CompraItem.query.get(iid)
+                if ci:
+                    ci.insumo_id = int(insumo_ids[i])
+                    ci.quantidade = qtd
+                    ci.preco = prc
+            else:
+                ci = CompraItem(
+                    compra_id=compra.id,
+                    insumo_id=int(insumo_ids[i]),
+                    quantidade=qtd, preco=prc,
+                )
+                db.session.add(ci)
+            valor_total += qtd * prc
+
+        for eid in (existing_items - submitted_items):
+            db.session.delete(CompraItem.query.get(eid))
+
+        compra.valor = valor_total
+        transacao.valor = valor_total
 
         existing = {p.id for p in transacao.previsoes}
         submitted = set()
 
-        ids = request.form.getlist("previsao_id[]")
+        pids = request.form.getlist("previsao_id[]")
         docs = request.form.getlist("previsao_documento[]")
         vencs = request.form.getlist("previsao_vencimento[]")
         prevs = request.form.getlist("previsao_previsto[]")
@@ -228,7 +267,7 @@ def edit(id):
         for i in range(len(vencs)):
             if not vencs[i] or not vencs[i].strip():
                 continue
-            pid = int(ids[i]) if ids[i] and ids[i].strip() else None
+            pid = int(pids[i]) if pids[i] and pids[i].strip() else None
             if removes[i] == "1" if i < len(removes) else False:
                 if pid:
                     db.session.delete(Previsao.query.get(pid))
@@ -250,10 +289,8 @@ def edit(id):
                 p = Previsao(
                     transacao_id=transacao.id,
                     documento=docs[i] if docs[i].strip() else None,
-                    vencimento=vencs[i],
-                    previsto=prev_val,
-                    realizado=real_val,
-                    variacao=var_val,
+                    vencimento=vencs[i], previsto=prev_val,
+                    realizado=real_val, variacao=var_val,
                 )
                 db.session.add(p)
 
@@ -262,32 +299,21 @@ def edit(id):
 
         if prev_total > transacao.valor:
             db.session.rollback()
-            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da fatura ({float(transacao.valor):.2f})", "danger")
-            contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
-            previsao_ids = [p.id for p in transacao.previsoes]
-            movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
-            return render_template(
-                "contas_a_receber/form.html", transacao=transacao,
-                contas=contas, rubricas=rubricas,
-                PREVISAO_STATUS=PREVISAO_STATUS,
-                submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
-                nav=nav, movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
-            )
-
-        db.session.commit()
-        flash("Conta atualizada!", "success")
-        return redirect(url_for("contas_a_receber.list"))
+            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da compra ({float(transacao.valor):.2f})", "danger")
+        else:
+            db.session.commit()
+            flash("Compra atualizada!", "success")
+            return redirect(url_for("compras.list"))
 
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    insumos = Ingredient.query.order_by(Ingredient.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes]
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
-        "contas_a_receber/form.html", transacao=transacao,
-        contas=contas, rubricas=rubricas,
+        "compras/form.html", transacao=transacao, compra=compra,
+        contas=contas, rubricas=rubricas, insumos=insumos,
         PREVISAO_STATUS=PREVISAO_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
-        movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
+        movimentos=movimentos, tipo_nome="Pagamento",
     )
-

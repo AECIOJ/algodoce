@@ -4,11 +4,11 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Orçamento #{{ quote.id|fmtid }}</h2>
   <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='icones/undo.png') }}" alt="Voltar" height="20">
+    <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
   </a>
 </div>
 
-{% set s = url_for('static', filename='icones/') %}
+{% set s = url_for('static', filename='icons/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
     <a href="{{ url_for('orders.quote_detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">

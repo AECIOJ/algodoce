@@ -1,17 +1,14 @@
 {% extends "base.html" %}
 {% from "components/form_nav.html" import form_nav %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
+{% set os_colors = {0:'bg-secondary',1:'bg-info',2:'bg-success',3:'bg-danger',8:'bg-primary',9:'bg-primary'} %}
 {% if order %}
 {% set status_html %}
-<form method="POST" action="{{ url_for('orders.status', id=order.id) }}" class="d-inline">
-  <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()" {{ 'disabled' if ro }}>
-    <option value="0" {{ 'selected' if order.status == 0 }}>Pendente</option>
-    <option value="1" {{ 'selected' if order.status == 1 }}>Em Produção</option>
-    <option value="2" {{ 'selected' if order.status == 2 }}>Pronto</option>
-    <option value="9" {{ 'selected' if order.status == 9 }}>Entregue</option>
-  </select>
-</form>
+<div class="d-flex align-items-center gap-1" style="display:inline-flex">
+  <span class="badge {{ os_colors[order.status] }} fs-6">{{ ORDER_STATUS[order.status] }}</span>
+</div>
 {% endset %}
 {% set order_id_raw = order.id|fmtid %}
 {% set order_secondary %}
@@ -22,11 +19,8 @@
 {% call form_nav(back_url=url_for('orders.list'), nome='Pedido ' ~ order_id_raw, nav=nav, edit_endpoint='orders.edit', entity_id=order.id, status=status_html, actions2=order_secondary) %}
 {% endcall %}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">Pedido</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
-  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
 </div>
 {% endif %}
 
@@ -34,17 +28,17 @@
   <div class="row mb-3">
     <div class="col-md-3 mb-2 mb-md-0">
       <label class="form-label">Cliente *</label>
-      <select name="client_id" class="form-select" required {{ 'disabled' if ro }}>
+      <select name="client_id" class="form-select" required {{ 'disabled' if ro }} onchange="preencherTelefone(this)">
         <option value="">Selecione</option>
         {% for c in clients %}
-          <option value="{{ c.id }}" {{ 'selected' if order and order.client_id == c.id }}>{{ c.nome }}</option>
+          <option value="{{ c.id }}" data-telefone="{{ c.telefone or '' }}" {{ 'selected' if order and order.client_id == c.id }}>{{ c.nome }}</option>
         {% endfor %}
       </select>
     </div>
     <div class="col-md-3 mb-2 mb-md-0">
       <label class="form-label">Telefone</label>
       <div class="input-group">
-        <input type="text" name="cliente_telefone" class="form-control" readonly value="{{ order.conta.telefone if order and order.conta else '' }}">
+        <input type="text" name="cliente_telefone" class="form-control" value="{{ order.conta.telefone if order and order.conta else '' }}" {{ 'readonly' if ro else '' }}>
         {% if order %}<a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success">Enviar</a>{% endif %}
       </div>
     </div>
@@ -96,7 +90,7 @@
                 <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
-                <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+                <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
               </tr>
               {% endfor %}
             {% else %}
@@ -113,7 +107,7 @@
                 <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
-                <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+                <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
               </tr>
             {% endif %}
           </tbody>
@@ -153,7 +147,7 @@
               </div>
             </div>
             <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}>
-            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
           </div>
           {% endfor %}
         {% else %}
@@ -179,7 +173,7 @@
               </div>
             </div>
             <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" {{ 'disabled' if ro }}>
-            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
           </div>
         {% endif %}
         <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
@@ -199,26 +193,25 @@
   </div>
 
   {% if order %}
-  <div class="row mb-3 align-items-center">
-    <div class="col-auto">
-      <label class="form-label mb-0">Forminhas</label>
-    </div>
-    <div class="col-auto">
-      <select name="forminhas" class="form-select form-select-sm" {{ 'disabled' if ro }}>
-        {% for val, label in FORMINHAS.items() %}
-          <option value="{{ val }}" {{ 'selected' if order.forminhas == val }}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-auto ms-3">
-      <label class="form-label mb-0">Forma de Pagamento</label>
-    </div>
-    <div class="col-auto">
-      <select name="forma_pagamento" class="form-select form-select-sm" {{ 'disabled' if ro }}>
-        {% for val, label in FORMA_PAGAMENTO.items() %}
-          <option value="{{ val }}" {{ 'selected' if order.forma_pagamento == val }}>{{ label }}</option>
-        {% endfor %}
-      </select>
+  <div class="card mb-3">
+    <div class="card-header bg-light fw-bold">Financeiro</div>
+    <div class="card-body">
+      <div class="d-flex align-items-end gap-3 flex-wrap">
+        <div>
+          <label class="form-label mb-0">Forma de Pagamento</label>
+          <select name="forma_pagamento" class="form-select form-select-sm" {{ 'disabled' if ro }}>
+            {% for val, label in FORMA_PAGAMENTO.items() %}
+              <option value="{{ val }}" {{ 'selected' if order.forma_pagamento == val }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if order.status in (0, 1, 2) and not ro %}
+        <form method="POST" action="{{ url_for('orders.status', id=order.id) }}">
+          <input type="hidden" name="status" value="8">
+          <button type="submit" class="btn btn-primary btn-sm">Faturar</button>
+        </form>
+        {% endif %}
+      </div>
     </div>
   </div>
   {% endif %}
@@ -272,31 +265,42 @@
           <label class="form-label small mb-0">Cerimonial</label>
           <input type="text" name="evento_cerimonial" class="form-control" value="{{ order.event.cerimonial or '' if order and order.event else '' }}" {{ 'disabled' if ro }}>
         </div>
+        <div class="col-md-3">
+          <label class="form-label small mb-0">Forminhas</label>
+          <select name="forminhas" class="form-select" {{ 'disabled' if ro }}>
+            {% for val, label in FORMINHAS.items() %}
+              <option value="{{ val }}" {{ 'selected' if order and order.forminhas == val }}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row mt-2">
+        <div class="col-12">
+          <label class="form-label small mb-0">Observação</label>
+          <textarea name="observacao" class="form-control" rows="2" {{ 'disabled' if ro }}>{{ order.observacao or '' if order else '' }}</textarea>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="mb-3">
-    <label class="form-label">Observação</label>
-    <textarea name="observacao" class="form-control" rows="2" {{ 'disabled' if ro }}>{{ order.observacao or '' if order else '' }}</textarea>
-  </div>
-
-  <input type="hidden" name="status" value="{{ order.status if order else 0 }}">
+  <input type="hidden" name="status" value="{{ order.status if order else 0 }}" id="status-field" data-original="{{ order.status if order else 0 }}">
   <input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
-  {% if order %}<div class="form-bottom-spacer"></div>{% endif %}
+  <div class="form-bottom-spacer"></div>
+{% call barra_edicao(back_url=url_for('orders.list')) %}
+  {% if order %}
+  <div class="form-check mb-0">
+    <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if order.status == 3 }} onchange="toggleReprovado(this)">
+    <label class="form-check-label small" for="reprovado-check">Cancelado</label>
+  </div>
+  {% endif %}
+{% endcall %}
 </form>
-{% if order %}
-<div class="form-bottom-bar">
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
-</div>
-{% endif %}
 
 <div class="modal fade" id="deleteItemModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content">
       <div class="modal-body text-center py-4">
-        <img src="{{ url_for('static', filename='icones/trash.png') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
+        <img src="{{ url_for('static', filename='icons/trash.png') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
         <p class="mb-3 fw-bold">Remover este item?</p>
         <div class="d-flex justify-content-center gap-2">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -365,7 +369,7 @@ function addItem() {
     <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
     <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
     <td><input type="text" name="observacao_item" class="form-control form-control-sm"></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
   `;
   tbody.appendChild(tr);
 }
@@ -384,6 +388,20 @@ function addItemMobile() {
   }
 }
 
+function toggleReprovado(el) {
+  const field = document.getElementById('status-field');
+  if (!el._saved) el._saved = field.dataset.original;
+  field.value = el.checked ? '3' : (el._saved != '3' ? el._saved : '1');
+  if (!el.checked) el._saved = null;
+}
+
 document.getElementById('main-form').addEventListener('submit', disableHiddenInputs);
+
+function preencherTelefone(select) {
+  var opt = select.options[select.selectedIndex];
+  var tel = opt ? opt.getAttribute('data-telefone') : '';
+  var input = document.querySelector('input[name="cliente_telefone"]');
+  if (input) input.value = tel;
+}
 </script>
 {% endblock %}

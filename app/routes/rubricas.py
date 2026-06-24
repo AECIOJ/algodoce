@@ -7,6 +7,22 @@ from app.constants import TIPO_RUBRICA
 bp = Blueprint("rubricas", __name__, url_prefix="/rubricas")
 
 
+CONECTORES = {"de", "da", "do", "das", "dos", "para", "pra", "com", "sem", "em", "no", "na", "nos", "nas", "por", "ao", "aos", "à", "às", "e", "ou", "a", "o", "as", "os", "um", "uma", "uns", "umas", "num", "numa", "dum", "duma", "pelo", "pela", "pelos", "pelas", "pro", "pra", "pros", "pras"}
+
+
+def _transformar_nome(nome, pai_id):
+    if not pai_id:
+        return nome.strip().upper()
+    words = nome.strip().split()
+    result = []
+    for i, w in enumerate(words):
+        if i > 0 and w.lower() in CONECTORES:
+            result.append(w.lower())
+        else:
+            result.append(w[0].upper() + w[1:].lower() if w else w)
+    return " ".join(result)
+
+
 def _auto_ordem(tipo, pai_id):
     if pai_id:
         return 0
@@ -85,8 +101,9 @@ def list():
 def new():
     if request.method == "POST":
         pai_id = request.form.get("pai_id", type=int) or None
+        nome = _transformar_nome(request.form["nome"], pai_id)
         rubrica = Rubrica(
-            nome=request.form["nome"],
+            nome=nome,
             tipo=request.form["tipo"],
             pai_id=pai_id,
             ordem=_auto_ordem(request.form["tipo"], pai_id),
@@ -108,9 +125,9 @@ def edit(id):
         flash("Código inexistente", "warning")
         return redirect(url_for("rubricas.list"))
     if request.method == "POST":
-        rubrica.nome = request.form["nome"]
-        rubrica.tipo = request.form["tipo"]
         pai_id = request.form.get("pai_id", type=int) or None
+        rubrica.nome = _transformar_nome(request.form["nome"], pai_id)
+        rubrica.tipo = request.form["tipo"]
         if rubrica.pai_id != pai_id:
             rubrica.pai_id = pai_id
             rubrica.ordem = _auto_ordem(rubrica.tipo, pai_id)

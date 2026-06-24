@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "components/form_nav.html" import form_nav %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
 {% if conta %}
@@ -9,11 +10,8 @@
   </a>
 {% endcall %}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">Conta</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
-  <a href="{{ url_for('contas.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
 </div>
 {% endif %}
 
@@ -58,14 +56,10 @@
     <label class="form-label">Endereço</label>
     <textarea name="endereco" class="form-control" rows="2">{{ conta.endereco or '' }}</textarea>
   </div>
-  {% if conta %}<div class="form-bottom-spacer"></div>{% endif %}
+  <div class="form-bottom-spacer"></div>
 </form>
-{% if conta %}
-<div class="form-bottom-bar">
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{{ url_for('contas.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
-</div>
-{% endif %}
+{% call barra_edicao(back_url=url_for('contas.list')) %}
+{% endcall %}
 
 {% if conta %}
 <div class="card mb-4">
@@ -92,7 +86,7 @@
               <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
               <td>R$ {{ (o.total or 0) | brl }}</td>
               <td>
-<span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-dark' }}">
+<span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-primary' if o.status == 8 else 'bg-dark' }}">
                   {{ ORDER_STATUS[o.status] }}
                 </span>
               </td>
@@ -114,7 +108,7 @@
         <div class="px-3 py-2 border-bottom">
           <div class="d-flex justify-content-between align-items-start mb-1">
             <span class="card-label">#{{ o.id|fmtid }}</span>
-            <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-dark' }}">
+            <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-primary' if o.status == 8 else 'bg-dark' }}">
               {{ ORDER_STATUS[o.status] }}
             </span>
           </div>

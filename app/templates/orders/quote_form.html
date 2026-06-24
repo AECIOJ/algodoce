@@ -1,20 +1,13 @@
 {% extends "base.html" %}
 {% from "components/form_nav.html" import form_nav %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
+{% set qs_colors = {0:'bg-secondary',1:'bg-info',6:'bg-warning',7:'bg-dark',8:'bg-danger',9:'bg-success'} %}
 {% if quote %}
 {% set status_html %}
 <div class="d-flex align-items-center gap-1" style="display:inline-flex">
-  <form method="POST" action="{{ url_for('orders.quote_status', id=quote.id) }}" class="d-inline">
-    <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()" {{ 'disabled' if ro }}>
-      <option value="0" {{ 'selected' if quote.status == 0 }}>Pendente</option>
-      <option value="1" {{ 'selected' if quote.status == 1 }}>Negociação</option>
-      <option value="6" {{ 'selected' if quote.status == 6 }}>Renovado</option>
-      <option value="7" {{ 'selected' if quote.status == 7 }}>Expirado</option>
-      <option value="8" {{ 'selected' if quote.status == 8 }}>Reprovado</option>
-      <option value="9" {{ 'selected' if quote.status == 9 }}>Aprovado</option>
-    </select>
-  </form>
+  <span class="badge {{ qs_colors[quote.status] }} fs-6">{{ QUOTE_STATUS[quote.status] }}</span>
   {% if quote.status == 7 %}<form method="POST" action="{{ url_for('orders.quote_renovar', id=quote.id) }}" class="d-inline"><button type="submit" class="btn btn-sm btn-info text-white">Renovar</button></form>{% endif %}
 </div>
 {% endset %}
@@ -22,17 +15,16 @@
 {% set quote_secondary %}
   {% if quote.pedido_id %}
     <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id|fmtid }}</a>
-  {% elif quote.status < 7 %}
+  {% else %}
     <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#converterModal">Converter</a>
   {% endif %}
 {% endset %}
-{% call form_nav(back_url=url_for('orders.orcamentos'), nome='Orçamento ' ~ quote_id_raw, nav=nav, edit_endpoint='orders.quote_edit', entity_id=quote.id, status=status_html, actions2=quote_secondary) %}{% endcall %}
+{% call form_nav(back_url=url_for('orders.orcamentos'), nome='Orçamento ' ~ quote_id_raw, nav=nav, edit_endpoint='orders.quote_edit', entity_id=quote.id, status=status_html, actions2=quote_secondary) %}
+  {{ quote_secondary }}
+{% endcall %}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">Orçamento</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
-  <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
 </div>
 {% endif %}
 
@@ -77,9 +69,9 @@
           <thead>
             <tr>
               <th style="min-width:200px">Produto</th>
-              <th class="text-end">Qtd</th>
-              <th class="text-end">Preço</th>
-              <th class="text-end">Valor</th>
+              <th class="text-end" style="width:85px">Qtd</th>
+              <th class="text-end" style="width:130px">Preço</th>
+              <th class="text-end" style="width:130px">Valor</th>
               <th style="min-width:140px">Obs</th>
               <th style="width:40px"></th>
             </tr>
@@ -100,7 +92,7 @@
                 <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm"  value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
-                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
+                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
               </tr>
               {% endfor %}
             {% else %}
@@ -116,7 +108,7 @@
                 <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
                 <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
                 <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
-                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
+                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
               </tr>
             {% endif %}
           </tbody>
@@ -156,7 +148,7 @@
               </div>
             </div>
             <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}>
-            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
           </div>
           {% endfor %}
         {% else %}
@@ -182,7 +174,7 @@
               </div>
             </div>
             <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" {{ 'disabled' if ro }}>
-            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
           </div>
         {% endif %}
         <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
@@ -279,16 +271,20 @@
   </div>
 
   <input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
-  {% if quote %}<div class="form-bottom-spacer"></div>{% endif %}
+  <input type="hidden" name="status" value="{{ quote.status if quote else 0 }}" id="status-field" data-original="{{ quote.status if quote else 0 }}">
+  <div class="form-bottom-spacer"></div>
+{% call barra_edicao(back_url=url_for('orders.orcamentos')) %}
+  {% if quote %}
+  <div class="d-flex align-items-center gap-2">
+    <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" {{ 'disabled' if ro }} data-bs-toggle="modal" data-bs-target="#excluirModal"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+    <div class="form-check mb-0">
+      <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if quote.status == 8 }} onchange="toggleReprovado(this)">
+      <label class="form-check-label small" for="reprovado-check">Reprovado</label>
+    </div>
+  </div>
+  {% endif %}
+{% endcall %}
 </form>
-{% if quote %}
-<div class="form-bottom-bar">
-  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" {{ 'disabled' if ro }} data-bs-toggle="modal" data-bs-target="#excluirModal"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
-</div>
-{% endif %}
 
 {% if quote and not quote.pedido_id and quote.status < 7 %}
 <div class="modal fade" id="converterModal" tabindex="-1">
@@ -356,7 +352,7 @@ function toggleConvTipo() {
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
         <form method="POST" action="{{ url_for('orders.quote_delete', id=quote.id) }}" class="d-inline">
-          <button type="submit" class="btn btn-danger d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+          <button type="submit" class="btn btn-danger d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
         </form>
       </div>
     </div>
@@ -366,7 +362,7 @@ function toggleConvTipo() {
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content">
       <div class="modal-body text-center py-4">
-        <img src="{{ url_for('static', filename='icones/trash.png') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
+        <img src="{{ url_for('static', filename='icons/trash.png') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
         <p class="mb-3 fw-bold">Remover este item?</p>
         <div class="d-flex justify-content-center gap-2">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -438,7 +434,7 @@ function addItem() {
     <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
     <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
     <td><input type="text" name="observacao_item" class="form-control form-control-sm" ></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
   `;
   tbody.appendChild(tr);
 }
@@ -455,6 +451,13 @@ function addItemMobile() {
     div.querySelector('.valor-item').textContent = 'R$ 0,00';
     list.insertBefore(div, list.querySelector('.d-flex.justify-content-between')?.closest('.px-3') || null);
   }
+}
+
+function toggleReprovado(el) {
+  const field = document.getElementById('status-field');
+  if (!el._saved) el._saved = field.dataset.original;
+  field.value = el.checked ? '8' : (el._saved != '8' ? el._saved : '1');
+  if (!el.checked) el._saved = null;
 }
 
 document.getElementById('main-form').addEventListener('submit', disableHiddenInputs);

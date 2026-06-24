@@ -114,7 +114,7 @@
             <td>
               {% if producao.status == 0 %}
               <form method="POST" action="{{ url_for('producao.remove_pedido', id=producao.id, order_id=pp.order_id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Remover pedido?')">
-                <button type="submit" class="btn btn-sm btn-outline-danger"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover"></button>
+                <button type="submit" class="btn btn-sm btn-outline-danger"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover"></button>
               </form>
               {% endif %}
             </td>

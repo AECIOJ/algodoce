@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "components/form_nav.html" import form_nav %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
 {% set previsoes = submitted_previsoes if submitted_previsoes is not none else (transacao.previsoes if transacao else None) %}
@@ -21,18 +22,15 @@
 {% set cancelado_html %}
 <div class="d-flex align-items-center gap-1">
   <label class="form-label small mb-0 text-danger">Cancelado</label>
-  <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}">
+   <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}" {{ 'readonly' if locked else '' }}>
 </div>
 {% endset %}
 {% call form_nav(back_url=url_for('contas_a_pagar.list'), nome='Transação ' ~ transacao.id|fmtid, nav=nav, edit_endpoint='contas_a_pagar.edit', entity_id=transacao.id, status=status_badge) %}
-  {{ cancelado_html }}
+  {% if locked %}<a href="{{ url_for('compras.edit', id=transacao.id) }}" class="btn btn-sm btn-warning ms-2">Compra #{{ transacao.compra.id|fmtid }}</a>{% endif %}
 {% endcall %}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">Nova Conta a Pagar</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{{ url_for('contas_a_pagar.list') }}" class="btn btn-outline-secondary btn-sm ms-2">Cancelar</a>
 </div>
 {% endif %}
 
@@ -40,11 +38,11 @@
   <div class="row g-2 mb-3">
     <div class="col-6 col-md-2">
       <label class="form-label">Data</label>
-      <input type="date" name="data" class="form-control" value="{{ submitted_data.data if submitted_data is not none else (transacao.data if transacao else hoje) }}">
+      <input type="date" name="data" class="form-control" value="{{ submitted_data.data if submitted_data is not none else (transacao.data if transacao else hoje) }}" {{ 'readonly' if locked else '' }}>
     </div>
     <div class="col-6 col-md-4">
       <label class="form-label">Conta</label>
-      <select name="conta_id" class="form-select">
+      <select name="conta_id" class="form-select" {{ 'disabled' if locked else '' }}>
         <option value="">Nenhuma</option>
         {% for c in contas %}
           <option value="{{ c.id }}" {% if submitted_data is not none %}{% if submitted_data.conta_id|string == c.id|string %}selected{% endif %}{% elif transacao and transacao.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
@@ -53,7 +51,7 @@
     </div>
     <div class="col-6 col-md-3">
       <label class="form-label">Rubrica</label>
-      <select name="rubrica_id" class="form-select">
+      <select name="rubrica_id" class="form-select" {{ 'disabled' if locked else '' }}>
         <option value="">Nenhuma</option>
         {% for r in rubricas %}
           <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if submitted_data is not none %}{% if submitted_data.rubrica_id|string == r.id|string %}selected{% endif %}{% elif transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
@@ -62,29 +60,32 @@
     </div>
     <div class="col-6 col-md-1">
       <label class="form-label">Fatura</label>
-      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao else '') }}">
+      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao else '') }}" {{ 'readonly' if locked else '' }}>
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label">Valor *</label>
-      <input type="number" name="valor" class="form-control text-end" required step="0.01" oninput="recalcularSaldoLancar()" value="{{ submitted_data.valor if submitted_data is not none else ('%.2f'|format(transacao.valor) if transacao else '') }}">
+      <input type="number" name="valor" class="form-control text-end" required step="0.01" oninput="recalcularSaldoLancar()" value="{{ submitted_data.valor if submitted_data is not none else ('%.2f'|format(transacao.valor) if transacao else '') }}" {{ 'readonly' if locked else '' }}>
     </div>
     <div class="col-7 col-md-6">
       <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ submitted_data.historico if submitted_data is not none else (transacao.historico if transacao else '') }}">
-    </div>
-    <div class="col-5 col-md-3 ms-auto">
-      <label class="form-label d-block" style="max-width:160px;margin-left:auto;">Gerar Parcelas</label>
-      <div class="input-group input-group-sm" style="max-width:160px;margin-left:auto;">
-        <input type="number" id="lancar-valor" class="form-control text-end" step="0.01">
-        <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icones/arrow-list.png') }}" height="16" alt="Gerar"></button>
-      </div>
+      <input type="text" name="historico" class="form-control" value="{{ submitted_data.historico if submitted_data is not none else (transacao.historico if transacao else '') }}" {{ 'readonly' if locked else '' }}>
     </div>
   </div>
 
   <hr>
-  <h5 class="mb-2">Parcelas</h5>
+  <div class="d-flex align-items-center gap-2 mb-2">
+    <h5 class="mb-0">Parcelas</h5>
+    <div class="ms-auto d-flex align-items-center gap-1">
+      <label class="form-label small mb-0 text-nowrap">Gerar</label>
+      <div class="input-group input-group-sm" style="max-width:160px;">
+        <input type="number" id="lancar-valor" class="form-control text-end" step="0.01">
+        <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icons/arrow-list.png') }}" height="16" alt="Gerar"></button>
+      </div>
+    </div>
+  </div>
 
-  <div class="table-responsive">
+  <!-- Desktop: parcelas table -->
+  <div class="table-responsive d-none d-md-block">
     <table class="table table-sm table-bordered align-middle mb-0" style="position:relative;">
       <thead style="position:sticky;top:0;z-index:10;background:#fff;">
         <tr>
@@ -132,7 +133,7 @@
             {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
             {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
             {% if vl == 0 and rl == 0 %}
-            <button type="button" class="btn btn-danger btn-sm" onclick="confirmRemoveRow(this, 'Remover parcela?')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+            <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
             {% endif %}
           </td>
         </tr>
@@ -142,8 +143,58 @@
     </table>
   </div>
 
+  <!-- Mobile: parcelas card list -->
+  <div class="d-md-none" id="previsoes-mobile-container">
+    {% if previsoes is not none %}
+    {% for p in previsoes %}
+    <div class="px-3 py-2 border-bottom previsao-mobile-card">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="text-muted small previsao-num">#{{ p.id|fmtid if p.id else '' }}</span>
+        {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+        {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+        {% if vl == 0 and rl == 0 %}
+        <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+        {% endif %}
+      </div>
+      <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
+      <input type="hidden" name="previsao_remover[]" value="0">
+      <div class="mb-1">
+        <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" placeholder="Documento" value="{{ p.documento or '' }}">
+      </div>
+      <div class="mb-1">
+        <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}">
+      </div>
+      <div class="row g-1 mb-1">
+        <div class="col-4">
+          <span class="card-label">Previsto</span>
+          <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}">
+        </div>
+        <div class="col-4">
+          <span class="card-label">Realizado</span>
+          <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}">
+        </div>
+        <div class="col-4">
+          <span class="card-label">Variação</span>
+          <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}">
+        </div>
+      </div>
+      <div>
+        <span class="card-label">Saldo: </span>
+        <span class="previsao-saldo fw-bold">
+          {% set pv = p.previsto|float if p.previsto else 0 %}
+          {% set vr = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+          {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+          {{ (pv + vr - rl)|brl }}
+        </span>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+
   <div class="px-3 py-1">
-    <button type="button" class="btn btn-outline-success btn-sm" onclick="addRow()">+ Adicionar</button>
+    <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar</button>
+    <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar</button>
   </div>
 
   {% if movimentos %}
@@ -182,14 +233,16 @@
   </div>
 </div>
 {% endif %}
-  {% if transacao %}<div class="form-bottom-spacer"></div>{% endif %}
+  <div class="form-bottom-spacer"></div>
+{% call barra_edicao(back_url=url_for('contas_a_pagar.list')) %}
+  {% if transacao and not locked %}
+  <div class="d-flex align-items-center gap-1">
+    <label class="form-label small mb-0 text-danger">Cancelado</label>
+    <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}">
+  </div>
+  {% endif %}
+{% endcall %}
 </form>
-
-<div class="form-bottom-bar"{% if not transacao %} style="margin-top:1rem;"{% endif %}>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{{ url_for('contas_a_pagar.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
-</div>
 
 <template id="previsao-template">
   <tr class="previsao-row">
@@ -215,9 +268,44 @@
       <span class="previsao-saldo form-control form-control-sm bg-light text-end" style="display:block;min-width:70px;">0,00</span>
     </td>
     <td class="text-center">
-      <button type="button" class="btn btn-danger btn-sm" onclick="confirmRemoveRow(this, 'Remover parcela?')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </td>
   </tr>
+</template>
+
+<template id="previsao-mobile-template">
+  <div class="px-3 py-2 border-bottom previsao-mobile-card">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <span class="text-muted small previsao-num"></span>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </div>
+    <input type="hidden" name="previsao_id[]" value="">
+    <input type="hidden" name="previsao_remover[]" value="0">
+    <div class="mb-1">
+      <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" placeholder="Documento">
+    </div>
+    <div class="mb-1">
+      <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required>
+    </div>
+    <div class="row g-1 mb-1">
+      <div class="col-4">
+        <span class="card-label">Previsto</span>
+        <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor" required step="0.01" oninput="calcSaldo(this)">
+      </div>
+      <div class="col-4">
+        <span class="card-label">Realizado</span>
+        <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)">
+      </div>
+      <div class="col-4">
+        <span class="card-label">Variação</span>
+        <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)">
+      </div>
+    </div>
+    <div>
+      <span class="card-label">Saldo: </span>
+      <span class="previsao-saldo fw-bold">0,00</span>
+    </div>
+  </div>
 </template>
 
 <div class="modal fade" id="lancarModal" tabindex="-1">
@@ -245,6 +333,18 @@
   </div>
 </div>
 
+<div class="modal fade" id="removeParcelaModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <p class="mb-3">Remover parcela?</p>
+        <button type="button" class="btn btn-outline-secondary btn-sm me-2" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger btn-sm" id="btn-confirm-remove-parcela" data-bs-dismiss="modal">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -259,15 +359,15 @@ document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
 function recalcularSaldoLancar() {
   var valor = parseFloat(document.querySelector('[name="valor"]').value) || 0;
   var totalPrevisto = 0;
-  document.querySelectorAll('#previsoes-container .previsao-row').forEach(function(row) {
-    if (row.style.display !== 'none') {
+  document.querySelectorAll('#previsoes-container .previsao-row, #previsoes-mobile-container .previsao-mobile-card').forEach(function(row) {
+    if (row.offsetParent !== null) {
       totalPrevisto += parseFloat(row.querySelector('[name="previsao_previsto[]"]').value) || 0;
     }
   });
   var saldo = valor - totalPrevisto;
   var input = document.getElementById('lancar-valor');
   input.dataset.maxSaldo = saldo.toFixed(2);
-  if (!input.value || parseFloat(input.value) === 0) input.value = saldo.toFixed(2);
+  input.value = saldo.toFixed(2);
   atualizarBotaoGerar();
 }
 function atualizarBotaoGerar() {
@@ -301,14 +401,62 @@ function addRow() {
   container.appendChild(clone);
   recalcularSaldoLancar();
 }
-function removeRow(btn) {
-  var row = btn.closest('.previsao-row');
+function addRowMobile() {
+  var container = document.getElementById('previsoes-mobile-container');
+  var template = document.getElementById('previsao-mobile-template');
+  var clone = template.content.cloneNode(true);
+  var visiveis = 0;
+  container.querySelectorAll('.previsao-mobile-card').forEach(function(row) {
+    if (row.style.display !== 'none') visiveis++;
+  });
+  var x = visiveis + 1;
+  var numCell = clone.querySelector('.previsao-num');
+  if (numCell) numCell.textContent = '#' + x;
+  var doc = clone.querySelector('[name="previsao_documento[]"]');
+  if (doc) doc.value = 'Parcela ' + x;
+  var prev = clone.querySelector('[name="previsao_previsto[]"]');
+  var lancar = document.getElementById('lancar-valor');
+  if (prev && lancar) prev.value = lancar.value;
+  var dataVal = document.querySelector('[name="data"]').value;
+  if (dataVal) {
+    var dt = new Date(dataVal + 'T12:00:00');
+    dt.setDate(dt.getDate() + 30);
+    var venc = clone.querySelector('[name="previsao_vencimento[]"]');
+    if (venc) venc.value = dt.toISOString().slice(0, 10);
+  }
+  container.appendChild(clone);
+  recalcularSaldoLancar();
+}
+var removeParcelaBtn = null;
+var removeParcelaModal = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  removeParcelaModal = new bootstrap.Modal(document.getElementById('removeParcelaModal'));
+});
+
+document.getElementById('previsoes-container').addEventListener('click', function(e) {
+  var btn = e.target.closest('.btn-remove-parcela');
+  if (!btn) return;
+  removeParcelaBtn = btn;
+  removeParcelaModal.show();
+});
+document.getElementById('previsoes-mobile-container').addEventListener('click', function(e) {
+  var btn = e.target.closest('.btn-remove-parcela');
+  if (!btn) return;
+  removeParcelaBtn = btn;
+  removeParcelaModal.show();
+});
+
+document.getElementById('btn-confirm-remove-parcela').addEventListener('click', function() {
+  if (!removeParcelaBtn) return;
+  var row = removeParcelaBtn.closest('.previsao-row, .previsao-mobile-card');
   row.querySelector('[name="previsao_remover[]"]').value = "1";
   row.style.display = 'none';
   recalcularSaldoLancar();
-}
+  removeParcelaBtn = null;
+});
 function calcSaldo(el) {
-  var row = el.closest('.previsao-row');
+  var row = el.closest('.previsao-row, .previsao-mobile-card');
   var inputs = row.querySelectorAll('.previsao-valor');
   var prev = parseFloat(inputs[0].value) || 0;
   var real = parseFloat(inputs[1].value) || 0;
@@ -325,25 +473,47 @@ function gerarParcelas() {
   if (num < 1 || valorTotal <= 0) return;
   var base = Math.floor(valorTotal / num * 100) / 100;
   var resto = +(valorTotal - base * num).toFixed(2);
+  var isDesktop = document.getElementById('previsoes-container').offsetParent !== null;
   for (var i = 0; i < num; i++) {
-    var container = document.getElementById('previsoes-container');
-    var template = document.getElementById('previsao-template');
-    var clone = template.content.cloneNode(true);
-    var visiveis = container.querySelectorAll('.previsao-row:not([style*="display: none"])').length;
-    var x = visiveis + 1;
-    var numCell = clone.querySelector('.previsao-num');
-    if (numCell) numCell.textContent = '#' + x;
-    var doc = clone.querySelector('[name="previsao_documento[]"]');
-    if (doc) doc.value = 'Parcela ' + x;
-    var prev = clone.querySelector('[name="previsao_previsto[]"]');
-    if (prev) prev.value = (i === num - 1 ? base + resto : base).toFixed(2);
-    if (dataVal) {
-      var dt = new Date(dataVal + 'T12:00:00');
-      dt.setDate(dt.getDate() + (i + 1) * intervalo);
-      var venc = clone.querySelector('[name="previsao_vencimento[]"]');
-      if (venc) venc.value = dt.toISOString().slice(0, 10);
+    if (isDesktop) {
+      var container = document.getElementById('previsoes-container');
+      var template = document.getElementById('previsao-template');
+      var clone = template.content.cloneNode(true);
+      var visiveis = container.querySelectorAll('.previsao-row:not([style*="display: none"])').length;
+      var x = visiveis + 1;
+      var numCell = clone.querySelector('.previsao-num');
+      if (numCell) numCell.textContent = '#' + x;
+      var doc = clone.querySelector('[name="previsao_documento[]"]');
+      if (doc) doc.value = 'Parcela ' + x;
+      var prev = clone.querySelector('[name="previsao_previsto[]"]');
+      if (prev) prev.value = (i === num - 1 ? base + resto : base).toFixed(2);
+      if (dataVal) {
+        var dt = new Date(dataVal + 'T12:00:00');
+        dt.setDate(dt.getDate() + (i + 1) * intervalo);
+        var venc = clone.querySelector('[name="previsao_vencimento[]"]');
+        if (venc) venc.value = dt.toISOString().slice(0, 10);
+      }
+      container.appendChild(clone);
+    } else {
+      var mobContainer = document.getElementById('previsoes-mobile-container');
+      var mobTemplate = document.getElementById('previsao-mobile-template');
+      var mobClone = mobTemplate.content.cloneNode(true);
+      var mobVisiveis = mobContainer.querySelectorAll('.previsao-mobile-card:not([style*="display: none"])').length;
+      var mx = mobVisiveis + 1;
+      var mNumCell = mobClone.querySelector('.previsao-num');
+      if (mNumCell) mNumCell.textContent = '#' + mx;
+      var mDoc = mobClone.querySelector('[name="previsao_documento[]"]');
+      if (mDoc) mDoc.value = 'Parcela ' + mx;
+      var mPrev = mobClone.querySelector('[name="previsao_previsto[]"]');
+      if (mPrev) mPrev.value = (i === num - 1 ? base + resto : base).toFixed(2);
+      if (dataVal) {
+        var mDt = new Date(dataVal + 'T12:00:00');
+        mDt.setDate(mDt.getDate() + (i + 1) * intervalo);
+        var mVenc = mobClone.querySelector('[name="previsao_vencimento[]"]');
+        if (mVenc) mVenc.value = mDt.toISOString().slice(0, 10);
+      }
+      mobContainer.appendChild(mobClone);
     }
-    container.appendChild(clone);
   }
   recalcularSaldoLancar();
 }

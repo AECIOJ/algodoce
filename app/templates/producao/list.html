@@ -1,19 +1,20 @@
 {% extends "base.html" %}
+{% from "components/barra_report.html" import barra_report %}
+{% from "components/barra_filtro.html" import barra_filtro %}
 {% block content %}
-<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
-  <div class="d-flex align-items-center gap-2">
-    <h2 class="mb-0">Produção</h2>
-    <form method="GET" action="{{ url_for('producao.list') }}" class="d-inline-block">
-      <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-        <option value="">Todos</option>
-        {% for val, label in PRODUCAO_STATUS.items() %}
-          <option value="{{ val }}" {{ 'selected' if status_filter == val }}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </form>
-  </div>
-  <a href="{{ url_for('producao.nova') }}" class="btn btn-primary">+ Nova</a>
-</div>
+{% set _actions %}
+<a href="{{ url_for('producao.nova') }}" class="btn btn-primary">+ Nova</a>
+{% endset %}
+{% call barra_filtro("Produção", _actions) %}
+  <form method="GET" action="{{ url_for('producao.list') }}" class="d-inline-block">
+    <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+      <option value="">Todos</option>
+      {% for val, label in PRODUCAO_STATUS.items() %}
+        <option value="{{ val }}" {{ 'selected' if status_filter == val }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+{% endcall %}
 
 <div class="table-responsive table-scroll">
   <table class="table table-hover sortable">
@@ -78,7 +79,7 @@
             </span>
           </div>
           <a href="{{ url_for('producao.detail', id=p.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
           </a>
         </div>
         <h6 class="mb-1">{{ p.descricao }}</h6>
@@ -98,4 +99,7 @@
     <p class="text-muted text-center">Nenhuma produção cadastrada.</p>
   {% endfor %}
 </div>
+{% call barra_report() %}
+  <strong>{{ producoes|length }}</strong> produção(ões)
+{% endcall %}
 {% endblock %}

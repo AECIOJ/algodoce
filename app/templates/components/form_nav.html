@@ -1,9 +1,9 @@
 {% macro form_nav(back_url, nome, nav, edit_endpoint, entity_id=none, status=none, actions2=none) %}
-{% set s = url_for('static', filename='icones/') %}
+{% set s = url_for('static', filename='icons/') %}
 <div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <div class="d-flex align-items-center nav-side">
     <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
-      <img src="{{ url_for('static', filename='icones/clipboard-list.png') }}" alt="Voltar" height="20">
+      <img src="{{ url_for('static', filename='icons/list.png') }}" alt="Voltar" height="20">
     </a>
   </div>
   <div class="d-flex align-items-center flex-grow-1 justify-content-center gap-1">

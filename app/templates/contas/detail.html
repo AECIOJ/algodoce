@@ -4,11 +4,11 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>{{ conta.nome }}</h2>
   <a href="{{ url_for('contas.list') }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='icones/undo.png') }}" alt="Voltar" height="20">
+    <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
   </a>
 </div>
 
-{% set s = url_for('static', filename='icones/') %}
+{% set s = url_for('static', filename='icons/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
     <a href="{{ url_for('contas.detail', id=nav.first_id, ativos=1 if ativos else 0) }}" class="btn btn-outline-secondary" title="Primeiro">
@@ -100,7 +100,7 @@
               <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
               <td>R$ {{ (o.total or 0) | brl }}</td>
               <td>
-                <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-dark' }}">
+                <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-primary' if o.status == 8 else 'bg-dark' }}">
                   {{ ORDER_STATUS.get(o.status, o.status) }}
                 </span>
               </td>
@@ -122,7 +122,7 @@
         <div class="px-3 py-2 border-bottom">
           <div class="d-flex justify-content-between align-items-start mb-1">
             <span class="card-label">#{{ o.id|fmtid }}</span>
-            <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-dark' }}">
+            <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-primary' if o.status == 8 else 'bg-dark' }}">
               {{ ORDER_STATUS.get(o.status, o.status) }}
             </span>
           </div>

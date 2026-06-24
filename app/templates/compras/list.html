@@ -4,9 +4,9 @@
 {% block content %}
 
 {% set _actions %}
-<a href="{{ url_for('contas_a_pagar.new') }}" class="btn btn-success">+ Nova</a>
+<a href="{{ url_for('compras.new') }}" class="btn btn-success">+ Nova</a>
 {% endset %}
-{% call barra_filtro("Contas a Pagar", _actions) %}
+{% call barra_filtro("Compras", _actions) %}
   <select class="form-select" style="width:auto;" onchange="filtrar('status', this.value)">
     <option value="todos" {% if filtro_status == 'todos' %}selected{% endif %}>Todos</option>
     {% for k, v in PREVISAO_STATUS.items() %}
@@ -19,17 +19,16 @@
     <option value="hoje" {% if filtro_venc == 'hoje' %}selected{% endif %}>Hoje</option>
     <option value="a_vencer" {% if filtro_venc == 'a_vencer' %}selected{% endif %}>A Vencer</option>
   </select>
-  <span class="badge bg-info fs-6">Total: {{ total_saldo|brl }}</span>
+  <span class="badge bg-info fs-6">Total: {{ total_geral|brl if total_geral is defined else '' }}</span>
 {% endcall %}
 
 <div class="table-responsive table-scroll">
   <table class="table table-hover sortable">
     <thead>
       <tr>
-        <th>Transação</th>
         <th>Compra</th>
         <th>Status</th>
-        <th>Conta</th>
+        <th>Fornecedor</th>
         <th>Fatura</th>
         <th>Valor</th>
         <th>Documento</th>
@@ -43,20 +42,19 @@
       </tr>
     </thead>
     <tbody>
-      {% for p in previsoes %}
-        {% set t = p.transacao %}
-        <tr class="{{ 'table-danger' if p.vencimento < hoje and p.status not in (8,9) else '' }}">
-          <td>{{ t.id|fmtid }}</td>
-          <td>{% if t.compra %}<a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ t.compra.id|fmtid }}</a>{% else %}-{% endif %}</td>
+      {% for l in linhas %}
+        {% set t = l.transacao %}
+        <tr class="{{ 'table-danger' if l.vencimento < hoje and l.status not in (8,9) else '' }}">
+          <td>{{ t.compra.id|fmtid }}</td>
           <td>
-            {% set st = PREVISAO_STATUS.get(p.status, '') %}
-            {% if p.status == 9 %}
+            {% set st = PREVISAO_STATUS.get(l.status, '') %}
+            {% if l.status == 9 %}
               <span class="badge bg-success">{{ st }}</span>
-            {% elif p.status == 8 %}
+            {% elif l.status == 8 %}
               <span class="badge bg-secondary">{{ st }}</span>
-            {% elif p.status == 2 %}
+            {% elif l.status == 2 %}
               <span class="badge bg-warning">{{ st }}</span>
-            {% elif p.status == 1 %}
+            {% elif l.status == 1 %}
               <span class="badge bg-info">{{ st }}</span>
             {% else %}
               <span class="badge bg-secondary">{{ st }}</span>
@@ -65,20 +63,20 @@
           <td>{{ t.conta.nome if t.conta else '-' }}</td>
           <td>{{ t.fatura if t.fatura else '-' }}</td>
           <td class="text-end">{{ t.valor|brl }}</td>
-          <td>{{ p.documento if p.documento else '-' }}</td>
-          <td>{{ p.vencimento|fmtdate }}</td>
-          <td>{% if p.id %}<a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ p.id|fmtid }}</a>{% else %}-{% endif %}</td>
-          <td class="text-end">{{ p.previsto|brl }}</td>
-          <td class="text-end">{{ p.realizado|brl if p.realizado is not none else '-' }}</td>
-          <td class="text-end">{{ p.variacao|brl if p.variacao is not none else '-' }}</td>
-          <td class="text-end {{ 'text-danger' if p.saldo > 0 else ('text-success' if p.saldo <= 0 else '') }}">{{ p.saldo|brl }}</td>
+          <td>{{ l.documento if l.documento else '-' }}</td>
+          <td>{{ l.vencimento|fmtdate }}</td>
+          <td>{% if l.id %}<a href="{{ url_for('compras.edit', id=l.transacao.id) }}" class="btn btn-sm btn-outline-success">{{ l.id|fmtid }}</a>{% else %}-{% endif %}</td>
+          <td class="text-end">{{ l.previsto|brl if l.previsto is not none else '-' }}</td>
+          <td class="text-end">{{ l.realizado|brl if l.realizado is not none else '-' }}</td>
+          <td class="text-end">{{ l.variacao|brl if l.variacao is not none else '-' }}</td>
+          <td class="text-end {{ 'text-danger' if l.saldo > 0 else ('text-success' if l.saldo <= 0 else '') }}">{{ l.saldo|brl }}</td>
           <td>
-            <a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" class="btn btn-sm btn-primary">Editar</a>
+            <a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-primary">Editar</a>
           </td>
         </tr>
       {% else %}
         <tr>
-          <td colspan="13" class="text-center text-muted">Nenhuma parcela encontrada.</td>
+          <td colspan="12" class="text-center text-muted">Nenhuma compra encontrada.</td>
         </tr>
       {% endfor %}
     </tbody>
@@ -86,62 +84,68 @@
 </div>
 
 <div class="d-lg-none mt-3">
-  {% for p in previsoes %}
-    {% set t = p.transacao %}
+  <div class="card shadow-sm">
+    <div class="card-body py-2">
+      <strong>Total:</strong> {{ total_saldo|brl }}
+    </div>
+  </div>
+  {% for l in linhas %}
+    {% set t = l.transacao %}
     <div class="card mb-2 shadow-sm card-list-item">
       <div class="card-body py-2 px-3">
         <div class="d-flex justify-content-between align-items-start mb-1">
           <div>
             <span class="card-label">#{{ t.id|fmtid }}</span>
-            {% if t.compra %}<a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ t.compra.id|fmtid }}</a>{% endif %}
-            <span class="badge bg-danger">A Pagar</span>
+            <span class="badge bg-danger">Compra</span>
           </div>
-          <a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" style="text-decoration:none;">
+          <a href="{{ url_for('compras.edit', id=t.id) }}" style="text-decoration:none;">
             <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
           </a>
         </div>
-        <h6 class="mb-1">{{ p.previsto|brl }}</h6>
-        {% set st = PREVISAO_STATUS.get(p.status, '') %}
-        {% if p.status == 9 %}
+        <h6 class="mb-1">{{ t.valor|brl }}</h6>
+        {% set st = PREVISAO_STATUS.get(l.status, '') %}
+        {% if l.status == 9 %}
           <span class="badge bg-success">{{ st }}</span>
-        {% elif p.status == 8 %}
+        {% elif l.status == 8 %}
           <span class="badge bg-secondary">{{ st }}</span>
-        {% elif p.status == 2 %}
+        {% elif l.status == 2 %}
           <span class="badge bg-warning">{{ st }}</span>
-        {% elif p.status == 1 %}
+        {% elif l.status == 1 %}
           <span class="badge bg-info">{{ st }}</span>
         {% else %}
           <span class="badge bg-secondary">{{ st }}</span>
         {% endif %}
-        <span class="card-label ms-2">Conta:</span>
+        <span class="card-label ms-2">Fornecedor:</span>
         <span class="card-value ms-1">{{ t.conta.nome if t.conta else '-' }}</span>
         <span class="card-label ms-2">Fatura:</span>
         <span class="card-value ms-1">{{ t.fatura if t.fatura else '-' }}</span>
         <span class="card-label ms-2">Valor:</span>
         <span class="card-value ms-1">{{ t.valor|brl }}</span>
         <span class="card-label ms-2">Venc:</span>
-        <span class="card-value ms-1">{{ p.vencimento|fmtdate }}</span>
+        <span class="card-value ms-1">{{ l.vencimento|fmtdate }}</span>
+        {% if l.id %}
         <span class="card-label ms-2">Prev #:</span>
-        <span class="card-value ms-1">{% if p.id %}<a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ p.id|fmtid }}</a>{% else %}-{% endif %}</span>
+        <span class="card-value ms-1"><a href="{{ url_for('compras.edit', id=l.transacao.id) }}" class="btn btn-sm btn-outline-success">{{ l.id|fmtid }}</a></span>
         <span class="card-label ms-2">Prev:</span>
-        <span class="card-value ms-1">{{ p.previsto|brl }}</span>
+        <span class="card-value ms-1">{{ l.previsto|brl }}</span>
         <span class="card-label ms-2">Realizado:</span>
-        <span class="card-value ms-1">{{ p.realizado|brl if p.realizado is not none else '-' }}</span>
-        {% if p.variacao is not none %}
+        <span class="card-value ms-1">{{ l.realizado|brl if l.realizado is not none else '-' }}</span>
+        {% if l.variacao is not none %}
           <span class="card-label ms-2">Variação:</span>
-          <span class="card-value ms-1">{{ p.variacao|brl }}</span>
+          <span class="card-value ms-1">{{ l.variacao|brl }}</span>
+        {% endif %}
         {% endif %}
         <span class="card-label ms-2">Saldo:</span>
-        <span class="card-value ms-1 {{ 'text-danger' if p.saldo > 0 else ('text-success' if p.saldo <= 0 else '') }}">{{ p.saldo|brl }}</span>
+        <span class="card-value ms-1 {{ 'text-danger' if l.saldo > 0 else ('text-success' if l.saldo <= 0 else '') }}">{{ l.saldo|brl }}</span>
       </div>
     </div>
   {% else %}
-    <p class="text-muted text-center">Nenhuma parcela encontrada.</p>
+    <p class="text-muted text-center">Nenhuma compra encontrada.</p>
   {% endfor %}
 </div>
 
 {% call barra_report() %}
-  <strong>Total:</strong> {{ total_saldo|brl }}
+  <strong>Total:</strong> {{ total_geral|brl if total_geral is defined else '' }}
 {% endcall %}
 {% endblock %}
 

@@ -60,14 +60,14 @@ def create_app():
         return User.query.get(int(user_id))
 
     with app.app_context():
-        from app.routes import clients as contas, products, ingredients, orders, reports
+        from app.routes import clients as contas, products, ingredients, orders, compras
         from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, producao, rubricas, previsoes, recursos, contas_a_pagar, contas_a_receber, movimentos
 
         app.register_blueprint(contas.bp)
         app.register_blueprint(products.bp)
         app.register_blueprint(ingredients.bp)
         app.register_blueprint(orders.bp)
-        app.register_blueprint(reports.bp)
+        app.register_blueprint(compras.bp)
         app.register_blueprint(auth.bp)
         app.register_blueprint(site.bp)
         app.register_blueprint(uploads.bp)
@@ -86,6 +86,8 @@ def create_app():
         from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, rubrica, transacao, previsao  # noqa
         from app.models.event import Event  # noqa
         from app.models.quote_item import QuoteItem  # noqa
+        from app.models.compra import Compra  # noqa
+        from app.models.compra_item import CompraItem  # noqa
         from app.models.order_item import OrderItem  # noqa
         from app.models.setting import Setting  # noqa
         from app.models.producao import Producao  # noqa
@@ -98,12 +100,13 @@ def create_app():
 
         Setting.ensure_keys()
 
-        db.session.execute(
-            sa.text("SELECT setval('quotes_id_seq', COALESCE((SELECT MAX(id) FROM quotes), 1))")
-        )
-        db.session.execute(
-            sa.text("SELECT setval('orders_id_seq', COALESCE((SELECT MAX(id) FROM orders), 1))")
-        )
+        for seq, tbl in [('quotes_id_seq', 'quotes'), ('orders_id_seq', 'orders'), ('compras_id_seq', 'compras')]:
+            try:
+                db.session.execute(
+                    sa.text(f"SELECT setval('{seq}', COALESCE((SELECT MAX(id) FROM {tbl}), 1))")
+                )
+            except Exception:
+                db.session.rollback()
         db.session.commit()
 
         admin_username = os.getenv("ADMIN_USERNAME", "admin")

@@ -19,18 +19,11 @@
 {% else %}
   {% set status_badge = '<span class="badge bg-secondary ms-2">' ~ st_label ~ '</span>' %}
 {% endif %}
-{% set cancelado_html %}
-<div class="d-flex align-items-center gap-1">
-  <label class="form-label small mb-0 text-danger">Cancelado</label>
-   <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}" {{ 'readonly' if locked else '' }}>
-</div>
-{% endset %}
-{% call form_nav(back_url=url_for('contas_a_receber.list'), nome='Transação ' ~ transacao.id|fmtid, nav=nav, edit_endpoint='contas_a_receber.edit', entity_id=transacao.id, status=status_badge) %}
-  {% if locked %}<a href="{{ url_for('orders.edit', id=transacao.pedido.id) }}" class="btn btn-sm btn-warning ms-2">Pedido #{{ transacao.pedido.id|fmtid }}</a>{% endif %}
+{% call form_nav(back_url=url_for('compras.list'), nome='Compra ' ~ transacao.compra.id|fmtid, nav=nav, edit_endpoint='compras.edit', entity_id=transacao.id, status=status_badge) %}
 {% endcall %}
 {% else %}
 <div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Nova Conta a Receber</span>
+  <span class="fs-5 fw-bold">Nova Compra</span>
 </div>
 {% endif %}
 
@@ -38,39 +31,121 @@
   <div class="row g-2 mb-3">
     <div class="col-6 col-md-2">
       <label class="form-label">Data</label>
-      <input type="date" name="data" class="form-control" value="{{ submitted_data.data if submitted_data is not none else (transacao.data if transacao else hoje) }}" {{ 'readonly' if locked else '' }}>
+      <input type="date" name="data" class="form-control" value="{{ transacao.compra.data if transacao else hoje }}">
     </div>
     <div class="col-6 col-md-4">
-      <label class="form-label">Conta</label>
-      <select name="conta_id" class="form-select" {{ 'disabled' if locked else '' }}>
-        <option value="">Nenhuma</option>
+      <label class="form-label">Fornecedor</label>
+      <select name="conta_id" class="form-select">
+        <option value="">Nenhum</option>
         {% for c in contas %}
-          <option value="{{ c.id }}" {% if submitted_data is not none %}{% if submitted_data.conta_id|string == c.id|string %}selected{% endif %}{% elif transacao and transacao.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+          <option value="{{ c.id }}" {% if transacao and transacao.compra.fornecedor_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
         {% endfor %}
       </select>
     </div>
     <div class="col-6 col-md-3">
       <label class="form-label">Rubrica</label>
-      <select name="rubrica_id" class="form-select" {{ 'disabled' if locked else '' }}>
+      <select name="rubrica_id" class="form-select">
         <option value="">Nenhuma</option>
         {% for r in rubricas %}
-          <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if submitted_data is not none %}{% if submitted_data.rubrica_id|string == r.id|string %}selected{% endif %}{% elif transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+          <option value="{{ r.id }}" {% if transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
         {% endfor %}
       </select>
     </div>
     <div class="col-6 col-md-1">
       <label class="form-label">Fatura</label>
-      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao else '') }}" {{ 'readonly' if locked else '' }}>
+      <input type="text" name="fatura" class="form-control" value="{{ transacao.fatura if transacao else '' }}">
     </div>
     <div class="col-6 col-md-2">
-      <label class="form-label">Valor *</label>
-      <input type="number" name="valor" class="form-control text-end" required step="0.01" oninput="recalcularSaldoLancar()" value="{{ submitted_data.valor if submitted_data is not none else ('%.2f'|format(transacao.valor) if transacao else '') }}" {{ 'readonly' if locked else '' }}>
+      <label class="form-label">Total</label>
+      <input type="text" id="total-display" class="form-control text-end bg-light" readonly>
     </div>
-    <div class="col-7 col-md-6">
+    <div class="col-12 col-md-6">
       <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ submitted_data.historico if submitted_data is not none else (transacao.historico if transacao else '') }}" {{ 'readonly' if locked else '' }}>
+      <input type="text" name="historico" class="form-control" value="{{ transacao.compra.historico if transacao else '' }}">
     </div>
   </div>
+
+  <hr>
+  <h5 class="mb-2">Itens da Compra</h5>
+
+  <!-- Desktop: items table -->
+  <div class="table-responsive d-none d-md-block">
+    <table class="table table-sm table-bordered align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Insumo</th>
+          <th style="width:140px;" class="text-end">Quantidade</th>
+          <th style="width:140px;" class="text-end">Preço Unit.</th>
+          <th style="width:140px;" class="text-end">Subtotal</th>
+          <th style="width:40px;"></th>
+        </tr>
+      </thead>
+      <tbody id="itens-container">
+        {% if transacao %}
+        {% for ci in transacao.compra.items %}
+        <tr class="item-row">
+          <td>
+            <select name="insumo_id[]" class="form-select form-select-sm" onchange="recalcularTotal()">
+              <option value="">Selecione...</option>
+              {% for ins in insumos %}
+                <option value="{{ ins.id }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            <input type="number" name="quantidade[]" class="form-control form-control-sm text-end" step="0.001" min="0" oninput="recalcularTotal()" value="{{ ci.quantidade }}">
+          </td>
+          <td>
+            <input type="number" name="preco[]" class="form-control form-control-sm text-end" step="0.01" min="0" oninput="recalcularTotal()" value="{{ ci.preco }}">
+          </td>
+          <td class="text-end"><span class="item-subtotal form-control form-control-sm bg-light text-end" style="display:block;">0,00</span></td>
+          <td class="text-center">
+            <input type="hidden" name="item_id[]" value="{{ ci.id }}">
+            <input type="hidden" name="item_remover[]" value="0">
+            <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+          </td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Mobile: items card list -->
+  <div class="d-md-none" id="itens-mobile-container">
+    {% if transacao %}
+    {% for ci in transacao.compra.items %}
+    <div class="px-3 py-2 border-bottom item-mobile-card">
+      <select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="recalcularTotal()">
+        <option value="">Selecione...</option>
+        {% for ins in insumos %}
+          <option value="{{ ins.id }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+        {% endfor %}
+      </select>
+      <div class="row g-1 align-items-center">
+        <div class="col-4">
+          <span class="card-label">Qtd</span>
+          <input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="recalcularTotal()" value="{{ ci.quantidade }}">
+        </div>
+        <div class="col-4">
+          <span class="card-label">Preço</span>
+          <input type="number" name="preco[]" class="form-control form-control-sm" step="0.01" min="0" oninput="recalcularTotal()" value="{{ ci.preco }}">
+        </div>
+        <div class="col-4">
+          <span class="card-label">Valor</span><br>
+          <span class="item-subtotal fw-bold">{{ "%.2f"|format((ci.preco or 0) * (ci.quantidade or 0))|replace(".", ",") }}</span>
+        </div>
+      </div>
+      <input type="hidden" name="item_id[]" value="{{ ci.id }}">
+      <input type="hidden" name="item_remover[]" value="0">
+      <button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+  <button type="button" class="btn btn-outline-success btn-sm mt-1 d-none d-md-inline-block" onclick="addItem()">+ Adicionar Item</button>
+  <button type="button" class="btn btn-outline-success btn-sm mt-1 d-md-none" onclick="addItemMobile()">+ Adicionar Item</button>
 
   <hr>
   <div class="d-flex align-items-center gap-2 mb-2">
@@ -193,8 +268,8 @@
   </div>
 
   <div class="px-3 py-1">
-    <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar</button>
-    <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar</button>
+    <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar Parcela</button>
+    <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar Parcela</button>
   </div>
 
   {% if movimentos %}
@@ -223,7 +298,7 @@
           <td>{{ m.recurso.nome if m.recurso else '' }}</td>
           <td>#{{ m.previsao_id|fmtid }}</td>
           <td>{{ m.documento or '' }}</td>
-          <td class="text-success fw-bold text-end">{{ m.valor|brl }}</td>
+          <td class="text-danger fw-bold text-end">{{ m.valor|brl }}</td>
           <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
           <td>{{ m.historico_display }}</td>
         </tr>
@@ -234,15 +309,40 @@
 </div>
 {% endif %}
   <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=url_for('contas_a_receber.list')) %}
-  {% if transacao and not locked %}
+{% call barra_edicao(back_url=url_for('compras.list')) %}
+  {% if transacao %}
   <div class="d-flex align-items-center gap-1">
     <label class="form-label small mb-0 text-danger">Cancelado</label>
-    <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}">
+    <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ transacao.cancelado if transacao else '' }}">
   </div>
   {% endif %}
 {% endcall %}
 </form>
+
+<template id="item-template">
+  <tr class="item-row">
+    <td>
+      <select name="insumo_id[]" class="form-select form-select-sm" onchange="recalcularTotal()">
+        <option value="">Selecione...</option>
+        {% for ins in insumos %}
+          <option value="{{ ins.id }}">{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td>
+      <input type="number" name="quantidade[]" class="form-control form-control-sm text-end" step="0.001" min="0" oninput="recalcularTotal()">
+    </td>
+    <td>
+      <input type="number" name="preco[]" class="form-control form-control-sm text-end" step="0.01" min="0" oninput="recalcularTotal()">
+    </td>
+    <td class="text-end"><span class="item-subtotal form-control form-control-sm bg-light text-end" style="display:block;">0,00</span></td>
+    <td class="text-center">
+      <input type="hidden" name="item_id[]" value="">
+      <input type="hidden" name="item_remover[]" value="0">
+      <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </td>
+  </tr>
+</template>
 
 <template id="previsao-template">
   <tr class="previsao-row">
@@ -349,32 +449,53 @@
 
 {% block scripts %}
 <script>
-document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
-  if (!opt.value) return;
-  var show = opt.dataset.tipoRubrica == "1" && opt.dataset.temPai == "1";
-  opt.style.display = show ? '' : 'none';
-});
-</script>
-<script>
-function recalcularSaldoLancar() {
-  var valor = parseFloat(document.querySelector('[name="valor"]').value) || 0;
-  var totalPrevisto = 0;
-  document.querySelectorAll('#previsoes-container .previsao-row, #previsoes-mobile-container .previsao-mobile-card').forEach(function(row) {
-    if (row.offsetParent !== null) {
-      totalPrevisto += parseFloat(row.querySelector('[name="previsao_previsto[]"]').value) || 0;
-    }
+function recalcularTotal() {
+  var total = 0;
+  document.querySelectorAll('.item-row, .item-mobile-card').forEach(function(row) {
+    if (row.style.display === 'none') return;
+    var qtd = parseFloat(row.querySelector('[name="quantidade[]"]').value) || 0;
+    var preco = parseFloat(row.querySelector('[name="preco[]"]').value) || 0;
+    var sub = qtd * preco;
+    total += sub;
+    row.querySelector('.item-subtotal').textContent = sub.toFixed(2).replace('.', ',');
+    row.querySelector('.item-subtotal').parentElement.style.display = '';
   });
-  var saldo = valor - totalPrevisto;
-  var input = document.getElementById('lancar-valor');
-  input.dataset.maxSaldo = saldo.toFixed(2);
-  input.value = saldo.toFixed(2);
-  atualizarBotaoGerar();
+  document.getElementById('total-display').value = total.toFixed(2).replace('.', ',');
+  recalcularSaldoLancar();
 }
-function atualizarBotaoGerar() {
-  var val = parseFloat(document.getElementById('lancar-valor').value) || 0;
-  var maxSaldo = parseFloat(document.getElementById('lancar-valor').dataset.maxSaldo) || 0;
-  document.getElementById('btn-gerar-parcelas').disabled = val <= 0 || val > maxSaldo;
+
+function addItemMobile() {
+  var container = document.getElementById('itens-mobile-container');
+  var firstCard = container.querySelector('.item-mobile-card');
+  var div = document.createElement('div');
+  div.className = 'px-3 py-2 border-bottom item-mobile-card';
+  if (firstCard) {
+    div.innerHTML = firstCard.innerHTML;
+    div.querySelectorAll('input').forEach(function(inp) { inp.value = ''; });
+    div.querySelectorAll('select').forEach(function(sel) { sel.selectedIndex = 0; });
+    div.querySelector('.item-subtotal').textContent = '0,00';
+  } else {
+    div.innerHTML = '<select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="recalcularTotal()"><option value="">Selecione...</option>{% for ins in insumos %}<option value="{{ ins.id }}">{{ ins.nome }} ({{ ins.unidade_medida }})</option>{% endfor %}</select><div class="row g-1 align-items-center"><div class="col-4"><span class="card-label">Qtd</span><input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="recalcularTotal()"></div><div class="col-4"><span class="card-label">Preço</span><input type="number" name="preco[]" class="form-control form-control-sm" step="0.01" min="0" oninput="recalcularTotal()"></div><div class="col-4"><span class="card-label">Valor</span><br><span class="item-subtotal fw-bold">0,00</span></div></div><input type="hidden" name="item_id[]" value=""><input type="hidden" name="item_remover[]" value="0"><button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>';
+  }
+  container.appendChild(div);
+  recalcularTotal();
 }
+
+function addItem() {
+  var container = document.getElementById('itens-container');
+  var template = document.getElementById('item-template');
+  var clone = template.content.cloneNode(true);
+  container.appendChild(clone);
+  recalcularTotal();
+}
+
+function removerItem(btn) {
+  var row = btn.closest('.item-row, .item-mobile-card');
+  row.querySelector('[name="item_remover[]"]').value = "1";
+  row.style.display = 'none';
+  recalcularTotal();
+}
+
 function addRow() {
   var container = document.getElementById('previsoes-container');
   var template = document.getElementById('previsao-template');
@@ -401,6 +522,7 @@ function addRow() {
   container.appendChild(clone);
   recalcularSaldoLancar();
 }
+
 function addRowMobile() {
   var container = document.getElementById('previsoes-mobile-container');
   var template = document.getElementById('previsao-mobile-template');
@@ -427,6 +549,7 @@ function addRowMobile() {
   container.appendChild(clone);
   recalcularSaldoLancar();
 }
+
 var removeParcelaBtn = null;
 var removeParcelaModal = null;
 
@@ -455,6 +578,7 @@ document.getElementById('btn-confirm-remove-parcela').addEventListener('click', 
   recalcularSaldoLancar();
   removeParcelaBtn = null;
 });
+
 function calcSaldo(el) {
   var row = el.closest('.previsao-row, .previsao-mobile-card');
   var inputs = row.querySelectorAll('.previsao-valor');
@@ -463,7 +587,32 @@ function calcSaldo(el) {
   var vari = parseFloat(inputs[2].value) || 0;
   var saldo = prev + vari - real;
   row.querySelector('.previsao-saldo').textContent = saldo.toFixed(2).replace('.', ',');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  recalcularTotal();
   recalcularSaldoLancar();
+});
+
+function recalcularSaldoLancar() {
+  var valText = document.getElementById('total-display').value.replace(/\./g, '').replace(',', '.');
+  var valor = parseFloat(valText) || 0;
+  var totalPrevisto = 0;
+  document.querySelectorAll('#previsoes-container .previsao-row, #previsoes-mobile-container .previsao-mobile-card').forEach(function(row) {
+    if (row.offsetParent !== null) {
+      totalPrevisto += parseFloat(row.querySelector('[name="previsao_previsto[]"]').value) || 0;
+    }
+  });
+  var saldo = valor - totalPrevisto;
+  var input = document.getElementById('lancar-valor');
+  input.dataset.maxSaldo = saldo.toFixed(2);
+  input.value = saldo.toFixed(2);
+  atualizarBotaoGerar();
+}
+function atualizarBotaoGerar() {
+  var val = parseFloat(document.getElementById('lancar-valor').value) || 0;
+  var maxSaldo = parseFloat(document.getElementById('lancar-valor').dataset.maxSaldo) || 0;
+  document.getElementById('btn-gerar-parcelas').disabled = val <= 0 || val > maxSaldo;
 }
 function gerarParcelas() {
   var num = parseInt(document.getElementById('lancar-parcelas').value) || 3;
@@ -518,6 +667,13 @@ function gerarParcelas() {
   recalcularSaldoLancar();
 }
 document.getElementById('lancar-valor').addEventListener('input', atualizarBotaoGerar);
-recalcularSaldoLancar();
+
+document.getElementById('main-form').addEventListener('submit', function() {
+  if (window.innerWidth < 768) {
+    document.querySelectorAll('#itens-container input, #itens-container select, #previsoes-container input, #previsoes-container select').forEach(function(el) { el.disabled = true; });
+  } else {
+    document.querySelectorAll('#itens-mobile-container input, #itens-mobile-container select, #previsoes-mobile-container input, #previsoes-mobile-container select').forEach(function(el) { el.disabled = true; });
+  }
+});
 </script>
 {% endblock %}

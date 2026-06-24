@@ -1,31 +1,18 @@
 {% extends "base.html" %}
-{% block cadastro_filter %}
-<div class="toolbar-filter-item">
-  <select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="if(this.value) window.location=this.value;">
+{% block content %}
+
+{% from "components/barra_filtro.html" import barra_filtro %}
+{% set _actions %}
+<a href="{{ url_for('rubricas.new') }}" class="btn btn-success">+ Nova</a>
+<a href="{{ url_for('rubricas.plano') }}" class="btn btn-outline-info">Plano</a>
+{% endset %}
+{% call barra_filtro("Rubricas", _actions) %}
+  <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value;">
     <option value="?status=todos" {% if status == 'todos' %}selected{% endif %}>Todas</option>
     <option value="?status=ativos" {% if status == 'ativos' %}selected{% endif %}>Ativas</option>
     <option value="?status=inativos" {% if status == 'inativos' %}selected{% endif %}>Inativas</option>
   </select>
-</div>
-{% endblock %}
-{% block cadastro_actions %}
-<a href="{{ url_for('rubricas.new') }}" class="btn btn-sm btn-success">+ Nova</a>
-<a href="{{ url_for('rubricas.plano') }}" class="btn btn-sm btn-outline-info">Plano</a>
-{% endblock %}
-{% block content %}
-
-<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
-  <div class="d-flex align-items-center gap-2">
-    <h2 class="mb-0">Rubricas</h2>
-    <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value;">
-      <option value="?status=todos" {% if status == 'todos' %}selected{% endif %}>Todas</option>
-      <option value="?status=ativos" {% if status == 'ativos' %}selected{% endif %}>Ativas</option>
-      <option value="?status=inativos" {% if status == 'inativos' %}selected{% endif %}>Inativas</option>
-    </select>
-  </div>
-  <a href="{{ url_for('rubricas.new') }}" class="btn btn-success">+ Nova</a>
-  <a href="{{ url_for('rubricas.plano') }}" class="btn btn-outline-info">Plano</a>
-</div>
+{% endcall %}
 
 <div class="table-responsive table-scroll">
   <table class="table table-hover sortable">
@@ -87,7 +74,7 @@
             {% endif %}
           </div>
           <a href="{{ url_for('rubricas.edit', id=item.rubrica.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
           </a>
         </div>
         <h6 class="mb-1">{{ item.rubrica.nome }}</h6>

@@ -1,15 +1,13 @@
 {% extends "base.html" %}
 {% from "components/form_nav.html" import form_nav %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
 {% if recurso %}
 {% call form_nav(back_url=url_for('recursos.list'), nome='Recurso ' ~ recurso.id|fmtid, nav=nav, edit_endpoint='recursos.edit', entity_id=recurso.id) %}{% endcall %}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">Novo Recurso</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{{ url_for('recursos.list') }}" class="btn btn-outline-secondary btn-sm ms-2">Cancelar</a>
 </div>
 {% endif %}
 
@@ -37,6 +35,8 @@
       <input type="date" name="data" class="form-control" value="{{ recurso.data if recurso else hoje }}">
     </div>
   </div>
+  <div class="form-bottom-spacer"></div>
 </form>
-
+{% call barra_edicao(back_url=url_for('recursos.list')) %}
+{% endcall %}
 {% endblock %}

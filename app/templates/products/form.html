@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "components/form_nav.html" import form_nav %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
 {% if product %}
@@ -13,11 +14,8 @@
   {{ product_actions }}
 {% endcall %}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">Produto</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
-  <a href="{{ url_for('products.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
 </div>
 {% endif %}
 
@@ -115,9 +113,9 @@
                 </select>
               </div>
               <div class="col-12 col-lg-1 d-none d-lg-block">
-                <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+                <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
               </div>
-              <button type="button" class="btn btn-danger btn-sm btn-remove-card d-lg-none" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+              <button type="button" class="btn btn-danger btn-sm btn-remove-card d-lg-none" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
             </div>
           {% endfor %}
         {% else %}
@@ -165,16 +163,13 @@
         </div>
       </div>
     </div>
-  {% if product %}<div class="form-bottom-spacer"></div>{% endif %}
+  <div class="form-bottom-spacer"></div>
 </form>
-{% if product %}
-<div class="form-bottom-bar">
-  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{{ url_for('products.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
-</div>
-{% endif %}
+{% call barra_edicao(back_url=url_for('products.list')) %}
+  {% if product %}
+  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+  {% endif %}
+{% endcall %}
 
 {% if product %}
 <div class="modal fade" id="modalExcluir" tabindex="-1">
@@ -279,7 +274,7 @@ function addInsumo() {
       </select>
     </div>
     <div class="col-12 col-lg-1">
-      <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </div>
   `;
   container.insertBefore(row, document.getElementById('add-insumo-row'));
@@ -305,7 +300,7 @@ function confirmarExclusao(btn) {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
         footer.innerHTML =
           '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
       }
       modal.show();
     });

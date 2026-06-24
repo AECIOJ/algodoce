@@ -1,11 +1,9 @@
 {% extends "base.html" %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">{% if previsao %}Previsão {{ previsao.id|fmtid }}{% else %}Nova Previsão{% endif %}</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
-  <a href="{{ url_for('previsoes.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
 </div>
 
 <form method="POST" id="main-form">
@@ -75,8 +73,10 @@
       <input type="text" name="historico" class="form-control" value="{{ previsao.historico if previsao else '' }}">
     </div>
   </div>
+  <div class="form-bottom-spacer"></div>
 </form>
-
+{% call barra_edicao(back_url=url_for('previsoes.list')) %}
+{% endcall %}
 {% endblock %}
 
 {% block scripts %}

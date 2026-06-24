@@ -1,25 +1,22 @@
 {% extends "base.html" %}
-{% block cadastro_actions %}
-<a href="{{ url_for('contas.new') }}" class="btn btn-sm btn-success">+ Nova</a>
-{% endblock %}
 {% block content %}
 
-<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
-  <div class="d-flex align-items-center gap-2">
-    <h2 class="mb-0">Contas</h2>
-    <select id="filter-tipo" class="form-select form-select-sm" style="width:auto;" onchange="aplicarFiltro()">
-      <option value="todos" {{ 'selected' if filtro_tipo == 'todos' }}>Todos</option>
-      <option value="clientes" {{ 'selected' if filtro_tipo == 'clientes' }}>Clientes</option>
-      <option value="fornecedores" {{ 'selected' if filtro_tipo == 'fornecedores' }}>Fornecedores</option>
-    </select>
-    <select id="filter-ativo" class="form-select form-select-sm" style="width:auto;" onchange="aplicarFiltro()">
-      <option value="todos">Ativos/Inativos</option>
-      <option value="ativos" selected>Ativos</option>
-      <option value="inativos">Inativos</option>
-    </select>
-  </div>
-  <a href="{{ url_for('contas.new') }}" class="btn btn-success btn-sm text-nowrap">+ Nova</a>
-</div>
+{% from "components/barra_filtro.html" import barra_filtro %}
+{% set _actions %}
+<a href="{{ url_for('contas.new') }}" class="btn btn-success btn-sm text-nowrap">+ Nova</a>
+{% endset %}
+{% call barra_filtro("Contas", _actions) %}
+  <select id="filter-tipo" class="form-select form-select-sm" style="width:auto;" onchange="aplicarFiltro()">
+    <option value="todos" {{ 'selected' if filtro_tipo == 'todos' }}>Todos</option>
+    <option value="clientes" {{ 'selected' if filtro_tipo == 'clientes' }}>Clientes</option>
+    <option value="fornecedores" {{ 'selected' if filtro_tipo == 'fornecedores' }}>Fornecedores</option>
+  </select>
+  <select id="filter-ativo" class="form-select form-select-sm" style="width:auto;" onchange="aplicarFiltro()">
+    <option value="todos">Ativos/Inativos</option>
+    <option value="ativos" selected>Ativos</option>
+    <option value="inativos">Inativos</option>
+  </select>
+{% endcall %}
 
 <div class="table-responsive table-scroll">
   <table class="table table-hover table-sm sortable">
@@ -89,7 +86,7 @@
             {% endif %}
           </div>
           <a href="{{ url_for('contas.edit', id=c.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
           </a>
         </div>
         <h6 class="mb-1">{{ c.nome }}</h6>

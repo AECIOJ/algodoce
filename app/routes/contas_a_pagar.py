@@ -8,9 +8,10 @@ from app.models.transacao import Transacao
 from app.models.client import Conta
 from app.models.rubrica import Rubrica
 from app.models.movto import Movto
-from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS
+from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO
+from app.utils import LinhaTransacao
 
-TIPO = "P"
+TIPO = ("P", "C")
 
 bp = Blueprint("contas_a_pagar", __name__, url_prefix="/contas-a-pagar")
 
@@ -57,10 +58,24 @@ def list():
     hoje = date.today()
     filtro_status = request.args.get("status", "todos")
     filtro_venc = request.args.get("vencimento", "todos")
-    query = Previsao.query.join(Transacao).filter(Transacao.tipo == TIPO)
+    transacoes = Transacao.query.options(
+        joinedload(Transacao.previsoes)
+    ).filter(
+        Transacao.tipo.in_(TIPO)
+    ).order_by(Transacao.data, Transacao.id).all()
 
+    linhas = []
+    for t in transacoes:
+        if t.previsoes:
+            for p in t.previsoes:
+                linhas.append(LinhaTransacao(t, p))
+        else:
+            linhas.append(LinhaTransacao(t))
+
+    if filtro_status != "todos":
+        linhas = [l for l in linhas if l.status == int(filtro_status)]
     if filtro_venc == "em_atraso":
-        query = query.filter(Previsao.vencimento < hoje)
+        linhas = [l for l in linhas if l.vencimento < hoje and l.status not in (0, 8, 9)]
     elif filtro_venc == "hoje":
         w = hoje.weekday()
         if w == 5:
@@ -71,22 +86,16 @@ def list():
             dias = [hoje, hoje - timedelta(days=1), hoje - timedelta(days=2)]
         else:
             dias = [hoje]
-        query = query.filter(Previsao.vencimento.in_(dias))
+        linhas = [l for l in linhas if l.vencimento in dias and l.status not in (0, 8, 9)]
     elif filtro_venc == "a_vencer":
-        query = query.filter(Previsao.vencimento > hoje)
+        linhas = [l for l in linhas if l.vencimento > hoje and l.status not in (0, 8, 9)]
 
-    previsoes = query.order_by(Previsao.vencimento, Previsao.id).all()
-
-    if filtro_status != "todos":
-        previsoes = [p for p in previsoes if p.status == int(filtro_status)]
-    if filtro_venc in ("em_atraso", "hoje", "a_vencer"):
-        previsoes = [p for p in previsoes if p.status not in (0, 8, 9)]
-    total_saldo = sum(p.saldo for p in previsoes)
+    total_saldo = sum(l.saldo for l in linhas)
     return render_template(
-        "contas_a_pagar/list.html", previsoes=previsoes, total_saldo=total_saldo,
+        "contas_a_pagar/list.html", previsoes=linhas, total_saldo=total_saldo,
         filtro_status=filtro_status, filtro_venc=filtro_venc, hoje=hoje,
         TIPO_PREVISAO=TIPO_PREVISAO, TIPO_RUBRICA=TIPO_RUBRICA,
-        PREVISAO_STATUS=PREVISAO_STATUS,
+        PREVISAO_STATUS=PREVISAO_STATUS, TIPO_TRANSACAO=TIPO_TRANSACAO,
     )
 
 
@@ -104,13 +113,21 @@ def detail(id):
 
 @bp.route("/novo", methods=["GET", "POST"])
 def new():
+    if request.method == "GET":
+        contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+        rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+        return render_template(
+            "contas_a_pagar/form.html",
+            contas=contas, rubricas=rubricas, hoje=date.today(),
+            submitted_data=None, submitted_previsoes=None,
+        )
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
 
         cancelado = request.form.get("cancelado") or None
         transacao = Transacao(
             data=request.form.get("data") or date.today(),
-            tipo=TIPO,
+            tipo='P',
             conta_id=request.form.get("conta_id", type=int) or None,
             rubrica_id=request.form.get("rubrica_id", type=int) or None,
             fatura=request.form.get("fatura") or None,
@@ -168,7 +185,7 @@ def edit(id):
         flash("Código inexistente", "warning")
         return redirect(url_for("contas_a_pagar.list"))
 
-    query = Transacao.query.with_entities(Transacao.id).filter(Transacao.tipo == TIPO).order_by(Transacao.id)
+    query = Transacao.query.with_entities(Transacao.id).filter(Transacao.tipo.in_(TIPO)).order_by(Transacao.id)
     ids = [t.id for t in query.all()]
     try:
         current_idx = ids.index(id)
@@ -181,17 +198,20 @@ def edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
+    locked = bool(transacao.compra_id)
+
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
 
-        cancelado = request.form.get("cancelado") or None
-        transacao.data = request.form.get("data") or date.today()
-        transacao.conta_id = request.form.get("conta_id", type=int) or None
-        transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
-        transacao.fatura = request.form.get("fatura") or None
-        transacao.valor = float(request.form.get("valor", 0))
-        transacao.cancelado = cancelado
-        transacao.historico = request.form.get("historico") or None
+        if not locked:
+            cancelado = request.form.get("cancelado") or None
+            transacao.data = request.form.get("data") or date.today()
+            transacao.conta_id = request.form.get("conta_id", type=int) or None
+            transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
+            transacao.fatura = request.form.get("fatura") or None
+            transacao.valor = float(request.form.get("valor", 0))
+            transacao.cancelado = cancelado
+            transacao.historico = request.form.get("historico") or None
 
         existing = {p.id for p in transacao.previsoes}
         submitted = set()
@@ -257,5 +277,5 @@ def edit(id):
         contas=contas, rubricas=rubricas,
         PREVISAO_STATUS=PREVISAO_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
-        movimentos=movimentos, tipo_nome="Pagamento",
+        movimentos=movimentos, tipo_nome="Pagamento", locked=locked,
     )

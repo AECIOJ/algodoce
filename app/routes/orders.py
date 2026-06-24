@@ -14,6 +14,8 @@ from app.models.quote_item import QuoteItem
 from app.models.event import Event
 from app.models.quote import Quote
 from app.pdf import gerar_pdf_pedido, gerar_pdf_orcamento
+from app.models.transacao import Transacao
+from app.models.previsao import Previsao
 from app.constants import ORDER_STATUS, QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMA_PAGAMENTO, FORMINHAS
 
 
@@ -233,6 +235,16 @@ def converter_orcamento(id):
     quote.status = 9
     quote.pedido_id = order.id
     order.quote_id = quote.id
+
+    transacao = Transacao(
+        data=order.data_pedido.date(),
+        tipo='V', conta_id=order.client_id,
+        valor=order.total or 0,
+        historico=order.observacao,
+        pedido_id=order.id,
+    )
+    db.session.add(transacao)
+
     db.session.commit()
     flash("Orçamento convertido para pedido!", "success")
     return redirect(url_for("orders.orcamentos"))
@@ -246,8 +258,8 @@ def quote_edit(id):
         return redirect(url_for("orders.orcamentos"))
 
     if request.method == "POST":
-        if quote.pedido_id or quote.status >= 7:
-            flash("Orçamento não pode ser alterado — já está finalizado.", "warning")
+        if quote.pedido_id:
+            flash("Orçamento não pode ser alterado — já foi convertido em pedido.", "warning")
             return redirect(url_for("orders.quote_edit", id=id))
 
         quote.cliente_nome = request.form["cliente_nome"]
@@ -305,7 +317,7 @@ def quote_edit(id):
         tipos_evento=tipos_evento, clients=clients,
         QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
         FORMINHAS=FORMINHAS,
-        ro=bool(quote.pedido_id or quote.status >= 7)
+        ro=bool(quote.pedido_id)
     )
 
 
@@ -454,6 +466,25 @@ def new():
         total = _replace_order_items(order, request.form)
         order.total = total
 
+        transacao = Transacao(
+            data=data_pedido.date(),
+            tipo='V',
+            conta_id=client_id,
+            valor=total,
+            historico=observacao,
+            pedido_id=order.id,
+        )
+        db.session.add(transacao)
+        db.session.flush()
+
+        if total:
+            previsao = Previsao(
+                transacao_id=transacao.id,
+                vencimento=data_entrega.date() if data_entrega else data_pedido.date(),
+                previsto=total,
+            )
+            db.session.add(previsao)
+
         db.session.commit()
         flash("Pedido criado!", "success")
         return redirect(url_for("orders.list"))
@@ -496,6 +527,8 @@ def edit(id):
         else:
             order.data_entrega = None
             order.status = int(request.form.get("status", order.status))
+            if order.status == 0:
+                order.status = 1
         data_previsao_entrega_str = request.form.get("data_previsao_entrega")
         order.data_previsao_entrega = (
             datetime.strptime(data_previsao_entrega_str, "%Y-%m-%dT%H:%M")
@@ -508,6 +541,18 @@ def edit(id):
 
         total = _replace_order_items(order, request.form)
         order.total = total
+
+        if order.transacao:
+            order.transacao.valor = total
+        else:
+            transacao = Transacao(
+                data=order.data_pedido.date(),
+                tipo='V', conta_id=order.client_id,
+                valor=total, historico=order.observacao,
+                pedido_id=order.id,
+            )
+            db.session.add(transacao)
+
         db.session.flush()
 
         # Backfill quote_id if linked via pedido_id
@@ -564,7 +609,7 @@ def status(id):
     if novo_status == "9" and not order.data_entrega:
         flash("Status Entregue só pode ser definido preenchendo a data de entrega.", "warning")
         return redirect(url_for("orders.edit", id=id))
-    if novo_status in ("0", "1", "2", "9"):
+    if novo_status in ("0", "1", "2", "8", "9"):
         order.status = int(novo_status)
         db.session.commit()
         flash("Status atualizado!", "success")
@@ -578,6 +623,8 @@ def cancel(id):
         flash("Pedido entregue não pode ser cancelado.", "warning")
         return redirect(url_for("orders.edit", id=id))
     order.status = 3
+    if order.transacao:
+        order.transacao.cancelado = date.today()
     db.session.commit()
     flash("Pedido cancelado!", "success")
     return redirect(url_for("orders.edit", id=id))

@@ -2,7 +2,7 @@ TIPO_CONTA = {0: "Cliente", 1: "Cliente/Fornecedor", 2: "Fornecedor"}
 
 TIPO_INGREDIENTE = {0: "Ingrediente", 1: "Forminha", 2: "Embalagem"}
 
-ORDER_STATUS = {0: "Pendente", 1: "Produzindo", 2: "Pronto", 3: "Cancelado", 9: "Entregue"}
+ORDER_STATUS = {0: "Pendente", 1: "Produzindo", 2: "Pronto", 3: "Cancelado", 8: "Faturado", 9: "Entregue"}
 
 QUOTE_STATUS = {0: "Pendente", 1: "Negociação", 6: "Renovado",
                 7: "Expirado", 8: "Reprovado", 9: "Aprovado"}
@@ -22,6 +22,8 @@ FORMINHAS = {0: "Simples", 1: "Fornecidas pelo Cliente"}
 TIPO_RUBRICA = {1: "Receitas", 2: "Despesas"}
 
 TIPO_PREVISAO = {"P": "Pagar", "R": "Receber"}
+TIPO_TRANSACAO = {"P": "Contas a Pagar", "R": "Contas a Receber",
+                  "C": "Compras", "V": "Vendas"}
 
 PREVISAO_STATUS = {0: "Editando", 1: "Pendente", 2: "Parcial", 8: "Cancelado", 9: "Quitado"}
 

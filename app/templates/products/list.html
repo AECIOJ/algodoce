@@ -1,41 +1,23 @@
 {% extends "base.html" %}
-{% block cadastro_filter %}
-<div class="toolbar-filter-item gap-1 align-items-center">
-  <select id="filter-categoria-mobile" class="form-select form-select-sm" style="width:auto;flex:1;min-width:100px;">
+{% block content %}
+
+{% from "components/barra_filtro.html" import barra_filtro %}
+{% set _actions %}
+<a href="{{ url_for('products.new') }}" class="btn btn-success">+ Novo</a>
+{% endset %}
+{% call barra_filtro("Produtos", _actions) %}
+  <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
     <option value="">Todas as categorias</option>
     {% for cat in categories %}
       <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
     {% endfor %}
   </select>
-  <select id="filter-ativo-mobile" class="form-select form-select-sm" style="width:auto;">
+  <select id="filter-ativo" class="form-select form-select-sm" style="width:auto;">
     <option value="todos" selected>Tudo</option>
     <option value="ativos">Ativos</option>
     <option value="inativos">Inativos</option>
   </select>
-</div>
-{% endblock %}
-{% block cadastro_actions %}
-<a href="{{ url_for('products.new') }}" class="btn btn-sm btn-success">+ Novo</a>
-{% endblock %}
-{% block content %}
-
-<div class="d-none d-lg-flex justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
-  <div class="d-flex align-items-center gap-2">
-    <h2 class="mb-0">Produtos</h2>
-    <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
-      <option value="">Todas as categorias</option>
-      {% for cat in categories %}
-        <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
-      {% endfor %}
-    </select>
-    <select id="filter-ativo" class="form-select form-select-sm" style="width:auto;">
-      <option value="todos" selected>Tudo</option>
-      <option value="ativos">Ativos</option>
-      <option value="inativos">Inativos</option>
-    </select>
-  </div>
-  <a href="{{ url_for('products.new') }}" class="btn btn-success">+ Novo</a>
-</div>
+{% endcall %}
 
 <div class="table-responsive table-scroll">
   <table class="table table-hover sortable">
@@ -113,7 +95,7 @@
             {% endif %}
           </div>
           <a href="{{ url_for('products.edit', id=p.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
           </a>
         </div>
         <div class="d-flex gap-2">

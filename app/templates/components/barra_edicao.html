@@ -1,0 +1,49 @@
+{% macro barra_edicao(back_url) %}
+<div class="form-bottom-bar barra-edicao">
+  {{ caller() }}
+  <div class="flex-grow-1"></div>
+  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
+  <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="confirmSair('{{ back_url|e }}')">Sair</button>
+</div>
+
+<div class="modal fade" id="sairModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <p class="mb-3 fw-bold">Descartar alterações?</p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <a href="#" class="btn btn-danger btn-sm" id="sairConfirmBtn">Sair</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+if (typeof window._formModified === 'undefined') {
+  window._formModified = false;
+  window._formModListenersAttached = false;
+}
+if (!window._formModListenersAttached) {
+  document.addEventListener('DOMContentLoaded', function() {
+    var f = document.getElementById('main-form');
+    if (f) {
+      f.addEventListener('input', function() { window._formModified = true; });
+      f.addEventListener('change', function() { window._formModified = true; });
+    }
+  });
+  window._formModListenersAttached = true;
+}
+var sairModalInstance = null;
+function confirmSair(url) {
+  if (window._formModified || window.modified) {
+    document.getElementById('sairConfirmBtn').href = url;
+    if (!sairModalInstance) sairModalInstance = new bootstrap.Modal(document.getElementById('sairModal'));
+    sairModalInstance.show();
+  } else {
+    window.location = url;
+  }
+}
+</script>
+{% endmacro %}

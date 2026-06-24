@@ -1,31 +1,19 @@
 {% extends "base.html" %}
-{% block financeiro_filter %}
-<div class="toolbar-filter-item">
-  <select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="filtrar('recurso', this.value)">
-    <option value="todos" {% if filtro_recurso == 'todos' %}selected{% endif %}>Todos</option>
-    {% for r in recursos %}
-      <option value="{{ r.id }}" {% if filtro_recurso == r.id|string %}selected{% endif %}>{{ r.nome }}</option>
-    {% endfor %}
-  </select>
-</div>
-{% endblock %}
-{% block financeiro_actions %}
-<a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_new') }}{% else %}{{ url_for('movimentos.pagamentos_new') }}{% endif %}" class="btn btn-sm btn-success">+ Novo</a>
-{% endblock %}
+{% from "components/barra_report.html" import barra_report %}
+{% from "components/barra_filtro.html" import barra_filtro %}
 {% block content %}
 
-<div class="d-flex flex-wrap justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
-  <h2 class="mb-0">{{ tipo_nome_plural }}</h2>
+{% set _actions %}
+<a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_new') }}{% else %}{{ url_for('movimentos.pagamentos_new') }}{% endif %}" class="btn btn-success">+ Novo</a>
+{% endset %}
+{% call barra_filtro(tipo_nome_plural, _actions) %}
   <select class="form-select" style="width:auto;" onchange="filtrar('recurso', this.value)">
     <option value="todos" {% if filtro_recurso == 'todos' %}selected{% endif %}>Todos</option>
     {% for r in recursos %}
       <option value="{{ r.id }}" {% if filtro_recurso == r.id|string %}selected{% endif %}>{{ r.nome }}</option>
     {% endfor %}
   </select>
-  <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_new') }}{% else %}{{ url_for('movimentos.pagamentos_new') }}{% endif %}" class="btn btn-success btn-sm d-lg-none">+ Novo</a>
-  <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_new') }}{% else %}{{ url_for('movimentos.pagamentos_new') }}{% endif %}" class="btn btn-success d-none d-lg-inline-block">+ Novo</a>
-</div>
-
+{% endcall %}
 <div class="table-responsive table-scroll d-none d-lg-block">
   <table class="table table-hover sortable">
     <thead>
@@ -49,7 +37,7 @@
           <td>{{ m.data|fmtdate }}</td>
           <td>{{ m.recurso.nome if m.recurso else '' }}</td>
           <td>{{ m.conta.nome if m.conta else '' }}</td>
-          <td>{% if m.previsao %}#{{ m.previsao_id|fmtid }}{% endif %}</td>
+          <td>{% if m.previsao %}<a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=m.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ m.previsao_id|fmtid }}</a>{% endif %}</td>
           <td>{{ m.documento or '' }}</td>
           <td{% if tipo == 'E' %} class="text-success fw-bold text-end"{% else %} class="text-danger fw-bold text-end"{% endif %}>{{ m.valor|brl }}</td>
           <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
@@ -75,7 +63,7 @@
           <span class="fw-bold">#{{ m.id|fmtid }}</span>
           <div>
             <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_edit', id=m.id) }}{% else %}{{ url_for('movimentos.pagamentos_edit', id=m.id) }}{% endif %}" style="text-decoration:none;">
-              <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+              <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
             </a>
           </div>
         </div>
@@ -86,7 +74,7 @@
         <span class="card-value ms-1{% if tipo == 'E' %} text-success fw-bold{% else %} text-danger fw-bold{% endif %}">{{ m.valor|brl }}</span>
         <br>
         {% if m.conta %}<span class="card-label">Conta:</span><span class="card-value ms-1">{{ m.conta.nome }}</span><br>{% endif %}
-        {% if m.previsao %}<span class="card-label">Prev:</span><span class="card-value ms-1">#{{ m.previsao_id|fmtid }}</span><br>{% endif %}
+        {% if m.previsao %}<span class="card-label">Prev:</span><span class="card-value ms-1"><a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=m.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ m.previsao_id|fmtid }}</a></span><br>{% endif %}
         {% if m.documento %}<span class="card-label">Doc:</span><span class="card-value ms-1">{{ m.documento }}</span><br>{% endif %}
         {% if m.rubrica %}<span class="card-label">Rubrica:</span><span class="card-value ms-1">{{ m.rubrica.nome }}</span><br>{% endif %}
         <span class="card-label">Obs:</span><span class="card-value ms-1">{{ m.historico_display }}</span>
@@ -97,6 +85,9 @@
   {% endfor %}
 </div>
 
+{% call barra_report() %}
+  <strong>Total:</strong> {{ total_valor|brl if total_valor is defined else '' }}
+{% endcall %}
 {% endblock %}
 
 {% block scripts %}

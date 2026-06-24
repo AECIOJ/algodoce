@@ -1,31 +1,18 @@
 {% extends "base.html" %}
-{% block financeiro_filter %}
-<div class="toolbar-filter-item">
-  <select class="form-select border-0 fw-bold" style="width:auto;color:#6c757d;font-size:0.875rem;" onchange="filtrar('tipo', this.value)">
-    <option value="todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
-    {% for k, v in TIPO_RECURSO.items() %}
-      <option value="{{ k }}" {% if filtro_tipo == k|string %}selected{% endif %}>{{ v }}</option>
-    {% endfor %}
-  </select>
-</div>
-{% endblock %}
-{% block financeiro_actions %}
-<a href="{{ url_for('recursos.create') }}" class="btn btn-sm btn-success">+ Novo</a>
-{% endblock %}
 {% block content %}
 
-<div class="d-flex flex-wrap justify-content-center align-items-center mb-3 gap-2 desktop-title-row">
-  <h2 class="mb-0">Recursos</h2>
+{% from "components/barra_filtro.html" import barra_filtro %}
+{% set _actions %}
+<a href="{{ url_for('recursos.create') }}" class="btn btn-success">+ Novo</a>
+{% endset %}
+{% call barra_filtro("Recursos", _actions) %}
   <select class="form-select" style="width:auto;" onchange="filtrar('tipo', this.value)">
     <option value="todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
     {% for k, v in TIPO_RECURSO.items() %}
       <option value="{{ k }}" {% if filtro_tipo == k|string %}selected{% endif %}>{{ v }}</option>
     {% endfor %}
   </select>
-  <a href="{{ url_for('recursos.create') }}" class="btn btn-success btn-sm d-lg-none">+ Novo</a>
-  <a href="{{ url_for('recursos.create') }}" class="btn btn-success d-none d-lg-inline-block">+ Novo</a>
-</div>
-
+{% endcall %}
 <div class="table-responsive table-scroll d-none d-lg-block">
   <table class="table table-hover sortable">
     <thead>
@@ -66,7 +53,7 @@
         <div class="d-flex justify-content-between align-items-start mb-1">
           <span class="fw-bold">{{ r.nome }}</span>
           <a href="{{ url_for('recursos.edit', id=r.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icones/notebook-pen.png') }}" alt="Editar" height="18">
+            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
           </a>
         </div>
         <span class="card-label">#{{ r.id|fmtid }}</span>

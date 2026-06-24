@@ -4,11 +4,11 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Pedido #{{ order.id|fmtid }}</h2>
   <a href="{{ url_for('orders.list') }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='icones/undo.png') }}" alt="Voltar" height="20">
+    <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
   </a>
 </div>
 
-{% set s = url_for('static', filename='icones/') %}
+{% set s = url_for('static', filename='icons/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
     <a href="{{ url_for('orders.detail', id=nav.first_id, pendentes=1 if pendentes else 0) }}" class="btn btn-outline-secondary" title="Primeiro">
@@ -65,7 +65,7 @@
         <p class="mb-1">Pagamento: {{ FORMA_PAGAMENTO[order.forma_pagamento] }}</p>
         <p class="mb-0">
           Status:
-          <span class="badge {{ 'border border-warning text-dark bg-transparent' if order.status == 0 else 'bg-info' if order.status == 1 else 'bg-success' if order.status == 2 else 'bg-secondary' if order.status == 3 else 'bg-dark' }}">
+          <span class="badge {{ 'border border-warning text-dark bg-transparent' if order.status == 0 else 'bg-info' if order.status == 1 else 'bg-success' if order.status == 2 else 'bg-secondary' if order.status == 3 else 'bg-primary' if order.status == 8 else 'bg-dark' }}">
             {{ ORDER_STATUS.get(order.status, order.status) }}
           </span>
         </p>
@@ -157,11 +157,17 @@
   {% endif %}
   {% if order.status == 2 %}
     <form method="POST" action="{{ url_for('orders.status', id=order.id) }}">
+      <input type="hidden" name="status" value="8">
+      <button type="submit" class="btn btn-primary">Faturar</button>
+    </form>
+  {% endif %}
+  {% if order.status == 8 %}
+    <form method="POST" action="{{ url_for('orders.status', id=order.id) }}">
       <input type="hidden" name="status" value="9">
       <button type="submit" class="btn btn-secondary">Entregue</button>
     </form>
   {% endif %}
-  {% if order.status in (0, 1) %}
+  {% if order.status in (0, 1, 2) %}
     <form method="POST" action="{{ url_for('orders.cancel', id=order.id) }}" onsubmit="return confirmFormSubmit(this, 'Cancelar pedido?')">
       <button type="submit" class="btn btn-outline-secondary">Cancelar Pedido</button>
     </form>

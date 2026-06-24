@@ -1,15 +1,13 @@
 {% extends "base.html" %}
 {% from "components/form_nav.html" import form_nav %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
 {% if movto %}
 {% call form_nav(back_url=url_for('movimentos.recebimentos_list' if tipo == 'E' else 'movimentos.pagamentos_list'), nome=tipo_nome ~ ' ' ~ movto.id|fmtid, nav=nav, edit_endpoint='movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', entity_id=movto.id) %}{% endcall %}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">Novo {{ tipo_nome }}</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_list') }}{% else %}{{ url_for('movimentos.pagamentos_list') }}{% endif %}" class="btn btn-outline-secondary btn-sm ms-2">Cancelar</a>
 </div>
 {% endif %}
 
@@ -75,19 +73,17 @@
   <input type="hidden" id="editando" value="{% if movto %}1{% endif %}">
   <input type="hidden" id="variacao-original" value="{{ movto.variacao if movto else 0 }}">
 
-  {% if movto %}<div class="form-bottom-spacer"></div>{% endif %}
+  <div class="form-bottom-spacer"></div>
 </form>
 
-<div class="form-bottom-bar">
+{% set mov_back_url = url_for('movimentos.recebimentos_list' if tipo == 'E' else 'movimentos.pagamentos_list') %}
+{% call barra_edicao(back_url=mov_back_url) %}
   {% if movto %}
   <form method="POST" action="{{ url_for('movimentos.excluir', id=movto.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Excluir {{ tipo_nome }} #{{ movto.id|fmtid }}?')">
-    <button type="submit" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+    <button type="submit" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
   </form>
   {% endif %}
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_list') }}{% else %}{{ url_for('movimentos.pagamentos_list') }}{% endif %}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
-</div>
+{% endcall %}
 
 <div class="modal fade" id="previsaoModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">

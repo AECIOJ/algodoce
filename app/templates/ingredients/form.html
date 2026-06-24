@@ -1,15 +1,13 @@
 {% extends "base.html" %}
 {% from "components/form_nav.html" import form_nav %}
+{% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
 {% if ingredient %}
 {% call form_nav(back_url=url_for('ingredients.list'), nome='Insumo ' ~ ingredient.id|fmtid, nav=nav, edit_endpoint='ingredients.edit', entity_id=ingredient.id) %}{% endcall %}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap" style="position:sticky;top:0;z-index:102;background:#fff;padding:8px 0;border-bottom:1px solid #dee2e6;">
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <span class="fs-5 fw-bold">Insumo</span>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-success">Salvar</button>
-  <a href="{{ url_for('ingredients.list') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
 </div>
 {% endif %}
 
@@ -96,16 +94,13 @@
   </div>
   {% endif %}
 
-  {% if ingredient %}<div class="form-bottom-spacer"></div>{% endif %}
+  <div class="form-bottom-spacer"></div>
 </form>
-{% if ingredient %}
-<div class="form-bottom-bar">
-  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-  <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
-  <a href="{{ url_for('ingredients.list') }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
-</div>
-{% endif %}
+{% call barra_edicao(back_url=url_for('ingredients.list')) %}
+  {% if ingredient %}
+  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+  {% endif %}
+{% endcall %}
 
 {% if ingredient and products_using %}
 <div class="card mt-4">
@@ -224,7 +219,7 @@ function confirmarExclusao(btn) {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
         footer.innerHTML =
           '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icones/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
       }
       modal.show();
     });
