@@ -1,79 +1,66 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% from "components/barra_filtro.html" import barra_filtro %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+
 {% set _actions %}
 <a href="{{ url_for('ingredients.new') }}" class="btn btn-success">+ Novo</a>
 {% endset %}
-{% call barra_filtro("Insumos", _actions) %}
-  <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value();">
-    <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
-    {% for val, label in TIPO_INGREDIENTE.items() %}
-      <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
+
+{% set filter_html %}
+<select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value();">
+  <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
+  {% for val, label in TIPO_INGREDIENTE.items() %}
+    <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
+  {% endfor %}
+</select>
+{% endset %}
+
+{% call panel_list("Insumos", actions=_actions, filters=filter_html, model="Ingredient") %}
+  <thead>
+    <tr>
+      <th>#</th>
+      <th data-field="nome">Nome</th>
+      <th>Tipo</th>
+      <th data-field="unidade_medida">Unidade de Medida</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for i in ingredients %}
+      <tr>
+        <td>{{ i.id|fmtid }}</td>
+        <td>{{ i.nome }}</td>
+        <td>{{ TIPO_INGREDIENTE[i.tipo] }}</td>
+        <td>{{ i.unidade_medida }}</td>
+        <td>{{ action_edit(url_for('ingredients.edit', id=i.id)) }}</td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="5" class="text-center text-muted">Nenhum registro encontrado.</td>
+      </tr>
     {% endfor %}
-  </select>
+  </tbody>
 {% endcall %}
 
-<div class="table-responsive table-scroll">
-  <table class="table table-hover sortable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Nome</th>
-        <th>Tipo</th>
-        <th>Unidade de Medida</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for i in ingredients %}
-        <tr>
-          <td>{{ i.id|fmtid }}</td>
-          <td>{{ i.nome }}</td>
-          <td>{{ TIPO_INGREDIENTE[i.tipo] }}</td>
-          <td>{{ i.unidade_medida }}</td>
-          <td>
-            <a href="{{ url_for('ingredients.edit', id=i.id) }}" class="btn btn-sm btn-primary">Editar</a>
-          </td>
-        </tr>
-      {% else %}
-        <tr>
-          <td colspan="5" class="text-center text-muted">Nenhum insumo cadastrado.</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<!-- Mobile: card list -->
-<div class="d-lg-none">
-  {% for i in ingredients %}
-    <div class="card mb-2 shadow-sm card-list-item">
-      <div class="card-body py-2 px-3">
-        <div class="d-flex justify-content-between align-items-start mb-1">
-          <div>
-            <span class="card-label">#{{ i.id|fmtid }}</span>
-          </div>
-          <a href="{{ url_for('ingredients.edit', id=i.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
-          </a>
-        </div>
-        <h6 class="mb-1">{{ i.nome }}</h6>
-        <div class="row g-0">
-          <div class="col-6">
-            <span class="card-label">Tipo</span><br>
-            <span class="card-value">{{ TIPO_INGREDIENTE[i.tipo] }}</span>
-          </div>
-          <div class="col-6">
-            <span class="card-label">Unidade</span><br>
-            <span class="card-value">{{ i.unidade_medida }}</span>
-          </div>
-        </div>
-      </div>
+{% call(item) card_list(ingredients) %}
+  <div class="d-flex justify-content-between align-items-start mb-1">
+    <div>
+      <span class="card-label">#{{ item.id|fmtid }}</span>
     </div>
-  {% else %}
-    <p class="text-muted text-center">Nenhum insumo cadastrado.</p>
-  {% endfor %}
-</div>
+    {{ action_edit(url_for('ingredients.edit', id=item.id)) }}
+  </div>
+  <h6 class="mb-1">{{ item.nome }}</h6>
+  <div class="row g-0">
+    <div class="col-6">
+      <span class="card-label">Tipo</span><br>
+      <span class="card-value">{{ TIPO_INGREDIENTE[item.tipo] }}</span>
+    </div>
+    <div class="col-6">
+      <span class="card-label">Unidade</span><br>
+      <span class="card-value">{{ item.unidade_medida }}</span>
+    </div>
+  </div>
+{% endcall %}
 
 {% endblock %}

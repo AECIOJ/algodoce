@@ -62,12 +62,13 @@
         <p class="mb-1">Pedido: {{ order.data_pedido.strftime('%d/%m/%Y %H:%M') }}</p>
         <p class="mb-1">Entrega: <strong>{{ order.data_entrega.strftime('%d/%m/%Y') if order.data_entrega else '-' }}</strong></p>
         <p class="mb-1">Forminhas: {{ FORMINHAS[order.forminhas] }}</p>
-        <p class="mb-1">Pagamento: {{ FORMA_PAGAMENTO[order.forma_pagamento] }}</p>
+        <p class="mb-1">Pagamento: {{ order.forma_pagamento_rel.nome if order.forma_pagamento_rel else FORMA_PAGAMENTO.get(order.forma_pagamento, '-') }}</p>
         <p class="mb-0">
           Status:
-          <span class="badge {{ 'border border-warning text-dark bg-transparent' if order.status == 0 else 'bg-info' if order.status == 1 else 'bg-success' if order.status == 2 else 'bg-secondary' if order.status == 3 else 'bg-primary' if order.status == 8 else 'bg-dark' }}">
+          <span class="badge {{ 'border border-warning text-dark bg-transparent' if order.status == 0 else 'bg-info' if order.status == 1 else 'bg-success' if order.status == 2 else 'bg-secondary' if order.status == 8 else 'bg-dark' }}">
             {{ ORDER_STATUS.get(order.status, order.status) }}
           </span>
+          {% if order.transacao_id or order.movto_id %}<span class="badge bg-primary ms-1">Faturado</span>{% endif %}
         </p>
       </div>
     </div>
@@ -157,14 +158,8 @@
   {% endif %}
   {% if order.status == 2 %}
     <form method="POST" action="{{ url_for('orders.status', id=order.id) }}">
-      <input type="hidden" name="status" value="8">
-      <button type="submit" class="btn btn-primary">Faturar</button>
-    </form>
-  {% endif %}
-  {% if order.status == 8 %}
-    <form method="POST" action="{{ url_for('orders.status', id=order.id) }}">
       <input type="hidden" name="status" value="9">
-      <button type="submit" class="btn btn-secondary">Entregue</button>
+      <button type="submit" class="btn btn-dark">Entregue</button>
     </form>
   {% endif %}
   {% if order.status in (0, 1, 2) %}

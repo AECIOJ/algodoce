@@ -16,7 +16,8 @@ from app.models.quote import Quote
 from app.pdf import gerar_pdf_pedido, gerar_pdf_orcamento
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
-from app.constants import ORDER_STATUS, QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMA_PAGAMENTO, FORMINHAS
+from app.models.forma_pagamento import FormaPagamento
+from app.constants import ORDER_STATUS, QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMA_PAGAMENTO, FORMINHAS, PREVISAO_STATUS
 
 
 def _clean(val):
@@ -127,7 +128,17 @@ def dashboard():
 
 @bp.route("/pedidos", endpoint="list")
 def order_list():
-    orders = Order.query.order_by(Order.data_entrega).all()
+    orders = (
+        Order.query
+        .options(
+            db.joinedload(Order.conta),
+            db.joinedload(Order.forma_pagamento_rel),
+            db.joinedload(Order.transacao),
+            db.joinedload(Order.movto),
+        )
+        .order_by(Order.data_entrega)
+        .all()
+    )
     return render_template("orders/list.html", orders=orders, ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS)
 
 
@@ -208,7 +219,7 @@ def converter_orcamento(id):
         client_id=conta.id,
         data_entrega=None,
         observacao=quote.observacao,
-        forma_pagamento=quote.forma_pagamento,
+        forma_pagamento_id=quote.forma_pagamento_id,
         forminhas=quote.forminhas,
         status=0,
     )
@@ -236,15 +247,6 @@ def converter_orcamento(id):
     quote.pedido_id = order.id
     order.quote_id = quote.id
 
-    transacao = Transacao(
-        data=order.data_pedido.date(),
-        tipo='V', conta_id=order.client_id,
-        valor=order.total or 0,
-        historico=order.observacao,
-        pedido_id=order.id,
-    )
-    db.session.add(transacao)
-
     db.session.commit()
     flash("Orçamento convertido para pedido!", "success")
     return redirect(url_for("orders.orcamentos"))
@@ -269,7 +271,7 @@ def quote_edit(id):
             quote.status = 1
         quote.observacao = _clean(request.form.get("observacao"))
         quote.validade = request.form.get("validade", 3, type=int)
-        quote.forma_pagamento = request.form.get("forma_pagamento", 0, type=int)
+        quote.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
         quote.forminhas = request.form.get("forminhas", 0, type=int)
 
         _save_event(quote, request.form)
@@ -312,11 +314,12 @@ def quote_edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
+    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
         "orders/quote_form.html", quote=quote, products=products, nav=nav,
         tipos_evento=tipos_evento, clients=clients,
         QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-        FORMINHAS=FORMINHAS,
+        FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
         ro=bool(quote.pedido_id)
     )
 
@@ -333,7 +336,7 @@ def quote_new():
             data_pedido=datetime.now(timezone.utc),
             status=0,
             validade=request.form.get("validade", 3, type=int),
-            forma_pagamento=request.form.get("forma_pagamento", 0, type=int),
+            forma_pagamento_id=request.form.get("forma_pagamento_id", type=int) or None,
         )
         db.session.add(quote)
         db.session.flush()
@@ -368,11 +371,12 @@ def quote_new():
         "Infantil", "Família", "Confraternização", "Religioso", "Outros"
     ]
     clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
         "orders/quote_form.html", quote=None, products=products,
         tipos_evento=tipos_evento, clients=clients,
         QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-        FORMINHAS=FORMINHAS,
+        FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
     )
 
 
@@ -456,6 +460,7 @@ def new():
             data_entrega=data_entrega,
             observacao=observacao,
             forma_pagamento=request.form.get("forma_pagamento", 0, type=int),
+            forma_pagamento_id=request.form.get("forma_pagamento_id", type=int) or None,
             forminhas=request.form.get("forminhas", 0, type=int),
             status=9 if data_entrega else 0,
         )
@@ -472,10 +477,10 @@ def new():
             conta_id=client_id,
             valor=total,
             historico=observacao,
-            pedido_id=order.id,
         )
         db.session.add(transacao)
         db.session.flush()
+        order.transacao_id = transacao.id
 
         if total:
             previsao = Previsao(
@@ -491,10 +496,11 @@ def new():
 
     clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
+    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
         "orders/form.html", order=None, clients=clients, products=products,
         ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-        FORMINHAS=FORMINHAS,
+        FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
     )
 
 
@@ -536,6 +542,7 @@ def edit(id):
         )
         order.observacao = request.form.get("observacao", "")
         order.forma_pagamento = request.form.get("forma_pagamento", 0, type=int)
+        order.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
         order.forminhas = request.form.get("forminhas", 0, type=int)
         _save_event(order, request.form)
 
@@ -549,9 +556,10 @@ def edit(id):
                 data=order.data_pedido.date(),
                 tipo='V', conta_id=order.client_id,
                 valor=total, historico=order.observacao,
-                pedido_id=order.id,
             )
             db.session.add(transacao)
+            db.session.flush()
+            order.transacao_id = transacao.id
 
         db.session.flush()
 
@@ -591,10 +599,12 @@ def edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
+    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
         "orders/form.html", order=order, clients=clients, products=products, nav=nav,
         ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-        FORMINHAS=FORMINHAS,
+        FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
+        PREVISAO_STATUS=PREVISAO_STATUS,
         ro=order.status == 9
     )
 

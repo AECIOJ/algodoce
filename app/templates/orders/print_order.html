@@ -80,7 +80,7 @@ th { background: #f0f0f0; text-align: center; }
 
 <div class="d-flex justify-content-between mb-2">
   <div><strong>Forminhas:</strong> {{ FORMINHAS[order.forminhas] }}</div>
-  <div><strong>Forma de Pagamento:</strong> {{ FORMA_PAGAMENTO[order.forma_pagamento] }}</div>
+  <div><strong>Forma de Pagamento:</strong> {{ order.forma_pagamento_rel.nome if order.forma_pagamento_rel else FORMA_PAGAMENTO.get(order.forma_pagamento, '-') }}</div>
 </div>
 
 {% if order.observacao %}

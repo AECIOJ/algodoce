@@ -1,81 +1,68 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% from "components/barra_filtro.html" import barra_filtro %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+
 {% set _actions %}
 <a href="{{ url_for('categories.new') }}" class="btn btn-success">+ Nova</a>
 {% endset %}
-{% call barra_filtro("Categorias", _actions) %}
-  <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value;">
-    <option value="?status=todos" {% if status == 'todos' %}selected{% endif %}>Todas</option>
-    <option value="?status=ativos" {% if status == 'ativos' %}selected{% endif %}>Ativas</option>
-    <option value="?status=inativos" {% if status == 'inativos' %}selected{% endif %}>Inativas</option>
-  </select>
+
+{% set filter_html %}
+<select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value;">
+  <option value="?status=todos" {% if status == 'todos' %}selected{% endif %}>Todas</option>
+  <option value="?status=ativos" {% if status == 'ativos' %}selected{% endif %}>Ativas</option>
+  <option value="?status=inativos" {% if status == 'inativos' %}selected{% endif %}>Inativas</option>
+</select>
+{% endset %}
+
+{% call panel_list("Categorias", actions=_actions, filters=filter_html, model="Category") %}
+  <thead>
+    <tr>
+      <th>#</th>
+      <th data-field="nome">Nome</th>
+      <th>Ordem</th>
+      <th>Ativo</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for cat in categorias %}
+      <tr>
+        <td>{{ cat.id|fmtid }}</td>
+        <td>{{ cat.nome }}</td>
+        <td>{{ cat.ordem }}</td>
+        <td>
+          {% if cat.ativo %}
+            <span class="badge bg-success">Sim</span>
+          {% else %}
+            <span class="badge bg-light text-muted border">Não</span>
+          {% endif %}
+        </td>
+        <td>{{ action_edit(url_for('categories.edit', id=cat.id)) }}</td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="5" class="text-center text-muted">Nenhum registro encontrado.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
 {% endcall %}
 
-<div class="table-responsive table-scroll">
-  <table class="table table-hover sortable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Nome</th>
-        <th>Ordem</th>
-        <th>Ativo</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for cat in categorias %}
-        <tr>
-          <td>{{ cat.id|fmtid }}</td>
-          <td>{{ cat.nome }}</td>
-          <td>{{ cat.ordem }}</td>
-          <td>
-            {% if cat.ativo %}
-              <span class="badge bg-success">Sim</span>
-            {% else %}
-              <span class="badge bg-light text-muted border">Não</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('categories.edit', id=cat.id) }}" class="btn btn-sm btn-primary">Editar</a>
-          </td>
-        </tr>
+{% call(item) card_list(categorias) %}
+  <div class="d-flex justify-content-between align-items-start mb-1">
+    <div>
+      <span class="card-label">#{{ item.id|fmtid }}</span>
+      {% if item.ativo %}
+        <span class="badge bg-success">Ativo</span>
       {% else %}
-        <tr>
-          <td colspan="5" class="text-center text-muted">Nenhuma categoria cadastrada.</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<!-- Mobile: card list -->
-<div class="d-lg-none">
-  {% for cat in categorias %}
-    <div class="card mb-2 shadow-sm card-list-item">
-      <div class="card-body py-2 px-3">
-        <div class="d-flex justify-content-between align-items-start mb-1">
-          <div>
-            <span class="card-label">#{{ cat.id|fmtid }}</span>
-            {% if cat.ativo %}
-              <span class="badge bg-success">Ativo</span>
-            {% else %}
-              <span class="badge bg-light text-muted border">Inativo</span>
-            {% endif %}
-          </div>
-          <a href="{{ url_for('categories.edit', id=cat.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
-          </a>
-        </div>
-        <h6 class="mb-1">{{ cat.nome }}</h6>
-        <span class="card-label">Ordem:</span>
-        <span class="card-value ms-1">{{ cat.ordem }}</span>
-      </div>
+        <span class="badge bg-light text-muted border">Inativo</span>
+      {% endif %}
     </div>
-  {% else %}
-    <p class="text-muted text-center">Nenhuma categoria cadastrada.</p>
-  {% endfor %}
-</div>
+    {{ action_edit(url_for('categories.edit', id=item.id)) }}
+  </div>
+  <h6 class="mb-1">{{ item.nome }}</h6>
+  <span class="card-label">Ordem:</span>
+  <span class="card-value ms-1">{{ item.ordem }}</span>
+{% endcall %}
 
 {% endblock %}

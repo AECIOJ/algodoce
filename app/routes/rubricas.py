@@ -2,12 +2,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required
 from app.extensions import db
 from app.models.rubrica import Rubrica
-from app.constants import TIPO_RUBRICA
+from app.constants import TIPO_RUBRICA, CONECTORES
 
 bp = Blueprint("rubricas", __name__, url_prefix="/rubricas")
-
-
-CONECTORES = {"de", "da", "do", "das", "dos", "para", "pra", "com", "sem", "em", "no", "na", "nos", "nas", "por", "ao", "aos", "à", "às", "e", "ou", "a", "o", "as", "os", "um", "uma", "uns", "umas", "num", "numa", "dum", "duma", "pelo", "pela", "pelos", "pelas", "pro", "pra", "pros", "pras"}
 
 
 def _transformar_nome(nome, pai_id):
@@ -114,7 +111,7 @@ def new():
         db.session.commit()
         flash("Rubrica cadastrada!", "success")
         return redirect(url_for("rubricas.list"))
-    paises = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.tipo, Rubrica.nome).all()
+    paises = Rubrica.query.filter(Rubrica.ativa == True, Rubrica.pai_id.is_(None)).order_by(Rubrica.tipo, Rubrica.nome).all()
     return render_template("rubricas/form.html", TIPO_RUBRICA=TIPO_RUBRICA, paises=paises)
 
 
@@ -150,7 +147,7 @@ def edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    paises = Rubrica.query.filter(Rubrica.ativa == True, Rubrica.id != id).order_by(Rubrica.tipo, Rubrica.nome).all()
+    paises = Rubrica.query.filter(Rubrica.ativa == True, Rubrica.id != id, Rubrica.pai_id.is_(None)).order_by(Rubrica.tipo, Rubrica.nome).all()
     return render_template("rubricas/form.html", rubrica=rubrica, nav=nav, TIPO_RUBRICA=TIPO_RUBRICA, paises=paises)
 
 

@@ -8,10 +8,12 @@
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/favicon-16x16.png') }}">
   <title>ALGODOCE</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=2" rel="stylesheet">
   <style>
     .navbar-nav .nav-link.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
-    .bar-link-lg.active { border-bottom-color: #e91e63 !important; }
+    .bar-link-lg { padding: 0.25rem 0.5rem !important; border-radius: 6px; transition: background 0.15s; }
+    .bar-link-lg:hover { background: rgba(233,30,99,0.08); }
+    .bar-link-lg.active { background: rgba(233,30,99,0.2); color: #880e4f !important; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -38,6 +40,7 @@
           <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
           <option value="{{ url_for('contas.list') }}" {% if request.path.startswith('/contas') %}selected{% endif %}>Contas</option>
           <option value="{{ url_for('rubricas.list') }}" {% if request.path.startswith('/rubricas') %}selected{% endif %}>Rubricas</option>
+          <option value="{{ url_for('forma_pagamento.list') }}" {% if request.path.startswith('/forma-pagamento') %}selected{% endif %}>Formas de Pagto</option>
         </select>
         <select class="form-select fw-bold border-0 nav-select" id="comercialNavSelect" style="display:none;font-size:0.85rem;width:auto;color:#e91e63;background:#fff;padding:1px 0.5rem;" onchange="if(this.value) window.location=this.value;">
           <option value="{{ url_for('orders.orcamentos') }}" {% if request.path.startswith('/orcamentos') %}selected{% endif %}>Orçamentos</option>
@@ -76,21 +79,20 @@
         <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/icons/log-out.png" alt="Encerrar" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Encerrar</a>
       </div>
     </nav>
-    <div class="cadastro-section py-1 d-none" id="cadastroSection">
+    <div class="cadastro-section d-none" id="cadastroSection">
       <div class="container">
-        <!-- Desktop: horizontal bar (always visible) -->
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
           <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: var(--cor-menu); font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
           <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Insumos</a>
           <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
           <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas</a>
           <a href="{{ url_for('rubricas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Rubricas</a>
+          <a href="{{ url_for('forma_pagamento.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Formas de Pagto</a>
         </div>
       </div>
     </div>
-    <div class="cadastro-section py-1 d-none" id="comercialSection">
+    <div class="cadastro-section d-none" id="comercialSection">
       <div class="container">
-        <!-- Desktop: horizontal bar (always visible) -->
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
             <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Orçamentos</a>
           <a href="/pedidos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Pedidos</a>
@@ -98,7 +100,7 @@
         </div>
       </div>
     </div>
-    <div class="cadastro-section py-1 d-none" id="financeiroSection">
+    <div class="cadastro-section d-none" id="financeiroSection">
       <div class="container">
         <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
           <a href="{{ url_for('recursos.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Recursos</a>
@@ -154,13 +156,19 @@
     {% block content %}{% endblock %}
   </main>
 
+  {% block bottom_bar %}{% endblock %}
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script>
     function syncTopSpacer() {
       var fixed = document.getElementById('top-fixed');
       var spacer = document.getElementById('top-spacer');
-      if (fixed && spacer) spacer.style.height = fixed.offsetHeight + 'px';
+      if (fixed && spacer) {
+        var h = fixed.offsetHeight + 'px';
+        spacer.style.height = h;
+        document.documentElement.style.setProperty('--top-fixed-height', h);
+      }
     }
     syncTopSpacer();
     if (window.ResizeObserver) {
@@ -431,6 +439,60 @@ function parseDate(str) {
 }
 </script>
 <script>
+var TRANSFORM_MODES = {
+  Digit0: { mode: 'lower', label: 'minúsculas' },
+  Digit1: { mode: 'title', label: 'Primeira Maiúscula (exceto conectores)' },
+  Digit2: { mode: 'upper', label: 'MAIÚSCULAS' }
+};
+
+document.addEventListener('keydown', function (e) {
+  if (!e.ctrlKey || !e.shiftKey) return;
+  var modeDef = TRANSFORM_MODES[e.code];
+  if (!modeDef) return;
+  e.preventDefault();
+
+  var sorted = document.querySelector('th.asc, th.desc');
+  if (!sorted) return;
+  var field = sorted.getAttribute('data-field');
+  if (!field) return;
+
+  var table = sorted.closest('table.sortable');
+  if (!table) return;
+  var model = table.getAttribute('data-model');
+  if (!model) return;
+
+  var thIndex = Array.from(sorted.parentNode.children).indexOf(sorted);
+  var colName = sorted.textContent.trim();
+
+  showConfirm(
+    'Transformar todos os registros para ' + modeDef.label + ' na coluna "' + colName + '"? (ação irreversível)',
+    function () {
+      fetch('/api/transformar-texto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: model,
+          field: field,
+          mode: modeDef.mode
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) {
+          showAlert(data.count + ' registro(s) alterado(s) com sucesso!');
+          setTimeout(function () { location.reload(); }, 1500);
+        } else {
+          showAlert('Erro: ' + (data.error || 'desconhecido'));
+        }
+      })
+      .catch(function () {
+        showAlert('Erro de conexão ao servidor.');
+      });
+    }
+  );
+});
+</script>
+<script>
 // Active menu state + section toggles
 (function() {
   var links = document.querySelectorAll('.navbar-nav .nav-link');
@@ -459,7 +521,7 @@ function parseDate(str) {
   }
 
   var path = window.location.pathname;
-  var cadastroPaths = ['/categorias', '/insumos', '/produtos', '/contas', '/rubricas'];
+  var cadastroPaths = ['/categorias', '/insumos', '/produtos', '/contas', '/rubricas', '/forma-pagamento'];
   var comercialPaths = ['/orcamentos', '/pedidos', '/compras'];
   var financeiroPaths = ['/recursos', '/movimentos', '/contas-a-pagar', '/contas-a-receber'];
   var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });

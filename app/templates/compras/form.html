@@ -59,6 +59,27 @@
       <label class="form-label">Total</label>
       <input type="text" id="total-display" class="form-control text-end bg-light" readonly>
     </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label">Forma Pagamento</label>
+      <select name="forma_pagamento_id" class="form-select">
+        <option value="">Selecione...</option>
+        {% for fp in formas_pagamento %}
+        <option value="{{ fp.id }}" {% if compra and compra.forma_pagamento_id == fp.id %}selected{% endif %}>{{ fp.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label">Status</label>
+      <select name="status" class="form-select">
+        {% for k, v in COMPRA_STATUS.items() %}
+        <option value="{{ k }}" {% if compra and compra.status == k %}selected{% elif not compra and k == 1 %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label">Data Recepção</label>
+      <input type="date" name="data_recepcao" class="form-control" value="{{ compra.data_recepcao if compra else '' }}">
+    </div>
     <div class="col-12 col-md-6">
       <label class="form-label">Histórico</label>
       <input type="text" name="historico" class="form-control" value="{{ transacao.compra.historico if transacao else '' }}">

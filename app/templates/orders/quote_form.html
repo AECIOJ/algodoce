@@ -209,9 +209,10 @@
       <label class="form-label mb-0">Forma de Pagamento</label>
     </div>
     <div class="col-auto">
-      <select name="forma_pagamento" class="form-select form-select-sm" {{ 'disabled' if ro }}>
-        {% for val, label in FORMA_PAGAMENTO.items() %}
-          <option value="{{ val }}" {{ 'selected' if quote.forma_pagamento == val }}>{{ label }}</option>
+      <select name="forma_pagamento_id" class="form-select form-select-sm" {{ 'disabled' if ro }}>
+        <option value="">Selecione...</option>
+        {% for fp in formas_pagamento %}
+          <option value="{{ fp.id }}" {{ 'selected' if quote.forma_pagamento_rel and quote.forma_pagamento_rel.id == fp.id }}>{{ fp.nome }} ({{ {0:'Imediato',1:'Provisionado'}[fp.modo] }})</option>
         {% endfor %}
       </select>
     </div>

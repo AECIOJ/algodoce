@@ -3,7 +3,7 @@
 {% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
-{% set os_colors = {0:'bg-secondary',1:'bg-info',2:'bg-success',3:'bg-danger',8:'bg-primary',9:'bg-primary'} %}
+{% set os_colors = {0:'bg-secondary',1:'bg-info',2:'bg-success',8:'bg-secondary',9:'bg-dark'} %}
 {% if order %}
 {% set status_html %}
 <div class="d-flex align-items-center gap-1" style="display:inline-flex">
@@ -194,24 +194,83 @@
 
   {% if order %}
   <div class="card mb-3">
-    <div class="card-header bg-light fw-bold">Financeiro</div>
+    <div class="card-header bg-light fw-bold d-flex align-items-center gap-2">
+      <span>Financeiro</span>
+      {% if order.transacao_id %}
+      <span class="badge bg-success fs-6">Faturado {{ order.transacao.data|fmtdate }}</span>
+      {% elif order.movto_id %}
+      <span class="badge bg-success fs-6">Faturado {{ order.movto.data|fmtdate }}</span>
+      {% endif %}
+    </div>
     <div class="card-body">
-      <div class="d-flex align-items-end gap-3 flex-wrap">
+      <div class="d-flex align-items-end gap-3 flex-wrap mb-3">
         <div>
           <label class="form-label mb-0">Forma de Pagamento</label>
-          <select name="forma_pagamento" class="form-select form-select-sm" {{ 'disabled' if ro }}>
-            {% for val, label in FORMA_PAGAMENTO.items() %}
-              <option value="{{ val }}" {{ 'selected' if order.forma_pagamento == val }}>{{ label }}</option>
+          <select name="forma_pagamento_id" class="form-select form-select-sm" {{ 'disabled' if ro or order.transacao_id or order.movto_id }}>
+            <option value="">Selecione...</option>
+            {% for fp in formas_pagamento %}
+              <option value="{{ fp.id }}" {{ 'selected' if order.forma_pagamento_rel and order.forma_pagamento_rel.id == fp.id }}>{{ fp.nome }} ({{ {0:'Imediato',1:'Provisionado'}[fp.modo] }})</option>
             {% endfor %}
           </select>
         </div>
-        {% if order.status in (0, 1, 2) and not ro %}
-        <form method="POST" action="{{ url_for('orders.status', id=order.id) }}">
-          <input type="hidden" name="status" value="8">
-          <button type="submit" class="btn btn-primary btn-sm">Faturar</button>
-        </form>
-        {% endif %}
       </div>
+
+      {% if order.transacao %}
+      {% set t = order.transacao %}
+      {% set prevs = t.previsoes %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Transação</th>
+              <th>Fatura</th>
+              <th class="text-end">Valor</th>
+              <th class="text-end">Parcelas</th>
+              <th class="text-end">Previsto</th>
+              <th class="text-end">Realizado</th>
+              <th class="text-end">Variação</th>
+              <th class="text-end">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="{{ url_for('contas_a_receber.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">#{{ t.id|fmtid }}</a></td>
+              <td>{{ t.fatura or '-' }}</td>
+              <td class="text-end">{{ t.valor|brl }}</td>
+              <td class="text-end">{{ prevs|length }}</td>
+              <td class="text-end">{{ prevs|sum(attribute='previsto')|brl }}</td>
+              <td class="text-end">{{ prevs|sum(attribute='realizado')|brl if prevs|selectattr('realizado')|list else '-' }}</td>
+              <td class="text-end">{{ prevs|sum(attribute='variacao')|brl }}</td>
+              <td class="text-end">{{ prevs|map(attribute='saldo')|sum|brl }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      {% if order.movto %}
+      {% set m = order.movto %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>Recebimento</th>
+              <th>Recurso</th>
+              <th class="text-end">Valor</th>
+              <th>Histórico</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="{{ url_for('movimentos.recebimentos_edit', id=m.id) }}" class="btn btn-sm btn-outline-primary">#{{ m.id|fmtid }}</a></td>
+              <td>{{ m.recurso.nome if m.recurso else '-' }}</td>
+              <td class="text-end">{{ m.valor|brl }}</td>
+              <td>{{ m.historico_display }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
     </div>
   </div>
   {% endif %}

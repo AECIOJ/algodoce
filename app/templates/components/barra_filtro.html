@@ -1,7 +1,7 @@
 {% macro barra_filtro(title, actions='') %}
-<div class="d-flex align-items-center mb-3 gap-2 px-2 barra-filtro">
-  <h2 class="mb-0 me-auto fs-4">{{ title }}</h2>
-  <div class="d-flex align-items-center gap-2 mx-auto">
+<div class="d-flex align-items-center mb-1 gap-2 px-2 barra-filtro">
+  <h2 class="barra-filtro-title mb-0 me-auto fs-4">{{ title }}</h2>
+  <div class="d-flex align-items-center gap-2 mx-auto barra-filtro-controls">
     {{ caller() }}
   </div>
   {% if actions %}

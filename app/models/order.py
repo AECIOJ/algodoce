@@ -19,6 +19,9 @@ class Order(db.Model):
     observacao = db.Column(db.Text)
     total = db.Column(db.Numeric(10, 2), nullable=True)
     forma_pagamento = db.Column(db.Integer, nullable=False, default=0)
+    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("forma_pagamento.id"), nullable=True)
+    transacao_id = db.Column(db.Integer, db.ForeignKey("transacao.id"), nullable=True, unique=True)
+    movto_id = db.Column(db.Integer, db.ForeignKey("movto.id"), nullable=True, unique=True)
     forminhas = db.Column(db.Integer, nullable=False, default=0)
 
     producao_id = db.Column(
@@ -29,6 +32,9 @@ class Order(db.Model):
         db.Integer, db.ForeignKey("quotes.id"), nullable=True
     )
     quote = db.relationship("Quote", foreign_keys=[quote_id], lazy="joined")
+    forma_pagamento_rel = db.relationship("FormaPagamento", uselist=False)
+    transacao = db.relationship("Transacao", foreign_keys=[transacao_id], uselist=False)
+    movto = db.relationship("Movto", foreign_keys=[movto_id], uselist=False)
     event = db.relationship("Event", back_populates="order", uselist=False, lazy="joined")
     items = db.relationship(
         "OrderItem", back_populates="order",

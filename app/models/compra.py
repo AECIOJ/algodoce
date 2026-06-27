@@ -9,8 +9,16 @@ class Compra(db.Model):
     fornecedor_id = db.Column(db.Integer, db.ForeignKey("conta.id"), nullable=True)
     valor = db.Column(db.Numeric(12, 2), nullable=False)
     historico = db.Column(db.Text, nullable=True)
+    status = db.Column(db.Integer, nullable=False, default=0)
+    data_recepcao = db.Column(db.Date, nullable=True)
+    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("forma_pagamento.id"), nullable=True)
+    transacao_id = db.Column(db.Integer, db.ForeignKey("transacao.id"), nullable=True, unique=True)
+    movto_id = db.Column(db.Integer, db.ForeignKey("movto.id"), nullable=True, unique=True)
 
     fornecedor = db.relationship("Conta", foreign_keys=[fornecedor_id])
+    forma_pagamento = db.relationship("FormaPagamento", uselist=False)
+    transacao = db.relationship("Transacao", foreign_keys=[transacao_id], uselist=False)
+    movto = db.relationship("Movto", foreign_keys=[movto_id], uselist=False)
     items = db.relationship(
         "CompraItem", back_populates="compra",
         foreign_keys="CompraItem.compra_id",

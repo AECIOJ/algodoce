@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+{% block content %}
+
+{% set _actions %}
+<a href="{{ url_for('forma_pagamento.new') }}" class="btn btn-sm btn-success text-nowrap">+ Nova</a>
+{% endset %}
+
+{% call panel_list("Formas de Pagamento", actions=_actions) %}
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Nome</th>
+      <th>Uso</th>
+      <th>Modo</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in formas %}
+    <tr>
+      <td>{{ f.id|fmtid }}</td>
+      <td>{{ f.nome }}</td>
+      <td>{{ {0: "Pedido", 1: "Ambos", 2: "Compra"}.get(f.uso, f.uso) }}</td>
+      <td>{{ {0: "Imediato", 1: "Provisionado"}.get(f.modo, f.modo) }}</td>
+      <td>{{ action_edit(url_for('forma_pagamento.edit', id=f.id)) }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="5" class="text-muted text-center">Nenhuma forma de pagamento cadastrada.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+
+{% call(item) card_list(formas) %}
+  <div class="d-flex justify-content-between align-items-center">
+    <span><strong>{{ item.nome }}</strong> — {{ {0:"Pedido",1:"Ambos",2:"Compra"}.get(item.uso) }} / {{ {0:"Imediato",1:"Provisionado"}.get(item.modo) }}</span>
+    {{ action_edit(url_for('forma_pagamento.edit', id=item.id)) }}
+  </div>
+{% endcall %}
+
+{% endblock %}

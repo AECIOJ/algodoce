@@ -1,5 +1,6 @@
 import os
 import markdown
+from app.constants import CONECTORES, TRANSFORMAR_AO_SALVAR
 
 
 def render_pagina(nome):
@@ -96,3 +97,32 @@ class LinhaTransacao:
     @property
     def id(self):
         return self.previsao.id if self.previsao else None
+
+
+def _title_case(text):
+    words = text.strip().split()
+    result = []
+    for i, w in enumerate(words):
+        if i > 0 and w.lower() in CONECTORES:
+            result.append(w.lower())
+        else:
+            result.append(w[0].upper() + w[1:].lower() if w else w)
+    return " ".join(result)
+
+
+def aplicar_transformacao(mapper, connection, target):
+    instance = target
+    cls_name = instance.__class__.__name__
+    regras = TRANSFORMAR_AO_SALVAR.get(cls_name, {})
+    if not regras:
+        return
+    for campo, modo in regras.items():
+        valor = getattr(instance, campo, None)
+        if not valor or not isinstance(valor, str) or not valor.strip():
+            continue
+        if modo == 0:
+            setattr(instance, campo, valor.strip().lower())
+        elif modo == 1:
+            setattr(instance, campo, _title_case(valor.strip()))
+        elif modo == 2:
+            setattr(instance, campo, valor.strip().upper())

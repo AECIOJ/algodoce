@@ -1,147 +1,136 @@
 {% extends "base.html" %}
 {% from "components/barra_report.html" import barra_report %}
-{% from "components/barra_filtro.html" import barra_filtro %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
 {% block content %}
 
 {% set _actions %}
 <a href="{{ url_for('contas_a_pagar.new') }}" class="btn btn-success">+ Nova</a>
 {% endset %}
-{% call barra_filtro("Contas a Pagar", _actions) %}
-  <select class="form-select" style="width:auto;" onchange="filtrar('status', this.value)">
-    <option value="todos" {% if filtro_status == 'todos' %}selected{% endif %}>Todos</option>
-    {% for k, v in PREVISAO_STATUS.items() %}
-      <option value="{{ k }}" {% if filtro_status == k|string %}selected{% endif %}>{{ v }}</option>
+
+{% set filter_html %}
+<select class="form-select" style="width:auto;" onchange="filtrar('status', this.value)">
+  <option value="todos" {% if filtro_status == 'todos' %}selected{% endif %}>Todos</option>
+  {% for k, v in PREVISAO_STATUS.items() %}
+    <option value="{{ k }}" {% if filtro_status == k|string %}selected{% endif %}>{{ v }}</option>
+  {% endfor %}
+</select>
+<select class="form-select" style="width:auto;" onchange="filtrar('vencimento', this.value)">
+  <option value="todos" {% if filtro_venc == 'todos' %}selected{% endif %}>Todas</option>
+  <option value="em_atraso" {% if filtro_venc == 'em_atraso' %}selected{% endif %}>Em atraso</option>
+  <option value="hoje" {% if filtro_venc == 'hoje' %}selected{% endif %}>Hoje</option>
+  <option value="a_vencer" {% if filtro_venc == 'a_vencer' %}selected{% endif %}>A Vencer</option>
+</select>
+{% endset %}
+
+{% call panel_list("Contas a Pagar", actions=_actions, filters=filter_html) %}
+  <thead>
+    <tr>
+      <th>Transação</th>
+      <th>Compra</th>
+      <th>Status</th>
+      <th>Conta</th>
+      <th>Fatura</th>
+      <th>Valor</th>
+      <th>Documento</th>
+      <th>Vencimento</th>
+      <th>Previsão</th>
+      <th>Previsto</th>
+      <th>Realizado</th>
+      <th>Variação</th>
+      <th>Saldo</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in previsoes %}
+      {% set t = p.transacao %}
+      <tr class="{{ 'table-danger' if p.vencimento < hoje and p.status not in (8,9) else '' }}">
+        <td>{{ t.id|fmtid }}</td>
+        <td>{% if t.compra %}<a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ t.compra.id|fmtid }}</a>{% else %}-{% endif %}</td>
+        <td>
+          {% set st = PREVISAO_STATUS.get(p.status, '') %}
+          {% if p.status == 9 %}
+            <span class="badge bg-success">{{ st }}</span>
+          {% elif p.status == 8 %}
+            <span class="badge bg-secondary">{{ st }}</span>
+          {% elif p.status == 2 %}
+            <span class="badge bg-warning">{{ st }}</span>
+          {% elif p.status == 1 %}
+            <span class="badge bg-info">{{ st }}</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ st }}</span>
+          {% endif %}
+        </td>
+        <td>{{ t.conta.nome if t.conta else '-' }}</td>
+        <td>{{ t.fatura if t.fatura else '-' }}</td>
+        <td class="text-end">{{ t.valor|brl }}</td>
+        <td>{{ p.documento if p.documento else '-' }}</td>
+        <td>{{ p.vencimento|fmtdate }}</td>
+        <td>{% if p.id %}<a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ p.id|fmtid }}</a>{% else %}-{% endif %}</td>
+        <td class="text-end">{{ p.previsto|brl }}</td>
+        <td class="text-end">{{ p.realizado|brl if p.realizado is not none else '-' }}</td>
+        <td class="text-end">{{ p.variacao|brl if p.variacao is not none else '-' }}</td>
+        <td class="text-end {{ 'text-danger' if p.saldo > 0 else ('text-success' if p.saldo <= 0 else '') }}">{{ p.saldo|brl }}</td>
+        <td>{{ action_edit(url_for('contas_a_pagar.edit', id=t.id)) }}</td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="13" class="text-center text-muted">Nenhum registro encontrado.</td>
+      </tr>
     {% endfor %}
-  </select>
-  <select class="form-select" style="width:auto;" onchange="filtrar('vencimento', this.value)">
-    <option value="todos" {% if filtro_venc == 'todos' %}selected{% endif %}>Todas</option>
-    <option value="em_atraso" {% if filtro_venc == 'em_atraso' %}selected{% endif %}>Em atraso</option>
-    <option value="hoje" {% if filtro_venc == 'hoje' %}selected{% endif %}>Hoje</option>
-    <option value="a_vencer" {% if filtro_venc == 'a_vencer' %}selected{% endif %}>A Vencer</option>
-  </select>
-  <span class="badge bg-info fs-6">Total: {{ total_saldo|brl }}</span>
+  </tbody>
 {% endcall %}
 
-<div class="table-responsive table-scroll">
-  <table class="table table-hover sortable">
-    <thead>
-      <tr>
-        <th>Transação</th>
-        <th>Compra</th>
-        <th>Status</th>
-        <th>Conta</th>
-        <th>Fatura</th>
-        <th>Valor</th>
-        <th>Documento</th>
-        <th>Vencimento</th>
-        <th>Previsão</th>
-        <th>Previsto</th>
-        <th>Realizado</th>
-        <th>Variação</th>
-        <th>Saldo</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in previsoes %}
-        {% set t = p.transacao %}
-        <tr class="{{ 'table-danger' if p.vencimento < hoje and p.status not in (8,9) else '' }}">
-          <td>{{ t.id|fmtid }}</td>
-          <td>{% if t.compra %}<a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ t.compra.id|fmtid }}</a>{% else %}-{% endif %}</td>
-          <td>
-            {% set st = PREVISAO_STATUS.get(p.status, '') %}
-            {% if p.status == 9 %}
-              <span class="badge bg-success">{{ st }}</span>
-            {% elif p.status == 8 %}
-              <span class="badge bg-secondary">{{ st }}</span>
-            {% elif p.status == 2 %}
-              <span class="badge bg-warning">{{ st }}</span>
-            {% elif p.status == 1 %}
-              <span class="badge bg-info">{{ st }}</span>
-            {% else %}
-              <span class="badge bg-secondary">{{ st }}</span>
-            {% endif %}
-          </td>
-          <td>{{ t.conta.nome if t.conta else '-' }}</td>
-          <td>{{ t.fatura if t.fatura else '-' }}</td>
-          <td class="text-end">{{ t.valor|brl }}</td>
-          <td>{{ p.documento if p.documento else '-' }}</td>
-          <td>{{ p.vencimento|fmtdate }}</td>
-          <td>{% if p.id %}<a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ p.id|fmtid }}</a>{% else %}-{% endif %}</td>
-          <td class="text-end">{{ p.previsto|brl }}</td>
-          <td class="text-end">{{ p.realizado|brl if p.realizado is not none else '-' }}</td>
-          <td class="text-end">{{ p.variacao|brl if p.variacao is not none else '-' }}</td>
-          <td class="text-end {{ 'text-danger' if p.saldo > 0 else ('text-success' if p.saldo <= 0 else '') }}">{{ p.saldo|brl }}</td>
-          <td>
-            <a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" class="btn btn-sm btn-primary">Editar</a>
-          </td>
-        </tr>
-      {% else %}
-        <tr>
-          <td colspan="13" class="text-center text-muted">Nenhuma parcela encontrada.</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="d-lg-none mt-3">
-  {% for p in previsoes %}
-    {% set t = p.transacao %}
-    <div class="card mb-2 shadow-sm card-list-item">
-      <div class="card-body py-2 px-3">
-        <div class="d-flex justify-content-between align-items-start mb-1">
-          <div>
-            <span class="card-label">#{{ t.id|fmtid }}</span>
-            {% if t.compra %}<a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ t.compra.id|fmtid }}</a>{% endif %}
-            <span class="badge bg-danger">A Pagar</span>
-          </div>
-          <a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
-          </a>
-        </div>
-        <h6 class="mb-1">{{ p.previsto|brl }}</h6>
-        {% set st = PREVISAO_STATUS.get(p.status, '') %}
-        {% if p.status == 9 %}
-          <span class="badge bg-success">{{ st }}</span>
-        {% elif p.status == 8 %}
-          <span class="badge bg-secondary">{{ st }}</span>
-        {% elif p.status == 2 %}
-          <span class="badge bg-warning">{{ st }}</span>
-        {% elif p.status == 1 %}
-          <span class="badge bg-info">{{ st }}</span>
-        {% else %}
-          <span class="badge bg-secondary">{{ st }}</span>
-        {% endif %}
-        <span class="card-label ms-2">Conta:</span>
-        <span class="card-value ms-1">{{ t.conta.nome if t.conta else '-' }}</span>
-        <span class="card-label ms-2">Fatura:</span>
-        <span class="card-value ms-1">{{ t.fatura if t.fatura else '-' }}</span>
-        <span class="card-label ms-2">Valor:</span>
-        <span class="card-value ms-1">{{ t.valor|brl }}</span>
-        <span class="card-label ms-2">Venc:</span>
-        <span class="card-value ms-1">{{ p.vencimento|fmtdate }}</span>
-        <span class="card-label ms-2">Prev #:</span>
-        <span class="card-value ms-1">{% if p.id %}<a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ p.id|fmtid }}</a>{% else %}-{% endif %}</span>
-        <span class="card-label ms-2">Prev:</span>
-        <span class="card-value ms-1">{{ p.previsto|brl }}</span>
-        <span class="card-label ms-2">Realizado:</span>
-        <span class="card-value ms-1">{{ p.realizado|brl if p.realizado is not none else '-' }}</span>
-        {% if p.variacao is not none %}
-          <span class="card-label ms-2">Variação:</span>
-          <span class="card-value ms-1">{{ p.variacao|brl }}</span>
-        {% endif %}
-        <span class="card-label ms-2">Saldo:</span>
-        <span class="card-value ms-1 {{ 'text-danger' if p.saldo > 0 else ('text-success' if p.saldo <= 0 else '') }}">{{ p.saldo|brl }}</span>
-      </div>
+{% call(item) card_list(previsoes) %}
+  {% set t = item.transacao %}
+  <div class="d-flex justify-content-between align-items-start mb-1">
+    <div>
+      <span class="card-label">#{{ t.id|fmtid }}</span>
+      {% if t.compra %}<span class="card-label me-1">Compra:</span><a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">#{{ t.compra.id|fmtid }}</a>{% endif %}
+      <span class="badge bg-danger">A Pagar</span>
     </div>
+    {{ action_edit(url_for('contas_a_pagar.edit', id=t.id)) }}
+  </div>
+  {% set st = PREVISAO_STATUS.get(item.status, '') %}
+  {% if item.status == 9 %}
+    <span class="badge bg-success">{{ st }}</span>
+  {% elif item.status == 8 %}
+    <span class="badge bg-secondary">{{ st }}</span>
+  {% elif item.status == 2 %}
+    <span class="badge bg-warning">{{ st }}</span>
+  {% elif item.status == 1 %}
+    <span class="badge bg-info">{{ st }}</span>
   {% else %}
-    <p class="text-muted text-center">Nenhuma parcela encontrada.</p>
-  {% endfor %}
-</div>
+    <span class="badge bg-secondary">{{ st }}</span>
+  {% endif %}
+  <span class="card-label ms-2">Conta:</span>
+  <span class="card-value ms-1">{{ t.conta.nome if t.conta else '-' }}</span>
+  <span class="card-label ms-2">Fatura:</span>
+  <span class="card-value ms-1">{{ t.fatura if t.fatura else '-' }}</span>
+  <span class="card-label ms-2">Valor:</span>
+  <span class="card-value ms-1">{{ t.valor|brl }}</span>
+  <span class="card-label ms-2">Venc:</span>
+  <span class="card-value ms-1">{{ item.vencimento|fmtdate }}</span>
+  <span class="card-label ms-2">Previsão:</span>
+  <span class="card-value ms-1">{% if item.id %}<a href="{{ url_for('contas_a_pagar.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">#{{ item.id|fmtid }}</a>{% else %}-{% endif %}</span>
+  <span class="card-label ms-2">Previsto:</span>
+  <span class="card-value ms-1">{{ item.previsto|brl }}</span>
+  <span class="card-label ms-2">Realizado:</span>
+  <span class="card-value ms-1">{{ item.realizado|brl if item.realizado is not none else '-' }}</span>
+  {% if item.variacao is not none %}
+    <span class="card-label ms-2">Variação:</span>
+    <span class="card-value ms-1">{{ item.variacao|brl }}</span>
+  {% endif %}
+  <span class="card-label ms-2">Saldo:</span>
+  <span class="card-value ms-1 {{ 'text-danger' if item.saldo > 0 else ('text-success' if item.saldo <= 0 else '') }}">{{ item.saldo|brl }}</span>
+{% endcall %}
 
+<div class="form-bottom-spacer"></div>
+{% endblock %}
+
+{% block bottom_bar %}
 {% call barra_report() %}
-  <strong>Total:</strong> {{ total_saldo|brl }}
+  <strong>{{ previsoes|length }}</strong> parcela(s)
 {% endcall %}
 {% endblock %}
 

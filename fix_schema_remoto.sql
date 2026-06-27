@@ -1,0 +1,61 @@
+-- =============================================================
+-- Corrige schema do banco remoto para corresponder aos models
+-- Pode rodar mesmo se algumas colunas já existirem
+-- Uso: pgAdmin -> Query Tool -> colar e executar
+-- =============================================================
+
+BEGIN;
+
+-- transacao
+ALTER TABLE transacao ADD COLUMN IF NOT EXISTS compra_id INTEGER REFERENCES compras(id) UNIQUE;
+ALTER TABLE transacao ADD COLUMN IF NOT EXISTS pedido_id INTEGER REFERENCES orders(id) UNIQUE;
+
+-- orders
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS data_previsao_entrega TIMESTAMP;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS data_entrega TIMESTAMP;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS forma_pagamento INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS forminhas INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS producao_id INTEGER REFERENCES producao(id);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS quote_id INTEGER REFERENCES quotes(id);
+
+-- quotes
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS validade INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS forma_pagamento INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS data_renovacao TIMESTAMP;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS forminhas INTEGER NOT NULL DEFAULT 0;
+
+-- producao
+ALTER TABLE producao ADD COLUMN IF NOT EXISTS previsao_de DATE;
+ALTER TABLE producao ADD COLUMN IF NOT EXISTS previsao_ate DATE;
+ALTER TABLE producao ADD COLUMN IF NOT EXISTS status INTEGER NOT NULL DEFAULT 0;
+
+-- producao_insumos
+ALTER TABLE producao_insumos ADD COLUMN IF NOT EXISTS comprado NUMERIC(10,3) NOT NULL DEFAULT 0;
+ALTER TABLE producao_insumos ADD COLUMN IF NOT EXISTS unidade VARCHAR(20) NOT NULL DEFAULT '';
+ALTER TABLE producao_insumos ADD COLUMN IF NOT EXISTS tipo INTEGER NOT NULL DEFAULT 0;
+
+-- producao_produtos
+ALTER TABLE producao_produtos ADD COLUMN IF NOT EXISTS producao_0 INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE producao_produtos ADD COLUMN IF NOT EXISTS producao_1 INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE producao_produtos ADD COLUMN IF NOT EXISTS producao_2 INTEGER NOT NULL DEFAULT 0;
+
+-- movto
+ALTER TABLE movto ADD COLUMN IF NOT EXISTS variacao NUMERIC(12,2) DEFAULT 0;
+ALTER TABLE movto ADD COLUMN IF NOT EXISTS sincronizar BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE movto ADD COLUMN IF NOT EXISTS rubrica_id INTEGER REFERENCES rubrica(id);
+ALTER TABLE movto ADD COLUMN IF NOT EXISTS historico TEXT;
+
+-- previsao
+ALTER TABLE previsao ADD COLUMN IF NOT EXISTS variacao NUMERIC(12,2) DEFAULT 0;
+
+-- events
+ALTER TABLE events ADD COLUMN IF NOT EXISTS tipo VARCHAR(30);
+ALTER TABLE events ADD COLUMN IF NOT EXISTS tema VARCHAR(200);
+ALTER TABLE events ADD COLUMN IF NOT EXISTS obs TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS data DATE;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS hora TIME;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS local VARCHAR(200);
+ALTER TABLE events ADD COLUMN IF NOT EXISTS convidados INTEGER;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cerimonial VARCHAR(200);
+
+COMMIT;

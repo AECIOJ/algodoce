@@ -1,0 +1,33 @@
+{% from "components/barra_filtro.html" import barra_filtro %}
+
+{% macro panel_list(title, actions='', filters='', table_wrapper_class='', model='') %}
+{% call barra_filtro(title, actions) %}
+  {{ filters|safe }}
+{% endcall %}
+<div class="table-responsive table-scroll {{ table_wrapper_class }}">
+  <table class="table table-hover sortable"{% if model %} data-model="{{ model }}"{% endif %}>
+    {{ caller() }}
+  </table>
+</div>
+{% endmacro %}
+
+{% macro action_edit(url, label='Editar') %}
+<a href="{{ url }}" class="text-decoration-none">
+  <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18">
+  <small class="ms-1">{{ label }}</small>
+</a>
+{% endmacro %}
+
+{% macro card_list(items, empty_message='Nenhum registro encontrado.') %}
+<div class="d-lg-none">
+  {% for item in items %}
+    <div class="card mb-2 shadow-sm card-list-item">
+      <div class="card-body py-2 px-3">
+        {{ caller(item) }}
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted text-center my-3">{{ empty_message }}</p>
+  {% endfor %}
+</div>
+{% endmacro %}

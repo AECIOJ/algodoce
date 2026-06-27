@@ -32,7 +32,7 @@
     </div>
     <div class="form-check form-check-inline mb-0">
       <input type="checkbox" class="form-check-input" id="chk-8" onchange="toggleGrupo(8)">
-      <label class="form-check-label" for="chk-8">Faturados</label>
+      <label class="form-check-label" for="chk-8">Cancelados</label>
     </div>
     <div class="form-check form-check-inline mb-0">
       <input type="checkbox" class="form-check-input" id="chk-9" onchange="toggleGrupo(9)">
@@ -46,7 +46,7 @@
   0: 'warning',
   1: 'info',
   2: 'success',
-  8: 'primary',
+  8: 'secondary',
   9: 'dark'
 } %}
 
@@ -78,7 +78,8 @@
             <td style="white-space:nowrap;">{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
             <td class="d-none d-sm-table-cell" style="white-space:nowrap;">R$ {{ (o.total or 0) | brl }}</td>
             <td>
-              <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-primary' if o.status == 8 else 'bg-dark' }}">{{ ORDER_STATUS[o.status] }}</span>
+              <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 8 else 'bg-dark' }}">{{ ORDER_STATUS[o.status] }}</span>
+              {% if o.transacao_id or o.movto_id %}<span class="badge bg-primary ms-1">Faturado</span>{% endif %}
             </td>
           </tr>
           {% endfor %}

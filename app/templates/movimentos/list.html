@@ -1,92 +1,84 @@
 {% extends "base.html" %}
 {% from "components/barra_report.html" import barra_report %}
-{% from "components/barra_filtro.html" import barra_filtro %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
 {% block content %}
 
 {% set _actions %}
 <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_new') }}{% else %}{{ url_for('movimentos.pagamentos_new') }}{% endif %}" class="btn btn-success">+ Novo</a>
 {% endset %}
-{% call barra_filtro(tipo_nome_plural, _actions) %}
-  <select class="form-select" style="width:auto;" onchange="filtrar('recurso', this.value)">
-    <option value="todos" {% if filtro_recurso == 'todos' %}selected{% endif %}>Todos</option>
-    {% for r in recursos %}
-      <option value="{{ r.id }}" {% if filtro_recurso == r.id|string %}selected{% endif %}>{{ r.nome }}</option>
-    {% endfor %}
-  </select>
-{% endcall %}
-<div class="table-responsive table-scroll d-none d-lg-block">
-  <table class="table table-hover sortable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Data</th>
-        <th>Recurso</th>
-        <th>Conta</th>
-        <th>Previsão</th>
-        <th>Documento</th>
-        <th>Valor</th>
-        <th>Rubrica</th>
-        <th>Histórico</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for m in movtos %}
-        <tr>
-          <td>{{ m.id|fmtid }}</td>
-          <td>{{ m.data|fmtdate }}</td>
-          <td>{{ m.recurso.nome if m.recurso else '' }}</td>
-          <td>{{ m.conta.nome if m.conta else '' }}</td>
-          <td>{% if m.previsao %}<a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=m.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ m.previsao_id|fmtid }}</a>{% endif %}</td>
-          <td>{{ m.documento or '' }}</td>
-          <td{% if tipo == 'E' %} class="text-success fw-bold text-end"{% else %} class="text-danger fw-bold text-end"{% endif %}>{{ m.valor|brl }}</td>
-          <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
-          <td>{{ m.historico_display }}</td>
-          <td>
-            <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_edit', id=m.id) }}{% else %}{{ url_for('movimentos.pagamentos_edit', id=m.id) }}{% endif %}" class="btn btn-sm btn-outline-primary">Editar</a>
-          </td>
-        </tr>
-      {% else %}
-        <tr>
-          <td colspan="10" class="text-center text-muted">Nenhum {{ tipo_nome|lower }} encontrado.</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
 
-<div class="d-lg-none mt-3">
-  {% for m in movtos %}
-    <div class="card mb-2 shadow-sm card-list-item">
-      <div class="card-body py-2 px-3">
-        <div class="d-flex justify-content-between align-items-start mb-1">
-          <span class="fw-bold">#{{ m.id|fmtid }}</span>
-          <div>
-            <a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_edit', id=m.id) }}{% else %}{{ url_for('movimentos.pagamentos_edit', id=m.id) }}{% endif %}" style="text-decoration:none;">
-              <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
-            </a>
-          </div>
-        </div>
-        <span class="card-label">{{ m.data|fmtdate }}</span>
-        <span class="card-value ms-1">{{ m.recurso.nome if m.recurso else '' }}</span>
-        <br>
-        <span class="card-label">Valor:</span>
-        <span class="card-value ms-1{% if tipo == 'E' %} text-success fw-bold{% else %} text-danger fw-bold{% endif %}">{{ m.valor|brl }}</span>
-        <br>
-        {% if m.conta %}<span class="card-label">Conta:</span><span class="card-value ms-1">{{ m.conta.nome }}</span><br>{% endif %}
-        {% if m.previsao %}<span class="card-label">Prev:</span><span class="card-value ms-1"><a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=m.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ m.previsao_id|fmtid }}</a></span><br>{% endif %}
-        {% if m.documento %}<span class="card-label">Doc:</span><span class="card-value ms-1">{{ m.documento }}</span><br>{% endif %}
-        {% if m.rubrica %}<span class="card-label">Rubrica:</span><span class="card-value ms-1">{{ m.rubrica.nome }}</span><br>{% endif %}
-        <span class="card-label">Obs:</span><span class="card-value ms-1">{{ m.historico_display }}</span>
-      </div>
-    </div>
-  {% else %}
-    <p class="text-muted text-center">Nenhum {{ tipo_nome|lower }} encontrado.</p>
+{% set filter_html %}
+<select class="form-select" style="width:auto;" onchange="filtrar('recurso', this.value)">
+  <option value="todos" {% if filtro_recurso == 'todos' %}selected{% endif %}>Todos</option>
+  {% for r in recursos %}
+    <option value="{{ r.id }}" {% if filtro_recurso == r.id|string %}selected{% endif %}>{{ r.nome }}</option>
   {% endfor %}
-</div>
+</select>
+{% endset %}
 
+{% call panel_list(tipo_nome_plural, actions=_actions, filters=filter_html, table_wrapper_class='d-none d-lg-block', model="Movto") %}
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Data</th>
+      <th>Recurso</th>
+      <th>Conta</th>
+      <th>Previsão</th>
+      <th data-field="documento">Documento</th>
+      <th>Valor</th>
+      <th>Rubrica</th>
+      <th data-field="historico">Histórico</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in movtos %}
+      <tr>
+        <td>{{ m.id|fmtid }}</td>
+        <td>{{ m.data|fmtdate }}</td>
+        <td>{{ m.recurso.nome if m.recurso else '' }}</td>
+        <td>{{ m.conta.nome if m.conta else '' }}</td>
+        <td>{% if m.previsao %}<a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=m.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ m.previsao_id|fmtid }}</a>{% endif %}</td>
+        <td>{{ m.documento or '' }}</td>
+        <td{% if tipo == 'E' %} class="text-success fw-bold text-end"{% else %} class="text-danger fw-bold text-end"{% endif %}>{{ m.valor|brl }}</td>
+        <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
+        <td>{{ m.historico_display }}</td>
+        <td>{{ action_edit(url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=m.id)) }}</td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="10" class="text-center text-muted">Nenhum registro encontrado.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+
+{% call(item) card_list(movtos) %}
+  <div class="d-flex justify-content-between align-items-start mb-1">
+    <span class="fw-bold">#{{ item.id|fmtid }}</span>
+    <div>
+      {{ action_edit(url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=item.id)) }}
+    </div>
+  </div>
+  <span class="card-label">{{ item.data|fmtdate }}</span>
+  <span class="card-value ms-1">{{ item.recurso.nome if item.recurso else '' }}</span>
+  <br>
+  <span class="card-label">Valor:</span>
+  <span class="card-value ms-1{% if tipo == 'E' %} text-success fw-bold{% else %} text-danger fw-bold{% endif %}">{{ item.valor|brl }}</span>
+  <br>
+  {% if item.conta %}<span class="card-label">Conta:</span><span class="card-value ms-1">{{ item.conta.nome }}</span><br>{% endif %}
+  {% if item.previsao %}<span class="card-label">Prev:</span><span class="card-value ms-1"><a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=item.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ item.previsao_id|fmtid }}</a></span><br>{% endif %}
+  {% if item.documento %}<span class="card-label">Doc:</span><span class="card-value ms-1">{{ item.documento }}</span><br>{% endif %}
+  {% if item.rubrica %}<span class="card-label">Rubrica:</span><span class="card-value ms-1">{{ item.rubrica.nome }}</span><br>{% endif %}
+  <span class="card-label">Obs:</span><span class="card-value ms-1">{{ item.historico_display }}</span>
+{% endcall %}
+
+<div class="form-bottom-spacer"></div>
+{% endblock %}
+
+{% block bottom_bar %}
 {% call barra_report() %}
-  <strong>Total:</strong> {{ total_valor|brl if total_valor is defined else '' }}
+  <strong>{{ movtos|length }}</strong> movimento(s)
 {% endcall %}
 {% endblock %}
 

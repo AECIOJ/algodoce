@@ -11,7 +11,8 @@ from app.models.rubrica import Rubrica
 from app.models.ingredient import Ingredient
 from app.models.compra_item import CompraItem
 from app.models.movto import Movto
-from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO
+from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO, COMPRA_STATUS
+from app.models.forma_pagamento import FormaPagamento
 from app.utils import LinhaTransacao
 
 TIPO = "C"
@@ -67,7 +68,7 @@ def list():
         "compras/list.html", linhas=linhas, total_saldo=total_saldo,
         filtro_status=filtro_status, filtro_venc=filtro_venc, hoje=hoje,
         TIPO_PREVISAO=TIPO_PREVISAO, TIPO_RUBRICA=TIPO_RUBRICA,
-        PREVISAO_STATUS=PREVISAO_STATUS,
+        PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
         TIPO_TRANSACAO=TIPO_TRANSACAO,
     )
 
@@ -97,6 +98,8 @@ def new():
         compra = Compra(
             data=data, fornecedor_id=conta_id,
             valor=valor_total, historico=historico,
+            forma_pagamento_id=request.form.get("forma_pagamento_id", type=int) or None,
+            status=request.form.get("status", 1, type=int),
         )
         db.session.add(compra)
         db.session.flush()
@@ -105,10 +108,11 @@ def new():
             data=data, tipo=TIPO, conta_id=conta_id,
             rubrica_id=rubrica_id, fatura=fatura,
             valor=valor_total, cancelado=cancelado,
-            historico=historico, compra_id=compra.id,
+            historico=historico,
         )
         db.session.add(transacao)
         db.session.flush()
+        compra.transacao_id = transacao.id
 
         for i in range(len(insumo_ids)):
             if not insumo_ids[i] or not insumo_ids[i].strip():
@@ -151,9 +155,12 @@ def new():
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
             insumos = Ingredient.query.order_by(Ingredient.nome).all()
+            formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
             return render_template(
                 "compras/form.html",
-                contas=contas, rubricas=rubricas, insumos=insumos, hoje=date.today(),
+                contas=contas, rubricas=rubricas, insumos=insumos,
+                formas_pagamento=formas_pagamento, hoje=date.today(),
+                COMPRA_STATUS=COMPRA_STATUS,
                 submitted_data=None, submitted_previsoes=None,
             )
 
@@ -164,9 +171,11 @@ def new():
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
+    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
         "compras/form.html", contas=contas, rubricas=rubricas,
-        insumos=insumos, hoje=date.today(),
+        insumos=insumos, formas_pagamento=formas_pagamento,
+        hoje=date.today(), COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None,
     )
 
@@ -178,7 +187,7 @@ def edit(id):
         flash("Código inexistente", "warning")
         return redirect(url_for("compras.list"))
 
-    compra = transacao.compra
+    compra = Compra.query.filter_by(transacao_id=transacao.id).first()
     if not compra:
         flash("Compra não encontrada", "warning")
         return redirect(url_for("compras.list"))
@@ -200,6 +209,9 @@ def edit(id):
         compra.data = request.form.get("data") or date.today()
         compra.fornecedor_id = request.form.get("conta_id", type=int) or None
         compra.historico = request.form.get("historico") or None
+        compra.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
+        compra.status = request.form.get("status", compra.status, type=int)
+        compra.data_recepcao = request.form.get("data_recepcao") or None
 
         transacao.data = compra.data
         transacao.conta_id = compra.fornecedor_id
@@ -308,12 +320,14 @@ def edit(id):
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
+    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes]
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
         "compras/form.html", transacao=transacao, compra=compra,
         contas=contas, rubricas=rubricas, insumos=insumos,
-        PREVISAO_STATUS=PREVISAO_STATUS,
+        formas_pagamento=formas_pagamento,
+        PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
         movimentos=movimentos, tipo_nome="Pagamento",
     )

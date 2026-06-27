@@ -1,128 +1,117 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% from "components/barra_filtro.html" import barra_filtro %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+
 {% set _actions %}
 <a href="{{ url_for('products.new') }}" class="btn btn-success">+ Novo</a>
 {% endset %}
-{% call barra_filtro("Produtos", _actions) %}
-  <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
-    <option value="">Todas as categorias</option>
-    {% for cat in categories %}
-      <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
+
+{% set filter_html %}
+<select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
+  <option value="">Todas as categorias</option>
+  {% for cat in categories %}
+    <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
+  {% endfor %}
+</select>
+<select id="filter-ativo" class="form-select form-select-sm" style="width:auto;">
+  <option value="todos" selected>Tudo</option>
+  <option value="ativos">Ativos</option>
+  <option value="inativos">Inativos</option>
+</select>
+{% endset %}
+
+{% call panel_list("Produtos", actions=_actions, filters=filter_html, model="Product") %}
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Imagem</th>
+      <th data-field="nome">Nome</th>
+      <th>Categoria</th>
+      <th>Qtd. Mín.</th>
+      <th>Preço</th>
+      <th>Status</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in products %}
+      {% set ativo = p.ativo and (not p.category or p.category.ativo) %}
+      <tr data-ativo="{{ ativo|lower }}" data-categoria="{{ p.category.nome if p.category else '' }}">
+        <td>{{ p.id|fmtid }}</td>
+        <td>
+          {% if p.imagem %}
+            <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>{{ p.nome }}</td>
+        <td>
+          {% if p.category %}
+            {% if p.category.ativo %}
+              {{ p.category.nome }}
+            {% else %}
+              <span class="text-muted">{{ p.category.nome }}</span>
+            {% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>{{ p.qtd_minima if p.qtd_minima else '—' }}</td>
+        <td>R$ {{ (p.preco or 0) | brl }}</td>
+        <td>
+          {% if ativo %}
+            <span class="badge bg-success">Ativo</span>
+          {% else %}
+            <span class="badge bg-danger">Inativo</span>
+          {% endif %}
+        </td>
+        <td>{{ action_edit(url_for('products.edit', id=p.id)) }}</td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="8" class="text-center text-muted">Nenhum registro encontrado.</td>
+      </tr>
     {% endfor %}
-  </select>
-  <select id="filter-ativo" class="form-select form-select-sm" style="width:auto;">
-    <option value="todos" selected>Tudo</option>
-    <option value="ativos">Ativos</option>
-    <option value="inativos">Inativos</option>
-  </select>
+  </tbody>
 {% endcall %}
 
-<div class="table-responsive table-scroll">
-  <table class="table table-hover sortable">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Imagem</th>
-        <th>Nome</th>
-        <th>Categoria</th>
-        <th>Qtd. Mín.</th>
-        <th>Preço</th>
-        <th>Status</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in products %}
-        {% set ativo = p.ativo and (not p.category or p.category.ativo) %}
-        <tr data-ativo="{{ ativo|lower }}" data-categoria="{{ p.category.nome if p.category else '' }}">
-          <td>{{ p.id|fmtid }}</td>
-          <td>
-            {% if p.imagem %}
-              <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
-            {% else %}
-              <span class="text-muted">—</span>
-            {% endif %}
-          </td>
-          <td>{{ p.nome }}</td>
-          <td>
-            {% if p.category %}
-              {% if p.category.ativo %}
-                {{ p.category.nome }}
-              {% else %}
-                <span class="text-muted">{{ p.category.nome }}</span>
-              {% endif %}
-            {% else %}
-              —
-            {% endif %}
-          </td>
-          <td>{{ p.qtd_minima if p.qtd_minima else '—' }}</td>
-          <td>R$ {{ (p.preco or 0) | brl }}</td>
-          <td>
-            {% if ativo %}
-              <span class="badge bg-success">Ativo</span>
-            {% else %}
-              <span class="badge bg-danger">Inativo</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-primary">Editar</a>
-          </td>
-        </tr>
-      {% else %}
-        <tr>
-          <td colspan="8" class="text-center text-muted">Nenhum produto cadastrado.</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<!-- Mobile: card list -->
-<div class="d-lg-none">
-  {% for p in products %}
-    {% set ativo = p.ativo and (not p.category or p.category.ativo) %}
-    <div class="card mb-2 shadow-sm card-list-item" data-ativo="{{ ativo|lower }}" data-categoria="{{ p.category.nome if p.category else '' }}">
-      <div class="card-body py-2 px-3">
-        <div class="d-flex justify-content-between align-items-start mb-1">
-          <div>
-            <span class="card-label">#{{ p.id|fmtid }}</span>
-            {% if ativo %}
-              <span class="badge bg-success">Ativo</span>
-            {% else %}
-              <span class="badge bg-danger">Inativo</span>
-            {% endif %}
+{% call(item) card_list(products) %}
+  {% set ativo = item.ativo and (not item.category or item.category.ativo) %}
+  <div data-ativo="{{ ativo|lower }}" data-categoria="{{ item.category.nome if item.category else '' }}">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div>
+        <span class="card-label">#{{ item.id|fmtid }}</span>
+        {% if ativo %}
+          <span class="badge bg-success">Ativo</span>
+        {% else %}
+          <span class="badge bg-danger">Inativo</span>
+        {% endif %}
+      </div>
+      {{ action_edit(url_for('products.edit', id=item.id)) }}
+    </div>
+    <div class="d-flex gap-2">
+      {% if item.imagem %}
+        <img src="{{ url_for('uploads.uploaded_file', filename=item.imagem) }}" class="rounded align-self-center" style="max-height: 80px; max-width: 80px;">
+      {% endif %}
+      <div class="flex-grow-1">
+        <h6 class="mb-1">{{ item.nome }}</h6>
+        <div><span class="card-label">Categoria:</span> <span class="card-value">{{ item.category.nome if item.category else '—' }}</span></div>
+        <div class="row g-0 mt-1">
+          <div class="col-6">
+            <span class="card-label">Qtd. Mín.</span><br>
+            <span class="card-value">{{ item.qtd_minima if item.qtd_minima else '—' }}</span>
           </div>
-          <a href="{{ url_for('products.edit', id=p.id) }}" style="text-decoration:none;">
-            <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Editar" height="18">
-          </a>
-        </div>
-        <div class="d-flex gap-2">
-          {% if p.imagem %}
-            <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}" class="rounded align-self-center" style="max-height: 80px; max-width: 80px;">
-          {% endif %}
-          <div class="flex-grow-1">
-            <h6 class="mb-1">{{ p.nome }}</h6>
-            <div><span class="card-label">Categoria:</span> <span class="card-value">{{ p.category.nome if p.category else '—' }}</span></div>
-            <div class="row g-0 mt-1">
-              <div class="col-6">
-                <span class="card-label">Qtd. Mín.</span><br>
-                <span class="card-value">{{ p.qtd_minima if p.qtd_minima else '—' }}</span>
-              </div>
-              <div class="col-6">
-                <span class="card-label">Preço</span><br>
-                <span class="card-value">R$ {{ (p.preco or 0) | brl }}</span>
-              </div>
-            </div>
+          <div class="col-6">
+            <span class="card-label">Preço</span><br>
+            <span class="card-value">R$ {{ (item.preco or 0) | brl }}</span>
           </div>
         </div>
       </div>
     </div>
-  {% else %}
-    <p class="text-muted text-center">Nenhum produto cadastrado.</p>
-  {% endfor %}
-</div>
+  </div>
+{% endcall %}
 
 {% endblock %}
 
@@ -130,12 +119,7 @@
 <script>
 function aplicarFiltro() {
   const desktopAtivo = document.getElementById('filter-ativo');
-  const mobileAtivo = document.getElementById('filter-ativo-mobile');
   const desktopCat = document.getElementById('filter-categoria');
-  const mobileCat = document.getElementById('filter-categoria-mobile');
-  // Sync values
-  if (desktopAtivo && mobileAtivo) mobileAtivo.value = desktopAtivo.value;
-  if (desktopCat && mobileCat) mobileCat.value = desktopCat.value;
   const ativoFiltro = desktopAtivo.value;
   const cat = desktopCat.value;
   function match(el) {
@@ -148,18 +132,13 @@ function aplicarFiltro() {
     el.style.display = (mostraAtivo && mostraCat) ? '' : 'none';
   }
   document.querySelectorAll('tbody tr').forEach(match);
-  document.querySelectorAll('.card-list-item').forEach(match);
+  document.querySelectorAll('.card-list-item').forEach(function(el) {
+    var inner = el.querySelector('[data-ativo]');
+    if (inner) match(inner);
+  });
 }
 document.getElementById('filter-ativo').addEventListener('change', aplicarFiltro);
 document.getElementById('filter-categoria').addEventListener('change', aplicarFiltro);
-document.getElementById('filter-ativo-mobile').addEventListener('change', function() {
-  document.getElementById('filter-ativo').value = this.value;
-  aplicarFiltro();
-});
-document.getElementById('filter-categoria-mobile').addEventListener('change', function() {
-  document.getElementById('filter-categoria').value = this.value;
-  aplicarFiltro();
-});
 aplicarFiltro();
 </script>
 {% endblock %}

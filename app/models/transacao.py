@@ -13,17 +13,11 @@ class Transacao(db.Model):
     valor = db.Column(db.Numeric(12, 2), nullable=False)
     historico = db.Column(db.Text, nullable=True)
     cancelado = db.Column(db.Date, nullable=True)
-    compra_id = db.Column(db.Integer, db.ForeignKey("compras.id"), nullable=True, unique=True)
-    pedido_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True, unique=True)
 
     conta = db.relationship("Conta", backref="transacoes")
     rubrica = db.relationship("Rubrica", backref="transacoes")
     previsoes = db.relationship("Previsao", backref="transacao", cascade="all, delete-orphan",
                                 order_by="Previsao.vencimento, Previsao.id")
-    compra = db.relationship("Compra", backref=db.backref("transacao", uselist=False),
-                             foreign_keys=[compra_id])
-    pedido = db.relationship("Order", backref=db.backref("transacao", uselist=False),
-                             foreign_keys=[pedido_id])
 
     @property
     def status(self):
@@ -37,3 +31,13 @@ class Transacao(db.Model):
     def status_label(self):
         from app.constants import PREVISAO_STATUS
         return PREVISAO_STATUS.get(self.status, "")
+
+    @property
+    def compra(self):
+        from app.models.compra import Compra
+        return Compra.query.filter_by(transacao_id=self.id).first()
+
+    @property
+    def pedido(self):
+        from app.models.order import Order
+        return Order.query.filter_by(transacao_id=self.id).first()

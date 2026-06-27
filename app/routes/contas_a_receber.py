@@ -8,6 +8,7 @@ from app.models.transacao import Transacao
 from app.models.client import Conta
 from app.models.rubrica import Rubrica
 from app.models.movto import Movto
+from app.models.order import Order
 from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO
 from app.utils import LinhaTransacao
 
@@ -198,7 +199,7 @@ def edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    locked = bool(transacao.pedido_id)
+    locked = bool(Order.query.filter_by(transacao_id=transacao.id).first())
 
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()

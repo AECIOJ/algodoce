@@ -9,7 +9,7 @@ from app.extensions import db, migrate, login_manager
 from flask_migrate import upgrade
 import sqlalchemy as sa
 
-from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date
+from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, aplicar_transformacao
 
 _ngrok_url = None
 
@@ -61,7 +61,7 @@ def create_app():
 
     with app.app_context():
         from app.routes import clients as contas, products, ingredients, orders, compras
-        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, producao, rubricas, previsoes, recursos, contas_a_pagar, contas_a_receber, movimentos
+        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, producao, rubricas, previsoes, recursos, contas_a_pagar, contas_a_receber, movimentos, api
 
         app.register_blueprint(contas.bp)
         app.register_blueprint(products.bp)
@@ -82,6 +82,10 @@ def create_app():
         app.register_blueprint(contas_a_pagar.bp)
         app.register_blueprint(contas_a_receber.bp)
         app.register_blueprint(movimentos.bp)
+        app.register_blueprint(api.bp)
+
+        from app.routes.forma_pagamento import bp as forma_pagamento_bp
+        app.register_blueprint(forma_pagamento_bp)
 
         from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, rubrica, transacao, previsao  # noqa
         from app.models.event import Event  # noqa
@@ -95,8 +99,23 @@ def create_app():
         from app.models.producao_produto import ProducaoProduto  # noqa
         from app.models.recurso import Recurso  # noqa
         from app.models.movto import Movto  # noqa
+        from app.models.forma_pagamento import FormaPagamento  # noqa
 
-        upgrade()
+        from app.models.category import Category
+        from app.models.client import Conta
+        from app.models.product import Product
+        from app.models.ingredient import Ingredient
+        from app.models.quote import Quote
+        from app.models.previsao import Previsao
+
+        for model_cls in [Category, Conta, Product, Ingredient, Quote, Recurso, Producao, Previsao, Movto, FormaPagamento]:
+            sa.event.listen(model_cls, 'before_insert', aplicar_transformacao)
+            sa.event.listen(model_cls, 'before_update', aplicar_transformacao)
+
+        try:
+            upgrade()
+        except Exception:
+            pass
 
         Setting.ensure_keys()
 
