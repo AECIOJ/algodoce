@@ -126,3 +126,62 @@ def aplicar_transformacao(mapper, connection, target):
             setattr(instance, campo, _title_case(valor.strip()))
         elif modo == 2:
             setattr(instance, campo, valor.strip().upper())
+
+
+def parse_prazo_recebimento(texto: str, data_pedido, data_entrega, total: float):
+    if not texto or not texto.strip():
+        return [{"vencimento": data_pedido, "previsto": total}]
+    texto = texto.strip().upper()
+
+    # "P/E" — vencimentos no pedido e na entrega
+    if texto == "P/E":
+        if not data_entrega:
+            return [{"vencimento": data_pedido, "previsto": total}]
+        split = total / 2
+        return [
+            {"vencimento": data_pedido, "previsto": round(split, 2)},
+            {"vencimento": data_entrega, "previsto": round(total - split, 2)},
+        ]
+
+    # "Nx" — N parcelas iguais a cada 30 dias (ex: "3x" → 30/60/90)
+    if texto.endswith("X") and texto[:-1].isdigit():
+        n = int(texto[:-1])
+        if n < 1:
+            n = 1
+        from datetime import timedelta
+        parcelas = []
+        for i in range(1, n + 1):
+            parcelas.append({
+                "vencimento": data_pedido + timedelta(days=30 * i),
+                "previsto": round(total / n, 2) if i < n else round(total - (total / n) * (n - 1), 2),
+            })
+        return parcelas
+
+    # "N" — único vencimento em N dias (ex: "1" → próximo dia)
+    if texto.isdigit():
+        from datetime import timedelta
+        return [{"vencimento": data_pedido + timedelta(days=int(texto)), "previsto": total}]
+
+    # "A/B" — vencimento em A dias e B dias (ex: "0/15")
+    if "/" in texto:
+        partes = texto.split("/")
+        from datetime import timedelta
+        dias_lista = [int(p.strip()) for p in partes if p.strip().isdigit()]
+        n = len(dias_lista)
+        if n == 0:
+            return [{"vencimento": data_pedido, "previsto": total}]
+        parcelas = []
+        for i, dias in enumerate(dias_lista):
+            if i == n - 1:
+                parcelas.append({
+                    "vencimento": data_pedido + timedelta(days=dias),
+                    "previsto": round(total - sum(p["previsto"] for p in parcelas), 2),
+                })
+            else:
+                parcelas.append({
+                    "vencimento": data_pedido + timedelta(days=dias),
+                    "previsto": round(total / n, 2),
+                })
+        return parcelas
+
+    return [{"vencimento": data_pedido, "previsto": total}]

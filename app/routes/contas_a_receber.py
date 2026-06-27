@@ -10,7 +10,7 @@ from app.models.rubrica import Rubrica
 from app.models.movto import Movto
 from app.models.order import Order
 from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO
-from app.utils import LinhaTransacao
+from app.utils import LinhaTransacao, parse_prazo_recebimento
 
 TIPO = ("R", "V")
 
@@ -114,6 +114,10 @@ def detail(id):
 
 @bp.route("/novo", methods=["GET", "POST"])
 def new():
+    order_id = request.args.get("order_id", type=int) or request.form.get("order_id", type=int)
+    order = Order.query.get(order_id) if order_id else None
+    back_url = url_for("orders.edit", id=order.id) if order else url_for("contas_a_receber.list")
+
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
 
@@ -164,18 +168,58 @@ def new():
                 "contas_a_receber/form.html",
                 contas=contas, rubricas=rubricas, hoje=date.today(),
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
+                back_url=back_url,
             )
 
         db.session.commit()
+
+        if order and not order.transacao_id:
+            order.transacao_id = transacao.id
+            db.session.commit()
+
         flash("Conta cadastrada!", "success")
         return redirect(url_for("contas_a_receber.list"))
+
+    submitted_data = None
+    submitted_previsoes = None
+    if order:
+        fp = order.forma_pagamento_rel
+        if fp and fp.gerar != 0:
+            total = float(order.total or 0)
+            data_entrega = order.data_entrega or order.data_previsao_entrega
+            parcelas = parse_prazo_recebimento(
+                fp.prazo_recebimento,
+                order.data_pedido.date(),
+                data_entrega.date() if data_entrega else None,
+                total,
+            )
+            submitted_data = {
+                "data": str(order.data_pedido.date()),
+                "conta_id": str(order.client_id),
+                "rubrica_id": "",
+                "fatura": f"P#{order.id}",
+                "valor": str(total),
+                "historico": order.observacao or "",
+            }
+            submitted_previsoes = []
+            for i, p in enumerate(parcelas):
+                n_parcela = "U" if len(parcelas) == 1 else str(i + 1)
+                submitted_previsoes.append({
+                    "id": None,
+                    "vencimento": str(p["vencimento"]),
+                    "previsto": p["previsto"],
+                    "realizado": None,
+                    "variacao": 0,
+                    "documento": f"{submitted_data['fatura']}/{n_parcela}",
+                })
 
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
     return render_template(
         "contas_a_receber/form.html",
         contas=contas, rubricas=rubricas, hoje=date.today(),
-        submitted_data=None, submitted_previsoes=None,
+        submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
+        back_url=back_url,
     )
 
 
@@ -204,77 +248,79 @@ def edit(id):
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
 
+        transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
+
         if not locked:
             cancelado = request.form.get("cancelado") or None
             transacao.data = request.form.get("data") or date.today()
             transacao.conta_id = request.form.get("conta_id", type=int) or None
-            transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
             transacao.fatura = request.form.get("fatura") or None
             transacao.valor = float(request.form.get("valor", 0))
             transacao.cancelado = cancelado
             transacao.historico = request.form.get("historico") or None
 
-        existing = {p.id for p in transacao.previsoes}
-        submitted = set()
+        if not locked:
+            existing = {p.id for p in transacao.previsoes}
+            submitted = set()
 
-        ids = request.form.getlist("previsao_id[]")
-        docs = request.form.getlist("previsao_documento[]")
-        vencs = request.form.getlist("previsao_vencimento[]")
-        prevs = request.form.getlist("previsao_previsto[]")
-        reals = request.form.getlist("previsao_realizado[]")
-        vars_ = request.form.getlist("previsao_variacao[]")
-        removes = request.form.getlist("previsao_remover[]")
+            ids = request.form.getlist("previsao_id[]")
+            docs = request.form.getlist("previsao_documento[]")
+            vencs = request.form.getlist("previsao_vencimento[]")
+            prevs = request.form.getlist("previsao_previsto[]")
+            reals = request.form.getlist("previsao_realizado[]")
+            vars_ = request.form.getlist("previsao_variacao[]")
+            removes = request.form.getlist("previsao_remover[]")
 
-        prev_total = 0
-        for i in range(len(vencs)):
-            if not vencs[i] or not vencs[i].strip():
-                continue
-            pid = int(ids[i]) if ids[i] and ids[i].strip() else None
-            if removes[i] == "1" if i < len(removes) else False:
+            prev_total = 0
+            for i in range(len(vencs)):
+                if not vencs[i] or not vencs[i].strip():
+                    continue
+                pid = int(ids[i]) if ids[i] and ids[i].strip() else None
+                if removes[i] == "1" if i < len(removes) else False:
+                    if pid:
+                        db.session.delete(Previsao.query.get(pid))
+                    continue
+                submitted.add(pid)
+                prev_val = float(prevs[i]) if prevs[i] and prevs[i].strip() else 0
+                prev_total += prev_val
+                real_val = float(reals[i]) if reals[i] and reals[i].strip() else None
+                var_val = float(vars_[i]) if vars_[i] and vars_[i].strip() else 0
                 if pid:
-                    db.session.delete(Previsao.query.get(pid))
-                continue
-            submitted.add(pid)
-            prev_val = float(prevs[i]) if prevs[i] and prevs[i].strip() else 0
-            prev_total += prev_val
-            real_val = float(reals[i]) if reals[i] and reals[i].strip() else None
-            var_val = float(vars_[i]) if vars_[i] and vars_[i].strip() else 0
-            if pid:
-                p = Previsao.query.get(pid)
-                if p:
-                    p.documento = docs[i] if docs[i].strip() else None
-                    p.vencimento = vencs[i]
-                    p.previsto = prev_val
-                    p.realizado = real_val
-                    p.variacao = var_val
-            else:
-                p = Previsao(
-                    transacao_id=transacao.id,
-                    documento=docs[i] if docs[i].strip() else None,
-                    vencimento=vencs[i],
-                    previsto=prev_val,
-                    realizado=real_val,
-                    variacao=var_val,
+                    p = Previsao.query.get(pid)
+                    if p:
+                        p.documento = docs[i] if docs[i].strip() else None
+                        p.vencimento = vencs[i]
+                        p.previsto = prev_val
+                        p.realizado = real_val
+                        p.variacao = var_val
+                else:
+                    p = Previsao(
+                        transacao_id=transacao.id,
+                        documento=docs[i] if docs[i].strip() else None,
+                        vencimento=vencs[i],
+                        previsto=prev_val,
+                        realizado=real_val,
+                        variacao=var_val,
+                    )
+                    db.session.add(p)
+
+            for pid in (existing - submitted):
+                db.session.delete(Previsao.query.get(pid))
+
+            if prev_total > transacao.valor:
+                db.session.rollback()
+                flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da fatura ({float(transacao.valor):.2f})", "danger")
+                contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+                rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+                previsao_ids = [p.id for p in transacao.previsoes]
+                movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
+                return render_template(
+                    "contas_a_receber/form.html", transacao=transacao,
+                    contas=contas, rubricas=rubricas,
+                    PREVISAO_STATUS=PREVISAO_STATUS,
+                    submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
+                    nav=nav, movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
                 )
-                db.session.add(p)
-
-        for pid in (existing - submitted):
-            db.session.delete(Previsao.query.get(pid))
-
-        if prev_total > transacao.valor:
-            db.session.rollback()
-            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da fatura ({float(transacao.valor):.2f})", "danger")
-            contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
-            previsao_ids = [p.id for p in transacao.previsoes]
-            movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
-            return render_template(
-                "contas_a_receber/form.html", transacao=transacao,
-                contas=contas, rubricas=rubricas,
-                PREVISAO_STATUS=PREVISAO_STATUS,
-                submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
-                nav=nav, movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
-            )
 
         db.session.commit()
         flash("Conta atualizada!", "success")

@@ -206,13 +206,21 @@
       <div class="d-flex align-items-end gap-3 flex-wrap mb-3">
         <div>
           <label class="form-label mb-0">Forma de Pagamento</label>
-          <select name="forma_pagamento_id" class="form-select form-select-sm" {{ 'disabled' if ro or order.transacao_id or order.movto_id }}>
+          <select name="forma_pagamento_id" id="forma-pagamento-select" class="form-select form-select-sm" required
+            data-saved-id="{{ order.forma_pagamento_id or '' }}" {{ 'disabled' if ro or order.transacao_id or order.movto_id }}>
             <option value="">Selecione...</option>
             {% for fp in formas_pagamento %}
-              <option value="{{ fp.id }}" {{ 'selected' if order.forma_pagamento_rel and order.forma_pagamento_rel.id == fp.id }}>{{ fp.nome }} ({{ {0:'Imediato',1:'Provisionado'}[fp.modo] }})</option>
+              <option value="{{ fp.id }}" {{ 'selected' if order.forma_pagamento_rel and order.forma_pagamento_rel.id == fp.id }} data-gerar="{{ fp.gerar }}">{{ fp.nome }} ({{ {0:'Movimento',1:'Previsão'}[fp.gerar] }})</option>
             {% endfor %}
           </select>
         </div>
+        {% if not order.transacao_id and not order.movto_id %}
+        <div id="gerar-financeiro-wrapper">
+          <a href="{{ url_for('contas_a_receber.new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-previsao-link" style="display:none">Gerar Previsão</a>
+          <a href="{{ url_for('movimentos.recebimentos_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-movimento-link" style="display:none">Gerar</a>
+          <small id="gerar-financeiro-msg" class="text-warning d-none">Salve o pedido antes de gerar.</small>
+        </div>
+        {% endif %}
       </div>
 
       {% if order.transacao %}
@@ -223,9 +231,9 @@
           <thead>
             <tr>
               <th>Transação</th>
-              <th>Fatura</th>
-              <th class="text-end">Valor</th>
-              <th class="text-end">Parcelas</th>
+              <th>Previsão</th>
+              <th>Documento</th>
+              <th>Vencimento</th>
               <th class="text-end">Previsto</th>
               <th class="text-end">Realizado</th>
               <th class="text-end">Variação</th>
@@ -233,16 +241,18 @@
             </tr>
           </thead>
           <tbody>
+            {% for p in prevs %}
             <tr>
               <td><a href="{{ url_for('contas_a_receber.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">#{{ t.id|fmtid }}</a></td>
-              <td>{{ t.fatura or '-' }}</td>
-              <td class="text-end">{{ t.valor|brl }}</td>
-              <td class="text-end">{{ prevs|length }}</td>
-              <td class="text-end">{{ prevs|sum(attribute='previsto')|brl }}</td>
-              <td class="text-end">{{ prevs|sum(attribute='realizado')|brl if prevs|selectattr('realizado')|list else '-' }}</td>
-              <td class="text-end">{{ prevs|sum(attribute='variacao')|brl }}</td>
-              <td class="text-end">{{ prevs|map(attribute='saldo')|sum|brl }}</td>
+              <td>#{{ p.id|fmtid if p.id else '' }}</td>
+              <td>{{ p.documento or '-' }}</td>
+              <td>{{ p.vencimento|fmtdate }}</td>
+              <td class="text-end">{{ p.previsto|brl }}</td>
+              <td class="text-end">{{ p.realizado|brl if p.realizado is not none else '-' }}</td>
+              <td class="text-end">{{ p.variacao|brl }}</td>
+              <td class="text-end">{{ p.saldo|brl }}</td>
             </tr>
+            {% endfor %}
           </tbody>
         </table>
       </div>
@@ -462,5 +472,40 @@ function preencherTelefone(select) {
   var input = document.querySelector('input[name="cliente_telefone"]');
   if (input) input.value = tel;
 }
+
+(function() {
+  var select = document.getElementById('forma-pagamento-select');
+  var wrapper = document.getElementById('gerar-financeiro-wrapper');
+  if (!select || !wrapper) return;
+  var previsaoLink = document.getElementById('gerar-previsao-link');
+  var movimentoLink = document.getElementById('gerar-movimento-link');
+  var msg = document.getElementById('gerar-financeiro-msg');
+  function atualizarBotaoGerar() {
+    var savedId = select.getAttribute('data-saved-id');
+    var selectedId = select.value;
+    var opt = select.options[select.selectedIndex];
+    var gerar = opt ? opt.getAttribute('data-gerar') : null;
+    if (selectedId && selectedId === savedId) {
+      msg.classList.add('d-none');
+      if (gerar === '1') {
+        previsaoLink.style.display = '';
+        movimentoLink.style.display = 'none';
+      } else {
+        previsaoLink.style.display = 'none';
+        movimentoLink.style.display = '';
+      }
+    } else if (selectedId) {
+      previsaoLink.style.display = 'none';
+      movimentoLink.style.display = 'none';
+      msg.classList.remove('d-none');
+    } else {
+      previsaoLink.style.display = 'none';
+      movimentoLink.style.display = 'none';
+      msg.classList.add('d-none');
+    }
+  }
+  select.addEventListener('change', atualizarBotaoGerar);
+  atualizarBotaoGerar();
+})();
 </script>
 {% endblock %}

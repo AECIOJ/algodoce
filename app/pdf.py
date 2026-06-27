@@ -1,7 +1,7 @@
 from datetime import timedelta
 from io import BytesIO
 from fpdf import FPDF
-from app.constants import FORMA_PAGAMENTO, FORMINHAS
+from app.constants import FORMINHAS
 
 
 class DocPDF(FPDF):
@@ -127,7 +127,7 @@ def gerar_pdf_pedido(order, logo_path):
     pdf.ln(4)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(pdf.w / 2 - 10, 6, f"Forminhas: {FORMINHAS.get(order.forminhas, '-')}")
-    pdf.cell(pdf.w / 2 - 10, 6, f"Forma de Pagamento: {FORMA_PAGAMENTO.get(order.forma_pagamento, '-')}", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(pdf.w / 2 - 10, 6, f"Forma de Pagamento: {order.forma_pagamento_rel.nome or '-'}", align="R", new_x="LMARGIN", new_y="NEXT")
 
     # Observation
     if order.observacao:
@@ -227,7 +227,7 @@ def gerar_pdf_orcamento(quote, logo_path):
     pdf.ln(4)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(pdf.w / 2 - 10, 6, f"Forminhas: {FORMINHAS.get(quote.forminhas, '-')}")
-    pdf.cell(pdf.w / 2 - 10, 6, f"Forma de Pagamento: {FORMA_PAGAMENTO.get(quote.forma_pagamento, '-')}", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(pdf.w / 2 - 10, 6, f"Forma de Pagamento: {quote.forma_pagamento_rel.nome or '-'}", align="R", new_x="LMARGIN", new_y="NEXT")
 
     if quote.event and quote.event.tipo:
         pdf.ln(6)

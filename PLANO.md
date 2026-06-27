@@ -27,44 +27,562 @@ app/
 
 ### Tabelas do Banco
 
-**Cadastros Básicos:**
-| Tabela | Descrição |
-|--------|-----------|
-| `users` | Usuários do sistema (admin) |
-| `conta` | Clientes / Fornecedores (nome, telefone, CPF/CNPJ, endereço) |
-| `categories` | Categorias de produtos |
-| `products` | Produtos (nome, preço, qtd_mínima, imagem, ativo) |
-| `ingredients` | Insumos (nome, unidade_medida, tipo: insumo/forminha/embalagem) |
-| `product_ingredients` | Receituário (produto x insumo + quantidade + etapa) |
-| `unit_conversions` | Conversão de unidades por insumo |
+Não há **views**, **stored functions** ou **triggers** no banco — toda a lógica fica na aplicação Python.
 
-**Comercial:**
-| Tabela | Descrição |
-|--------|-----------|
-| `quotes` | Orçamentos (cliente, status, validade, forma_pagamento) |
-| `quote_items` | Itens do orçamento |
-| `orders` | Pedidos (cliente, status, datas, total, itens, evento, produção) |
-| `order_items` | Itens do pedido |
-| `compras` | Compras (PK sequencial, fornecedor, valor, itens) |
-| `compra_itens` | Itens da compra (compra_id, insumo_id, qtd, preco) |
-| `events` | Dados de evento (data, hora, local, tema, convidados) |
+---
 
-**Produção:**
-| Tabela | Descrição |
-|--------|-----------|
-| `producao` | Batches de produção (descrição, período, status) |
-| `producao_produtos` | Produtos em produção (com progresso por etapa) |
-| `producao_insumos` | Insumos calculados para a produção |
+#### Cadastros Básicos
 
-**Financeiro:**
-| Tabela | Descrição |
-|--------|-----------|
-| `rubrica` | Plano de contas (auto-referenciada, tipo: receita/despesa) |
-| `transacao` | Transações financeiras (tipo P/R/C/V, link compra_id/pedido_id) |
-| `previsao` | Parcelas/previsões de cada transação |
-| `recurso` | Recursos financeiros (dinheiro, banco, cartão) |
-| `movto` | Movimentações financeiras (entrada/saída por recurso) |
-| `settings` | Configurações criptografadas (chave-valor) |
+---
+
+##### `conta` (Model: `Conta` — `app/models/client.py`)
+
+Clientes e fornecedores.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `nome` | String(100) | | sim | | Title Case no save via `TRANSFORMAR_AO_SALVAR` |
+| `email` | String(120) | UNIQUE | não | | |
+| `telefone` | String(20) | | não | | |
+| `endereco` | Text | | não | | |
+| `cpf` | String(14) | | não | | |
+| `cnpj` | String(18) | | não | | |
+| `insc_estadual` | String(20) | | não | | |
+| `ativo` | Boolean | | não | `True` | |
+| `tipo` | Integer | | não | `0` | 0=Cliente, 1=Cliente/Fornecedor, 2=Fornecedor |
+
+**Relacionamentos:**
+- `orders` → `Order` (`backref="conta"`, `lazy=dynamic`)
+- `transacoes` → `Transacao` (`backref="transacoes"`)
+- `movtos` → `Movto` (`backref="movtos"`)
+
+---
+
+##### `forma_pagamento` (Model: `FormaPagamento` — `app/models/forma_pagamento.py`)
+
+Formas de pagamento cadastráveis.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `nome` | String(50) | | sim | | Title Case no save via `TRANSFORMAR_AO_SALVAR` |
+| `uso` | Integer | | sim | `1` | 0=Pedido, 1=Ambos, 2=Compra |
+| `gerar` | Integer | | sim | `0` | 0=Movimento (cria Movto), 1=Previsão (cria Transacao+Previsoes) |
+| `prazo_recebimento` | String(100) | | não | | DSL de prazos: P/E, 1, 3x, 0/15. Apenas se gerar=1 |
+| `taxa_recebimento` | Numeric(5,2) | | sim | `0` | Percentual de taxa (ex: 3.5 para cartão) |
+
+**Seed data (migration `d5ff48124a39`):**
+
+| id | nome | uso | gerar | prazo_recebimento | taxa_recebimento |
+|----|------|-----|-------|-------------------|-----------------|
+| 1 | Dinheiro | 1 (Ambos) | 0 (Movimento) | | 0 |
+| 2 | Pix | 1 (Ambos) | 0 (Movimento) | | 0 |
+| 3 | Cartão Débito | 1 (Ambos) | 0 (Movimento) | | 0 |
+| 4 | Cartão Crédito | 1 (Ambos) | 1 (Previsão) | | 0 |
+| 5 | Boleto | 2 (Compra) | 1 (Previsão) | | 0 |
+| 6 | Depósito | 1 (Ambos) | 0 (Movimento) | | 0 |
+
+**Referenciado por:** `Order.forma_pagamento_id`, `Quote.forma_pagamento_id`, `Compra.forma_pagamento_id`, `Previsao.forma_pagamento_id`
+
+---
+
+##### `categories` (Model: `Category` — `app/models/category.py`)
+
+Categorias de produtos (ex: Bolos, Doces, Salgados).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `nome` | String(100) | | sim | | Title Case no save |
+| `ativo` | Boolean | | não | `True` | |
+| `ordem` | Integer | | não | `0` | Ordem de exibição na vitrine |
+
+**Relacionamentos:**
+- `products` → `Product` (`backref="products"`, via `Product.category`)
+
+---
+
+##### `products` (Model: `Product` — `app/models/product.py`)
+
+Produtos vendidos pela doceria.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `nome` | String(100) | | sim | | Title Case no save |
+| `descricao` | Text | | não | | |
+| `preco` | Numeric(10,2) | | sim | | |
+| `qtd_minima` | Integer | | sim | `0` | |
+| `imagem` | String(255) | | não | | Caminho relativo da foto |
+| `ativo` | Boolean | | não | `True` | |
+| `category_id` | Integer | FK→categories.id | não | | |
+
+**Relacionamentos:**
+- `category` → `Category` (`backref="products"`)
+- `ingredients` → `ProductIngredient` (`backref="product"`, `lazy=dynamic`, `cascade="all, delete-orphan"`)
+
+---
+
+##### `ingredients` (Model: `Ingredient` — `app/models/ingredient.py`)
+
+Insumos usados na produção (ingredientes, forminhas, embalagens).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `nome` | String(100) | | sim | | Title Case no save |
+| `unidade_medida` | String(20) | | sim | | UPPERCASE no save |
+| `tipo` | Integer | | sim | `0` | 0=Ingrediente, 1=Forminha, 2=Embalagem |
+
+**Relacionamentos:**
+- `products` → `ProductIngredient` (`backref="ingredient"`, `lazy=dynamic`)
+- `conversions` → `UnitConversion` (`backref="conversions"`)
+
+---
+
+##### `product_ingredients` (Model: `ProductIngredient` — `app/models/product_ingredient.py`)
+
+Receituário: associa produto aos insumos necessários com quantidade por etapa.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `product_id` | Integer | PK, FK→products.id | sim | | Compõe PK composta |
+| `ingredient_id` | Integer | PK, FK→ingredients.id | sim | | Compõe PK composta |
+| `quantidade` | Numeric(10,3) | | sim | | |
+| `unidade` | String(20) | | sim | `"un"` | |
+| `etapa_id` | Integer | | não | | 0=Preparação, 1=Montagem, 2=Embalagem |
+
+**Relacionamentos:**
+- `product` → `Product` (`backref="ingredients"`)
+- `ingredient` → `Ingredient` (`backref="products"`)
+
+---
+
+##### `unit_conversions` (Model: `UnitConversion` — `app/models/unit_conversion.py`)
+
+Fator de conversão entre unidades de medida para um mesmo insumo.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `ingredient_id` | Integer | FK→ingredients.id | sim | | |
+| `unidade` | String(20) | | sim | | |
+| `fator` | Numeric(10,6) | | sim | | Ex: 1 kg = 1000 g → fator=1000 |
+
+**Relacionamentos:**
+- `ingredient` → `Ingredient` (`backref="conversions"`)
+
+---
+
+#### Comercial
+
+---
+
+##### `quotes` (Model: `Quote` — `app/models/quote.py`)
+
+Orçamentos feitos por clientes (público ou admin).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `data_pedido` | DateTime | | sim | `now()` | |
+| `cliente_nome` | String(100) | | sim | | Title Case no save |
+| `cliente_telefone` | String(20) | | sim | | |
+| `status` | Integer | | sim | `0` | 0=Pendente, 1=Negociação, 6=Renovado, 7=Expirado, 8=Reprovado, 9=Aprovado |
+| `pedido_id` | Integer | FK→orders.id | não | | Preenchido após conversão |
+| `total` | Numeric(10,2) | | não | | |
+| `observacao` | Text | | não | | |
+| `validade` | Integer | | sim | `3` | Dias de validade |
+| `forma_pagamento_id` | Integer | FK→forma_pagamento.id | sim | |
+| `data_renovacao` | DateTime | | não | | |
+| `forminhas` | Integer | | sim | `0` | 0=Simples, 1=Fornecidas pelo Cliente |
+
+**Relacionamentos:**
+- `forma_pagamento_rel` → `FormaPagamento` (`uselist=False`)
+- `order` → `Order` (`foreign_keys=pedido_id`, `lazy=joined`)
+- `event` → `Event` (`back_populates="quote"`, `uselist=False`, `lazy=joined`)
+- `items` → `QuoteItem` (`back_populates="quote"`, `lazy=joined`)
+
+---
+
+##### `quote_items` (Model: `QuoteItem` — `app/models/quote_item.py`)
+
+Itens de cada orçamento.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `quote_id` | Integer | FK→quotes.id | sim | | |
+| `product_id` | Integer | FK→products.id | sim | | |
+| `quantidade` | Integer | | sim | | |
+| `preco_unitario` | Numeric(10,2) | | não | | |
+| `observacao` | Text | | não | | |
+
+**Relacionamentos:**
+- `product` → `Product` (`lazy=joined`)
+- `quote` → `Quote` (`back_populates="items"`)
+
+---
+
+##### `orders` (Model: `Order` — `app/models/order.py`)
+
+Pedidos convertidos de orçamentos ou criados manualmente.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `client_id` | Integer | FK→conta.id | sim | | |
+| `data_pedido` | DateTime | | sim | `now()` | |
+| `data_previsao_entrega` | DateTime | | não | | |
+| `data_entrega` | DateTime | | não | | |
+| `status` | Integer | | sim | `0` | 0=Pendente, 1=Produzindo, 2=Pronto, 8=Cancelado, 9=Entregue |
+| `observacao` | Text | | não | | |
+| `total` | Numeric(10,2) | | não | | |
+| `forma_pagamento_id` | Integer | FK→forma_pagamento.id | sim | |
+| `transacao_id` | Integer | FK→transacao.id (UNIQUE) | não | | |
+| `movto_id` | Integer | FK→movto.id (UNIQUE) | não | | |
+| `forminhas` | Integer | | sim | `0` | 0=Simples, 1=Fornecidas |
+| `producao_id` | Integer | FK→producao.id | não | | |
+| `quote_id` | Integer | FK→quotes.id | não | | |
+
+**Relacionamentos:**
+- `conta` → `Conta` (`backref="conta"`)
+- `producao` → `Producao` (`lazy=select`)
+- `quote` → `Quote` (`foreign_keys=quote_id`, `lazy=select`)
+- `forma_pagamento_rel` → `FormaPagamento` (`uselist=False`)
+- `transacao` → `Transacao` (`foreign_keys=transacao_id`, `uselist=False`)
+- `movto` → `Movto` (`foreign_keys=movto_id`, `uselist=False`)
+- `event` → `Event` (`back_populates="order"`, `uselist=False`, `lazy=select`)
+- `items` → `OrderItem` (`back_populates="order"`, `lazy=select`)
+
+---
+
+##### `order_items` (Model: `OrderItem` — `app/models/order_item.py`)
+
+Itens de cada pedido.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `order_id` | Integer | FK→orders.id | sim | | |
+| `product_id` | Integer | FK→products.id | sim | | |
+| `quantidade` | Integer | | sim | | |
+| `preco_unitario` | Numeric(10,2) | | não | | |
+| `observacao` | Text | | não | | |
+
+**Relacionamentos:**
+- `product` → `Product` (`lazy=select`)
+- `order` → `Order` (`back_populates="items"`)
+
+---
+
+##### `compras` (Model: `Compra` — `app/models/compra.py`)
+
+Compras de insumos.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `data` | Date | | sim | | |
+| `fornecedor_id` | Integer | FK→conta.id | não | | |
+| `valor` | Numeric(12,2) | | sim | | |
+| `historico` | Text | | não | | |
+| `status` | Integer | | sim | `0` | 0=Orçamento, 1=Pedido, 6=Cancelado, 8=Recebido, 9=Devolvido |
+| `data_recepcao` | Date | | não | | |
+| `forma_pagamento_id` | Integer | FK→forma_pagamento.id | não | | |
+| `transacao_id` | Integer | FK→transacao.id (UNIQUE) | não | | |
+| `movto_id` | Integer | FK→movto.id (UNIQUE) | não | | |
+
+**Relacionamentos:**
+- `fornecedor` → `Conta` (`foreign_keys=fornecedor_id`)
+- `forma_pagamento` → `FormaPagamento` (`uselist=False`)
+- `transacao` → `Transacao` (`foreign_keys=transacao_id`, `uselist=False`)
+- `movto` → `Movto` (`foreign_keys=movto_id`, `uselist=False`)
+- `items` → `CompraItem` (`back_populates="compra"`, `cascade="all, delete-orphan"`)
+
+---
+
+##### `compra_itens` (Model: `CompraItem` — `app/models/compra_item.py`)
+
+Itens de cada compra.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `compra_id` | Integer | FK→compras.id | sim | | |
+| `insumo_id` | Integer | FK→ingredients.id | sim | | |
+| `quantidade` | Numeric(12,3) | | sim | | |
+| `preco` | Numeric(12,2) | | sim | | |
+
+**Relacionamentos:**
+- `compra` → `Compra` (`back_populates="items"`)
+- `insumo` → `Ingredient` (`lazy=joined`)
+
+---
+
+##### `events` (Model: `Event` — `app/models/event.py`)
+
+Dados de evento associados a orçamentos e/ou pedidos (casamento, aniversário, etc.).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `quote_id` | Integer | FK→quotes.id (UNIQUE) | não | | 1:1 com Quote |
+| `order_id` | Integer | FK→orders.id (UNIQUE) | não | | 1:1 com Order |
+| `tipo` | String(30) | | não | | Ex: Casamento, Aniversário |
+| `tema` | String(200) | | não | | |
+| `obs` | Text | | não | | |
+| `data` | Date | | não | | Data do evento |
+| `hora` | Time | | não | | |
+| `local` | String(200) | | não | | |
+| `convidados` | Integer | | não | | |
+| `cerimonial` | String(200) | | não | | |
+
+**Relacionamentos:**
+- `quote` → `Quote` (`back_populates="event"`, `foreign_keys=quote_id`)
+- `order` → `Order` (`back_populates="event"`, `foreign_keys=order_id`)
+
+---
+
+#### Produção
+
+---
+
+##### `producao` (Model: `Producao` — `app/models/producao.py`)
+
+Batches de produção que agregam pedidos e calculam insumos automaticamente.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `descricao` | String(200) | | sim | | Title Case no save |
+| `data_fim` | DateTime | | não | | |
+| `status` | Integer | | sim | `0` | 0=Executando, 9=Finalizado |
+| `previsao_de` | Date | | não | | Início do período |
+| `previsao_ate` | Date | | não | | Fim do período |
+
+**Relacionamentos:**
+- `insumos` → `ProducaoInsumo` (`back_populates="producao"`, `lazy=joined`, `cascade="all, delete-orphan"`)
+- `produtos` → `ProducaoProduto` (`back_populates="producao"`, `lazy=joined`, `cascade="all, delete-orphan"`)
+
+---
+
+##### `producao_produtos` (Model: `ProducaoProduto` — `app/models/producao_produto.py`)
+
+Produtos dentro de uma produção, com progresso por etapa.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `producao_id` | Integer | FK→producao.id | sim | | |
+| `order_id` | Integer | FK→orders.id | sim | | |
+| `product_id` | Integer | FK→products.id | sim | | |
+| `quantidade` | Integer | | sim | | |
+| `producao_0` | Integer | | sim | `0` | Qtd concluída na etapa Preparação |
+| `producao_1` | Integer | | sim | `0` | Qtd concluída na etapa Montagem |
+| `producao_2` | Integer | | sim | `0` | Qtd concluída na etapa Embalagem |
+
+**Relacionamentos:**
+- `producao` → `Producao` (`back_populates="produtos"`)
+- `order` → `Order` (`lazy=joined`)
+- `product` → `Product` (`lazy=joined`)
+
+---
+
+##### `producao_insumos` (Model: `ProducaoInsumo` — `app/models/producao_insumo.py`)
+
+Insumos agregados calculados para a produção (baseado no receituário dos produtos + quantidades nos pedidos).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `producao_id` | Integer | FK→producao.id | sim | | |
+| `insumo_id` | Integer | FK→ingredients.id | sim | | |
+| `quantidade` | Numeric(10,3) | | sim | | Quantidade necessária total |
+| `comprado` | Numeric(10,3) | | sim | `0` | Quantidade já comprada |
+| `unidade` | String(20) | | sim | | |
+| `tipo` | Integer | | sim | `0` | 0=Ingrediente, 1=Forminha, 2=Embalagem |
+
+**Relacionamentos:**
+- `producao` → `Producao` (`back_populates="insumos"`)
+- `insumo` → `Ingredient` (`lazy=joined`)
+
+---
+
+#### Financeiro
+
+---
+
+##### `rubrica` (Model: `Rubrica` — `app/models/rubrica.py`)
+
+Plano de contas (auto-referenciada para hierarquia de categorias financeiras).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `nome` | String(100) | | sim | | |
+| `tipo` | Integer | | sim | `1` | 1=Receitas, 2=Despesas |
+| `pai_id` | Integer | FK→rubrica.id | não | | Auto-referência (hierarquia) |
+| `ordem` | Integer | | sim | `0` | |
+| `fator` | Integer | | sim | `1` | 1=normal, -1=inverter sinal |
+| `ativa` | Boolean | | não | `True` | |
+
+**Relacionamentos:**
+- `pai` → `Rubrica` (`remote_side=Rubrica.id`, `backref="filhos"`) — auto-relacionamento
+- `transacoes` → `Transacao` (`backref="transacoes"`)
+- `movtos` → `Movto` (`backref="movtos"`)
+
+---
+
+##### `transacao` (Model: `Transacao` — `app/models/transacao.py`)
+
+Transações financeiras — primeira camada do financeiro (contas a pagar/receber).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `data` | Date | | sim | | |
+| `tipo` | String(1) | | sim | | 'P'=Pagar, 'R'=Receber, 'C'=Compras, 'V'=Vendas |
+| `conta_id` | Integer | FK→conta.id | não | | |
+| `rubrica_id` | Integer | FK→rubrica.id | não | | |
+| `fatura` | String(50) | | não | | Número da fatura |
+| `valor` | Numeric(12,2) | | sim | | |
+| `historico` | Text | | não | | |
+| `cancelado` | Date | | não | | Se preenchido, transação cancelada |
+
+**Relacionamentos:**
+- `conta` → `Conta` (`backref="transacoes"`)
+- `rubrica` → `Rubrica` (`backref="transacoes"`)
+- `previsoes` → `Previsao` (`backref="transacao"`, `cascade="all, delete-orphan"`, `order_by="Previsao.vencimento, Previsao.id"`)
+
+**Propriedades computadas:**
+
+| Propriedade | Tipo | Lógica |
+|-------------|------|--------|
+| `status` | int | 8 se `cancelado` preenchido; 0 se não há `previsoes` ou `sum(previsto) < valor`; senão `max(p.status)` |
+| `status_label` | str | Lookup em `PREVISAO_STATUS` |
+| `compra` | `Compra` ou None | `Compra.query.filter_by(transacao_id=self.id).first()` |
+| `pedido` | `Order` ou None | `Order.query.filter_by(transacao_id=self.id).first()` |
+
+---
+
+##### `previsao` (Model: `Previsao` — `app/models/previsao.py`)
+
+Parcelas/previsões de pagamento ou recebimento de cada transação.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `transacao_id` | Integer | FK→transacao.id | sim | | |
+| `documento` | String(50) | | não | | UPPERCASE no save |
+| `vencimento` | Date | | sim | | |
+| `previsto` | Numeric(12,2) | | sim | | Valor previsto |
+| `realizado` | Numeric(12,2) | | não | | Valor efetivamente pago/recebido |
+| `variacao` | Numeric(12,2) | | não | `0` | Diferença (desconto/juros/multa) |
+| `forma_pagamento_id` | Integer | FK→forma_pagamento.id | não | | Origem da forma de pagamento |
+| `taxa` | Numeric(5,2) | | sim | `0` | Taxa vigente no momento da criação |
+
+**Relacionamentos:**
+- `transacao` → `Transacao` (`backref="previsoes"`)
+- `movtos` → `Movto` (`backref="movtos"`)
+- `forma_pagamento` → `FormaPagamento` (`uselist=False`)
+
+**Propriedades computadas:**
+
+| Propriedade | Tipo | Lógica |
+|-------------|------|--------|
+| `status` | int | 8 se transação cancelada; 0 se `sum(previsto) < valor`; 1 se `realizado is None`; 9 se `realizado >= previsto+variacao`; senão 2 |
+| `saldo` | float | `previsto + variacao - (realizado or 0)` |
+
+---
+
+##### `recurso` (Model: `Recurso` — `app/models/recurso.py`)
+
+Recursos financeiros (contas correntes, caixa, cartões).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `nome` | String(100) | | sim | | Title Case no save |
+| `tipo` | Integer | | sim | `0` | 0=Caixa, 1=Banco, 2=Cartão |
+| `saldo` | Numeric(12,2) | | sim | `0` | Saldo inicial |
+| `data` | Date | | não | | |
+
+**Relacionamentos:**
+- `movtos` → `Movto` (`backref="movtos"`)
+
+---
+
+##### `movto` (Model: `Movto` — `app/models/movto.py`)
+
+Movimentações financeiras — segunda camada do financeiro (fluxo de caixa real por recurso).
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `data` | Date | | sim | | |
+| `recurso_id` | Integer | FK→recurso.id | sim | | |
+| `tipo` | String(1) | | sim | | 'E'=Entrada, 'S'=Saída |
+| `conta_id` | Integer | FK→conta.id | não | | |
+| `previsao_id` | Integer | FK→previsao.id | não | | |
+| `documento` | String(50) | | não | | UPPERCASE no save |
+| `valor` | Numeric(12,2) | | sim | | |
+| `variacao` | Numeric(12,2) | | não | `0` | |
+| `sincronizar` | Boolean | | sim | `True` | |
+| `rubrica_id` | Integer | FK→rubrica.id | não | | |
+| `historico` | Text | | não | | Title Case no save |
+
+**Relacionamentos:**
+- `recurso` → `Recurso` (`backref="movtos"`)
+- `conta` → `Conta` (`backref="movtos"`)
+- `previsao` → `Previsao` (`backref="movtos"`)
+- `rubrica` → `Rubrica` (`backref="movtos"`)
+
+**Propriedades computadas:**
+
+| Propriedade | Tipo | Lógica |
+|-------------|------|--------|
+| `historico_display` | str | Retorna `historico` se preenchido; senão auto-label: "Haver na data" se `variacao < 0`, "Acréscimos na data" se `variacao > 0`, "Pago na data" / "Recebido na data" |
+
+---
+
+#### Sistema
+
+---
+
+##### `users` (Model: `User` — `app/models/user.py`)
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `username` | String(80) | UNIQUE | sim | | |
+| `password_hash` | String(256) | | sim | | Hash gerado por `werkzeug.security` |
+
+**Métodos:**
+- `set_password(password)`: Gera hash e armazena
+- `check_password(password)`: Verifica senha contra o hash
+
+---
+
+##### `settings` (Model: `Setting` — `app/models/setting.py`)
+
+Configurações criptografadas (chave-valor). Usa `Fernet` (AES) + `SHA256(SECRET_KEY)`.
+
+| Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
+|--------|------|-------|--------|--------|-------|
+| `id` | Integer | PK | sim | auto | |
+| `key` | String(100) | UNIQUE | sim | | |
+| `encrypted_value` | Text | | sim | `""` | AES-encrypted via Fernet |
+| `updated_at` | DateTime | | não | `now()` | |
+
+**Propriedades:**
+- `value` (str): Faz encrypt/decrypt automático do `encrypted_value` no get/set
+- `label` (str): Label legível a partir do KEYS dict
+
+**Chaves conhecidas:** `doceira_telefone`, `doceira_email`, `doceira_nome`, `ntfy_topic`, `ntfy_token`, `painel_usuario`, `painel_senha`, `painel_chave`
+
+---
 
 ---
 
@@ -228,11 +746,9 @@ app/
 | `conta` | `tipo` | 0=Cliente, 1=Cliente/Fornecedor, 2=Fornecedor |
 | `ingredients` | `tipo` | 0=Ingrediente, 1=Forminha, 2=Embalagem |
 | `product_ingredients` | `etapa_id` | 0=Preparação, 1=Montagem, 2=Embalagem |
-| `orders` | `status` | 0=Pendente, 1=Produzindo, 2=Pronto, 3=Cancelado, 8=Faturado, 9=Entregue |
-| `orders` | `forma_pagamento` | 0=À vista, 1=50% Pedido + 50% Entrega, 2=Na Entrega |
+| `orders` | `status` | 0=Pendente, 1=Produzindo, 2=Pronto, 8=Cancelado, 9=Entregue |
 | `orders` | `forminhas` | 0=Simples, 1=Fornecidas pelo Cliente |
 | `quotes` | `status` | 0=Pendente, 1=Negociação, 6=Renovado, 7=Expirado, 8=Reprovado, 9=Aprovado |
-| `quotes` | `forma_pagamento` | (mesmo de orders) |
 | `quotes` | `forminhas` | (mesmo de orders) |
 | `quotes` | `validade` | Dias de validade (default 3) |
 | `producao` | `status` | 0=Executando, 9=Finalizado |
@@ -273,7 +789,6 @@ Segurança  → Painel de Segurança
 | `TIPO_RUBRICA` | Plano de contas em árvore |
 | `TIPO_RECURSO` | Formulário de recursos financeiros |
 | `PRODUCAO_ETAPAS` | Detalhe da produção (progresso) |
-| `FORMA_PAGAMENTO` | Formulários de pedido e orçamento |
 | `FORMINHAS` | Formulários de pedido e orçamento |
 | `PREVISAO_STATUS` | Lista de contas a pagar/receber (calculado) |
 | `TIPO_PREVISAO` | Direção financeira: P=Pagar, R=Receber |
@@ -320,7 +835,8 @@ TRANSFORMAR_AO_SALVAR = {
 ### Fluxos Principais
 
 1. **Orçamento público:** Cliente navega na vitrine → adiciona itens → informa dados → envia → notificação push para doceira
-2. **Conversão orçamento→pedido:** Doceira ajusta preços → converte → cria conta do cliente + transação tipo V
+2. **Conversão orçamento→pedido:** Sistema busca conta por nome+telefone; se `perfect_match` (nome e telefone idênticos) → conversão direta (1 clique); se não → modal com sugestão e/ou alerta de telefone duplicado (`phone_conflict`). Ao converter: cria conta (se nova) + pedido (sem financeiro — passo manual separado)
 3. **Produção:** Doceira cria batch com período → sistema calcula insumos automaticamente (baseado no receituário) → acompanha progresso em 3 etapas (preparo, montagem, embalagem)
 4. **Compras:** Doceira registra compra de insumos → informa itens (insumo+qtd+preço) → gera transação tipo C + parcelas → integra com contas a pagar
-5. **Financeiro 2 camadas:** Transações+Previsões (contas a pagar/receber) e Movimentações+Recursos (fluxo de caixa real). Transações com compra_id ou pedido_id são travadas (editáveis só as Previsões).
+5. **Financeiro do pedido:** Doceira seleciona forma de pagamento no pedido → clica "Gerar Financeiro" → se gerar=0: formulário de Movto (recurso, valor líquido c/ taxa) → se gerar=1: revisão das previsões (geradas pelo `parse_prazo_recebimento`) → confirma → sistema cria Movto ou Transacao+Previsoes
+6. **Financeiro 2 camadas:** Transações+Previsões (contas a pagar/receber) e Movimentações+Recursos (fluxo de caixa real). Transações com compra_id ou pedido_id são travadas (editáveis só as Previsões).

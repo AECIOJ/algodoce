@@ -25,7 +25,7 @@
    <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}" {{ 'readonly' if locked else '' }}>
 </div>
 {% endset %}
-{% call form_nav(back_url=url_for('contas_a_receber.list'), nome='Transação ' ~ transacao.id|fmtid, nav=nav, edit_endpoint='contas_a_receber.edit', entity_id=transacao.id, status=status_badge) %}
+{% call form_nav(back_url=back_url or url_for('contas_a_receber.list'), nome='Transação ' ~ transacao.id|fmtid, nav=nav, edit_endpoint='contas_a_receber.edit', entity_id=transacao.id, status=status_badge) %}
   {% if locked %}<a href="{{ url_for('orders.edit', id=transacao.pedido.id) }}" class="btn btn-sm btn-warning ms-2">Pedido #{{ transacao.pedido.id|fmtid }}</a>{% endif %}
 {% endcall %}
 {% else %}
@@ -51,7 +51,7 @@
     </div>
     <div class="col-6 col-md-3">
       <label class="form-label">Rubrica</label>
-      <select name="rubrica_id" class="form-select" {{ 'disabled' if locked else '' }}>
+      <select name="rubrica_id" class="form-select">
         <option value="">Nenhuma</option>
         {% for r in rubricas %}
           <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if submitted_data is not none %}{% if submitted_data.rubrica_id|string == r.id|string %}selected{% endif %}{% elif transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
@@ -75,6 +75,7 @@
   <hr>
   <div class="d-flex align-items-center gap-2 mb-2">
     <h5 class="mb-0">Parcelas</h5>
+    {% if not locked %}
     <div class="ms-auto d-flex align-items-center gap-1">
       <label class="form-label small mb-0 text-nowrap">Gerar</label>
       <div class="input-group input-group-sm" style="max-width:160px;">
@@ -82,6 +83,7 @@
         <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icons/arrow-list.png') }}" height="16" alt="Gerar"></button>
       </div>
     </div>
+    {% endif %}
   </div>
 
   <!-- Desktop: parcelas table -->
@@ -107,19 +109,19 @@
           <td>
             <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
             <input type="hidden" name="previsao_remover[]" value="0">
-            <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" value="{{ p.documento or '' }}">
+            <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" value="{{ p.documento or '' }}" {{ 'readonly' if locked else '' }}>
           </td>
           <td>
-            <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}">
+            <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}" {{ 'readonly' if locked else '' }}>
           </td>
           <td class="text-end">
-            <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor text-end" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}">
+            <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor text-end" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}" {{ 'readonly' if locked else '' }}>
           </td>
           <td class="text-end">
-            <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}">
+            <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}" {{ 'readonly' if locked else '' }}>
           </td>
           <td class="text-end">
-            <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}">
+            <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}" {{ 'readonly' if locked else '' }}>
           </td>
           <td class="text-end">
             <span class="previsao-saldo form-control form-control-sm bg-light text-end" style="display:block;min-width:70px;">
@@ -130,10 +132,12 @@
             </span>
           </td>
           <td class="text-center">
+            {% if not locked %}
             {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
             {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
             {% if vl == 0 and rl == 0 %}
             <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+            {% endif %}
             {% endif %}
           </td>
         </tr>
@@ -150,32 +154,34 @@
     <div class="px-3 py-2 border-bottom previsao-mobile-card">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <span class="text-muted small previsao-num">#{{ p.id|fmtid if p.id else '' }}</span>
+        {% if not locked %}
         {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
         {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
         {% if vl == 0 and rl == 0 %}
         <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
         {% endif %}
+        {% endif %}
       </div>
       <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
       <input type="hidden" name="previsao_remover[]" value="0">
       <div class="mb-1">
-        <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" placeholder="Documento" value="{{ p.documento or '' }}">
+        <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" placeholder="Documento" value="{{ p.documento or '' }}" {{ 'readonly' if locked else '' }}>
       </div>
       <div class="mb-1">
-        <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}">
+        <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}" {{ 'readonly' if locked else '' }}>
       </div>
       <div class="row g-1 mb-1">
         <div class="col-4">
           <span class="card-label">Previsto</span>
-          <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}">
+          <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}" {{ 'readonly' if locked else '' }}>
         </div>
         <div class="col-4">
           <span class="card-label">Realizado</span>
-          <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}">
+          <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}" {{ 'readonly' if locked else '' }}>
         </div>
         <div class="col-4">
           <span class="card-label">Variação</span>
-          <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}">
+          <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}" {{ 'readonly' if locked else '' }}>
         </div>
       </div>
       <div>
@@ -192,10 +198,12 @@
     {% endif %}
   </div>
 
+  {% if not locked %}
   <div class="px-3 py-1">
     <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar</button>
     <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar</button>
   </div>
+  {% endif %}
 
   {% if movimentos %}
   <hr>
@@ -234,7 +242,7 @@
 </div>
 {% endif %}
   <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=url_for('contas_a_receber.list')) %}
+{% call barra_edicao(back_url=back_url or url_for('contas_a_receber.list')) %}
   {% if transacao and not locked %}
   <div class="d-flex align-items-center gap-1">
     <label class="form-label small mb-0 text-danger">Cancelado</label>
@@ -354,6 +362,18 @@ document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
   var show = opt.dataset.tipoRubrica == "1" && opt.dataset.temPai == "1";
   opt.style.display = show ? '' : 'none';
 });
+</script>
+<script>
+function disableHiddenPrevisoes() {
+  var desktop = document.getElementById('previsoes-container');
+  var mobile = document.getElementById('previsoes-mobile-container');
+  if (desktop && desktop.offsetParent !== null) {
+    mobile.querySelectorAll('input, select, button').forEach(function(el) { el.disabled = true; });
+  } else if (mobile && mobile.offsetParent !== null) {
+    desktop.querySelectorAll('input, select, button').forEach(function(el) { el.disabled = true; });
+  }
+}
+document.getElementById('main-form').addEventListener('submit', disableHiddenPrevisoes);
 </script>
 <script>
 function recalcularSaldoLancar() {

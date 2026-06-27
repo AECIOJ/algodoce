@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 from io import BytesIO
-from app.utils import parse_brl
+from app.utils import parse_brl, parse_prazo_recebimento
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
 from flask_login import login_required
 import os
@@ -14,10 +14,12 @@ from app.models.quote_item import QuoteItem
 from app.models.event import Event
 from app.models.quote import Quote
 from app.pdf import gerar_pdf_pedido, gerar_pdf_orcamento
+from app.models.forma_pagamento import FormaPagamento
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
-from app.models.forma_pagamento import FormaPagamento
-from app.constants import ORDER_STATUS, QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMA_PAGAMENTO, FORMINHAS, PREVISAO_STATUS
+from app.models.movto import Movto
+from app.models.recurso import Recurso
+from app.constants import ORDER_STATUS, QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS, PREVISAO_STATUS
 
 
 def _clean(val):
@@ -137,7 +139,7 @@ def order_list():
         .order_by(Order.data_entrega)
         .all()
     )
-    return render_template("orders/list.html", orders=orders, ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS)
+    return render_template("orders/list.html", orders=orders, ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS)
 
 
 @bp.route("/orcamentos")
@@ -148,8 +150,7 @@ def orcamentos():
         query = query.filter(Quote.status == status)
     quotes = query.all()
     return render_template(
-        "orders/orcamentos.html", orders=quotes,
-        FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS,
+        "orders/orcamentos.html", orders=quotes, FORMINHAS=FORMINHAS,
         filtro=str(status) if status is not None else "todos",
         QUOTE_STATUS=QUOTE_STATUS, QUOTE_STATUS_FILTER=QUOTE_STATUS_FILTER,
     )
@@ -180,8 +181,8 @@ def quote_detail(id):
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
     return render_template("orders/quote_detail.html", quote=quote, nav=nav,
-                           QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-                           FORMINHAS=FORMINHAS, perfect_match=perfect_match)
+                           QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS,
+                           perfect_match=perfect_match)
 
 
 @bp.route("/orcamentos/<int:id>/converter", methods=["POST"])
@@ -355,8 +356,8 @@ def quote_edit(id):
     return render_template(
         "orders/quote_form.html", quote=quote, products=products, nav=nav,
         tipos_evento=tipos_evento, clients=clients,
-        QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-        FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
+        QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS,
+        formas_pagamento=formas_pagamento,
         ro=bool(quote.pedido_id),
         perfect_match=perfect_match,
         suggested_client=suggested_client,
@@ -415,8 +416,8 @@ def quote_new():
     return render_template(
         "orders/quote_form.html", quote=None, products=products,
         tipos_evento=tipos_evento, clients=clients,
-        QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-        FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
+        QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS,
+        formas_pagamento=formas_pagamento,
     )
 
 
@@ -499,7 +500,6 @@ def new():
             data_previsao_entrega=data_previsao_entrega,
             data_entrega=data_entrega,
             observacao=observacao,
-            forma_pagamento=request.form.get("forma_pagamento", 0, type=int),
             forma_pagamento_id=request.form.get("forma_pagamento_id", type=int) or None,
             forminhas=request.form.get("forminhas", 0, type=int),
             status=9 if data_entrega else 0,
@@ -511,25 +511,6 @@ def new():
         total = _replace_order_items(order, request.form)
         order.total = total
 
-        transacao = Transacao(
-            data=data_pedido.date(),
-            tipo='V',
-            conta_id=client_id,
-            valor=total,
-            historico=observacao,
-        )
-        db.session.add(transacao)
-        db.session.flush()
-        order.transacao_id = transacao.id
-
-        if total:
-            previsao = Previsao(
-                transacao_id=transacao.id,
-                vencimento=data_entrega.date() if data_entrega else data_pedido.date(),
-                previsto=total,
-            )
-            db.session.add(previsao)
-
         db.session.commit()
         flash("Pedido criado!", "success")
         return redirect(url_for("orders.list"))
@@ -539,8 +520,8 @@ def new():
     formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
         "orders/form.html", order=None, clients=clients, products=products,
-        ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-        FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
+        ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS,
+        formas_pagamento=formas_pagamento,
     )
 
 
@@ -581,25 +562,12 @@ def edit(id):
             if data_previsao_entrega_str else None
         )
         order.observacao = request.form.get("observacao", "")
-        order.forma_pagamento = request.form.get("forma_pagamento", 0, type=int)
         order.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
         order.forminhas = request.form.get("forminhas", 0, type=int)
         _save_event(order, request.form)
 
         total = _replace_order_items(order, request.form)
         order.total = total
-
-        if order.transacao:
-            order.transacao.valor = total
-        else:
-            transacao = Transacao(
-                data=order.data_pedido.date(),
-                tipo='V', conta_id=order.client_id,
-                valor=total, historico=order.observacao,
-            )
-            db.session.add(transacao)
-            db.session.flush()
-            order.transacao_id = transacao.id
 
         db.session.flush()
 
@@ -642,8 +610,8 @@ def edit(id):
     formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
         "orders/form.html", order=order, clients=clients, products=products, nav=nav,
-        ORDER_STATUS=ORDER_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-        FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
+        ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS,
+        formas_pagamento=formas_pagamento,
         PREVISAO_STATUS=PREVISAO_STATUS,
         ro=order.status == 9
     )
@@ -683,13 +651,13 @@ def cancel(id):
 @bp.route("/pedidos/<int:id>/print")
 def print_order(id):
     order = Order.query.get_or_404(id)
-    return render_template("orders/print_order.html", order=order, FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS)
+    return render_template("orders/print_order.html", order=order, FORMINHAS=FORMINHAS)
 
 
 @bp.route("/orcamentos/<int:id>/print")
 def print_quote(id):
     quote = Quote.query.get_or_404(id)
-    return render_template("orders/print_quote.html", quote=quote, FORMA_PAGAMENTO=FORMA_PAGAMENTO, FORMINHAS=FORMINHAS)
+    return render_template("orders/print_quote.html", quote=quote, FORMINHAS=FORMINHAS)
 
 
 @bp.route("/pedidos/<int:id>/pdf")
@@ -712,3 +680,87 @@ def pdf_quote(id):
     pdf.output(buf)
     return Response(buf.getvalue(), mimetype="application/pdf",
                     headers={"Content-Disposition": f"inline; filename=orcamento_{quote.id}.pdf"})
+
+
+@bp.route("/pedidos/<int:id>/gerar-financeiro", methods=["GET", "POST"])
+def gerar_financeiro(id):
+    order = Order.query.get_or_404(id)
+    if order.transacao_id or order.movto_id:
+        flash("Financeiro já gerado para este pedido.", "warning")
+        return redirect(url_for("orders.edit", id=id))
+
+    fp = order.forma_pagamento_rel
+    if not fp:
+        flash("Selecione uma forma de pagamento antes de gerar o financeiro.", "warning")
+        return redirect(url_for("orders.edit", id=id))
+
+    total = float(order.total or 0)
+    taxa = float(fp.taxa_recebimento or 0)
+    valor_liquido = round(total * (1 - taxa / 100), 2)
+
+    if request.method == "POST":
+        if fp.gerar == 0:
+            recurso_id = request.form.get("recurso_id", type=int)
+            if not recurso_id:
+                flash("Selecione um recurso.", "warning")
+                return redirect(url_for("orders.gerar_financeiro", id=id))
+            movto = Movto(
+                data=request.form.get("data", order.data_pedido.date()),
+                recurso_id=recurso_id,
+                tipo="E",
+                conta_id=order.client_id,
+                valor=valor_liquido,
+                historico=request.form.get("historico", f"Recebimento Pedido #{order.id}"),
+                forma_pagamento_id=fp.id,
+            )
+            db.session.add(movto)
+            db.session.flush()
+            order.movto_id = movto.id
+        else:
+            transacao = Transacao(
+                data=order.data_pedido.date(),
+                tipo="V",
+                conta_id=order.client_id,
+                valor=total,
+                historico=order.observacao or f"Venda Pedido #{order.id}",
+            )
+            db.session.add(transacao)
+            db.session.flush()
+            order.transacao_id = transacao.id
+
+            parcelas = parse_prazo_recebimento(
+                fp.prazo_recebimento,
+                order.data_pedido.date(),
+                order.data_entrega.date() if order.data_entrega else None,
+                total,
+            )
+            for p in parcelas:
+                previsao = Previsao(
+                    transacao_id=transacao.id,
+                    vencimento=p["vencimento"],
+                    previsto=p["previsto"],
+                    forma_pagamento_id=fp.id,
+                    taxa=taxa,
+                )
+                db.session.add(previsao)
+
+        db.session.commit()
+        flash("Financeiro gerado com sucesso!", "success")
+        return redirect(url_for("orders.edit", id=id))
+
+    recursos = Recurso.query.order_by(Recurso.nome).all()
+    parcelas = []
+    if fp.gerar == 1:
+        parcelas = parse_prazo_recebimento(
+            fp.prazo_recebimento,
+            order.data_pedido.date(),
+            order.data_entrega.date() if order.data_entrega else None,
+            total,
+        )
+
+    return render_template(
+        "orders/gerar_financeiro.html",
+        order=order, fp=fp, recursos=recursos,
+        total=total, taxa=taxa, valor_liquido=valor_liquido,
+        parcelas=parcelas,
+    )

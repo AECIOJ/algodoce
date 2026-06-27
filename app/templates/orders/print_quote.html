@@ -66,7 +66,7 @@ th { background: #f0f0f0; text-align: center; }
 
 <div class="d-flex justify-content-between mb-2">
   <div><strong>Forminhas:</strong> {{ FORMINHAS[quote.forminhas] }}</div>
-  <div><strong>Forma de Pagamento:</strong> {{ quote.forma_pagamento_rel.nome if quote.forma_pagamento_rel else FORMA_PAGAMENTO.get(quote.forma_pagamento, '-') }}</div>
+  <div><strong>Forma de Pagamento:</strong> {{ quote.forma_pagamento_rel.nome or '-' }}</div>
 </div>
 
 {% if quote.event and quote.event.tipo %}

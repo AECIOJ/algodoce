@@ -62,7 +62,7 @@
         <p class="mb-1">Pedido: {{ order.data_pedido.strftime('%d/%m/%Y %H:%M') }}</p>
         <p class="mb-1">Entrega: <strong>{{ order.data_entrega.strftime('%d/%m/%Y') if order.data_entrega else '-' }}</strong></p>
         <p class="mb-1">Forminhas: {{ FORMINHAS[order.forminhas] }}</p>
-        <p class="mb-1">Pagamento: {{ order.forma_pagamento_rel.nome if order.forma_pagamento_rel else FORMA_PAGAMENTO.get(order.forma_pagamento, '-') }}</p>
+        <p class="mb-1">Pagamento: {{ order.forma_pagamento_rel.nome or '-' }}</p>
         <p class="mb-0">
           Status:
           <span class="badge {{ 'border border-warning text-dark bg-transparent' if order.status == 0 else 'bg-info' if order.status == 1 else 'bg-success' if order.status == 2 else 'bg-secondary' if order.status == 8 else 'bg-dark' }}">

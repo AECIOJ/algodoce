@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, datetime
+from types import SimpleNamespace
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required
 from app.extensions import db
@@ -45,7 +46,7 @@ def _list(tipo):
     )
 
 
-def _new(tipo):
+def _new(tipo, prefill=None, from_order=False):
     recursos = Recurso.query.order_by(Recurso.nome).all()
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     if tipo == "E":
@@ -58,6 +59,7 @@ def _new(tipo):
         tipo=tipo, tipo_nome=_movto_tipo(tipo),
         tipo_nome_plural=_movto_tipo_plural(tipo),
         TIPO_RECURSO=TIPO_RECURSO, PREVISAO_STATUS=PREVISAO_STATUS,
+        prefill=prefill, from_order=from_order,
     )
 
 
@@ -205,7 +207,20 @@ def recebimentos_new():
         if _create_or_update(None, "E"):
             flash("Recebimento registrado!", "success")
             return redirect(url_for("movimentos.recebimentos_list"))
-    return _new("E")
+    prefill = None
+    order_id = request.args.get("order_id", type=int)
+    if order_id:
+        from app.models.order import Order
+        order = Order.query.get(order_id)
+        if order:
+            total = float(order.total or 0)
+            prefill = SimpleNamespace(
+                conta_id=order.client_id,
+                documento=f"P#{order.id}",
+                valor=total,
+                historico=f"Recebimento de Vendas em {date.today().strftime('%d/%m/%Y')}",
+            )
+    return _new("E", prefill=prefill, from_order=bool(order_id))
 
 
 @bp.route("/recebimentos/<int:id>/editar", methods=["GET", "POST"])

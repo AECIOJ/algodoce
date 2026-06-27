@@ -31,7 +31,7 @@
       <select name="conta_id" class="form-select" onchange="carregarPrevisoes(this.value)">
         <option value="">Nenhuma</option>
         {% for c in contas %}
-          <option value="{{ c.id }}" {% if movto and movto.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+          <option value="{{ c.id }}" {% if movto and movto.conta_id == c.id %}selected{% elif prefill and prefill.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
         {% endfor %}
       </select>
     </div>
@@ -48,11 +48,11 @@
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label">Documento</label>
-      <input type="text" name="documento" class="form-control" maxlength="50" value="{{ movto.documento or '' }}">
+      <input type="text" name="documento" class="form-control" maxlength="50" value="{{ movto.documento or (prefill.documento if prefill else '') }}">
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label">Valor *</label>
-      <input type="number" name="valor" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(movto.valor) if movto else '' }}">
+      <input type="number" name="valor" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(movto.valor) if movto else ('%.2f'|format(prefill.valor) if prefill and prefill.valor else '') }}">
     </div>
     <div class="col-6 col-md-3">
       <label class="form-label">Rubrica *</label>
@@ -65,19 +65,18 @@
     </div>
     <div class="col-12">
       <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ movto.historico or '' }}">
+      <input type="text" name="historico" class="form-control" value="{{ movto.historico or (prefill.historico if prefill else '') }}">
     </div>
   </div>
 
-  <input type="hidden" id="valor-original" value="{{ '%.2f'|format(movto.valor) if movto else '' }}">
+  <input type="hidden" id="valor-original" value="{{ '%.2f'|format(movto.valor) if movto else ('%.2f'|format(prefill.valor) if prefill and prefill.valor else '') }}">
   <input type="hidden" id="editando" value="{% if movto %}1{% endif %}">
   <input type="hidden" id="variacao-original" value="{{ movto.variacao if movto else 0 }}">
 
   <div class="form-bottom-spacer"></div>
 </form>
 
-{% set mov_back_url = url_for('movimentos.recebimentos_list' if tipo == 'E' else 'movimentos.pagamentos_list') %}
-{% call barra_edicao(back_url=mov_back_url) %}
+{% call barra_edicao(back_url='') %}
   {% if movto %}
   <form method="POST" action="{{ url_for('movimentos.excluir', id=movto.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Excluir {{ tipo_nome }} #{{ movto.id|fmtid }}?')">
     <button type="submit" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>

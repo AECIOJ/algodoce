@@ -6,13 +6,16 @@ Reformular a integração entre **Compras**, **Pedidos** e o módulo financeiro 
 
 ## Resumo das mudanças
 
-- Criação da tabela `forma_pagamento(id, nome, uso, modo)`
+- Criação da tabela `forma_pagamento(id, nome, uso, gerar)`
   - `uso`: 0=Pedido, 1=Ambos, 2=Compra
-  - `modo`: 0=Imediato (gera `Movto`), 1=Provisionado (gera `Transacao+Previsoes`)
+  - `gerar`: 0=Movimento (cria `Movto`), 1=Previsão (cria `Transacao+Previsoes`)
 - `compra` e `order` ganham FK `forma_pagamento_id` (em vez do `Integer` atual e do `pagamento` planejado)
 - `order` perde o `pagamento` planejado (derivado do FK)
 - `transacao` perde `compra_id` e `pedido_id` — FKs movidas para `compra/order.transacao_id`
-- **REMOVER a automação**: conversão orçamento→pedido não cria Transacao automaticamente
+- `forma_pagamento.modo` → `forma_pagamento.gerar`
+- `forma_pagamento.taxa_padrao` → `forma_pagamento.taxa_recebimento`
+- Colunas reordenadas: gerar, prazo_recebimento, taxa_recebimento (nessa ordem)
+- Botão "Gerar Financeiro" substitui criação automática no save do pedido
 - **Status revisados**:
   - `ORDER_STATUS`: 0=Pendente, 1=Produzindo, 2=Pronto, 8=Cancelado, 9=Entregue
   - `COMPRA_STATUS` (novo): 0=Orçamento, 1=Pedido, 6=Cancelado, 8=Recebido, 9=Devolvido
@@ -26,20 +29,22 @@ CREATE TABLE forma_pagamento (
     id   INTEGER PRIMARY KEY AUTOINCREMENT,
     nome VARCHAR(50) NOT NULL,
     uso  INTEGER NOT NULL DEFAULT 1,  -- 0=Pedido, 1=Ambos, 2=Compra
-    modo INTEGER NOT NULL DEFAULT 0   -- 0=Imediato, 1=Provisionado
+    gerar INTEGER NOT NULL DEFAULT 0,   -- 0=Movimento, 1=Previsão
+    prazo_recebimento VARCHAR(100),
+    taxa_recebimento NUMERIC(5,2) NOT NULL DEFAULT 0,
 );
 ```
 
 ### Seed (migrates os valores atuais do dict `FORMA_PAGAMENTO`)
 
-| Nome | uso | modo |
-|------|-----|------|
-| Dinheiro | 1 (ambos) | 0 (imediato) |
-| Pix | 1 (ambos) | 0 (imediato) |
-| Cartão Débito | 1 (ambos) | 0 (imediato) |
-| Cartão Crédito | 1 (ambos) | 1 (provisionado) |
-| Boleto | 2 (compra) | 1 (provisionado) |
-| Depósito | 1 (ambos) | 0 (imediato) |
+| Nome | uso | gerar |
+|------|-----|-------|
+| Dinheiro | 1 (ambos) | 0 (movimento) |
+| Pix | 1 (ambos) | 0 (movimento) |
+| Cartão Débito | 1 (ambos) | 0 (movimento) |
+| Cartão Crédito | 1 (ambos) | 1 (previsão) |
+| Boleto | 2 (compra) | 1 (previsão) |
+| Depósito | 1 (ambos) | 0 (movimento) |
 
 ### Trava de edição
 
@@ -52,8 +57,8 @@ FormaPagamento não pode ser alterada se existir `Compra.forma_pagamento_id == i
 | Coluna | Tipo | Detalhe |
 |--------|------|---------|
 | `forma_pagamento_id` | `FK -> forma_pagamento.id, nullable` | Substitui o `pagamento` planejado |
-| `transacao_id` | `FK -> transacao.id, nullable, unique` | Preenchido se modo=1 (provisionado) |
-| `movto_id` | `FK -> movto.id, nullable, unique` | Preenchido se modo=0 (imediato) |
+| `transacao_id` | `FK -> transacao.id, nullable, unique` | Preenchido se gerar=1 (Previsão) |
+| `movto_id` | `FK -> movto.id, nullable, unique` | Preenchido se gerar=0 (Movimento) |
 | `status` | `Integer, nullable=False, default=0` | 0=Orçamento, 1=Pedido, 6=Cancelado, 8=Recebido, 9=Devolvido |
 | `data_recepcao` | `Date, nullable` | Preenchido ao marcar Recebido |
 
@@ -64,8 +69,8 @@ Adicionar:
 | Coluna | Tipo | Detalhe |
 |--------|------|---------|
 | `forma_pagamento_id` | `FK -> forma_pagamento.id, nullable` | Migra do `order.forma_pagamento` (Integer) atual |
-| `transacao_id` | `FK -> transacao.id, nullable, unique` | Preenchido se modo=1 |
-| `movto_id` | `FK -> movto.id, nullable, unique` | Preenchido se modo=0 |
+| `transacao_id` | `FK -> transacao.id, nullable, unique` | Preenchido se gerar=1 |
+| `movto_id` | `FK -> movto.id, nullable, unique` | Preenchido se gerar=0 |
 
 Remover:
 
@@ -133,8 +138,8 @@ Fluxo: `0(Orçamento) → 1(Pedido) → 8(Recebido)`
 
 Ambos Pedido e Compra têm o mesmo critério:
 
-- `forma_pagamento.modo == 0 (imediato)`: Faturado = `movto_id` está preenchido
-- `forma_pagamento.modo == 1 (provisionado)`: Faturado = `transacao_id` está preenchido
+- `forma_pagamento.gerar == 0 (Movimento)`: Faturado = `movto_id` está preenchido
+- `forma_pagamento.gerar == 1 (Previsão)`: Faturado = `transacao_id` está preenchido
 
 Nas listas e detalhes, exibir badge "Faturado ✓" verde se a condição for satisfeita.
 
@@ -152,17 +157,17 @@ PREVISAO_STATUS = {
 
 ## Fluxo Financeiro
 
-### modo=0 (Imediato) — gera Movto
+### gerar=0 (Movimento) — cria Movto
 
-1. Salva Compra/Pedido com `forma_pagamento.modo=0`
+1. Salva Compra/Pedido com `forma_pagamento.gerar=0`
 2. Redireciona para Movto com dados pré-preenchidos
 3. Usuário preenche recurso/rubrica, confirma
 4. Ao salvar: cria Movto e seta `compra/order.movto_id`
 5. Badge "Faturado" aparece automaticamente
 
-### modo=1 (Provisionado) — gera Transacao+Previsoes
+### gerar=1 (Previsão) — cria Transacao+Previsoes
 
-1. Salva Compra/Pedido com `forma_pagamento.modo=1`
+1. Salva Compra/Pedido com `forma_pagamento.gerar=1`
 2. Exibe seção de parcelas (como hoje)
 3. Ao salvar: cria Transacao+Previsoes e seta `compra/order.transacao_id`
 4. Badge "Faturado" aparece automaticamente
@@ -179,8 +184,8 @@ PREVISAO_STATUS = {
 
 | Condição | Botão |
 |----------|-------|
-| status 0/1/2 e `forma_pagamento.modo=0` e sem `movto_id` | Gerar Recebimento (→ Movto) |
-| status 0/1/2 e `forma_pagamento.modo=1` e sem `transacao_id` | Gerar Parcelas (→ seção parcelas) |
+| status 0/1/2 e `forma_pagamento.gerar=0` e sem `movto_id` | Gerar Movimento (→ Movto) |
+| status 0/1/2 e `forma_pagamento.gerar=1` e sem `transacao_id` | Gerar Previsões (→ seção parcelas) |
 | financeiro resolvido | badge "Faturado ✓" (apenas exibição) |
 | status 2 | Entregue |
 | status 0/1/2 | Cancelar |
@@ -193,8 +198,8 @@ PREVISAO_STATUS = {
 | status 1 (Pedido) | Receber (+ data_recepcao, status→8) |
 | status 1 (Pedido) | Cancelar (status→6) |
 | status 8 (Recebido) | Devolver (status→9) |
-| status 1 e `forma_pagamento.modo=0` e sem `movto_id` | Gerar Pagamento (→ Movto) |
-| status 1 e `forma_pagamento.modo=1` e sem `transacao_id` | Gerar Parcelas (→ seção parcelas) |
+| status 1 e `forma_pagamento.gerar=0` e sem `movto_id` | Gerar Pagamento (→ Movto) |
+| status 1 e `forma_pagamento.gerar=1` e sem `transacao_id` | Gerar Parcelas (→ seção parcelas) |
 | financeiro resolvido | badge "Faturado ✓" |
 
 ## Arquivos a Modificar
@@ -207,18 +212,18 @@ PREVISAO_STATUS = {
 | `app/models/transacao.py` | -compra_id, -pedido_id (colunas + backrefs) |
 | `app/models/quote.py` | Substituir `forma_pagamento` (Integer) por `forma_pagamento_id` (FK) |
 | `app/constants.py` | Renumerar ORDER_STATUS (8=Cancelado, sem Faturado); adicionar COMPRA_STATUS; manter FORMA_PAGAMENTO? (talvez só para exibição legada) |
-| `app/routes/compras.py` | +status, data_recepcao; forma_pagamento como FK; se modo=1 criar Transacao; se modo=0 redir para Movto; rota Faturar? (automático); rota Receber/Cancelar/Devolver |
-| `app/routes/orders.py` | Remover Transacao em converter_orcamento; substituir forma_pagamento por FK; remover backfill Transacao em edit(); ajustar status route (cancelar=8, faturar removido); se modo=1 criar Transacao; se modo=0 redir para Movto; ajustar locked/references |
+| `app/routes/compras.py` | +status, data_recepcao; forma_pagamento como FK; se gerar=1 criar Transacao; se gerar=0 redir para Movto; rota Receber/Cancelar/Devolver |
+| `app/routes/orders.py` | Remover Transacao em converter_orcamento; substituir forma_pagamento por FK; remover backfill Transacao em edit(); ajustar status route (cancelar=8, faturar removido); se gerar=1 criar Transacao; se gerar=0 redir para Movto; ajustar locked/references |
 | `app/routes/movimentos.py` | Aceitar query params `compra_id`/`pedido_id`; pós-criação setar `movto_id` na origem |
 | `app/routes/contas_a_pagar.py` | Ajustar locked: de `transacao.compra_id` para `compra.transacao_id` |
 | `app/routes/contas_a_receber.py` | Ajustar locked: de `transacao.pedido_id` para `order.transacao_id` |
 | `app/routes/forma_pagamento.py` | NOVA — CRUD de FormaPagamento com trava de edição |
-| `app/templates/compras/form.html` | +forma_pagamento select (filtrado por uso), +status, +data_recepcao; parcelas visível só se modo=1 |
+| `app/templates/compras/form.html` | +forma_pagamento select (filtrado por uso), +status, +data_recepcao; parcelas visível só se gerar=1 |
 | `app/templates/compras/list.html` | +colunas: status, forma_pagamento, data_recepcao, Faturado badge |
 | `app/templates/compras/detail.html` | Se existir, atualizar |
-| `app/templates/orders/form.html` | forma_pagamento passa a ser FK select; parcelas só se modo=1 |
+| `app/templates/orders/form.html` | forma_pagamento passa a ser FK select; parcelas só se gerar=1 |
 | `app/templates/orders/list.html` | +colunas: forma_pagamento, Faturado badge; Faturado some do filtro |
-| `app/templates/orders/detail.html` | Botão Faturar vira "Gerar Recebimento"/"Gerar Parcelas"; badge Faturado automático |
+| `app/templates/orders/detail.html` | Botão Faturar vira "Gerar Movimento"/"Gerar Previsões"; badge Faturado automático |
 | `app/templates/orders/dashboard.html` | Remover filtro Faturado; add filtro Cancelado |
 | `app/templates/orders/print_order.html` | forma_pagamento via FK (ou manter como está para impressão legada) |
 | `app/templates/orders/print_quote.html` | Idem |
@@ -229,9 +234,9 @@ PREVISAO_STATUS = {
 
 ## Observações / Edge Cases
 
-- **Edit com mudança de `forma_pagamento_id`**: se modo mudar (0↔1), deve migrar entre Movto e Transacao (ou bloquear edição se financeiro já existir).
-- **Delete de Compra/Pedido**: deve cascatear para Transacao (se modo=1) ou Movto (se modo=0).
-- **Contas_a_pagar/Receber**: páginas filtram por `transacao.tipo`. Compras/Pedidos modo=0 não aparecem nessas listas (não têm Transacao). Modo=1 aparecem normalmente.
-- **Trava edição**: FormaPagamento referenciada por qualquer Compra/Order/Quote não pode ter nome/uso/modo alterados. Sugerir ao usuário criar novo registro.
+- **Edit com mudança de `forma_pagamento_id`**: se gerar mudar (0↔1), deve migrar entre Movto e Transacao (ou bloquear edição se financeiro já existir).
+- **Delete de Compra/Pedido**: deve cascatear para Transacao (se gerar=1) ou Movto (se gerar=0).
+- **Contas_a_pagar/Receber**: páginas filtram por `transacao.tipo`. Compras/Pedidos gerar=0 não aparecem nessas listas (não têm Transacao). Gerar=1 aparecem normalmente.
+- **Trava edição**: FormaPagamento referenciada por qualquer Compra/Order/Quote não pode ter nome/uso/gerar alterados. Sugerir ao usuário criar novo registro.
 - **Dashboard de produção**: Faturado some dos filtros de produção (não é status de produção).
-- **Relatórios financeiros**: Devem considerar tanto `movto_id` (modo=0) quanto `transacao_id` (modo=1) para determinar se algo está faturado.
+- **Relatórios financeiros**: Devem considerar tanto `movto_id` (gerar=0) quanto `transacao_id` (gerar=1) para determinar se algo está faturado.

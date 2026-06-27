@@ -27,7 +27,9 @@ def new():
         forma = FormaPagamento(
             nome=request.form["nome"].strip(),
             uso=request.form.get("uso", 1, type=int),
-            modo=request.form.get("modo", 0, type=int),
+            gerar=request.form.get("gerar", 0, type=int),
+            taxa_recebimento=request.form.get("taxa_recebimento", 0, type=float),
+            prazo_recebimento=request.form.get("prazo_recebimento", "").strip() or None,
         )
         db.session.add(forma)
         db.session.commit()
@@ -50,7 +52,9 @@ def edit(id):
             return redirect(url_for("forma_pagamento.edit", id=id))
         forma.nome = request.form["nome"].strip()
         forma.uso = request.form.get("uso", 1, type=int)
-        forma.modo = request.form.get("modo", 0, type=int)
+        forma.gerar = request.form.get("gerar", 0, type=int)
+        forma.taxa_recebimento = request.form.get("taxa_recebimento", 0, type=float)
+        forma.prazo_recebimento = request.form.get("prazo_recebimento", "").strip() or None
         db.session.commit()
         flash("Forma de pagamento atualizada!", "success")
         return redirect(url_for("forma_pagamento.list"))

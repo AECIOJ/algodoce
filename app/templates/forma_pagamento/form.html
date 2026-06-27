@@ -36,13 +36,47 @@
       </select>
     </div>
     <div class="col-md-3">
-      <label class="form-label">Modo</label>
-      <select name="modo" class="form-select" {{ 'disabled' if em_uso }}>
-        <option value="0" {{ 'selected' if not forma or forma.modo == 0 }}>Imediato (gera Movto)</option>
-        <option value="1" {{ 'selected' if forma and forma.modo == 1 }}>Provisionado (gera Transacao + Previsoes)</option>
+      <label class="form-label">Gerar</label>
+      <select name="gerar" id="gerar" class="form-select" {{ 'disabled' if em_uso }}>
+        <option value="0" {{ 'selected' if not forma or forma.gerar == 0 }}>Movimento</option>
+        <option value="1" {{ 'selected' if forma and forma.gerar == 1 }}>Previsão</option>
       </select>
     </div>
   </div>
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <label class="form-label">Prazo de Recebimento</label>
+      <input type="text" name="prazo_recebimento" class="form-control" id="prazo-recebimento"
+             value="{{ forma.prazo_recebimento or '' }}"
+             placeholder="Ex: P/E, 1, 3x, 0/15"
+             {{ 'disabled' if (forma and forma.gerar == 0) or (not forma) }}>
+      <div class="form-text">
+        Padrões: <strong>P/E</strong> (pedido/entrega) · <strong>1</strong> (1 dia) · <strong>3x</strong> (30/60/90) · <strong>0/15</strong> (0 e 15 dias)
+      </div>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Taxa de Recebimento (%)</label>
+      <input type="number" name="taxa_recebimento" class="form-control" step="0.01" min="0" max="100"
+             value="{{ forma.taxa_recebimento if forma else 0 }}">
+    </div>
+  </div>
+  <script>
+    (function() {
+      var gerar = document.getElementById('gerar');
+      var prazo = document.getElementById('prazo-recebimento');
+      if (!gerar) return;
+      function togglePrazo() {
+        if (gerar.value === '0') {
+          prazo.disabled = true;
+          prazo.value = '';
+        } else {
+          prazo.disabled = false;
+        }
+      }
+      togglePrazo();
+      gerar.addEventListener('change', togglePrazo);
+    })();
+  </script>
   <div class="form-bottom-spacer"></div>
 </form>
 

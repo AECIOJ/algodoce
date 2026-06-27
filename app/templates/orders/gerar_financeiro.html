@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
+  <a href="{{ url_for('orders.edit', id=order.id) }}" class="btn btn-outline-secondary btn-sm">
+    <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
+  </a>
+  <span class="mx-2 fs-5 fw-bold">Gerar Financeiro — Pedido #{{ order.id|fmtid }}</span>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold">Resumo do Pedido</div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-3"><strong>Cliente:</strong> {{ order.conta.nome }}</div>
+      <div class="col-md-3"><strong>Total:</strong> R$ {{ total|brl }}</div>
+      <div class="col-md-3"><strong>Forma de Pagamento:</strong> {{ fp.nome }}</div>
+      <div class="col-md-3">
+        <strong>Modo:</strong>
+        {{ {0:"Movimento", 1:"Previsão"}[fp.gerar] }}
+      </div>
+    </div>
+    {% if taxa > 0 %}
+    <div class="row mt-2">
+      <div class="col-md-3"><strong>Taxa:</strong> {{ taxa|brl }}%</div>
+      <div class="col-md-3"><strong>Valor Líquido:</strong> R$ {{ valor_liquido|brl }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<form method="POST">
+  {% if fp.gerar == 0 %}
+  <div class="card mb-3">
+    <div class="card-header bg-light fw-bold">Recebimento</div>
+    <div class="card-body">
+      <div class="row mb-3">
+        <div class="col-md-3">
+          <label class="form-label">Data *</label>
+          <input type="date" name="data" class="form-control"
+                 value="{{ order.data_pedido.strftime('%Y-%m-%d') }}" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Recurso *</label>
+          <select name="recurso_id" class="form-select" required>
+            <option value="">Selecione...</option>
+            {% for r in recursos %}
+            <option value="{{ r.id }}">{{ r.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Valor</label>
+          <input type="text" class="form-control" value="R$ {{ valor_liquido|brl }}" disabled>
+        </div>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Histórico</label>
+          <input type="text" name="historico" class="form-control"
+                 value="Recebimento Pedido #{{ order.id }}">
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card mb-3">
+    <div class="card-header bg-light fw-bold">
+      Previsões
+      {% if fp.prazo_recebimento %}
+      <span class="badge bg-info ms-2">Prazo: {{ fp.prazo_recebimento }}</span>
+      {% endif %}
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Vencimento</th>
+              <th class="text-end">Valor</th>
+              <th>Taxa</th>
+              <th>Forma de Pagamento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in parcelas %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ p.vencimento|fmtdate }}</td>
+              <td class="text-end">R$ {{ p.previsto|brl }}</td>
+              <td>{{ taxa|brl }}%</td>
+              <td>{{ fp.nome }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="2" class="text-end">Total</th>
+              <th class="text-end">R$ {{ parcelas|sum(attribute='previsto')|brl }}</th>
+              <th colspan="2"></th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <button type="submit" class="btn btn-success">
+    Confirmar {{ 'Movimento' if fp.gerar == 0 else 'Previsão' }}
+  </button>
+  <a href="{{ url_for('orders.edit', id=order.id) }}" class="btn btn-outline-secondary">Cancelar</a>
+</form>
+
+<div class="form-bottom-spacer"></div>
+{% endblock %}

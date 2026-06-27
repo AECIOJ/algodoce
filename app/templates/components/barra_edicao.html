@@ -37,12 +37,21 @@ if (!window._formModListenersAttached) {
 }
 var sairModalInstance = null;
 function confirmSair(url) {
+  var target = url || 'back';
+  var btn = document.getElementById('sairConfirmBtn');
+  if (target === 'back') {
+    btn.removeAttribute('href');
+    btn.onclick = function() { window.history.back(); };
+  } else {
+    btn.href = target;
+    btn.onclick = null;
+  }
   if (window._formModified || window.modified) {
-    document.getElementById('sairConfirmBtn').href = url;
     if (!sairModalInstance) sairModalInstance = new bootstrap.Modal(document.getElementById('sairModal'));
     sairModalInstance.show();
   } else {
-    window.location = url;
+    if (target === 'back') { window.history.back(); }
+    else { window.location = target; }
   }
 }
 </script>

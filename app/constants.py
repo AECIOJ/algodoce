@@ -10,9 +10,6 @@ COMPRA_STATUS = {0: "Orçamento", 1: "Pedido", 6: "Cancelado", 8: "Recebido", 9:
 COMPRA_STATUS_FILTER = [("todos", "Todos"), ("0", "Orçamento"), ("1", "Pedido"),
                         ("6", "Cancelado"), ("8", "Recebido"), ("9", "Devolvido")]
 
-# Legado — manter enquanto templates usarem; novo código usa tabela forma_pagamento
-FORMA_PAGAMENTO = {0: "À vista", 1: "50% Pedido + 50% Entrega", 2: "Na Entrega"}
-
 QUOTE_STATUS = {0: "Pendente", 1: "Negociação", 6: "Renovado",
                 7: "Expirado", 8: "Reprovado", 9: "Aprovado"}
 
