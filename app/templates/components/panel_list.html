@@ -12,9 +12,9 @@
 {% endmacro %}
 
 {% macro action_edit(url, label='Editar') %}
-<a href="{{ url }}" class="text-decoration-none">
-  <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18">
-  <small class="ms-1">{{ label }}</small>
+<a href="{{ url }}" class="text-decoration-none text-nowrap">
+  <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18" class="align-middle">
+  <small class="align-middle ms-1">{{ label }}</small>
 </a>
 {% endmacro %}
 

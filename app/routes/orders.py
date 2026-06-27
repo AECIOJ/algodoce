@@ -133,8 +133,6 @@ def order_list():
         .options(
             db.joinedload(Order.conta),
             db.joinedload(Order.forma_pagamento_rel),
-            db.joinedload(Order.transacao),
-            db.joinedload(Order.movto),
         )
         .order_by(Order.data_entrega)
         .all()
@@ -161,6 +159,13 @@ def orcamentos():
 def quote_detail(id):
     quote = Quote.query.get_or_404(id)
 
+    perfect_match = None
+    if quote.cliente_nome:
+        perfect_match = Conta.query.filter(
+            Conta.nome.ilike(quote.cliente_nome),
+            Conta.telefone == quote.cliente_telefone,
+        ).first()
+
     query = Quote.query.with_entities(Quote.id).order_by(Quote.id)
     ids = [q.id for q in query.all()]
     try:
@@ -176,7 +181,7 @@ def quote_detail(id):
 
     return render_template("orders/quote_detail.html", quote=quote, nav=nav,
                            QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
-                           FORMINHAS=FORMINHAS)
+                           FORMINHAS=FORMINHAS, perfect_match=perfect_match)
 
 
 @bp.route("/orcamentos/<int:id>/converter", methods=["POST"])
@@ -200,6 +205,10 @@ def converter_orcamento(id):
         if not nome:
             flash("Informe o nome da nova conta.", "warning")
             return redirect(url_for("orders.quote_edit", id=id))
+        existing = Conta.query.filter(Conta.nome.ilike(nome)).first()
+        if existing:
+            flash(f"Já existe uma conta com o nome '{existing.nome}'. Selecione-a na lista de contas existentes.", "warning")
+            return redirect(url_for("orders.quote_edit", id=id))
         conta = Conta(
             nome=nome,
             telefone=telefone or None,
@@ -208,6 +217,12 @@ def converter_orcamento(id):
         )
         db.session.add(conta)
         db.session.flush()
+    elif tipo == "auto":
+        client_id = request.form.get("client_id", type=int)
+        conta = Conta.query.get(client_id)
+        if not conta:
+            flash("Conta não encontrada para conversão automática.", "warning")
+            return redirect(url_for("orders.quote_edit", id=id))
     else:
         client_id = request.form.get("client_id", type=int)
         conta = Conta.query.get(client_id)
@@ -301,6 +316,28 @@ def quote_edit(id):
 
     clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
 
+    perfect_match = None
+    suggested_client = None
+    phone_conflict = None
+    if quote.cliente_nome:
+        perfect_match = Conta.query.filter(
+            Conta.nome.ilike(quote.cliente_nome),
+            Conta.telefone == quote.cliente_telefone,
+        ).first()
+    if not perfect_match:
+        if quote.cliente_nome:
+            suggested_client = Conta.query.filter(Conta.nome.ilike(quote.cliente_nome)).first()
+        if not suggested_client and quote.cliente_telefone:
+            suggested_client = Conta.query.filter(Conta.telefone == quote.cliente_telefone).first()
+        if quote.cliente_telefone:
+            phone_owner = Conta.query.filter(
+                Conta.telefone == quote.cliente_telefone,
+            ).first()
+            if phone_owner and (
+                not suggested_client or phone_owner.id != suggested_client.id
+            ):
+                phone_conflict = phone_owner
+
     query = Quote.query.with_entities(Quote.id).order_by(Quote.id)
     ids = [q.id for q in query.all()]
     try:
@@ -320,7 +357,10 @@ def quote_edit(id):
         tipos_evento=tipos_evento, clients=clients,
         QUOTE_STATUS=QUOTE_STATUS, FORMA_PAGAMENTO=FORMA_PAGAMENTO,
         FORMINHAS=FORMINHAS, formas_pagamento=formas_pagamento,
-        ro=bool(quote.pedido_id)
+        ro=bool(quote.pedido_id),
+        perfect_match=perfect_match,
+        suggested_client=suggested_client,
+        phone_conflict=phone_conflict,
     )
 
 

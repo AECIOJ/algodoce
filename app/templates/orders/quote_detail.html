@@ -165,10 +165,18 @@
 <div class="d-flex flex-wrap gap-2">
   <a href="{{ url_for('orders.quote_edit', id=quote.id) }}" class="btn btn-outline-primary">Revisar</a>
   {% if not quote.pedido_id and quote.status < 7 %}
+    {% if perfect_match %}
+    <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
+      <input type="hidden" name="converter_tipo" value="auto">
+      <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
+      <button type="submit" class="btn btn-success">Converter</button>
+    </form>
+    {% else %}
     <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
       <button type="submit" class="btn btn-success"
               onclick="return confirmFormSubmit(this, 'Converter este orçamento em pedido?')">Converter</button>
     </form>
+    {% endif %}
   {% endif %}
   {% if quote.cliente_telefone %}
     {% set tel = quote.cliente_telefone|string|replace('(', '')|replace(')', '')|replace('-', '')|replace(' ', '') %}

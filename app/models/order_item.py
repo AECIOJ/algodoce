@@ -15,7 +15,7 @@ class OrderItem(db.Model):
     preco_unitario = db.Column(db.Numeric(10, 2), nullable=True)
     observacao = db.Column(db.Text, nullable=True)
 
-    product = db.relationship("Product", lazy="joined")
+    product = db.relationship("Product", lazy="select")
     order = db.relationship("Order", back_populates="items")
 
     def __repr__(self):

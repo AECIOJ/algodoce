@@ -16,7 +16,15 @@
   {% if quote.pedido_id %}
     <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id|fmtid }}</a>
   {% else %}
+    {% if perfect_match %}
+    <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}" class="d-inline">
+      <input type="hidden" name="converter_tipo" value="auto">
+      <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
+      <button type="submit" class="btn btn-success btn-sm">Converter</button>
+    </form>
+    {% else %}
     <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#converterModal">Converter</a>
+    {% endif %}
   {% endif %}
 {% endset %}
 {% call form_nav(back_url=url_for('orders.orcamentos'), nome='Orçamento ' ~ quote_id_raw, nav=nav, edit_endpoint='orders.quote_edit', entity_id=quote.id, status=status_html, actions2=quote_secondary) %}
@@ -298,6 +306,14 @@
         </div>
         <div class="modal-body">
           <p>Os itens do orçamento serão convertidos em um pedido.</p>
+          <div class="alert alert-info py-2 mb-3">
+            <strong>Cliente do orçamento:</strong> {{ quote.cliente_nome }} — {{ quote.cliente_telefone }}
+          </div>
+          {% if phone_conflict %}
+          <div class="alert alert-warning py-2 mb-3">
+            ⚠ O telefone {{ quote.cliente_telefone }} já está cadastrado para <strong>{{ phone_conflict.nome }}</strong>. Verifique se não há erro de digitação.
+          </div>
+          {% endif %}
           <div class="d-flex gap-3 mb-3 p-3 rounded" style="background:#f8f9fa;">
             <div class="form-check">
               <input class="form-check-input" type="radio" name="converter_tipo" id="convExistente" value="existente" checked onchange="toggleConvTipo()">
@@ -312,13 +328,13 @@
             <select name="client_id" class="form-select">
               <option value="">— Selecione —</option>
               {% for c in clients %}
-                <option value="{{ c.id }}" {{ 'selected' if c.telefone == quote.cliente_telefone }}>{{ c.nome }} — {{ c.telefone }}</option>
+                <option value="{{ c.id }}" {{ 'selected' if suggested_client and c.id == suggested_client.id }}>{{ c.nome }} — {{ c.telefone }}</option>
               {% endfor %}
             </select>
           </div>
           <div id="convNovaFields" style="display:none;">
-            <input type="text" name="novo_nome" class="form-control mb-2" placeholder="Nome">
-            <input type="text" name="novo_telefone" class="form-control" placeholder="Telefone">
+            <input type="text" name="novo_nome" class="form-control mb-2" placeholder="Nome" value="{{ quote.cliente_nome }}">
+            <input type="text" name="novo_telefone" class="form-control" placeholder="Telefone" value="{{ quote.cliente_telefone }}">
           </div>
           <p class="text-muted small mt-3 mb-0">O status do orçamento será alterado para <strong>Aprovado</strong> e um novo pedido será gerado.</p>
         </div>

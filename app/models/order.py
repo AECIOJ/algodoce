@@ -27,19 +27,19 @@ class Order(db.Model):
     producao_id = db.Column(
         db.Integer, db.ForeignKey("producao.id"), nullable=True
     )
-    producao = db.relationship("Producao", foreign_keys=[producao_id], lazy="joined")
+    producao = db.relationship("Producao", foreign_keys=[producao_id], lazy="select")
     quote_id = db.Column(
         db.Integer, db.ForeignKey("quotes.id"), nullable=True
     )
-    quote = db.relationship("Quote", foreign_keys=[quote_id], lazy="joined")
+    quote = db.relationship("Quote", foreign_keys=[quote_id], lazy="select")
     forma_pagamento_rel = db.relationship("FormaPagamento", uselist=False)
     transacao = db.relationship("Transacao", foreign_keys=[transacao_id], uselist=False)
     movto = db.relationship("Movto", foreign_keys=[movto_id], uselist=False)
-    event = db.relationship("Event", back_populates="order", uselist=False, lazy="joined")
+    event = db.relationship("Event", back_populates="order", uselist=False, lazy="select")
     items = db.relationship(
         "OrderItem", back_populates="order",
         foreign_keys="OrderItem.order_id",
-        lazy="joined"
+        lazy="select"
     )
 
     def __repr__(self):
