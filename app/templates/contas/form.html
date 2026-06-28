@@ -58,7 +58,7 @@
   </div>
   <div class="form-bottom-spacer"></div>
 </form>
-{% call barra_edicao(back_url=url_for('contas.list')) %}
+{% call barra_edicao(back_url=url_for('contas.list'), disable_save=conta is not none) %}
 {% endcall %}
 
 {% if conta %}

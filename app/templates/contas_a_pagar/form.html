@@ -22,7 +22,7 @@
 {% set cancelado_html %}
 <div class="d-flex align-items-center gap-1">
   <label class="form-label small mb-0 text-danger">Cancelado</label>
-   <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}" {{ 'readonly' if locked else '' }}>
+   <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none and submitted_data.cancelado else (transacao.cancelado.strftime('%Y-%m-%d') if transacao and transacao.cancelado else '') }}" {{ 'readonly' if locked else '' }}>
 </div>
 {% endset %}
 {% call form_nav(back_url=url_for('contas_a_pagar.list'), nome='Transação ' ~ transacao.id|fmtid, nav=nav, edit_endpoint='contas_a_pagar.edit', entity_id=transacao.id, status=status_badge) %}
@@ -60,7 +60,7 @@
     </div>
     <div class="col-6 col-md-1">
       <label class="form-label">Fatura</label>
-      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao else '') }}" {{ 'readonly' if locked else '' }}>
+      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao and transacao.fatura else '') }}" {{ 'readonly' if locked else '' }}>
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label">Valor *</label>
@@ -68,7 +68,7 @@
     </div>
     <div class="col-7 col-md-6">
       <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ submitted_data.historico if submitted_data is not none else (transacao.historico if transacao else '') }}" {{ 'readonly' if locked else '' }}>
+      <input type="text" name="historico" class="form-control" value="{{ submitted_data.historico if submitted_data is not none else (transacao.historico if transacao and transacao.historico else '') }}" {{ 'readonly' if locked else '' }}>
     </div>
   </div>
 
@@ -234,7 +234,7 @@
 </div>
 {% endif %}
   <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=url_for('contas_a_pagar.list')) %}
+{% call barra_edicao(back_url=url_for('contas_a_pagar.list'), disable_save=transacao is not none) %}
   {% if transacao and not locked %}
   <div class="d-flex align-items-center gap-1">
     <label class="form-label small mb-0 text-danger">Cancelado</label>

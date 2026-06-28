@@ -39,11 +39,11 @@
   </div>
   <div class="col-6 col-md">
     <label class="form-label small mb-0">Previsão De</label>
-    <input type="date" name="previsao_de" class="form-control form-control-sm" value="{{ producao.previsao_de }}" {{ 'required' if producao.status == 0 }} {{ 'readonly' if producao.status == 9 }}>
+    <input type="date" name="previsao_de" class="form-control form-control-sm" value="{{ producao.previsao_de.strftime('%Y-%m-%d') if producao.previsao_de else '' }}" {{ 'required' if producao.status == 0 }} {{ 'readonly' if producao.status == 9 }}>
   </div>
   <div class="col-6 col-md">
     <label class="form-label small mb-0">Previsão Até</label>
-    <input type="date" name="previsao_ate" class="form-control form-control-sm" value="{{ producao.previsao_ate }}" {{ 'required' if producao.status == 0 }} {{ 'readonly' if producao.status == 9 }}>
+    <input type="date" name="previsao_ate" class="form-control form-control-sm" value="{{ producao.previsao_ate.strftime('%Y-%m-%d') if producao.previsao_ate else '' }}" {{ 'required' if producao.status == 0 }} {{ 'readonly' if producao.status == 9 }}>
   </div>
   <div class="col-6 col-md">
     <label class="form-label small mb-0">Encerramento</label>

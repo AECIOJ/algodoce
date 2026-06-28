@@ -32,11 +32,11 @@
     </div>
     <div class="col-md-3">
       <label class="form-label">Data do Balanço</label>
-      <input type="date" name="data" class="form-control" value="{{ recurso.data if recurso else hoje }}">
+      <input type="date" name="data" class="form-control" value="{{ recurso.data.strftime('%Y-%m-%d') if recurso and recurso.data else hoje }}">
     </div>
   </div>
   <div class="form-bottom-spacer"></div>
 </form>
-{% call barra_edicao(back_url=url_for('recursos.list')) %}
+{% call barra_edicao(back_url=url_for('recursos.list'), disable_save=recurso is not none) %}
 {% endcall %}
 {% endblock %}

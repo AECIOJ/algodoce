@@ -17,7 +17,7 @@ class Quote(db.Model):
     total = db.Column(db.Numeric(10, 2), nullable=True)
     observacao = db.Column(db.Text)
     validade = db.Column(db.Integer, nullable=False, default=3)
-    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("forma_pagamento.id"), nullable=False)
+    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("forma_pagamento.id"), nullable=True)
     data_renovacao = db.Column(db.DateTime, nullable=True)
     forminhas = db.Column(db.Integer, nullable=False, default=0)
 

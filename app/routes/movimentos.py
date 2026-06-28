@@ -218,7 +218,7 @@ def recebimentos_new():
                 conta_id=order.client_id,
                 documento=f"P#{order.id}",
                 valor=total,
-                historico=f"Recebimento de Vendas em {date.today().strftime('%d/%m/%Y')}",
+                historico="Recebimento de Vendas na data",
             )
     return _new("E", prefill=prefill, from_order=bool(order_id))
 

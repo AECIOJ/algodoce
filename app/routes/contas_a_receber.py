@@ -163,7 +163,7 @@ def new():
             db.session.rollback()
             flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da fatura ({float(transacao.valor):.2f})", "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+            rubricas = Rubrica.query.filter_by(ativa=True, tipo=1).order_by(Rubrica.ordem, Rubrica.nome).all()
             return render_template(
                 "contas_a_receber/form.html",
                 contas=contas, rubricas=rubricas, hoje=date.today(),
@@ -311,7 +311,7 @@ def edit(id):
                 db.session.rollback()
                 flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da fatura ({float(transacao.valor):.2f})", "danger")
                 contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-                rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+                rubricas = Rubrica.query.filter_by(ativa=True, tipo=1).order_by(Rubrica.ordem, Rubrica.nome).all()
                 previsao_ids = [p.id for p in transacao.previsoes]
                 movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
                 return render_template(

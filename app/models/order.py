@@ -18,7 +18,7 @@ class Order(db.Model):
     status = db.Column(db.Integer, nullable=False, default=0)
     observacao = db.Column(db.Text)
     total = db.Column(db.Numeric(10, 2), nullable=True)
-    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("forma_pagamento.id"), nullable=False)
+    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("forma_pagamento.id"), nullable=True)
     transacao_id = db.Column(db.Integer, db.ForeignKey("transacao.id"), nullable=True, unique=True)
     movto_id = db.Column(db.Integer, db.ForeignKey("movto.id"), nullable=True, unique=True)
     forminhas = db.Column(db.Integer, nullable=False, default=0)

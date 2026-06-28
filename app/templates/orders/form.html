@@ -38,7 +38,7 @@
     <div class="col-md-3 mb-2 mb-md-0">
       <label class="form-label">Telefone</label>
       <div class="input-group">
-        <input type="text" name="cliente_telefone" class="form-control" value="{{ order.conta.telefone if order and order.conta else '' }}" {{ 'readonly' if ro else '' }}>
+        <input type="text" name="cliente_telefone" class="form-control" value="{{ order.conta.telefone if order and order.conta and order.conta.telefone else '' }}" {{ 'readonly' if ro else '' }}>
         {% if order %}<a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success">Enviar</a>{% endif %}
       </div>
     </div>
@@ -48,7 +48,7 @@
     </div>
     <div class="col-md-2 mb-2 mb-md-0">
       <label class="form-label">Prev. Entrega</label>
-      <input type="datetime-local" name="data_previsao_entrega" class="form-control" value="{{ order.data_previsao_entrega.strftime('%Y-%m-%dT%H:%M') if order.data_previsao_entrega else '' }}" {{ 'disabled' if ro }}>
+      <input type="datetime-local" name="data_previsao_entrega" id="data-previsao-entrega" class="form-control" value="{{ order.data_previsao_entrega.strftime('%Y-%m-%dT%H:%M') if order.data_previsao_entrega else '' }}" {{ 'disabled' if ro }}>
     </div>
     <div class="col-md-2 mb-2 mb-md-0">
       <label class="form-label">Data Entrega</label>
@@ -207,10 +207,13 @@
         <div>
           <label class="form-label mb-0">Forma de Pagamento</label>
           <select name="forma_pagamento_id" id="forma-pagamento-select" class="form-select form-select-sm" required
-            data-saved-id="{{ order.forma_pagamento_id or '' }}" {{ 'disabled' if ro or order.transacao_id or order.movto_id }}>
+            data-saved-id="{{ order.forma_pagamento_id or '' }}"
+            data-entrega="{{ order.data_entrega or '' }}"
+            data-previsao-entrega="{{ order.data_previsao_entrega or '' }}"
+            {{ 'disabled' if ro or order.transacao_id or order.movto_id }}>
             <option value="">Selecione...</option>
             {% for fp in formas_pagamento %}
-              <option value="{{ fp.id }}" {{ 'selected' if order.forma_pagamento_rel and order.forma_pagamento_rel.id == fp.id }} data-gerar="{{ fp.gerar }}">{{ fp.nome }} ({{ {0:'Movimento',1:'Previsão'}[fp.gerar] }})</option>
+              <option value="{{ fp.id }}" {{ 'selected' if order.forma_pagamento_rel and order.forma_pagamento_rel.id == fp.id }} data-gerar="{{ fp.gerar }}" data-prazo="{{ fp.prazo_recebimento or '' }}">{{ fp.nome }} ({{ {0:'Movimento',1:'Previsão'}[fp.gerar] }})</option>
             {% endfor %}
           </select>
         </div>
@@ -218,7 +221,8 @@
         <div id="gerar-financeiro-wrapper">
           <a href="{{ url_for('contas_a_receber.new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-previsao-link" style="display:none">Gerar Previsão</a>
           <a href="{{ url_for('movimentos.recebimentos_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-movimento-link" style="display:none">Gerar</a>
-          <small id="gerar-financeiro-msg" class="text-warning d-none">Salve o pedido antes de gerar.</small>
+          <small id="gerar-financeiro-msg" class="badge bg-warning text-dark d-none">Salve o pedido antes de gerar.</small>
+          <small id="gerar-financeiro-msg-entrega" class="badge bg-warning text-dark d-none">Informe Previsão de Entrega para gerar.</small>
         </div>
         {% endif %}
       </div>
@@ -355,7 +359,7 @@
   <input type="hidden" name="status" value="{{ order.status if order else 0 }}" id="status-field" data-original="{{ order.status if order else 0 }}">
   <input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
   <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=url_for('orders.list')) %}
+{% call barra_edicao(back_url=url_for('orders.list'), disable_save=order is not none) %}
   {% if order %}
   <div class="form-check mb-0">
     <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if order.status == 3 }} onchange="toggleReprovado(this)">
@@ -480,28 +484,39 @@ function preencherTelefone(select) {
   var previsaoLink = document.getElementById('gerar-previsao-link');
   var movimentoLink = document.getElementById('gerar-movimento-link');
   var msg = document.getElementById('gerar-financeiro-msg');
+  var msgEntrega = document.getElementById('gerar-financeiro-msg-entrega');
+  function precisaDataEntrega(prazo) {
+    return prazo && prazo.toUpperCase().indexOf('E') !== -1;
+  }
+  function temDataEntrega() {
+    return select.getAttribute('data-entrega') || select.getAttribute('data-previsao-entrega');
+  }
   function atualizarBotaoGerar() {
     var savedId = select.getAttribute('data-saved-id');
     var selectedId = select.value;
     var opt = select.options[select.selectedIndex];
     var gerar = opt ? opt.getAttribute('data-gerar') : null;
+    var prazo = opt ? opt.getAttribute('data-prazo') : '';
+    var inputPrev = document.getElementById('data-previsao-entrega');
+    if (precisaDataEntrega(prazo)) {
+      inputPrev && inputPrev.setAttribute('required', 'required');
+    } else {
+      inputPrev && inputPrev.removeAttribute('required');
+    }
+    msg.classList.add('d-none');
+    msgEntrega.classList.add('d-none');
+    previsaoLink.style.display = 'none';
+    movimentoLink.style.display = 'none';
     if (selectedId && selectedId === savedId) {
-      msg.classList.add('d-none');
-      if (gerar === '1') {
+      if (gerar === '1' && precisaDataEntrega(prazo) && !temDataEntrega()) {
+        msgEntrega.classList.remove('d-none');
+      } else if (gerar === '1') {
         previsaoLink.style.display = '';
-        movimentoLink.style.display = 'none';
       } else {
-        previsaoLink.style.display = 'none';
         movimentoLink.style.display = '';
       }
     } else if (selectedId) {
-      previsaoLink.style.display = 'none';
-      movimentoLink.style.display = 'none';
       msg.classList.remove('d-none');
-    } else {
-      previsaoLink.style.display = 'none';
-      movimentoLink.style.display = 'none';
-      msg.classList.add('d-none');
     }
   }
   select.addEventListener('change', atualizarBotaoGerar);

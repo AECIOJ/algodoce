@@ -80,7 +80,7 @@
   <div class="form-bottom-spacer"></div>
 </form>
 
-{% call barra_edicao(back_url=url_for('forma_pagamento.list')) %}
+{% call barra_edicao(back_url=url_for('forma_pagamento.list'), disable_save=forma is not none) %}
   {% if forma and not em_uso %}
   <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"
     onclick="if(confirm('Excluir {{ forma.nome }}?')){var f=document.createElement('form');f.method='POST';f.action='{{ url_for('forma_pagamento.delete', id=forma.id) }}';document.body.appendChild(f);f.submit();}">

@@ -99,7 +99,7 @@ def new():
             data=data, fornecedor_id=conta_id,
             valor=valor_total, historico=historico,
             forma_pagamento_id=request.form.get("forma_pagamento_id", type=int) or None,
-            status=request.form.get("status", 1, type=int),
+            status=1,
         )
         db.session.add(compra)
         db.session.flush()
@@ -152,8 +152,8 @@ def new():
         if prev_total > transacao.valor:
             db.session.rollback()
             flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da compra ({float(transacao.valor):.2f})", "danger")
-            contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+            contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
+            rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
             insumos = Ingredient.query.order_by(Ingredient.nome).all()
             formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
             return render_template(
@@ -162,14 +162,15 @@ def new():
                 formas_pagamento=formas_pagamento, hoje=date.today(),
                 COMPRA_STATUS=COMPRA_STATUS,
                 submitted_data=None, submitted_previsoes=None,
+                compra=None,
             )
 
         db.session.commit()
         flash("Compra cadastrada!", "success")
         return redirect(url_for("compras.list"))
 
-    contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
+    rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
@@ -177,6 +178,7 @@ def new():
         insumos=insumos, formas_pagamento=formas_pagamento,
         hoje=date.today(), COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None,
+        compra=None,
     )
 
 
@@ -210,7 +212,6 @@ def edit(id):
         compra.fornecedor_id = request.form.get("conta_id", type=int) or None
         compra.historico = request.form.get("historico") or None
         compra.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
-        compra.status = request.form.get("status", compra.status, type=int)
         compra.data_recepcao = request.form.get("data_recepcao") or None
 
         transacao.data = compra.data
@@ -317,8 +318,8 @@ def edit(id):
             flash("Compra atualizada!", "success")
             return redirect(url_for("compras.list"))
 
-    contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
+    rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes]

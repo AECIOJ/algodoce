@@ -282,7 +282,7 @@
   <input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
   <input type="hidden" name="status" value="{{ quote.status if quote else 0 }}" id="status-field" data-original="{{ quote.status if quote else 0 }}">
   <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=url_for('orders.orcamentos')) %}
+{% call barra_edicao(back_url=url_for('orders.orcamentos'), disable_save=quote is not none) %}
   {% if quote %}
   <div class="d-flex align-items-center gap-2">
     <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" {{ 'disabled' if ro }} data-bs-toggle="modal" data-bs-target="#excluirModal"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>

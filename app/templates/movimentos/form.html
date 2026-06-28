@@ -39,11 +39,11 @@
       <label class="form-label">Previsão</label>
       <div class="input-group">
         <input type="text" id="previsao-info" class="form-control" readonly placeholder="Nenhuma" value="{{ '#%d - %s'|format(movto.previsao_id, movto.previsao.transacao.conta.nome if movto and movto.previsao and movto.previsao.transacao.conta else '') if movto and movto.previsao else '' }}">
-        <input type="hidden" name="previsao_id" id="previsao-id" value="{{ movto.previsao_id if movto else '' }}">
+        <input type="hidden" name="previsao_id" id="previsao-id" value="{{ movto.previsao_id if movto and movto.previsao_id is not none else '' }}">
         <input type="hidden" id="previsao-saldo" value="{{ movto.previsao.saldo if movto and movto.previsao else 0 }}">
         <input type="hidden" name="acao" id="acao-field" value="">
         <input type="hidden" name="rubrica_acrescimos_id" id="rubrica-acrescimos-id" value="">
-        {% if not movto or not movto.previsao_id %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
+        {% if (not movto or not movto.previsao_id) and not from_order %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
       </div>
     </div>
     <div class="col-6 col-md-2">
@@ -59,7 +59,7 @@
       <select name="rubrica_id" class="form-select" required>
         <option value="">Selecione...</option>
         {% for r in rubricas %}
-          <option value="{{ r.id }}" {% if movto and movto.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+          <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if movto and movto.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
         {% endfor %}
       </select>
     </div>
@@ -71,12 +71,12 @@
 
   <input type="hidden" id="valor-original" value="{{ '%.2f'|format(movto.valor) if movto else ('%.2f'|format(prefill.valor) if prefill and prefill.valor else '') }}">
   <input type="hidden" id="editando" value="{% if movto %}1{% endif %}">
-  <input type="hidden" id="variacao-original" value="{{ movto.variacao if movto else 0 }}">
+  <input type="hidden" id="variacao-original" value="{{ movto.variacao if movto and movto.variacao is not none else 0 }}">
 
   <div class="form-bottom-spacer"></div>
 </form>
 
-{% call barra_edicao(back_url='') %}
+{% call barra_edicao(back_url='', disable_save=movto is not none) %}
   {% if movto %}
   <form method="POST" action="{{ url_for('movimentos.excluir', id=movto.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Excluir {{ tipo_nome }} #{{ movto.id|fmtid }}?')">
     <button type="submit" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
@@ -172,6 +172,13 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
+  if (!opt.value) return;
+  var show = opt.dataset.tipoRubrica == "{{ '1' if tipo == 'E' else '2' }}" && opt.dataset.temPai == "1";
+  opt.style.display = show ? '' : 'none';
+});
+</script>
 <script>
 var previsaoModal = null;
 var descontoModal = null, erroAcrescimosModal = null;

@@ -96,7 +96,7 @@
 
   <div class="form-bottom-spacer"></div>
 </form>
-{% call barra_edicao(back_url=url_for('ingredients.list')) %}
+{% call barra_edicao(back_url=url_for('ingredients.list'), disable_save=ingredient is not none) %}
   {% if ingredient %}
   <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
   {% endif %}

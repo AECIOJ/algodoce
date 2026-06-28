@@ -32,11 +32,11 @@
     </div>
     <div class="col-md-2">
       <label class="form-label">Documento</label>
-      <input type="text" name="documento" class="form-control" value="{{ previsao.documento if previsao else '' }}">
+      <input type="text" name="documento" class="form-control" value="{{ previsao.documento if previsao and previsao.documento else '' }}">
     </div>
     <div class="col-md-2">
       <label class="form-label">Vencimento *</label>
-      <input type="date" name="vencimento" class="form-control" required value="{{ previsao.vencimento if previsao else '' }}">
+      <input type="date" name="vencimento" class="form-control" required value="{{ previsao.vencimento.strftime('%Y-%m-%d') if previsao and previsao.vencimento else '' }}">
     </div>
   </div>
   <div class="row mb-3">
@@ -66,16 +66,16 @@
     </div>
     <div class="col-md-2">
       <label class="form-label">Cancelado em</label>
-      <input type="date" name="cancelado" class="form-control" value="{{ previsao.cancelado if previsao else '' }}">
+      <input type="date" name="cancelado" class="form-control" value="{{ previsao.cancelado.strftime('%Y-%m-%d') if previsao and previsao.cancelado else '' }}">
     </div>
     <div class="col-md-4">
       <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ previsao.historico if previsao else '' }}">
+      <input type="text" name="historico" class="form-control" value="{{ previsao.historico if previsao and previsao.historico else '' }}">
     </div>
   </div>
   <div class="form-bottom-spacer"></div>
 </form>
-{% call barra_edicao(back_url=url_for('previsoes.list')) %}
+{% call barra_edicao(back_url=url_for('previsoes.list'), disable_save=previsao is not none) %}
 {% endcall %}
 {% endblock %}
 

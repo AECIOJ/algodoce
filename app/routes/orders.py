@@ -515,7 +515,7 @@ def new():
         flash("Pedido criado!", "success")
         return redirect(url_for("orders.list"))
 
-    clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+    clients = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([0, 1])).order_by(Conta.nome).all()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
     formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
     return render_template(
@@ -591,7 +591,7 @@ def edit(id):
             order.quote_id = q.id
             db.session.commit()
 
-    clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+    clients = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([0, 1])).order_by(Conta.nome).all()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
 
     query = Order.query.with_entities(Order.id).order_by(Order.id)

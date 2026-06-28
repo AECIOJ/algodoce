@@ -1,8 +1,8 @@
-{% macro barra_edicao(back_url) %}
+{% macro barra_edicao(back_url, disable_save=false) %}
 <div class="form-bottom-bar barra-edicao">
   {{ caller() }}
   <div class="flex-grow-1"></div>
-  <button type="submit" form="main-form" class="btn btn-sm btn-success">Salvar</button>
+  <button type="submit" form="main-form" class="btn btn-sm btn-success" id="btn-salvar" {{ 'disabled' if disable_save }}>Salvar</button>
   <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="confirmSair('{{ back_url|e }}')">Sair</button>
 </div>
 
@@ -28,9 +28,16 @@ if (typeof window._formModified === 'undefined') {
 if (!window._formModListenersAttached) {
   document.addEventListener('DOMContentLoaded', function() {
     var f = document.getElementById('main-form');
+    var btn = document.getElementById('btn-salvar');
     if (f) {
-      f.addEventListener('input', function() { window._formModified = true; });
-      f.addEventListener('change', function() { window._formModified = true; });
+      function atualizarBtnSalvar() {
+        if (btn && btn.hasAttribute('disabled')) {
+          btn.disabled = !window._formModified;
+        }
+      }
+      f.addEventListener('input', function() { window._formModified = true; atualizarBtnSalvar(); });
+      f.addEventListener('change', function() { window._formModified = true; atualizarBtnSalvar(); });
+      atualizarBtnSalvar();
     }
   });
   window._formModListenersAttached = true;
