@@ -46,7 +46,7 @@
       {% set t = p.transacao %}
       <tr class="{{ 'table-danger' if p.vencimento < hoje and p.status not in (8,9) else '' }}">
         <td>{{ t.id|fmtid }}</td>
-        <td>{% if t.compra %}<a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ t.compra.id|fmtid }}</a>{% else %}-{% endif %}</td>
+        <td>{% if t.compra %}<a href="{{ url_for('compras.edit', id=t.compra.id) }}" class="btn btn-sm btn-outline-success">{{ t.compra.id|fmtid }}</a>{% else %}-{% endif %}</td>
         <td>
           {% set st = PREVISAO_STATUS.get(p.status, '') %}
           {% if p.status == 9 %}
@@ -86,7 +86,7 @@
   <div class="d-flex justify-content-between align-items-start mb-1">
     <div>
       <span class="card-label">#{{ t.id|fmtid }}</span>
-      {% if t.compra %}<span class="card-label me-1">Compra:</span><a href="{{ url_for('compras.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">#{{ t.compra.id|fmtid }}</a>{% endif %}
+      {% if t.compra %}<span class="card-label me-1">Compra:</span><a href="{{ url_for('compras.edit', id=t.compra.id) }}" class="btn btn-sm btn-outline-success">#{{ t.compra.id|fmtid }}</a>{% endif %}
       <span class="badge bg-danger">A Pagar</span>
     </div>
     {{ action_edit(url_for('contas_a_pagar.edit', id=t.id)) }}

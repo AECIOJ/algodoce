@@ -492,7 +492,6 @@ function preencherTelefone(select) {
     return select.getAttribute('data-entrega') || select.getAttribute('data-previsao-entrega');
   }
   function atualizarBotaoGerar() {
-    var savedId = select.getAttribute('data-saved-id');
     var selectedId = select.value;
     var opt = select.options[select.selectedIndex];
     var gerar = opt ? opt.getAttribute('data-gerar') : null;
@@ -507,16 +506,13 @@ function preencherTelefone(select) {
     msgEntrega.classList.add('d-none');
     previsaoLink.style.display = 'none';
     movimentoLink.style.display = 'none';
-    if (selectedId && selectedId === savedId) {
-      if (gerar === '1' && precisaDataEntrega(prazo) && !temDataEntrega()) {
-        msgEntrega.classList.remove('d-none');
-      } else if (gerar === '1') {
-        previsaoLink.style.display = '';
-      } else {
-        movimentoLink.style.display = '';
-      }
-    } else if (selectedId) {
-      msg.classList.remove('d-none');
+    if (!selectedId) return;
+    if (gerar === '1' && precisaDataEntrega(prazo) && !temDataEntrega()) {
+      msgEntrega.classList.remove('d-none');
+    } else if (gerar === '1') {
+      previsaoLink.style.display = '';
+    } else {
+      movimentoLink.style.display = '';
     }
   }
   select.addEventListener('change', atualizarBotaoGerar);

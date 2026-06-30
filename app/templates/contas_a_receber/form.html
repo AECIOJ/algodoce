@@ -60,7 +60,11 @@
     </div>
     <div class="col-6 col-md-1">
       <label class="form-label">Fatura</label>
-      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao and transacao.fatura else '') }}" {{ 'readonly' if locked else '' }}>
+      {% if locked and transacao and transacao.pedido %}
+      <a href="{{ url_for('orders.edit', id=transacao.pedido.id) }}" class="form-control form-control-sm text-decoration-none">#P{{ transacao.pedido.id|fmtid }}</a>
+      {% else %}
+      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao and transacao.fatura else '') }}">
+      {% endif %}
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label">Valor *</label>
@@ -73,17 +77,22 @@
   </div>
 
   <hr>
-  <div class="d-flex align-items-center gap-2 mb-2">
+  <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
     <h5 class="mb-0">Parcelas</h5>
     {% if not locked %}
-    <div class="ms-auto d-flex align-items-center gap-1">
-      <label class="form-label small mb-0 text-nowrap">Gerar</label>
+    <div class="ms-auto d-flex align-items-center gap-2">
       <div class="input-group input-group-sm" style="max-width:160px;">
-        <input type="number" id="lancar-valor" class="form-control text-end" step="0.01">
+        <input type="number" id="lancar-valor" class="form-control text-end" step="0.01" readonly>
         <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icons/arrow-list.png') }}" height="16" alt="Gerar"></button>
       </div>
+      <div>
+        <label class="form-label small mb-0 text-nowrap">Prazo</label>
+        <input type="text" name="prazo" id="prazo-input" class="form-control form-control-sm" style="width:100px;" value="{{ prazo_inicial or '' }}">
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="regenerarParcelas()">Regenerar</button>
     </div>
     {% endif %}
+    <span id="parcelas-warning" class="badge bg-warning text-dark d-none">Soma difere do valor total</span>
   </div>
 
   <!-- Desktop: parcelas table -->
@@ -386,14 +395,20 @@ function recalcularSaldoLancar() {
   });
   var saldo = valor - totalPrevisto;
   var input = document.getElementById('lancar-valor');
-  input.dataset.maxSaldo = saldo.toFixed(2);
-  input.value = saldo.toFixed(2);
-  atualizarBotaoGerar();
-}
-function atualizarBotaoGerar() {
-  var val = parseFloat(document.getElementById('lancar-valor').value) || 0;
-  var maxSaldo = parseFloat(document.getElementById('lancar-valor').dataset.maxSaldo) || 0;
-  document.getElementById('btn-gerar-parcelas').disabled = val <= 0 || val > maxSaldo;
+  if (input) input.value = saldo.toFixed(2);
+  var dif = Math.abs(saldo);
+  var warning = document.getElementById('parcelas-warning');
+  if (dif > 0.005) {
+    warning.classList.remove('d-none');
+    var btn = document.getElementById('btn-salvar');
+    if (btn) btn.disabled = true;
+  } else {
+    warning.classList.add('d-none');
+    if (window._formModified) {
+      var btn = document.getElementById('btn-salvar');
+      if (btn) btn.disabled = false;
+    }
+  }
 }
 function addRow() {
   var container = document.getElementById('previsoes-container');
@@ -419,6 +434,7 @@ function addRow() {
     if (venc) venc.value = dt.toISOString().slice(0, 10);
   }
   container.appendChild(clone);
+  marcarFormAlterado();
   recalcularSaldoLancar();
 }
 function addRowMobile() {
@@ -445,48 +461,11 @@ function addRowMobile() {
     if (venc) venc.value = dt.toISOString().slice(0, 10);
   }
   container.appendChild(clone);
-  recalcularSaldoLancar();
-}
-var removeParcelaBtn = null;
-var removeParcelaModal = null;
-
-document.addEventListener('DOMContentLoaded', function() {
-  removeParcelaModal = new bootstrap.Modal(document.getElementById('removeParcelaModal'));
-});
-
-document.getElementById('previsoes-container').addEventListener('click', function(e) {
-  var btn = e.target.closest('.btn-remove-parcela');
-  if (!btn) return;
-  removeParcelaBtn = btn;
-  removeParcelaModal.show();
-});
-document.getElementById('previsoes-mobile-container').addEventListener('click', function(e) {
-  var btn = e.target.closest('.btn-remove-parcela');
-  if (!btn) return;
-  removeParcelaBtn = btn;
-  removeParcelaModal.show();
-});
-
-document.getElementById('btn-confirm-remove-parcela').addEventListener('click', function() {
-  if (!removeParcelaBtn) return;
-  var row = removeParcelaBtn.closest('.previsao-row, .previsao-mobile-card');
-  row.querySelector('[name="previsao_remover[]"]').value = "1";
-  row.style.display = 'none';
-  recalcularSaldoLancar();
-  removeParcelaBtn = null;
-});
-function calcSaldo(el) {
-  var row = el.closest('.previsao-row, .previsao-mobile-card');
-  var inputs = row.querySelectorAll('.previsao-valor');
-  var prev = parseFloat(inputs[0].value) || 0;
-  var real = parseFloat(inputs[1].value) || 0;
-  var vari = parseFloat(inputs[2].value) || 0;
-  var saldo = prev + vari - real;
-  row.querySelector('.previsao-saldo').textContent = saldo.toFixed(2).replace('.', ',');
+  marcarFormAlterado();
   recalcularSaldoLancar();
 }
 function gerarParcelas() {
-  var num = parseInt(document.getElementById('lancar-parcelas').value) || 3;
+  var num = parseInt(document.getElementById('lancar-parcelas').value) || 1;
   var intervalo = parseInt(document.getElementById('lancar-intervalo').value) || 30;
   var valorTotal = parseFloat(document.getElementById('lancar-valor').value) || 0;
   var dataVal = document.querySelector('[name="data"]').value;
@@ -535,9 +514,56 @@ function gerarParcelas() {
       mobContainer.appendChild(mobClone);
     }
   }
+  marcarFormAlterado();
   recalcularSaldoLancar();
 }
-document.getElementById('lancar-valor').addEventListener('input', atualizarBotaoGerar);
+var removeParcelaBtn = null;
+var removeParcelaModal = null;
+var lancarModal = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  removeParcelaModal = new bootstrap.Modal(document.getElementById('removeParcelaModal'));
+  lancarModal = new bootstrap.Modal(document.getElementById('lancarModal'));
+});
+
+document.getElementById('previsoes-container').addEventListener('click', function(e) {
+  var btn = e.target.closest('.btn-remove-parcela');
+  if (!btn) return;
+  removeParcelaBtn = btn;
+  removeParcelaModal.show();
+});
+document.getElementById('previsoes-mobile-container').addEventListener('click', function(e) {
+  var btn = e.target.closest('.btn-remove-parcela');
+  if (!btn) return;
+  removeParcelaBtn = btn;
+  removeParcelaModal.show();
+});
+
+document.getElementById('btn-confirm-remove-parcela').addEventListener('click', function() {
+  if (!removeParcelaBtn) return;
+  var row = removeParcelaBtn.closest('.previsao-row, .previsao-mobile-card');
+  row.querySelector('[name="previsao_remover[]"]').value = "1";
+  row.style.display = 'none';
+  marcarFormAlterado();
+  recalcularSaldoLancar();
+  removeParcelaBtn = null;
+});
+function calcSaldo(el) {
+  var row = el.closest('.previsao-row, .previsao-mobile-card');
+  var inputs = row.querySelectorAll('.previsao-valor');
+  var prev = parseFloat(inputs[0].value) || 0;
+  var real = parseFloat(inputs[1].value) || 0;
+  var vari = parseFloat(inputs[2].value) || 0;
+  var saldo = prev + vari - real;
+  row.querySelector('.previsao-saldo').textContent = saldo.toFixed(2).replace('.', ',');
+  recalcularSaldoLancar();
+}
+function regenerarParcelas() {
+  var prazo = document.getElementById('prazo-input').value;
+  var params = new URLSearchParams(window.location.search);
+  params.set('prazo', prazo);
+  window.location.href = window.location.pathname + '?' + params.toString();
+}
 recalcularSaldoLancar();
 </script>
 {% endblock %}

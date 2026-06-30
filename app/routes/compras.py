@@ -31,24 +31,23 @@ def list():
     hoje = date.today()
     filtro_status = request.args.get("status", "todos")
     filtro_venc = request.args.get("vencimento", "todos")
-    transacoes = Transacao.query.options(
-        joinedload(Transacao.previsoes)
-    ).filter(
-        Transacao.tipo == TIPO
-    ).order_by(Transacao.data, Transacao.id).all()
+    compras = Compra.query.order_by(Compra.data.desc(), Compra.id.desc()).all()
 
     linhas = []
-    for t in transacoes:
-        if t.previsoes:
+    for c in compras:
+        t = c.transacao
+        if t and t.previsoes:
             for p in t.previsoes:
-                linhas.append(LinhaTransacao(t, p))
+                linhas.append(LinhaTransacao(t, p, compra=c))
+        elif t:
+            linhas.append(LinhaTransacao(t, compra=c))
         else:
-            linhas.append(LinhaTransacao(t))
+            linhas.append(LinhaTransacao(compra=c))
 
     if filtro_status != "todos":
         linhas = [l for l in linhas if l.status == int(filtro_status)]
     if filtro_venc == "em_atraso":
-        linhas = [l for l in linhas if l.vencimento < hoje and l.status not in (8, 9)]
+        linhas = [l for l in linhas if l.vencimento and l.vencimento < hoje and l.status not in (8, 9)]
     elif filtro_venc == "hoje":
         w = hoje.weekday()
         if w == 5:
@@ -61,7 +60,7 @@ def list():
             dias = [hoje]
         linhas = [l for l in linhas if l.vencimento in dias and l.status not in (0, 8, 9)]
     elif filtro_venc == "a_vencer":
-        linhas = [l for l in linhas if l.vencimento > hoje and l.status not in (0, 8, 9)]
+        linhas = [l for l in linhas if l.vencimento and l.vencimento > hoje and l.status not in (0, 8, 9)]
 
     total_saldo = sum(l.saldo for l in linhas)
     return render_template(
@@ -104,16 +103,6 @@ def new():
         db.session.add(compra)
         db.session.flush()
 
-        transacao = Transacao(
-            data=data, tipo=TIPO, conta_id=conta_id,
-            rubrica_id=rubrica_id, fatura=fatura,
-            valor=valor_total, cancelado=cancelado,
-            historico=historico,
-        )
-        db.session.add(transacao)
-        db.session.flush()
-        compra.transacao_id = transacao.id
-
         for i in range(len(insumo_ids)):
             if not insumo_ids[i] or not insumo_ids[i].strip():
                 continue
@@ -126,44 +115,6 @@ def new():
                     quantidade=qtd, preco=prc,
                 )
                 db.session.add(item)
-
-        docs = request.form.getlist("previsao_documento[]")
-        vencs = request.form.getlist("previsao_vencimento[]")
-        prevs = request.form.getlist("previsao_previsto[]")
-        reals = request.form.getlist("previsao_realizado[]")
-        vars_ = request.form.getlist("previsao_variacao[]")
-
-        prev_total = 0
-        for i in range(len(vencs)):
-            if not vencs[i]:
-                continue
-            prev_val = float(prevs[i]) if prevs[i] and prevs[i].strip() else 0
-            prev_total += prev_val
-            real_val = float(reals[i]) if reals[i] and reals[i].strip() else None
-            var_val = float(vars_[i]) if vars_[i] and vars_[i].strip() else 0
-            previsao = Previsao(
-                transacao_id=transacao.id,
-                documento=docs[i] if docs[i] and docs[i].strip() else None,
-                vencimento=vencs[i], previsto=prev_val,
-                realizado=real_val, variacao=var_val,
-            )
-            db.session.add(previsao)
-
-        if prev_total > transacao.valor:
-            db.session.rollback()
-            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da compra ({float(transacao.valor):.2f})", "danger")
-            contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
-            insumos = Ingredient.query.order_by(Ingredient.nome).all()
-            formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
-            return render_template(
-                "compras/form.html",
-                contas=contas, rubricas=rubricas, insumos=insumos,
-                formas_pagamento=formas_pagamento, hoje=date.today(),
-                COMPRA_STATUS=COMPRA_STATUS,
-                submitted_data=None, submitted_previsoes=None,
-                compra=None,
-            )
 
         db.session.commit()
         flash("Compra cadastrada!", "success")
@@ -184,42 +135,38 @@ def new():
 
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
 def edit(id):
-    transacao = Transacao.query.options(joinedload(Transacao.previsoes)).get(id)
-    if not transacao:
+    compra = Compra.query.options(joinedload(Compra.items)).get(id)
+    if not compra:
         flash("Código inexistente", "warning")
         return redirect(url_for("compras.list"))
 
-    compra = Compra.query.filter_by(transacao_id=transacao.id).first()
-    if not compra:
-        flash("Compra não encontrada", "warning")
-        return redirect(url_for("compras.list"))
+    transacao = Transacao.query.options(joinedload(Transacao.previsoes)).get(compra.transacao_id) if compra.transacao_id else None
 
-    query = Transacao.query.with_entities(Transacao.id).filter(Transacao.tipo == TIPO).order_by(Transacao.id)
-    ids = [t.id for t in query.all()]
+    compra_ids = [c.id for c in Compra.query.order_by(Compra.data, Compra.id).all()]
+    nav = {}
     try:
-        current_idx = ids.index(id)
+        current_idx = compra_ids.index(compra.id)
         nav = {
-            "first_id": ids[0], "last_id": ids[-1],
-            "prev_id": ids[current_idx - 1] if current_idx > 0 else None,
-            "next_id": ids[current_idx + 1] if current_idx < len(ids) - 1 else None,
+            "first_id": compra_ids[0], "last_id": compra_ids[-1],
+            "prev_id": compra_ids[current_idx - 1] if current_idx > 0 else None,
+            "next_id": compra_ids[current_idx + 1] if current_idx < len(compra_ids) - 1 else None,
         }
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
     if request.method == "POST":
-        cancelado = request.form.get("cancelado") or None
         compra.data = request.form.get("data") or date.today()
         compra.fornecedor_id = request.form.get("conta_id", type=int) or None
         compra.historico = request.form.get("historico") or None
         compra.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
         compra.data_recepcao = request.form.get("data_recepcao") or None
 
-        transacao.data = compra.data
-        transacao.conta_id = compra.fornecedor_id
-        transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
-        transacao.fatura = request.form.get("fatura") or None
-        transacao.cancelado = cancelado
-        transacao.historico = compra.historico
+        if transacao and not compra.movto_id:
+            transacao.data = compra.data
+            transacao.conta_id = compra.fornecedor_id
+            transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
+            transacao.fatura = request.form.get("fatura") or None
+            transacao.historico = compra.historico
 
         insumo_ids = request.form.getlist("insumo_id[]")
         quantidades = request.form.getlist("quantidade[]")
@@ -263,66 +210,78 @@ def edit(id):
             db.session.delete(CompraItem.query.get(eid))
 
         compra.valor = valor_total
-        transacao.valor = valor_total
+        if transacao:
+            transacao.valor = valor_total
 
-        existing = {p.id for p in transacao.previsoes}
-        submitted = set()
+        if transacao:
+            existing = {p.id for p in transacao.previsoes}
+            submitted = set()
 
-        pids = request.form.getlist("previsao_id[]")
-        docs = request.form.getlist("previsao_documento[]")
-        vencs = request.form.getlist("previsao_vencimento[]")
-        prevs = request.form.getlist("previsao_previsto[]")
-        reals = request.form.getlist("previsao_realizado[]")
-        vars_ = request.form.getlist("previsao_variacao[]")
-        removes = request.form.getlist("previsao_remover[]")
+            pids = request.form.getlist("previsao_id[]")
+            docs = request.form.getlist("previsao_documento[]")
+            vencs = request.form.getlist("previsao_vencimento[]")
+            prevs = request.form.getlist("previsao_previsto[]")
+            reals = request.form.getlist("previsao_realizado[]")
+            vars_ = request.form.getlist("previsao_variacao[]")
+            removes = request.form.getlist("previsao_remover[]")
 
-        prev_total = 0
-        for i in range(len(vencs)):
-            if not vencs[i] or not vencs[i].strip():
-                continue
-            pid = int(pids[i]) if pids[i] and pids[i].strip() else None
-            if removes[i] == "1" if i < len(removes) else False:
+            prev_total = 0
+            for i in range(len(vencs)):
+                if not vencs[i] or not vencs[i].strip():
+                    continue
+                pid = int(pids[i]) if pids[i] and pids[i].strip() else None
+                if removes[i] == "1" if i < len(removes) else False:
+                    if pid:
+                        db.session.delete(Previsao.query.get(pid))
+                    continue
+                submitted.add(pid)
+                prev_val = float(prevs[i]) if prevs[i] and prevs[i].strip() else 0
+                prev_total += prev_val
+                real_val = float(reals[i]) if reals[i] and reals[i].strip() else None
+                var_val = float(vars_[i]) if vars_[i] and vars_[i].strip() else 0
                 if pid:
-                    db.session.delete(Previsao.query.get(pid))
-                continue
-            submitted.add(pid)
-            prev_val = float(prevs[i]) if prevs[i] and prevs[i].strip() else 0
-            prev_total += prev_val
-            real_val = float(reals[i]) if reals[i] and reals[i].strip() else None
-            var_val = float(vars_[i]) if vars_[i] and vars_[i].strip() else 0
-            if pid:
-                p = Previsao.query.get(pid)
-                if p:
-                    p.documento = docs[i] if docs[i].strip() else None
-                    p.vencimento = vencs[i]
-                    p.previsto = prev_val
-                    p.realizado = real_val
-                    p.variacao = var_val
+                    p = Previsao.query.get(pid)
+                    if p:
+                        p.documento = docs[i] if docs[i].strip() else None
+                        p.vencimento = vencs[i]
+                        p.previsto = prev_val
+                        p.realizado = real_val
+                        p.variacao = var_val
+                else:
+                    p = Previsao(
+                        transacao_id=transacao.id,
+                        documento=docs[i] if docs[i].strip() else None,
+                        vencimento=vencs[i], previsto=prev_val,
+                        realizado=real_val, variacao=var_val,
+                    )
+                    db.session.add(p)
+
+            for pid in (existing - submitted):
+                db.session.delete(Previsao.query.get(pid))
+
+            if prev_total > transacao.valor:
+                db.session.rollback()
+                flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da compra ({float(transacao.valor):.2f})", "danger")
             else:
-                p = Previsao(
-                    transacao_id=transacao.id,
-                    documento=docs[i] if docs[i].strip() else None,
-                    vencimento=vencs[i], previsto=prev_val,
-                    realizado=real_val, variacao=var_val,
-                )
-                db.session.add(p)
-
-        for pid in (existing - submitted):
-            db.session.delete(Previsao.query.get(pid))
-
-        if prev_total > transacao.valor:
-            db.session.rollback()
-            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da compra ({float(transacao.valor):.2f})", "danger")
+                db.session.commit()
+                flash("Compra atualizada!", "success")
+                redirect_after = request.form.get("redirect_after")
+                if redirect_after:
+                    return redirect(redirect_after)
+                return redirect(url_for("compras.edit", id=compra.id))
         else:
             db.session.commit()
             flash("Compra atualizada!", "success")
-            return redirect(url_for("compras.list"))
+            redirect_after = request.form.get("redirect_after")
+            if redirect_after:
+                return redirect(redirect_after)
+            return redirect(url_for("compras.edit", id=compra.id))
 
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
     rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
-    previsao_ids = [p.id for p in transacao.previsoes]
+    previsao_ids = [p.id for p in transacao.previsoes] if transacao else []
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
         "compras/form.html", transacao=transacao, compra=compra,

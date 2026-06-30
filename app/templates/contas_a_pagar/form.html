@@ -26,7 +26,7 @@
 </div>
 {% endset %}
 {% call form_nav(back_url=url_for('contas_a_pagar.list'), nome='Transação ' ~ transacao.id|fmtid, nav=nav, edit_endpoint='contas_a_pagar.edit', entity_id=transacao.id, status=status_badge) %}
-  {% if locked %}<a href="{{ url_for('compras.edit', id=transacao.id) }}" class="btn btn-sm btn-warning ms-2">Compra #{{ transacao.compra.id|fmtid }}</a>{% endif %}
+  {% if locked %}<a href="{{ url_for('compras.edit', id=transacao.compra.id) }}" class="btn btn-sm btn-warning ms-2">Compra #{{ transacao.compra.id|fmtid }}</a>{% endif %}
 {% endcall %}
 {% else %}
 <div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
@@ -35,6 +35,7 @@
 {% endif %}
 
 <form method="POST" id="main-form">
+  <input type="hidden" name="compra_id" value="{{ request.args.get('compra_id', '') }}">
   <div class="row g-2 mb-3">
     <div class="col-6 col-md-2">
       <label class="form-label">Data</label>
@@ -60,7 +61,11 @@
     </div>
     <div class="col-6 col-md-1">
       <label class="form-label">Fatura</label>
-      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao and transacao.fatura else '') }}" {{ 'readonly' if locked else '' }}>
+      {% if locked and transacao and transacao.compra %}
+      <a href="{{ url_for('compras.edit', id=transacao.compra.id) }}" class="form-control form-control-sm text-decoration-none">#C{{ transacao.compra.id|fmtid }}</a>
+      {% else %}
+      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao and transacao.fatura else '') }}">
+      {% endif %}
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label">Valor *</label>
@@ -73,14 +78,22 @@
   </div>
 
   <hr>
-  <div class="d-flex align-items-center gap-2 mb-2">
+  <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
     <h5 class="mb-0">Parcelas</h5>
-    <div class="ms-auto d-flex align-items-center gap-1">
-      <label class="form-label small mb-0 text-nowrap">Gerar</label>
-      <div class="input-group input-group-sm" style="max-width:160px;">
-        <input type="number" id="lancar-valor" class="form-control text-end" step="0.01">
-        <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icons/arrow-list.png') }}" height="16" alt="Gerar"></button>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      {% if not locked %}
+      <div>
+        <label class="form-label small mb-0 text-nowrap">Valor</label>
+        <input type="number" id="lancar-valor" class="form-control form-control-sm text-end" step="0.01" readonly style="width:110px;">
       </div>
+      <div>
+        <label class="form-label small mb-0 text-nowrap">Prazo</label>
+        <input type="text" id="prazo-input" class="form-control form-control-sm" style="width:120px;" value="{{ prazo_inicial or '' }}" placeholder="Ex: 30+30+30">
+      </div>
+      <div>
+        <button type="button" id="btn-gerar-parcelas" class="btn btn-sm btn-outline-primary" onclick="gerarParcelas()" style="margin-top: 1px;" title="Gerar parcelas"><img src="{{ url_for('static', filename='icons/arrow-list.png') }}" height="16" alt="Gerar"></button>
+      </div>
+      {% endif %}
     </div>
   </div>
 
@@ -196,6 +209,10 @@
     <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar</button>
     <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar</button>
   </div>
+  <div id="prazo-erro" class="text-danger small d-none px-3 mb-0"></div>
+  <div class="px-3 py-1">
+    <span id="parcelas-warning" class="badge bg-warning text-dark d-none">Soma difere do valor total</span>
+  </div>
 
   {% if movimentos %}
   <hr>
@@ -234,15 +251,22 @@
 </div>
 {% endif %}
   <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=url_for('contas_a_pagar.list'), disable_save=transacao is not none) %}
+{% call barra_edicao(back_url='', disable_save=transacao is not none) %}
   {% if transacao and not locked %}
   <div class="d-flex align-items-center gap-1">
     <label class="form-label small mb-0 text-danger">Cancelado</label>
     <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}">
   </div>
   {% endif %}
+  {% if transacao and not transacao.previsoes|selectattr('realizado')|list %}
+  <button type="submit" form="excluir-form" class="btn btn-sm btn-outline-danger ms-2" onclick="return confirm('Excluir transação?')">Excluir</button>
+  {% endif %}
 {% endcall %}
 </form>
+
+{% if transacao %}
+<form id="excluir-form" method="POST" action="{{ url_for('contas_a_pagar.excluir', id=transacao.id) }}" style="display:none"></form>
+{% endif %}
 
 <template id="previsao-template">
   <tr class="previsao-row">
@@ -308,31 +332,6 @@
   </div>
 </template>
 
-<div class="modal fade" id="lancarModal" tabindex="-1">
-  <div class="modal-dialog modal-sm modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title">Gerar Parcelas</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-2">
-          <label class="form-label small">Nº de parcelas</label>
-          <input type="number" id="lancar-parcelas" class="form-control" value="1" min="1">
-        </div>
-        <div class="mb-2">
-          <label class="form-label small">Intervalo (dias)</label>
-          <input type="number" id="lancar-intervalo" class="form-control" value="30" min="1">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-sm btn-primary" onclick="gerarParcelas()" data-bs-dismiss="modal">Confirmar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div class="modal fade" id="removeParcelaModal" tabindex="-1">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
@@ -354,8 +353,7 @@ document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
   var show = opt.dataset.tipoRubrica == "2" && opt.dataset.temPai == "1";
   opt.style.display = show ? '' : 'none';
 });
-</script>
-<script>
+
 function recalcularSaldoLancar() {
   var valor = parseFloat(document.querySelector('[name="valor"]').value) || 0;
   var totalPrevisto = 0;
@@ -366,14 +364,20 @@ function recalcularSaldoLancar() {
   });
   var saldo = valor - totalPrevisto;
   var input = document.getElementById('lancar-valor');
-  input.dataset.maxSaldo = saldo.toFixed(2);
-  input.value = saldo.toFixed(2);
-  atualizarBotaoGerar();
-}
-function atualizarBotaoGerar() {
-  var val = parseFloat(document.getElementById('lancar-valor').value) || 0;
-  var maxSaldo = parseFloat(document.getElementById('lancar-valor').dataset.maxSaldo) || 0;
-  document.getElementById('btn-gerar-parcelas').disabled = val <= 0 || val > maxSaldo;
+  if (input) input.value = saldo.toFixed(2);
+  var dif = Math.abs(saldo);
+  var warning = document.getElementById('parcelas-warning');
+  if (dif > 0.005) {
+    warning.classList.remove('d-none');
+    var btn = document.getElementById('btn-salvar');
+    if (btn) btn.disabled = true;
+  } else {
+    warning.classList.add('d-none');
+    if (window._formModified) {
+      var btn = document.getElementById('btn-salvar');
+      if (btn) btn.disabled = false;
+    }
+  }
 }
 function addRow() {
   var container = document.getElementById('previsoes-container');
@@ -399,6 +403,7 @@ function addRow() {
     if (venc) venc.value = dt.toISOString().slice(0, 10);
   }
   container.appendChild(clone);
+  marcarFormAlterado();
   recalcularSaldoLancar();
 }
 function addRowMobile() {
@@ -425,6 +430,108 @@ function addRowMobile() {
     if (venc) venc.value = dt.toISOString().slice(0, 10);
   }
   container.appendChild(clone);
+  marcarFormAlterado();
+  recalcularSaldoLancar();
+}
+function parsePrazo(texto, dataBase, valorTotal) {
+  if (!texto || !texto.trim()) return null;
+  var s = texto.trim().toUpperCase();
+  if (s === "P/E") {
+    var m = Math.round(valorTotal / 2 * 100) / 100;
+    return [{vencimento: dataBase, previsto: m}, {vencimento: dataBase, previsto: +(valorTotal - m).toFixed(2)}];
+  }
+  var matchX = s.match(/^(\d+)X$/);
+  if (matchX) {
+    var n = Math.max(1, parseInt(matchX[1]));
+    var base = Math.floor(valorTotal / n * 100) / 100;
+    var resto = +(valorTotal - base * n).toFixed(2);
+    var dt = new Date(dataBase + 'T12:00:00');
+    var res = [];
+    for (var i = 0; i < n; i++) {
+      var d = new Date(dt);
+      d.setDate(d.getDate() + (i + 1) * 30);
+      res.push({vencimento: d.toISOString().slice(0, 10), previsto: i === n - 1 ? +(base + resto).toFixed(2) : base});
+    }
+    return res;
+  }
+  if (/^\d+$/.test(s)) {
+    var dt = new Date(dataBase + 'T12:00:00');
+    dt.setDate(dt.getDate() + parseInt(s));
+    return [{vencimento: dt.toISOString().slice(0, 10), previsto: valorTotal}];
+  }
+  if (s.indexOf("/") >= 0) {
+    var partes = s.split("/").filter(function(p) { return p.trim() !== ""; });
+    var dias = partes.map(function(p) { return parseInt(p.trim()); }).filter(function(n) { return !isNaN(n); });
+    if (dias.length === 0) return [{vencimento: dataBase, previsto: valorTotal}];
+    var dt = new Date(dataBase + 'T12:00:00');
+    var res = [];
+    var n = dias.length;
+    for (var i = 0; i < n; i++) {
+      var d = new Date(dt);
+      d.setDate(d.getDate() + dias[i]);
+      var p = i === n - 1
+        ? +(valorTotal - res.reduce(function(s, x) { return s + x.previsto; }, 0)).toFixed(2)
+        : Math.round(valorTotal / n * 100) / 100;
+      res.push({vencimento: d.toISOString().slice(0, 10), previsto: p});
+    }
+    return res;
+  }
+  return null;
+}
+function adicionarLinhaParcela(vencimento, previsto) {
+  var isDesktop = document.getElementById('previsoes-container').offsetParent !== null;
+  var cont, tpl;
+  if (isDesktop) {
+    cont = document.getElementById('previsoes-container');
+    tpl = document.getElementById('previsao-template');
+  } else {
+    cont = document.getElementById('previsoes-mobile-container');
+    tpl = document.getElementById('previsao-mobile-template');
+  }
+  var clone = tpl.content.cloneNode(true);
+  var visiveis = cont.querySelectorAll(isDesktop ? '.previsao-row:not([style*="display: none"])' : '.previsao-mobile-card:not([style*="display: none"])').length;
+  var x = visiveis + 1;
+  var numCell = clone.querySelector('.previsao-num');
+  if (numCell) numCell.textContent = '#' + x;
+  var doc = clone.querySelector('[name="previsao_documento[]"]');
+  if (doc) doc.value = 'Parcela ' + x;
+  var prev = clone.querySelector('[name="previsao_previsto[]"]');
+  if (prev) prev.value = previsto.toFixed(2);
+  var venc = clone.querySelector('[name="previsao_vencimento[]"]');
+  if (venc) venc.value = vencimento;
+  cont.appendChild(clone);
+}
+function gerarParcelas() {
+  var prazo = document.getElementById('prazo-input');
+  var erro = document.getElementById('prazo-erro');
+  erro.classList.add('d-none');
+  if (!prazo.value || !prazo.value.trim()) {
+    erro.textContent = 'Informe o prazo (ex: 30+30+30, 3x, P/E)';
+    erro.classList.remove('d-none');
+    return;
+  }
+  var valorTotal = parseFloat(document.getElementById('lancar-valor').value) || 0;
+  if (valorTotal <= 0) {
+    erro.textContent = 'Valor a ratear deve ser maior que zero';
+    erro.classList.remove('d-none');
+    return;
+  }
+  var dataBase = document.querySelector('[name="data"]').value;
+  if (!dataBase) {
+    erro.textContent = 'Informe a data da transação';
+    erro.classList.remove('d-none');
+    return;
+  }
+  var parcelas = parsePrazo(prazo.value, dataBase, valorTotal);
+  if (!parcelas) {
+    erro.textContent = 'Prazo inválido. Use ex: 30+30+30, 3x, P/E, 45';
+    erro.classList.remove('d-none');
+    return;
+  }
+  for (var i = 0; i < parcelas.length; i++) {
+    adicionarLinhaParcela(parcelas[i].vencimento, parcelas[i].previsto);
+  }
+  marcarFormAlterado();
   recalcularSaldoLancar();
 }
 var removeParcelaBtn = null;
@@ -452,6 +559,7 @@ document.getElementById('btn-confirm-remove-parcela').addEventListener('click', 
   var row = removeParcelaBtn.closest('.previsao-row, .previsao-mobile-card');
   row.querySelector('[name="previsao_remover[]"]').value = "1";
   row.style.display = 'none';
+  marcarFormAlterado();
   recalcularSaldoLancar();
   removeParcelaBtn = null;
 });
@@ -465,59 +573,6 @@ function calcSaldo(el) {
   row.querySelector('.previsao-saldo').textContent = saldo.toFixed(2).replace('.', ',');
   recalcularSaldoLancar();
 }
-function gerarParcelas() {
-  var num = parseInt(document.getElementById('lancar-parcelas').value) || 3;
-  var intervalo = parseInt(document.getElementById('lancar-intervalo').value) || 30;
-  var valorTotal = parseFloat(document.getElementById('lancar-valor').value) || 0;
-  var dataVal = document.querySelector('[name="data"]').value;
-  if (num < 1 || valorTotal <= 0) return;
-  var base = Math.floor(valorTotal / num * 100) / 100;
-  var resto = +(valorTotal - base * num).toFixed(2);
-  var isDesktop = document.getElementById('previsoes-container').offsetParent !== null;
-  for (var i = 0; i < num; i++) {
-    if (isDesktop) {
-      var container = document.getElementById('previsoes-container');
-      var template = document.getElementById('previsao-template');
-      var clone = template.content.cloneNode(true);
-      var visiveis = container.querySelectorAll('.previsao-row:not([style*="display: none"])').length;
-      var x = visiveis + 1;
-      var numCell = clone.querySelector('.previsao-num');
-      if (numCell) numCell.textContent = '#' + x;
-      var doc = clone.querySelector('[name="previsao_documento[]"]');
-      if (doc) doc.value = 'Parcela ' + x;
-      var prev = clone.querySelector('[name="previsao_previsto[]"]');
-      if (prev) prev.value = (i === num - 1 ? base + resto : base).toFixed(2);
-      if (dataVal) {
-        var dt = new Date(dataVal + 'T12:00:00');
-        dt.setDate(dt.getDate() + (i + 1) * intervalo);
-        var venc = clone.querySelector('[name="previsao_vencimento[]"]');
-        if (venc) venc.value = dt.toISOString().slice(0, 10);
-      }
-      container.appendChild(clone);
-    } else {
-      var mobContainer = document.getElementById('previsoes-mobile-container');
-      var mobTemplate = document.getElementById('previsao-mobile-template');
-      var mobClone = mobTemplate.content.cloneNode(true);
-      var mobVisiveis = mobContainer.querySelectorAll('.previsao-mobile-card:not([style*="display: none"])').length;
-      var mx = mobVisiveis + 1;
-      var mNumCell = mobClone.querySelector('.previsao-num');
-      if (mNumCell) mNumCell.textContent = '#' + mx;
-      var mDoc = mobClone.querySelector('[name="previsao_documento[]"]');
-      if (mDoc) mDoc.value = 'Parcela ' + mx;
-      var mPrev = mobClone.querySelector('[name="previsao_previsto[]"]');
-      if (mPrev) mPrev.value = (i === num - 1 ? base + resto : base).toFixed(2);
-      if (dataVal) {
-        var mDt = new Date(dataVal + 'T12:00:00');
-        mDt.setDate(mDt.getDate() + (i + 1) * intervalo);
-        var mVenc = mobClone.querySelector('[name="previsao_vencimento[]"]');
-        if (mVenc) mVenc.value = mDt.toISOString().slice(0, 10);
-      }
-      mobContainer.appendChild(mobClone);
-    }
-  }
-  recalcularSaldoLancar();
-}
-document.getElementById('lancar-valor').addEventListener('input', atualizarBotaoGerar);
 recalcularSaldoLancar();
 </script>
 {% endblock %}

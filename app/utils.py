@@ -65,18 +65,27 @@ def fmt_zero_int(value):
 
 class LinhaTransacao:
     """Wrapper que permite listar transações com ou sem previsões."""
-    __slots__ = ("transacao", "previsao")
-    def __init__(self, transacao, previsao=None):
+    __slots__ = ("transacao", "previsao", "compra")
+    def __init__(self, transacao=None, previsao=None, compra=None):
         self.transacao = transacao
         self.previsao = previsao
+        self.compra = compra
     @property
     def status(self):
         if self.previsao:
             return self.previsao.status
-        return self.transacao.status
+        if self.transacao:
+            return self.transacao.status
+        if self.compra:
+            return self.compra.status
+        return 0
     @property
     def vencimento(self):
-        return self.previsao.vencimento if self.previsao else self.transacao.data
+        if self.previsao:
+            return self.previsao.vencimento
+        if self.transacao:
+            return self.transacao.data
+        return None
     @property
     def previsto(self):
         return self.previsao.previsto if self.previsao else None
@@ -90,7 +99,11 @@ class LinhaTransacao:
     def saldo(self):
         if self.previsao:
             return self.previsao.saldo
-        return float(self.transacao.valor)
+        if self.transacao:
+            return float(self.transacao.valor)
+        if self.compra:
+            return float(self.compra.valor)
+        return 0
     @property
     def documento(self):
         return self.previsao.documento if self.previsao else None

@@ -27,9 +27,9 @@
       </select>
     </div>
     <div class="col-6 col-md-2">
-      <label class="form-label">Conta</label>
-      <select name="conta_id" class="form-select" onchange="carregarPrevisoes(this.value)">
-        <option value="">Nenhuma</option>
+      <label class="form-label">Conta {% if compra %}*{% endif %}</label>
+      <select name="conta_id" class="form-select" onchange="carregarPrevisoes(this.value)" {{ 'required' if compra else '' }}>
+        <option value="">{{ 'Selecione...' if compra else 'Nenhuma' }}</option>
         {% for c in contas %}
           <option value="{{ c.id }}" {% if movto and movto.conta_id == c.id %}selected{% elif prefill and prefill.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
         {% endfor %}
@@ -43,7 +43,7 @@
         <input type="hidden" id="previsao-saldo" value="{{ movto.previsao.saldo if movto and movto.previsao else 0 }}">
         <input type="hidden" name="acao" id="acao-field" value="">
         <input type="hidden" name="rubrica_acrescimos_id" id="rubrica-acrescimos-id" value="">
-        {% if (not movto or not movto.previsao_id) and not from_order %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
+        {% if (not movto or not movto.previsao_id) and not from_order and not compra %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
       </div>
     </div>
     <div class="col-6 col-md-2">
@@ -52,14 +52,14 @@
     </div>
     <div class="col-6 col-md-2">
       <label class="form-label">Valor *</label>
-      <input type="number" name="valor" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(movto.valor) if movto else ('%.2f'|format(prefill.valor) if prefill and prefill.valor else '') }}">
+      <input type="number" name="valor" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(movto.valor) if movto else (prefill.valor if prefill and prefill.valor else '') }}">
     </div>
     <div class="col-6 col-md-3">
       <label class="form-label">Rubrica *</label>
       <select name="rubrica_id" class="form-select" required>
         <option value="">Selecione...</option>
         {% for r in rubricas %}
-          <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if movto and movto.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+          <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if movto and movto.rubrica_id == r.id %}selected{% elif prefill and prefill.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
         {% endfor %}
       </select>
     </div>
@@ -69,7 +69,7 @@
     </div>
   </div>
 
-  <input type="hidden" id="valor-original" value="{{ '%.2f'|format(movto.valor) if movto else ('%.2f'|format(prefill.valor) if prefill and prefill.valor else '') }}">
+  <input type="hidden" id="valor-original" value="{{ '%.2f'|format(movto.valor) if movto else (prefill.valor if prefill and prefill.valor else '') }}">
   <input type="hidden" id="editando" value="{% if movto %}1{% endif %}">
   <input type="hidden" id="variacao-original" value="{{ movto.variacao if movto and movto.variacao is not none else 0 }}">
 

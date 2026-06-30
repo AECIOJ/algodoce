@@ -8,6 +8,7 @@ from app.models.recurso import Recurso
 from app.models.client import Conta
 from app.models.previsao import Previsao
 from app.models.transacao import Transacao
+from app.models.compra import Compra
 from app.models.rubrica import Rubrica
 from app.constants import TIPO_RECURSO, TIPO_RUBRICA, PREVISAO_STATUS
 from decimal import Decimal
@@ -46,7 +47,7 @@ def _list(tipo):
     )
 
 
-def _new(tipo, prefill=None, from_order=False):
+def _new(tipo, prefill=None, from_order=False, compra=None):
     recursos = Recurso.query.order_by(Recurso.nome).all()
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     if tipo == "E":
@@ -59,7 +60,7 @@ def _new(tipo, prefill=None, from_order=False):
         tipo=tipo, tipo_nome=_movto_tipo(tipo),
         tipo_nome_plural=_movto_tipo_plural(tipo),
         TIPO_RECURSO=TIPO_RECURSO, PREVISAO_STATUS=PREVISAO_STATUS,
-        prefill=prefill, from_order=from_order,
+        prefill=prefill, from_order=from_order, compra=compra,
     )
 
 
@@ -85,7 +86,7 @@ def _sincronizar_previsao(movto, operacao):
         p.realizado = max(0, (p.realizado or 0) + ajuste)
 
 
-def _create_or_update(movto, tipo):
+def _create_or_update(movto, tipo, compra=None):
     data = request.form.get("data")
     recurso_id = request.form.get("recurso_id", type=int)
     conta_id = request.form.get("conta_id", type=int) or None
@@ -192,6 +193,8 @@ def _create_or_update(movto, tipo):
     else:
         db.session.flush()
         _sincronizar_previsao(movto, 'criar')
+    if compra and not compra.movto_id:
+        compra.movto_id = movto.id
     db.session.commit()
     return True
 
@@ -268,11 +271,24 @@ def pagamentos_list():
 
 @bp.route("/pagamentos/novo", methods=["GET", "POST"])
 def pagamentos_new():
+    compra_id = request.args.get("compra_id", type=int)
+    compra = Compra.query.get(compra_id) if compra_id else None
+    rubrica_id = request.args.get("rubrica_id", type=int)
     if request.method == "POST":
-        if _create_or_update(None, "S"):
+        if _create_or_update(None, "S", compra=compra):
             flash("Pagamento registrado!", "success")
             return redirect(url_for("movimentos.pagamentos_list"))
-    return _new("S")
+    prefill = None
+    if compra and not compra.movto_id:
+        prefill = {
+            "data": str(compra.data or date.today()),
+            "conta_id": compra.fornecedor_id,
+            "documento": f"C#{compra.id}",
+            "rubrica_id": rubrica_id,
+            "valor": str(compra.valor or 0),
+            "historico": f"Pagamento na data ref. Compra (#{compra.id}) e Fatura (#C{compra.id})",
+        }
+    return _new("S", prefill=prefill, compra=compra)
 
 
 @bp.route("/pagamentos/<int:id>/editar", methods=["GET", "POST"])
@@ -320,10 +336,15 @@ def excluir(id):
         flash("Registro inexistente", "warning")
         return redirect(url_for("movimentos.recebimentos_list"))
     tipo = movto.tipo
+    compra = Compra.query.filter_by(movto_id=movto.id).first()
+    if compra:
+        compra.movto_id = None
     _sincronizar_previsao(movto, 'excluir')
     db.session.delete(movto)
     db.session.commit()
     flash(f"{_movto_tipo(tipo)} excluído!", "success")
+    if compra:
+        return redirect(url_for("compras.edit", id=compra.id))
     if tipo == "E":
         return redirect(url_for("movimentos.recebimentos_list"))
     return redirect(url_for("movimentos.pagamentos_list"))

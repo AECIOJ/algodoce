@@ -114,13 +114,32 @@ def detail(id):
 
 @bp.route("/novo", methods=["GET", "POST"])
 def new():
+    compra_id = request.args.get("compra_id", type=int) or request.form.get("compra_id", type=int)
+    compra = Compra.query.get(compra_id) if compra_id else None
+    prazo_inicial = request.args.get("prazo", "")
+
     if request.method == "GET":
+        if compra and compra.transacao_id:
+            return redirect(url_for("contas_a_pagar.edit", id=compra.transacao_id))
         contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
         rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+        submitted_data = None
+        if compra:
+            submitted_data = {
+                "data": str(compra.data or date.today()),
+                "conta_id": str(compra.fornecedor_id),
+                "rubrica_id": "",
+                "fatura": f"C#{compra.id}",
+                "valor": str(compra.valor or 0),
+                "historico": compra.historico or "",
+            }
         return render_template(
             "contas_a_pagar/form.html",
             contas=contas, rubricas=rubricas, hoje=date.today(),
-            submitted_data=None, submitted_previsoes=None,
+            submitted_data=submitted_data, submitted_previsoes=None,
+            prazo_inicial=prazo_inicial,
+            locked=False, transacao=None, nav={}, movimentos=[],
+            PREVISAO_STATUS=PREVISAO_STATUS, tipo_nome="Pagamento",
         )
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
@@ -163,18 +182,39 @@ def new():
             )
             db.session.add(previsao)
 
-        if prev_total > transacao.valor:
+        if abs(prev_total - transacao.valor) > 0.005:
             db.session.rollback()
-            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da fatura ({float(transacao.valor):.2f})", "danger")
+            flash(f"Total das parcelas ({prev_total:.2f}) difere do valor da fatura ({float(transacao.valor):.2f})", "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
             return render_template(
                 "contas_a_pagar/form.html",
                 contas=contas, rubricas=rubricas, hoje=date.today(),
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
+                prazo_inicial=prazo_inicial,
+                locked=False, transacao=None, nav={}, movimentos=[],
+                PREVISAO_STATUS=PREVISAO_STATUS, tipo_nome="Pagamento",
             )
 
-        db.session.commit()
+        if compra and abs(transacao.valor - float(compra.valor or 0)) > 0.005:
+            db.session.rollback()
+            flash(f"Valor da transação ({transacao.valor:.2f}) difere do valor da compra ({float(compra.valor or 0):.2f})", "danger")
+            contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+            return render_template(
+                "contas_a_pagar/form.html",
+                contas=contas, rubricas=rubricas, hoje=date.today(),
+                submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
+                prazo_inicial=prazo_inicial,
+                locked=False, transacao=None, nav={}, movimentos=[],
+                PREVISAO_STATUS=PREVISAO_STATUS, tipo_nome="Pagamento",
+            )
+
+        if compra and not compra.transacao_id:
+            compra.transacao_id = transacao.id
+            db.session.commit()
+        else:
+            db.session.commit()
         flash("Conta cadastrada!", "success")
         return redirect(url_for("contas_a_pagar.list"))
 
@@ -200,6 +240,7 @@ def edit(id):
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
     locked = bool(Compra.query.filter_by(transacao_id=transacao.id).first())
+    prazo_inicial = request.args.get("prazo", "")
 
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
@@ -261,9 +302,31 @@ def edit(id):
         for pid in (existing - submitted):
             db.session.delete(Previsao.query.get(pid))
 
-        if prev_total > transacao.valor:
+        compra = transacao.compra
+        errors = []
+
+        if abs(prev_total - transacao.valor) > 0.005:
+            errors.append(f"Total das parcelas ({prev_total:.2f}) difere do valor da fatura ({float(transacao.valor):.2f})")
+
+        if compra and abs(transacao.valor - float(compra.valor or 0)) > 0.005:
+            errors.append(f"Valor da transação ({transacao.valor:.2f}) difere do valor da compra ({float(compra.valor or 0):.2f})")
+
+        if errors:
             db.session.rollback()
-            flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da fatura ({float(transacao.valor):.2f})", "danger")
+            for err in errors:
+                flash(err, "danger")
+            contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+            previsao_ids = [p.id for p in transacao.previsoes]
+            movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
+            return render_template(
+                "contas_a_pagar/form.html", transacao=transacao,
+                contas=contas, rubricas=rubricas,
+                PREVISAO_STATUS=PREVISAO_STATUS,
+                submitted_data=submitted_data, submitted_previsoes=submitted_previsoes, nav=nav,
+                movimentos=movimentos, tipo_nome="Pagamento", locked=locked,
+                prazo_inicial=prazo_inicial,
+            )
         else:
             db.session.commit()
             flash("Conta atualizada!", "success")
@@ -279,4 +342,33 @@ def edit(id):
         PREVISAO_STATUS=PREVISAO_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
         movimentos=movimentos, tipo_nome="Pagamento", locked=locked,
+        prazo_inicial=prazo_inicial,
     )
+
+
+@bp.route("/<int:id>/excluir", methods=["POST"])
+def excluir(id):
+    transacao = Transacao.query.get(id)
+    if not transacao:
+        flash("Registro inexistente", "warning")
+        return redirect(url_for("contas_a_pagar.list"))
+
+    compra = Compra.query.filter_by(transacao_id=transacao.id).first()
+    compra_id = compra.id if compra else None
+
+    if transacao.previsoes:
+        for p in transacao.previsoes:
+            if p.realizado:
+                flash("Não é possível excluir: há parcelas com pagamento", "danger")
+                return redirect(url_for("contas_a_pagar.list"))
+
+    if compra:
+        compra.transacao_id = None
+
+    db.session.delete(transacao)
+    db.session.commit()
+    flash("Conta excluída!", "success")
+
+    if compra_id:
+        return redirect(url_for("compras.edit", id=compra_id))
+    return redirect(url_for("contas_a_pagar.list"))

@@ -25,6 +25,11 @@ if (typeof window._formModified === 'undefined') {
   window._formModified = false;
   window._formModListenersAttached = false;
 }
+function marcarFormAlterado() {
+  window._formModified = true;
+  var btn = document.getElementById('btn-salvar');
+  if (btn && btn.hasAttribute('disabled')) btn.disabled = false;
+}
 if (!window._formModListenersAttached) {
   document.addEventListener('DOMContentLoaded', function() {
     var f = document.getElementById('main-form');

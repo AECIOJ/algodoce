@@ -5,6 +5,7 @@
 
 {% set previsoes = submitted_previsoes if submitted_previsoes is not none else (transacao.previsoes if transacao else None) %}
 
+{% if compra and compra.id %}
 {% if transacao %}
 {% set st = transacao.status %}
 {% set st_label = PREVISAO_STATUS.get(st, '') %}
@@ -19,7 +20,8 @@
 {% else %}
   {% set status_badge = '<span class="badge bg-secondary ms-2">' ~ st_label ~ '</span>' %}
 {% endif %}
-{% call form_nav(back_url=url_for('compras.list'), nome='Compra ' ~ transacao.compra.id|fmtid, nav=nav, edit_endpoint='compras.edit', entity_id=transacao.id, status=status_badge) %}
+{% endif %}
+{% call form_nav(back_url=url_for('compras.list'), nome='Compra ' ~ compra.id|fmtid, nav=nav, edit_endpoint='compras.edit', entity_id=compra.id, status=status_badge if transacao else '') %}
 {% endcall %}
 {% else %}
 <div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
@@ -31,14 +33,14 @@
   <div class="row g-2 mb-3">
     <div class="col-6 col-md-2">
       <label class="form-label">Data</label>
-      <input type="date" name="data" class="form-control" value="{{ transacao.compra.data if transacao else hoje }}">
+      <input type="date" name="data" class="form-control" value="{{ compra.data if compra else hoje }}">
     </div>
     <div class="col-6 col-md-4">
       <label class="form-label">Fornecedor *</label>
       <select name="conta_id" class="form-select" required>
         <option value="">Nenhum</option>
         {% for c in contas %}
-          <option value="{{ c.id }}" {% if transacao and transacao.compra.fornecedor_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+          <option value="{{ c.id }}" {% if compra and compra.fornecedor_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
         {% endfor %}
       </select>
     </div>
@@ -51,17 +53,13 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-6 col-md-1">
-      <label class="form-label">Fatura</label>
-      <input type="text" name="fatura" class="form-control" value="{{ transacao.fatura if transacao and transacao.fatura else '' }}">
-    </div>
     <div class="col-6 col-md-2">
       <label class="form-label">Data Recepção</label>
       <input type="date" name="data_recepcao" class="form-control" value="{{ compra.data_recepcao.strftime('%Y-%m-%d') if compra and compra.data_recepcao else '' }}">
     </div>
     <div class="col-12 col-md-6">
       <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ transacao.compra.historico if transacao and transacao.compra.historico else '' }}">
+      <input type="text" name="historico" class="form-control" value="{{ compra.historico if compra and compra.historico else '' }}">
     </div>
   </div>
 
@@ -69,11 +67,9 @@
   <h5 class="mb-2">Itens da Compra</h5>
 
 {% set items_total = namespace(valor=0) %}
-{% if transacao %}
-{% for ci in transacao.compra.items %}
+{% for ci in compra.items %}
   {% set items_total.valor = items_total.valor + (ci.preco|float * ci.quantidade|float) %}
 {% endfor %}
-{% endif %}
 
   <!-- Desktop: items table -->
   <div class="table-responsive d-none d-md-block">
@@ -88,8 +84,7 @@
         </tr>
       </thead>
       <tbody id="itens-container">
-        {% if transacao %}
-        {% for ci in transacao.compra.items %}
+        {% for ci in compra.items %}
         <tr class="item-row">
           <td>
             <select name="insumo_id[]" class="form-select form-select-sm" onchange="calcValor(this)">
@@ -109,7 +104,7 @@
             <input type="number" name="preco[]" class="form-control form-control-sm text-end preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}">
           </td>
           <td class="text-end">
-            <span class="valor-item">R$ {{ "%.2f"|format((ci.preco or 0) * (ci.quantidade or 0))|replace(".", ",") }}</span>
+            <span class="valor-item">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
           </td>
           <td class="text-center">
             <input type="hidden" name="item_id[]" value="{{ ci.id }}">
@@ -118,12 +113,11 @@
           </td>
         </tr>
         {% endfor %}
-        {% endif %}
       </tbody>
       <tfoot>
         <tr>
           <th colspan="3" class="text-end">Total</th>
-          <th id="total-geral" class="text-end" data-total-db="{{ '%.2f'|format(items_total.valor) }}">R$ {{ "%.2f"|format(items_total.valor)|replace(".", ",") }}</th>
+          <th id="total-geral" class="text-end" data-total-db="{{ '%.2f'|format(items_total.valor) }}">R$ {{ items_total.valor|brl }}</th>
           <input type="hidden" id="total-display" value="{{ '%.2f'|format(items_total.valor) }}">
           <th></th>
         </tr>
@@ -138,8 +132,7 @@
 
   <!-- Mobile: items card list -->
   <div class="d-md-none" id="itens-mobile-container">
-    {% if transacao %}
-    {% for ci in transacao.compra.items %}
+    {% for ci in compra.items %}
     <div class="px-3 py-2 border-bottom item-mobile-card">
       <select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="calcValor(this)">
         <option value="">Selecione...</option>
@@ -161,7 +154,7 @@
         </div>
         <div class="col-4">
           <span class="card-label">Valor</span><br>
-          <span class="valor-item fw-bold">R$ {{ "%.2f"|format((ci.preco or 0) * (ci.quantidade or 0))|replace(".", ",") }}</span>
+          <span class="valor-item fw-bold">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
         </div>
       </div>
       <input type="hidden" name="item_id[]" value="{{ ci.id }}">
@@ -169,10 +162,9 @@
       <button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </div>
     {% endfor %}
-    {% endif %}
     <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
       <span>Total</span>
-      <span id="total-geral-mobile">R$ {{ "%.2f"|format(items_total.valor)|replace(".", ",") }}</span>
+      <span id="total-geral-mobile">R$ {{ items_total.valor|brl }}</span>
     </div>
     <div class="px-3 py-2">
       <button type="button" class="btn btn-outline-success btn-sm" onclick="addItemMobile()">+ Adicionar Item</button>
@@ -193,20 +185,17 @@
           {% endfor %}
         </select>
       </div>
-      {% if compra and compra.id and not compra.movto_id %}
-      <div>
-        <label class="form-label mb-0">Valor</label>
-        <input type="number" id="gerar-valor" class="form-control form-control-sm text-end" step="0.01" readonly>
-      </div>
-      <div>
-        <label class="form-label mb-0">Prazo</label>
-        <input type="text" id="gerar-prazo" class="form-control form-control-sm">
-      </div>
+      {% if compra and compra.id and not compra.movto_id and not compra.transacao_id %}
       <div id="gerar-financeiro-wrapper" style="padding-bottom:1px">
-        <a href="{{ url_for('contas_a_pagar.edit', id=compra.transacao_id) }}" class="btn btn-sm btn-success d-none" id="gerar-previsao-link">Editar Previsão</a>
-        <a href="{{ url_for('movimentos.pagamentos_new', compra_id=compra.id) }}" class="btn btn-sm btn-success d-none" id="gerar-movimento-link">Gerar</a>
+        <input type="hidden" name="redirect_after" id="redirect-after-input" value="">
+        <button type="button" class="btn btn-sm btn-success d-none" id="btn-gerar" onclick="gerarClick()">Gerar</button>
         <small id="gerar-financeiro-msg" class="badge bg-warning text-dark d-none">Salve a compra antes de gerar.</small>
       </div>
+      {% endif %}
+      {% if compra and compra.id and compra.transacao_id %}
+      <a href="{{ url_for('contas_a_pagar.edit', id=compra.transacao_id) }}" class="btn btn-sm btn-outline-primary">Transação #{{ compra.transacao_id }}</a>
+      {% elif compra and compra.id and compra.movto_id %}
+      <a href="{{ url_for('movimentos.pagamentos_edit', id=compra.movto_id) }}" class="btn btn-sm btn-outline-primary">Movimento #{{ compra.movto_id }}</a>
       {% endif %}
     </div>
 
@@ -546,7 +535,6 @@ function calcTotal() {
   var mt = document.getElementById('total-geral-mobile');
   if (mt) mt.textContent = fmt;
   document.getElementById('total-display').value = total.toFixed(2);
-  recalcularSaldoGerar();
 }
 
 function addItemMobile() {
@@ -616,7 +604,6 @@ function addRow() {
   }
   container.appendChild(clone);
   marcarFormAlterado();
-  recalcularSaldoGerar();
 }
 
 function addRowMobile() {
@@ -644,7 +631,6 @@ function addRowMobile() {
   }
   container.appendChild(clone);
   marcarFormAlterado();
-  recalcularSaldoGerar();
 }
 
 
@@ -692,24 +678,7 @@ function calcSaldo(el) {
 
 document.addEventListener('DOMContentLoaded', function() {
   calcTotal();
-  recalcularSaldoGerar();
 });
-
-function recalcularSaldoGerar() {
-  var valor = parseFloat(document.getElementById('total-display').value) || 0;
-  var totalPrevisto = 0;
-  document.querySelectorAll('#previsoes-container .previsao-row, #previsoes-mobile-container .previsao-mobile-card').forEach(function(row) {
-    if (row.offsetParent !== null) {
-      totalPrevisto += parseFloat(row.querySelector('[name="previsao_previsto[]"]').value) || 0;
-    }
-  });
-  var saldo = valor - totalPrevisto;
-  var input = document.getElementById('gerar-valor');
-  if (input) {
-    input.value = saldo.toFixed(2);
-    input.dataset.maxSaldo = saldo.toFixed(2);
-  }
-}
 
 document.getElementById('main-form').addEventListener('submit', function() {
   if (window.innerWidth < 768) {
@@ -723,46 +692,55 @@ document.getElementById('main-form').addEventListener('submit', function() {
   var select = document.getElementById('forma-pagamento-select');
   var wrapper = document.getElementById('gerar-financeiro-wrapper');
   if (!select || !wrapper) return;
-  var previsaoLink = document.getElementById('gerar-previsao-link');
-  var movimentoLink = document.getElementById('gerar-movimento-link');
+  var btn = document.getElementById('btn-gerar');
   var msg = document.getElementById('gerar-financeiro-msg');
-  var prazoInput = document.getElementById('gerar-prazo');
-  var valorInput = document.getElementById('gerar-valor');
-  function atualizarBotaoGerar() {
-    var savedId = select.getAttribute('data-saved-id');
+  var redirectInput = document.getElementById('redirect-after-input');
+  {% if compra and compra.id %}
+  function atualizarBtnGerar() {
     var selectedId = select.value;
     var opt = select.options[select.selectedIndex];
     var gerar = opt ? opt.getAttribute('data-gerar') : null;
     var prazo = opt ? opt.getAttribute('data-prazo') : '';
     msg.classList.add('d-none');
-    previsaoLink.classList.add('d-none');
-    movimentoLink.classList.add('d-none');
-    if (prazoInput) prazoInput.value = prazo;
-    if (selectedId && selectedId === savedId) {
-      {% if compra and compra.id %}
+    btn.classList.add('d-none');
+    if (selectedId) {
       var baseUrl = gerar === '1'
-        ? '{{ url_for('contas_a_pagar.edit', id=compra.transacao_id) }}'
+        ? '{{ url_for('contas_a_pagar.new', compra_id=compra.id) }}'
         : '{{ url_for('movimentos.pagamentos_new', compra_id=compra.id) }}';
-      var v = valorInput ? valorInput.value : '';
-      var p = prazoInput ? prazoInput.value : '';
+      var v = document.getElementById('total-display').value;
+      var rubricaEl = document.querySelector('[name="rubrica_id"]');
+      var rubricaId = rubricaEl ? rubricaEl.value : '';
       var sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
-      var href = baseUrl + sep + 'prazo=' + encodeURIComponent(p) + '&valor=' + encodeURIComponent(v);
-      if (gerar === '1') {
-        previsaoLink.href = href;
-        previsaoLink.classList.remove('d-none');
-      } else {
-        movimentoLink.href = href;
-        movimentoLink.classList.remove('d-none');
-      }
-      {% endif %}
-    } else if (selectedId) {
-      msg.classList.remove('d-none');
+      redirectInput.value = baseUrl + sep + 'prazo=' + encodeURIComponent(prazo) + '&valor=' + encodeURIComponent(v) + '&rubrica_id=' + encodeURIComponent(rubricaId);
+      btn.classList.remove('d-none');
     }
   }
-  select.addEventListener('change', atualizarBotaoGerar);
-  if (prazoInput) prazoInput.addEventListener('input', atualizarBotaoGerar);
-  if (valorInput) valorInput.addEventListener('input', atualizarBotaoGerar);
-  atualizarBotaoGerar();
+  select.addEventListener('change', atualizarBtnGerar);
+  atualizarBtnGerar();
+  {% endif %}
 })();
+
+function gerarClick() {
+  var input = document.getElementById('redirect-after-input');
+  var rubricaEl = document.querySelector('[name="rubrica_id"]');
+  if (rubricaEl && rubricaEl.value) {
+    var u = new URL(input.value, window.location.origin);
+    u.searchParams.set('rubrica_id', rubricaEl.value);
+    input.value = u.toString();
+  }
+  var url = input.value;
+  if (!url) return;
+  if (!window._formModified) {
+    window.location.href = url;
+    return;
+  }
+  var form = document.getElementById('main-form');
+  if (window.innerWidth >= 768) {
+    document.querySelectorAll('#itens-mobile-container input, #itens-mobile-container select, #previsoes-mobile-container input, #previsoes-mobile-container select').forEach(function(el) { el.disabled = true; });
+  } else {
+    document.querySelectorAll('#itens-container input, #itens-container select, #previsoes-container input, #previsoes-container select').forEach(function(el) { el.disabled = true; });
+  }
+  form.submit();
+}
 </script>
 {% endblock %}
