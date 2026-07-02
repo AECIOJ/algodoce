@@ -149,6 +149,16 @@ def create_app():
         return dict(ngrok_url=get_ngrok_url(), timedelta=timedelta, hoje=date.today())
 
     @app.context_processor
+    def inject_versao():
+        from flask_login import current_user
+        ano = app.config.get("APP_VERSION_YEAR", "2026")[-2:]
+        mes = app.config.get("APP_VERSION_MONTH", "01")
+        seq = app.config.get("APP_VERSION_SEQUENCE", "001")
+        versao = f"v1.{ano}.{mes}-{seq}"
+        usuario = (current_user.username if current_user.is_authenticated else "Visitante").upper()
+        return dict(versao=versao, usuario=usuario)
+
+    @app.context_processor
     def inject_site_categories():
         from app.models.category import Category
         cats = Category.query.filter_by(ativo=True).order_by(Category.ordem).all()

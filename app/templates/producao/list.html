@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "components/barra_report.html" import barra_report %}
 {% from "components/panel_list.html" import panel_list, card_list, action_edit %}
 {% block content %}
 {% set _actions %}
@@ -78,8 +77,3 @@
 <div class="form-bottom-spacer"></div>
 {% endblock %}
 
-{% block bottom_bar %}
-{% call barra_report() %}
-  <strong>{{ producoes|length }}</strong> produção(ões)
-{% endcall %}
-{% endblock %}

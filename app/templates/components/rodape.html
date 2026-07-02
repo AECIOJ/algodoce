@@ -1,0 +1,11 @@
+{% macro rodape(versao, usuario) %}
+<div class="rodape form-bottom-bar d-flex align-items-center px-3 py-2" style="border-top:2px solid var(--cor-menu);background:#fff;">
+  <div class="d-flex align-items-center gap-2" style="font-size:0.8rem;">
+    {{ versao }} | {{ usuario }}
+  </div>
+  <div class="flex-grow-1"></div>
+  <div class="d-flex align-items-center gap-2" style="font-size:0.8rem;">
+    &copy; 2026 AJ Systems
+  </div>
+</div>
+{% endmacro %}

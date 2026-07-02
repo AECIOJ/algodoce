@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% from "components/barra_report.html" import barra_report %}
 {% from "components/panel_list.html" import panel_list, card_list, action_edit %}
 {% block content %}
 
@@ -128,12 +127,6 @@
 
 <div class="form-bottom-spacer"></div>
 <div class="form-bottom-spacer"></div>
-{% endblock %}
-
-{% block bottom_bar %}
-{% call barra_report() %}
-  <strong>{{ previsoes|length }}</strong> parcela(s)
-{% endcall %}
 {% endblock %}
 
 {% block scripts %}
