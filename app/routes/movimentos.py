@@ -9,6 +9,7 @@ from app.models.client import Conta
 from app.models.previsao import Previsao
 from app.models.transacao import Transacao
 from app.models.compra import Compra
+from app.models.order import Order
 from app.models.rubrica import Rubrica
 from app.constants import TIPO_RECURSO, TIPO_RUBRICA, PREVISAO_STATUS
 from decimal import Decimal
@@ -100,6 +101,12 @@ def _create_or_update(movto, tipo, compra=None):
     if not data or not recurso_id or not valor:
         flash("Preencha data, recurso e valor", "danger")
         return False
+
+    if previsao_id:
+        p = Previsao.query.get(previsao_id)
+        if p and p.transacao and abs(float(p.transacao.total_previsto or 0) - float(p.transacao.valor)) > 0.005:
+            flash("Transação está em estado 'Editando' — reajuste o valor antes de lançar movimentos", "danger")
+            return False
 
     if movto and movto.id:
         if not historico:
@@ -337,14 +344,19 @@ def excluir(id):
         return redirect(url_for("movimentos.recebimentos_list"))
     tipo = movto.tipo
     compra = Compra.query.filter_by(movto_id=movto.id).first()
+    order = Order.query.filter_by(movto_id=movto.id).first()
     if compra:
         compra.movto_id = None
+    if order:
+        order.movto_id = None
     _sincronizar_previsao(movto, 'excluir')
     db.session.delete(movto)
     db.session.commit()
     flash(f"{_movto_tipo(tipo)} excluído!", "success")
     if compra:
         return redirect(url_for("compras.edit", id=compra.id))
+    if order:
+        return redirect(url_for("orders.edit", id=order.id))
     if tipo == "E":
         return redirect(url_for("movimentos.recebimentos_list"))
     return redirect(url_for("movimentos.pagamentos_list"))

@@ -16,6 +16,8 @@
   {% set status_badge = '<span class="badge bg-warning ms-2">' ~ st_label ~ '</span>' %}
 {% elif st == 1 %}
   {% set status_badge = '<span class="badge bg-info ms-2">' ~ st_label ~ '</span>' %}
+{% elif st == 0 %}
+  {% set status_badge = '<span class="badge bg-dark ms-2">' ~ st_label ~ '</span>' %}
 {% else %}
   {% set status_badge = '<span class="badge bg-secondary ms-2">' ~ st_label ~ '</span>' %}
 {% endif %}
@@ -78,7 +80,9 @@
 
   <hr>
   <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-    <h5 class="mb-0">Parcelas</h5>
+    <h5 class="mb-0">Parcelas
+      {% if transacao and transacao.status == 0 %}<span class="badge bg-dark ms-1 align-middle" style="font-size:0.55rem;">Soma difere do valor total</span>{% endif %}
+    </h5>
     {% if not locked %}
     <div class="ms-auto d-flex align-items-center gap-2">
       <div class="input-group input-group-sm" style="max-width:160px;">
@@ -92,7 +96,6 @@
       <button type="button" class="btn btn-sm btn-outline-primary" onclick="regenerarParcelas()">Regenerar</button>
     </div>
     {% endif %}
-    <span id="parcelas-warning" class="badge bg-warning text-dark d-none">Soma difere do valor total</span>
   </div>
 
   <!-- Desktop: parcelas table -->
@@ -258,8 +261,15 @@
     <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}">
   </div>
   {% endif %}
+  {% if transacao %}
+  <button type="button" class="btn btn-sm btn-outline-danger ms-2 {{ 'd-none' if transacao.previsoes else '' }}" id="btn-excluir-transacao" onclick="showConfirm('Excluir transação?',function(){document.getElementById('excluir-form').submit()})">Excluir</button>
+  {% endif %}
 {% endcall %}
 </form>
+
+{% if transacao %}
+<form id="excluir-form" method="POST" action="{{ url_for('contas_a_receber.excluir', id=transacao.id) }}" style="display:none"></form>
+{% endif %}
 
 <template id="previsao-template">
   <tr class="previsao-row">
@@ -388,25 +398,23 @@ document.getElementById('main-form').addEventListener('submit', disableHiddenPre
 function recalcularSaldoLancar() {
   var valor = parseFloat(document.querySelector('[name="valor"]').value) || 0;
   var totalPrevisto = 0;
+  var visivel = 0;
   document.querySelectorAll('#previsoes-container .previsao-row, #previsoes-mobile-container .previsao-mobile-card').forEach(function(row) {
     if (row.offsetParent !== null) {
       totalPrevisto += parseFloat(row.querySelector('[name="previsao_previsto[]"]').value) || 0;
+      visivel++;
     }
   });
   var saldo = valor - totalPrevisto;
   var input = document.getElementById('lancar-valor');
   if (input) input.value = saldo.toFixed(2);
   var dif = Math.abs(saldo);
-  var warning = document.getElementById('parcelas-warning');
-  if (dif > 0.005) {
-    warning.classList.remove('d-none');
-    var btn = document.getElementById('btn-salvar');
-    if (btn) btn.disabled = true;
-  } else {
-    warning.classList.add('d-none');
-    if (window._formModified) {
-      var btn = document.getElementById('btn-salvar');
-      if (btn) btn.disabled = false;
+  var btnExcluir = document.getElementById('btn-excluir-transacao');
+  if (btnExcluir) {
+    if (visivel === 0) {
+      btnExcluir.classList.remove('d-none');
+    } else {
+      btnExcluir.classList.add('d-none');
     }
   }
 }

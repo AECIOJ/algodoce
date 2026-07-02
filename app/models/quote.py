@@ -17,11 +17,11 @@ class Quote(db.Model):
     total = db.Column(db.Numeric(10, 2), nullable=True)
     observacao = db.Column(db.Text)
     validade = db.Column(db.Integer, nullable=False, default=3)
-    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("forma_pagamento.id"), nullable=True)
+    carteira_id = db.Column(db.Integer, db.ForeignKey("carteira.id"), nullable=True)
     data_renovacao = db.Column(db.DateTime, nullable=True)
     forminhas = db.Column(db.Integer, nullable=False, default=0)
 
-    forma_pagamento_rel = db.relationship("FormaPagamento", uselist=False)
+    carteira = db.relationship("Carteira", uselist=False)
     order = db.relationship("Order", foreign_keys=[pedido_id], lazy="joined")
     event = db.relationship("Event", back_populates="quote", uselist=False, lazy="joined")
     items = db.relationship(

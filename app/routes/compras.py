@@ -12,7 +12,7 @@ from app.models.ingredient import Ingredient
 from app.models.compra_item import CompraItem
 from app.models.movto import Movto
 from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO, COMPRA_STATUS
-from app.models.forma_pagamento import FormaPagamento
+from app.models.carteira import Carteira
 from app.utils import LinhaTransacao
 
 TIPO = "C"
@@ -97,7 +97,7 @@ def new():
         compra = Compra(
             data=data, fornecedor_id=conta_id,
             valor=valor_total, historico=historico,
-            forma_pagamento_id=request.form.get("forma_pagamento_id", type=int) or None,
+            carteira_id=request.form.get("carteira_id", type=int) or None,
             status=1,
         )
         db.session.add(compra)
@@ -123,10 +123,10 @@ def new():
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
     rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
-    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
+    carteiras = Carteira.query.order_by(Carteira.nome).all()
     return render_template(
         "compras/form.html", contas=contas, rubricas=rubricas,
-        insumos=insumos, formas_pagamento=formas_pagamento,
+        insumos=insumos, carteiras=carteiras,
         hoje=date.today(), COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None,
         compra=None,
@@ -158,7 +158,7 @@ def edit(id):
         compra.data = request.form.get("data") or date.today()
         compra.fornecedor_id = request.form.get("conta_id", type=int) or None
         compra.historico = request.form.get("historico") or None
-        compra.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
+        compra.carteira_id = request.form.get("carteira_id", type=int) or None
         compra.data_recepcao = request.form.get("data_recepcao") or None
 
         if transacao and not compra.movto_id:
@@ -216,6 +216,7 @@ def edit(id):
         if transacao:
             existing = {p.id for p in transacao.previsoes}
             submitted = set()
+            deleted = set()
 
             pids = request.form.getlist("previsao_id[]")
             docs = request.form.getlist("previsao_documento[]")
@@ -232,7 +233,12 @@ def edit(id):
                 pid = int(pids[i]) if pids[i] and pids[i].strip() else None
                 if removes[i] == "1" if i < len(removes) else False:
                     if pid:
-                        db.session.delete(Previsao.query.get(pid))
+                        p = Previsao.query.get(pid)
+                        if p and p.movtos:
+                            flash(f"Parcela #{p.id} possui movimentos, exclua-os primeiro", "danger")
+                        elif p:
+                            db.session.delete(p)
+                            deleted.add(pid)
                     continue
                 submitted.add(pid)
                 prev_val = float(prevs[i]) if prevs[i] and prevs[i].strip() else 0
@@ -256,10 +262,16 @@ def edit(id):
                     )
                     db.session.add(p)
 
-            for pid in (existing - submitted):
-                db.session.delete(Previsao.query.get(pid))
+            for pid in (existing - submitted - deleted):
+                p = Previsao.query.get(pid)
+                if p and p.movtos:
+                    flash(f"Parcela #{p.id} possui movimentos, exclua-os primeiro", "danger")
+                elif p:
+                    db.session.delete(p)
 
-            if prev_total > transacao.valor:
+            transacao.total_previsto = prev_total
+
+            if prev_total > float(transacao.valor):
                 db.session.rollback()
                 flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da compra ({float(transacao.valor):.2f})", "danger")
             else:
@@ -280,13 +292,13 @@ def edit(id):
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
     rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
-    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
+    carteiras = Carteira.query.order_by(Carteira.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes] if transacao else []
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
         "compras/form.html", transacao=transacao, compra=compra,
         contas=contas, rubricas=rubricas, insumos=insumos,
-        formas_pagamento=formas_pagamento,
+        carteiras=carteiras,
         PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
         movimentos=movimentos, tipo_nome="Pagamento",

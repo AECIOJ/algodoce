@@ -44,7 +44,7 @@
         <td>{{ o.data_previsao_entrega.strftime('%d/%m/%Y %H:%M') if o.data_previsao_entrega else '-' }}</td>
         <td>{{ o.data_entrega.strftime('%d/%m/%Y %H:%M') if o.data_entrega else '-' }}</td>
         <td>{{ FORMINHAS[o.forminhas] }}</td>
-        <td>{{ o.forma_pagamento_rel.nome or '-' }}</td>
+        <td>{{ o.carteira.nome or '-' }}</td>
         <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
         <td>
           <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 8 else 'bg-dark' }}" style="min-width:95px">
@@ -96,7 +96,7 @@
       </div>
       <div class="col-6 mt-1">
         <span class="card-label">Pagamento</span><br>
-        <span class="card-value">{{ item.forma_pagamento_rel.nome or '-' }}</span>
+        <span class="card-value">{{ item.carteira.nome or '-' }}</span>
       </div>
     </div>
   </div>

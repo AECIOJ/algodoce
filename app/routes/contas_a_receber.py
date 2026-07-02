@@ -9,6 +9,7 @@ from app.models.client import Conta
 from app.models.rubrica import Rubrica
 from app.models.movto import Movto
 from app.models.order import Order
+from app.models.compra import Compra
 from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO
 from app.utils import LinhaTransacao, parse_prazo_recebimento
 
@@ -160,12 +161,14 @@ def new():
             )
             db.session.add(previsao)
 
+        transacao.total_previsto = prev_total
+
+        transacao.total_previsto = prev_total
+
         errors = []
 
-        if abs(prev_total - transacao.valor) > 0.005:
-            errors.append(f"Total das parcelas ({prev_total:.2f}) difere do valor da fatura ({float(transacao.valor):.2f})")
-
-        if order and abs(transacao.valor - float(order.total or 0)) > 0.005:
+        if order and abs(float(transacao.valor) - float(order.total or 0)) > 0.005:
+            errors.append(f"Valor da transação ({transacao.valor:.2f}) difere do valor do pedido ({float(order.total or 0):.2f})")
             errors.append(f"Valor da transação ({transacao.valor:.2f}) difere do valor do pedido ({float(order.total or 0):.2f})")
 
         if errors:
@@ -193,7 +196,7 @@ def new():
     submitted_data = None
     submitted_previsoes = None
     if order:
-        fp = order.forma_pagamento_rel
+        fp = order.carteira
         if fp and fp.gerar != 0:
             total = float(order.total or 0)
             data_entrega = order.data_entrega or order.data_previsao_entrega
@@ -274,6 +277,7 @@ def edit(id):
         if not locked:
             existing = {p.id for p in transacao.previsoes}
             submitted = set()
+            deleted = set()
 
             ids = request.form.getlist("previsao_id[]")
             docs = request.form.getlist("previsao_documento[]")
@@ -290,7 +294,12 @@ def edit(id):
                 pid = int(ids[i]) if ids[i] and ids[i].strip() else None
                 if removes[i] == "1" if i < len(removes) else False:
                     if pid:
-                        db.session.delete(Previsao.query.get(pid))
+                        p = Previsao.query.get(pid)
+                        if p and p.movtos:
+                            flash(f"Parcela #{p.id} possui movimentos, exclua-os primeiro", "danger")
+                        elif p:
+                            db.session.delete(p)
+                            deleted.add(pid)
                     continue
                 submitted.add(pid)
                 prev_val = float(prevs[i]) if prevs[i] and prevs[i].strip() else 0
@@ -316,15 +325,18 @@ def edit(id):
                     )
                     db.session.add(p)
 
-            for pid in (existing - submitted):
-                db.session.delete(Previsao.query.get(pid))
+            for pid in (existing - submitted - deleted):
+                p = Previsao.query.get(pid)
+                if p and p.movtos:
+                    flash(f"Parcela #{p.id} possui movimentos, exclua-os primeiro", "danger")
+                elif p:
+                    db.session.delete(p)
+
+            transacao.total_previsto = prev_total
 
             errors = []
-            if abs(prev_total - transacao.valor) > 0.005:
-                errors.append(f"Total das parcelas ({prev_total:.2f}) difere do valor da fatura ({float(transacao.valor):.2f})")
-
             pedido = transacao.pedido
-            if pedido and abs(transacao.valor - float(pedido.total or 0)) > 0.005:
+            if pedido and abs(float(transacao.valor) - float(pedido.total or 0)) > 0.005:
                 errors.append(f"Valor da transação ({transacao.valor:.2f}) difere do valor do pedido ({float(pedido.total or 0):.2f})")
 
             if errors:
@@ -360,4 +372,32 @@ def edit(id):
         movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
         prazo_inicial=prazo_inicial,
     )
+
+
+@bp.route("/<int:id>/excluir", methods=["POST"])
+def excluir(id):
+    transacao = Transacao.query.get(id)
+    if not transacao:
+        flash("Registro inexistente", "warning")
+        return redirect(url_for("contas_a_receber.list"))
+
+    if transacao.previsoes:
+        flash("Exclua as parcelas antes de excluir a transação", "danger")
+        return redirect(url_for("contas_a_receber.list"))
+
+    order = Order.query.filter_by(transacao_id=transacao.id).first()
+    compra = Compra.query.filter_by(transacao_id=transacao.id).first()
+
+    if order:
+        order.transacao_id = None
+    if compra:
+        compra.transacao_id = None
+
+    db.session.delete(transacao)
+    db.session.commit()
+    flash("Conta excluída!", "success")
+
+    if order:
+        return redirect(url_for("orders.edit", id=order.id))
+    return redirect(url_for("contas_a_receber.list"))
 

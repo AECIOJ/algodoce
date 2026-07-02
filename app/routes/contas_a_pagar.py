@@ -9,6 +9,7 @@ from app.models.client import Conta
 from app.models.rubrica import Rubrica
 from app.models.movto import Movto
 from app.models.compra import Compra
+from app.models.order import Order
 from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO
 from app.utils import LinhaTransacao
 
@@ -182,6 +183,8 @@ def new():
             )
             db.session.add(previsao)
 
+        transacao.total_previsto = prev_total
+
         if abs(prev_total - transacao.valor) > 0.005:
             db.session.rollback()
             flash(f"Total das parcelas ({prev_total:.2f}) difere do valor da fatura ({float(transacao.valor):.2f})", "danger")
@@ -196,7 +199,7 @@ def new():
                 PREVISAO_STATUS=PREVISAO_STATUS, tipo_nome="Pagamento",
             )
 
-        if compra and abs(transacao.valor - float(compra.valor or 0)) > 0.005:
+        if compra and abs(float(transacao.valor) - float(compra.valor or 0)) > 0.005:
             db.session.rollback()
             flash(f"Valor da transação ({transacao.valor:.2f}) difere do valor da compra ({float(compra.valor or 0):.2f})", "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
@@ -257,6 +260,7 @@ def edit(id):
 
         existing = {p.id for p in transacao.previsoes}
         submitted = set()
+        deleted = set()
 
         ids = request.form.getlist("previsao_id[]")
         docs = request.form.getlist("previsao_documento[]")
@@ -273,7 +277,12 @@ def edit(id):
             pid = int(ids[i]) if ids[i] and ids[i].strip() else None
             if removes[i] == "1" if i < len(removes) else False:
                 if pid:
-                    db.session.delete(Previsao.query.get(pid))
+                    p = Previsao.query.get(pid)
+                    if p and p.movtos:
+                        flash(f"Parcela #{p.id} possui movimentos, exclua-os primeiro", "danger")
+                    elif p:
+                        db.session.delete(p)
+                        deleted.add(pid)
                 continue
             submitted.add(pid)
             prev_val = float(prevs[i]) if prevs[i] and prevs[i].strip() else 0
@@ -299,16 +308,19 @@ def edit(id):
                 )
                 db.session.add(p)
 
-        for pid in (existing - submitted):
-            db.session.delete(Previsao.query.get(pid))
+        for pid in (existing - submitted - deleted):
+            p = Previsao.query.get(pid)
+            if p and p.movtos:
+                flash(f"Parcela #{p.id} possui movimentos, exclua-os primeiro", "danger")
+            elif p:
+                db.session.delete(p)
+
+        transacao.total_previsto = prev_total
 
         compra = transacao.compra
         errors = []
 
-        if abs(prev_total - transacao.valor) > 0.005:
-            errors.append(f"Total das parcelas ({prev_total:.2f}) difere do valor da fatura ({float(transacao.valor):.2f})")
-
-        if compra and abs(transacao.valor - float(compra.valor or 0)) > 0.005:
+        if compra and abs(float(transacao.valor) - float(compra.valor or 0)) > 0.005:
             errors.append(f"Valor da transação ({transacao.valor:.2f}) difere do valor da compra ({float(compra.valor or 0):.2f})")
 
         if errors:
@@ -353,17 +365,18 @@ def excluir(id):
         flash("Registro inexistente", "warning")
         return redirect(url_for("contas_a_pagar.list"))
 
+    if transacao.previsoes:
+        flash("Exclua as parcelas antes de excluir a transação", "danger")
+        return redirect(url_for("contas_a_pagar.list"))
+
     compra = Compra.query.filter_by(transacao_id=transacao.id).first()
     compra_id = compra.id if compra else None
-
-    if transacao.previsoes:
-        for p in transacao.previsoes:
-            if p.realizado:
-                flash("Não é possível excluir: há parcelas com pagamento", "danger")
-                return redirect(url_for("contas_a_pagar.list"))
+    order = Order.query.filter_by(transacao_id=transacao.id).first()
 
     if compra:
         compra.transacao_id = None
+    if order:
+        order.transacao_id = None
 
     db.session.delete(transacao)
     db.session.commit()

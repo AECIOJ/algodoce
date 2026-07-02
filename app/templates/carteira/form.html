@@ -2,22 +2,22 @@
 {% from "components/barra_edicao.html" import barra_edicao %}
 {% block content %}
 
-{% if forma %}
+{% if carteira %}
 <div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <a href="{{ url_for('forma_pagamento.list') }}" class="btn btn-outline-secondary btn-sm">
+  <a href="{{ url_for('carteira.list') }}" class="btn btn-outline-secondary btn-sm">
     <img src="{{ url_for('static', filename='icons/list.png') }}" alt="Voltar" height="20">
   </a>
-  <span class="mx-2 fs-5 fw-bold">Forma de Pagamento {{ forma.id|fmtid }}</span>
+  <span class="mx-2 fs-5 fw-bold">Carteira {{ carteira.id|fmtid }}</span>
 </div>
 {% if em_uso %}
 <div class="alert alert-warning mb-3">
-  Esta forma de pagamento já está em uso e não pode ser alterada.
-  <a href="{{ url_for('forma_pagamento.new') }}" class="alert-link">Crie uma nova</a> se precisar de configurações diferentes.
+  Esta carteira já está em uso e não pode ser alterada.
+  <a href="{{ url_for('carteira.new') }}" class="alert-link">Crie uma nova</a> se precisar de configurações diferentes.
 </div>
 {% endif %}
 {% else %}
 <div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Nova Forma de Pagamento</span>
+  <span class="fs-5 fw-bold">Nova Carteira</span>
 </div>
 {% endif %}
 
@@ -25,21 +25,21 @@
   <div class="row mb-3">
     <div class="col-md-4">
       <label class="form-label">Nome *</label>
-      <input type="text" name="nome" class="form-control" required value="{{ forma.nome if forma else '' }}" {{ 'disabled' if em_uso }}>
+      <input type="text" name="nome" class="form-control" required value="{{ carteira.nome if carteira else '' }}" {{ 'disabled' if em_uso }}>
     </div>
     <div class="col-md-3">
       <label class="form-label">Uso</label>
       <select name="uso" class="form-select" {{ 'disabled' if em_uso }}>
-        <option value="0" {{ 'selected' if forma and forma.uso == 0 }}>Apenas Pedido</option>
-        <option value="1" {{ 'selected' if not forma or forma.uso == 1 }}>Pedido e Compra</option>
-        <option value="2" {{ 'selected' if forma and forma.uso == 2 }}>Apenas Compra</option>
+        <option value="0" {{ 'selected' if carteira and carteira.uso == 0 }}>Apenas Pedido</option>
+        <option value="1" {{ 'selected' if not carteira or carteira.uso == 1 }}>Pedido e Compra</option>
+        <option value="2" {{ 'selected' if carteira and carteira.uso == 2 }}>Apenas Compra</option>
       </select>
     </div>
     <div class="col-md-3">
       <label class="form-label">Gerar</label>
       <select name="gerar" id="gerar" class="form-select" {{ 'disabled' if em_uso }}>
-        <option value="0" {{ 'selected' if not forma or forma.gerar == 0 }}>Movimento</option>
-        <option value="1" {{ 'selected' if forma and forma.gerar == 1 }}>Previsão</option>
+        <option value="0" {{ 'selected' if not carteira or carteira.gerar == 0 }}>Movimento</option>
+        <option value="1" {{ 'selected' if carteira and carteira.gerar == 1 }}>Previsão</option>
       </select>
     </div>
   </div>
@@ -47,9 +47,9 @@
     <div class="col-md-6">
       <label class="form-label">Prazo de Recebimento</label>
       <input type="text" name="prazo_recebimento" class="form-control" id="prazo-recebimento"
-             value="{{ forma.prazo_recebimento or '' }}"
+             value="{{ carteira.prazo_recebimento or '' }}"
              placeholder="Ex: P/E, 1, 3x, 0/15"
-             {{ 'disabled' if (forma and forma.gerar == 0) or (not forma) }}>
+             {{ 'disabled' if (carteira and carteira.gerar == 0) or (not carteira) }}>
       <div class="form-text">
         Padrões: <strong>P/E</strong> (pedido/entrega) · <strong>1</strong> (1 dia) · <strong>3x</strong> (30/60/90) · <strong>0/15</strong> (0 e 15 dias)
       </div>
@@ -57,7 +57,7 @@
     <div class="col-md-2">
       <label class="form-label">Taxa de Recebimento (%)</label>
       <input type="number" name="taxa_recebimento" class="form-control" step="0.01" min="0" max="100"
-             value="{{ forma.taxa_recebimento if forma else 0 }}">
+             value="{{ carteira.taxa_recebimento if carteira else 0 }}">
     </div>
   </div>
   <script>
@@ -80,10 +80,10 @@
   <div class="form-bottom-spacer"></div>
 </form>
 
-{% call barra_edicao(back_url=url_for('forma_pagamento.list'), disable_save=forma is not none) %}
-  {% if forma and not em_uso %}
+{% call barra_edicao(back_url=url_for('carteira.list'), disable_save=carteira is not none) %}
+  {% if carteira and not em_uso %}
   <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"
-    onclick="if(confirm('Excluir {{ forma.nome }}?')){var f=document.createElement('form');f.method='POST';f.action='{{ url_for('forma_pagamento.delete', id=forma.id) }}';document.body.appendChild(f);f.submit();}">
+    onclick="showConfirm('Excluir {{ carteira.nome }}?',function(){var f=document.createElement('form');f.method='POST';f.action='{{ url_for('carteira.delete', id=carteira.id) }}';document.body.appendChild(f);f.submit()})">
     <img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir
   </button>
   {% endif %}

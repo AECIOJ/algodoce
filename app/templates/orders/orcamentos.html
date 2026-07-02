@@ -43,7 +43,7 @@
           {{ (ref.replace(tzinfo=None) + timedelta(days=o.validade or 3)).strftime('%d/%m/%Y') }}
         </td>
         <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
-        <td>{{ o.forma_pagamento_rel.nome or '-' }}</td>
+        <td>{{ o.carteira.nome or '-' }}</td>
         <td>
           <span class="badge {{ 'border border-secondary text-dark' if o.status == 0 else 'bg-primary' if o.status == 1 else 'bg-info' if o.status == 6 else 'bg-expired' if o.status == 7 else 'bg-danger' if o.status == 8 else 'bg-success' }}" style="min-width:95px">
             {{ QUOTE_STATUS[o.status] }}

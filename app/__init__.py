@@ -84,8 +84,8 @@ def create_app():
         app.register_blueprint(movimentos.bp)
         app.register_blueprint(api.bp)
 
-        from app.routes.forma_pagamento import bp as forma_pagamento_bp
-        app.register_blueprint(forma_pagamento_bp)
+        from app.routes.carteira import bp as carteira_bp
+        app.register_blueprint(carteira_bp)
 
         from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, rubrica, transacao, previsao  # noqa
         from app.models.event import Event  # noqa
@@ -99,7 +99,7 @@ def create_app():
         from app.models.producao_produto import ProducaoProduto  # noqa
         from app.models.recurso import Recurso  # noqa
         from app.models.movto import Movto  # noqa
-        from app.models.forma_pagamento import FormaPagamento  # noqa
+        from app.models.carteira import Carteira  # noqa
 
         from app.models.category import Category
         from app.models.client import Conta
@@ -108,7 +108,7 @@ def create_app():
         from app.models.quote import Quote
         from app.models.previsao import Previsao
 
-        for model_cls in [Category, Conta, Product, Ingredient, Quote, Recurso, Producao, Previsao, Movto, FormaPagamento]:
+        for model_cls in [Category, Conta, Product, Ingredient, Quote, Recurso, Producao, Previsao, Movto, Carteira]:
             sa.event.listen(model_cls, 'before_insert', aplicar_transformacao)
             sa.event.listen(model_cls, 'before_update', aplicar_transformacao)
 

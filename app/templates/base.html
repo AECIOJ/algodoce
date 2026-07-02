@@ -41,7 +41,7 @@
           <option value="{{ url_for('products.list') }}" {% if request.path.startswith('/produtos') %}selected{% endif %}>Produtos</option>
           <option value="{{ url_for('contas.list') }}" {% if request.path.startswith('/contas') %}selected{% endif %}>Contas</option>
           <option value="{{ url_for('rubricas.list') }}" {% if request.path.startswith('/rubricas') %}selected{% endif %}>Rubricas</option>
-          <option value="{{ url_for('forma_pagamento.list') }}" {% if request.path.startswith('/forma-pagamento') %}selected{% endif %}>Formas de Pagto</option>
+          <option value="{{ url_for('carteira.list') }}" {% if request.path.startswith('/carteira') %}selected{% endif %}>Carteiras</option>
         </select>
         <select class="form-select fw-bold border-0 nav-select" id="comercialNavSelect" style="display:none;font-size:0.85rem;width:auto;color:#e91e63;background:#fff;padding:1px 0.5rem;" onchange="if(this.value) window.location=this.value;">
           <option value="{{ url_for('orders.orcamentos') }}" {% if request.path.startswith('/orcamentos') %}selected{% endif %}>Orçamentos</option>
@@ -88,7 +88,7 @@
           <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
           <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas</a>
           <a href="{{ url_for('rubricas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Rubricas</a>
-          <a href="{{ url_for('forma_pagamento.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Formas de Pagto</a>
+          <a href="{{ url_for('carteira.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Carteiras</a>
         </div>
       </div>
     </div>
@@ -522,7 +522,7 @@ document.addEventListener('keydown', function (e) {
   }
 
   var path = window.location.pathname;
-  var cadastroPaths = ['/categorias', '/insumos', '/produtos', '/contas', '/rubricas', '/forma-pagamento'];
+  var cadastroPaths = ['/categorias', '/insumos', '/produtos', '/contas', '/rubricas', '/carteira'];
   var comercialPaths = ['/orcamentos', '/pedidos', '/compras'];
   var financeiroPaths = ['/recursos', '/movimentos', '/contas-a-pagar', '/contas-a-receber'];
   var onCadastro = cadastroPaths.some(function(p) { return path.indexOf(p) === 0; });

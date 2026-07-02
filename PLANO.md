@@ -59,9 +59,9 @@ Clientes e fornecedores.
 
 ---
 
-##### `forma_pagamento` (Model: `FormaPagamento` — `app/models/forma_pagamento.py`)
+##### `carteira` (Model: `Carteira` — `app/models/carteira.py`)
 
-Formas de pagamento cadastráveis.
+Carteiras de pagamento/recebimento cadastráveis.
 
 | Coluna | Tipo | PK/FK | Obrig. | Padrão | Notas |
 |--------|------|-------|--------|--------|-------|
@@ -72,7 +72,7 @@ Formas de pagamento cadastráveis.
 | `prazo_recebimento` | String(100) | | não | | DSL de prazos: P/E, 1, 3x, 0/15. Apenas se gerar=1 |
 | `taxa_recebimento` | Numeric(5,2) | | sim | `0` | Percentual de taxa (ex: 3.5 para cartão) |
 
-**Seed data (migration `d5ff48124a39`):**
+**Seed data (migration `d5ff48124a39` — originalmente tabela `forma_pagamento`, renomeada pela migration `5096816c1660`):**
 
 | id | nome | uso | gerar | prazo_recebimento | taxa_recebimento |
 |----|------|-----|-------|-------------------|-----------------|
@@ -83,7 +83,7 @@ Formas de pagamento cadastráveis.
 | 5 | Boleto | 2 (Compra) | 1 (Previsão) | | 0 |
 | 6 | Depósito | 1 (Ambos) | 0 (Movimento) | | 0 |
 
-**Referenciado por:** `Order.forma_pagamento_id`, `Quote.forma_pagamento_id`, `Compra.forma_pagamento_id`, `Previsao.forma_pagamento_id`
+**Referenciado por:** `Order.carteira_id`, `Quote.carteira_id`, `Compra.carteira_id`, `Previsao.carteira_id`
 
 ---
 
@@ -194,12 +194,12 @@ Orçamentos feitos por clientes (público ou admin).
 | `total` | Numeric(10,2) | | não | | |
 | `observacao` | Text | | não | | |
 | `validade` | Integer | | sim | `3` | Dias de validade |
-| `forma_pagamento_id` | Integer | FK→forma_pagamento.id | sim | |
-| `data_renovacao` | DateTime | | não | | |
+| `carteira_id` | Integer | FK→carteira.id | sim | |
+| `data_renovacao` | DateTime | | não | |
 | `forminhas` | Integer | | sim | `0` | 0=Simples, 1=Fornecidas pelo Cliente |
 
 **Relacionamentos:**
-- `forma_pagamento_rel` → `FormaPagamento` (`uselist=False`)
+- `carteira` → `Carteira` (`uselist=False`)
 - `order` → `Order` (`foreign_keys=pedido_id`, `lazy=joined`)
 - `event` → `Event` (`back_populates="quote"`, `uselist=False`, `lazy=joined`)
 - `items` → `QuoteItem` (`back_populates="quote"`, `lazy=joined`)
@@ -239,7 +239,7 @@ Pedidos convertidos de orçamentos ou criados manualmente.
 | `status` | Integer | | sim | `0` | 0=Pendente, 1=Produzindo, 2=Pronto, 8=Cancelado, 9=Entregue |
 | `observacao` | Text | | não | | |
 | `total` | Numeric(10,2) | | não | | |
-| `forma_pagamento_id` | Integer | FK→forma_pagamento.id | sim | |
+| `carteira_id` | Integer | FK→carteira.id | sim | |
 | `transacao_id` | Integer | FK→transacao.id (UNIQUE) | não | | |
 | `movto_id` | Integer | FK→movto.id (UNIQUE) | não | | |
 | `forminhas` | Integer | | sim | `0` | 0=Simples, 1=Fornecidas |
@@ -250,7 +250,7 @@ Pedidos convertidos de orçamentos ou criados manualmente.
 - `conta` → `Conta` (`backref="conta"`)
 - `producao` → `Producao` (`lazy=select`)
 - `quote` → `Quote` (`foreign_keys=quote_id`, `lazy=select`)
-- `forma_pagamento_rel` → `FormaPagamento` (`uselist=False`)
+- `carteira` → `Carteira` (`uselist=False`)
 - `transacao` → `Transacao` (`foreign_keys=transacao_id`, `uselist=False`)
 - `movto` → `Movto` (`foreign_keys=movto_id`, `uselist=False`)
 - `event` → `Event` (`back_populates="order"`, `uselist=False`, `lazy=select`)
@@ -290,13 +290,13 @@ Compras de insumos.
 | `historico` | Text | | não | | |
 | `status` | Integer | | sim | `0` | 0=Orçamento, 1=Pedido, 6=Cancelado, 8=Recebido, 9=Devolvido |
 | `data_recepcao` | Date | | não | | |
-| `forma_pagamento_id` | Integer | FK→forma_pagamento.id | não | | |
+| `carteira_id` | Integer | FK→carteira.id | não | | |
 | `transacao_id` | Integer | FK→transacao.id (UNIQUE) | não | | |
 | `movto_id` | Integer | FK→movto.id (UNIQUE) | não | | |
 
 **Relacionamentos:**
 - `fornecedor` → `Conta` (`foreign_keys=fornecedor_id`)
-- `forma_pagamento` → `FormaPagamento` (`uselist=False`)
+- `carteira` → `Carteira` (`uselist=False`)
 - `transacao` → `Transacao` (`foreign_keys=transacao_id`, `uselist=False`)
 - `movto` → `Movto` (`foreign_keys=movto_id`, `uselist=False`)
 - `items` → `CompraItem` (`back_populates="compra"`, `cascade="all, delete-orphan"`)
@@ -480,13 +480,13 @@ Parcelas/previsões de pagamento ou recebimento de cada transação.
 | `previsto` | Numeric(12,2) | | sim | | Valor previsto |
 | `realizado` | Numeric(12,2) | | não | | Valor efetivamente pago/recebido |
 | `variacao` | Numeric(12,2) | | não | `0` | Diferença (desconto/juros/multa) |
-| `forma_pagamento_id` | Integer | FK→forma_pagamento.id | não | | Origem da forma de pagamento |
+| `carteira_id` | Integer | FK→carteira.id | não | | Origem da forma de pagamento |
 | `taxa` | Numeric(5,2) | | sim | `0` | Taxa vigente no momento da criação |
 
 **Relacionamentos:**
 - `transacao` → `Transacao` (`backref="previsoes"`)
 - `movtos` → `Movto` (`backref="movtos"`)
-- `forma_pagamento` → `FormaPagamento` (`uselist=False`)
+- `carteira` → `Carteira` (`uselist=False`)
 
 **Propriedades computadas:**
 
@@ -653,6 +653,10 @@ Configurações criptografadas (chave-valor). Usa `Fernet` (AES) + `SHA256(SECRE
 | `rubricas` | `/rubricas/<id>/uso` | Verificar uso da rubrica |
 | `rubricas` | `/rubricas/<id>/excluir` | Excluir rubrica |
 | `rubricas` | `/rubricas/<id>/toggle` | Ativar/desativar rubrica |
+| `carteira` | `/carteira/` | Lista de carteiras |
+| `carteira` | `/carteira/novo` | Cadastrar nova carteira |
+| `carteira` | `/carteira/<id>/editar` | Editar carteira |
+| `carteira` | `/carteira/<id>/excluir` | Excluir carteira |
 
 **Comercial:**
 | Blueprint | Rota | Função |
@@ -769,7 +773,7 @@ Sobre | Produtos | Orçamento | Contato
 
 #### Painel Admin
 ```
-Cadastro   → Categorias | Insumos | Produtos | Contas | Rubricas
+Cadastro   → Categorias | Insumos | Produtos | Contas | Rubricas | Carteiras
 Comercial  → Orçamentos | Pedidos | Compras
 Produção   → (lista de produções)
 Financeiro → Recursos | Contas a Receber | Contas a Pagar | Previsões | Recebimentos | Pagamentos
@@ -811,7 +815,7 @@ TRANSFORMAR_AO_SALVAR = {
     "Ingredient":      {"nome": 1, "unidade_medida": 2},
     "Conta":           {"nome": 1},
     "Quote":           {"cliente_nome": 1},
-    "FormaPagamento":  {"nome": 1},
+    "Carteira":  {"nome": 1},
     "Recurso":         {"nome": 1},
     "Producao":        {"descricao": 1},
     "Previsao":        {"documento": 2},

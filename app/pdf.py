@@ -127,7 +127,7 @@ def gerar_pdf_pedido(order, logo_path):
     pdf.ln(4)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(pdf.w / 2 - 10, 6, f"Forminhas: {FORMINHAS.get(order.forminhas, '-')}")
-    pdf.cell(pdf.w / 2 - 10, 6, f"Forma de Pagamento: {order.forma_pagamento_rel.nome or '-'}", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(pdf.w / 2 - 10, 6, f"Carteira: {order.carteira.nome or '-'}", align="R", new_x="LMARGIN", new_y="NEXT")
 
     # Observation
     if order.observacao:
@@ -227,7 +227,7 @@ def gerar_pdf_orcamento(quote, logo_path):
     pdf.ln(4)
     pdf.set_font("Helvetica", "", 10)
     pdf.cell(pdf.w / 2 - 10, 6, f"Forminhas: {FORMINHAS.get(quote.forminhas, '-')}")
-    pdf.cell(pdf.w / 2 - 10, 6, f"Forma de Pagamento: {quote.forma_pagamento_rel.nome or '-'}", align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(pdf.w / 2 - 10, 6, f"Carteira: {quote.carteira.nome or '-'}", align="R", new_x="LMARGIN", new_y="NEXT")
 
     if quote.event and quote.event.tipo:
         pdf.ln(6)

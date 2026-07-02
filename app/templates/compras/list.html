@@ -78,7 +78,7 @@
             <span class="badge bg-secondary">{{ st }}</span>
           {% endif %}
         </td>
-        <td>{% if c and c.forma_pagamento %}{{ c.forma_pagamento.nome }}{% else %}-{% endif %}</td>
+        <td>{% if c and c.carteira %}{{ c.carteira.nome }}{% else %}-{% endif %}</td>
         <td>{% if c and (c.transacao_id or c.movto_id) %}<span class="badge bg-success">Faturado ✓</span>{% else %}-{% endif %}</td>
         <td>{{ t.conta.nome if t and t.conta else '-' }}</td>
         <td>{{ t.fatura if t and t.fatura else '-' }}</td>

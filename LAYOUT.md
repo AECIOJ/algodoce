@@ -53,7 +53,7 @@ O menu collapsível (`#mainNav`, `display:none` por padrão) é aberto pelo hamb
 
 | Seção | Submenus (desktop) | Select (mobile) |
 |-------|--------------------|-----------------|
-| Cadastro | Categorias, Insumos, Produtos, Contas, Rubricas | `#cadastroNavSelect` |
+| Cadastro | Categorias, Insumos, Produtos, Contas, Rubricas, Carteiras | `#cadastroNavSelect` |
 | Comercial | Orçamentos, Pedidos, Compras | `#comercialNavSelect` |
 | Financeiro | Recursos, C. a Receber, C. a Pagar, Recebimentos, Pagamentos | `#financeiroNavSelect` |
 | Produção | (sem submenu — rota única) | (sem select) |
@@ -230,6 +230,7 @@ Em modo **novo** (sem `form_nav`):
 - `contas/form.html`
 - `rubricas/form.html`
 - `recursos/form.html`
+- `carteira/form.html`
 - `orders/form.html` (pedidos — com lista dinâmica de itens)
 - `orders/quote_form.html` (orçamentos)
 - `compras/form.html` (com lista dinâmica de itens)
@@ -373,7 +374,7 @@ Sobre | Produtos | Orçamento | Contato
 
 ### Painel Admin
 ```
-Cadastro   → Categorias | Insumos | Produtos | Contas | Rubricas
+Cadastro   → Categorias | Insumos | Produtos | Contas | Rubricas | Carteiras
 Comercial  → Orçamentos | Pedidos | Compras
 Produção   → (sem submenu)
 Financeiro → Recursos | Contas a Receber | Contas a Pagar | Previsões | Recebimentos | Pagamentos

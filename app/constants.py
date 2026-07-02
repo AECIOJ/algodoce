@@ -42,7 +42,7 @@ TRANSFORMAR_AO_SALVAR = {
     "Conta":       {"nome": 1},
     "Quote":       {"cliente_nome": 1},
     "Recurso":     {"nome": 1},
-    "FormaPagamento": {"nome": 1},
+    "Carteira": {"nome": 1},
     "Producao":    {"descricao": 1},
     "Previsao":    {"documento": 2},
     "Movto":       {"documento": 2, "historico": 1},

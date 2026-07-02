@@ -131,7 +131,14 @@ def edit(id):
 @bp.route("/<int:id>/excluir", methods=["POST"])
 def delete(id):
     previsao = Previsao.query.get_or_404(id)
+    if previsao.movtos:
+        flash("Exclua os movimentos antes de excluir a previsão", "danger")
+        return redirect(url_for("previsoes.list"))
+    t = previsao.transacao
     db.session.delete(previsao)
+    if t:
+        prev_total = sum(float(p.previsto) for p in t.previsoes if p.id != previsao.id)
+        t.total_previsto = prev_total
     db.session.commit()
     flash("Previsão excluída!", "success")
     return redirect(url_for("previsoes.list"))

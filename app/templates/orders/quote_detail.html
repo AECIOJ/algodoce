@@ -56,7 +56,7 @@
         {% set ref = quote.data_renovacao or quote.data_pedido %}
         <p class="mb-1">Validade: {{ (ref.replace(tzinfo=None) + timedelta(days=quote.validade or 3)).strftime('%d/%m/%Y') }} ({{ quote.validade }} dias){% if quote.data_renovacao %} — Renovado em: {{ quote.data_renovacao.strftime('%d/%m/%Y') }}{% endif %}</p>
         <p class="mb-1">Forminhas: {{ FORMINHAS[quote.forminhas] }}</p>
-        <p class="mb-1">Pagamento: {{ quote.forma_pagamento_rel.nome or '-' }}</p>
+        <p class="mb-1">Carteira: {{ quote.carteira.nome or '-' }}</p>
         <p class="mb-0">
           Status:
           <span class="badge {{ 'border border-secondary text-dark' if quote.status == 0 else 'bg-primary' if quote.status == 1 else 'bg-info' if quote.status == 6 else 'bg-expired' if quote.status == 7 else 'bg-danger' if quote.status == 8 else 'bg-success' }}">

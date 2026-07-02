@@ -14,7 +14,7 @@ from app.models.quote_item import QuoteItem
 from app.models.event import Event
 from app.models.quote import Quote
 from app.pdf import gerar_pdf_pedido, gerar_pdf_orcamento
-from app.models.forma_pagamento import FormaPagamento
+from app.models.carteira import Carteira
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
 from app.models.movto import Movto
@@ -134,7 +134,7 @@ def order_list():
         Order.query
         .options(
             db.joinedload(Order.conta),
-            db.joinedload(Order.forma_pagamento_rel),
+            db.joinedload(Order.carteira),
         )
         .order_by(Order.data_entrega)
         .all()
@@ -235,7 +235,7 @@ def converter_orcamento(id):
         client_id=conta.id,
         data_entrega=None,
         observacao=quote.observacao,
-        forma_pagamento_id=quote.forma_pagamento_id,
+        carteira_id=quote.carteira_id,
         forminhas=quote.forminhas,
         status=0,
     )
@@ -287,7 +287,7 @@ def quote_edit(id):
             quote.status = 1
         quote.observacao = _clean(request.form.get("observacao"))
         quote.validade = request.form.get("validade", 3, type=int)
-        quote.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
+        quote.carteira_id = request.form.get("carteira_id", type=int) or None
         quote.forminhas = request.form.get("forminhas", 0, type=int)
 
         _save_event(quote, request.form)
@@ -352,12 +352,12 @@ def quote_edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
+    carteiras = Carteira.query.order_by(Carteira.nome).all()
     return render_template(
         "orders/quote_form.html", quote=quote, products=products, nav=nav,
         tipos_evento=tipos_evento, clients=clients,
         QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS,
-        formas_pagamento=formas_pagamento,
+        carteiras=carteiras,
         ro=bool(quote.pedido_id),
         perfect_match=perfect_match,
         suggested_client=suggested_client,
@@ -377,7 +377,7 @@ def quote_new():
             data_pedido=datetime.now(timezone.utc),
             status=0,
             validade=request.form.get("validade", 3, type=int),
-            forma_pagamento_id=request.form.get("forma_pagamento_id", type=int) or None,
+            carteira_id=request.form.get("carteira_id", type=int) or None,
         )
         db.session.add(quote)
         db.session.flush()
@@ -412,12 +412,12 @@ def quote_new():
         "Infantil", "Família", "Confraternização", "Religioso", "Outros"
     ]
     clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
+    carteiras = Carteira.query.order_by(Carteira.nome).all()
     return render_template(
         "orders/quote_form.html", quote=None, products=products,
         tipos_evento=tipos_evento, clients=clients,
         QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS,
-        formas_pagamento=formas_pagamento,
+        carteiras=carteiras,
     )
 
 
@@ -500,7 +500,7 @@ def new():
             data_previsao_entrega=data_previsao_entrega,
             data_entrega=data_entrega,
             observacao=observacao,
-            forma_pagamento_id=request.form.get("forma_pagamento_id", type=int) or None,
+            carteira_id=request.form.get("carteira_id", type=int) or None,
             forminhas=request.form.get("forminhas", 0, type=int),
             status=9 if data_entrega else 0,
         )
@@ -517,11 +517,11 @@ def new():
 
     clients = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([0, 1])).order_by(Conta.nome).all()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
-    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
+    carteiras = Carteira.query.order_by(Carteira.nome).all()
     return render_template(
         "orders/form.html", order=None, clients=clients, products=products,
         ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS,
-        formas_pagamento=formas_pagamento,
+        carteiras=carteiras,
     )
 
 
@@ -562,7 +562,7 @@ def edit(id):
             if data_previsao_entrega_str else None
         )
         order.observacao = request.form.get("observacao", "")
-        order.forma_pagamento_id = request.form.get("forma_pagamento_id", type=int) or None
+        order.carteira_id = request.form.get("carteira_id", type=int) or None
         order.forminhas = request.form.get("forminhas", 0, type=int)
         _save_event(order, request.form)
 
@@ -607,11 +607,11 @@ def edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    formas_pagamento = FormaPagamento.query.order_by(FormaPagamento.nome).all()
+    carteiras = Carteira.query.order_by(Carteira.nome).all()
     return render_template(
         "orders/form.html", order=order, clients=clients, products=products, nav=nav,
         ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS,
-        formas_pagamento=formas_pagamento,
+        carteiras=carteiras,
         PREVISAO_STATUS=PREVISAO_STATUS,
         ro=order.status == 9
     )
@@ -689,7 +689,7 @@ def gerar_financeiro(id):
         flash("Financeiro já gerado para este pedido.", "warning")
         return redirect(url_for("orders.edit", id=id))
 
-    fp = order.forma_pagamento_rel
+    fp = order.carteira
     if not fp:
         flash("Selecione uma forma de pagamento antes de gerar o financeiro.", "warning")
         return redirect(url_for("orders.edit", id=id))
@@ -711,7 +711,7 @@ def gerar_financeiro(id):
                 conta_id=order.client_id,
                 valor=valor_liquido,
                 historico=request.form.get("historico", f"Recebimento Pedido #{order.id}"),
-                forma_pagamento_id=fp.id,
+                carteira_id=fp.id,
             )
             db.session.add(movto)
             db.session.flush()
@@ -739,10 +739,13 @@ def gerar_financeiro(id):
                     transacao_id=transacao.id,
                     vencimento=p["vencimento"],
                     previsto=p["previsto"],
-                    forma_pagamento_id=fp.id,
+                    carteira_id=fp.id,
                     taxa=taxa,
                 )
                 db.session.add(previsao)
+
+            prev_total = sum(float(p["previsto"]) for p in parcelas)
+            transacao.total_previsto = prev_total
 
         db.session.commit()
         flash("Financeiro gerado com sucesso!", "success")

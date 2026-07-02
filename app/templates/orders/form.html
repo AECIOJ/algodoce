@@ -205,15 +205,15 @@
     <div class="card-body">
       <div class="d-flex align-items-end gap-3 flex-wrap mb-3">
         <div>
-          <label class="form-label mb-0">Forma de Pagamento</label>
-          <select name="forma_pagamento_id" id="forma-pagamento-select" class="form-select form-select-sm" required
-            data-saved-id="{{ order.forma_pagamento_id or '' }}"
+          <label class="form-label mb-0">Carteira</label>
+          <select name="carteira_id" id="carteira-select" class="form-select form-select-sm" required
+            data-saved-id="{{ order.carteira_id or '' }}"
             data-entrega="{{ order.data_entrega or '' }}"
             data-previsao-entrega="{{ order.data_previsao_entrega or '' }}"
             {{ 'disabled' if ro or order.transacao_id or order.movto_id }}>
             <option value="">Selecione...</option>
-            {% for fp in formas_pagamento %}
-              <option value="{{ fp.id }}" {{ 'selected' if order.forma_pagamento_rel and order.forma_pagamento_rel.id == fp.id }} data-gerar="{{ fp.gerar }}" data-prazo="{{ fp.prazo_recebimento or '' }}">{{ fp.nome }} ({{ {0:'Movimento',1:'Previsão'}[fp.gerar] }})</option>
+            {% for c in carteiras %}
+              <option value="{{ c.id }}" {{ 'selected' if order.carteira and order.carteira.id == c.id }} data-gerar="{{ c.gerar }}" data-prazo="{{ c.prazo_recebimento or '' }}">{{ c.nome }} ({{ {0:'Movimento',1:'Previsão'}[c.gerar] }})</option>
             {% endfor %}
           </select>
         </div>
@@ -478,7 +478,7 @@ function preencherTelefone(select) {
 }
 
 (function() {
-  var select = document.getElementById('forma-pagamento-select');
+  var select = document.getElementById('carteira-select');
   var wrapper = document.getElementById('gerar-financeiro-wrapper');
   if (!select || !wrapper) return;
   var previsaoLink = document.getElementById('gerar-previsao-link');

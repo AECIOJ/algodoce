@@ -11,10 +11,10 @@ class Previsao(db.Model):
     previsto = db.Column(db.Numeric(12, 2), nullable=False)
     realizado = db.Column(db.Numeric(12, 2), nullable=True)
     variacao = db.Column(db.Numeric(12, 2), nullable=True, server_default="0")
-    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("forma_pagamento.id"), nullable=True)
+    carteira_id = db.Column(db.Integer, db.ForeignKey("carteira.id"), nullable=True)
     taxa = db.Column(db.Numeric(5, 2), nullable=False, default=0)
 
-    forma_pagamento = db.relationship("FormaPagamento", uselist=False)
+    carteira = db.relationship("Carteira", uselist=False)
 
     @property
     def status(self):

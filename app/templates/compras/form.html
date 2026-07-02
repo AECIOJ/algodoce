@@ -17,6 +17,8 @@
   {% set status_badge = '<span class="badge bg-warning ms-2">' ~ st_label ~ '</span>' %}
 {% elif st == 1 %}
   {% set status_badge = '<span class="badge bg-info ms-2">' ~ st_label ~ '</span>' %}
+{% elif st == 0 %}
+  {% set status_badge = '<span class="badge bg-dark ms-2">' ~ st_label ~ '</span>' %}
 {% else %}
   {% set status_badge = '<span class="badge bg-secondary ms-2">' ~ st_label ~ '</span>' %}
 {% endif %}
@@ -176,12 +178,12 @@
   <div class="card-body">
     <div class="d-flex align-items-end gap-3 flex-wrap mb-3">
       <div>
-        <label class="form-label mb-0">Forma de Pagamento</label>
-        <select name="forma_pagamento_id" id="forma-pagamento-select" class="form-select form-select-sm" required
-          data-saved-id="{{ compra.forma_pagamento_id or '' if compra else '' }}">
+        <label class="form-label mb-0">Carteira</label>
+        <select name="carteira_id" id="carteira-select" class="form-select form-select-sm" required
+          data-saved-id="{{ compra.carteira_id or '' if compra else '' }}">
           <option value="">Selecione...</option>
-          {% for fp in formas_pagamento %}
-          <option value="{{ fp.id }}" {{ 'selected' if compra.forma_pagamento and compra.forma_pagamento.id == fp.id }} data-gerar="{{ fp.gerar }}" data-prazo="{{ fp.prazo_recebimento or '' }}">{{ fp.nome }} ({{ {0:'Movimento',1:'Previsão'}[fp.gerar] }})</option>
+          {% for c in carteiras %}
+          <option value="{{ c.id }}" {{ 'selected' if compra.carteira and compra.carteira.id == c.id }} data-gerar="{{ c.gerar }}" data-prazo="{{ c.prazo_recebimento or '' }}">{{ c.nome }} ({{ {0:'Movimento',1:'Previsão'}[c.gerar] }})</option>
           {% endfor %}
         </select>
       </div>
@@ -200,7 +202,9 @@
     </div>
 
     <div class="d-flex align-items-center gap-2 mb-2">
-      <h5 class="mb-0">Parcelas</h5>
+      <h5 class="mb-0">Parcelas
+        {% if transacao and transacao.status == 0 %}<span class="badge bg-dark ms-1 align-middle" style="font-size:0.55rem;">Soma difere do valor total</span>{% endif %}
+      </h5>
     </div>
 
     <!-- Desktop: parcelas table -->
@@ -680,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
   calcTotal();
 });
 
-document.getElementById('main-form').addEventListener('submit', function() {
+document.getElementById('main-form').addEventListener('submit', function(e) {
   if (window.innerWidth < 768) {
     document.querySelectorAll('#itens-container input, #itens-container select, #previsoes-container input, #previsoes-container select').forEach(function(el) { el.disabled = true; });
   } else {
@@ -689,7 +693,7 @@ document.getElementById('main-form').addEventListener('submit', function() {
 });
 
 (function() {
-  var select = document.getElementById('forma-pagamento-select');
+  var select = document.getElementById('carteira-select');
   var wrapper = document.getElementById('gerar-financeiro-wrapper');
   if (!select || !wrapper) return;
   var btn = document.getElementById('btn-gerar');
@@ -735,6 +739,10 @@ function gerarClick() {
     return;
   }
   var form = document.getElementById('main-form');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
   if (window.innerWidth >= 768) {
     document.querySelectorAll('#itens-mobile-container input, #itens-mobile-container select, #previsoes-mobile-container input, #previsoes-mobile-container select').forEach(function(el) { el.disabled = true; });
   } else {

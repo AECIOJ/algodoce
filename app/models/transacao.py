@@ -13,17 +13,18 @@ class Transacao(db.Model):
     valor = db.Column(db.Numeric(12, 2), nullable=False)
     historico = db.Column(db.Text, nullable=True)
     cancelado = db.Column(db.Date, nullable=True)
+    total_previsto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
 
     conta = db.relationship("Conta", backref="transacoes")
     rubrica = db.relationship("Rubrica", backref="transacoes")
-    previsoes = db.relationship("Previsao", backref="transacao", cascade="all, delete-orphan",
+    previsoes = db.relationship("Previsao", backref="transacao",
                                 order_by="Previsao.vencimento, Previsao.id")
 
     @property
     def status(self):
         if self.cancelado:
             return 8
-        if not self.previsoes or sum(float(p.previsto) for p in self.previsoes) < float(self.valor):
+        if not self.previsoes or abs(float(self.total_previsto or 0) - float(self.valor)) > 0.005:
             return 0
         return max(p.status for p in self.previsoes)
 

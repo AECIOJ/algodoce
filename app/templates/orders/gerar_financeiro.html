@@ -14,7 +14,7 @@
     <div class="row">
       <div class="col-md-3"><strong>Cliente:</strong> {{ order.conta.nome }}</div>
       <div class="col-md-3"><strong>Total:</strong> R$ {{ total|brl }}</div>
-      <div class="col-md-3"><strong>Forma de Pagamento:</strong> {{ fp.nome }}</div>
+      <div class="col-md-3"><strong>Carteira:</strong> {{ fp.nome }}</div>
       <div class="col-md-3">
         <strong>Modo:</strong>
         {{ {0:"Movimento", 1:"Previsão"}[fp.gerar] }}
@@ -80,7 +80,7 @@
               <th>Vencimento</th>
               <th class="text-end">Valor</th>
               <th>Taxa</th>
-              <th>Forma de Pagamento</th>
+              <th>Carteira</th>
             </tr>
           </thead>
           <tbody>
