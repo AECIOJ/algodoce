@@ -137,6 +137,8 @@ def create_app():
         admin.set_password(admin_password)
         db.session.commit()
 
+    app.jinja_env.finalize = lambda x: '' if x is None else x
+
     app.jinja_env.filters['brl'] = fmt_brl
     app.jinja_env.filters['fmtid'] = fmt_id
     app.jinja_env.filters['fmtzero'] = fmt_zero
@@ -151,9 +153,17 @@ def create_app():
     @app.context_processor
     def inject_versao():
         from flask_login import current_user
-        ano = app.config.get("APP_VERSION_YEAR", "2026")[-2:]
-        mes = app.config.get("APP_VERSION_MONTH", "01")
-        seq = app.config.get("APP_VERSION_SEQUENCE", "001")
+        import importlib.util
+        import os
+        import sys
+        versao_path = os.path.join(app.root_path, "versao.py")
+        spec = importlib.util.spec_from_file_location("__versao__", versao_path)
+        vmod = importlib.util.module_from_spec(spec)
+        sys.modules["__versao__"] = vmod
+        spec.loader.exec_module(vmod)
+        ano = vmod.YEAR[-2:]
+        mes = vmod.MONTH
+        seq = vmod.SEQUENCE
         versao = f"v1.{ano}.{mes}-{seq}"
         usuario = (current_user.username if current_user.is_authenticated else "Visitante").upper()
         return dict(versao=versao, usuario=usuario)

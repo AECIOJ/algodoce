@@ -1,0 +1,3 @@
+YEAR = "2026"
+MONTH = "07"
+SEQUENCE = "004"

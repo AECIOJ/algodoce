@@ -61,7 +61,7 @@
   </div>
   <!-- Mobile: collapsible links -->
     <div class="d-lg-none" id="mainNav" style="background-color:var(--cor-menu); display:none;">
-      <div class="d-flex flex-column px-2 pb-4" style="gap:2px;">
+      <div class="d-flex flex-column px-2 pb-4" style="gap:2px;padding-bottom:calc(1rem + env(safe-area-inset-bottom, 50px))!important;">
         <a class="nav-link" href="{{ url_for('categories.list') }}" id="cadastroMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Cadastro</a>
         <a class="nav-link" href="/orcamentos" id="comercialMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Comercial</a>
         <a class="nav-link" href="/producao" id="producaoMenu" style="color:rgba(255,255,255,.85)!important;display:block;width:100%;padding:0.75rem 0.5rem;font-size:1.1rem;border-radius:4px;touch-action:manipulation;">Produção</a>
