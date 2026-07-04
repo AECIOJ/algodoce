@@ -1,13 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, session
-from flask_login import current_user
 from sqlalchemy import or_
-from app.extensions import db
 from app.models.product import Product
 from app.models.category import Category
-from app.models.client import Conta
-from app.models.quote import Quote
-from app.models.quote_item import QuoteItem
-from datetime import datetime, timezone
 
 bp = Blueprint("vitrine", __name__, url_prefix="/vitrine")
 
@@ -26,8 +20,11 @@ def listar():
     if categoria_id:
         query = query.filter_by(category_id=categoria_id)
     produtos = query.all()
+    items = session.get("orcamento_items", [])
+    total_itens = len(items)
     return render_template("orcamento/navegador.html",
-                           produtos=produtos, categorias=categorias, categoria_id=categoria_id)
+                           produtos=produtos, categorias=categorias,
+                           categoria_id=categoria_id, total_itens=total_itens)
 
 
 @bp.route("/<int:id>/add", methods=["POST"])
@@ -40,40 +37,22 @@ def adicionar(id):
     cliente_id = session.get("cliente_id")
     if not cliente_id:
         return jsonify(error="identificar"), 401
-    client = Conta.query.get(cliente_id)
-    if not client:
-        return jsonify(error="identificar"), 401
 
-    quote = Quote.query.filter_by(
-        cliente_telefone=client.telefone, status=0
-    ).order_by(Quote.id.desc()).first()
-
-    if not quote:
-        quote = Quote(
-            cliente_nome=client.nome,
-            cliente_telefone=client.telefone,
-            data_pedido=datetime.now(timezone.utc),
-        )
-        db.session.add(quote)
-        db.session.flush()
-
-    existing = QuoteItem.query.filter_by(
-        quote_id=quote.id, product_id=produto.id
-    ).first()
-    if existing:
-        existing.quantidade += quantidade
-        if observacao:
-            existing.observacao = observacao
-    else:
-        item = QuoteItem(
-            quote_id=quote.id,
-            product_id=produto.id,
-            quantidade=quantidade,
-            preco_unitario=None,
-            observacao=observacao or None,
-        )
-        db.session.add(item)
-    db.session.commit()
-
-    total_itens = QuoteItem.query.filter_by(quote_id=quote.id).count()
+    items = session.get("orcamento_items", [])
+    found = False
+    for i in items:
+        if i["product_id"] == id:
+            i["quantidade"] += quantidade
+            if observacao:
+                i["observacao"] = observacao
+            found = True
+            break
+    if not found:
+        items.append({
+            "product_id": id,
+            "quantidade": quantidade,
+            "observacao": observacao or None,
+        })
+    session["orcamento_items"] = items
+    total_itens = len(items)
     return jsonify(success=True, total_itens=total_itens)

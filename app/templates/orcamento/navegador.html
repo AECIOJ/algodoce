@@ -1,35 +1,6 @@
 {% extends "site/base.html" %}
 {% block content %}
 <style>
-  .cat-toggle {
-    display: none;
-    background: var(--rosa); border: none;
-    color: #fff; font-size: 1.1rem;
-    cursor: pointer; width: 30px; height: 40px;
-    border-radius: 0 6px 6px 0;
-    position: fixed; left: 0; top: 130px; z-index: 1035;
-    box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-  }
-  .cat-sidebar {
-    position: fixed; left: 0; top: 0; bottom: 0; z-index: 1041;
-    width: 220px; background: #fff;
-    transform: translateX(-100%); transition: transform 0.25s ease;
-    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
-    padding-top: 130px; overflow-y: auto;
-  }
-  .cat-sidebar.open { transform: translateX(0); }
-  .cat-sidebar .bar-link {
-    display: block; padding: 0.8rem 1.2rem;
-    color: var(--rosa); font-weight: 500; text-decoration: none;
-    border-left: 3px solid transparent;
-  }
-  .cat-sidebar .bar-link.active { border-left-color: var(--rosa); background: #fce4ec; }
-  .cat-sidebar-overlay {
-    position: fixed; inset: 0; z-index: 1040;
-    background: rgba(0,0,0,0.4); display: none;
-  }
-  .cat-sidebar-overlay.show { display: block; }
-  .cat-titulo-mobile { display: none; }
   .vitrine-layout {
     display: flex; gap: 1.5rem; align-items: stretch;
     justify-content: center;
@@ -46,6 +17,7 @@
     font-size: 0.9rem; font-weight: 500;
     border-radius: 6px !important;
   }
+  .cat-select-bar { display: none; }
   @media (min-width: 576px) {
     #carrossel {
       width: 58%; height: 480px; display: flex; flex-direction: column;
@@ -74,88 +46,90 @@
     #carrossel .col-md-6:last-child > div:first-child {
       flex: 1; overflow-y: auto; min-height: 0;
     }
+    .controles-row { gap: 4px; }
+    .controles-row .qtd-label { font-size: 0.8rem; }
+    .controles-row .qtd-input { width: 44px !important; font-size: 0.85rem; padding: 0.1rem; }
+    .controles-row .btn { padding: 0.15rem 0.4rem; font-size: 0.85rem; }
+    .controles-row .incluir-btn { font-size: 0.85rem; padding: 0.2rem 0.5rem; }
   }
   @media (max-width: 575.98px) {
-    body { overflow: hidden; height: 100vh; }
     main.container {
-      max-width: 100%; padding-left: 0; padding-right: 0;
-      margin-bottom: 0;
-      display: flex; flex-direction: column;
-      height: 100vh; overflow: hidden;
+      display: flex; flex-direction: column; overflow: hidden;
     }
-    .vitrine-layout { display: flex; flex-direction: column; gap: 0; flex: 1; overflow: hidden; }
+    .vitrine-layout { display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 0; }
     .cat-badges { display: none; }
-    .cat-titulo-mobile {
-      display: flex; align-items: center; gap: 8px;
+    .cat-select-bar {
+      display: flex; align-items: center; justify-content: center;
       padding: 2px 12px;
-      flex-shrink: 0;
-      color: var(--rosa); font-weight: 600; font-size: 1rem;
-      position: sticky; top: 0; z-index: 100;
-      background: var(--bg-claro);
+      background: #fff;
     }
-    .cat-titulo-mobile .cat-toggle {
-      display: inline-flex; position: relative;
-      width: auto; height: auto; border-radius: 4px;
-      padding: 3px 8px; box-shadow: none;
-      top: auto; left: auto; z-index: auto;
-      align-items: center; justify-content: center;
+    .cat-select-bar select {
+      width: 100%;
+      min-height: 42px;
+      font-size: 1.05rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 4px 10px;
+      background: #fff;
+      color: var(--rosa);
+      font-weight: 500;
     }
     #carrossel {
       flex: 1; display: flex; flex-direction: column;
-      padding: 0 0.5rem 1.8rem 0.5rem !important;
-      margin-bottom: 0; position: relative;
-      overflow-y: auto; min-height: 0;
+      overflow-y: auto; overflow-x: hidden; min-height: 0;
+      touch-action: pan-y;
+      padding: 0 0.5rem 0 0.5rem !important;
+      border: none !important; box-shadow: none !important; border-radius: 0 !important;
+      background: #fff;
     }
     #carrossel .produto-item:not(.d-none) {
       flex: 1; display: flex; flex-direction: column;
+      padding-bottom: 192px;
     }
-    #carrossel .produto-item h3 {
-      flex-shrink: 0; padding: 0.5rem 0.5rem 0 0.5rem;
-    }
+    #carrossel .produto-item h3 { padding: 0.5rem 0; }
     #carrossel .produto-item .row {
-      flex: 1; display: flex; flex-direction: column;
-      margin: 0;
+      flex: 1; display: flex; flex-direction: column; margin: 0;
     }
     #carrossel .produto-item .col-md-6:first-child {
-      flex: 0 0 auto; height: 25vh; min-height: 140px; max-height: 200px;
+      flex: 0 0 auto; height: 22vh; min-height: 120px; max-height: 160px;
       display: flex; align-items: flex-start; justify-content: center;
-      overflow: hidden; margin-bottom: 0;
-      padding: 0 1rem;
+      overflow: hidden; padding: 0; margin-bottom: 0.5rem;
     }
     #carrossel .produto-item .col-md-6:first-child img {
-      max-height: 100%; max-width: 100%;
-      object-fit: contain;
+      max-height: 100%; max-width: 100%; object-fit: contain;
     }
     #carrossel .produto-item .col-md-6:last-child {
-      flex: 1; display: flex; flex-direction: column;
-      padding-left: 0;
+      flex: 1; display: flex; flex-direction: column; padding-left: 0;
+      padding-bottom: 0;
     }
-    #carrossel .produto-item .col-md-6:last-child > div:first-child {
-      flex: 1;
-    }
-    #prev-btn, #next-btn {
-      top: 15vh !important;
-    }
+    #prev-btn, #next-btn { top: 15vh !important; }
     .controles-row {
-      display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;
-      padding: 0.25rem 0 0.25rem 1rem;
-      flex-shrink: 0;
-      margin-top: auto;
+      position: fixed; bottom: 88px; left: 8px; right: 8px; z-index: 1031;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding: 8px 12px;
+      background: #fff;
     }
-    .controles-row > div:first-child { max-width: 50%; }
     .controles-row .qtd-label { font-size: 0.9rem; white-space: nowrap; }
-    .controles-row .qtd-input { width: 50px !important; font-size: 1rem; padding: 0.15rem; }
-    .controles-row .btn { padding: 0.15rem 0.35rem; font-size: 0.95rem; }
-    .controles-row .incluir-btn { font-size: 0.95rem; padding: 0.2rem 0.5rem; white-space: nowrap; }
+    .controles-row .qtd-input { width: 54px !important; font-size: 1rem; padding: 0.15rem; }
+    .controles-row .btn { padding: 0.2rem 0.5rem; font-size: 0.95rem; }
+    .controles-row .incluir-btn { font-size: 0.95rem; padding: 0.3rem 0.6rem; white-space: nowrap; }
+    .vitrine-dots {
+      position: fixed; bottom: 184px; left: 0; right: 0; z-index: 1033;
+      display: flex; justify-content: center; align-items: center;
+      gap: 8px; pointer-events: none;
+    }
+    .vitrine-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(0,0,0,0.2); cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+      pointer-events: auto;
+    }
+    .vitrine-dot.active {
+      background: var(--rosa);
+      transform: scale(1.3);
+    }
   }
 </style>
-<div class="cat-sidebar-overlay" id="catOverlay" onclick="toggleCategorias()"></div>
-<div class="cat-sidebar" id="catSidebar">
-  <a href="/vitrine/" class="bar-link {% if not categoria_id %}active{% endif %}">Todos</a>
-  {% for cat in categorias %}
-  <a href="/vitrine/?categoria={{ cat.id }}" class="bar-link {% if categoria_id == cat.id %}active{% endif %}">{{ cat.nome }}</a>
-  {% endfor %}
-</div>
 <div class="vitrine-layout">
   <div class="cat-badges">
     <a href="/vitrine" class="badge bg-rosa mb-1 px-3 py-2 categoria-btn {% if not categoria_id %}opacity-100{% else %}opacity-50{% endif %}"
@@ -168,9 +142,13 @@
     {% endfor %}
   </div>
 
-  <div class="cat-titulo-mobile">
-    <button class="cat-toggle" id="catToggle" onclick="toggleCategorias()">☰</button>
-    <span>{% if categoria_id %}{% for cat in categorias %}{% if cat.id == categoria_id %}{{ cat.nome }}{% endif %}{% endfor %}{% endif %}</span>
+  <div class="cat-select-bar">
+    <select id="catSelect" onchange="navegarCategoria(this.value)">
+      <option value="/vitrine/" {% if not categoria_id %}selected{% endif %}>Todas as categorias</option>
+      {% for cat in categorias %}
+      <option value="/vitrine/?categoria={{ cat.id }}" {% if categoria_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
+      {% endfor %}
+    </select>
   </div>
 
   <div id="carrossel" class="card shadow-sm border-0 p-4 text-center position-relative">
@@ -197,48 +175,54 @@
                 <p style="font-size:0.9rem; line-height:1.4; text-align: justify;">{{ p.descricao }}</p>
               {% endif %}
             </div>
-            <div class="d-flex align-items-center gap-1 flex-wrap controles-row">
-              <div class="d-flex align-items-center gap-1">
-                <label class="form-label small text-muted mb-0 qtd-label">Qtd.</label>
-                <button class="btn btn-outline-secondary btn-sm qtd-minus">−</button>
-                <input type="number" class="form-control form-control-sm qtd-input"
-                       style="width:60px;text-align:center;" value="{{ p.qtd_minima or 1 }}"
-                       min="0" step="1" data-minima="{{ p.qtd_minima or 0 }}">
-                <button class="btn btn-outline-secondary btn-sm qtd-plus">+</button>
-              </div>
-              <button class="btn btn-verde incluir-btn" data-id="{{ p.id }}">
+              <div class="d-flex align-items-center gap-1 flex-wrap controles-row">
+                <div class="d-flex align-items-center gap-1">
+                  <label class="form-label small text-muted mb-0 qtd-label">Qtd.</label>
+                  <button class="btn btn-outline-secondary qtd-minus vitrine-qtd-btn site-touch-btn">−</button>
+                  <input type="number" class="form-control qtd-input vitrine-qtd-input"
+                         value="{{ p.qtd_minima or 1 }}"
+                         min="0" step="1" data-minima="{{ p.qtd_minima or 0 }}">
+                  <button class="btn btn-outline-secondary qtd-plus vitrine-qtd-btn site-touch-btn">+</button>
+                </div>
+                <button class="btn btn-verde incluir-btn vitrine-incluir-btn site-touch-btn" data-id="{{ p.id }}">
   + Orçar
-              </button>
-              {% if p.qtd_minima and p.qtd_minima > 0 %}
-              <span class="text-muted small" style="font-size:0.7rem;">Mín: {{ p.qtd_minima }} und</span>
-              {% endif %}
-            </div>
+                </button>
+                {% if p.qtd_minima and p.qtd_minima > 0 %}
+                <span class="text-muted small" style="font-size:0.7rem;">Mín: {{ p.qtd_minima }} und</span>
+                {% endif %}
+              </div>
           </div>
         </div>
       </div>
     {% endfor %}
-    <button id="prev-btn" class="btn border-0 position-absolute top-50 translate-middle-y"
+    <button id="prev-btn" class="btn border-0 position-absolute top-50 translate-middle-y d-none d-sm-inline-block"
             style="left: 0; color: var(--rosa); font-size: 2.5rem; z-index: 5;">‹</button>
-    <button id="next-btn" class="btn border-0 position-absolute top-50 translate-middle-y"
+    <button id="next-btn" class="btn border-0 position-absolute top-50 translate-middle-y d-none d-sm-inline-block"
             style="right: 0; color: var(--rosa); font-size: 2.5rem; z-index: 5;">›</button>
   {% else %}
     <p class="text-muted">Nenhum produto disponível no momento.</p>
   {% endif %}
   </div>
+  <div class="vitrine-dots d-sm-none">
+    <span class="vitrine-dot active" data-dot="0"></span>
+    <span class="vitrine-dot" data-dot="1"></span>
+    <span class="vitrine-dot" data-dot="2"></span>
+    <span class="vitrine-dot" data-dot="3"></span>
+    <span class="vitrine-dot" data-dot="4"></span>
+    <span class="vitrine-dot" data-dot="5"></span>
+  </div>
 </div>
 
-<div class="sticky-bar" id="stickyBar">
-  <span id="stickyCount">🧾 0 itens no orçamento</span>
-  <a href="/orcamento" class="btn btn-sm text-white" style="background:rgba(255,255,255,0.2);">
-    Finalizar →
-  </a>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 var pendingItem = null;
 var clientPopup = null;
+
+function navegarCategoria(url) {
+  window.location.href = url;
+}
 
 function phoneMask(input) {
   input.addEventListener('input', function() {
@@ -268,9 +252,11 @@ function adicionarItem(id, qtd, btn) {
     return r.json();
   }).then(function(data) {
     if (data && data.success) {
-      document.getElementById('stickyCount').textContent =
-        '🧾 ' + data.total_itens + ' itens no orçamento';
-      document.getElementById('stickyBar').classList.add('show');
+      var bn = document.getElementById('bnOrcamento');
+      var badge = document.getElementById('bnOrcamentoBadge');
+      badge.textContent = data.total_itens;
+      badge.classList.add('show');
+      bn.classList.add('bn-ativo');
       btn.textContent = '✓ Adicionado';
       btn.classList.remove('btn-verde');
       btn.classList.add('btn-success');
@@ -348,11 +334,6 @@ function submitClient() {
   });
 }
 
-function toggleCategorias() {
-  document.getElementById('catSidebar').classList.toggle('open');
-  document.getElementById('catOverlay').classList.toggle('show');
-}
-
 document.addEventListener('DOMContentLoaded', function() {
   // Carousel navigation
   var allItems = document.querySelectorAll('.produto-item');
@@ -363,15 +344,53 @@ document.addEventListener('DOMContentLoaded', function() {
       i.classList.toggle('d-none', idx !== index);
     });
     currentIndex = index;
+    var total = allItems.length;
+    var DOT_COUNT = 6;
+    document.querySelectorAll('.vitrine-dot').forEach(function(d, idx) {
+      var active;
+      if (total <= 1) {
+        active = idx === Math.floor(DOT_COUNT / 2);
+      } else {
+        active = idx === Math.round(index * (DOT_COUNT - 1) / (total - 1));
+      }
+      d.classList.toggle('active', active);
+    });
   }
 
-  document.getElementById('prev-btn').addEventListener('click', function() {
-    showProduto(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1);
+  function prevProduto() { showProduto(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1); }
+  function nextProduto() { showProduto(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0); }
+
+  document.getElementById('prev-btn').addEventListener('click', prevProduto);
+  document.getElementById('next-btn').addEventListener('click', nextProduto);
+  document.querySelectorAll('.vitrine-dot').forEach(function(dot, dotIdx) {
+    dot.addEventListener('click', function() {
+      var total = allItems.length;
+      var DOT_COUNT = 6;
+      var targetIdx;
+      if (total <= 1) {
+        targetIdx = 0;
+      } else {
+        targetIdx = Math.round(dotIdx * (total - 1) / (DOT_COUNT - 1));
+      }
+      showProduto(targetIdx);
+    });
   });
 
-  document.getElementById('next-btn').addEventListener('click', function() {
-    showProduto(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0);
-  });
+  // Swipe support
+  var touchStartX = 0;
+  var touchEndX = 0;
+  var carrossel = document.getElementById('carrossel');
+  carrossel.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+  }, { passive: true });
+  carrossel.addEventListener('touchend', function(e) {
+    touchEndX = e.changedTouches[0].screenX;
+    var diff = touchStartX - touchEndX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextProduto();
+      else prevProduto();
+    }
+  }, { passive: true });
 
   // Quantity controls
   document.querySelectorAll('.qtd-minus').forEach(function(btn) {
@@ -415,5 +434,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 });
+var initTotal = {{ total_itens }};
+if (initTotal > 0) {
+  var bn = document.getElementById('bnOrcamento');
+  var badge = document.getElementById('bnOrcamentoBadge');
+  badge.textContent = initTotal;
+  badge.classList.add('show');
+  bn.classList.add('bn-ativo');
+}
 </script>
 {% endblock %}

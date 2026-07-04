@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from flask_login import login_required
 from app.extensions import db
 from app.utils import _title_case
@@ -7,6 +7,7 @@ from app.models.product import Product
 from app.models.ingredient import Ingredient
 from app.models.client import Conta
 from app.models.quote import Quote
+from app.models.quote_item import QuoteItem
 from app.models.recurso import Recurso
 from app.models.producao import Producao
 from app.models.movto import Movto
@@ -68,3 +69,10 @@ def transformar_texto():
 
     db.session.commit()
     return jsonify({"success": True, "count": count})
+
+
+@bp.route("/orcamento-count")
+def orcamento_count():
+    items = session.get("orcamento_items", [])
+    total = len(items)
+    return jsonify(total=total)

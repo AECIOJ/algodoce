@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from app.extensions import db
 from app.models.client import Conta
+from app.models.product import Product
 from app.models.quote import Quote
 from app.models.quote_item import QuoteItem
 from app.models.event import Event
@@ -41,88 +42,54 @@ def _save_event(obj, form):
 bp = Blueprint("orcamento", __name__)
 
 
+def _load_session_items():
+    items = []
+    for i in session.get("orcamento_items", []):
+        produto = Product.query.get(i["product_id"])
+        if produto:
+            items.append({
+                "product_id": i["product_id"],
+                "produto": produto,
+                "quantidade": i["quantidade"],
+                "observacao": i["observacao"] or "",
+            })
+    return items
+
+
 @bp.route("/orcamento")
 def lista():
     cliente_id = session.get("cliente_id")
     cliente = None
-    items = []
-    quote = None
     if cliente_id:
         cliente = Conta.query.get(cliente_id)
-        if cliente:
-            quote = Quote.query.filter_by(
-                cliente_telefone=cliente.telefone, status=0
-            ).order_by(Quote.id.desc()).first()
-            if quote:
-                items = QuoteItem.query.filter_by(quote_id=quote.id).all()
+    items = _load_session_items()
     return render_template("orcamento/lista.html",
-                           cliente=cliente, items=items, quote=quote)
+                           cliente=cliente, items=items)
 
 
 @bp.route("/orcamento/remover/<int:id>", methods=["POST"])
 def remover(id):
-    item = QuoteItem.query.get_or_404(id)
-    db.session.delete(item)
-    db.session.commit()
+    items = session.get("orcamento_items", [])
+    session["orcamento_items"] = [i for i in items if i["product_id"] != id]
     return redirect(url_for("orcamento.lista"))
 
 
-@bp.route("/orcamento/atualizar/<int:id>", methods=["POST"])
-def atualizar(id):
-    item = QuoteItem.query.get_or_404(id)
-    data = request.form
-
-    if "quantidade" in data:
-        try:
-            nova_qtd = int(data["quantidade"])
-            minima = item.product.qtd_minima or 1
-            if nova_qtd >= minima:
-                item.quantidade = nova_qtd
-        except (ValueError, TypeError):
-            pass
-
-    if "observacao" in data:
-        item.observacao = data["observacao"].strip() or None
-
-    db.session.commit()
-    return redirect(url_for("orcamento.lista"))
-
-
-@bp.route("/orcamento/salvar", methods=["POST"])
-def salvar_tudo():
-    cliente_id = session.get("cliente_id")
-    if not cliente_id:
-        return redirect(url_for("orcamento.lista"))
-
-    cliente = Conta.query.get(cliente_id)
-    if not cliente:
-        return redirect(url_for("orcamento.lista"))
-
-    quote = Quote.query.filter_by(
-        cliente_telefone=cliente.telefone, status=0
-    ).order_by(Quote.id.desc()).first()
-    if not quote:
-        return redirect(url_for("orcamento.lista"))
-
-    items = QuoteItem.query.filter_by(quote_id=quote.id).all()
-    for item in items:
-        qtd_key = f"quantidade_{item.id}"
-        obs_key = f"observacao_{item.id}"
-
-        if qtd_key in request.form:
-            try:
-                nova_qtd = int(request.form[qtd_key])
-                minima = item.product.qtd_minima or 1
-                if nova_qtd >= minima:
-                    item.quantidade = nova_qtd
-            except (ValueError, TypeError):
-                pass
-
-        if obs_key in request.form:
-            item.observacao = request.form[obs_key].strip() or None
-
-    db.session.commit()
-    return redirect(url_for("orcamento.lista"))
+@bp.route("/orcamento/atualizar-item", methods=["POST"])
+def atualizar_item():
+    data = request.get_json(silent=True) or {}
+    product_id = data.get("product_id")
+    if not product_id:
+        return jsonify(error="product_id required"), 400
+    items = session.get("orcamento_items", [])
+    for i in items:
+        if i["product_id"] == product_id:
+            if "quantidade" in data:
+                i["quantidade"] = int(data["quantidade"])
+            if "observacao" in data:
+                i["observacao"] = data["observacao"].strip() or None
+            break
+    session["orcamento_items"] = items
+    return jsonify(success=True)
 
 
 @bp.route("/api/cliente", methods=["POST"])
@@ -157,16 +124,32 @@ def enviar():
     if not cliente:
         return redirect(url_for("orcamento.lista"))
 
-    quote = Quote.query.filter_by(
-        cliente_telefone=cliente.telefone, status=0
-    ).order_by(Quote.id.desc()).first()
-
-    if not quote:
+    session_items = session.get("orcamento_items", [])
+    if not session_items:
         return redirect(url_for("orcamento.lista"))
+
+    quote = Quote(
+        cliente_nome=cliente.nome,
+        cliente_telefone=cliente.telefone,
+        data_pedido=datetime.now(timezone.utc),
+    )
+    db.session.add(quote)
+    db.session.flush()
+
+    for i in session_items:
+        item = QuoteItem(
+            quote_id=quote.id,
+            product_id=i["product_id"],
+            quantidade=i["quantidade"],
+            preco_unitario=None,
+            observacao=i.get("observacao") or None,
+        )
+        db.session.add(item)
 
     _save_event(quote, request.form)
 
     db.session.commit()
     ntfy_notificar(quote)
+    session.pop("orcamento_items", None)
     session.pop("cliente_id", None)
     return render_template("orcamento/confirmacao.html")

@@ -8,6 +8,7 @@
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/favicon-16x16.png') }}">
   <title>AlgoDoce</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
   <style>
     :root {
@@ -63,13 +64,6 @@
     #auth-popup.show { display: block; }
     #client-popup { display: none; }
     #client-popup.show { display: block; }
-    .sticky-bar {
-      position: fixed; bottom: 46px; left: 0; right: 0; z-index: 1020;
-      background: var(--rosa); color: #fff; padding: 0.6rem 1rem;
-      display: none; align-items: center; justify-content: space-between;
-    }
-    .sticky-bar.show { display: flex; }
-    .sticky-bar a { color: #fff; text-decoration: none; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -78,16 +72,16 @@
       <img src="{{ url_for('static', filename='icons/Logo.png') }}"
            alt="AlgoDoce" class="brand-logo" id="siteLogo"
            title="Área da Doceira">
-      <div class="mt-1" style="font-size: 0.85rem; color: var(--rosa); font-weight: 500; letter-spacing: 0.5px;">
+      <div class="mt-1 site-subtitle" style="font-size: 0.85rem; color: var(--rosa); font-weight: 500; letter-spacing: 0.5px;">
         O doce sabor do seu evento!
       </div>
     </div>
-    <nav class="nav-site" style="background: var(--rosa);">
+    <nav class="nav-site site-nav-wrap d-none d-sm-block" style="background: var(--rosa);">
       <div class="container d-flex justify-content-center gap-3 px-2 py-2 flex-wrap">
-        <a href="/sobre" class="text-white text-decoration-none fw-medium" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Sobre</a>
-        <a href="/vitrine/" id="produtosNavLink" class="text-white text-decoration-none fw-medium" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Produtos</a>
-        <a href="/orcamento" class="text-white text-decoration-none fw-medium" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Orçamento</a>
-        <a href="/contato" class="text-white text-decoration-none fw-medium" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Contato</a>
+        <a href="/sobre" class="nav-link-site" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Sobre</a>
+        <a href="/vitrine/" id="produtosNavLink" class="nav-link-site" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Produtos</a>
+        <a href="/orcamento" class="nav-link-site" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Orçamento</a>
+        <a href="/contato" class="nav-link-site" style="padding: 0.25rem 0.5rem; border-radius: 4px;">Contato</a>
       </div>
     </nav>
   </header>
@@ -104,6 +98,25 @@
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
+
+  <nav class="bottom-nav d-sm-none" id="bottomNav">
+    <a href="/sobre" class="bottom-nav-item" id="bnSobre">
+      <span class="bottom-nav-icon">ℹ️</span>
+      <span class="bottom-nav-label">Sobre</span>
+    </a>
+    <a href="/vitrine/" class="bottom-nav-item" id="bnProdutos">
+      <span class="bottom-nav-icon">🧁</span>
+      <span class="bottom-nav-label">Produtos</span>
+    </a>
+    <a href="/orcamento" class="bottom-nav-item" id="bnOrcamento">
+      <span class="bottom-nav-icon">📋<span class="bn-badge" id="bnOrcamentoBadge">0</span></span>
+      <span class="bottom-nav-label">Orçamento</span>
+    </a>
+    <a href="/contato" class="bottom-nav-item" id="bnContato">
+      <span class="bottom-nav-icon"><i class="bi bi-whatsapp"></i></span>
+      <span class="bottom-nav-label">Contato</span>
+    </a>
+  </nav>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script>
@@ -221,13 +234,22 @@
   };
 
   (function() {
-    var links = document.querySelectorAll('.nav-site a');
     var path = window.location.pathname;
-    links.forEach(function(l) {
+    // Top nav (desktop)
+    document.querySelectorAll('.nav-site a').forEach(function(l) {
       if (l.getAttribute('href') === path) l.classList.add('active');
     });
     if (path.indexOf('/vitrine') === 0) {
-      document.getElementById('produtosNavLink').classList.add('active');
+      var topLink = document.getElementById('produtosNavLink');
+      if (topLink) topLink.classList.add('active');
+    }
+    // Bottom nav (mobile)
+    var navMap = { '/sobre': 'bnSobre', '/vitrine': 'bnProdutos', '/orcamento': 'bnOrcamento', '/contato': 'bnContato' };
+    for (var p in navMap) {
+      if (path.indexOf(p) === 0) {
+        var el = document.getElementById(navMap[p]);
+        if (el) el.classList.add('active');
+      }
     }
   })();
 
@@ -260,5 +282,26 @@
     </div>
   </div>
   {% block scripts %}{% endblock %}
+  <script>
+  (function() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/orcamento-count', true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        var data = JSON.parse(xhr.responseText);
+        if (data.total > 0) {
+          var bn = document.getElementById('bnOrcamento');
+          var badge = document.getElementById('bnOrcamentoBadge');
+          if (bn && badge) {
+            badge.textContent = data.total;
+            badge.classList.add('show');
+            bn.classList.add('bn-ativo');
+          }
+        }
+      }
+    };
+    xhr.send();
+  })();
+  </script>
 </body>
 </html>

@@ -43,7 +43,12 @@
   .evento-linha { flex-direction: column; align-items: stretch; }
   .evento-linha input, .evento-linha select { width: 100%; }
 }
-#btn-incluir.disabled { pointer-events: none; opacity: 0.5; }
+.saved-badge {
+  font-size: 0.65rem; color: var(--verde-menta);
+  opacity: 0; transition: opacity 0.3s;
+}
+.saved-badge.show { opacity: 1; }
+#btn-incluir { pointer-events: auto !important; }
 </style>
 
 <h2 style="color: var(--rosa);">🧾 Meu Orçamento</h2>
@@ -52,78 +57,77 @@
 {% endif %}
 
 {% if items %}
-<form method="POST" action="{{ url_for('orcamento.salvar_tudo') }}" id="orcamento-form">
   <div class="list-group mb-3">
-    {% for item in items %}
+    {% for i in items %}
       <div class="list-group-item">
-        <div class="item-row">
-          <div class="item-nome">{{ item.product.nome }}</div>
+        <div class="item-row" data-product-id="{{ i.product_id }}">
+          <div class="d-flex w-100 align-items-center" style="justify-content:space-between;">
+            <span class="item-nome">{{ i.produto.nome }}</span>
+            <form method="POST" action="{{ url_for('orcamento.remover', id=i.product_id) }}" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-outline-danger px-2" title="Remover">🗑️</button>
+            </form>
+          </div>
           <div class="item-obs">
-            <input type="text" name="observacao_{{ item.id }}" value="{{ item.observacao or '' }}"
-                   placeholder="Observação" class="form-control form-control-sm campo-item"
-                   data-original="{{ item.observacao or '' }}">
+            <input type="text" class="form-control form-control-sm campo-obs"
+                   value="{{ i.observacao or '' }}" placeholder="Observação">
           </div>
           <div class="item-ctrl">
             <button type="button" class="btn btn-sm btn-outline-secondary qty-minus px-1">−</button>
-            <input type="number" name="quantidade_{{ item.id }}" value="{{ item.quantidade }}"
-                   min="{{ item.product.qtd_minima or 1 }}" step="1"
-                   class="form-control form-control-sm campo-item"
-                   data-original="{{ item.quantidade }}">
+            <input type="number" class="form-control form-control-sm campo-qtd"
+                   value="{{ i.quantidade }}"
+                   min="{{ i.produto.qtd_minima or 1 }}" step="1">
             <button type="button" class="btn btn-sm btn-outline-secondary qty-plus px-1">+</button>
           </div>
-          <button type="submit" formaction="{{ url_for('orcamento.remover', id=item.id) }}"
-                  formmethod="POST" class="btn btn-sm btn-outline-danger px-2" title="Remover">🗑️</button>
+          <span class="saved-badge">✓</span>
         </div>
       </div>
     {% endfor %}
   </div>
 
   <div class="d-flex flex-column align-items-center gap-2 mb-3">
-    <button type="submit" class="btn btn-success w-100" id="btn-salvar" disabled style="max-width: 400px;">Salvar</button>
-    <a href="/vitrine" class="btn btn-outline-success" id="btn-incluir">＋ Incluir mais itens</a>
-  </div>
-</form>
-
-<hr>
-<h5 style="color: var(--rosa);">📅 Dados do Evento</h5>
-<form method="POST" action="{{ url_for('orcamento.enviar') }}">
-  <div class="evento-grid">
-    <label>Tipo</label>
-    <select class="form-select form-select-sm" name="evento_tipo">
-      <option value="">Selecione</option>
-      <option value="aniversario">Aniversário</option>
-      <option value="casamento">Casamento</option>
-      <option value="cha_de_bebe">Chá de Bebê</option>
-      <option value="cha_de_panela">Chá de Panela</option>
-      <option value="confraternizacao">Confraternização</option>
-      <option value="formatura">Formatura</option>
-      <option value="15_anos">15 anos</option>
-      <option value="cafe">Café</option>
-      <option value="outros">Outros</option>
-    </select>
-
-    <label>Tema</label>
-    <input type="text" class="form-control form-control-sm" name="evento_tema">
-
-    <label class="full-width" style="margin-top: 0.25rem;">Observações</label>
-    <input type="text" class="form-control form-control-sm full-width" name="evento_complemento">
+    <a href="/vitrine/" class="btn btn-verde w-100" id="btn-incluir">＋ Incluir mais itens</a>
   </div>
 
-  <div class="evento-linha mt-2">
-    <label>Data</label>
-    <input type="date" class="form-control form-control-sm" name="evento_data">
-    <label>Hora</label>
-    <input type="time" class="form-control form-control-sm" name="evento_hora">
-    <label>Convidados</label>
-    <input type="number" class="form-control form-control-sm" name="evento_convidados" min="1" style="max-width:100px;">
-    <label>Local</label>
-    <input type="text" class="form-control form-control-sm" name="evento_local">
-    <label>Cerimonial</label>
-    <input type="text" class="form-control form-control-sm" name="evento_cerimonial">
-  </div>
+  <hr>
+  <h5 style="color: var(--rosa);">📅 Dados do Evento</h5>
+  <form method="POST" action="{{ url_for('orcamento.enviar') }}" style="padding-bottom: 80px;">
+    <div class="evento-grid">
+      <label>Tipo</label>
+      <select class="form-select form-select-sm" name="evento_tipo">
+        <option value="">Selecione</option>
+        <option value="aniversario">Aniversário</option>
+        <option value="casamento">Casamento</option>
+        <option value="cha_de_bebe">Chá de Bebê</option>
+        <option value="cha_de_panela">Chá de Panela</option>
+        <option value="confraternizacao">Confraternização</option>
+        <option value="formatura">Formatura</option>
+        <option value="15_anos">15 anos</option>
+        <option value="cafe">Café</option>
+        <option value="outros">Outros</option>
+      </select>
 
-  <button type="submit" class="btn btn-outline-secondary btn-lg w-100 mt-3">🚀 Enviar Orçamento</button>
-</form>
+      <label>Tema</label>
+      <input type="text" class="form-control form-control-sm" name="evento_tema">
+
+      <label class="full-width" style="margin-top: 0.25rem;">Observações</label>
+      <input type="text" class="form-control form-control-sm full-width" name="evento_complemento">
+    </div>
+
+    <div class="evento-linha mt-2">
+      <label>Data</label>
+      <input type="date" class="form-control form-control-sm" name="evento_data">
+      <label>Hora</label>
+      <input type="time" class="form-control form-control-sm" name="evento_hora">
+      <label>Convidados</label>
+      <input type="number" class="form-control form-control-sm" name="evento_convidados" min="1" style="max-width:100px;">
+      <label>Local</label>
+      <input type="text" class="form-control form-control-sm" name="evento_local">
+      <label>Cerimonial</label>
+      <input type="text" class="form-control form-control-sm" name="evento_cerimonial">
+    </div>
+
+    <button type="submit" class="btn btn-rosa btn-lg w-100 mt-3">🚀 Enviar Orçamento</button>
+  </form>
 {% else %}
   <div class="text-center py-5">
     <p class="text-muted">Seu orçamento está vazio.</p>
@@ -134,9 +138,38 @@
 
 {% block scripts %}
 <script>
+var timers = {};
+
+function salvarItem(div) {
+  var productId = div.dataset.productId;
+  var qtd = div.querySelector('.campo-qtd').value;
+  var obs = div.querySelector('.campo-obs').value;
+  var badge = div.querySelector('.saved-badge');
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/orcamento/atualizar-item', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.onreadystatechange = function() {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      badge.classList.add('show');
+      setTimeout(function() { badge.classList.remove('show'); }, 2000);
+    }
+  };
+  xhr.send(JSON.stringify({ product_id: parseInt(productId), quantidade: parseInt(qtd), observacao: obs }));
+}
+
+document.querySelectorAll('.item-row').forEach(function(div) {
+  div.querySelectorAll('.campo-qtd, .campo-obs').forEach(function(input) {
+    input.addEventListener('input', function() {
+      var pid = div.dataset.productId;
+      if (timers[pid]) clearTimeout(timers[pid]);
+      timers[pid] = setTimeout(function() { salvarItem(div); }, 500);
+    });
+  });
+});
+
 document.querySelectorAll('.qty-minus').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var input = this.parentNode.querySelector('input[name^="quantidade_"]');
+    var input = this.parentNode.querySelector('.campo-qtd');
     var val = parseInt(input.value) || 0;
     var min = parseInt(input.min) || 1;
     input.value = Math.max(val - 1, min);
@@ -145,33 +178,14 @@ document.querySelectorAll('.qty-minus').forEach(function(btn) {
 });
 document.querySelectorAll('.qty-plus').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    var input = this.parentNode.querySelector('input[name^="quantidade_"]');
+    var input = this.parentNode.querySelector('.campo-qtd');
     var val = parseInt(input.value) || 0;
     input.value = val + 1;
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
 });
-
-var btnSalvar = document.getElementById('btn-salvar');
-var btnIncluir = document.getElementById('btn-incluir');
-function verificarAlteracoes() {
-  var alterou = false;
-  document.querySelectorAll('.campo-item').forEach(function(input) {
-    var original = input.dataset.original;
-    var atual = input.value;
-    if (input.type === 'number') {
-      atual = parseInt(atual) || 0;
-      original = parseInt(original) || 0;
-    }
-    if (atual !== original) alterou = true;
-  });
-  btnSalvar.disabled = !alterou;
-  btnIncluir.classList.toggle('disabled', alterou);
-  if (alterou) btnIncluir.removeAttribute('href');
-  else btnIncluir.setAttribute('href', '/vitrine');
-}
-document.querySelectorAll('.campo-item').forEach(function(input) {
-  input.addEventListener('input', verificarAlteracoes);
+document.getElementById('btn-incluir').addEventListener('click', function(e) {
+  window.location.href = '/vitrine/';
 });
 </script>
 {% endblock %}

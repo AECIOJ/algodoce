@@ -1,13 +1,13 @@
 {% extends "site/base.html" %}
 {% block content %}
-<div class="row g-4 mt-4 justify-content-center">
+<div class="row g-4 mt-4 justify-content-center pb-4">
   <div class="col-md-5">
     <div class="card shadow-sm border-0 p-4 text-center h-100">
       <div class="card-body">
-        <div class="display-4 mb-3">💬</div>
+        <div class="display-4 mb-3"><i class="bi bi-whatsapp"></i></div>
         <h5>WhatsApp</h5>
         <p class="text-muted">(91) 98117-4498</p>
-        <a href="https://wa.me/5591981174498" target="_blank" class="btn btn-verde">
+        <a href="https://wa.me/5591981174498" target="_blank" class="btn btn-verde d-none d-sm-inline-block">
           Falar Agora
         </a>
       </div>
@@ -22,5 +22,11 @@
       </div>
     </div>
   </div>
+</div>
+
+<div class="contato-cta-bottom d-sm-none">
+  <a href="https://wa.me/5591981174498" target="_blank" class="btn btn-verde w-100 site-touch-btn">
+    <i class="bi bi-whatsapp"></i> Falar no WhatsApp
+  </a>
 </div>
 {% endblock %}

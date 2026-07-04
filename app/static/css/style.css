@@ -285,4 +285,222 @@ html.list-page .table-scroll {
   .brand-logo { height: 72px !important; }
 }
 
+/* =============================================
+   Site Público — Thumb-Friendly Mobile
+   ============================================= */
+
+/* Header compacto */
+@media (max-width: 575.98px) {
+  html, body {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    overflow: hidden; margin: 0; padding: 0;
+  }
+  .site-header .site-subtitle { font-size: 0.65rem !important; margin-top: 0 !important; margin-bottom: 2px; line-height: 1.1; }
+  .site-header .container { padding-top: 0 !important; padding-bottom: 0 !important; }
+  .site-header .brand-logo { height: 76px !important; }
+  .site-nav-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .site-nav-wrap::-webkit-scrollbar { display: none; }
+  .site-nav-wrap .container {
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    gap: 0 !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+  .site-nav-wrap .nav-link-site {
+    min-height: 44px;
+    padding: 0.5rem 0.6rem !important;
+    font-size: 0.9rem !important;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    color: #fff !important;
+    text-decoration: none;
+    font-weight: 500;
+    border-radius: 4px;
+  }
+  .site-nav-wrap .nav-link-site:active {
+    background: rgba(255,255,255,0.25);
+  }
+  main.container {
+    position: absolute;
+    top: 88px; left: 0; right: 0; bottom: 76px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    background: #fff;
+  }
+  .site-header .nav-site { display: none; }
+  .rodape {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1034 !important;
+    height: 26px !important;
+    padding: 0 12px !important;
+    border: none !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    gap: 0 !important;
+    font-size: 0.6rem !important;
+    color: #555 !important;
+    display: flex !important;
+    align-items: center !important;
+    text-shadow: 0 -1px 0 rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.6);
+  }
+  .rodape > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .contato-cta-bottom {
+    position: fixed !important;
+    bottom: 88px !important;
+    left: 8px !important;
+    right: 8px !important;
+    z-index: 1031 !important;
+    background: #fff;
+    border-radius: 12px;
+    padding: 8px 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  }
+  .contato-cta-bottom .btn {
+    min-height: 48px;
+    font-size: 1.05rem;
+  }
+}
+
+/* Touch targets mínimos 44px — site */
+.site-touch-btn {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.site-touch-btn:active {
+  transform: scale(0.96);
+}
+
+/* Bottom Navigation (mobile) */
+.bottom-nav {
+  position: fixed;
+  bottom: 26px;
+  left: 8px;
+  right: 8px;
+  z-index: 1035;
+  background: #fff;
+  border: 2px solid var(--rosa);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 3px 0;
+  padding-bottom: calc(3px + env(safe-area-inset-bottom, 0px));
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 10px;
+  min-height: 44px;
+  min-width: 60px;
+  text-decoration: none;
+  color: #555;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+.bottom-nav-item:active {
+  background: rgba(233,30,99,0.08);
+}
+.bottom-nav-item.active {
+  color: var(--rosa);
+}
+.bottom-nav-item.active .bottom-nav-icon {
+  transform: scale(1.1);
+}
+.bottom-nav-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: transform 0.15s;
+  position: relative;
+}
+.bottom-nav-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.bn-badge {
+  position: absolute; top: -4px; right: -10px;
+  background: var(--rosa); color: #fff;
+  font-size: 0.6rem; font-weight: 700;
+  min-width: 16px; height: 16px;
+  border-radius: 8px;
+  display: none; align-items: center; justify-content: center;
+  line-height: 1; padding: 0 4px;
+}
+.bn-badge.show { display: flex; }
+.bottom-nav-item.bn-ativo {
+  background: var(--verde-menta) !important;
+  color: #fff !important;
+  animation: bn-pulse 0.4s ease-in-out;
+}
+.bottom-nav-item.bn-ativo .bottom-nav-label { color: #fff !important; }
+.bottom-nav-item.bn-ativo .bn-badge { background: #fff; color: var(--verde-menta); }
+@keyframes bn-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* Vitrine — botões maiores no mobile */
+@media (max-width: 575.98px) {
+  .vitrine-qtd-btn {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.2rem !important;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .vitrine-qtd-input {
+    width: 60px !important;
+    height: 44px;
+    font-size: 1.1rem !important;
+    text-align: center;
+  }
+  .vitrine-incluir-btn {
+    min-height: 44px;
+    font-size: 1rem !important;
+    padding: 0.5rem 1rem !important;
+  }
+  .vitrine-nav-btn {
+    position: static !important;
+    transform: none !important;
+    min-height: 40px;
+    font-size: 1.15rem !important;
+    flex: 1;
+    border-radius: 8px !important;
+    background: var(--rosa) !important;
+    color: #fff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .vitrine-nav-btn:active {
+    opacity: 0.8;
+  }
+  .vitrine-nav-bar {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+  }
+}
+
 
