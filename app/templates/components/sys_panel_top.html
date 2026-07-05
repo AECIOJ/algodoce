@@ -1,0 +1,12 @@
+{# sys_panel_top.html — Painel superior fixo (#top-fixed). Inclui: header com logo, barra de título (mobile), menu desktop + sub-menus. A altura é monitorada via ResizeObserver (sys_nav_js) para o spacer. #}
+<div id="top-fixed" style="position:fixed;top:0;width:100%;z-index:1010;background:white;">
+  <header class="bg-white border-bottom shadow-sm">
+    <div class="container text-center py-0">
+      <a href="/" class="text-decoration-none">
+        <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce" class="brand-logo" style="cursor:pointer;height:100px;" id="brandLogo">
+      </a>
+    </div>
+  </header>
+  {% include "components/sys_barra_titulo.html" %}
+  {% include "components/sys_menu_desktop.html" %}
+</div>

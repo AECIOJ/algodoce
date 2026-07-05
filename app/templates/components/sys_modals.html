@@ -1,0 +1,27 @@
+{# sys_modals.html — Modais reutilizáveis do admin. confirmModal: confirmação/exclusão (showConfirm, showAlert). qrModal: exibe QR code com URL do sistema. #}
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmModalTitle">Confirmação</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="confirmModalBody"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirmModalOk">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="qrModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <div id="qrcode" class="mb-3 d-inline-block"></div>
+        <p class="text-muted small mb-0">Aponte a câmera do celular para o QR code</p>
+      </div>
+    </div>
+  </div>
+</div>

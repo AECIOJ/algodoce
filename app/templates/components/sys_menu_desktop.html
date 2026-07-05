@@ -1,0 +1,44 @@
+{# sys_menu_desktop.html — Navbar principal + sub-menus (desktop >= 992px). Inclui links de seção (Cadastro, Comercial, Produção, Financeiro) e as barras de sub-opções (.cadastro-section) que aparecem ao ativar. #}
+<nav class="navbar navbar-expand-lg navbar-dark px-2 d-none d-lg-flex" style="background-color: var(--cor-menu);">
+  <div class="navbar-nav w-100 d-flex align-items-center">
+    <div class="d-flex justify-content-center flex-grow-1 gap-1">
+      <a class="nav-link" href="{{ url_for('categories.list') }}">Cadastro</a>
+      <a class="nav-link" href="/orcamentos">Comercial</a>
+      <a class="nav-link" href="/producao">Produção</a>
+      <a class="nav-link" href="{{ url_for('contas_a_pagar.list') }}">Financeiro</a>
+    </div>
+    <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/icons/log-out.png" alt="Encerrar" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Encerrar</a>
+  </div>
+</nav>
+<div class="cadastro-section d-none" id="cadastroSection">
+  <div class="container">
+    <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+      <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: var(--cor-menu); font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
+      <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Insumos</a>
+      <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Produtos</a>
+      <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas</a>
+      <a href="{{ url_for('rubricas.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Rubricas</a>
+      <a href="{{ url_for('carteira.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Carteiras</a>
+    </div>
+  </div>
+</div>
+<div class="cadastro-section d-none" id="comercialSection">
+  <div class="container">
+    <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+        <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Orçamentos</a>
+      <a href="/pedidos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Pedidos</a>
+      <a href="/compras/" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Compras</a>
+    </div>
+  </div>
+</div>
+<div class="cadastro-section d-none" id="financeiroSection">
+  <div class="container">
+    <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+      <a href="{{ url_for('recursos.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Recursos</a>
+      <a href="{{ url_for('contas_a_receber.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas a Receber</a>
+      <a href="{{ url_for('contas_a_pagar.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Contas a Pagar</a>
+      <a href="{{ url_for('movimentos.recebimentos_list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Recebimentos</a>
+      <a href="{{ url_for('movimentos.pagamentos_list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Pagamentos</a>
+    </div>
+  </div>
+</div>

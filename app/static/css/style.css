@@ -2,7 +2,7 @@
   position: fixed;
   top: 0;
   width: 100%;
-  z-index: 1030;
+  z-index: 1010;
   background: white;
 }
 
@@ -58,7 +58,7 @@ body {
     margin-bottom: 0 !important;
     position: sticky;
     top: 0;
-    z-index: 1020;
+    z-index: 30;
     background: white;
   }
   .barra-filtro-title {
@@ -78,9 +78,6 @@ body {
   }
 }
 
-.barra-mobile .nav-select {
-  display: inline-block;
-}
 
 .navbar .nav-link {
   color: rgba(255,255,255,.85) !important;
@@ -117,13 +114,13 @@ body {
   background: #fff;
   border-bottom: 1px solid #dee2e6;
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-  z-index: 101;
+  z-index: 10;
 }
 
 .form-nav-wrap {
   justify-content: center;
   background: #fdf2f5;
-  z-index: 102;
+  z-index: 20;
 }
 .form-nav-wrap .nav-side {
   flex: 1;
@@ -199,7 +196,134 @@ html.list-page .table-scroll {
   html.list-page main { overflow-y: auto; }
 }
 
+/* === Admin Mobile: bottom-nav + rodape thin === */
+@media (max-width: 991.98px) {
+  .rodape.form-bottom-bar {
+    position: fixed !important;
+    bottom: 0 !important;
+    z-index: 1000 !important;
+    height: 26px !important;
+    padding: 0 12px !important;
+    border: none !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    font-size: 0.6rem !important;
+    color: #555 !important;
+    display: flex !important;
+    align-items: center !important;
+    text-shadow: 0 -1px 0 rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.6);
+  }
+  .rodape.form-bottom-bar > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+  /* Bottom-nav para admin (< 992px) */
+  .bottom-nav {
+    bottom: 26px;
+    z-index: 1035;
+  }
+
+  /* Espaço no main para não ficar atrás da bottom-nav */
+  html.list-page main {
+    padding-bottom: 90px;
+  }
+  main.container {
+    padding-bottom: 90px;
+  }
+
+  /* Form bottom bar: sobe para não ficar atrás da bottom-nav */
+  .form-bottom-bar.barra-edicao {
+    bottom: 90px;
+  }
+
+  /* Spacer maior para forms com bottom-nav */
+  .form-bottom-spacer {
+    height: 150px;
+  }
+
+  /* Touch targets nos botões da barra de edição */
+  .form-bottom-bar .btn {
+    min-height: 44px;
+    font-size: 1rem;
+  }
+
+  /* Icon+label buttons: empilha ícone sobre texto no mobile */
+  .btn.d-inline-flex.align-items-center.gap-1 {
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+  .form-nav-wrap .btn {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* === Sub-nav Panel (lateral) + Breadcrumb === */
+.subnav-overlay {
+  position: fixed; inset: 0; z-index: 1040;
+  background: rgba(0,0,0,0.4);
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.25s, visibility 0.25s;
+}
+.subnav-overlay.open {
+  opacity: 1; visibility: visible;
+}
+
+.subnav-panel {
+  position: fixed; top: 0; left: -280px; bottom: 0;
+  width: 280px; z-index: 1041;
+  background: #fff;
+  transition: left 0.25s ease;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column;
+}
+.subnav-panel.open {
+  left: 0;
+}
+
+.subnav-panel-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 16px; border-bottom: 1px solid #eee;
+}
+.subnav-panel-title {
+  font-size: 1.1rem; font-weight: 700; color: var(--rosa);
+}
+.subnav-close {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none;
+  font-size: 1.3rem; color: #555; cursor: pointer;
+  border-radius: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+.subnav-close:active {
+  background: rgba(0,0,0,0.05);
+}
+
+.subnav-panel-body {
+  flex: 1; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.subnav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 18px;
+  text-decoration: none; color: #333;
+  font-size: 1rem; font-weight: 500;
+  min-height: 48px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+.subnav-item:active {
+  background: #fce4ec;
+}
+.subnav-item.active {
+  color: var(--rosa); font-weight: 700;
+}
 
 /* Card list item */
 .card-list-item {
@@ -220,12 +344,70 @@ html.list-page .table-scroll {
   font-size: 0.875rem;
 }
 
+/* === form_list: layout responsivo + sticky header + card expansion === */
+
+/* Desktop: sempre tabela, cards ocultos */
+@media (min-width: 992px) {
+  .form-list-table-wrap {
+    display: block;
+    max-height: calc(100vh - 260px);
+    overflow-y: auto;
+  }
+  .form-list-cards { display: none; }
+}
+
+/* Mobile: cards default, tabela se couber (JS add class to <html>) */
+@media (max-width: 991.98px) {
+  .form-list-table-wrap { display: none; }
+  .form-list-cards { display: block; }
+  html.form-list-mobile-table .form-list-table-wrap { display: block; }
+  html.form-list-mobile-table .form-list-cards { display: none; }
+}
+
+/* List-page: tabela flex fill */
+html.list-page .form-list-table-wrap {
+  flex: 1;
+  min-height: 0;
+  max-height: none !important;
+  overflow-y: auto;
+}
+
+/* Sticky header com cor de destaque (distinto do rosa do menu) */
+.form-list-table-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #c2185b;
+  color: #fff;
+}
+
+/* Card summary interativo */
+.card-list-summary {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-list-summary:active {
+  opacity: 0.7;
+}
+
+/* Chevron animado */
+.card-chevron {
+  transition: transform 0.2s ease;
+  font-size: 1.1rem;
+  color: #999;
+}
+.card-chevron.expanded {
+  transform: rotate(180deg);
+}
+/* ============================================== */
+
 .form-bottom-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  z-index: 1030;
+  z-index: 1020;
   background: #fff;
   border-top: 2px solid var(--cor-menu);
   padding: 8px 16px;
@@ -237,7 +419,7 @@ html.list-page .table-scroll {
 }
 
 .rodape {
-  z-index: 1029;
+  z-index: 1000;
   justify-content: space-between;
   font-size: 0.8rem;
 }

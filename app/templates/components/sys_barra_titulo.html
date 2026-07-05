@@ -1,0 +1,10 @@
+{# sys_barra_titulo.html — Barra de título do admin (mobile). Exibe o caminho hierárquico "Seção > Sub-item" + botão Fechar (logout). Substitui mobileMenuTitle + breadcrumbBar + Fechar avulso. O texto é preenchido via JS (setMobileTitle). #}
+<div class="d-lg-none d-flex align-items-center px-2 barra-mobile" style="background-color:var(--cor-menu); min-height:56px;">
+  <div class="flex-grow-1 text-center" style="line-height:1.2;">
+    <div id="mobileMenuTitle" class="text-white fw-bold" style="font-size:1.1rem;"></div>
+  </div>
+  <a class="text-white text-decoration-none d-flex flex-column align-items-center" href="/logout" style="gap:2px;min-width:60px;padding:4px 10px;border-radius:6px;">
+    <i class="bi bi-box-arrow-right" style="font-size:1.1rem;"></i>
+    <span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Fechar</span>
+  </a>
+</div>

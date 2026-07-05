@@ -12,9 +12,9 @@
 {% endmacro %}
 
 {% macro action_edit(url, label='Editar') %}
-<a href="{{ url }}" class="text-decoration-none text-nowrap">
-  <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18" class="align-middle">
-  <small class="align-middle ms-1">{{ label }}</small>
+<a href="{{ url }}" class="text-decoration-none d-inline-flex flex-column flex-lg-row align-items-center gap-1 text-nowrap">
+  <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18">
+  <small class="ms-lg-1 ms-0" style="font-size:0.65rem;line-height:1.2;">{{ label }}</small>
 </a>
 {% endmacro %}
 

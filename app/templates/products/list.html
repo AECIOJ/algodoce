@@ -1,28 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+{% from "components/form_list.html" import form_list %}
+{% from "components/panel_list.html" import action_edit %}
 
-{% set _actions %}
-<a href="{{ url_for('products.new') }}" class="btn btn-success">+ Novo</a>
-{% endset %}
-
-{% set filter_html %}
-<select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
-  <option value="">Todas as categorias</option>
-  {% for cat in categories %}
-    <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
-  {% endfor %}
-</select>
-<select id="filter-ativo" class="form-select form-select-sm" style="width:auto;">
-  <option value="todos" selected>Tudo</option>
-  <option value="ativos">Ativos</option>
-  <option value="inativos">Inativos</option>
-</select>
-{% endset %}
-
-{% call panel_list("Produtos", actions=_actions, filters=filter_html, model="Product") %}
-  <thead>
+{% call(item, is_card) form_list(products, title="Produtos", new_url=url_for('products.new'), model="Product") %}
+  {% if item == none %}
+    <select id="filter-categoria" class="form-select form-select-sm" style="width:auto;">
+      <option value="">Todas as categorias</option>
+      {% for cat in categories %}
+        <option value="{{ cat.nome }}">{{ cat.nome }}{% if not cat.ativo %} (inativa){% endif %}</option>
+      {% endfor %}
+    </select>
+    <select id="filter-ativo" class="form-select form-select-sm" style="width:auto;">
+      <option value="todos" selected>Tudo</option>
+      <option value="ativos">Ativos</option>
+      <option value="inativos">Inativos</option>
+    </select>
+  {% elif item == "__header__" %}
     <tr>
       <th>#</th>
       <th>Imagem</th>
@@ -33,84 +28,84 @@
       <th>Status</th>
       <th>Ações</th>
     </tr>
-  </thead>
-  <tbody>
-    {% for p in products %}
-      {% set ativo = p.ativo and (not p.category or p.category.ativo) %}
-      <tr data-ativo="{{ ativo|lower }}" data-categoria="{{ p.category.nome if p.category else '' }}">
-        <td>{{ p.id|fmtid }}</td>
-        <td>
-          {% if p.imagem %}
-            <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </td>
-        <td>{{ p.nome }}</td>
-        <td>
-          {% if p.category %}
-            {% if p.category.ativo %}
-              {{ p.category.nome }}
+  {% elif is_card %}
+    {% set ativo = item.ativo and (not item.category or item.category.ativo) %}
+    <div class="card-list-summary" onclick="toggleCard(event,this)">
+      <div data-ativo="{{ ativo|lower }}" data-categoria="{{ item.category.nome if item.category else '' }}">
+        <div class="d-flex justify-content-between align-items-start w-100">
+          <div class="text-truncate me-2">
+            <span class="card-label">{{ item.id|fmtid }}</span>
+            <span class="fw-bold ms-1">{{ item.nome }}</span>
+          </div>
+          <div class="d-flex align-items-center gap-1 flex-shrink-0">
+            {% if ativo %}
+              <span class="badge bg-success">Ativo</span>
             {% else %}
-              <span class="text-muted">{{ p.category.nome }}</span>
+              <span class="badge bg-danger">Inativo</span>
             {% endif %}
+            <i class="bi bi-chevron-down card-chevron"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-list-details d-none">
+      <div class="d-flex gap-2 mt-1 pt-1 border-top">
+        {% if item.imagem %}
+          <img src="{{ url_for('uploads.uploaded_file', filename=item.imagem) }}" class="rounded align-self-center" style="max-height: 80px; max-width: 80px;">
+        {% endif %}
+        <div class="flex-grow-1">
+          <div><span class="card-label">Categoria:</span> <span class="card-value">{{ item.category.nome if item.category else '—' }}</span></div>
+          <div class="row g-0 mt-1">
+            <div class="col-6">
+              <span class="card-label">Qtd. Mín.</span><br>
+              <span class="card-value">{{ item.qtd_minima if item.qtd_minima else '—' }}</span>
+            </div>
+            <div class="col-6">
+              <span class="card-label">Preço</span><br>
+              <span class="card-value">R$ {{ (item.preco or 0) | brl }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="text-end mt-1">
+        {{ action_edit(url_for('products.edit', id=item.id)) }}
+      </div>
+    </div>
+  {% else %}
+    {% set ativo = item.ativo and (not item.category or item.category.ativo) %}
+    <tr data-ativo="{{ ativo|lower }}" data-categoria="{{ item.category.nome if item.category else '' }}">
+      <td>{{ item.id|fmtid }}</td>
+      <td>
+        {% if item.imagem %}
+          <img src="{{ url_for('uploads.uploaded_file', filename=item.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </td>
+      <td>{{ item.nome }}</td>
+      <td>
+        {% if item.category %}
+          {% if item.category.ativo %}
+            {{ item.category.nome }}
           {% else %}
-            —
+            <span class="text-muted">{{ item.category.nome }}</span>
           {% endif %}
-        </td>
-        <td>{{ p.qtd_minima if p.qtd_minima else '—' }}</td>
-        <td>R$ {{ (p.preco or 0) | brl }}</td>
-        <td>
-          {% if ativo %}
-            <span class="badge bg-success">Ativo</span>
-          {% else %}
-            <span class="badge bg-danger">Inativo</span>
-          {% endif %}
-        </td>
-        <td>{{ action_edit(url_for('products.edit', id=p.id)) }}</td>
-      </tr>
-    {% else %}
-      <tr>
-        <td colspan="8" class="text-center text-muted">Nenhum registro encontrado.</td>
-      </tr>
-    {% endfor %}
-  </tbody>
-{% endcall %}
-
-{% call(item) card_list(products) %}
-  {% set ativo = item.ativo and (not item.category or item.category.ativo) %}
-  <div data-ativo="{{ ativo|lower }}" data-categoria="{{ item.category.nome if item.category else '' }}">
-    <div class="d-flex justify-content-between align-items-start mb-1">
-      <div>
-        <span class="card-label">#{{ item.id|fmtid }}</span>
+        {% else %}
+          —
+        {% endif %}
+      </td>
+      <td>{{ item.qtd_minima if item.qtd_minima else '—' }}</td>
+      <td>R$ {{ (item.preco or 0) | brl }}</td>
+      <td>
         {% if ativo %}
           <span class="badge bg-success">Ativo</span>
         {% else %}
           <span class="badge bg-danger">Inativo</span>
         {% endif %}
-      </div>
-      {{ action_edit(url_for('products.edit', id=item.id)) }}
-    </div>
-    <div class="d-flex gap-2">
-      {% if item.imagem %}
-        <img src="{{ url_for('uploads.uploaded_file', filename=item.imagem) }}" class="rounded align-self-center" style="max-height: 80px; max-width: 80px;">
-      {% endif %}
-      <div class="flex-grow-1">
-        <h6 class="mb-1">{{ item.nome }}</h6>
-        <div><span class="card-label">Categoria:</span> <span class="card-value">{{ item.category.nome if item.category else '—' }}</span></div>
-        <div class="row g-0 mt-1">
-          <div class="col-6">
-            <span class="card-label">Qtd. Mín.</span><br>
-            <span class="card-value">{{ item.qtd_minima if item.qtd_minima else '—' }}</span>
-          </div>
-          <div class="col-6">
-            <span class="card-label">Preço</span><br>
-            <span class="card-value">R$ {{ (item.preco or 0) | brl }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+      </td>
+      <td>{{ action_edit(url_for('products.edit', id=item.id)) }}</td>
+    </tr>
+  {% endif %}
 {% endcall %}
 
 {% endblock %}

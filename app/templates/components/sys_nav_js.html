@@ -1,0 +1,502 @@
+<script>
+function syncTopSpacer() {
+  var fixed = document.getElementById('top-fixed');
+  var spacer = document.getElementById('top-spacer');
+  if (fixed && spacer) {
+    var h = fixed.offsetHeight + 'px';
+    spacer.style.height = h;
+    document.documentElement.style.setProperty('--top-fixed-height', h);
+  }
+}
+syncTopSpacer();
+if (window.ResizeObserver) {
+  var topFixed = document.getElementById('top-fixed');
+  if (topFixed) new ResizeObserver(syncTopSpacer).observe(topFixed);
+}
+window.addEventListener('resize', syncTopSpacer);
+
+document.addEventListener('DOMContentLoaded', function () {
+  const logo = document.querySelector('.brand-logo');
+  const modalEl = document.getElementById('qrModal');
+  const modal = new bootstrap.Modal(modalEl);
+
+  logo.addEventListener('click', function (e) {
+    e.preventDefault();
+    const container = document.getElementById('qrcode');
+    container.innerHTML = '';
+    var url = '{{ ngrok_url }}' || window.location.origin;
+    if (url) {
+      new QRCode(container, { text: url, width: 256, height: 256 });
+    } else {
+      container.innerHTML = '<p class="text-muted">URL indisponível</p>';
+    }
+    modal.show();
+  });
+
+  modalEl.addEventListener('click', function () {
+    modal.hide();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') modal.hide();
+  });
+});
+</script>
+
+<script>
+var _confirmModal = null;
+
+function _getConfirmModal() {
+  if (!_confirmModal) _confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+  return _confirmModal;
+}
+
+function showAlert(msg) {
+  document.getElementById('confirmModalTitle').textContent = 'Atenção';
+  document.getElementById('confirmModalBody').textContent = msg;
+  document.getElementById('confirmModalOk').className = 'btn btn-primary';
+  document.getElementById('confirmModalOk').textContent = 'OK';
+  document.getElementById('confirmModalOk').onclick = function() { _getConfirmModal().hide(); };
+  document.getElementById('confirmModalCancel').style.display = 'none';
+  _getConfirmModal().show();
+}
+
+function confirmFormSubmit(form, msg) {
+  showConfirm(msg, function() { form.submit(); });
+  return false;
+}
+
+function confirmRemove(el, msg) {
+  showConfirm(msg, function() { el.closest('.row').remove(); });
+}
+
+function confirmRemoveRow(el, msg) {
+  showConfirm(msg, function() { removeRow(el); });
+}
+
+function showConfirm(msg, onConfirm) {
+  document.getElementById('confirmModalTitle').textContent = 'Confirmação';
+  document.getElementById('confirmModalBody').textContent = msg;
+  document.getElementById('confirmModalOk').className = 'btn btn-danger';
+  document.getElementById('confirmModalOk').textContent = 'Confirmar';
+  document.getElementById('confirmModalOk').onclick = function() {
+    _getConfirmModal().hide();
+    if (onConfirm) onConfirm();
+  };
+  document.getElementById('confirmModalCancel').style.display = '';
+  _getConfirmModal().show();
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var nav = document.querySelector('.form-nav-wrap');
+  if (!nav) return;
+  var bg = window.getComputedStyle(document.body).backgroundColor;
+  var main = document.querySelector('main.container');
+  if (!main) return;
+
+  document.documentElement.style.overflow = 'hidden';
+  document.documentElement.style.height = '100%';
+  document.body.style.display = 'flex';
+  document.body.style.flexDirection = 'column';
+  document.body.style.height = '100%';
+  document.body.style.overflow = 'hidden';
+  main.style.flex = '1';
+  main.style.overflowY = 'auto';
+  main.style.minHeight = '0';
+  main.style.marginBottom = '0';
+
+  var form = document.getElementById('main-form');
+  if (!form) return;
+
+  var firstField = form.querySelector('.row.mb-3, .mb-3');
+  if (!firstField || !firstField.querySelector('input, select, textarea')) return;
+
+  nav.style.position = 'sticky';
+  nav.style.top = '0';
+  nav.style.zIndex = '20';
+  nav.style.marginBottom = '0';
+
+  if (firstField.classList.contains('row')) {
+    firstField.style.marginLeft = '0';
+    firstField.style.marginRight = '0';
+    firstField.style.paddingLeft = '15px';
+    firstField.style.paddingRight = '15px';
+  }
+
+  var navHeight = nav.offsetHeight;
+  var isMobile = window.innerWidth < 992;
+  if (!isMobile || !firstField.classList.contains('row')) {
+    firstField.style.position = 'sticky';
+    firstField.style.top = navHeight + 'px';
+    firstField.style.zIndex = '10';
+    firstField.style.background = bg;
+  }
+
+  if (isMobile && firstField.classList.contains('row')) {
+    var col = firstField.querySelector('[class^="col"]');
+    if (col && col.querySelector('input, select, textarea')) {
+      col.style.width = '100%';
+      col.style.flex = 'none';
+
+      var clone = col.cloneNode(true);
+      clone.style.position = 'fixed';
+      clone.style.display = 'none';
+      clone.style.zIndex = '10';
+      clone.style.background = bg;
+      clone.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+      document.body.appendChild(clone);
+
+      var origInput = col.querySelector('input, select, textarea');
+      var cloneInput = clone.querySelector('input, select, textarea');
+      if (origInput && cloneInput) {
+        cloneInput.addEventListener('input', function() { origInput.value = this.value; });
+        cloneInput.addEventListener('change', function() { origInput.value = this.value; });
+      }
+
+      function fixarClone() {
+        var colRect = col.getBoundingClientRect();
+        var mainRect = main.getBoundingClientRect();
+        var stickAt = mainRect.top + navHeight;
+
+        if (colRect.top < stickAt) {
+          clone.style.display = 'block';
+          clone.style.top = stickAt + 'px';
+          clone.style.left = mainRect.left + 'px';
+          clone.style.width = mainRect.width + 'px';
+          col.style.visibility = 'hidden';
+        } else {
+          clone.style.display = 'none';
+          col.style.visibility = 'visible';
+        }
+      }
+
+      fixarClone();
+      main.addEventListener('scroll', fixarClone);
+      window.addEventListener('resize', function() {
+        navHeight = nav.offsetHeight;
+        fixarClone();
+      });
+    }
+  }
+});
+</script>
+
+<script>
+document.getElementById('nav-title')?.addEventListener('click', function() {
+  if (!this.dataset.entityId) return;
+  if (document.getElementById('nav-id-input')) return;
+  const currentId = this.dataset.entityId;
+  const baseUrl = this.dataset.editUrl;
+  const originalText = this.textContent;
+
+  this.innerHTML = '<span style="display:inline-flex;align-items:center;gap:4px;">' +
+    '<input type="number" id="nav-id-input" class="form-control form-control-sm" style="width:80px;" value="' + currentId + '" min="1">' +
+    '<button id="nav-id-ok" class="btn btn-sm btn-primary">OK</button>' +
+    '<button id="nav-id-cancel" class="btn btn-sm btn-outline-secondary">Cancelar</button>' +
+    '</span>';
+
+  document.getElementById('nav-id-input')?.focus();
+  document.getElementById('nav-id-input')?.select();
+
+  document.getElementById('nav-id-ok').addEventListener('click', function(e) {
+    e.stopPropagation();
+    const id = document.getElementById('nav-id-input').value;
+    if (id) window.location = baseUrl.replace('999999', id);
+  });
+
+  document.getElementById('nav-id-cancel').addEventListener('click', function(e) {
+    e.stopPropagation();
+    document.getElementById('nav-title').textContent = originalText;
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('table.sortable').forEach(function (table) {
+    var headers = table.querySelectorAll('th');
+    var tbody = table.querySelector('tbody');
+    if (!tbody) return;
+
+    headers.forEach(function (th, col) {
+      var text = th.textContent.trim();
+      if (!text || text === 'Ações' || text === 'Imagem' || th.classList.contains('no-sort')) return;
+
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', function () {
+        var ascending = !th.classList.contains('asc');
+
+        headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
+        th.classList.add(ascending ? 'asc' : 'desc');
+
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        var dataRows = rows.filter(function (r) { return !r.querySelector('td[colspan]'); });
+        if (dataRows.length === 0) return;
+
+        dataRows.sort(function (a, b) {
+          var aVal = (a.cells[col] ? a.cells[col].textContent.trim() : '');
+          var bVal = (b.cells[col] ? b.cells[col].textContent.trim() : '');
+
+          var aNum = parseFloat(aVal.replace(/[R$\s]/g, '').replace(',', '.'));
+          var bNum = parseFloat(bVal.replace(/[R$\s]/g, '').replace(',', '.'));
+          if (!isNaN(aNum) && !isNaN(bNum)) {
+            return ascending ? aNum - bNum : bNum - aNum;
+          }
+
+          var aDate = parseDate(aVal);
+          var bDate = parseDate(bVal);
+          if (aDate && bDate) {
+            return ascending ? aDate - bDate : bDate - aDate;
+          }
+
+          return ascending
+            ? aVal.localeCompare(bVal, 'pt-BR')
+            : bVal.localeCompare(aVal, 'pt-BR');
+        });
+
+        dataRows.forEach(function (r) { tbody.appendChild(r); });
+      });
+    });
+  });
+});
+
+function parseDate(str) {
+  var m = str.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  return null;
+}
+</script>
+
+<script>
+var TRANSFORM_MODES = {
+  Digit0: { mode: 'lower', label: 'minúsculas' },
+  Digit1: { mode: 'title', label: 'Primeira Maiúscula (exceto conectores)' },
+  Digit2: { mode: 'upper', label: 'MAIÚSCULAS' }
+};
+
+document.addEventListener('keydown', function (e) {
+  if (!e.ctrlKey || !e.shiftKey) return;
+  var modeDef = TRANSFORM_MODES[e.code];
+  if (!modeDef) return;
+  e.preventDefault();
+
+  var sorted = document.querySelector('th.asc, th.desc');
+  if (!sorted) return;
+  var field = sorted.getAttribute('data-field');
+  if (!field) return;
+
+  var table = sorted.closest('table.sortable');
+  if (!table) return;
+  var model = table.getAttribute('data-model');
+  if (!model) return;
+
+  var thIndex = Array.from(sorted.parentNode.children).indexOf(sorted);
+  var colName = sorted.textContent.trim();
+
+  showConfirm(
+    'Transformar todos os registros para ' + modeDef.label + ' na coluna "' + colName + '"? (ação irreversível)',
+    function () {
+      fetch('/api/transformar-texto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: model,
+          field: field,
+          mode: modeDef.mode
+        })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.success) {
+          showAlert(data.count + ' registro(s) alterado(s) com sucesso!');
+          setTimeout(function () { location.reload(); }, 1500);
+        } else {
+          showAlert('Erro: ' + (data.error || 'desconhecido'));
+        }
+      })
+      .catch(function () {
+        showAlert('Erro de conexão ao servidor.');
+      });
+    }
+  );
+});
+</script>
+
+<script>
+var SUB_NAV_SECTIONS = {
+    cadastro: {
+      title: 'Cadastro',
+      items: [
+        { label: 'Categorias', url: '/categorias/', icon: 'bi-journal' },
+        { label: 'Insumos', url: '/insumos', icon: 'bi-box-seam' },
+        { label: 'Produtos', url: '/produtos', icon: 'bi-gift' },
+        { label: 'Contas', url: '/contas', icon: 'bi-people' },
+        { label: 'Rubricas', url: '/rubricas/', icon: 'bi-tags' },
+        { label: 'Carteiras', url: '/carteira/', icon: 'bi-wallet2' }
+      ]
+    },
+    comercial: {
+      title: 'Comercial',
+      items: [
+        { label: 'Orçamentos', url: '/orcamentos', icon: 'bi-file-text' },
+        { label: 'Pedidos', url: '/pedidos', icon: 'bi-cart' },
+        { label: 'Compras', url: '/compras/', icon: 'bi-bag' }
+      ]
+    },
+    financeiro: {
+      title: 'Financeiro',
+      items: [
+        { label: 'Recursos', url: '/recursos/', icon: 'bi-piggy-bank' },
+        { label: 'Contas a Receber', url: '/contas-a-receber/', icon: 'bi-arrow-down-circle' },
+        { label: 'Contas a Pagar', url: '/contas-a-pagar/', icon: 'bi-arrow-up-circle' },
+        { label: 'Recebimentos', url: '/movimentos/recebimentos', icon: 'bi-cash' },
+        { label: 'Pagamentos', url: '/movimentos/pagamentos', icon: 'bi-credit-card' }
+      ]
+    }
+  };
+
+  function matchPath(path, prefix) {
+    return path === prefix || path.indexOf(prefix + '/') === 0;
+  }
+
+  window.openSubNav = function(sectionKey) {
+    var data = SUB_NAV_SECTIONS[sectionKey];
+    if (!data) return;
+    var titleEl = document.getElementById('subNavTitle');
+    if (titleEl) titleEl.textContent = data.title;
+    var body = document.getElementById('subNavBody');
+    if (!body) return;
+    body.innerHTML = data.items.map(function(item) {
+      var isActive = matchPath(window.location.pathname, item.url);
+      return '<a href="' + item.url + '" class="subnav-item' + (isActive ? ' active' : '') + '" data-href="' + item.url + '">' +
+        '<i class="bi ' + item.icon + '"></i><span>' + item.label + '</span></a>';
+    }).join('');
+    var overlay = document.getElementById('subNavOverlay');
+    var panel = document.getElementById('subNavPanel');
+    if (overlay) overlay.classList.add('open');
+    if (panel) panel.classList.add('open');
+  };
+
+  window.closeSubNav = function() {
+    var overlay = document.getElementById('subNavOverlay');
+    var panel = document.getElementById('subNavPanel');
+    if (overlay) overlay.classList.remove('open');
+    if (panel) panel.classList.remove('open');
+  };
+
+  function setMobileTitle() {
+    var path = window.location.pathname;
+    var titleEl = document.getElementById('mobileMenuTitle');
+    if (!titleEl) return;
+    for (var key in SUB_NAV_SECTIONS) {
+      var section = SUB_NAV_SECTIONS[key];
+      for (var i = 0; i < section.items.length; i++) {
+        var item = section.items[i];
+        if (matchPath(path, item.url)) {
+          titleEl.textContent = section.title + ' > ' + item.label;
+          return;
+        }
+      }
+    }
+    var sectionNames = {
+      cadastro: 'Cadastro',
+      comercial: 'Comercial',
+      producao: 'Produção',
+      financeiro: 'Financeiro'
+    };
+    for (var key in sectionNames) {
+      if (matchPath(path, '/' + key)) {
+        titleEl.textContent = sectionNames[key];
+        return;
+      }
+    }
+    titleEl.textContent = '';
+  }
+
+  document.addEventListener('click', function(e) {
+    var bnItem = e.target.closest('.bottom-nav-item');
+    if (bnItem) {
+      var navKey = bnItem.getAttribute('data-admin-nav');
+      if (navKey === 'producao') return;
+      e.preventDefault();
+      window.openSubNav(navKey);
+      return;
+    }
+    if (e.target.id === 'subNavOverlay') {
+      window.closeSubNav();
+      return;
+    }
+    if (e.target.closest('.subnav-close')) {
+      window.closeSubNav();
+      return;
+    }
+    if (e.target.closest('.subnav-item')) {
+      e.preventDefault();
+      var link = e.target.closest('.subnav-item');
+      window.closeSubNav();
+      window.location.href = link.getAttribute('href');
+      return;
+    }
+  });
+
+  var sectionLinks = document.querySelectorAll('.navbar-nav .d-flex .nav-link');
+  var allNavLinks = document.querySelectorAll('.navbar-nav .nav-link');
+  var cadastroSection = document.getElementById('cadastroSection');
+
+  function setActive(links, el) {
+    links.forEach(function(l) { l.classList.remove('active'); });
+    if (el) el.classList.add('active');
+  }
+
+  function activateSection(section, path) {
+    if (section) {
+      section.classList.remove('d-none');
+      section.querySelectorAll('.bar-link-lg').forEach(function(l) {
+        if (matchPath(path, l.getAttribute('href'))) l.classList.add('active');
+      });
+    }
+  }
+
+  var path = window.location.pathname;
+  var cadastroPaths = ['/categorias/', '/insumos', '/produtos', '/contas', '/rubricas/', '/carteira/'];
+  var comercialPaths = ['/orcamentos', '/pedidos', '/compras/'];
+  var financeiroPaths = ['/recursos/', '/movimentos', '/contas-a-pagar/', '/contas-a-receber/'];
+  var onCadastro = cadastroPaths.some(function(p) { return matchPath(path, p); });
+  var onComercial = comercialPaths.some(function(p) { return matchPath(path, p); });
+  var onFinanceiro = financeiroPaths.some(function(p) { return matchPath(path, p); });
+  var onProducao = matchPath(path, '/producao');
+
+  if (onFinanceiro) {
+    activateSection(document.getElementById('financeiroSection'), path);
+    if (sectionLinks[3]) setActive(allNavLinks, sectionLinks[3]);
+  } else if (onComercial) {
+    activateSection(document.getElementById('comercialSection'), path);
+    if (sectionLinks[1]) setActive(allNavLinks, sectionLinks[1]);
+  } else if (onProducao) {
+    if (sectionLinks[2]) setActive(allNavLinks, sectionLinks[2]);
+  } else if (onCadastro) {
+    activateSection(cadastroSection, path);
+    if (sectionLinks[0]) setActive(allNavLinks, sectionLinks[0]);
+  } else {
+    allNavLinks.forEach(function(l) {
+      var href = l.getAttribute('href');
+      if (href && href !== '#' && matchPath(path, href)) setActive(allNavLinks, l);
+    });
+  }
+
+  var navMap = {
+    cadastro: cadastroPaths,
+    comercial: comercialPaths,
+    producao: ['/producao'],
+    financeiro: financeiroPaths
+  };
+  document.querySelectorAll('#adminBottomNav .bottom-nav-item').forEach(function(item) {
+    var nav = item.getAttribute('data-admin-nav');
+    if (nav && navMap[nav].some(function(p) { return matchPath(path, p); })) {
+      item.classList.add('active');
+    }
+  });
+
+  setMobileTitle();
+</script>

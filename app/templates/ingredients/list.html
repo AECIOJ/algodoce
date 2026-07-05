@@ -1,66 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+{% from "components/form_list.html" import form_list %}
+{% from "components/panel_list.html" import action_edit %}
 
-{% set _actions %}
-<a href="{{ url_for('ingredients.new') }}" class="btn btn-success">+ Novo</a>
-{% endset %}
-
-{% set filter_html %}
-<select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value();">
-  <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
-  {% for val, label in TIPO_INGREDIENTE.items() %}
-    <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
-  {% endfor %}
-</select>
-{% endset %}
-
-{% call panel_list("Insumos", actions=_actions, filters=filter_html, model="Ingredient") %}
-  <thead>
+{% call(item, is_card) form_list(ingredients, title="Insumos", new_url=url_for('ingredients.new'), model="Ingredient") %}
+  {% if item == none %}
+    <select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value();">
+      <option value="?tipo=todos" {% if filtro_tipo == 'todos' %}selected{% endif %}>Todos</option>
+      {% for val, label in TIPO_INGREDIENTE.items() %}
+        <option value="?tipo={{ val }}" {% if filtro_tipo == val|string %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  {% elif item == "__header__" %}
     <tr>
       <th>#</th>
       <th data-field="nome">Nome</th>
       <th>Tipo</th>
-      <th data-field="unidade_medida">Unidade de Medida</th>
+      <th data-field="unidade_medida">Und</th>
       <th>Ações</th>
     </tr>
-  </thead>
-  <tbody>
-    {% for i in ingredients %}
-      <tr>
-        <td>{{ i.id|fmtid }}</td>
-        <td>{{ i.nome }}</td>
-        <td>{{ TIPO_INGREDIENTE[i.tipo] }}</td>
-        <td>{{ i.unidade_medida }}</td>
-        <td>{{ action_edit(url_for('ingredients.edit', id=i.id)) }}</td>
-      </tr>
-    {% else %}
-      <tr>
-        <td colspan="5" class="text-center text-muted">Nenhum registro encontrado.</td>
-      </tr>
-    {% endfor %}
-  </tbody>
-{% endcall %}
-
-{% call(item) card_list(ingredients) %}
-  <div class="d-flex justify-content-between align-items-start mb-1">
-    <div>
-      <span class="card-label">#{{ item.id|fmtid }}</span>
+  {% elif is_card %}
+    <div class="card-list-summary" onclick="toggleCard(event,this)">
+      <div class="d-flex justify-content-between align-items-start w-100">
+        <div class="text-truncate me-2">
+          <span class="card-label">{{ item.id|fmtid }}</span>
+          <span class="fw-bold ms-1">{{ item.nome }}</span>
+        </div>
+        <i class="bi bi-chevron-down card-chevron"></i>
+      </div>
     </div>
-    {{ action_edit(url_for('ingredients.edit', id=item.id)) }}
-  </div>
-  <h6 class="mb-1">{{ item.nome }}</h6>
-  <div class="row g-0">
-    <div class="col-6">
-      <span class="card-label">Tipo</span><br>
-      <span class="card-value">{{ TIPO_INGREDIENTE[item.tipo] }}</span>
+    <div class="card-list-details d-none">
+      <div class="row g-0 mt-1 pt-1 border-top">
+        <div class="col-6">
+          <span class="card-label">Tipo</span><br>
+          <span class="card-value">{{ TIPO_INGREDIENTE[item.tipo] }}</span>
+        </div>
+        <div class="col-6">
+          <span class="card-label">Und</span><br>
+          <span class="card-value">{{ item.unidade_medida }}</span>
+        </div>
+      </div>
+      <div class="text-end mt-1">
+        {{ action_edit(url_for('ingredients.edit', id=item.id)) }}
+      </div>
     </div>
-    <div class="col-6">
-      <span class="card-label">Unidade</span><br>
-      <span class="card-value">{{ item.unidade_medida }}</span>
-    </div>
-  </div>
+  {% else %}
+    <td>{{ item.id|fmtid }}</td>
+    <td>{{ item.nome }}</td>
+    <td>{{ TIPO_INGREDIENTE[item.tipo] }}</td>
+    <td>{{ item.unidade_medida }}</td>
+    <td>{{ action_edit(url_for('ingredients.edit', id=item.id)) }}</td>
+  {% endif %}
 {% endcall %}
 
 {% endblock %}

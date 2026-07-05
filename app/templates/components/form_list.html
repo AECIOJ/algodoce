@@ -1,0 +1,97 @@
+{% macro form_list(items, title='', new_url=none, new_label='+ Novo', actions='', empty_msg='Nenhum registro encontrado.', model='') %}
+
+  {# === BARRA FILTRO === #}
+  <div class="d-flex align-items-center mb-1 gap-2 px-2 barra-filtro">
+    <h2 class="barra-filtro-title mb-0 me-auto fs-4">{{ title }}</h2>
+    <div class="d-flex align-items-center gap-2 mx-auto barra-filtro-controls">
+      {{ caller(none, none) }}
+    </div>
+    {% if new_url or actions %}
+    <div class="d-flex align-items-center gap-2 ms-auto">
+      {% if new_url %}<a href="{{ new_url }}" class="btn btn-success">{{ new_label }}</a>{% endif %}
+      {{ actions|safe }}
+    </div>
+    {% endif %}
+  </div>
+
+  {# === TABELA (desktop sempre, mobile se couber) === #}
+  <div class="table-responsive form-list-table-wrap">
+    <table class="table table-hover sortable"{% if model %} data-model="{{ model }}"{% endif %}>
+      <thead>{{ caller("__header__", none) }}</thead>
+      <tbody>
+        {% for item in items %}
+          <tr>{{ caller(item, none) }}</tr>
+        {% else %}
+          <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# === CARDS (mobile, só se tabela não couber) === #}
+  <div class="form-list-cards">
+    {% for item in items %}
+      <div class="card mb-2 shadow-sm card-list-item">
+        <div class="card-body py-2 px-3">
+          {{ caller(item, "card") }}
+        </div>
+      </div>
+    {% else %}
+      <p class="text-muted text-center my-3">{{ empty_msg }}</p>
+    {% endfor %}
+  </div>
+
+  <script>
+  if (typeof window.toggleCard === 'undefined') {
+    window.toggleCard = function(event, el) {
+      if (event) event.stopPropagation();
+      var card = el ? el.closest('.card-list-item') : null;
+      if (!card) return;
+      var details = card.querySelector('.card-list-details');
+      var chevron = el ? el.querySelector('.card-chevron') : null;
+      if (details) details.classList.toggle('d-none');
+      if (chevron) chevron.classList.toggle('expanded');
+    };
+  }
+
+  (function() {
+    var tableWrap = document.querySelector('.form-list-table-wrap');
+    var cardsWrap = document.querySelector('.form-list-cards');
+    if (!tableWrap || !cardsWrap) return;
+
+    function getTableNaturalWidth(table) {
+      var copy = table.cloneNode(true);
+      copy.style.width = 'max-content';
+      copy.style.tableLayout = 'auto';
+      var div = document.createElement('div');
+      div.style.position = 'absolute';
+      div.style.visibility = 'hidden';
+      div.style.left = '-9999px';
+      div.style.top = '-9999px';
+      document.body.appendChild(div);
+      div.appendChild(copy);
+      var width = copy.scrollWidth;
+      document.body.removeChild(div);
+      return width;
+    }
+
+    function checkFit() {
+      var html = document.documentElement;
+      html.classList.remove('form-list-mobile-table');
+      if (window.innerWidth >= 992) return;
+      var table = tableWrap.querySelector('table');
+      if (!table) return;
+      var container = tableWrap.parentElement;
+      var availableWidth = container ? container.clientWidth : window.innerWidth;
+      var fits = getTableNaturalWidth(table) <= availableWidth;
+      if (fits) {
+        html.classList.add('form-list-mobile-table');
+      }
+    }
+
+    checkFit();
+    window.addEventListener('load', checkFit);
+    window.addEventListener('resize', checkFit);
+  })();
+  </script>
+{% endmacro %}
