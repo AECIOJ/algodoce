@@ -4,24 +4,27 @@
 
   {% if panel_tab %}
 
-  {# === STICKY HEADER: title + tabs + actions === #}
-  <div class="sticky-top bg-white panel-tab-header" style="top:0;border-bottom:1px solid #dee2e6;">
-    <div class="d-flex align-items-center px-2 py-1 gap-2 gap-lg-3">
-      <h2 class="mb-0 fs-4 d-none d-lg-block flex-shrink-0">{{ title }}</h2>
-      <ul class="nav nav-underline mb-0 flex-shrink-0" id="formListTabs" role="tablist">
-        <li class="nav-item"><button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#panel_dados" type="button" role="tab">Dados</button></li>
-        <li class="nav-item"><button class="nav-link" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-tab-pane" type="button" role="tab">Filtros</button></li>
-        <li class="nav-item d-none"><button class="nav-link disabled" id="relatorios-tab" type="button" role="tab">Relatórios</button></li>
-      </ul>
-      <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
-        {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm">{{ new_label }}</a>{% endif %}
-        {% if actions %}{{ actions|safe }}{% endif %}
+  {# === FLEX LAYOUT: header fixo + scroll content === #}
+  <div class="d-flex flex-column panel-tab-wrapper" style="flex:1;min-height:0;">
+
+    {# === HEADER: title + tabs + actions === #}
+    <div class="panel-tab-header bg-white" style="flex:none;border-bottom:1px solid #dee2e6;">
+      <div class="d-flex align-items-center px-2 py-1 gap-2 gap-lg-3">
+        <h2 class="mb-0 fs-4 d-none d-lg-block flex-shrink-0">{{ title }}</h2>
+        <ul class="nav nav-underline mb-0 flex-shrink-0" id="formListTabs" role="tablist">
+          <li class="nav-item"><button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#panel_dados" type="button" role="tab">Dados</button></li>
+          <li class="nav-item"><button class="nav-link" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-tab-pane" type="button" role="tab">Filtros</button></li>
+          <li class="nav-item d-none"><button class="nav-link disabled" id="relatorios-tab" type="button" role="tab">Relatórios</button></li>
+        </ul>
+        <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
+          {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm">{{ new_label }}</a>{% endif %}
+          {% if actions %}{{ actions|safe }}{% endif %}
+        </div>
       </div>
     </div>
-  </div>
 
-  {# === TAB CONTENT === #}
-  <div class="tab-content" id="formListTabContent">
+    {# === TAB CONTENT (scroll) === #}
+    <div class="tab-content" id="formListTabContent" style="flex:1;overflow-y:auto;min-height:0;">
 
     {# === DADOS TAB === #}
     <div class="tab-pane fade show active" id="panel_dados" role="tabpanel">
@@ -79,6 +82,8 @@
     </div>{# /filtros-tab-pane #}
 
   </div>{# /tab-content #}
+
+  </div>{# /panel-tab-wrapper #}
 
   {% else %}
   {# === VERSÃO SEM FILTRO === #}
@@ -141,6 +146,8 @@
       if (chevron) chevron.classList.toggle('expanded');
     };
   }
+
+  {% if panel_tab %}(function(){var h=document.documentElement;h.classList.add('panel-tab-active');})();{% endif %}
 
   (function() {
     var tableWrap = document.querySelector('.form-list-table-wrap');

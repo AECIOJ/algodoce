@@ -344,6 +344,15 @@ html.list-page .table-scroll {
   font-size: 0.875rem;
 }
 
+/* === Panel tab layout: wrapper flex + scroll content === */
+.panel-tab-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+html.panel-tab-active main {
+  overflow-y: hidden !important;
+}
+
 /* === form_list: layout responsivo + sticky header + card expansion === */
 
 /* Desktop: sempre tabela, cards ocultos */
