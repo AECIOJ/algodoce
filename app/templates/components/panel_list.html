@@ -1,9 +1,15 @@
-{% from "components/barra_filtro.html" import barra_filtro %}
-
 {% macro panel_list(title, actions='', filters='', table_wrapper_class='', model='') %}
-{% call barra_filtro(title, actions) %}
-  {{ filters|safe }}
-{% endcall %}
+<div class="d-flex align-items-center mb-1 gap-2 px-2 barra-filtro">
+  <h2 class="barra-filtro-title mb-0 me-auto fs-4">{{ title }}</h2>
+  <div class="d-flex align-items-center gap-2 mx-auto barra-filtro-controls">
+    {{ filters|safe }}
+  </div>
+  {% if actions %}
+  <div class="d-flex align-items-center gap-2 ms-auto">
+    {{ actions }}
+  </div>
+  {% endif %}
+</div>
 <div class="table-responsive table-scroll {{ table_wrapper_class }}">
   <table class="table table-hover sortable"{% if model %} data-model="{{ model }}"{% endif %}>
     {{ caller() }}

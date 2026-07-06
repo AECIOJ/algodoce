@@ -1,26 +1,101 @@
-{% macro form_list(items, title='', new_url=none, new_label='+ Novo', actions='', empty_msg='Nenhum registro encontrado.', model='') %}
+{% from "components/panel_list.html" import action_edit %}
 
-  {# === BARRA FILTRO === #}
-  <div class="d-flex align-items-center mb-1 gap-2 px-2 barra-filtro">
+{% macro form_list(items, title='', new_url=none, new_label='+ Novo', actions='', empty_msg='Nenhum registro encontrado.', model='', edit_url=none, panel_tab=false) %}
+
+  {% if panel_tab %}
+
+  {# === STICKY HEADER: title + tabs + actions === #}
+  <div class="sticky-top bg-white panel-tab-header" style="top:0;border-bottom:1px solid #dee2e6;">
+    <div class="d-flex align-items-center px-2 py-1 gap-2 gap-lg-3">
+      <h2 class="mb-0 fs-4 d-none d-lg-block flex-shrink-0">{{ title }}</h2>
+      <ul class="nav nav-underline mb-0 flex-shrink-0" id="formListTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#panel_dados" type="button" role="tab">Dados</button></li>
+        <li class="nav-item"><button class="nav-link" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-tab-pane" type="button" role="tab">Filtros</button></li>
+        <li class="nav-item d-none"><button class="nav-link disabled" id="relatorios-tab" type="button" role="tab">Relatórios</button></li>
+      </ul>
+      <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
+        {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm">{{ new_label }}</a>{% endif %}
+        {% if actions %}{{ actions|safe }}{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# === TAB CONTENT === #}
+  <div class="tab-content" id="formListTabContent">
+
+    {# === DADOS TAB === #}
+    <div class="tab-pane fade show active" id="panel_dados" role="tabpanel">
+
+      {# --- TABLE --- #}
+      <div class="table-responsive form-list-table-wrap">
+        <table class="table table-hover sortable"{% if model %} data-model="{{ model }}"{% endif %}>
+          <thead>{{ caller("__header__", none) }}</thead>
+          <tbody>
+            {% for item in items %}
+              <tr data-filter-index="{{ loop.index0 }}">{{ caller(item, none) }}</tr>
+            {% else %}
+              <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {# --- CARDS --- #}
+      <div class="form-list-cards">
+        {% for item in items %}
+          <div class="card mb-2 shadow-sm card-list-item" data-filter-index="{{ loop.index0 }}">
+            <div class="card-body py-2 px-3">
+              {% if edit_url %}
+                <div class="card-list-summary" onclick="toggleCard(event,this)">
+                  <div class="d-flex justify-content-between align-items-start w-100">
+                    <div class="text-truncate me-2">{{ caller(item, "summary") }}</div>
+                    <div class="d-flex align-items-center gap-1">
+                      <span onclick="event.stopPropagation()">{{ action_edit(edit_url(item)) }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-list-details d-none">{{ caller(item, "detail") }}</div>
+              {% else %}
+                {{ caller(item, "card") }}
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <p class="text-muted text-center my-3">{{ empty_msg }}</p>
+        {% endfor %}
+      </div>
+
+    </div>{# /panel_dados #}
+
+    {# === FILTROS TAB === #}
+    <div class="tab-pane fade" id="filtros-tab-pane" role="tabpanel">
+      <div class="px-2">
+      <div id="filter-panel-body"></div>
+      <div class="d-flex gap-2 mt-3 sticky-bottom bg-white p-2 border-top">
+        <button class="btn btn-primary flex-fill" id="filter-apply">Aplicar</button>
+        <button class="btn btn-outline-secondary flex-fill" id="filter-clear">Limpar</button>
+      </div>
+      </div>
+    </div>{# /filtros-tab-pane #}
+
+  </div>{# /tab-content #}
+
+  {% else %}
+  {# === VERSÃO SEM FILTRO === #}
+  <div class="barra-filtro d-flex align-items-center mb-1 gap-2 px-2">
     <h2 class="barra-filtro-title mb-0 me-auto fs-4">{{ title }}</h2>
     <div class="d-flex align-items-center gap-2 mx-auto barra-filtro-controls">
       {{ caller(none, none) }}
     </div>
-    {% if new_url or actions %}
-    <div class="d-flex align-items-center gap-2 ms-auto">
-      {% if new_url %}<a href="{{ new_url }}" class="btn btn-success">{{ new_label }}</a>{% endif %}
-      {{ actions|safe }}
-    </div>
-    {% endif %}
   </div>
 
-  {# === TABELA (desktop sempre, mobile se couber) === #}
+  {# --- TABLE --- #}
   <div class="table-responsive form-list-table-wrap">
     <table class="table table-hover sortable"{% if model %} data-model="{{ model }}"{% endif %}>
       <thead>{{ caller("__header__", none) }}</thead>
       <tbody>
         {% for item in items %}
-          <tr>{{ caller(item, none) }}</tr>
+          <tr data-filter-index="{{ loop.index0 }}">{{ caller(item, none) }}</tr>
         {% else %}
           <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
         {% endfor %}
@@ -28,18 +103,31 @@
     </table>
   </div>
 
-  {# === CARDS (mobile, só se tabela não couber) === #}
+  {# --- CARDS --- #}
   <div class="form-list-cards">
     {% for item in items %}
-      <div class="card mb-2 shadow-sm card-list-item">
+      <div class="card mb-2 shadow-sm card-list-item" data-filter-index="{{ loop.index0 }}">
         <div class="card-body py-2 px-3">
-          {{ caller(item, "card") }}
+          {% if edit_url %}
+            <div class="card-list-summary" onclick="toggleCard(event,this)">
+              <div class="d-flex justify-content-between align-items-start w-100">
+                <div class="text-truncate me-2">{{ caller(item, "summary") }}</div>
+                <div class="d-flex align-items-center gap-1">
+                  <span onclick="event.stopPropagation()">{{ action_edit(edit_url(item)) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-list-details d-none">{{ caller(item, "detail") }}</div>
+          {% else %}
+            {{ caller(item, "card") }}
+          {% endif %}
         </div>
       </div>
     {% else %}
       <p class="text-muted text-center my-3">{{ empty_msg }}</p>
     {% endfor %}
   </div>
+  {% endif %}
 
   <script>
   if (typeof window.toggleCard === 'undefined') {
@@ -57,41 +145,262 @@
   (function() {
     var tableWrap = document.querySelector('.form-list-table-wrap');
     var cardsWrap = document.querySelector('.form-list-cards');
-    if (!tableWrap || !cardsWrap) return;
-
-    function getTableNaturalWidth(table) {
-      var copy = table.cloneNode(true);
-      copy.style.width = 'max-content';
-      copy.style.tableLayout = 'auto';
-      var div = document.createElement('div');
-      div.style.position = 'absolute';
-      div.style.visibility = 'hidden';
-      div.style.left = '-9999px';
-      div.style.top = '-9999px';
-      document.body.appendChild(div);
-      div.appendChild(copy);
-      var width = copy.scrollWidth;
-      document.body.removeChild(div);
-      return width;
+    if (tableWrap && cardsWrap) {
+      function getTableNaturalWidth(table) {
+        var copy = table.cloneNode(true);
+        copy.style.width = 'max-content';
+        copy.style.tableLayout = 'auto';
+        var div = document.createElement('div');
+        div.style.position = 'absolute';
+        div.style.visibility = 'hidden';
+        div.style.left = '-9999px';
+        div.style.top = '-9999px';
+        document.body.appendChild(div);
+        div.appendChild(copy);
+        var width = copy.scrollWidth;
+        document.body.removeChild(div);
+        return width;
+      }
+      function checkFit() {
+        var html = document.documentElement;
+        html.classList.remove('form-list-mobile-table');
+        if (window.innerWidth >= 992) return;
+        var table = tableWrap.querySelector('table');
+        if (!table) return;
+        var container = tableWrap.parentElement;
+        var availableWidth = container ? container.clientWidth : window.innerWidth;
+        var fits = getTableNaturalWidth(table) <= availableWidth;
+        if (fits) html.classList.add('form-list-mobile-table');
+        document.dispatchEvent(new Event('tablefitchange'));
+      }
+      window._tableCheckFit = checkFit;
+      checkFit();
+      setTimeout(function() {
+        if (typeof syncTopSpacer === 'function') syncTopSpacer();
+        checkFit();
+      }, 0);
+      window.addEventListener('load', function() {
+        checkFit();
+        if (typeof syncTopSpacer === 'function') syncTopSpacer();
+        checkFit();
+      });
+      window.addEventListener('resize', function() {
+        checkFit();
+        if (typeof syncTopSpacer === 'function') syncTopSpacer();
+        checkFit();
+      });
     }
 
-    function checkFit() {
-      var html = document.documentElement;
-      html.classList.remove('form-list-mobile-table');
-      if (window.innerWidth >= 992) return;
-      var table = tableWrap.querySelector('table');
-      if (!table) return;
-      var container = tableWrap.parentElement;
-      var availableWidth = container ? container.clientWidth : window.innerWidth;
-      var fits = getTableNaturalWidth(table) <= availableWidth;
-      if (fits) {
-        html.classList.add('form-list-mobile-table');
+  {% if panel_tab %}
+    var filterState = {};
+    var filterBody = document.getElementById('filter-panel-body');
+    var table = document.querySelector('.form-list-table-wrap table') || document.querySelector('table.sortable[data-model]') || document.querySelector('table.sortable');
+    var dadosTab = document.getElementById('dados-tab');
+    var filtersBuilt = false;
+
+    function buildFilters(bodyEl) {
+      if (!bodyEl || !table) {
+        if (bodyEl) bodyEl.innerHTML = '<div class="text-danger small p-2">ERRO: table=' + (table?'ok':'null') + '</div>';
+        return;
+      }
+      bodyEl.innerHTML = '';
+      var headers = table.querySelectorAll('thead th[data-filter-type]');
+      if (!headers.length) {
+        bodyEl.innerHTML = '<div class="text-muted small p-2">Nenhum filtro disponível para esta tabela.</div>';
+        return;
+      }
+      headers.forEach(function(th) {
+        var type = th.dataset.filterType;
+        var field = th.dataset.field || th.textContent.trim().toLowerCase();
+        var label = th.textContent.trim();
+        var group = document.createElement('div');
+        group.className = 'filter-panel-field';
+
+        if (type === 'text') {
+          var input = document.createElement('input');
+          input.type = 'text';
+          input.className = 'form-control form-control-sm';
+          input.dataset.field = field;
+          input.placeholder = 'Buscar...';
+          if (filterState[field]) input.value = filterState[field];
+          group.innerHTML = '<label>' + label + '</label>';
+          group.appendChild(input);
+        } else if (type === 'number') {
+          group.innerHTML = '<label>' + label + '</label><div class="d-flex gap-1">';
+          ['min', 'max'].forEach(function(st) {
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'form-control form-control-sm';
+            input.dataset.field = field;
+            input.dataset.subtype = st;
+            input.placeholder = st === 'min' ? 'Mín' : 'Máx';
+            var key = field + '_' + st;
+            if (filterState[key]) input.value = filterState[key];
+            group.lastChild.appendChild(input);
+          });
+        } else if (type === 'select') {
+          var select = document.createElement('select');
+          select.className = 'form-select form-select-sm';
+          select.dataset.field = field;
+          var optAll = document.createElement('option');
+          optAll.value = '';
+          optAll.textContent = 'Todos';
+          select.appendChild(optAll);
+          var options = {};
+          try { options = JSON.parse(th.dataset.filterOptions || '{}'); } catch(e) {}
+          Object.keys(options).forEach(function(key) {
+            var opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = options[key];
+            if (filterState[field] === key) opt.selected = true;
+            select.appendChild(opt);
+          });
+          if (!filterState[field]) select.value = '';
+          group.innerHTML = '<label>' + label + '</label>';
+          group.appendChild(select);
+        } else if (type === 'boolean') {
+          var select = document.createElement('select');
+          select.className = 'form-select form-select-sm';
+          select.dataset.field = field;
+          [['', 'Todos'], ['true', 'Sim'], ['false', 'Não']].forEach(function(pair) {
+            var opt = document.createElement('option');
+            opt.value = pair[0];
+            opt.textContent = pair[1];
+            if (filterState[field] === pair[0]) opt.selected = true;
+            select.appendChild(opt);
+          });
+          if (!filterState[field]) select.value = '';
+          group.innerHTML = '<label>' + label + '</label>';
+          group.appendChild(select);
+        } else if (type === 'date') {
+          group.innerHTML = '<label>' + label + '</label><div class="d-flex gap-1">';
+          ['from', 'to'].forEach(function(st) {
+            var input = document.createElement('input');
+            input.type = 'date';
+            input.className = 'form-control form-control-sm';
+            input.dataset.field = field;
+            input.dataset.subtype = st;
+            input.placeholder = st === 'from' ? 'De' : 'Até';
+            var key = field + '_' + st;
+            if (filterState[key]) input.value = filterState[key];
+            group.lastChild.appendChild(input);
+          });
+        }
+        bodyEl.appendChild(group);
+      });
+    }
+
+    function getFilterValue(el) {
+      if (el.tagName === 'SELECT') {
+        var sel = el.options[el.selectedIndex];
+        return sel ? sel.text : '';
+      }
+      return el.value;
+    }
+
+    function applyFiltersFrom(bodyEl) {
+      if (!bodyEl || !table) return;
+      var inputs = bodyEl.querySelectorAll('input, select');
+      var filters = {};
+      filterState = {};
+      inputs.forEach(function(el) {
+        var val = getFilterValue(el).trim();
+        if (val === '' || val === 'Todos') return;
+        var field = el.dataset.field;
+        var subtype = el.dataset.subtype || '';
+        var key = field + (subtype ? '_' + subtype : '');
+        filters[key] = val.toLowerCase();
+        filterState[key] = val;
+      });
+
+      var rows = table.querySelectorAll('tbody tr');
+      var headers = table.querySelectorAll('thead th[data-filter-type]');
+      var allHeaders = table.querySelectorAll('thead th');
+      rows.forEach(function(row) {
+        if (!row.dataset.filterIndex) return;
+        var show = true;
+        headers.forEach(function(th) {
+          if (!show) return;
+          var type = th.dataset.filterType;
+          var field = th.dataset.field || th.textContent.trim().toLowerCase();
+          var colIdx = Array.prototype.indexOf.call(allHeaders, th);
+          var cell = row.cells[colIdx];
+          if (!cell) return;
+          var cellText = cell.textContent.trim().toLowerCase();
+
+          if (type === 'text') {
+            if (filters[field] && !cellText.includes(filters[field])) show = false;
+          } else if (type === 'number') {
+            var num = parseFloat(cellText.replace(/[^0-9.,\-]/g, '').replace(',', '.'));
+            if (filters[field + '_min'] && !isNaN(num) && num < parseFloat(filters[field + '_min'])) show = false;
+            if (filters[field + '_max'] && !isNaN(num) && num > parseFloat(filters[field + '_max'])) show = false;
+          } else if (type === 'select') {
+            if (filters[field] && !cellText.includes(filters[field])) show = false;
+          } else if (type === 'boolean') {
+            if (filters[field]) {
+              var isActive = cellText === 'sim' || cellText === 'ativo' || cellText === 'true';
+              if ((filters[field] === 'sim' && !isActive) || (filters[field] === 'não' && isActive)) show = false;
+            }
+          } else if (type === 'date') {
+            var m = cellText.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+            if (m) {
+              var d = new Date(+m[3], +m[2] - 1, +m[1]);
+              if (filters[field + '_from']) {
+                var f = new Date(filters[field + '_from']);
+                if (d < f) show = false;
+              }
+              if (filters[field + '_to']) {
+                var t = new Date(filters[field + '_to']);
+                t.setHours(23, 59, 59, 999);
+                if (d > t) show = false;
+              }
+            }
+          }
+        });
+        row.style.display = show ? '' : 'none';
+        var card = document.querySelector('.card-list-item[data-filter-index="' + row.dataset.filterIndex + '"]');
+        if (card) card.style.display = show ? '' : 'none';
+      });
+    }
+
+    function clearFiltersFrom(bodyEl) {
+      filterState = {};
+      if (bodyEl) {
+        bodyEl.querySelectorAll('input, select').forEach(function(el) {
+          el.value = '';
+          if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        });
+      }
+      applyFiltersFrom(bodyEl);
+    }
+
+    function goToDadosTab() {
+      if (dadosTab) {
+        var tab = new bootstrap.Tab(dadosTab);
+        tab.show();
       }
     }
 
-    checkFit();
-    window.addEventListener('load', checkFit);
-    window.addEventListener('resize', checkFit);
+    var filterTab = document.getElementById('filtros-tab');
+    if (filterTab) {
+      filterTab.addEventListener('shown.bs.tab', function() {
+        if (!filtersBuilt) {
+          buildFilters(filterBody);
+          filtersBuilt = true;
+        }
+      });
+    }
+
+    document.getElementById('filter-apply').addEventListener('click', function() {
+      applyFiltersFrom(filterBody);
+      goToDadosTab();
+    });
+
+    document.getElementById('filter-clear').addEventListener('click', function() {
+      clearFiltersFrom(filterBody);
+      goToDadosTab();
+    });
+    {% endif %}
   })();
   </script>
 {% endmacro %}

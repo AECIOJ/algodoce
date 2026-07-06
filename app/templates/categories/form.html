@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
+{% from "components/edit_top.html" import edit_top %}
+{% from "components/edit_save.html" import edit_save %}
 {% block content %}
 
 {% if category %}
@@ -10,13 +10,9 @@
     {{ 'Desativar' if category.ativo else 'Ativar' }}
   </a>
 {% endset %}
-{% call form_nav(back_url=url_for('categories.list'), nome='Categoria ' ~ category.id|fmtid, nav=nav, edit_endpoint='categories.edit', entity_id=category.id, actions2=category_actions) %}
-  {{ category_actions }}
-{% endcall %}
+{{ edit_top(back_url=url_for('categories.list'), title='Categoria ' ~ category.id|fmtid, actions=category_actions) }}
 {% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Categoria</span>
-</div>
+{{ edit_top(title='Nova Categoria') }}
 {% endif %}
 
 <form method="POST" id="main-form">
@@ -29,9 +25,9 @@
       <label class="form-label">Ordem</label>
       <input type="number" name="ordem" class="form-control" min="0" max="99" value="{{ category.ordem if category else 0 }}">
   </div>
-  <div class="form-bottom-spacer"></div>
 </form>
-{% call barra_edicao(back_url=url_for('categories.list'), disable_save=category is not none) %}
+
+{% call edit_save(back_url=url_for('categories.list')) %}
   {% if category %}
   <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
   {% endif %}

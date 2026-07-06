@@ -357,6 +357,8 @@ var SUB_NAV_SECTIONS = {
   };
 
   function matchPath(path, prefix) {
+    path = path.replace(/\/+$/, '');
+    prefix = prefix.replace(/\/+$/, '');
     return path === prefix || path.indexOf(prefix + '/') === 0;
   }
 

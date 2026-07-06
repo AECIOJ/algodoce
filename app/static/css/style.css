@@ -402,6 +402,69 @@ html.list-page .form-list-table-wrap {
 }
 /* ============================================== */
 
+/* === Edit panel: form sem sidebar, body scroll === */
+html.edit-page body {
+  overflow: hidden;
+}
+html.edit-page main {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.edit-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+.edit-panel-body .row.mb-3 {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* === Edit form: hide mobile nav + rodape === */
+html.edit-form #adminBottomNav,
+html.edit-form .rodape {
+  display: none !important;
+}
+html.edit-form main {
+  padding-bottom: 0;
+}
+
+/* === Edit save bar (bottom) === */
+.edit-save {
+  position: sticky;
+  bottom: 0;
+  z-index: 1030;
+  background: white;
+  border-top: 2px solid var(--cor-menu);
+  padding: 8px 16px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* === Edit top bar (sticky header) === */
+.edit-top {
+  position: sticky;
+  top: 0;
+  z-index: 1025;
+  background: white;
+  border-bottom: 1px solid #dee2e6;
+}
+.edit-top .nav-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rosa);
+}
+@media (max-width: 991.98px) {
+  .edit-top {
+    border-bottom: none;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    margin-bottom: 0;
+  }
+}
+
 .form-bottom-bar {
   position: fixed;
   bottom: 0;
