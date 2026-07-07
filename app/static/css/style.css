@@ -567,8 +567,27 @@ html.edit-form #page-content {
 }
 @media (max-width: 991.98px) {
   html.edit-form .form-footer .btn {
-    min-height: 38px;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.4rem;
+  }
+  html.edit-form .form-footer .btn i,
+  html.edit-form .form-footer .btn .bi {
+    font-size: 0.7rem;
+  }
+  html.edit-form .barra-nav .btn,
+  html.edit-form .barra-nav .btn-group-sm .btn {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.35rem;
+    min-height: 0;
+  }
+  html.edit-form .barra-nav .input-group-sm .input-group-text {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.3rem;
+  }
+  html.edit-form .barra-nav .input-group-sm .form-control {
+    font-size: 0.7rem;
+    height: auto;
+    padding: 0.15rem 0.3rem;
   }
 }
 

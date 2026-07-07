@@ -38,22 +38,21 @@
     {% set id_col = cols[0] if cols else none %}
     {% set label_col = cols[1] if cols and cols[1].field != 'imagem' else (cols[2] if cols|length > 2 else none) %}
     {% set status_col = cols|selectattr('field', 'equalto', 'ativo')|first or cols|selectattr('filter', 'equalto', 'boolean')|first %}
-    <div class="border-bottom d-flex align-items-center px-3 py-2">
-      <div class="d-flex align-items-center flex-grow-1" data-bs-toggle="collapse" data-bs-target="#card-{{ loop.index }}" role="button" style="cursor:pointer;">
+    <div class="border-bottom">
+      <div class="d-flex align-items-center px-3 py-2" data-bs-toggle="collapse" data-bs-target="#card-{{ loop.index }}" role="button" style="cursor:pointer;">
         <span class="text-muted small me-2 flex-shrink-0">{{ item|attr(id_col.field) if id_col and id_col.field else '#' }}</span>
         <span class="fw-bold flex-grow-1 me-2">{{ item|attr(label_col.field) if label_col and label_col.field else '' }}</span>
         {% if status_col %}
         <span class="flex-shrink-0 me-2">{{ 'Ativo' if item|attr(status_col.field) else 'Inativo' }}</span>
         {% endif %}
+        {% if edit_url %}
+        <a href="{{ edit_url(item) }}" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-edit-link flex-shrink-0 ms-2" onclick="event.stopPropagation()">
+          <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18">
+          <small style="font-size:0.65rem;line-height:1.2;">Editar</small>
+        </a>
+        {% endif %}
       </div>
-      {% if edit_url %}
-      <a href="{{ edit_url(item) }}" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-edit-link flex-shrink-0 ms-2">
-        <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18">
-        <small style="font-size:0.65rem;line-height:1.2;">Editar</small>
-      </a>
-      {% endif %}
-    </div>
-    <div class="collapse px-3 pb-2" id="card-{{ loop.index }}">
+      <div class="collapse px-3 pb-2" id="card-{{ loop.index }}">
         {% for col in cols %}
         {% if col.field and col.field != id_col.field and col.field != label_col.field and (not status_col or col.field != status_col.field) %}
         <div class="row small mb-1">

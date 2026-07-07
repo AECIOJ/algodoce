@@ -36,7 +36,7 @@
 
 {% block form_footer_left %}
 {% if category %}
-<button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" style="min-height:0;font-size:0.75rem;padding:2px 6px;" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)"><i class="bi bi-trash"></i>Excluir</button>
+<button type="button" class="btn btn-danger btn-sm" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)"><i class="bi bi-trash"></i> Excluir</button>
 {% endif %}
 {% endblock %}
 
