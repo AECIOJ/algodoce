@@ -23,12 +23,12 @@
 {% endif %}
 
 <div class="row mb-3">
-  <div class="col-md-9">
-    <label class="form-label">Nome *</label>
+  <div class="col-md-{{ get_field(fields, 'nome')|field_grid }}">
+    <label class="form-label">{{ get_field(fields, 'nome').label }} *</label>
     <input type="text" name="nome" class="form-control" required value="{{ category.nome if category else '' }}">
   </div>
-  <div class="col-md-3">
-    <label class="form-label">Ordem</label>
+  <div class="col-md-{{ get_field(fields, 'ordem')|field_grid }}">
+    <label class="form-label">{{ get_field(fields, 'ordem').label }}</label>
     <input type="number" name="ordem" class="form-control" min="0" max="99" value="{{ category.ordem if category else 0 }}">
   </div>
 </div>

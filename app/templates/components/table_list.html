@@ -3,7 +3,7 @@
 {% macro table_list(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.') %}
 {% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
 <div class="table-list-wrap">
-  <table class="table table-hover">
+  <table class="table table-sm table-hover d-none d-lg-table">
     <thead>
       <tr>
         {% for col in cols %}
@@ -32,5 +32,37 @@
       {% endfor %}
     </tbody>
   </table>
+
+  <div class="d-lg-none">
+    {% for item in data %}
+    {% set id_col = cols[0] if cols else none %}
+    {% set label_col = cols[1] if cols|length > 1 else none %}
+    {% set status_col = cols|selectattr('field', 'equalto', 'ativo')|first or cols|selectattr('filter', 'equalto', 'boolean')|first %}
+    <div class="border-bottom">
+      <div class="d-flex align-items-center px-3 py-2" data-bs-toggle="collapse" data-bs-target="#card-{{ loop.index }}" role="button" style="cursor:pointer;">
+        <span class="text-muted small me-2 flex-shrink-0">{{ item|attr(id_col.field) if id_col and id_col.field else '#' }}</span>
+        <span class="fw-bold flex-grow-1 me-2">{{ item|attr(label_col.field) if label_col and label_col.field else '' }}</span>
+        {% if status_col %}
+        <span class="flex-shrink-0 me-2">{{ 'Sim' if item|attr(status_col.field) else 'Não' }}</span>
+        {% endif %}
+        {% if edit_url %}
+        <a href="{{ edit_url(item) }}" class="btn btn-sm btn-outline-primary flex-shrink-0" onclick="event.stopPropagation()">Editar</a>
+        {% endif %}
+      </div>
+      <div class="collapse px-3 pb-2" id="card-{{ loop.index }}">
+        {% for col in cols %}
+        {% if col.field and col.field != id_col.field and col.field != label_col.field and (not status_col or col.field != status_col.field) %}
+        <div class="row small mb-1">
+          <span class="text-muted col-4">{{ col.label }}</span>
+          <span class="col-8">{{ item|attr(col.field) if item|attr(col.field) is not none else '—' }}</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <p class="text-muted text-center my-3">{{ empty_msg }}</p>
+    {% endfor %}
+  </div>
 </div>
 {% endmacro %}

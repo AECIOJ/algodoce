@@ -156,9 +156,11 @@ def create_app():
     app.jinja_env.filters['fmtzero'] = fmt_zero
     app.jinja_env.filters['fmtzeroi'] = fmt_zero_int
     app.jinja_env.filters['fmtdate'] = fmt_date
-    from app.fields import fields_to_columns, field_filter_options
+    from app.fields import fields_to_columns, field_filter_options, field_grid, get_field
     app.jinja_env.filters['fields_to_columns'] = fields_to_columns
     app.jinja_env.filters['field_filter_options'] = field_filter_options
+    app.jinja_env.filters['field_grid'] = field_grid
+    app.jinja_env.globals['get_field'] = get_field
 
     @app.context_processor
     def inject_globals():

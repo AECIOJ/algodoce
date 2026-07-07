@@ -84,3 +84,21 @@ def build_field_context(fields: list[Field], model_map: dict[str, type] | None =
                 if f.options is None:
                     f.options = {str(i.id): i.nome for i in items}
     return ctx
+
+
+def field_grid(f: Field) -> int:
+    w = f.width or 12
+    if w < 8:
+        return 3
+    if w < 15:
+        return 4
+    if w < 25:
+        return 6
+    return 8
+
+
+def get_field(fields: list[Field], name: str) -> Optional[Field]:
+    for f in fields:
+        if f.name == name:
+            return f
+    return None

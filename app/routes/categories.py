@@ -6,8 +6,8 @@ from app.fields import Field, build_field_context
 
 
 CATEGORIES_FIELDS = [
-    Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='nome', label='Nome', width=50),
+    Field(name='id', label='#', width=3, mask='999'),
+    Field(name='nome', label='Nome', width=18),
     Field(name='ordem', label='Ordem', width=5, input='number'),
     Field(name='ativo', label='Ativo', input='boolean'),
 ]
@@ -47,7 +47,7 @@ def new():
         db.session.commit()
         flash("Categoria cadastrada!", "success")
         return redirect(url_for("categories.list"))
-    return render_template("categories/form.html")
+    return render_template("categories/form.html", fields=CATEGORIES_FIELDS)
 
 
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
@@ -77,7 +77,7 @@ def edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    return render_template("categories/form.html", category=category, nav=nav)
+    return render_template("categories/form.html", category=category, nav=nav, fields=CATEGORIES_FIELDS)
 
 
 @bp.route("/<int:id>/uso")
