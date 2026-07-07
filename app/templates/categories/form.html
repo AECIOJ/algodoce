@@ -1,92 +1,86 @@
 {% extends "page_sistema.html" %}
-{% from "components/edit_top.html" import edit_top %}
-{% from "components/edit_save.html" import edit_save %}
-{% block content %}
+{% from "components/page_form.html" import page_form %}
+{% block page_content %}
 
+{% set header_actions %}
 {% if category %}
-{% set category_actions %}
   {% if not category.ativo %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
   <a href="{{ url_for('categories.toggle', id=category.id) }}" class="btn btn-{{ 'success' if category.ativo else 'outline-secondary' }} btn-sm" style="min-width:90px">
     {{ 'Desativar' if category.ativo else 'Ativar' }}
   </a>
-{% endset %}
-{{ edit_top(back_url=url_for('categories.list'), title='Categoria ' ~ category.id|fmtid, actions=category_actions) }}
-{% else %}
-{{ edit_top(title='Nova Categoria') }}
 {% endif %}
+{% endset %}
 
-<form method="POST" id="main-form" class="px-2 px-md-0 mt-2">
-  <div class="row mb-3">
-    <div class="col-md-9">
-      <label class="form-label">Nome *</label>
-      <input type="text" name="nome" class="form-control" required value="{{ category.nome if category else '' }}">
+{% call(section) page_form(
+  back_url=url_for('categories.list'),
+  title='Nova Categoria' if not category else 'Categoria ' ~ category.id|fmtid,
+  item=category,
+  nav=nav,
+  header_extra=header_actions,
+) %}
+  {% if section == 'form' %}
+    <div class="row mb-3">
+      <div class="col-md-9">
+        <label class="form-label">Nome *</label>
+        <input type="text" name="nome" class="form-control" required value="{{ category.nome if category else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Ordem</label>
+        <input type="number" name="ordem" class="form-control" min="0" max="99" value="{{ category.ordem if category else 0 }}">
+      </div>
     </div>
-    <div class="col-md-3">
-      <label class="form-label">Ordem</label>
-      <input type="number" name="ordem" class="form-control" min="0" max="99" value="{{ category.ordem if category else 0 }}">
+  {% elif section == 'bottom' %}
+    {% if category %}
+    <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)">
+      <i class="bi bi-trash"></i>Excluir
+    </button>
+    {% endif %}
+  {% elif section == 'scripts' %}
+    {% if category %}
+    <div class="modal fade" id="modalExcluir" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Excluir Categoria</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="modalExcluirBody"></div>
+          <div class="modal-footer" id="modalExcluirFooter"></div>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="form-bottom-spacer"></div>
-</form>
-
-{% call edit_save(back_url=url_for('categories.list')) %}
-  {% if category %}
-  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+    <form method="POST" id="formExcluir" style="display:none"></form>
+    <script>
+    function confirmarExclusao(btn) {
+      const id = btn.dataset.categoryId;
+      const nome = btn.dataset.categoryNome;
+      const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
+      const body = document.getElementById('modalExcluirBody');
+      const footer = document.getElementById('modalExcluirFooter');
+      fetch('/categorias/' + id + '/uso')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.em_uso) {
+            body.innerHTML = '<div class="alert alert-danger mb-0">' +
+              '<strong>' + nome + '</strong> está em <strong>' + data.quantidade + '</strong> produto(s). ' +
+              'Remova a categoria dos produtos antes de excluí-la.</div>';
+            footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>';
+          } else {
+            body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
+            footer.innerHTML =
+              '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
+              '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><i class="bi bi-trash"></i>Excluir</button>';
+          }
+          modal.show();
+        });
+    }
+    function efetuarExclusao(id) {
+      var form = document.getElementById('formExcluir');
+      form.action = '/categorias/' + id + '/excluir';
+      form.submit();
+    }
+    </script>
+    {% endif %}
   {% endif %}
 {% endcall %}
-
-{% if category %}
-<div class="modal fade" id="modalExcluir" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Excluir Categoria</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body" id="modalExcluirBody"></div>
-      <div class="modal-footer" id="modalExcluirFooter"></div>
-    </div>
-  </div>
-</div>
-
-<form method="POST" id="formExcluir" style="display:none"></form>
-{% endif %}
-
-{% endblock %}
-
-{% block scripts %}
-<script>
-{% if category %}
-function confirmarExclusao(btn) {
-  const id = btn.dataset.categoryId;
-  const nome = btn.dataset.categoryNome;
-  const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
-  const body = document.getElementById('modalExcluirBody');
-  const footer = document.getElementById('modalExcluirFooter');
-
-  fetch('/categorias/' + id + '/uso')
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (data.em_uso) {
-        body.innerHTML = '<div class="alert alert-danger mb-0">' +
-          '<strong>' + nome + '</strong> está em <strong>' + data.quantidade + '</strong> produto(s). ' +
-          'Remova a categoria dos produtos antes de excluí-la.</div>';
-        footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>';
-      } else {
-        body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
-        footer.innerHTML =
-          '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
-      }
-      modal.show();
-    });
-}
-
-function efetuarExclusao(id) {
-  var form = document.getElementById('formExcluir');
-  form.action = '/categorias/' + id + '/excluir';
-  form.submit();
-}
-{% endif %}
-</script>
 {% endblock %}

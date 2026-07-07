@@ -539,23 +539,59 @@ html.edit-page main {
   margin-right: 0;
 }
 
-/* === Edit form: hide mobile nav + rodape === */
+/* === Edit form: flex layout fixo topo/scroll/rodapé === */
+html.edit-form,
+html.edit-form body {
+  height: 100%;
+  overflow: hidden;
+}
+html.edit-form body {
+  display: flex;
+  flex-direction: column;
+}
 html.edit-form #adminBottomNav,
-html.edit-form .rodape {
+html.edit-form .rodape,
+html.edit-form .sistema-rodape {
   display: none !important;
 }
 html.edit-form main {
-  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+  max-width: 100% !important;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0 !important;
+}
+html.edit-form #page-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+html.edit-form .page-form {
+  flex: 1;
+  min-height: 0;
+}
+html.edit-form .edit-top {
+  position: static !important;
+}
+html.edit-form .edit-save {
+  position: static !important;
+  border-top: 2px solid var(--cor-menu);
+  background: white;
+  padding: 8px 16px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 @media (max-width: 991.98px) {
-  html.edit-form .edit-save {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-  html.edit-form main {
-    padding-bottom: 64px;
+  html.edit-form .edit-save .btn {
+    min-height: 44px;
+    font-size: 0.95rem;
+    padding: 0.4rem 0.75rem;
   }
 }
 
