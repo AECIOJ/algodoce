@@ -1,42 +1,34 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
 
-{% if recurso %}
-{% call form_nav(back_url=url_for('recursos.list'), nome='Recurso ' ~ recurso.id|fmtid, nav=nav, edit_endpoint='recursos.edit', entity_id=recurso.id) %}{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Novo Recurso</span>
-</div>
-{% endif %}
 
-<form method="POST" id="main-form">
-  <div class="row g-2 mb-3">
-    <div class="col-md-6">
-      <label class="form-label">Nome *</label>
-      <input type="text" name="nome" class="form-control" required value="{{ recurso.nome if recurso else '' }}">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Tipo *</label>
-      <select name="tipo" class="form-select" required>
-        <option value="">Selecione...</option>
-        {% for k, v in TIPO_RECURSO.items() %}
-          <option value="{{ k }}" {% if recurso and recurso.tipo == k %}selected{% endif %}>{{ v }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Saldo *</label>
-      <input type="number" name="saldo" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(recurso.saldo) if recurso else '0.00' }}">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Data do Balanço</label>
-      <input type="date" name="data" class="form-control" value="{{ recurso.data.strftime('%Y-%m-%d') if recurso and recurso.data else hoje }}">
-    </div>
+{% set back_url = url_for('recursos.list') %}
+{% set new_title = 'Novo Recurso' %}
+{% set entity_label = 'Recurso' %}
+{% set edit_endpoint = 'recursos.edit' %}
+{% if recurso %}{% set entity_id = recurso.id %}{% endif %}
+
+{% block form_body %}
+<div class="row g-2 mb-3">
+  <div class="col-md-6">
+    <label class="form-label">Nome *</label>
+    <input type="text" name="nome" class="form-control" required value="{{ recurso.nome if recurso else '' }}">
   </div>
-  <div class="form-bottom-spacer"></div>
-</form>
-{% call barra_edicao(back_url=url_for('recursos.list'), disable_save=recurso is not none) %}
-{% endcall %}
+  <div class="col-md-3">
+    <label class="form-label">Tipo *</label>
+    <select name="tipo" class="form-select" required>
+      <option value="">Selecione...</option>
+      {% for k, v in TIPO_RECURSO.items() %}
+        <option value="{{ k }}" {% if recurso and recurso.tipo == k %}selected{% endif %}>{{ v }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Saldo *</label>
+    <input type="number" name="saldo" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(recurso.saldo) if recurso else '0.00' }}">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Data do Balanço</label>
+    <input type="date" name="data" class="form-control" value="{{ recurso.data.strftime('%Y-%m-%d') if recurso and recurso.data else hoje }}">
+  </div>
+</div>
 {% endblock %}

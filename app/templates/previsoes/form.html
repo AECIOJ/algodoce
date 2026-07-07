@@ -1,88 +1,82 @@
-{% extends "components/page_system.html" %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
 
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">{% if previsao %}Previsão {{ previsao.id|fmtid }}{% else %}Nova Previsão{% endif %}</span>
+
+{% set back_url = url_for('previsoes.list') %}
+{% set new_title = 'Nova Previsão' %}
+{% set entity_label = 'Previsão' %}
+{% set edit_endpoint = 'previsoes.edit' %}
+{% if previsao %}{% set entity_id = previsao.id %}{% endif %}
+
+{% block form_body %}
+<div class="row mb-3">
+  <div class="col-md-2">
+    <label class="form-label">Tipo *</label>
+    <select name="tipo" class="form-select" required>
+      <option value="">Selecione...</option>
+      {% for k, v in TIPO_PREVISAO.items() %}
+        <option value="{{ k }}" {% if previsao and previsao.tipo == k %}selected{% endif %}>{{ v }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Data</label>
+    <input type="date" name="data" class="form-control" value="{{ previsao.data if previsao else hoje }}">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Conta</label>
+    <select name="conta_id" class="form-select">
+      <option value="">Nenhuma</option>
+      {% for c in contas %}
+        <option value="{{ c.id }}" {% if previsao and previsao.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Documento</label>
+    <input type="text" name="documento" class="form-control" value="{{ previsao.documento if previsao and previsao.documento else '' }}">
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Vencimento *</label>
+    <input type="date" name="vencimento" class="form-control" required value="{{ previsao.vencimento.strftime('%Y-%m-%d') if previsao and previsao.vencimento else '' }}">
+  </div>
 </div>
-
-<form method="POST" id="main-form">
-  <div class="row mb-3">
-    <div class="col-md-2">
-      <label class="form-label">Tipo *</label>
-      <select name="tipo" class="form-select" required>
-        <option value="">Selecione...</option>
-        {% for k, v in TIPO_PREVISAO.items() %}
-          <option value="{{ k }}" {% if previsao and previsao.tipo == k %}selected{% endif %}>{{ v }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Data</label>
-      <input type="date" name="data" class="form-control" value="{{ previsao.data if previsao else hoje }}">
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">Conta</label>
-      <select name="conta_id" class="form-select">
-        <option value="">Nenhuma</option>
-        {% for c in contas %}
-          <option value="{{ c.id }}" {% if previsao and previsao.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Documento</label>
-      <input type="text" name="documento" class="form-control" value="{{ previsao.documento if previsao and previsao.documento else '' }}">
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Vencimento *</label>
-      <input type="date" name="vencimento" class="form-control" required value="{{ previsao.vencimento.strftime('%Y-%m-%d') if previsao and previsao.vencimento else '' }}">
-    </div>
+<div class="row mb-3">
+  <div class="col-md-2">
+    <label class="form-label">Previsto *</label>
+    <input type="number" name="previsto" class="form-control" required step="0.01" value="{{ '%.2f'|format(previsao.previsto) if previsao else '' }}">
   </div>
-  <div class="row mb-3">
-    <div class="col-md-2">
-      <label class="form-label">Previsto *</label>
-      <input type="number" name="previsto" class="form-control" required step="0.01" value="{{ '%.2f'|format(previsao.previsto) if previsao else '' }}">
-    </div>
-    <div class="col-md-2">
-
-    <div class="col-md-2">
-      <label class="form-label">Realizado</label>
-      <input type="number" name="realizado" class="form-control" step="0.01" value="{{ '%.2f'|format(previsao.realizado) if previsao and previsao.realizado is not none else '' }}">
-    </div>
-    <div class="col-4 col-md-2">
-      <label class="form-label">Variação</label>
-      <input type="number" name="variacao" class="form-control" step="0.01" value="{{ '%.2f'|format(previsao.variacao) if previsao and previsao.variacao is not none else '' }}">
-    </div>
+  <div class="col-md-2">
+    <label class="form-label">Realizado</label>
+    <input type="number" name="realizado" class="form-control" step="0.01" value="{{ '%.2f'|format(previsao.realizado) if previsao and previsao.realizado is not none else '' }}">
   </div>
-    <div class="col-md-4">
-      <label class="form-label">Rubrica</label>
-      <select name="rubrica_id" class="form-select">
-        <option value="">Nenhuma</option>
-        {% for r in rubricas %}
-          <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if previsao and previsao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Cancelado em</label>
-      <input type="date" name="cancelado" class="form-control" value="{{ previsao.cancelado.strftime('%Y-%m-%d') if previsao and previsao.cancelado else '' }}">
-    </div>
-    <div class="col-md-4">
-      <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ previsao.historico if previsao and previsao.historico else '' }}">
-    </div>
+  <div class="col-4 col-md-2">
+    <label class="form-label">Variação</label>
+    <input type="number" name="variacao" class="form-control" step="0.01" value="{{ '%.2f'|format(previsao.variacao) if previsao and previsao.variacao is not none else '' }}">
   </div>
-  <div class="form-bottom-spacer"></div>
-</form>
-{% call barra_edicao(back_url=url_for('previsoes.list'), disable_save=previsao is not none) %}
-{% endcall %}
+  <div class="col-md-4">
+    <label class="form-label">Rubrica</label>
+    <select name="rubrica_id" class="form-select">
+      <option value="">Nenhuma</option>
+      {% for r in rubricas %}
+        <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if previsao and previsao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <label class="form-label">Cancelado em</label>
+    <input type="date" name="cancelado" class="form-control" value="{{ previsao.cancelado.strftime('%Y-%m-%d') if previsao and previsao.cancelado else '' }}">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Histórico</label>
+    <input type="text" name="historico" class="form-control" value="{{ previsao.historico if previsao and previsao.historico else '' }}">
+  </div>
+</div>
 {% endblock %}
 
-{% block scripts %}
+{% block page_scripts %}
 <script>
 var TIPO_MAP = {"R": 1, "P": 2};
-document.querySelector('[name="tipo"]')?.addEventListener('change', function() {
+document.querySelector('[name="tipo"]').addEventListener('change', function() {
   var tipoRubrica = TIPO_MAP[this.value];
   var rubricaSelect = document.querySelector('[name="rubrica_id"]');
   var selectedVal = rubricaSelect.value;
@@ -95,8 +89,6 @@ document.querySelector('[name="tipo"]')?.addEventListener('change', function() {
     rubricaSelect.value = '';
   }
 });
-document.querySelector('[name="tipo"]')?.dispatchEvent(new Event('change'));
-
-
+document.querySelector('[name="tipo"]').dispatchEvent(new Event('change'));
 </script>
 {% endblock %}

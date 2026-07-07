@@ -1,34 +1,10 @@
 {% extends "components/page_form.html" %}
 
-{% block nav_left %}
-<a href="{{ url_for('categories.list') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
-
-{% if category %}
-<div class="btn-group btn-group-sm">
-  <a href="{{ url_for('categories.edit', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro"><i class="bi bi-chevron-bar-left"></i></a>
-  {% if nav.prev_id %}
-  <a href="{{ url_for('categories.edit', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior"><i class="bi bi-chevron-left"></i></a>
-  {% else %}
-  <span class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-left"></i></span>
-  {% endif %}
-</div>
-<div class="input-group input-group-sm" style="width:130px;">
-  <span class="input-group-text" style="font-size:0.75rem;">Categoria</span>
-  <input type="number" class="form-control form-control-sm" min="1" value="{{ category.id }}"
-         onchange="if(this.value)window.location=window.location.pathname.replace(/\/\d+/, '/'+this.value)">
-</div>
-<div class="btn-group btn-group-sm">
-  {% if nav.next_id %}
-  <a href="{{ url_for('categories.edit', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo"><i class="bi bi-chevron-right"></i></a>
-  {% else %}
-  <span class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-right"></i></span>
-  {% endif %}
-  <a href="{{ url_for('categories.edit', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último"><i class="bi bi-chevron-bar-right"></i></a>
-</div>
-{% else %}
-<span class="fw-bold" style="font-size:0.95rem;">Nova Categoria</span>
-{% endif %}
-{% endblock %}
+{% set back_url = url_for('categories.list') %}
+{% set new_title = 'Nova Categoria' %}
+{% set entity_label = 'Categoria' %}
+{% set edit_endpoint = 'categories.edit' %}
+{% if category %}{% set entity_id = category.id %}{% endif %}
 
 {% block nav_right %}
 {% if category %}

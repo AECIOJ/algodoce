@@ -1,89 +1,117 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
-
+{% extends "components/page_form.html" %}
+{% block nav_left %}
 {% if movto %}
-{% call form_nav(back_url=url_for('movimentos.recebimentos_list' if tipo == 'E' else 'movimentos.pagamentos_list'), nome=tipo_nome ~ ' ' ~ movto.id|fmtid, nav=nav, edit_endpoint='movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', entity_id=movto.id) %}{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Novo {{ tipo_nome }}</span>
+<div class="d-flex align-items-center nav-side">
+  <a href="{{ url_for('movimentos.recebimentos_list' if tipo == 'E' else 'movimentos.pagamentos_list') }}" class="btn btn-outline-secondary btn-sm">
+    <img src="{{ url_for('static', filename='icons/list.png') }}" alt="Voltar" height="20">
+  </a>
 </div>
+<div class="d-flex align-items-center flex-grow-1 justify-content-center gap-1">
+  <div class="btn-group btn-group-sm" role="group">
+    <a href="{{ url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
+      <img src="{{ url_for('static', filename='icons/chevron-first.png') }}" alt="Primeiro" width="20" height="20">
+    </a>
+    {% if nav.prev_id %}
+    <a href="{{ url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
+      <img src="{{ url_for('static', filename='icons/chevron-left.png') }}" alt="Anterior" width="20" height="20">
+    </a>
+    {% else %}
+    <a class="btn btn-outline-secondary disabled" title="Anterior">
+      <img src="{{ url_for('static', filename='icons/chevron-left.png') }}" alt="Anterior" width="20" height="20">
+    </a>
+    {% endif %}
+  </div>
+  <span class="nav-title mx-2 fs-5 fw-bold text-nowrap" data-entity-id="{{ movto.id }}" data-edit-url="{{ url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=999999) }}" style="cursor:pointer">{{ tipo_nome }} {{ movto.id|fmtid }}</span>
+  <div class="btn-group btn-group-sm" role="group">
+    {% if nav.next_id %}
+    <a href="{{ url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
+      <img src="{{ url_for('static', filename='icons/chevron-right.png') }}" alt="Próximo" width="20" height="20">
+    </a>
+    {% else %}
+    <a class="btn btn-outline-secondary disabled" title="Próximo">
+      <img src="{{ url_for('static', filename='icons/chevron-right.png') }}" alt="Próximo" width="20" height="20">
+    </a>
+    {% endif %}
+    <a href="{{ url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
+      <img src="{{ url_for('static', filename='icons/chevron-last.png') }}" alt="Último" width="20" height="20">
+    </a>
+  </div>
+</div>
+{% else %}
+<span class="fs-5 fw-bold">Novo {{ tipo_nome }}</span>
 {% endif %}
+{% endblock %}
 
-<form method="POST" id="main-form">
-  <div class="row g-2 mb-3">
-    <div class="col-6 col-md-2">
-      <label class="form-label">Data *</label>
-      <input type="date" name="data" class="form-control" required value="{{ movto.data if movto else hoje }}">
-    </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label">Recurso *</label>
-      <select name="recurso_id" class="form-select" required>
-        <option value="">Selecione...</option>
-        {% for r in recursos %}
-          <option value="{{ r.id }}" {% if movto and movto.recurso_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label">Conta {% if compra %}*{% endif %}</label>
-      <select name="conta_id" class="form-select" onchange="carregarPrevisoes(this.value)" {{ 'required' if compra else '' }}>
-        <option value="">{{ 'Selecione...' if compra else 'Nenhuma' }}</option>
-        {% for c in contas %}
-          <option value="{{ c.id }}" {% if movto and movto.conta_id == c.id %}selected{% elif prefill and prefill.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-6 col-md-4">
-      <label class="form-label">Previsão</label>
-      <div class="input-group">
-        <input type="text" id="previsao-info" class="form-control" readonly placeholder="Nenhuma" value="{{ '#%d - %s'|format(movto.previsao_id, movto.previsao.transacao.conta.nome if movto and movto.previsao and movto.previsao.transacao.conta else '') if movto and movto.previsao else '' }}">
-        <input type="hidden" name="previsao_id" id="previsao-id" value="{{ movto.previsao_id if movto and movto.previsao_id is not none else '' }}">
-        <input type="hidden" id="previsao-saldo" value="{{ movto.previsao.saldo if movto and movto.previsao else 0 }}">
-        <input type="hidden" name="acao" id="acao-field" value="">
-        <input type="hidden" name="rubrica_acrescimos_id" id="rubrica-acrescimos-id" value="">
-        {% if (not movto or not movto.previsao_id) and not from_order and not compra %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label">Documento</label>
-      <input type="text" name="documento" class="form-control" maxlength="50" value="{{ movto.documento or (prefill.documento if prefill else '') }}">
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label">Valor *</label>
-      <input type="number" name="valor" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(movto.valor) if movto else (prefill.valor if prefill and prefill.valor else '') }}">
-    </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label">Rubrica *</label>
-      <select name="rubrica_id" class="form-select" required>
-        <option value="">Selecione...</option>
-        {% for r in rubricas %}
-          <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if movto and movto.rubrica_id == r.id %}selected{% elif prefill and prefill.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-12">
-      <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ movto.historico or (prefill.historico if prefill else '') }}">
+{% block form_body %}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-2">
+    <label class="form-label">Data *</label>
+    <input type="date" name="data" class="form-control" required value="{{ movto.data if movto else hoje }}">
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label">Recurso *</label>
+    <select name="recurso_id" class="form-select" required>
+      <option value="">Selecione...</option>
+      {% for r in recursos %}
+        <option value="{{ r.id }}" {% if movto and movto.recurso_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label">Conta {% if compra %}*{% endif %}</label>
+    <select name="conta_id" class="form-select" onchange="carregarPrevisoes(this.value)" {{ 'required' if compra else '' }}>
+      <option value="">{{ 'Selecione...' if compra else 'Nenhuma' }}</option>
+      {% for c in contas %}
+        <option value="{{ c.id }}" {% if movto and movto.conta_id == c.id %}selected{% elif prefill and prefill.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-4">
+    <label class="form-label">Previsão</label>
+    <div class="input-group">
+      <input type="text" id="previsao-info" class="form-control" readonly placeholder="Nenhuma" value="{{ '#%d - %s'|format(movto.previsao_id, movto.previsao.transacao.conta.nome if movto and movto.previsao and movto.previsao.transacao.conta else '') if movto and movto.previsao else '' }}">
+      <input type="hidden" name="previsao_id" id="previsao-id" value="{{ movto.previsao_id if movto and movto.previsao_id is not none else '' }}">
+      <input type="hidden" id="previsao-saldo" value="{{ movto.previsao.saldo if movto and movto.previsao else 0 }}">
+      <input type="hidden" name="acao" id="acao-field" value="">
+      <input type="hidden" name="rubrica_acrescimos_id" id="rubrica-acrescimos-id" value="">
+      {% if (not movto or not movto.previsao_id) and not from_order and not compra %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
     </div>
   </div>
-
-  <input type="hidden" id="valor-original" value="{{ '%.2f'|format(movto.valor) if movto else (prefill.valor if prefill and prefill.valor else '') }}">
-  <input type="hidden" id="editando" value="{% if movto %}1{% endif %}">
-  <input type="hidden" id="variacao-original" value="{{ movto.variacao if movto and movto.variacao is not none else 0 }}">
-
-  <div class="form-bottom-spacer"></div>
+  <div class="col-6 col-md-2">
+    <label class="form-label">Documento</label>
+    <input type="text" name="documento" class="form-control" maxlength="50" value="{{ movto.documento or (prefill.documento if prefill else '') }}">
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label">Valor *</label>
+    <input type="number" name="valor" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(movto.valor) if movto else (prefill.valor if prefill and prefill.valor else '') }}">
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label">Rubrica *</label>
+    <select name="rubrica_id" class="form-select" required>
+      <option value="">Selecione...</option>
+      {% for r in rubricas %}
+        <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if movto and movto.rubrica_id == r.id %}selected{% elif prefill and prefill.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-12">
+    <label class="form-label">Histórico</label>
+    <input type="text" name="historico" class="form-control" value="{{ movto.historico or (prefill.historico if prefill else '') }}">
+  </div>
+</div>
+<input type="hidden" id="valor-original" value="{{ '%.2f'|format(movto.valor) if movto else (prefill.valor if prefill and prefill.valor else '') }}">
+<input type="hidden" id="editando" value="{% if movto %}1{% endif %}">
+<input type="hidden" id="variacao-original" value="{{ movto.variacao if movto and movto.variacao is not none else 0 }}">
+<div class="form-bottom-spacer"></div>
+{% endblock %}
+{% block form_footer_left %}
+{% if movto %}
+<form method="POST" action="{{ url_for('movimentos.excluir', id=movto.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Excluir {{ tipo_nome }} #{{ movto.id|fmtid }}?')">
+  <button type="submit" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
 </form>
-
-{% call barra_edicao(back_url='', disable_save=movto is not none) %}
-  {% if movto %}
-  <form method="POST" action="{{ url_for('movimentos.excluir', id=movto.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Excluir {{ tipo_nome }} #{{ movto.id|fmtid }}?')">
-    <button type="submit" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-  </form>
-  {% endif %}
-{% endcall %}
-
+{% endif %}
+{% endblock %}
+{% block page_scripts %}
 <div class="modal fade" id="previsaoModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
@@ -100,7 +128,6 @@
     </div>
   </div>
 </div>
-
 <div class="modal fade" id="descontoModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -128,7 +155,6 @@
     </div>
   </div>
 </div>
-
 <div class="modal fade" id="erroAcrescimosModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -166,23 +192,14 @@
     </div>
   </div>
 </div>
-
-
-
-{% endblock %}
-
-{% block scripts %}
 <script>
 document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
   if (!opt.value) return;
   var show = opt.dataset.tipoRubrica == "{{ '1' if tipo == 'E' else '2' }}" && opt.dataset.temPai == "1";
   opt.style.display = show ? '' : 'none';
 });
-</script>
-<script>
 var previsaoModal = null;
 var descontoModal = null, erroAcrescimosModal = null;
-
 function abrirModalPrevisoes() {
   var contaId = document.querySelector('[name="conta_id"]').value;
   if (!contaId) {
@@ -195,7 +212,6 @@ function abrirModalPrevisoes() {
   carregarPrevisoes(contaId);
   previsaoModal.show();
 }
-
 function carregarPrevisoes(contaId) {
   var body = document.getElementById('previsao-modal-body');
   if (!contaId) {
@@ -229,7 +245,6 @@ function carregarPrevisoes(contaId) {
       body.innerHTML = '<p class="text-danger text-center">Erro ao carregar previsões.</p>';
     });
 }
-
 function selecionarPrevisao(id, contaNome, documento, saldo, vencimento, rubricaId) {
   document.getElementById('previsao-id').value = id;
   document.getElementById('previsao-saldo').value = saldo;
@@ -239,23 +254,18 @@ function selecionarPrevisao(id, contaNome, documento, saldo, vencimento, rubrica
   if (rubricaId) document.querySelector('[name="rubrica_id"]').value = rubricaId;
   if (previsaoModal) previsaoModal.hide();
 }
-
 document.getElementById('main-form').addEventListener('submit', function(e) {
   var valor = parseFloat(document.querySelector('[name="valor"]').value) || 0;
   var editando = document.getElementById('editando').value === '1';
-
   if (editando) {
     var valorOriginal = parseFloat(document.getElementById('valor-original').value) || 0;
     var variacaoOriginal = parseFloat(document.getElementById('variacao-original').value) || 0;
-
     if (Math.abs(valor - valorOriginal) < 0.01) return;
-
     if (variacaoOriginal !== 0) {
       e.preventDefault();
       showAlert('Registro com variação não pode ser alterado. Exclua e recrie.');
       return;
     }
-
     if (valor > valorOriginal) {
       var previsaoId = document.getElementById('previsao-id').value;
       if (previsaoId) {
@@ -267,10 +277,8 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
         }
       }
     }
-
     return;
   }
-
   var previsaoId = document.getElementById('previsao-id').value;
   if (!previsaoId) return;
   var saldo = parseFloat(document.getElementById('previsao-saldo').value) || 0;
@@ -292,19 +300,16 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
     erroAcrescimosModal.show();
   }
 });
-
 function confirmarDesconto() {
   var opcao = document.querySelector('input[name="desconto-opcao"]:checked').value;
   document.getElementById('acao-field').value = opcao === 'desconto' ? 'desconto' : '';
   descontoModal.hide();
   document.getElementById('main-form').submit();
 }
-
 function onAcrescimosOpcaoChange() {
   var opcao = document.querySelector('input[name="acrescimos-opcao"]:checked').value;
   document.getElementById('erro-acrescimos-rubrica').style.display = opcao === 'acrescimo' ? '' : 'none';
 }
-
 function confirmarAcrescimos() {
   var opcao = document.querySelector('input[name="acrescimos-opcao"]:checked').value;
   if (opcao === 'erro') {
@@ -322,7 +327,6 @@ function confirmarAcrescimos() {
   erroAcrescimosModal.hide();
   document.getElementById('main-form').submit();
 }
-
 function flash(msg, categoria) {
   var div = document.createElement('div');
   div.className = 'alert alert-' + categoria + ' alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-2';

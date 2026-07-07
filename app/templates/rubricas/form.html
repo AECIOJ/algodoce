@@ -1,77 +1,74 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
 
+
+{% set back_url = url_for('rubricas.list') %}
+{% set new_title = 'Nova Rubrica' %}
+{% set entity_label = 'Rubrica' %}
+{% set edit_endpoint = 'rubricas.edit' %}
+{% if rubrica %}{% set entity_id = rubrica.id %}{% endif %}
+
+{% block nav_right %}
 {% if rubrica %}
-{% set rubrica_actions %}
-  {% if not rubrica.ativa %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
-  <a href="{{ url_for('rubricas.toggle', id=rubrica.id) }}" class="btn btn-{{ 'success' if rubrica.ativa else 'outline-secondary' }} btn-sm" style="min-width:90px">
-    {{ 'Desativar' if rubrica.ativa else 'Ativar' }}
-  </a>
-{% endset %}
-{% call form_nav(back_url=url_for('rubricas.list'), nome='Rubrica ' ~ rubrica.id|fmtid, nav=nav, edit_endpoint='rubricas.edit', entity_id=rubrica.id, actions2=rubrica_actions) %}
-  {{ rubrica_actions }}
-{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Rubrica</span>
-</div>
+{% if not rubrica.ativa %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
+<a href="{{ url_for('rubricas.toggle', id=rubrica.id) }}" class="btn btn-{{ 'success' if rubrica.ativa else 'outline-secondary' }} btn-sm" style="min-width:90px">
+  {{ 'Desativar' if rubrica.ativa else 'Ativar' }}
+</a>
 {% endif %}
+{% endblock %}
 
-<form method="POST" id="main-form">
-  <div class="row mb-3">
-    <div class="col-md-6">
-      <label class="form-label">Nome *</label>
-      <input type="text" name="nome" class="form-control" required value="{{ rubrica.nome if rubrica else '' }}">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Tipo *</label>
-      <select name="tipo" class="form-select" required>
-        <option value="">Selecione...</option>
-        {% for k, v in TIPO_RUBRICA.items() %}
-          <option value="{{ k }}" {% if rubrica and rubrica.tipo == k %}selected{% endif %}>{{ v }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Pai</label>
-      <select name="pai_id" class="form-select">
-        <option value="">Nenhum</option>
-        {% for p in paises %}
-          <option value="{{ p.id }}" data-tipo="{{ p.tipo }}" {% if rubrica and rubrica.pai_id == p.id %}selected{% endif %}>{{ p.nome }}</option>
-        {% endfor %}
-      </select>
+{% block form_body %}
+<div class="row mb-3">
+  <div class="col-md-6">
+    <label class="form-label">Nome *</label>
+    <input type="text" name="nome" class="form-control" required value="{{ rubrica.nome if rubrica else '' }}">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Tipo *</label>
+    <select name="tipo" class="form-select" required>
+      <option value="">Selecione...</option>
+      {% for k, v in TIPO_RUBRICA.items() %}
+        <option value="{{ k }}" {% if rubrica and rubrica.tipo == k %}selected{% endif %}>{{ v }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Pai</label>
+    <select name="pai_id" class="form-select">
+      <option value="">Nenhum</option>
+      {% for p in paises %}
+        <option value="{{ p.id }}" data-tipo="{{ p.tipo }}" {% if rubrica and rubrica.pai_id == p.id %}selected{% endif %}>{{ p.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+<div class="row mb-3">
+  <div class="col-md-3">
+    <label class="form-label">Ordem</label>
+    <input type="number" name="ordem" class="form-control" min="0" value="{{ rubrica.ordem if rubrica else 0 }}">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Fator</label>
+    <select name="fator" class="form-select">
+      <option value="1" {% if not rubrica or rubrica.fator == 1 %}selected{% endif %}>1 (Soma)</option>
+      <option value="-1" {% if rubrica and rubrica.fator == -1 %}selected{% endif %}>-1 (Subtrai)</option>
+    </select>
+  </div>
+  <div class="col-md-6">
+    <div class="form-check mt-2">
+      <input type="checkbox" name="ativa" class="form-check-input" id="checkAtiva" {% if not rubrica or rubrica.ativa %}checked{% endif %}>
+      <label class="form-check-label" for="checkAtiva">Ativa</label>
     </div>
   </div>
-  <div class="row mb-3">
-    <div class="col-md-3">
-        <label class="form-label">Ordem</label>
-        <input type="number" name="ordem" class="form-control" min="0" value="{{ rubrica.ordem if rubrica else 0 }}">
-      </div>
-    </div>
-    <div class="col-md-2">
-      <label class="form-label">Fator</label>
-      <select name="fator" class="form-select">
-        <option value="1" {% if not rubrica or rubrica.fator == 1 %}selected{% endif %}>1 (Soma)</option>
-        <option value="-1" {% if rubrica and rubrica.fator == -1 %}selected{% endif %}>-1 (Subtrai)</option>
-      </select>
-    </div>
-    <div class="col-md-9">
-      <div class="form-check mt-2">
-        <input type="checkbox" name="ativa" class="form-check-input" id="checkAtiva" {% if not rubrica or rubrica.ativa %}checked{% endif %}>
-        <label class="form-check-label" for="checkAtiva">Ativa</label>
-      </div>
-    </div>
-  </div>
-  <div class="form-bottom-spacer"></div>
-</form>
-{% call barra_edicao(back_url=url_for('rubricas.list'), disable_save=rubrica is not none) %}
-  {% if rubrica %}
-  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-rubrica-id="{{ rubrica.id }}" data-rubrica-nome="{{ rubrica.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-  {% endif %}
-{% endcall %}
+</div>
+{% endblock %}
 
+{% block form_footer_left %}
+{% if rubrica %}
+<button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" style="min-height:0;font-size:0.75rem;padding:2px 6px;" data-rubrica-id="{{ rubrica.id }}" data-rubrica-nome="{{ rubrica.nome }}" onclick="confirmarExclusao(this)"><i class="bi bi-trash"></i>Excluir</button>
+{% endif %}
+{% endblock %}
+
+{% block page_scripts %}
 {% if rubrica %}
 <div class="modal fade" id="modalExcluir" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
@@ -85,37 +82,14 @@
     </div>
   </div>
 </div>
-
 <form method="POST" id="formExcluir" style="display:none"></form>
-{% endif %}
-
-{% endblock %}
-
-{% block scripts %}
 <script>
-document.querySelector('[name="tipo"]')?.addEventListener('change', function() {
-  const tipo = this.value;
-  const paiSelect = document.querySelector('[name="pai_id"]');
-  const selectedVal = paiSelect.value;
-  paiSelect.querySelectorAll('option').forEach(function(opt) {
-    if (!opt.value) return;
-    opt.style.display = (!tipo || opt.dataset.tipo === tipo) ? '' : 'none';
-  });
-  if (paiSelect.querySelector('option[value="' + selectedVal + '"]')?.style.display === 'none') {
-    paiSelect.value = '';
-  }
-});
-document.querySelector('[name="tipo"]')?.dispatchEvent(new Event('change'));
-</script>
-<script>
-{% if rubrica %}
 function confirmarExclusao(btn) {
   const id = btn.dataset.rubricaId;
   const nome = btn.dataset.rubricaNome;
   const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
   const body = document.getElementById('modalExcluirBody');
   const footer = document.getElementById('modalExcluirFooter');
-
   fetch('/rubricas/' + id + '/uso')
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -128,17 +102,16 @@ function confirmarExclusao(btn) {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
         footer.innerHTML =
           '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><i class="bi bi-trash"></i>Excluir</button>';
       }
       modal.show();
     });
 }
-
 function efetuarExclusao(id) {
   var form = document.getElementById('formExcluir');
   form.action = '/rubricas/' + id + '/excluir';
   form.submit();
 }
-{% endif %}
 </script>
+{% endif %}
 {% endblock %}

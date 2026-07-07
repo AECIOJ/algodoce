@@ -1,22 +1,22 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
 
+
+{% set back_url = url_for('contas.list') %}
+{% set new_title = 'Nova Conta' %}
+{% set entity_label = 'Conta' %}
+{% set edit_endpoint = 'contas.edit' %}
+{% if conta %}{% set entity_id = conta.id %}{% endif %}
+
+{% block nav_right %}
 {% if conta %}
-{% call form_nav(back_url=url_for('contas.list'), nome='Conta ' ~ conta.id|fmtid, nav=nav, edit_endpoint='contas.edit', entity_id=conta.id) %}
-  <a href="{{ url_for('contas.toggle', id=conta.id) }}" class="btn btn-{{ 'success' if conta.ativo else 'outline-secondary' }} btn-sm">
-    {{ 'Desativar' if conta.ativo else 'Ativar' }}
-  </a>
-{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Conta</span>
-</div>
+<a href="{{ url_for('contas.toggle', id=conta.id) }}" class="btn btn-{{ 'success' if conta.ativo else 'outline-secondary' }} btn-sm">
+  {{ 'Desativar' if conta.ativo else 'Ativar' }}
+</a>
 {% endif %}
+{% endblock %}
 
-<form method="POST" id="main-form">
-  <div class="row mb-3">
+{% block form_body %}
+<div class="row mb-3">
     <div class="col-md-4">
       <label class="form-label">Nome *</label>
       <input type="text" name="nome" class="form-control" required value="{{ conta.nome if conta else '' }}">
@@ -31,41 +31,36 @@
     </div>
     <div class="col-md-3">
       <label class="form-label">Telefone</label>
-      <input type="text" name="telefone" class="form-control" value="{{ conta.telefone or '' }}">
+      <input type="text" name="telefone" class="form-control" value="{{ conta.telefone if conta else '' }}">
     </div>
     <div class="col-md-3">
       <label class="form-label">Email</label>
-      <input type="text" name="email" class="form-control" value="{{ conta.email or '' }}">
+      <input type="text" name="email" class="form-control" value="{{ conta.email if conta else '' }}">
     </div>
   </div>
   <div class="row mb-3">
     <div class="col-md-4">
       <label class="form-label">CPF</label>
-      <input type="text" name="cpf" class="form-control" value="{{ conta.cpf or '' }}">
+      <input type="text" name="cpf" class="form-control" value="{{ conta.cpf if conta else '' }}">
     </div>
     <div class="col-md-4">
       <label class="form-label">CNPJ</label>
-      <input type="text" name="cnpj" class="form-control" value="{{ conta.cnpj or '' }}">
+      <input type="text" name="cnpj" class="form-control" value="{{ conta.cnpj if conta else '' }}">
     </div>
     <div class="col-md-4">
       <label class="form-label">Inscrição Estadual</label>
-      <input type="text" name="insc_estadual" class="form-control" value="{{ conta.insc_estadual or '' }}">
+      <input type="text" name="insc_estadual" class="form-control" value="{{ conta.insc_estadual if conta else '' }}">
     </div>
   </div>
   <div class="mb-3">
     <label class="form-label">Endereço</label>
-    <textarea name="endereco" class="form-control" rows="2">{{ conta.endereco or '' }}</textarea>
+    <textarea name="endereco" class="form-control" rows="2">{{ conta.endereco if conta else '' }}</textarea>
   </div>
-  <div class="form-bottom-spacer"></div>
-</form>
-{% call barra_edicao(back_url=url_for('contas.list'), disable_save=conta is not none) %}
-{% endcall %}
 
 {% if conta %}
 <div class="card mb-4">
   <div class="card-header"><strong>Pedidos ({{ orders|length }})</strong></div>
   <div class="card-body p-0">
-    <!-- Desktop -->
     <div class="table-responsive d-none d-md-block">
       <table class="table mb-0 sortable">
         <thead>
@@ -86,23 +81,18 @@
               <td>{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
               <td>R$ {{ (o.total or 0) | brl }}</td>
               <td>
-<span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-primary' if o.status == 8 else 'bg-dark' }}">
+                <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 3 else 'bg-primary' if o.status == 8 else 'bg-dark' }}">
                   {{ ORDER_STATUS[o.status] }}
                 </span>
               </td>
-              <td>
-                <a href="{{ url_for('orders.edit', id=o.id) }}" class="btn btn-sm btn-outline-info">Detalhes</a>
-              </td>
+              <td><a href="{{ url_for('orders.edit', id=o.id) }}" class="btn btn-sm btn-outline-info">Detalhes</a></td>
             </tr>
           {% else %}
-            <tr>
-              <td colspan="6" class="text-center text-muted">Nenhum pedido encontrado para esta conta.</td>
-            </tr>
+            <tr><td colspan="6" class="text-center text-muted">Nenhum pedido encontrado para esta conta.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <!-- Mobile -->
     <div class="d-md-none">
       {% for o in orders %}
         <div class="px-3 py-2 border-bottom">
@@ -134,10 +124,9 @@
   </div>
 </div>
 {% endif %}
-
 {% endblock %}
 
-{% block scripts %}
+{% block page_scripts %}
 <script src="{{ url_for('static', filename='js/phone-mask.js') }}"></script>
 <script>
 function cpfValido(n) {
@@ -155,7 +144,6 @@ function cpfValido(n) {
   if (resto === 10) resto = 0;
   return resto === parseInt(s.charAt(10));
 }
-
 function cnpjValido(n) {
   var s = n.replace(/\D/g, '');
   if (s.length !== 14) return false;
@@ -173,7 +161,6 @@ function cnpjValido(n) {
   var d2 = resto < 2 ? 0 : 11 - resto;
   return d2 === parseInt(s.charAt(13));
 }
-
 function docToggle() {
   var cpf = document.querySelector('input[name="cpf"]');
   var cnpj = document.querySelector('input[name="cnpj"]');
@@ -184,7 +171,6 @@ function docToggle() {
   cpf.disabled = temCnpj;
   ie.disabled = !temCnpj;
 }
-
 function validarDoc(input, tipo) {
   var v = input.value.replace(/\D/g, '');
   if (!v) { input.setCustomValidity(''); return; }
@@ -196,14 +182,10 @@ function validarDoc(input, tipo) {
   }
   input.reportValidity();
 }
-
 document.querySelectorAll('input[name="cpf"], input[name="cnpj"]').forEach(function(el) {
   el.addEventListener('input', docToggle);
-  el.addEventListener('blur', function() {
-    validarDoc(this, this.name);
-  });
+  el.addEventListener('blur', function() { validarDoc(this, this.name); });
 });
-
 docToggle();
 </script>
 {% endblock %}

@@ -1,10 +1,11 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
+{% set back_url = back_url|default(url_for('contas_a_receber.list')) %}
+{% set new_title = 'Nova Conta a Receber' %}
+{% set entity_label = 'Transação' %}
+{% set edit_endpoint = 'contas_a_receber.edit' %}
+{% if transacao %}{% set entity_id = transacao.id %}{% endif %}
 
 {% set previsoes = submitted_previsoes if submitted_previsoes is not none else (transacao.previsoes if transacao else None) %}
-
 {% if transacao %}
 {% set st = transacao.status %}
 {% set st_label = PREVISAO_STATUS.get(st, '') %}
@@ -19,258 +20,244 @@
 {% elif st == 0 %}
   {% set status_badge = '<span class="badge bg-dark ms-2">' ~ st_label ~ '</span>' %}
 {% else %}
-  {% set status_badge = '<span class="badge bg-secondary ms-2">' ~ st_label ~ '</span>' %}
+  {% set status_badge = '<span class="fs-5 fw-bold">Nova Conta a Receber</span>' %}
 {% endif %}
-{% set cancelado_html %}
-<div class="d-flex align-items-center gap-1">
-  <label class="form-label small mb-0 text-danger">Cancelado</label>
-   <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none and submitted_data.cancelado else (transacao.cancelado.strftime('%Y-%m-%d') if transacao and transacao.cancelado else '') }}" {{ 'readonly' if locked else '' }}>
-</div>
-{% endset %}
-{% call form_nav(back_url=back_url or url_for('contas_a_receber.list'), nome='Transação ' ~ transacao.id|fmtid, nav=nav, edit_endpoint='contas_a_receber.edit', entity_id=transacao.id, status=status_badge) %}
-  {% if locked %}<a href="{{ url_for('orders.edit', id=transacao.pedido.id) }}" class="btn btn-sm btn-warning ms-2">Pedido #{{ transacao.pedido.id|fmtid }}</a>{% endif %}
-{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Nova Conta a Receber</span>
-</div>
 {% endif %}
-
-<form method="POST" id="main-form">
-  <div class="row g-2 mb-3">
-    <div class="col-6 col-md-2">
-      <label class="form-label">Data</label>
-      <input type="date" name="data" class="form-control" value="{{ submitted_data.data if submitted_data is not none else (transacao.data if transacao else hoje) }}" {{ 'readonly' if locked else '' }}>
+{% block nav_right %}
+{% if transacao %}
+<span class="d-lg-none ms-1">{{ status_badge | safe }}</span>
+{% if locked %}<a href="{{ url_for('orders.edit', id=transacao.pedido.id) }}" class="btn btn-sm btn-warning ms-2">Pedido #{{ transacao.pedido.id|fmtid }}</a>{% endif %}
+{% endif %}
+{% endblock %}
+{% block form_body %}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-2">
+    <label class="form-label">Data</label>
+    <input type="date" name="data" class="form-control" value="{{ submitted_data.data if submitted_data is not none else (transacao.data if transacao else hoje) }}" {{ 'readonly' if locked else '' }}>
+  </div>
+  <div class="col-6 col-md-4">
+    <label class="form-label">Conta</label>
+    <select name="conta_id" class="form-select" {{ 'disabled' if locked else '' }}>
+      <option value="">Nenhuma</option>
+      {% for c in contas %}
+        <option value="{{ c.id }}" {% if submitted_data is not none %}{% if submitted_data.conta_id|string == c.id|string %}selected{% endif %}{% elif transacao and transacao.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label">Rubrica *</label>
+    <select name="rubrica_id" class="form-select" required>
+      <option value="">Nenhuma</option>
+      {% for r in rubricas %}
+        <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if submitted_data is not none %}{% if submitted_data.rubrica_id|string == r.id|string %}selected{% endif %}{% elif transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-1">
+    <label class="form-label">Fatura</label>
+    {% if locked and transacao and transacao.pedido %}
+    <a href="{{ url_for('orders.edit', id=transacao.pedido.id) }}" class="form-control form-control-sm text-decoration-none">#P{{ transacao.pedido.id|fmtid }}</a>
+    {% else %}
+    <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao and transacao.fatura else '') }}">
+    {% endif %}
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label">Valor *</label>
+    <input type="number" name="valor" class="form-control text-end" required step="0.01" oninput="recalcularSaldoLancar()" value="{{ submitted_data.valor if submitted_data is not none else ('%.2f'|format(transacao.valor) if transacao else '') }}" {{ 'readonly' if locked else '' }}>
+  </div>
+  <div class="col-7 col-md-6">
+    <label class="form-label">Histórico</label>
+    <input type="text" name="historico" class="form-control" value="{{ submitted_data.historico if submitted_data is not none else (transacao.historico if transacao and transacao.historico else '') }}" {{ 'readonly' if locked else '' }}>
+  </div>
+</div>
+<hr>
+<div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+  <h5 class="mb-0">Parcelas
+    {% if transacao and transacao.status == 0 %}<span class="badge bg-dark ms-1 align-middle" style="font-size:0.55rem;">Soma difere do valor total</span>{% endif %}
+  </h5>
+  {% if not locked %}
+  <div class="ms-auto d-flex align-items-center gap-2">
+    <div class="input-group input-group-sm" style="max-width:160px;">
+      <input type="number" id="lancar-valor" class="form-control text-end" step="0.01" readonly>
+      <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icons/arrow-list.png') }}" height="16" alt="Gerar"></button>
     </div>
-    <div class="col-6 col-md-4">
-      <label class="form-label">Conta</label>
-      <select name="conta_id" class="form-select" {{ 'disabled' if locked else '' }}>
-        <option value="">Nenhuma</option>
-        {% for c in contas %}
-          <option value="{{ c.id }}" {% if submitted_data is not none %}{% if submitted_data.conta_id|string == c.id|string %}selected{% endif %}{% elif transacao and transacao.conta_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
-        {% endfor %}
-      </select>
+    <div>
+      <label class="form-label small mb-0 text-nowrap">Prazo</label>
+      <input type="text" name="prazo" id="prazo-input" class="form-control form-control-sm" style="width:100px;" value="{{ prazo_inicial or '' }}">
     </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label">Rubrica *</label>
-      <select name="rubrica_id" class="form-select" required>
-        <option value="">Nenhuma</option>
-        {% for r in rubricas %}
-          <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if submitted_data is not none %}{% if submitted_data.rubrica_id|string == r.id|string %}selected{% endif %}{% elif transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-6 col-md-1">
-      <label class="form-label">Fatura</label>
-      {% if locked and transacao and transacao.pedido %}
-      <a href="{{ url_for('orders.edit', id=transacao.pedido.id) }}" class="form-control form-control-sm text-decoration-none">#P{{ transacao.pedido.id|fmtid }}</a>
-      {% else %}
-      <input type="text" name="fatura" class="form-control" value="{{ submitted_data.fatura if submitted_data is not none else (transacao.fatura if transacao and transacao.fatura else '') }}">
+    <button type="button" class="btn btn-sm btn-outline-primary" onclick="regenerarParcelas()">Regenerar</button>
+  </div>
+  {% endif %}
+</div>
+<!-- Desktop: parcelas table -->
+<div class="table-responsive d-none d-md-block">
+  <table class="table table-sm table-bordered align-middle mb-0" style="position:relative;">
+    <thead style="position:sticky;top:0;z-index:10;background:#fff;">
+      <tr>
+        <th style="width:80px;" class="text-center">Previsão</th>
+        <th style="width:130px;">Documento</th>
+        <th style="width:120px;">Vencimento</th>
+        <th style="width:100px;" class="text-end">Previsto</th>
+        <th style="width:100px;" class="text-end">Realizado</th>
+        <th style="width:100px;" class="text-end">Variação</th>
+        <th style="width:100px;" class="text-end">Saldo</th>
+        <th style="width:40px;"></th>
+      </tr>
+    </thead>
+    <tbody id="previsoes-container">
+      {% if previsoes is not none %}
+      {% for p in previsoes %}
+      <tr class="previsao-row">
+        <td class="text-center text-muted small previsao-num">#{{ p.id|fmtid if p.id else '' }}</td>
+        <td>
+          <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
+          <input type="hidden" name="previsao_remover[]" value="0">
+          <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" value="{{ p.documento or '' }}" {{ 'readonly' if locked else '' }}>
+        </td>
+        <td>
+          <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}" {{ 'readonly' if locked else '' }}>
+        </td>
+        <td class="text-end">
+          <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor text-end" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}" {{ 'readonly' if locked else '' }}>
+        </td>
+        <td class="text-end">
+          <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}" {{ 'readonly' if locked else '' }}>
+        </td>
+        <td class="text-end">
+          <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}" {{ 'readonly' if locked else '' }}>
+        </td>
+        <td class="text-end">
+          <span class="previsao-saldo form-control form-control-sm bg-light text-end" style="display:block;min-width:70px;">
+            {% set pv = p.previsto|float if p.previsto else 0 %}
+            {% set vr = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+            {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+            {{ (pv + vr - rl)|brl }}
+          </span>
+        </td>
+        <td class="text-center">
+          {% if not locked %}
+          {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+          {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+          {% if vl == 0 and rl == 0 %}
+          <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+<!-- Mobile: parcelas card list -->
+<div class="d-md-none" id="previsoes-mobile-container">
+  {% if previsoes is not none %}
+  {% for p in previsoes %}
+  <div class="px-3 py-2 border-bottom previsao-mobile-card">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <span class="text-muted small previsao-num">#{{ p.id|fmtid if p.id else '' }}</span>
+      {% if not locked %}
+      {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+      {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+      {% if vl == 0 and rl == 0 %}
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      {% endif %}
       {% endif %}
     </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label">Valor *</label>
-      <input type="number" name="valor" class="form-control text-end" required step="0.01" oninput="recalcularSaldoLancar()" value="{{ submitted_data.valor if submitted_data is not none else ('%.2f'|format(transacao.valor) if transacao else '') }}" {{ 'readonly' if locked else '' }}>
+    <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
+    <input type="hidden" name="previsao_remover[]" value="0">
+    <div class="mb-1">
+      <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" placeholder="Documento" value="{{ p.documento or '' }}" {{ 'readonly' if locked else '' }}>
     </div>
-    <div class="col-7 col-md-6">
-      <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ submitted_data.historico if submitted_data is not none else (transacao.historico if transacao and transacao.historico else '') }}" {{ 'readonly' if locked else '' }}>
+    <div class="mb-1">
+      <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}" {{ 'readonly' if locked else '' }}>
     </div>
-  </div>
-
-  <hr>
-  <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-    <h5 class="mb-0">Parcelas
-      {% if transacao and transacao.status == 0 %}<span class="badge bg-dark ms-1 align-middle" style="font-size:0.55rem;">Soma difere do valor total</span>{% endif %}
-    </h5>
-    {% if not locked %}
-    <div class="ms-auto d-flex align-items-center gap-2">
-      <div class="input-group input-group-sm" style="max-width:160px;">
-        <input type="number" id="lancar-valor" class="form-control text-end" step="0.01" readonly>
-        <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icons/arrow-list.png') }}" height="16" alt="Gerar"></button>
+    <div class="row g-1 mb-1">
+      <div class="col-4">
+        <span class="card-label">Previsto</span>
+        <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}" {{ 'readonly' if locked else '' }}>
       </div>
-      <div>
-        <label class="form-label small mb-0 text-nowrap">Prazo</label>
-        <input type="text" name="prazo" id="prazo-input" class="form-control form-control-sm" style="width:100px;" value="{{ prazo_inicial or '' }}">
+      <div class="col-4">
+        <span class="card-label">Realizado</span>
+        <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}" {{ 'readonly' if locked else '' }}>
       </div>
-      <button type="button" class="btn btn-sm btn-outline-primary" onclick="regenerarParcelas()">Regenerar</button>
+      <div class="col-4">
+        <span class="card-label">Variação</span>
+        <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}" {{ 'readonly' if locked else '' }}>
+      </div>
     </div>
-    {% endif %}
-  </div>
-
-  <!-- Desktop: parcelas table -->
-  <div class="table-responsive d-none d-md-block">
-    <table class="table table-sm table-bordered align-middle mb-0" style="position:relative;">
-      <thead style="position:sticky;top:0;z-index:10;background:#fff;">
-        <tr>
-          <th style="width:80px;" class="text-center">Previsão</th>
-          <th style="width:130px;">Documento</th>
-          <th style="width:120px;">Vencimento</th>
-          <th style="width:100px;" class="text-end">Previsto</th>
-          <th style="width:100px;" class="text-end">Realizado</th>
-          <th style="width:100px;" class="text-end">Variação</th>
-          <th style="width:100px;" class="text-end">Saldo</th>
-          <th style="width:40px;"></th>
-        </tr>
-      </thead>
-      <tbody id="previsoes-container">
-        {% if previsoes is not none %}
-        {% for p in previsoes %}
-        <tr class="previsao-row">
-          <td class="text-center text-muted small previsao-num">#{{ p.id|fmtid if p.id else '' }}</td>
-          <td>
-            <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
-            <input type="hidden" name="previsao_remover[]" value="0">
-            <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" value="{{ p.documento or '' }}" {{ 'readonly' if locked else '' }}>
-          </td>
-          <td>
-            <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}" {{ 'readonly' if locked else '' }}>
-          </td>
-          <td class="text-end">
-            <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor text-end" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}" {{ 'readonly' if locked else '' }}>
-          </td>
-          <td class="text-end">
-            <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}" {{ 'readonly' if locked else '' }}>
-          </td>
-          <td class="text-end">
-            <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}" {{ 'readonly' if locked else '' }}>
-          </td>
-          <td class="text-end">
-            <span class="previsao-saldo form-control form-control-sm bg-light text-end" style="display:block;min-width:70px;">
-              {% set pv = p.previsto|float if p.previsto else 0 %}
-              {% set vr = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
-              {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
-              {{ (pv + vr - rl)|brl }}
-            </span>
-          </td>
-          <td class="text-center">
-            {% if not locked %}
-            {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
-            {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
-            {% if vl == 0 and rl == 0 %}
-            <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
-            {% endif %}
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Mobile: parcelas card list -->
-  <div class="d-md-none" id="previsoes-mobile-container">
-    {% if previsoes is not none %}
-    {% for p in previsoes %}
-    <div class="px-3 py-2 border-bottom previsao-mobile-card">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <span class="text-muted small previsao-num">#{{ p.id|fmtid if p.id else '' }}</span>
-        {% if not locked %}
-        {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+    <div>
+      <span class="card-label">Saldo: </span>
+      <span class="previsao-saldo fw-bold">
+        {% set pv = p.previsto|float if p.previsto else 0 %}
+        {% set vr = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
         {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
-        {% if vl == 0 and rl == 0 %}
-        <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
-        {% endif %}
-        {% endif %}
-      </div>
-      <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
-      <input type="hidden" name="previsao_remover[]" value="0">
-      <div class="mb-1">
-        <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" placeholder="Documento" value="{{ p.documento or '' }}" {{ 'readonly' if locked else '' }}>
-      </div>
-      <div class="mb-1">
-        <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}" {{ 'readonly' if locked else '' }}>
-      </div>
-      <div class="row g-1 mb-1">
-        <div class="col-4">
-          <span class="card-label">Previsto</span>
-          <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}" {{ 'readonly' if locked else '' }}>
-        </div>
-        <div class="col-4">
-          <span class="card-label">Realizado</span>
-          <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}" {{ 'readonly' if locked else '' }}>
-        </div>
-        <div class="col-4">
-          <span class="card-label">Variação</span>
-          <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}" {{ 'readonly' if locked else '' }}>
-        </div>
-      </div>
-      <div>
-        <span class="card-label">Saldo: </span>
-        <span class="previsao-saldo fw-bold">
-          {% set pv = p.previsto|float if p.previsto else 0 %}
-          {% set vr = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
-          {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
-          {{ (pv + vr - rl)|brl }}
-        </span>
-      </div>
+        {{ (pv + vr - rl)|brl }}
+      </span>
     </div>
-    {% endfor %}
-    {% endif %}
   </div>
-
-  {% if not locked %}
-  <div class="px-3 py-1">
-    <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar</button>
-    <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar</button>
-  </div>
+  {% endfor %}
   {% endif %}
-
-  {% if movimentos %}
-  <hr>
-  <div class="mt-0">
-    <h5 class="mb-2">{{ tipo_nome }}s relacionados</h5>
-  <div class="table-responsive">
-    <table class="table table-sm table-hover">
-      <thead>
-        <tr>
-          <th>Movto</th>
-          <th>Data</th>
-          <th>Recurso</th>
-          <th>Previsão</th>
-          <th>Documento</th>
-          <th class="text-end">Valor</th>
-          <th>Rubrica</th>
-          <th>Histórico</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in movimentos %}
-        <tr>
-          <td>{{ m.id|fmtid }}</td>
-          <td>{{ m.data|fmtdate }}</td>
-          <td>{{ m.recurso.nome if m.recurso else '' }}</td>
-          <td>#{{ m.previsao_id|fmtid }}</td>
-          <td>{{ m.documento or '' }}</td>
-          <td class="text-success fw-bold text-end">{{ m.valor|brl }}</td>
-          <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
-          <td>{{ m.historico_display }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+</div>
+{% if not locked %}
+<div class="px-3 py-1">
+  <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar</button>
+  <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar</button>
 </div>
 {% endif %}
-  <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=back_url or url_for('contas_a_receber.list'), disable_save=transacao is not none) %}
-  {% if transacao and not locked %}
-  <div class="d-flex align-items-center gap-1">
-    <label class="form-label small mb-0 text-danger">Cancelado</label>
-    <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}">
-  </div>
-  {% endif %}
-  {% if transacao %}
-  <button type="button" class="btn btn-sm btn-outline-danger ms-2 {{ 'd-none' if transacao.previsoes else '' }}" id="btn-excluir-transacao" onclick="showConfirm('Excluir transação?',function(){document.getElementById('excluir-form').submit()})">Excluir</button>
-  {% endif %}
-{% endcall %}
-</form>
-
+{% if movimentos %}
+<hr>
+<div class="mt-0">
+  <h5 class="mb-2">{{ tipo_nome }}s relacionados</h5>
+<div class="table-responsive">
+  <table class="table table-sm table-hover">
+    <thead>
+      <tr>
+        <th>Movto</th>
+        <th>Data</th>
+        <th>Recurso</th>
+        <th>Previsão</th>
+        <th>Documento</th>
+        <th class="text-end">Valor</th>
+        <th>Rubrica</th>
+        <th>Histórico</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in movimentos %}
+      <tr>
+        <td>{{ m.id|fmtid }}</td>
+        <td>{{ m.data|fmtdate }}</td>
+        <td>{{ m.recurso.nome if m.recurso else '' }}</td>
+        <td>#{{ m.previsao_id|fmtid }}</td>
+        <td>{{ m.documento or '' }}</td>
+        <td class="text-success fw-bold text-end">{{ m.valor|brl }}</td>
+        <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
+        <td>{{ m.historico_display }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+</div>
+{% endif %}
+<div class="form-bottom-spacer"></div>
+{% endblock %}
+{% block form_footer_left %}
+{% if transacao and not locked %}
+<div class="d-flex align-items-center gap-1">
+  <label class="form-label small mb-0 text-danger">Cancelado</label>
+  <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ submitted_data.cancelado if submitted_data is not none else (transacao.cancelado if transacao else '') }}">
+</div>
+{% endif %}
+{% if transacao %}
+<button type="button" class="btn btn-sm btn-outline-danger ms-2 {{ 'd-none' if transacao.previsoes else '' }}" id="btn-excluir-transacao" onclick="showConfirm('Excluir transação?',function(){document.getElementById('excluir-form').submit()})">Excluir</button>
+{% endif %}
+{% endblock %}
+{% block page_scripts %}
 {% if transacao %}
 <form id="excluir-form" method="POST" action="{{ url_for('contas_a_receber.excluir', id=transacao.id) }}" style="display:none"></form>
 {% endif %}
-
 <template id="previsao-template">
   <tr class="previsao-row">
     <td class="text-center text-muted small previsao-num"></td>
@@ -299,7 +286,6 @@
     </td>
   </tr>
 </template>
-
 <template id="previsao-mobile-template">
   <div class="px-3 py-2 border-bottom previsao-mobile-card">
     <div class="d-flex justify-content-between align-items-center mb-1">
@@ -334,7 +320,6 @@
     </div>
   </div>
 </template>
-
 <div class="modal fade" id="lancarModal" tabindex="-1">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
@@ -359,7 +344,6 @@
     </div>
   </div>
 </div>
-
 <div class="modal fade" id="removeParcelaModal" tabindex="-1">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
@@ -371,18 +355,12 @@
     </div>
   </div>
 </div>
-
-{% endblock %}
-
-{% block scripts %}
 <script>
 document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
   if (!opt.value) return;
   var show = opt.dataset.tipoRubrica == "1" && opt.dataset.temPai == "1";
   opt.style.display = show ? '' : 'none';
 });
-</script>
-<script>
 function disableHiddenPrevisoes() {
   var desktop = document.getElementById('previsoes-container');
   var mobile = document.getElementById('previsoes-mobile-container');
@@ -393,8 +371,6 @@ function disableHiddenPrevisoes() {
   }
 }
 document.getElementById('main-form').addEventListener('submit', disableHiddenPrevisoes);
-</script>
-<script>
 function recalcularSaldoLancar() {
   var valor = parseFloat(document.querySelector('[name="valor"]').value) || 0;
   var totalPrevisto = 0;
@@ -528,12 +504,10 @@ function gerarParcelas() {
 var removeParcelaBtn = null;
 var removeParcelaModal = null;
 var lancarModal = null;
-
 document.addEventListener('DOMContentLoaded', function() {
   removeParcelaModal = new bootstrap.Modal(document.getElementById('removeParcelaModal'));
   lancarModal = new bootstrap.Modal(document.getElementById('lancarModal'));
 });
-
 document.getElementById('previsoes-container').addEventListener('click', function(e) {
   var btn = e.target.closest('.btn-remove-parcela');
   if (!btn) return;
@@ -546,7 +520,6 @@ document.getElementById('previsoes-mobile-container').addEventListener('click', 
   removeParcelaBtn = btn;
   removeParcelaModal.show();
 });
-
 document.getElementById('btn-confirm-remove-parcela').addEventListener('click', function() {
   if (!removeParcelaBtn) return;
   var row = removeParcelaBtn.closest('.previsao-row, .previsao-mobile-card');

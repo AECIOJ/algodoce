@@ -1,112 +1,99 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
 
+
+{% set back_url = url_for('ingredients.list') %}
+{% set new_title = 'Novo Insumo' %}
+{% set entity_label = 'Insumo' %}
+{% set edit_endpoint = 'ingredients.edit' %}
+{% if ingredient %}{% set entity_id = ingredient.id %}{% endif %}
+
+{% block form_body %}
+<div class="mb-3">
+  <label class="form-label">Nome *</label>
+  <input type="text" name="nome" class="form-control" required value="{{ ingredient.nome if ingredient else '' }}">
+</div>
+<div class="mb-3">
+  <label class="form-label">Tipo</label>
+  <select name="tipo" class="form-select">
+    {% for val, label in TIPO_INGREDIENTE.items() %}
+      <option value="{{ val }}" {{ 'selected' if ingredient and ingredient.tipo == val }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+</div>
+<div class="mb-3">
+  <label class="form-label">Unidade de Medida *</label>
+  <select name="unidade_medida" class="form-select" required>
+    {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+      <option value="{{ un }}" {% if ingredient and ingredient.unidade_medida == un %}selected{% endif %}>{{ un }}</option>
+    {% endfor %}
+  </select>
+</div>
 {% if ingredient %}
-{% call form_nav(back_url=url_for('ingredients.list'), nome='Insumo ' ~ ingredient.id|fmtid, nav=nav, edit_endpoint='ingredients.edit', entity_id=ingredient.id) %}{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Insumo</span>
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold">Fatores de Conversão</div>
+  <div class="card-body">
+    <p class="text-muted small">
+      1 [unidade da receita] = [fator] {{ ingredient.unidade_medida }}
+      (ex: 1 xicara = 0.2 kg)
+    </p>
+    <div id="conversoes-list">
+      {% for cv in ingredient.conversions %}
+        <div class="row mb-2 conversao-row align-items-center">
+          <div class="col-md-4 mb-1 mb-md-0">
+            <select name="conversion_unidade" class="form-select">
+              {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+                <option value="{{ un }}" {% if cv.unidade == un %}selected{% endif %}>{{ un }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-1 text-center text-md-end mb-1 mb-md-0">
+            <span class="text-muted">=</span>
+          </div>
+          <div class="col-md-3 mb-1 mb-md-0">
+            <input type="number" name="conversion_fator" class="form-control" step="0.000001" value="{{ cv.fator }}">
+          </div>
+          <div class="col-md-2 mb-1 mb-md-0">
+            <span class="text-muted form-label d-md-inline d-none">{{ ingredient.unidade_medida }}</span>
+            <span class="text-muted d-md-none">em {{ ingredient.unidade_medida }}</span>
+          </div>
+          <div class="col-md-1">
+            <button type="button" class="btn btn-danger btn-sm btn-remove-conv btn-remove-card" onclick="confirmRemove(this, 'Remover conversão?')">
+          </div>
+        </div>
+      {% else %}
+        <div class="row mb-2 conversao-row align-items-center">
+          <div class="col-md-4 mb-1 mb-md-0">
+            <select name="conversion_unidade" class="form-select">
+              {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+                <option value="{{ un }}">{{ un }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-1 text-center text-md-end mb-1 mb-md-0">
+            <span class="text-muted">=</span>
+          </div>
+          <div class="col-md-3 mb-1 mb-md-0">
+            <input type="number" name="conversion_fator" class="form-control" step="0.000001" placeholder="0.000">
+          </div>
+          <div class="col-md-2 mb-1 mb-md-0">
+            <span class="text-muted d-md-inline d-none">{{ ingredient.unidade_medida }}</span>
+            <span class="text-muted d-md-none">em {{ ingredient.unidade_medida }}</span>
+          </div>
+          <div class="col-md-1">
+            <button type="button" class="btn btn-danger btn-sm btn-remove-conv btn-remove-card" onclick="confirmRemove(this, 'Remover conversão?')">
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="btn btn-outline-success btn-sm mt-2" onclick="addConversao()">+ Adicionar Conversão</button>
+  </div>
 </div>
 {% endif %}
-
-<form method="POST" id="main-form">
-  <div class="mb-3">
-    <label class="form-label">Nome *</label>
-    <input type="text" name="nome" class="form-control" required value="{{ ingredient.nome if ingredient else '' }}">
-  </div>
-  <div class="mb-3">
-    <label class="form-label">Tipo</label>
-    <select name="tipo" class="form-select">
-      {% for val, label in TIPO_INGREDIENTE.items() %}
-        <option value="{{ val }}" {{ 'selected' if ingredient and ingredient.tipo == val }}>{{ label }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="mb-3">
-    <label class="form-label">Unidade de Medida *</label>
-    <select name="unidade_medida" class="form-select" required>
-      {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
-        <option value="{{ un }}" {% if ingredient and ingredient.unidade_medida == un %}selected{% endif %}>{{ un }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  {% if ingredient %}
-  <div class="card mb-3">
-    <div class="card-header bg-light fw-bold">Fatores de Conversão</div>
-    <div class="card-body">
-      <p class="text-muted small">
-        1 [unidade da receita] = [fator] {{ ingredient.unidade_medida }}
-        (ex: 1 xicara = 0.2 kg)
-      </p>
-      <div id="conversoes-list">
-        {% for cv in ingredient.conversions %}
-          <div class="row mb-2 conversao-row align-items-center">
-            <div class="col-md-4 mb-1 mb-md-0">
-              <select name="conversion_unidade" class="form-select">
-                {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
-                  <option value="{{ un }}" {% if cv.unidade == un %}selected{% endif %}>{{ un }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-1 text-center text-md-end mb-1 mb-md-0">
-              <span class="text-muted">=</span>
-            </div>
-            <div class="col-md-3 mb-1 mb-md-0">
-              <input type="number" name="conversion_fator" class="form-control" step="0.000001" value="{{ cv.fator }}">
-            </div>
-            <div class="col-md-2 mb-1 mb-md-0">
-              <span class="text-muted form-label d-md-inline d-none">{{ ingredient.unidade_medida }}</span>
-              <span class="text-muted d-md-none">em {{ ingredient.unidade_medida }}</span>
-            </div>
-            <div class="col-md-1">
-              <button type="button" class="btn btn-danger btn-sm btn-remove-conv btn-remove-card" onclick="confirmRemove(this, 'Remover conversão?')">
-            </div>
-          </div>
-        {% else %}
-          <div class="row mb-2 conversao-row align-items-center">
-            <div class="col-md-4 mb-1 mb-md-0">
-              <select name="conversion_unidade" class="form-select">
-                {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
-                  <option value="{{ un }}">{{ un }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-1 text-center text-md-end mb-1 mb-md-0">
-              <span class="text-muted">=</span>
-            </div>
-            <div class="col-md-3 mb-1 mb-md-0">
-              <input type="number" name="conversion_fator" class="form-control" step="0.000001" placeholder="0.000">
-            </div>
-            <div class="col-md-2 mb-1 mb-md-0">
-              <span class="text-muted d-md-inline d-none">{{ ingredient.unidade_medida }}</span>
-              <span class="text-muted d-md-none">em {{ ingredient.unidade_medida }}</span>
-            </div>
-            <div class="col-md-1">
-              <button type="button" class="btn btn-danger btn-sm btn-remove-conv btn-remove-card" onclick="confirmRemove(this, 'Remover conversão?')">
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-      <button type="button" class="btn btn-outline-success btn-sm mt-2" onclick="addConversao()">+ Adicionar Conversão</button>
-    </div>
-  </div>
-  {% endif %}
-
-  <div class="form-bottom-spacer"></div>
-</form>
-{% call barra_edicao(back_url=url_for('ingredients.list'), disable_save=ingredient is not none) %}
-  {% if ingredient %}
-  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-  {% endif %}
-{% endcall %}
 
 {% if ingredient and products_using %}
 <div class="card mt-4">
   <div class="card-header bg-light fw-bold">Usado nos Produtos</div>
   <div class="card-body p-0">
-    <!-- Desktop -->
     <div class="d-none d-md-block">
       <table class="table mb-0 sortable">
         <thead>
@@ -131,7 +118,6 @@
         </tbody>
       </table>
     </div>
-    <!-- Mobile -->
     <div class="d-md-none">
       {% for p in products_using %}
         {% for pi in p.ingredients.filter_by(ingredient_id=ingredient.id) %}
@@ -149,7 +135,15 @@
   </div>
 </div>
 {% endif %}
+{% endblock %}
 
+{% block form_footer_left %}
+{% if ingredient %}
+<button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" style="min-height:0;font-size:0.75rem;padding:2px 6px;" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><i class="bi bi-trash"></i>Excluir</button>
+{% endif %}
+{% endblock %}
+
+{% block page_scripts %}
 {% if ingredient %}
 <div class="modal fade" id="modalExcluir" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
@@ -163,14 +157,7 @@
     </div>
   </div>
 </div>
-
 <form method="POST" id="formExcluir" style="display:none"></form>
-{% endif %}
-
-{% endblock %}
-
-{% block scripts %}
-{% if ingredient %}
 <script>
 function addConversao() {
   const container = document.getElementById('conversoes-list');
@@ -206,7 +193,6 @@ function confirmarExclusao(btn) {
   const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
   const body = document.getElementById('modalExcluirBody');
   const footer = document.getElementById('modalExcluirFooter');
-
   fetch('/insumos/' + id + '/uso')
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -219,12 +205,11 @@ function confirmarExclusao(btn) {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
         footer.innerHTML =
           '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><i class="bi bi-trash"></i>Excluir</button>';
       }
       modal.show();
     });
 }
-
 function efetuarExclusao(id) {
   var form = document.getElementById('formExcluir');
   form.action = '/insumos/' + id + '/excluir';

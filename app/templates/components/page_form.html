@@ -3,7 +3,33 @@
 
 <div class="barra-nav d-flex align-items-center gap-2 px-2 py-1 flex-shrink-0" style="border-bottom:1px solid #dee2e6;background:#fff;min-height:44px;">
   <div class="d-flex align-items-center gap-2">
-    {% block nav_left %}{% endblock %}
+    <a href="{{ back_url|default('#') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
+
+    {% if entity_id is defined and entity_id %}
+    <div class="btn-group btn-group-sm">
+      <a href="{{ url_for(edit_endpoint, id=nav.first_id) if nav is defined and nav else '#' }}" class="btn btn-outline-secondary" title="Primeiro"><i class="bi bi-chevron-bar-left"></i></a>
+      {% if nav is defined and nav and nav.prev_id %}
+      <a href="{{ url_for(edit_endpoint, id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior"><i class="bi bi-chevron-left"></i></a>
+      {% else %}
+      <span class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-left"></i></span>
+      {% endif %}
+    </div>
+    <div class="input-group input-group-sm" style="width:130px;">
+      <span class="input-group-text" style="font-size:0.75rem;">{{ entity_label|default('Registro') }}</span>
+      <input type="number" class="form-control form-control-sm" min="1" value="{{ entity_id }}"
+             onchange="if(this.value)window.location=window.location.pathname.replace(/\/\d+/, '/'+this.value)">
+    </div>
+    <div class="btn-group btn-group-sm">
+      {% if nav is defined and nav and nav.next_id %}
+      <a href="{{ url_for(edit_endpoint, id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo"><i class="bi bi-chevron-right"></i></a>
+      {% else %}
+      <span class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-right"></i></span>
+      {% endif %}
+      <a href="{{ url_for(edit_endpoint, id=nav.last_id) if nav is defined and nav else '#' }}" class="btn btn-outline-secondary" title="Último"><i class="bi bi-chevron-bar-right"></i></a>
+    </div>
+    {% else %}
+    <span class="fw-bold" style="font-size:0.95rem;">{{ new_title|default('') }}</span>
+    {% endif %}
   </div>
   <div class="ms-auto d-flex align-items-center gap-1">
     {% block nav_right %}{% endblock %}

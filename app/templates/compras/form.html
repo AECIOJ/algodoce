@@ -1,177 +1,152 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
+
+{% set back_url = url_for('compras.list') %}
+{% set new_title = 'Nova Compra' %}
+{% set entity_label = 'Compra' %}
+{% set edit_endpoint = 'compras.edit' %}
+{% if compra and compra.id %}{% set entity_id = compra.id %}{% endif %}
 
 {% set previsoes = submitted_previsoes if submitted_previsoes is not none else (transacao.previsoes if transacao else None) %}
 
-{% if compra and compra.id %}
-{% if transacao %}
-{% set st = transacao.status %}
-{% set st_label = PREVISAO_STATUS.get(st, '') %}
-{% if st == 9 %}
-  {% set status_badge = '<span class="badge bg-success ms-2">' ~ st_label ~ '</span>' %}
-{% elif st == 8 %}
-  {% set status_badge = '<span class="badge bg-secondary ms-2">' ~ st_label ~ '</span>' %}
-{% elif st == 2 %}
-  {% set status_badge = '<span class="badge bg-warning ms-2">' ~ st_label ~ '</span>' %}
-{% elif st == 1 %}
-  {% set status_badge = '<span class="badge bg-info ms-2">' ~ st_label ~ '</span>' %}
-{% elif st == 0 %}
-  {% set status_badge = '<span class="badge bg-dark ms-2">' ~ st_label ~ '</span>' %}
-{% else %}
-  {% set status_badge = '<span class="badge bg-secondary ms-2">' ~ st_label ~ '</span>' %}
-{% endif %}
-{% endif %}
-{% call form_nav(back_url=url_for('compras.list'), nome='Compra ' ~ compra.id|fmtid, nav=nav, edit_endpoint='compras.edit', entity_id=compra.id, status=status_badge if transacao else '') %}
-{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Nova Compra</span>
-</div>
-{% endif %}
-
-<form method="POST" id="main-form">
-  <div class="row g-2 mb-3">
-    <div class="col-6 col-md-2">
-      <label class="form-label">Data</label>
-      <input type="date" name="data" class="form-control" value="{{ compra.data if compra else hoje }}">
-    </div>
-    <div class="col-6 col-md-4">
-      <label class="form-label">Fornecedor *</label>
-      <select name="conta_id" class="form-select" required>
-        <option value="">Nenhum</option>
-        {% for c in contas %}
-          <option value="{{ c.id }}" {% if compra and compra.fornecedor_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label">Rubrica *</label>
-      <select name="rubrica_id" class="form-select" required>
-        <option value="">Nenhuma</option>
-        {% for r in rubricas %}
-          <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label">Data Recepção</label>
-      <input type="date" name="data_recepcao" class="form-control" value="{{ compra.data_recepcao.strftime('%Y-%m-%d') if compra and compra.data_recepcao else '' }}">
-    </div>
-    <div class="col-12 col-md-6">
-      <label class="form-label">Histórico</label>
-      <input type="text" name="historico" class="form-control" value="{{ compra.historico if compra and compra.historico else '' }}">
-    </div>
+{% block form_body %}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-2">
+    <label class="form-label">Data</label>
+    <input type="date" name="data" class="form-control" value="{{ compra.data if compra else hoje }}">
   </div>
+  <div class="col-6 col-md-4">
+    <label class="form-label">Fornecedor *</label>
+    <select name="conta_id" class="form-select" required>
+      <option value="">Nenhum</option>
+      {% for c in contas %}
+        <option value="{{ c.id }}" {% if compra and compra.fornecedor_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label">Rubrica *</label>
+    <select name="rubrica_id" class="form-select" required>
+      <option value="">Nenhuma</option>
+      {% for r in rubricas %}
+        <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label">Data Recepção</label>
+    <input type="date" name="data_recepcao" class="form-control" value="{{ compra.data_recepcao.strftime('%Y-%m-%d') if compra and compra.data_recepcao else '' }}">
+  </div>
+  <div class="col-12 col-md-6">
+    <label class="form-label">Histórico</label>
+    <input type="text" name="historico" class="form-control" value="{{ compra.historico if compra and compra.historico else '' }}">
+  </div>
+</div>
 
-  <hr>
-  <h5 class="mb-2">Itens da Compra</h5>
+<hr>
+<h5 class="mb-2">Itens da Compra</h5>
 
 {% set items_total = namespace(valor=0) %}
 {% for ci in compra.items %}
   {% set items_total.valor = items_total.valor + (ci.preco|float * ci.quantidade|float) %}
 {% endfor %}
 
-  <!-- Desktop: items table -->
-  <div class="table-responsive d-none d-md-block">
-    <table class="table mb-0" id="itens-table">
-      <thead>
-        <tr>
-          <th style="min-width:200px">Insumo</th>
-          <th class="text-end">Quantidade</th>
-          <th class="text-end">Preço Unit.</th>
-          <th class="text-end">Valor</th>
-          <th style="width:40px"></th>
-        </tr>
-      </thead>
-      <tbody id="itens-container">
-        {% for ci in compra.items %}
-        <tr class="item-row">
-          <td>
-            <select name="insumo_id[]" class="form-select form-select-sm" onchange="calcValor(this)">
-              <option value="">Selecione...</option>
-              {% for ins in insumos %}
-                <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
-              {% endfor %}
-            </select>
-          </td>
-          <td class="text-end">
-            <div class="d-flex align-items-center justify-content-end gap-1">
-              <input type="number" name="quantidade[]" class="form-control form-control-sm text-end" step="0.001" min="0" oninput="calcValor(this)" value="{{ ci.quantidade }}">
-              <span class="unidade-display text-muted small"></span>
-            </div>
-          </td>
-          <td class="text-end">
-            <input type="number" name="preco[]" class="form-control form-control-sm text-end preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}">
-          </td>
-          <td class="text-end">
-            <span class="valor-item">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
-          </td>
-          <td class="text-center">
-            <input type="hidden" name="item_id[]" value="{{ ci.id }}">
-            <input type="hidden" name="item_remover[]" value="0">
-            <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-      <tfoot>
-        <tr>
-          <th colspan="3" class="text-end">Total</th>
-          <th id="total-geral" class="text-end" data-total-db="{{ '%.2f'|format(items_total.valor) }}">R$ {{ items_total.valor|brl }}</th>
-          <input type="hidden" id="total-display" value="{{ '%.2f'|format(items_total.valor) }}">
-          <th></th>
-        </tr>
-        <tr id="add-item-row">
-          <td colspan="5">
-            <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-
-  <!-- Mobile: items card list -->
-  <div class="d-md-none" id="itens-mobile-container">
-    {% for ci in compra.items %}
-    <div class="px-3 py-2 border-bottom item-mobile-card">
-      <select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="calcValor(this)">
-        <option value="">Selecione...</option>
-        {% for ins in insumos %}
-          <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
-        {% endfor %}
-      </select>
-      <div class="row g-1 align-items-center">
-        <div class="col-4">
-          <span class="card-label">Qtd</span>
-          <div class="d-flex align-items-center gap-1">
-            <input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="calcValor(this)" value="{{ ci.quantidade }}">
+<div class="table-responsive d-none d-md-block">
+  <table class="table mb-0" id="itens-table">
+    <thead>
+      <tr>
+        <th style="min-width:200px">Insumo</th>
+        <th class="text-end">Quantidade</th>
+        <th class="text-end">Preço Unit.</th>
+        <th class="text-end">Valor</th>
+        <th style="width:40px"></th>
+      </tr>
+    </thead>
+    <tbody id="itens-container">
+      {% for ci in compra.items %}
+      <tr class="item-row">
+        <td>
+          <select name="insumo_id[]" class="form-select form-select-sm" onchange="calcValor(this)">
+            <option value="">Selecione...</option>
+            {% for ins in insumos %}
+              <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td class="text-end">
+          <div class="d-flex align-items-center justify-content-end gap-1">
+            <input type="number" name="quantidade[]" class="form-control form-control-sm text-end" step="0.001" min="0" oninput="calcValor(this)" value="{{ ci.quantidade }}">
             <span class="unidade-display text-muted small"></span>
           </div>
-        </div>
-        <div class="col-4">
-          <span class="card-label">Preço</span>
-          <input type="number" name="preco[]" class="form-control form-control-sm preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}">
-        </div>
-        <div class="col-4">
-          <span class="card-label">Valor</span><br>
-          <span class="valor-item fw-bold">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
+        </td>
+        <td class="text-end">
+          <input type="number" name="preco[]" class="form-control form-control-sm text-end preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}">
+        </td>
+        <td class="text-end">
+          <span class="valor-item">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
+        </td>
+        <td class="text-center">
+          <input type="hidden" name="item_id[]" value="{{ ci.id }}">
+          <input type="hidden" name="item_remover[]" value="0">
+          <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="3" class="text-end">Total</th>
+        <th id="total-geral" class="text-end" data-total-db="{{ '%.2f'|format(items_total.valor) }}">R$ {{ items_total.valor|brl }}</th>
+        <input type="hidden" id="total-display" value="{{ '%.2f'|format(items_total.valor) }}">
+        <th></th>
+      </tr>
+      <tr id="add-item-row">
+        <td colspan="5">
+          <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button>
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<div class="d-md-none" id="itens-mobile-container">
+  {% for ci in compra.items %}
+  <div class="px-3 py-2 border-bottom item-mobile-card">
+    <select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="calcValor(this)">
+      <option value="">Selecione...</option>
+      {% for ins in insumos %}
+        <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+      {% endfor %}
+    </select>
+    <div class="row g-1 align-items-center">
+      <div class="col-4">
+        <span class="card-label">Qtd</span>
+        <div class="d-flex align-items-center gap-1">
+          <input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="calcValor(this)" value="{{ ci.quantidade }}">
+          <span class="unidade-display text-muted small"></span>
         </div>
       </div>
-      <input type="hidden" name="item_id[]" value="{{ ci.id }}">
-      <input type="hidden" name="item_remover[]" value="0">
-      <button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <div class="col-4">
+        <span class="card-label">Preço</span>
+        <input type="number" name="preco[]" class="form-control form-control-sm preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}">
+      </div>
+      <div class="col-4">
+        <span class="card-label">Valor</span><br>
+        <span class="valor-item fw-bold">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
+      </div>
     </div>
-    {% endfor %}
-    <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
-      <span>Total</span>
-      <span id="total-geral-mobile">R$ {{ items_total.valor|brl }}</span>
-    </div>
-    <div class="px-3 py-2">
-      <button type="button" class="btn btn-outline-success btn-sm" onclick="addItemMobile()">+ Adicionar Item</button>
-    </div>
+    <input type="hidden" name="item_id[]" value="{{ ci.id }}">
+    <input type="hidden" name="item_remover[]" value="0">
+    <button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
   </div>
+  {% endfor %}
+  <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
+    <span>Total</span>
+    <span id="total-geral-mobile">R$ {{ items_total.valor|brl }}</span>
+  </div>
+  <div class="px-3 py-2">
+    <button type="button" class="btn btn-outline-success btn-sm" onclick="addItemMobile()">+ Adicionar Item</button>
+  </div>
+</div>
 
 <div class="card mb-3">
   <div class="card-header bg-light fw-bold">Financeiro</div>
@@ -207,7 +182,6 @@
       </h5>
     </div>
 
-    <!-- Desktop: parcelas table -->
     <div class="table-responsive d-none d-md-block">
       <table class="table table-sm table-bordered align-middle mb-0" style="position:relative;">
         <thead style="position:sticky;top:0;z-index:10;background:#fff;">
@@ -266,7 +240,6 @@
       </table>
     </div>
 
-    <!-- Mobile: parcelas card list -->
     <div class="d-md-none" id="previsoes-mobile-container">
       {% if previsoes is not none %}
       {% for p in previsoes %}
@@ -358,17 +331,18 @@
   {% endif %}
   </div>
 </div>
-  <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=url_for('compras.list'), disable_save=transacao is not none) %}
-  {% if transacao %}
-  <div class="d-flex align-items-center gap-1">
-    <label class="form-label small mb-0 text-danger">Cancelado</label>
-    <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ transacao.cancelado.strftime('%Y-%m-%d') if transacao and transacao.cancelado else '' }}">
-  </div>
-  {% endif %}
-{% endcall %}
-</form>
+{% endblock %}
 
+{% block form_footer_left %}
+{% if transacao %}
+<div class="d-flex align-items-center gap-1">
+  <label class="form-label small mb-0 text-danger">Cancelado</label>
+  <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ transacao.cancelado.strftime('%Y-%m-%d') if transacao and transacao.cancelado else '' }}">
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_scripts %}
 <template id="item-template">
   <tr class="item-row">
     <td>
@@ -463,8 +437,6 @@
   </div>
 </template>
 
-
-
 <div class="modal fade" id="removeParcelaModal" tabindex="-1">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
@@ -477,9 +449,6 @@
   </div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
 <script>
 document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
   if (!opt.value) return;
@@ -487,6 +456,7 @@ document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
   opt.style.display = show ? '' : 'none';
 });
 </script>
+
 <script>
 function fmt_brl(valor) {
   return valor.toFixed(2).replace('.', ',').replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
@@ -636,7 +606,6 @@ function addRowMobile() {
   container.appendChild(clone);
   marcarFormAlterado();
 }
-
 
 var removeParcelaBtn = null;
 var removeParcelaModal = null;

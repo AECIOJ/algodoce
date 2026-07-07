@@ -1,105 +1,140 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
 
+
+{% set back_url = url_for('products.list') %}
+{% set new_title = 'Novo Produto' %}
+{% set entity_label = 'Produto' %}
+{% set edit_endpoint = 'products.edit' %}
+{% if product %}{% set entity_id = product.id %}{% endif %}
+
+{% block nav_right %}
 {% if product %}
-{% set product_actions %}
-  {% if not product.ativo %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
-  <a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm" style="min-width:90px">
-    {{ 'Desativar' if product.ativo else 'Ativar' }}
-  </a>
-{% endset %}
-{% call form_nav(back_url=url_for('products.list'), nome='Produto ' ~ product.id|fmtid, nav=nav, edit_endpoint='products.edit', entity_id=product.id, actions2=product_actions) %}
-  {{ product_actions }}
-{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Produto</span>
-</div>
+{% if not product.ativo %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
+<a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm" style="min-width:90px">
+  {{ 'Desativar' if product.ativo else 'Ativar' }}
+</a>
 {% endif %}
+{% endblock %}
 
-<form method="POST" enctype="multipart/form-data" id="main-form">
-  <div class="mb-3">
-    <label class="form-label">Nome *</label>
-    <input type="text" name="nome" class="form-control" required value="{{ product.nome if product else '' }}">
+{% block form_body %}
+<div class="mb-3">
+  <label class="form-label">Nome *</label>
+  <input type="text" name="nome" class="form-control" required value="{{ product.nome if product else '' }}">
+</div>
+<div class="mb-3">
+  <label class="form-label">Descrição</label>
+  <textarea name="descricao" class="form-control" rows="2">{{ product.descricao if product else '' }}</textarea>
+</div>
+<div class="row mb-3">
+  <div class="col-md-3">
+    <label class="form-label">Preço *</label>
+    <input type="number" name="preco" class="form-control" step="0.01" required value="{{ product.preco if product else '' }}">
   </div>
-  <div class="mb-3">
-    <label class="form-label">Descrição</label>
-    <textarea name="descricao" class="form-control" rows="2">{{ product.descricao if product else '' }}</textarea>
+  <div class="col-md-3">
+    <label class="form-label">Qtd. Mínima</label>
+    <input type="number" name="qtd_minima" class="form-control" min="0" step="1"
+           value="{{ product.qtd_minima if product else '0' }}">
   </div>
-  <div class="row mb-3">
-    <div class="col-md-3">
-      <label class="form-label">Preço *</label>
-      <input type="number" name="preco" class="form-control" step="0.01" required value="{{ product.preco if product else '' }}">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Qtd. Mínima</label>
-      <input type="number" name="qtd_minima" class="form-control" min="0" step="1"
-             value="{{ product.qtd_minima if product else '0' }}">
-    </div>
-    <div class="col-md-3">
-      <label class="form-label">Categoria</label>
-      <select name="category_id" class="form-select">
-        <option value="">Sem categoria</option>
-        {% for cat in categorias %}
-          <option value="{{ cat.id }}" {% if product and product.category_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
+  <div class="col-md-3">
+    <label class="form-label">Categoria</label>
+    <select name="category_id" class="form-select">
+      <option value="">Sem categoria</option>
+      {% for cat in categorias %}
+        <option value="{{ cat.id }}" {% if product and product.category_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
+      {% endfor %}
+    </select>
   </div>
+</div>
 
-  <div class="mb-3">
-    <label class="form-label">Imagem do Produto</label>
-    <div class="d-flex align-items-center gap-3">
-      {% if product and product.imagem %}
-        <img id="foto-preview" src="{{ url_for('uploads.uploaded_file', filename=product.imagem) }}"
-             class="img-thumbnail" style="max-height: 120px;">
-        <label class="text-muted small">
-          <input type="checkbox" name="remover_imagem" value="1"> Remover imagem
-        </label>
-      {% else %}
-        <div id="foto-placeholder" class="bg-light rounded d-flex align-items-center justify-content-center"
-             style="width:120px;height:120px;color:#ccc;font-size:3rem;">📸</div>
-      {% endif %}
-      <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirCrop()">Editar Foto</button>
-    </div>
-    <input type="file" id="crop-input" accept="image/*" style="display:none">
-    <input type="hidden" name="temp_imagem" id="temp-imagem" value="">
+<div class="mb-3">
+  <label class="form-label">Imagem do Produto</label>
+  <div class="d-flex align-items-center gap-3">
+    {% if product and product.imagem %}
+      <img id="foto-preview" src="{{ url_for('uploads.uploaded_file', filename=product.imagem) }}"
+           class="img-thumbnail" style="max-height: 120px;">
+      <label class="text-muted small">
+        <input type="checkbox" name="remover_imagem" value="1"> Remover imagem
+      </label>
+    {% else %}
+      <div id="foto-placeholder" class="bg-light rounded d-flex align-items-center justify-content-center"
+           style="width:120px;height:120px;color:#ccc;font-size:3rem;">📸</div>
+    {% endif %}
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirCrop()">Editar Foto</button>
   </div>
+  <input type="file" id="crop-input" accept="image/*" style="display:none">
+  <input type="hidden" name="temp_imagem" id="temp-imagem" value="">
+</div>
 
-  <div class="card mb-3">
-    <div class="card-header bg-light fw-bold">Insumos</div>
-    <div class="card-body">
-      <div class="row mb-2 fw-bold small text-muted d-none d-lg-flex text-center">
-        <div class="col-lg-5">Insumo</div>
-        <div class="col-lg-1">Qtd</div>
-        <div class="col-lg-1">Und</div>
-        <div class="col-lg-3">Etapa</div>
-        <div class="col-lg-2"></div>
-      </div>
-      <div id="insumos-list" data-qtd-minima="{{ product.qtd_minima if product else 0 }}">
-        {% if product and product.ingredients.count() %}
-          {% for pi in product.ingredients %}
-            <div class="row mb-2 g-1 insumo-row align-items-start">
-              <div class="col-12 col-lg-5 mb-1 mb-lg-0">
-                <span class="card-label d-lg-none">Insumo</span>
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold">Insumos</div>
+  <div class="card-body">
+    <div class="row mb-2 fw-bold small text-muted d-none d-lg-flex text-center">
+      <div class="col-lg-5">Insumo</div>
+      <div class="col-lg-1">Qtd</div>
+      <div class="col-lg-1">Und</div>
+      <div class="col-lg-3">Etapa</div>
+      <div class="col-lg-2"></div>
+    </div>
+    <div id="insumos-list" data-qtd-minima="{{ product.qtd_minima if product else 0 }}">
+      {% if product and product.ingredients.count() %}
+        {% for pi in product.ingredients %}
+          <div class="row mb-2 g-1 insumo-row align-items-start">
+            <div class="col-12 col-lg-5 mb-1 mb-lg-0">
+              <span class="card-label d-lg-none">Insumo</span>
 <select name="ingredient_id" class="form-select form-select-sm" onchange="preencherInsumo(this)">
   <option value="">Selecione</option>
   {% for ing in ingredients %}
     <option value="{{ ing.id }}" data-unidade="{{ ing.unidade_medida }}" {% if pi.ingredient_id == ing.id %}selected{% endif %}>{{ ing.nome }}</option>
   {% endfor %}
 </select>
+            </div>
+            <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+              <span class="card-label d-lg-none">Qtd</span>
+              <input type="number" name="quantidade" class="form-control form-control-sm" step="0.1" placeholder="Qtd" value="{{ pi.quantidade }}">
+            </div>
+            <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+              <span class="card-label d-lg-none">Und</span>
+              <select name="unidade" class="form-select form-select-sm">
+                {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+                  <option value="{{ un }}" {% if pi.unidade == un %}selected{% endif %}>{{ un }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-4 col-lg-3 mb-1 mb-lg-0">
+              <span class="card-label d-lg-none">Etapa</span>
+              <select name="etapa_id" class="form-select form-select-sm">
+                <option value="">—</option>
+                {% for e in etapas %}
+                  <option value="{{ e.id }}" {% if pi.etapa_id == e.id %}selected{% endif %}>{{ e.nome }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12 col-lg-1 d-none d-lg-block">
+              <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+            </div>
+            <button type="button" class="btn btn-danger btn-sm btn-remove-card d-lg-none" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+          </div>
+        {% endfor %}
+      {% else %}
+            <div class="row mb-2 g-1 insumo-row align-items-start">
+              <div class="col-12 col-lg-5 mb-1 mb-lg-0">
+                <span class="card-label d-lg-none">Insumo</span>
+                <select name="ingredient_id" class="form-select form-select-sm" onchange="preencherInsumo(this)">
+                  <option value="">Selecione</option>
+                  {% for ing in ingredients %}
+                    <option value="{{ ing.id }}" data-unidade="{{ ing.unidade_medida }}">{{ ing.nome }}</option>
+                  {% endfor %}
+                </select>
               </div>
               <div class="col-4 col-lg-1 mb-1 mb-lg-0">
                 <span class="card-label d-lg-none">Qtd</span>
-                <input type="number" name="quantidade" class="form-control form-control-sm" step="0.1" placeholder="Qtd" value="{{ pi.quantidade }}">
+                <input type="number" name="quantidade" class="form-control form-control-sm" step="0.1" placeholder="Qtd">
               </div>
               <div class="col-4 col-lg-1 mb-1 mb-lg-0">
                 <span class="card-label d-lg-none">Und</span>
                 <select name="unidade" class="form-select form-select-sm">
                   {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
-                    <option value="{{ un }}" {% if pi.unidade == un %}selected{% endif %}>{{ un }}</option>
+                    <option value="{{ un }}">{{ un }}</option>
                   {% endfor %}
                 </select>
               </div>
@@ -108,69 +143,33 @@
                 <select name="etapa_id" class="form-select form-select-sm">
                   <option value="">—</option>
                   {% for e in etapas %}
-                    <option value="{{ e.id }}" {% if pi.etapa_id == e.id %}selected{% endif %}>{{ e.nome }}</option>
+                    <option value="{{ e.id }}">{{ e.nome }}</option>
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-12 col-lg-1 d-none d-lg-block">
-                <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
-              </div>
-              <button type="button" class="btn btn-danger btn-sm btn-remove-card d-lg-none" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+              <div class="col-12 col-lg-1">
+              <button type="button" class="btn btn-danger btn-sm btn-remove-card d-lg-none" onclick="confirmRemove(this, 'Remover insumo?')">
             </div>
-          {% endfor %}
-        {% else %}
-              <div class="row mb-2 g-1 insumo-row align-items-start">
-                <div class="col-12 col-lg-5 mb-1 mb-lg-0">
-                  <span class="card-label d-lg-none">Insumo</span>
-                  <select name="ingredient_id" class="form-select form-select-sm" onchange="preencherInsumo(this)">
-                    <option value="">Selecione</option>
-                    {% for ing in ingredients %}
-                      <option value="{{ ing.id }}" data-unidade="{{ ing.unidade_medida }}">{{ ing.nome }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="col-4 col-lg-1 mb-1 mb-lg-0">
-                  <span class="card-label d-lg-none">Qtd</span>
-                  <input type="number" name="quantidade" class="form-control form-control-sm" step="0.1" placeholder="Qtd">
-                </div>
-                <div class="col-4 col-lg-1 mb-1 mb-lg-0">
-                  <span class="card-label d-lg-none">Und</span>
-                  <select name="unidade" class="form-select form-select-sm">
-                    {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
-                      <option value="{{ un }}">{{ un }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="col-4 col-lg-3 mb-1 mb-lg-0">
-                  <span class="card-label d-lg-none">Etapa</span>
-                  <select name="etapa_id" class="form-select form-select-sm">
-                    <option value="">—</option>
-                    {% for e in etapas %}
-                      <option value="{{ e.id }}">{{ e.nome }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-                <div class="col-12 col-lg-1">
-                <button type="button" class="btn btn-danger btn-sm btn-remove-card d-lg-none" onclick="confirmRemove(this, 'Remover insumo?')">
-              </div>
-            </div>
-        {% endif %}
-        <div class="row mb-2" id="add-insumo-row">
-          <div class="col-12">
-            <button type="button" class="btn btn-outline-success btn-sm" onclick="addInsumo()">+ Adicionar Insumo</button>
           </div>
-        </div>
+      {% endif %}
+      <div class="row mb-2" id="add-insumo-row">
+        <div class="col-12">
+          <button type="button" class="btn btn-outline-success btn-sm" onclick="addInsumo()">+ Adicionar Insumo</button>
         </div>
       </div>
     </div>
-  <div class="form-bottom-spacer"></div>
-</form>
-{% call barra_edicao(back_url=url_for('products.list'), disable_save=product is not none) %}
-  {% if product %}
-  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-  {% endif %}
-{% endcall %}
+  </div>
+</div>
+<div class="form-bottom-spacer"></div>
+{% endblock %}
 
+{% block form_footer_left %}
+{% if product %}
+<button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-produto-id="{{ product.id }}" data-produto-nome="{{ product.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+{% endif %}
+{% endblock %}
+
+{% block page_scripts %}
 {% if product %}
 <div class="modal fade" id="modalExcluir" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
@@ -215,9 +214,6 @@
 </div>
 {% endif %}
 
-{% endblock %}
-
-{% block scripts %}
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
 <script>
 function preencherInsumo(select) {
