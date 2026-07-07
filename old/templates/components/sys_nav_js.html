@@ -2,6 +2,7 @@
 document.addEventListener('DOMContentLoaded', function () {
   const logo = document.querySelector('.brand-logo');
   const modalEl = document.getElementById('qrModal');
+  if (!logo || !modalEl) return;
   const modal = new bootstrap.Modal(modalEl);
 
   logo.addEventListener('click', function (e) {

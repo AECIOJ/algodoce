@@ -57,18 +57,6 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   {% block scripts %}{% endblock %}
 
-  <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    var logo = document.querySelector('.brand-logo');
-    if (!logo) return;
-    if (typeof showSistemaPopup === 'function') {
-      var timer = null;
-      logo.addEventListener('click', function(e) {
-        if (timer) { clearTimeout(timer); timer = null; if (typeof showAdminPopup === 'function') showAdminPopup(); }
-        else { e.preventDefault(); timer = setTimeout(function() { timer = null; showSistemaPopup(); }, 300); }
-      });
-    }
-  });
-  </script>
+
 </body>
 </html>

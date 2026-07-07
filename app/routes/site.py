@@ -17,6 +17,12 @@ def sistema():
     return render_template("components/page_system.html")
 
 
+@bp.route("/admin")
+@login_required
+def admin():
+    return render_template("admin/page_admin.html")
+
+
 @bp.route("/sobre")
 def sobre():
     content = render_pagina("sobre")

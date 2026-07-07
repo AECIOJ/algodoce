@@ -123,4 +123,15 @@ window.submitAdmin=function(){var u=document.getElementById('admin-user').value,
 (function(){var p=window.location.pathname;document.querySelectorAll('.nav-site a').forEach(function(l){if(l.getAttribute('href')===p)l.classList.add('active');});if(p.indexOf('/vitrine')===0){var t=document.getElementById('produtosNavLink');if(t)t.classList.add('active');}var m={'/sobre':'bnSobre','/vitrine':'bnProdutos','/orcamento':'bnOrcamento','/contato':'bnContato'};for(var k in m){if(p.indexOf(k)===0){var e=document.getElementById(m[k]);if(e)e.classList.add('active');}}})();
 (function(){var x=new XMLHttpRequest();x.open('GET','/api/orcamento-count',true);x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){var d=JSON.parse(x.responseText);if(d.total>0){var b=document.getElementById('bnOrcamento');var g=document.getElementById('bnOrcamentoBadge');if(b&&g){g.textContent=d.total;g.style.display='inline';b.classList.add('bn-ativo');}}}};x.send();})();
 </script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var logo = document.querySelector('.brand-logo');
+  if (!logo) return;
+  var timer = null;
+  logo.addEventListener('click', function(e) {
+    if (timer) { clearTimeout(timer); timer = null; if (typeof showAdminPopup === 'function') showAdminPopup(); }
+    else { e.preventDefault(); timer = setTimeout(function() { timer = null; showSistemaPopup(); }, 300); }
+  });
+});
+</script>
 {% endblock %}
