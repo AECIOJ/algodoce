@@ -1,59 +1,26 @@
-{% macro page_form(back_url=none, title='', item=none, nav=none, header_extra='') %}
-<div class="page-form d-flex flex-column" id="pageForm">
-  <div class="edit-top px-2 py-1 d-flex align-items-center gap-2 flex-shrink-0">
-    {% if back_url %}
-    <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i></a>
-    {% endif %}
-    <span class="nav-title flex-grow-1">{{ title }}</span>
-    {% if nav %}
-    <div class="btn-group btn-group-sm" role="group">
-      <a href="{{ url_for(request.endpoint, id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
-        <i class="bi bi-chevron-bar-left"></i>
-      </a>
-      {% if nav.prev_id %}
-        <a href="{{ url_for(request.endpoint, id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
-          <i class="bi bi-chevron-left"></i>
-        </a>
-      {% else %}
-        <a class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-left"></i></a>
-      {% endif %}
-      {% if nav.next_id %}
-        <a href="{{ url_for(request.endpoint, id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
-          <i class="bi bi-chevron-right"></i>
-        </a>
-      {% else %}
-        <a class="btn btn-outline-secondary disabled"><i class="bi bi-chevron-right"></i></a>
-      {% endif %}
-      <a href="{{ url_for(request.endpoint, id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
-        <i class="bi bi-chevron-bar-right"></i>
-      </a>
-    </div>
-    {% endif %}
-    {% if header_extra %}
-    <div class="d-flex align-items-center gap-1">{{ header_extra|safe }}</div>
-    {% endif %}
+{% extends "components/page_system.html" %}
+{% block page_content %}
+
+<div class="barra-nav d-flex align-items-center gap-2 px-2 py-1 flex-shrink-0" style="border-bottom:1px solid #dee2e6;background:#fff;min-height:44px;">
+  <div class="d-flex align-items-center gap-2">
+    {% block nav_left %}{% endblock %}
   </div>
+  <div class="ms-auto d-flex align-items-center gap-1">
+    {% block nav_right %}{% endblock %}
+  </div>
+</div>
 
-  <form method="POST" id="main-form" class="flex-grow-1 overflow-auto px-2 px-md-0 mt-2">
-    {% if item and item.ativo is defined and not item.ativo %}
-    <div class="alert alert-warning py-2 mb-3">
-      <i class="bi bi-exclamation-triangle"></i> Registro desativado
-    </div>
-    {% endif %}
-    {{ caller("form") }}
-    <div class="form-bottom-spacer"></div>
-  </form>
+<form method="POST" id="main-form" class="flex-grow-1 overflow-auto p-2 pb-5">
+  {% block form_body %}{% endblock %}
+</form>
 
-  <div class="edit-save flex-shrink-0">
-    {% set _bottom = caller("bottom") %}
-    {% if _bottom %}
-    <div class="d-inline-flex align-items-center gap-1">{{ _bottom }}</div>
-    {% endif %}
-    <div class="flex-grow-1"></div>
-    <button type="submit" form="main-form" class="btn btn-sm btn-success" id="btn-salvar">Salvar</button>
-    {% if back_url %}
-    <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="confirmSair('{{ back_url|e }}')">Sair</button>
-    {% endif %}
+<div class="form-footer d-flex align-items-center gap-2 px-2 py-1" style="position:fixed;background:#f5f5f5;z-index:1036;min-height:44px;left:0;right:0;">
+  <div class="d-flex align-items-center gap-1">
+    {% block form_footer_left %}{% endblock %}
+  </div>
+  <div class="ms-auto d-flex align-items-center gap-1">
+    <button type="submit" form="main-form" class="btn btn-success btn-sm">Salvar</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="confirmSair()">Sair</button>
   </div>
 </div>
 
@@ -72,48 +39,47 @@
   </div>
 </div>
 
+{% block page_scripts %}{% endblock %}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
 <script>
-if (typeof window._pageFormInit === 'undefined') {
-  window._pageFormInit = true;
-  document.addEventListener('DOMContentLoaded', function() {
-    var html = document.documentElement;
-    html.classList.add('edit-form');
-    var bn = document.getElementById('adminBottomNav');
-    if (bn) bn.style.display = 'none';
-    var rodape = document.querySelector('.rodape, .sistema-rodape');
-    if (rodape) rodape.style.display = 'none';
-    var f = document.getElementById('main-form');
-    if (f) {
-      f.addEventListener('input', function() { window._formModified = true; });
-      f.addEventListener('change', function() { window._formModified = true; });
-    }
-  });
-}
-if (typeof window._formModified === 'undefined') {
-  window._formModified = false;
-}
-var sairModalInstance = null;
-function confirmSair(url) {
-  var target = url || 'back';
-  var btn = document.getElementById('sairConfirmBtn');
-  if (target === 'back') {
-    btn.removeAttribute('href');
-    btn.onclick = function() { window.history.back(); };
-  } else {
-    btn.href = target;
-    btn.onclick = null;
+document.addEventListener('DOMContentLoaded', function() {
+  document.documentElement.classList.add('edit-form');
+
+  function ajustar() {
+    var ft = document.querySelector('.page-footer-wrapper');
+    var ff = document.querySelector('.form-footer');
+    var form = document.getElementById('main-form');
+    if (!ft || !ff || !form) return;
+    var h = ft.offsetHeight;
+    ff.style.setProperty('bottom', h + 'px', 'important');
+    form.style.setProperty('padding-bottom', (ff.offsetHeight + h + 8) + 'px', 'important');
   }
+
+  ajustar();
+  window.addEventListener('resize', ajustar);
+
+  var f = document.getElementById('main-form');
+  if (f) {
+    f.addEventListener('input', function() { window._formModified = true; });
+    f.addEventListener('change', function() { window._formModified = true; });
+  }
+});
+
+var sairModalInstance = null;
+function confirmSair() {
+  var btn = document.getElementById('sairConfirmBtn');
+  btn.removeAttribute('href');
+  btn.onclick = function() { window.history.back(); };
   if (window._formModified || window.modified) {
     if (!sairModalInstance) sairModalInstance = new bootstrap.Modal(document.getElementById('sairModal'));
     sairModalInstance.show();
   } else {
-    if (target === 'back') { window.history.back(); }
-    else { window.location = target; }
+    window.history.back();
   }
 }
 </script>
-{% set _scripts = caller("scripts") %}
-{% if _scripts %}
-{{ _scripts }}
-{% endif %}
-{% endmacro %}
+{% endblock %}

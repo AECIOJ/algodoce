@@ -1,4 +1,4 @@
-{% extends "page_sistema.html" %}
+{% extends "components/page_system.html" %}
 {% from "components/panel_list.html" import panel_list, card_list, action_edit %}
 {% block content %}
 {% set _actions %}

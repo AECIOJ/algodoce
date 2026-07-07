@@ -1,4 +1,4 @@
-{% extends "page_base.html" %}
+{% extends "components/page_base.html" %}
 
 {% block before_content %}
 <div class="area-menu">
@@ -13,7 +13,7 @@
       <a class="nav-link" href="/logout" style="color:#fff!important;"><img src="/static/icons/log-out.png" alt="Encerrar" style="height:1.2em;vertical-align:middle;filter:brightness(0)invert(1);"> Sair</a>
     </div>
   </nav>
-  <div class="cadastro-section d-none" id="cadastroSection">
+  <div class="submenu-section d-none" id="cadastroSection">
     <div class="container">
       <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
         <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Categorias</a>
@@ -25,7 +25,7 @@
       </div>
     </div>
   </div>
-  <div class="cadastro-section d-none" id="comercialSection">
+  <div class="submenu-section d-none" id="comercialSection">
     <div class="container">
       <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
         <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Orçamentos</a>
@@ -34,7 +34,7 @@
       </div>
     </div>
   </div>
-  <div class="cadastro-section d-none" id="financeiroSection">
+  <div class="submenu-section d-none" id="financeiroSection">
     <div class="container">
       <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
         <a href="{{ url_for('recursos.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Recursos</a>
@@ -73,20 +73,19 @@
 </header>
 {% endblock %}
 
-{% block after_content %}
-<nav class="menu_mobile d-lg-none" id="adminBottomNav" style="position:fixed;bottom:26px;left:8px;right:8px;z-index:1035;background:#fff;border:2px solid var(--rosa);display:flex;align-items:center;justify-content:space-around;padding:3px 0;padding-bottom:calc(3px + env(safe-area-inset-bottom,0px));border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+{% block page_footer %}
+<div class="page-footer-wrapper" style="position:fixed;bottom:0;left:0;right:0;z-index:1035;background:#fff;box-shadow:0 -2px 4px rgba(0,0,0,0.08);">
+<nav class="menu_mobile d-lg-none" id="adminBottomNav" style="background:#fff;border:2px solid var(--rosa);display:flex;align-items:center;justify-content:space-around;padding:3px 0;padding-bottom:calc(3px + env(safe-area-inset-bottom,0px));border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.12);margin:0 8px;">
   <a href="#" class="bottom-nav-item" data-admin-nav="cadastro" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;line-height:1;"><i class="bi bi-journal"></i></span><span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Cadastro</span></a>
   <a href="#" class="bottom-nav-item" data-admin-nav="comercial" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;line-height:1;"><i class="bi bi-cart"></i></span><span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Comercial</span></a>
   <a href="/producao" class="bottom-nav-item" data-admin-nav="producao" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;line-height:1;"><i class="bi bi-gear"></i></span><span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Produção</span></a>
   <a href="#" class="bottom-nav-item" data-admin-nav="financeiro" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;line-height:1;"><i class="bi bi-cash-stack"></i></span><span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Financeiro</span></a>
 </nav>
-{% endblock %}
-
-{% block page_footer %}
 <footer class="sistema-rodape">
   <div>{{ versao }} | {{ usuario }}</div>
   <div>&copy; 2026 AJ Systems</div>
 </footer>
+</div>
 {% endblock %}
 
 {% block modals %}

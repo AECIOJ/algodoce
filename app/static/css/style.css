@@ -46,10 +46,10 @@
   background: #fff;
   min-height: 200px;
 }
-.cadastro-section {
+.submenu-section {
   background: var(--bg-claro);
 }
-.cadastro-section .container > div {
+.submenu-section .container > div {
   padding-top: 12px;
   padding-bottom: 12px;
 }
@@ -188,7 +188,7 @@ body {
   z-index: 1;
 }
 
-.cadastro-section {
+.submenu-section {
   background: #fff;
   border-bottom: 1px solid #dee2e6;
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
@@ -549,15 +549,11 @@ html.edit-form body {
   display: flex;
   flex-direction: column;
 }
-html.edit-form #adminBottomNav,
-html.edit-form .rodape,
-html.edit-form .sistema-rodape {
-  display: none !important;
-}
 html.edit-form main {
   display: flex;
   flex-direction: column;
-  padding: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
   max-width: 100% !important;
   flex: 1;
   min-height: 0;
@@ -569,29 +565,10 @@ html.edit-form #page-content {
   display: flex;
   flex-direction: column;
 }
-html.edit-form .page-form {
-  flex: 1;
-  min-height: 0;
-}
-html.edit-form .edit-top {
-  position: static !important;
-}
-html.edit-form .edit-save {
-  position: static !important;
-  border-top: 2px solid var(--cor-menu);
-  background: white;
-  padding: 8px 16px;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -2px 4px rgba(0,0,0,0.08);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 @media (max-width: 991.98px) {
-  html.edit-form .edit-save .btn {
-    min-height: 44px;
-    font-size: 0.95rem;
-    padding: 0.4rem 0.75rem;
+  html.edit-form .form-footer .btn {
+    min-height: 38px;
+    font-size: 0.85rem;
   }
 }
 
@@ -672,11 +649,6 @@ html.edit-form .edit-save {
   font-size: 0.8rem;
 }
 .sistema-rodape {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1034;
   height: 26px;
   padding: 0 12px;
   background: var(--bg-claro);

@@ -14,7 +14,7 @@ def index():
 @bp.route("/sistema")
 @login_required
 def sistema():
-    return render_template("page_sistema.html")
+    return render_template("components/page_system.html")
 
 
 @bp.route("/sobre")

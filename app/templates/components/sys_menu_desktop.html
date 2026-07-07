@@ -1,4 +1,4 @@
-{# sys_menu_desktop.html — Navbar principal + sub-menus (desktop >= 992px). Inclui links de seção (Cadastro, Comercial, Produção, Financeiro) e as barras de sub-opções (.cadastro-section) que aparecem ao ativar. #}
+{# sys_menu_desktop.html — Navbar principal + sub-menus (desktop >= 992px). Inclui links de seção (Cadastro, Comercial, Produção, Financeiro) e as barras de sub-opções (.submenu-section) que aparecem ao ativar. #}
 <nav class="navbar navbar-expand-lg navbar-dark px-2 d-none d-lg-flex" style="background-color: var(--cor-menu);">
   <div class="navbar-nav w-100 d-flex align-items-center">
     <div class="d-flex justify-content-center flex-grow-1 gap-1">
@@ -10,7 +10,7 @@
     <a class="nav-link" href="/logout" style="color: #fff !important;"><img src="/static/icons/log-out.png" alt="Encerrar" style="height: 1.2em; vertical-align: middle; filter: brightness(0) invert(1);"> Encerrar</a>
   </div>
 </nav>
-<div class="cadastro-section d-none" id="cadastroSection">
+<div class="submenu-section d-none" id="cadastroSection">
   <div class="container">
     <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
       <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color: var(--cor-menu); font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Categorias</a>
@@ -22,7 +22,7 @@
     </div>
   </div>
 </div>
-<div class="cadastro-section d-none" id="comercialSection">
+<div class="submenu-section d-none" id="comercialSection">
   <div class="container">
     <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
         <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Orçamentos</a>
@@ -31,7 +31,7 @@
     </div>
   </div>
 </div>
-<div class="cadastro-section d-none" id="financeiroSection">
+<div class="submenu-section d-none" id="financeiroSection">
   <div class="container">
     <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
       <a href="{{ url_for('recursos.list') }}" class="bar-link-lg text-decoration-none" style="color: #e91e63; font-weight: 500; padding: 0.1rem 0.3rem; border-bottom: 2px solid transparent;">Recursos</a>
