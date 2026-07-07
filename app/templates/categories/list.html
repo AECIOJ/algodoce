@@ -1,52 +1,25 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "page_sistema.html" %}
+{% from "components/page_list.html" import page_list %}
+{% from "components/table_list.html" import table_list %}
 
-{% from "components/form_list.html" import form_list %}
-{% from "components/panel_list.html" import action_edit %}
+{% macro edit_url(item) %}{{ url_for('categories.edit', id=item.id) }}{% endmacro %}
 
-{% macro edit_category(item) %}{{ url_for('categories.edit', id=item.id) }}{% endmacro %}
-
-{% call(item, is_card) form_list(categorias, title="Categorias", new_url=url_for('categories.new'), model="Category", edit_url=edit_category, panel_tab=true) %}
-  {% if item == none %}
-  {% elif item == "__header__" %}
-    <tr>
-      <th>#</th>
-      <th data-field="nome" data-filter-type="text">Nome</th>
-      <th data-field="ordem" data-filter-type="number">Ordem</th>
-      <th data-filter-type="boolean">Ativo</th>
-      <th>Ações</th>
-    </tr>
-  {% elif is_card == "summary" %}
-    <span class="card-label">{{ item.id|fmtid }}</span>
-    <span class="fw-bold ms-1">{{ item.nome }}</span>
-  {% elif is_card == "detail" %}
-    <div class="row g-0 mt-1 pt-1 border-top">
-      <div class="col-6">
-        <span class="card-label">Ordem</span><br>
-        <span class="card-value">{{ item.ordem }}</span>
-      </div>
-      <div class="col-6">
-        <span class="card-label">Ativo</span><br>
+{% block page_content %}
+{% call(section) page_list(title="Categorias", new_url=url_for('categories.new')) %}
+  {% if section == "dados" %}
+    {% call(item) table_list(categorias, fields=fields, ctx=ctx, edit_url=edit_url) %}
+      <td>{{ item.id|fmtid }}</td>
+      <td>{{ item.nome }}</td>
+      <td>{{ item.ordem }}</td>
+      <td>
         {% if item.ativo %}
-          <span class="badge bg-success mt-1">Sim</span>
+          <span class="badge bg-success">Sim</span>
         {% else %}
-          <span class="badge bg-light text-muted border mt-1">Não</span>
+          <span class="badge bg-light text-muted border">Não</span>
         {% endif %}
-      </div>
-    </div>
-  {% else %}
-    <td>{{ item.id|fmtid }}</td>
-    <td>{{ item.nome }}</td>
-    <td>{{ item.ordem }}</td>
-    <td>
-      {% if item.ativo %}
-        <span class="badge bg-success">Sim</span>
-      {% else %}
-        <span class="badge bg-light text-muted border">Não</span>
-      {% endif %}
-    </td>
-    <td>{{ action_edit(url_for('categories.edit', id=item.id)) }}</td>
+      </td>
+    {% endcall %}
+  {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}
-
 {% endblock %}

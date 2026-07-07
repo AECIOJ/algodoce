@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, redirect, url_for, abort
-from flask_login import current_user
+from flask_login import current_user, login_required
 from app.utils import render_pagina
 
 bp = Blueprint("site", __name__)
@@ -8,8 +8,13 @@ bp = Blueprint("site", __name__)
 @bp.route("/")
 def index():
     if current_user.is_authenticated:
-        return redirect("/orcamentos")
+        return redirect("/sistema")
     return render_template("site/index.html")
+
+@bp.route("/sistema")
+@login_required
+def sistema():
+    return render_template("page_sistema.html")
 
 
 @bp.route("/sobre")

@@ -17,7 +17,7 @@ function toggleReport() {
   var panel = document.getElementById('barra-report-panel');
   var icon = document.getElementById('barra-report-icon');
   if (reportExpanded) {
-    var sticky = document.getElementById('top-fixed');
+    var sticky = document.getElementById('top-fixed') || document.querySelector('.sistema-header');
     var topOffset = sticky ? sticky.offsetHeight : 56;
     panel.style.display = 'block';
     icon.src = '{{ url_for("static", filename="icons/panel-down.png") }}';

@@ -20,6 +20,7 @@ from app.models.previsao import Previsao
 from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.constants import ORDER_STATUS, QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS, PREVISAO_STATUS
+from app.fields import Field, build_field_context
 
 
 def _clean(val):
@@ -106,6 +107,33 @@ def _replace_order_items(order, form):
 bp = Blueprint("orders", __name__)
 
 
+ORDERS_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='cliente', label='Cliente', width=30, query='conta'),
+    Field(name='data_pedido', label='Data Pedido', width=16, input='date'),
+    Field(name='data_previsao_entrega', label='Prev. Entrega', width=16, input='date'),
+    Field(name='data_entrega', label='Data Entrega', width=16, input='date'),
+    Field(name='forminhas', label='Forminhas', width=12, filter_options=list(FORMINHAS.values())),
+    Field(name='carteira', label='Pagamento', width=20, query='carteira'),
+    Field(name='total', label='Total', width=12, input='number', align='right'),
+    Field(name='status', label='Status', width=14, filter_options=list(ORDER_STATUS.values())),
+    Field(name='transacao', label='Faturado', width=12, filter=False),
+    Field(name='quote_id', label='Orçamento', width=10, filter=False),
+]
+
+QUOTES_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='cliente_nome', label='Cliente', width=30),
+    Field(name='cliente_telefone', label='Telefone', width=16),
+    Field(name='data_pedido', label='Data', width=16, input='date'),
+    Field(name='validade', label='Validade', width=10, input='number'),
+    Field(name='total', label='Total', width=12, input='number', align='right'),
+    Field(name='carteira', label='Pagamento', width=20, query='carteira'),
+    Field(name='status', label='Status', width=14, filter_options=list(QUOTE_STATUS.values())),
+    Field(name='pedido_id', label='Pedido', width=10, filter=False),
+]
+
+
 @bp.before_request
 @login_required
 def protect():
@@ -139,7 +167,8 @@ def order_list():
         .order_by(Order.data_entrega)
         .all()
     )
-    return render_template("orders/list.html", orders=orders, ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS)
+    ctx = build_field_context(ORDERS_FIELDS)
+    return render_template("orders/list.html", orders=orders, fields=ORDERS_FIELDS, ctx=ctx, ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS)
 
 
 @bp.route("/orcamentos")
@@ -149,8 +178,9 @@ def orcamentos():
     if status is not None:
         query = query.filter(Quote.status == status)
     quotes = query.all()
+    ctx = build_field_context(QUOTES_FIELDS)
     return render_template(
-        "orders/orcamentos.html", orders=quotes, FORMINHAS=FORMINHAS,
+        "orders/orcamentos.html", orders=quotes, fields=QUOTES_FIELDS, ctx=ctx,
         filtro=str(status) if status is not None else "todos",
         QUOTE_STATUS=QUOTE_STATUS, QUOTE_STATUS_FILTER=QUOTE_STATUS_FILTER,
     )

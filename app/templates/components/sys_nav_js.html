@@ -1,20 +1,4 @@
 <script>
-function syncTopSpacer() {
-  var fixed = document.getElementById('top-fixed');
-  var spacer = document.getElementById('top-spacer');
-  if (fixed && spacer) {
-    var h = fixed.offsetHeight + 'px';
-    spacer.style.height = h;
-    document.documentElement.style.setProperty('--top-fixed-height', h);
-  }
-}
-syncTopSpacer();
-if (window.ResizeObserver) {
-  var topFixed = document.getElementById('top-fixed');
-  if (topFixed) new ResizeObserver(syncTopSpacer).observe(topFixed);
-}
-window.addEventListener('resize', syncTopSpacer);
-
 document.addEventListener('DOMContentLoaded', function () {
   const logo = document.querySelector('.brand-logo');
   const modalEl = document.getElementById('qrModal');

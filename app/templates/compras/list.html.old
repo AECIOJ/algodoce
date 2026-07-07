@@ -1,0 +1,183 @@
+{% extends "page_sistema.html" %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+{% block content %}
+
+{% set _actions %}
+<a href="{{ url_for('compras.new') }}" class="btn btn-success">+ Nova</a>
+{% endset %}
+
+{% set filter_html %}
+<select class="form-select" style="width:auto;" onchange="filtrar('status', this.value)">
+  <option value="todos" {% if filtro_status == 'todos' %}selected{% endif %}>Todos</option>
+  {% for k, v in PREVISAO_STATUS.items() %}
+    <option value="{{ k }}" {% if filtro_status == k|string %}selected{% endif %}>{{ v }}</option>
+  {% endfor %}
+</select>
+<select class="form-select" style="width:auto;" onchange="filtrar('vencimento', this.value)">
+  <option value="todos" {% if filtro_venc == 'todos' %}selected{% endif %}>Todas</option>
+  <option value="em_atraso" {% if filtro_venc == 'em_atraso' %}selected{% endif %}>Em atraso</option>
+  <option value="hoje" {% if filtro_venc == 'hoje' %}selected{% endif %}>Hoje</option>
+  <option value="a_vencer" {% if filtro_venc == 'a_vencer' %}selected{% endif %}>A Vencer</option>
+</select>
+{% endset %}
+
+{% call panel_list("Compras", actions=_actions, filters=filter_html) %}
+  <thead>
+    <tr>
+      <th>Compra</th>
+      <th>Status</th>
+      <th>FP</th>
+      <th>Faturado</th>
+      <th>Fornecedor</th>
+      <th>Fatura</th>
+      <th>Valor</th>
+      <th>Documento</th>
+      <th>Vencimento</th>
+      <th>Previsão</th>
+      <th>Previsto</th>
+      <th>Realizado</th>
+      <th>Variação</th>
+      <th>Saldo</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in linhas %}
+      {% set c = l.compra %}
+      {% set t = l.transacao %}
+      <tr class="{{ 'table-danger' if l.vencimento and l.vencimento < hoje and l.status not in (8,9) else '' }}">
+        <td>
+          {% if c %}
+            #{{ c.id|fmtid }}
+            {% set cs = COMPRA_STATUS.get(c.status, '') %}
+            {% if c.status == 0 %}
+              <span class="badge bg-info">{{ cs }}</span>
+            {% elif c.status == 1 %}
+              <span class="badge bg-primary">{{ cs }}</span>
+            {% elif c.status == 6 %}
+              <span class="badge bg-secondary">{{ cs }}</span>
+            {% elif c.status == 8 %}
+              <span class="badge bg-success">{{ cs }}</span>
+            {% elif c.status == 9 %}
+              <span class="badge bg-warning">{{ cs }}</span>
+            {% endif %}
+          {% endif %}
+        </td>
+        <td>
+          {% set st = PREVISAO_STATUS.get(l.status, '') %}
+          {% if l.status == 9 %}
+            <span class="badge bg-success">{{ st }}</span>
+          {% elif l.status == 8 %}
+            <span class="badge bg-secondary">{{ st }}</span>
+          {% elif l.status == 2 %}
+            <span class="badge bg-warning">{{ st }}</span>
+          {% elif l.status == 1 %}
+            <span class="badge bg-info">{{ st }}</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ st }}</span>
+          {% endif %}
+        </td>
+        <td>{% if c and c.carteira %}{{ c.carteira.nome }}{% else %}-{% endif %}</td>
+        <td>{% if c and (c.transacao_id or c.movto_id) %}<span class="badge bg-success">Faturado ✓</span>{% else %}-{% endif %}</td>
+        <td>{{ t.conta.nome if t and t.conta else '-' }}</td>
+        <td>{{ t.fatura if t and t.fatura else '-' }}</td>
+        <td class="text-end">{{ t.valor|brl if t else (c.valor|brl if c else '-') }}</td>
+        <td>{{ l.documento if l.documento else '-' }}</td>
+        <td>{{ l.vencimento|fmtdate if l.vencimento else '-' }}</td>
+        <td>{% if l.id and c %}<a href="{{ url_for('compras.edit', id=c.id) }}" class="btn btn-sm btn-outline-success">{{ l.id|fmtid }}</a>{% else %}-{% endif %}</td>
+        <td class="text-end">{{ l.previsto|brl if l.previsto is not none else '-' }}</td>
+        <td class="text-end">{{ l.realizado|brl if l.realizado is not none else '-' }}</td>
+        <td class="text-end">{{ l.variacao|brl if l.variacao is not none else '-' }}</td>
+        <td class="text-end {{ 'text-danger' if l.saldo > 0 else ('text-success' if l.saldo <= 0 else '') }}">{{ l.saldo|brl }}</td>
+        <td>{{ action_edit(url_for('compras.edit', id=c.id)) if c else '' }}</td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="15" class="text-center text-muted">Nenhum registro encontrado.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+
+{% call(item) card_list(linhas) %}
+  {% set c = item.compra %}
+  {% set t = item.transacao %}
+  <div class="d-flex justify-content-between align-items-start mb-1">
+    <div>
+      {% if c %}
+      <span class="card-label">#{{ c.id|fmtid }}</span>
+      {% endif %}
+      <span class="badge bg-danger">Compra</span>
+    </div>
+    {% if c %}{{ action_edit(url_for('compras.edit', id=c.id)) }}{% endif %}
+  </div>
+  {% if c %}
+    {% set cs = COMPRA_STATUS.get(c.status, '') %}
+    {% if c.status == 0 %}
+      <span class="badge bg-info">{{ cs }}</span>
+    {% elif c.status == 1 %}
+      <span class="badge bg-primary">{{ cs }}</span>
+    {% elif c.status == 6 %}
+      <span class="badge bg-secondary">{{ cs }}</span>
+    {% elif c.status == 8 %}
+      <span class="badge bg-success">{{ cs }}</span>
+    {% elif c.status == 9 %}
+      <span class="badge bg-warning">{{ cs }}</span>
+    {% endif %}
+    {% if c.transacao_id or c.movto_id %}<span class="badge bg-success ms-1">Faturado ✓</span>{% endif %}
+  {% endif %}
+  {% if t %}
+  {% set st = PREVISAO_STATUS.get(item.status, '') %}
+  {% if item.status == 9 %}
+    <span class="badge bg-success">{{ st }}</span>
+  {% elif item.status == 8 %}
+    <span class="badge bg-secondary">{{ st }}</span>
+  {% elif item.status == 2 %}
+    <span class="badge bg-warning">{{ st }}</span>
+  {% elif item.status == 1 %}
+    <span class="badge bg-info">{{ st }}</span>
+  {% else %}
+    <span class="badge bg-secondary">{{ st }}</span>
+  {% endif %}
+  <span class="card-label ms-2">Fornecedor:</span>
+  <span class="card-value ms-1">{{ t.conta.nome if t.conta else '-' }}</span>
+  <span class="card-label ms-2">Fatura:</span>
+  <span class="card-value ms-1">{{ t.fatura if t.fatura else '-' }}</span>
+  <span class="card-label ms-2">Valor:</span>
+  <span class="card-value ms-1">{{ t.valor|brl }}</span>
+  <span class="card-label ms-2">Venc:</span>
+  <span class="card-value ms-1">{{ item.vencimento|fmtdate if item.vencimento else '-' }}</span>
+  {% if item.id %}
+  <span class="card-label ms-2">Previsão:</span>
+  <span class="card-value ms-1"><a href="{{ url_for('compras.edit', id=c.id) }}" class="btn btn-sm btn-outline-success">#{{ item.id|fmtid }}</a></span>
+  <span class="card-label ms-2">Previsto:</span>
+  <span class="card-value ms-1">{{ item.previsto|brl }}</span>
+  <span class="card-label ms-2">Realizado:</span>
+  <span class="card-value ms-1">{{ item.realizado|brl if item.realizado is not none else '-' }}</span>
+  {% if item.variacao is not none %}
+    <span class="card-label ms-2">Variação:</span>
+    <span class="card-value ms-1">{{ item.variacao|brl }}</span>
+  {% endif %}
+  {% endif %}
+  <span class="card-label ms-2">Saldo:</span>
+  <span class="card-value ms-1 {{ 'text-danger' if item.saldo > 0 else ('text-success' if item.saldo <= 0 else '') }}">{{ item.saldo|brl }}</span>
+  {% else %}
+  <span class="card-label ms-2">Valor:</span>
+  <span class="card-value ms-1">{{ c.valor|brl if c else '-' }}</span>
+  <span class="card-label ms-2">Status:</span>
+  <span class="card-value ms-1">{{ COMPRA_STATUS.get(c.status, '-') if c else '-' }}</span>
+  {% endif %}
+{% endcall %}
+
+<div class="form-bottom-spacer"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filtrar(chave, valor) {
+  var params = new URLSearchParams(window.location.search);
+  params.set(chave, valor);
+  window.location = '?' + params.toString();
+}
+</script>
+{% endblock %}

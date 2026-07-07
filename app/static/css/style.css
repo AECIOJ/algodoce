@@ -6,6 +6,84 @@
   background: white;
 }
 
+.sistema-header {
+  background: #fff;
+  border-bottom: 1px solid #dee2e6;
+}
+@media (min-width: 992px) {
+  .sistema-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1010;
+  }
+  .area-menu {
+    margin-top: 100px;
+  }
+}
+@media (max-width: 991.98px) {
+  .sistema-header {
+    position: static;
+  }
+  .sistema-header ~ main {
+    position: static !important;
+    padding: inherit !important;
+    margin: inherit !important;
+    min-height: inherit !important;
+    top: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+  }
+}
+
+.brand-logo {
+  height: 100px;
+}
+
+#page-content {
+  background: #fff;
+  min-height: 200px;
+}
+.cadastro-section {
+  background: var(--bg-claro);
+}
+.cadastro-section .container > div {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.barra_mobile {
+  min-height: 56px;
+}
+@media (min-width: 992px) {
+  .page-list-header h2 {
+    margin-right: 24px;
+  }
+}
+.table-list-wrap {
+  overflow-y: auto;
+  max-height: calc(100vh - 300px);
+}
+.table-list-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #c2185b;
+  color: #fff;
+}
+.tab-pane.active {
+  display: flex;
+  flex-direction: column;
+}
+
+#page-filter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 :root {
   --rosa: #E91E63;
   --cor-menu: #e91e63;
@@ -181,6 +259,7 @@ html.list-page main {
   flex-direction: column;
   min-height: 0;
   margin-bottom: 0 !important;
+  overflow: hidden;
 }
 html.list-page .table-scroll {
   flex: 1;
@@ -189,11 +268,11 @@ html.list-page .table-scroll {
   max-height: none !important;
 }
 
-/* Mobile: esconde tabela, mostra cards */
+/* Mobile: tabela oculta no table-scroll antigo */
 @media (max-width: 991.98px) {
   html.list-page .table-scroll { display: none; }
   html.list-page .desktop-title-row { display: none !important; }
-  html.list-page main { overflow-y: auto; }
+  html.list-page main { overflow: hidden !important; }
 }
 
 /* === Admin Mobile: bottom-nav + rodape thin === */
@@ -348,8 +427,15 @@ html.list-page .table-scroll {
 .panel-tab-wrapper {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
+
 html.panel-tab-active main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow-y: hidden !important;
 }
 
@@ -365,12 +451,10 @@ html.panel-tab-active main {
   .form-list-cards { display: none; }
 }
 
-/* Mobile: cards default, tabela se couber (JS add class to <html>) */
+/* Mobile: igual ao desktop — sempre tabela */
 @media (max-width: 991.98px) {
-  .form-list-table-wrap { display: none; }
-  .form-list-cards { display: block; }
-  html.form-list-mobile-table .form-list-table-wrap { display: block; }
-  html.form-list-mobile-table .form-list-cards { display: none; }
+  .form-list-table-wrap { display: block; }
+  .form-list-cards { display: none; }
 }
 
 /* List-page: tabela flex fill */
@@ -409,6 +493,32 @@ html.list-page .form-list-table-wrap {
 .card-chevron.expanded {
   transform: rotate(180deg);
 }
+/* Panel tab header mobile */
+@media (max-width: 575.98px) {
+  .panel-tab-header .nav .nav-link {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.85rem;
+  }
+  .panel-tab-header .btn {
+    font-size: 0.8rem;
+    padding: 0.3rem 0.5rem;
+  }
+}
+
+/* Card edit button touch target */
+@media (max-width: 991.98px) {
+  .card-list-item .action-edit-link {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  html.panel-tab-active main {
+    padding-bottom: 0 !important;
+  }
+}
+
 /* ============================================== */
 
 /* === Edit panel: form sem sidebar, body scroll === */
@@ -437,6 +547,17 @@ html.edit-form .rodape {
 html.edit-form main {
   padding-bottom: 0;
 }
+@media (max-width: 991.98px) {
+  html.edit-form .edit-save {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+  html.edit-form main {
+    padding-bottom: 64px;
+  }
+}
 
 /* === Edit save bar (bottom) === */
 .edit-save {
@@ -451,6 +572,13 @@ html.edit-form main {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+@media (max-width: 991.98px) {
+  .edit-save .btn {
+    min-height: 44px;
+    font-size: 0.95rem;
+    padding: 0.4rem 0.75rem;
+  }
 }
 
 /* === Edit top bar (sticky header) === */
@@ -471,6 +599,18 @@ html.edit-form main {
     border-bottom: none;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     margin-bottom: 0;
+  }
+  .edit-top .btn {
+    min-height: 44px;
+    font-size: 0.9rem;
+    padding: 0.35rem 0.6rem;
+  }
+  .edit-top .nav-title {
+    font-size: 0.95rem;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -494,6 +634,21 @@ html.edit-form main {
   z-index: 1000;
   justify-content: space-between;
   font-size: 0.8rem;
+}
+.sistema-rodape {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1034;
+  height: 26px;
+  padding: 0 12px;
+  background: var(--bg-claro);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #555;
 }
 
 .form-bottom-bar.barra-edicao {

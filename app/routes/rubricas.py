@@ -3,8 +3,21 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.rubrica import Rubrica
 from app.constants import TIPO_RUBRICA, CONECTORES
+from app.fields import Field, build_field_context
 
 bp = Blueprint("rubricas", __name__, url_prefix="/rubricas")
+
+
+RUBRICAS_FIELDS = [
+    Field(name='indice', label='Índice', width=8, filter=False),
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='nome', label='Nome', width=40),
+    Field(name='tipo', label='Tipo', width=12, filter_options=list(TIPO_RUBRICA.values())),
+    Field(name='fator', label='Fator', width=8),
+    Field(name='pai', label='Pai', width=30, query='rubrica'),
+    Field(name='ativa', label='Ativa', input='boolean'),
+    Field(name='ordem', label='Ordem', width=8, input='number'),
+]
 
 
 def _transformar_nome(nome, pai_id):
@@ -91,7 +104,8 @@ def list():
             if item["rubrica"].id in rubricas:
                 flat_list.append(item)
 
-    return render_template("rubricas/list.html", rubricas=flat_list, status=status, TIPO_RUBRICA=TIPO_RUBRICA)
+    ctx = build_field_context(RUBRICAS_FIELDS)
+    return render_template("rubricas/list.html", rubricas=flat_list, fields=RUBRICAS_FIELDS, ctx=ctx, TIPO_RUBRICA=TIPO_RUBRICA)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

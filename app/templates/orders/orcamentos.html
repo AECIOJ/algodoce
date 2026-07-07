@@ -1,103 +1,39 @@
-{% extends "base.html" %}
-{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
-{% block content %}
+{% extends "page_sistema.html" %}
+{% from "components/page_list.html" import page_list %}
+{% from "components/table_list.html" import table_list %}
 
-{% set _actions %}
-<a href="{{ url_for('orders.quote_new') }}" class="btn btn-sm btn-success text-nowrap">+ Novo</a>
+{% macro edit_url(item) %}{{ url_for('orders.quote_edit', id=item.id) }}{% endmacro %}
+
+{% set validar_btn %}
 <a href="{{ url_for('orders.quote_validar') }}" class="btn btn-sm btn-validar text-nowrap">Validar</a>
 {% endset %}
 
-{% set filter_html %}
-<select id="filter-status" class="form-select" style="width:auto;min-width:80px;" onchange="if(this.value) window.location=this.value;">
-  {% for val, label in QUOTE_STATUS_FILTER %}
-    <option value="{{ url_for('orders.orcamentos', status=val) if val != 'todos' else url_for('orders.orcamentos') }}" {{ 'selected' if filtro == val }}>{{ label }}</option>
-  {% endfor %}
-</select>
-{% endset %}
-
-{% call panel_list("Orçamentos", actions=_actions, filters=filter_html, model="Quote") %}
-  <thead>
-    <tr>
-      <th>#</th>
-      <th data-field="cliente_nome">Cliente</th>
-      <th>Telefone</th>
-      <th>Data</th>
-      <th>Validade</th>
-      <th class="text-end">Total</th>
-      <th>Pagamento</th>
-      <th>Status</th>
-      <th>Pedido</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for o in orders %}
-      <tr>
-        <td>{{ o.id|fmtid }}</td>
-        <td>{{ o.cliente_nome }}</td>
-        <td>{{ o.cliente_telefone }}</td>
-        <td>{{ o.data_pedido.strftime('%d/%m/%Y %H:%M') }}{% if o.data_renovacao %}<br><small class="text-muted">Renovado: {{ o.data_renovacao.strftime('%d/%m/%Y') }}</small>{% endif %}</td>
-        <td>
-          {% set ref = o.data_renovacao or o.data_pedido %}
-          {{ (ref.replace(tzinfo=None) + timedelta(days=o.validade or 3)).strftime('%d/%m/%Y') }}
-        </td>
-        <td class="text-end">R$ {{ (o.total or 0) | brl }}</td>
-        <td>{{ o.carteira.nome or '-' }}</td>
-        <td>
-          <span class="badge {{ 'border border-secondary text-dark' if o.status == 0 else 'bg-primary' if o.status == 1 else 'bg-info' if o.status == 6 else 'bg-expired' if o.status == 7 else 'bg-danger' if o.status == 8 else 'bg-success' }}" style="min-width:95px">
-            {{ QUOTE_STATUS[o.status] }}
-          </span>
-        </td>
-        <td>
-          {% if o.pedido_id %}
-            <a href="{{ url_for('orders.edit', id=o.pedido_id) }}" class="btn btn-sm btn-outline-success" style="min-width:90px">#{{ o.pedido_id }}</a>
-          {% endif %}
-        </td>
-        <td>{{ action_edit(url_for('orders.quote_edit', id=o.id), 'Revisar') }}</td>
-      </tr>
-    {% else %}
-      <tr>
-        <td colspan="10" class="text-center text-muted">Nenhum orçamento encontrado.</td>
-      </tr>
-    {% endfor %}
-  </tbody>
-{% endcall %}
-
-{% call(item) card_list(orders) %}
-  <div class="d-flex justify-content-between align-items-start mb-1">
-    <div>
-      <span class="card-label">#{{ item.id|fmtid }}</span>
-      <span class="badge {{ 'border border-secondary text-dark' if item.status == 0 else 'bg-primary' if item.status == 1 else 'bg-info' if item.status == 6 else 'bg-expired' if item.status == 7 else 'bg-danger' if item.status == 8 else 'bg-success' }}">
-        {{ QUOTE_STATUS[item.status] }}
-      </span>
-    </div>
-    {{ action_edit(url_for('orders.quote_edit', id=item.id), 'Revisar') }}
-  </div>
-  <h6 class="mb-1">{{ item.cliente_nome }}</h6>
-  <div class="row g-0">
-    <div class="col-6">
-      <span class="card-label">Telefone</span><br>
-      <span class="card-value">{{ item.cliente_telefone }}</span>
-    </div>
-    <div class="col-6">
-      <span class="card-label">Total</span><br>
-      <span class="card-value">R$ {{ (item.total or 0) | brl }}</span>
-    </div>
-    <div class="col-6 mt-1">
-      <span class="card-label">Data</span><br>
-      <span class="card-value">{{ item.data_pedido.strftime('%d/%m/%Y') }}</span>
-    </div>
-    <div class="col-6 mt-1">
-      <span class="card-label">Validade</span><br>
-      <span class="card-value">
+{% block page_content %}
+{% call(section) page_list(title="Orçamentos", new_url=url_for('orders.quote_new'), extra_actions=validar_btn) %}
+  {% if section == "dados" %}
+    {% call(item) table_list(orders, fields=fields, ctx=ctx, edit_url=edit_url) %}
+      <td>{{ item.id|fmtid }}</td>
+      <td>{{ item.cliente_nome }}</td>
+      <td>{{ item.cliente_telefone }}</td>
+      <td>{{ item.data_pedido.strftime('%d/%m/%Y %H:%M') }}{% if item.data_renovacao %}<br><small class="text-muted">Renovado: {{ item.data_renovacao.strftime('%d/%m/%Y') }}</small>{% endif %}</td>
+      <td>
         {% set ref = item.data_renovacao or item.data_pedido %}
         {{ (ref.replace(tzinfo=None) + timedelta(days=item.validade or 3)).strftime('%d/%m/%Y') }}
-      </span>
-    </div>
-  </div>
-  {% if item.pedido_id %}<span class="card-label">Pedido:</span><a href="{{ url_for('orders.edit', id=item.pedido_id) }}" class="btn btn-sm btn-outline-success ms-1">#{{ item.pedido_id }}</a>{% endif %}
+      </td>
+      <td class="text-end">R$ {{ (item.total or 0) | brl }}</td>
+      <td>{{ item.carteira.nome or '-' }}</td>
+      <td>
+        <span class="badge {{ 'border border-secondary text-dark' if item.status == 0 else 'bg-primary' if item.status == 1 else 'bg-info' if item.status == 6 else 'bg-expired' if item.status == 7 else 'bg-danger' if item.status == 8 else 'bg-success' }}" style="min-width:95px">
+          {{ QUOTE_STATUS[item.status] }}
+        </span>
+      </td>
+      <td>
+        {% if item.pedido_id %}
+          <a href="{{ url_for('orders.edit', id=item.pedido_id) }}" class="btn btn-sm btn-outline-success" style="min-width:90px">#{{ item.pedido_id }}</a>
+        {% endif %}
+      </td>
+    {% endcall %}
+  {% elif section == "filtros" %}
+  {% endif %}
 {% endcall %}
-
-<div class="form-bottom-spacer"></div>
 {% endblock %}
-

@@ -1,83 +1,29 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "page_sistema.html" %}
+{% from "components/page_list.html" import page_list %}
+{% from "components/table_list.html" import table_list %}
 
-{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+{% macro edit_url(item) %}{{ url_for('rubricas.edit', id=item.rubrica.id) }}{% endmacro %}
 
-{% set _actions %}
-<a href="{{ url_for('rubricas.new') }}" class="btn btn-success">+ Nova</a>
-<a href="{{ url_for('rubricas.plano') }}" class="btn btn-outline-info">Plano</a>
-{% endset %}
-
-{% set filter_html %}
-<select class="form-select" style="width:auto;" onchange="if(this.value) window.location=this.value;">
-  <option value="?status=todos" {% if status == 'todos' %}selected{% endif %}>Todas</option>
-  <option value="?status=ativos" {% if status == 'ativos' %}selected{% endif %}>Ativas</option>
-  <option value="?status=inativos" {% if status == 'inativos' %}selected{% endif %}>Inativas</option>
-</select>
-{% endset %}
-
-{% call panel_list("Rubricas", actions=_actions, filters=filter_html) %}
-  <thead>
-    <tr>
-      <th>Índice</th>
-      <th>#</th>
-      <th>Nome</th>
-      <th>Tipo</th>
-      <th>Fator</th>
-      <th>Pai</th>
-      <th>Ativa</th>
-      <th>Ordem</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for item in rubricas %}
-      <tr>
-        <td class="text-muted" style="white-space:nowrap;">{{ item.indice }}</td>
-        <td>{{ item.rubrica.id|fmtid }}</td>
-        <td>{{ item.rubrica.nome }}</td>
-        <td>{{ TIPO_RUBRICA.get(item.rubrica.tipo, item.rubrica.tipo) }}</td>
-        <td>{{ item.rubrica.fator }}</td>
-        <td>{{ item.rubrica.pai.nome if item.rubrica.pai else '' }}</td>
-        <td>
-          {% if item.rubrica.ativa %}
-            <span class="badge bg-success">Sim</span>
-          {% else %}
-            <span class="badge bg-light text-muted border">Não</span>
-          {% endif %}
-        </td>
-        <td class="text-muted">{{ item.rubrica.ordem }}</td>
-        <td>{{ action_edit(url_for('rubricas.edit', id=item.rubrica.id)) }}</td>
-      </tr>
-    {% else %}
-      <tr>
-        <td colspan="9" class="text-center text-muted">Nenhum registro encontrado.</td>
-      </tr>
-    {% endfor %}
-  </tbody>
-{% endcall %}
-
-{% call(item) card_list(rubricas) %}
-  <div class="d-flex justify-content-between align-items-start mb-1">
-    <div>
-      <span class="card-label">{{ item.indice }}</span>
-      {% if item.rubrica.ativa %}
-        <span class="badge bg-success">Ativo</span>
-      {% else %}
-        <span class="badge bg-light text-muted border">Inativo</span>
-      {% endif %}
-    </div>
-    {{ action_edit(url_for('rubricas.edit', id=item.rubrica.id)) }}
-  </div>
-  <h6 class="mb-1">{{ item.rubrica.nome }}</h6>
-  <span class="card-label">Tipo:</span>
-  <span class="card-value ms-1">{{ TIPO_RUBRICA.get(item.rubrica.tipo, item.rubrica.tipo) }}</span>
-  <span class="card-label ms-2">Fator:</span>
-  <span class="card-value ms-1">{{ item.rubrica.fator }}</span>
-  {% if item.rubrica.pai %}
-    <span class="card-label ms-2">Pai:</span>
-    <span class="card-value ms-1">{{ item.rubrica.pai.nome }}</span>
+{% block page_content %}
+{% call(section) page_list(title="Rubricas", new_url=url_for('rubricas.new')) %}
+  {% if section == "dados" %}
+    {% call(item) table_list(rubricas, fields=fields, ctx=ctx, edit_url=edit_url) %}
+      <td class="text-muted" style="white-space:nowrap;">{{ item.indice }}</td>
+      <td>{{ item.rubrica.id|fmtid }}</td>
+      <td>{{ item.rubrica.nome }}</td>
+      <td>{{ TIPO_RUBRICA.get(item.rubrica.tipo, item.rubrica.tipo) }}</td>
+      <td>{{ item.rubrica.fator }}</td>
+      <td>{{ item.rubrica.pai.nome if item.rubrica.pai else '' }}</td>
+      <td>
+        {% if item.rubrica.ativa %}
+          <span class="badge bg-success">Sim</span>
+        {% else %}
+          <span class="badge bg-light text-muted border">Não</span>
+        {% endif %}
+      </td>
+      <td class="text-muted">{{ item.rubrica.ordem }}</td>
+    {% endcall %}
+  {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}
-
 {% endblock %}

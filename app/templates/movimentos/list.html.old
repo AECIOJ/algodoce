@@ -1,0 +1,86 @@
+{% extends "page_sistema.html" %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+{% block content %}
+
+{% set _actions %}
+<a href="{% if tipo == 'E' %}{{ url_for('movimentos.recebimentos_new') }}{% else %}{{ url_for('movimentos.pagamentos_new') }}{% endif %}" class="btn btn-success">+ Novo</a>
+{% endset %}
+
+{% set filter_html %}
+<select class="form-select" style="width:auto;" onchange="filtrar('recurso', this.value)">
+  <option value="todos" {% if filtro_recurso == 'todos' %}selected{% endif %}>Todos</option>
+  {% for r in recursos %}
+    <option value="{{ r.id }}" {% if filtro_recurso == r.id|string %}selected{% endif %}>{{ r.nome }}</option>
+  {% endfor %}
+</select>
+{% endset %}
+
+{% call panel_list(tipo_nome_plural, actions=_actions, filters=filter_html, table_wrapper_class='d-none d-lg-block', model="Movto") %}
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Data</th>
+      <th>Recurso</th>
+      <th>Conta</th>
+      <th>Previsão</th>
+      <th data-field="documento">Documento</th>
+      <th>Valor</th>
+      <th>Rubrica</th>
+      <th data-field="historico">Histórico</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in movtos %}
+      <tr>
+        <td>{{ m.id|fmtid }}</td>
+        <td>{{ m.data|fmtdate }}</td>
+        <td>{{ m.recurso.nome if m.recurso else '' }}</td>
+        <td>{{ m.conta.nome if m.conta else '' }}</td>
+        <td>{% if m.previsao %}<a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=m.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ m.previsao_id|fmtid }}</a>{% endif %}</td>
+        <td>{{ m.documento or '' }}</td>
+        <td{% if tipo == 'E' %} class="text-success fw-bold text-end"{% else %} class="text-danger fw-bold text-end"{% endif %}>{{ m.valor|brl }}</td>
+        <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
+        <td>{{ m.historico_display }}</td>
+        <td>{{ action_edit(url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=m.id)) }}</td>
+      </tr>
+    {% else %}
+      <tr>
+        <td colspan="10" class="text-center text-muted">Nenhum registro encontrado.</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+
+{% call(item) card_list(movtos) %}
+  <div class="d-flex justify-content-between align-items-start mb-1">
+    <span class="fw-bold">#{{ item.id|fmtid }}</span>
+    <div>
+      {{ action_edit(url_for('movimentos.recebimentos_edit' if tipo == 'E' else 'movimentos.pagamentos_edit', id=item.id)) }}
+    </div>
+  </div>
+  <span class="card-label">{{ item.data|fmtdate }}</span>
+  <span class="card-value ms-1">{{ item.recurso.nome if item.recurso else '' }}</span>
+  <br>
+  <span class="card-label">Valor:</span>
+  <span class="card-value ms-1{% if tipo == 'E' %} text-success fw-bold{% else %} text-danger fw-bold{% endif %}">{{ item.valor|brl }}</span>
+  <br>
+  {% if item.conta %}<span class="card-label">Conta:</span><span class="card-value ms-1">{{ item.conta.nome }}</span><br>{% endif %}
+  {% if item.previsao %}<span class="card-label">Prev:</span><span class="card-value ms-1"><a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=item.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ item.previsao_id|fmtid }}</a></span><br>{% endif %}
+  {% if item.documento %}<span class="card-label">Doc:</span><span class="card-value ms-1">{{ item.documento }}</span><br>{% endif %}
+  {% if item.rubrica %}<span class="card-label">Rubrica:</span><span class="card-value ms-1">{{ item.rubrica.nome }}</span><br>{% endif %}
+  <span class="card-label">Obs:</span><span class="card-value ms-1">{{ item.historico_display }}</span>
+{% endcall %}
+
+<div class="form-bottom-spacer"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filtrar(chave, valor) {
+  var params = new URLSearchParams(window.location.search);
+  params.set(chave, valor);
+  window.location = '?' + params.toString();
+}
+</script>
+{% endblock %}

@@ -12,9 +12,23 @@ from app.models.compra import Compra
 from app.models.order import Order
 from app.models.rubrica import Rubrica
 from app.constants import TIPO_RECURSO, TIPO_RUBRICA, PREVISAO_STATUS
+from app.fields import Field, build_field_context
 from decimal import Decimal
 
 bp = Blueprint("movimentos", __name__, url_prefix="/movimentos")
+
+
+MOVIMENTOS_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='data', label='Data', width=12, input='date'),
+    Field(name='recurso', label='Recurso', width=20, query='recurso'),
+    Field(name='conta', label='Conta', width=30, query='conta'),
+    Field(name='previsao', label='Previsão', width=10, filter=False),
+    Field(name='documento', label='Documento', width=14),
+    Field(name='valor', label='Valor', width=12, input='number', align='right'),
+    Field(name='rubrica', label='Rubrica', width=30, query='rubrica'),
+    Field(name='historico', label='Histórico', width=40),
+]
 
 
 @bp.before_request
@@ -37,14 +51,12 @@ def _list(tipo):
     if filtro_recurso != "todos":
         query = query.filter(Movto.recurso_id == int(filtro_recurso))
     movtos = query.order_by(Movto.data.desc(), Movto.id.desc()).all()
-    recursos = Recurso.query.order_by(Recurso.nome).all()
+    ctx = build_field_context(MOVIMENTOS_FIELDS)
     return render_template(
         "movimentos/list.html",
-        movtos=movtos, recursos=recursos,
-        filtro_recurso=filtro_recurso,
+        movtos=movtos, fields=MOVIMENTOS_FIELDS, ctx=ctx,
         tipo=tipo, tipo_nome=_movto_tipo(tipo),
         tipo_nome_plural=_movto_tipo_plural(tipo),
-        TIPO_RECURSO=TIPO_RECURSO,
     )
 
 

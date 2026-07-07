@@ -5,6 +5,16 @@ from app.extensions import db
 from app.models.client import Conta
 from app.models.order import Order
 from app.constants import ORDER_STATUS, TIPO_CONTA
+from app.fields import Field, build_field_context
+
+
+CONTAS_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='nome', label='Nome', width=50),
+    Field(name='tipo', label='Tipo', width=12, filter_options=list(TIPO_CONTA.values())),
+    Field(name='telefone', label='Telefone', width=14),
+    Field(name='ativo', label='Ativo', input='boolean'),
+]
 
 bp = Blueprint("contas", __name__)
 
@@ -52,7 +62,8 @@ def list():
     elif tipo == "fornecedores":
         query = query.filter(Conta.tipo.in_([1, 2]))
     contas = query.all()
-    return render_template("contas/list.html", contas=contas, filtro_tipo=tipo, TIPO_CONTA=TIPO_CONTA)
+    ctx = build_field_context(CONTAS_FIELDS)
+    return render_template("contas/list.html", contas=contas, fields=CONTAS_FIELDS, ctx=ctx, TIPO_CONTA=TIPO_CONTA)
 
 
 @bp.route("/contas/search")

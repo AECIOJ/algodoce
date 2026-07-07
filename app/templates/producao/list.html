@@ -1,79 +1,25 @@
-{% extends "base.html" %}
-{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
-{% block content %}
-{% set _actions %}
-<a href="{{ url_for('producao.nova') }}" class="btn btn-primary">+ Nova</a>
-{% endset %}
+{% extends "page_sistema.html" %}
+{% from "components/page_list.html" import page_list %}
+{% from "components/table_list.html" import table_list %}
 
-{% set filter_html %}
-<form method="GET" action="{{ url_for('producao.list') }}" class="d-inline-block">
-  <select name="status" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
-    <option value="">Todos</option>
-    {% for val, label in PRODUCAO_STATUS.items() %}
-      <option value="{{ val }}" {{ 'selected' if status_filter == val }}>{{ label }}</option>
-    {% endfor %}
-  </select>
-</form>
-{% endset %}
+{% macro edit_url(item) %}{{ url_for('producao.detail', id=item.id) }}{% endmacro %}
 
-{% call panel_list("Produção", actions=_actions, filters=filter_html, model="Producao") %}
-  <thead>
-    <tr>
-      <th>#</th>
-      <th data-field="descricao">Descrição</th>
-      <th>Previsão De</th>
-      <th>Previsão Até</th>
-      <th>Finalização</th>
-      <th>Status</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for p in producoes %}
-    <tr>
-      <td>{{ p.id }}</td>
-      <td>{{ p.descricao }}</td>
-      <td>{{ p.previsao_de.strftime('%d/%m/%Y') if p.previsao_de else '-' }}</td>
-      <td>{{ p.previsao_ate.strftime('%d/%m/%Y') if p.previsao_ate else '-' }}</td>
-      <td>{{ p.data_fim.strftime('%d/%m/%Y') if p.data_fim else '-' }}</td>
+{% block page_content %}
+{% call(section) page_list(title="Produção", new_url=url_for('producao.nova'), new_label='+ Nova') %}
+  {% if section == "dados" %}
+    {% call(item) table_list(producoes, fields=fields, ctx=ctx, edit_url=edit_url) %}
+      <td>{{ item.id }}</td>
+      <td>{{ item.descricao }}</td>
+      <td>{{ item.previsao_de.strftime('%d/%m/%Y') if item.previsao_de else '-' }}</td>
+      <td>{{ item.previsao_ate.strftime('%d/%m/%Y') if item.previsao_ate else '-' }}</td>
+      <td>{{ item.data_fim.strftime('%d/%m/%Y') if item.data_fim else '-' }}</td>
       <td>
-        <span class="badge bg-{{ 'success' if p.status == 9 else 'info' }}">
-          {{ 'Finalizado' if p.status == 9 else 'Executando' }}
+        <span class="badge bg-{{ 'success' if item.status == 9 else 'info' }}">
+          {{ 'Finalizado' if item.status == 9 else 'Executando' }}
         </span>
       </td>
-      <td>{{ action_edit(url_for('producao.detail', id=p.id)) }}</td>
-    </tr>
-    {% else %}
-    <tr>
-      <td colspan="7" class="text-center text-muted">Nenhum registro encontrado.</td>
-    </tr>
-    {% endfor %}
-  </tbody>
+    {% endcall %}
+  {% elif section == "filtros" %}
+  {% endif %}
 {% endcall %}
-
-{% call(item) card_list(producoes) %}
-  <div class="d-flex justify-content-between align-items-start mb-1">
-    <div>
-      <span class="card-label">#{{ item.id }}</span>
-      <span class="badge bg-{{ 'success' if item.status == 9 else 'info' }}">
-        {{ 'Finalizado' if item.status == 9 else 'Executando' }}
-      </span>
-    </div>
-    {{ action_edit(url_for('producao.detail', id=item.id), 'Detalhes') }}
-  </div>
-  <h6 class="mb-1">{{ item.descricao }}</h6>
-  <div class="row g-0">
-    <div class="col-6">
-      <span class="card-label">Previsão</span><br>
-      <span class="card-value">{{ item.previsao_de.strftime('%d/%m/%Y') if item.previsao_de else '-' }} → {{ item.previsao_ate.strftime('%d/%m/%Y') if item.previsao_ate else '-' }}</span>
-    </div>
-    <div class="col-6">
-      <span class="card-label">Finalização</span><br>
-      <span class="card-value">{{ item.data_fim.strftime('%d/%m/%Y') if item.data_fim else '-' }}</span>
-    </div>
-  </div>
-{% endcall %}
-
-<div class="form-bottom-spacer"></div>
 {% endblock %}
-

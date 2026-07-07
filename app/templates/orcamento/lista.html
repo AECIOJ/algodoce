@@ -1,4 +1,4 @@
-{% extends "site/base.html" %}
+{% extends "page_site.html" %}
 {% block content %}
 <style>
 .item-row {
@@ -137,6 +137,7 @@
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script>
 var timers = {};
 

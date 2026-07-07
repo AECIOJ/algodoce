@@ -13,6 +13,18 @@ from app.constants import PRODUCAO_ETAPAS
 from app.models.category import Category
 from app.models.order_item import OrderItem
 from app.models.quote_item import QuoteItem
+from app.fields import Field, build_field_context
+
+
+PRODUCTS_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='imagem', label='Imagem', filter=False),
+    Field(name='nome', label='Nome', width=50),
+    Field(name='categoria', label='Categoria', width=20, query='category'),
+    Field(name='qtd_minima', label='Qtd. Mín.', width=8, input='number'),
+    Field(name='preco', label='Preço', width=12, input='number', align='right'),
+    Field(name='ativo', label='Status', input='boolean'),
+]
 
 bp = Blueprint("products", __name__)
 
@@ -33,8 +45,8 @@ def allowed_file(filename):
 @bp.route("/produtos")
 def list():
     products = Product.query.order_by(Product.nome).all()
-    categories = Category.query.order_by(Category.ordem).all()
-    return render_template("products/list.html", products=products, categories=categories)
+    ctx = build_field_context(PRODUCTS_FIELDS)
+    return render_template("products/list.html", products=products, fields=PRODUCTS_FIELDS, ctx=ctx)
 
 
 @bp.route("/produtos/novo", methods=["GET", "POST"])

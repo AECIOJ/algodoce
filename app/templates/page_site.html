@@ -1,0 +1,126 @@
+{% extends "page_base.html" %}
+{% block title %}AlgoDoce{% endblock %}
+
+{% block css %}
+{{ super() }}
+<style>
+:root {
+  --rosa: #E91E63;
+  --verde-menta: #26A69A;
+  --bg-claro: #F5F5F5;
+}
+body { background-color: var(--bg-claro); }
+.site-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1030;
+  backdrop-filter: blur(10px); background: rgba(255,255,255,0.95);
+  border-bottom: 1px solid #eee;
+}
+.brand-logo { height: 60px; cursor: pointer; }
+.nav-site a { color: #fff !important; font-weight: 500; padding: 0.5rem 0.6rem; font-size: 0.95rem; }
+.nav-site a:hover, .nav-site a.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
+.bar-link.active { border-bottom-color: var(--rosa) !important; }
+main.container {
+  padding-top: 150px; padding-bottom: 46px;
+}
+@media (max-width: 575.98px) {
+  main.container { padding-top: 170px; }
+  .nav-site a { padding: 0.3rem 0.3rem; font-size: 0.82rem; }
+  .nav-site .container { gap: 0 !important; }
+}
+.btn-verde { background-color: var(--verde-menta); border-color: var(--verde-menta); color: #fff; }
+.btn-verde:hover { background-color: #1e8f82; border-color: #1e8f82; color: #fff; }
+.btn-rosa { background-color: var(--rosa); border-color: var(--rosa); color: #fff; }
+.btn-rosa:hover { background-color: #c2185b; border-color: #c2185b; color: #fff; }
+.auth-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); z-index: 1050;
+}
+.auth-card {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  z-index: 1051; width: 320px;
+}
+.auth-card-inner {
+  background: #fff; border-radius: 16px; padding: 2rem; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.auth-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.auth-card h4, .auth-card h5 { margin-bottom: 1.25rem; color: var(--rosa); }
+.auth-card input { width: 100%; padding: 0.6rem 1rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; margin-bottom: 0.75rem; }
+.auth-card input:focus { border-color: var(--rosa); outline: none; }
+.auth-btn { width: 100%; padding: 0.6rem; border: none; border-radius: 8px; background: var(--rosa); color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; }
+.auth-btn:hover { background: #c2185b; }
+.auth-error { color: #dc3545; font-size: 0.85rem; margin-bottom: 0.5rem; min-height: 1.2rem; }
+.auth-close { position: absolute; top: 8px; right: 16px; font-size: 1.5rem; cursor: pointer; color: #999; }
+.auth-close:hover { color: #333; }
+#auth-popup { display: none; }
+#auth-popup.show { display: block; }
+#client-popup { display: none; }
+#client-popup.show { display: block; }
+</style>
+{% endblock %}
+
+{% block page_header %}
+<header class="site-header">
+  <div class="container text-center py-2">
+    <img src="{{ url_for('static', filename='icons/Logo.png') }}"
+         alt="AlgoDoce" class="brand-logo" id="siteLogo"
+         title="Área da Doceira">
+    <div class="mt-1 site-subtitle" style="font-size:0.85rem;color:var(--rosa);font-weight:500;letter-spacing:0.5px;">
+      O doce sabor do seu evento!
+    </div>
+  </div>
+  <nav class="nav-site site-nav-wrap d-none d-sm-block" style="background:var(--rosa);">
+    <div class="container d-flex justify-content-center gap-3 px-2 py-2 flex-wrap">
+      <a href="/sobre" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Sobre</a>
+      <a href="/vitrine/" id="produtosNavLink" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Produtos</a>
+      <a href="/orcamento" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Orçamento</a>
+      <a href="/contato" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Contato</a>
+    </div>
+  </nav>
+</header>
+{% endblock %}
+
+{% block before_content %}
+<nav class="d-sm-none" id="bottomNav" style="position:fixed;bottom:26px;left:8px;right:8px;z-index:1035;background:#fff;border:2px solid var(--rosa);border-radius:14px;display:flex;align-items:center;justify-content:space-around;padding:3px 0;box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+  <a href="/sobre" class="bottom-nav-item" id="bnSobre" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;">ℹ️</span><span style="font-size:0.65rem;font-weight:600;">Sobre</span></a>
+  <a href="/vitrine/" class="bottom-nav-item" id="bnProdutos" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;">🧁</span><span style="font-size:0.65rem;font-weight:600;">Produtos</span></a>
+  <a href="/orcamento" class="bottom-nav-item" id="bnOrcamento" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;position:relative;"><span style="font-size:1.2rem;">📋<span id="bnOrcamentoBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:var(--rosa);color:#fff;font-size:0.6rem;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 4px;">0</span></span><span style="font-size:0.65rem;font-weight:600;">Orçamento</span></a>
+  <a href="/contato" class="bottom-nav-item" id="bnContato" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;"><i class="bi bi-whatsapp"></i></span><span style="font-size:0.65rem;font-weight:600;">Contato</span></a>
+</nav>
+{% endblock %}
+
+{% block page_footer %}
+<footer id="siteRodape" style="position:fixed;bottom:0;left:0;right:0;z-index:1034;height:26px;padding:0 12px;background:#fff;display:flex;align-items:center;justify-content:space-between;font-size:0.6rem;color:#555;">
+  <div>{{ versao }}</div>
+  <div>&copy; 2026 AJ Systems</div>
+</footer>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _popup=null;
+function _fecharPopup(){if(_popup){_popup.remove();_popup=null;}}
+function _criarPopup(h){
+  _fecharPopup();
+  _popup=document.createElement('div');
+  _popup.innerHTML=h;
+  document.body.appendChild(_popup);
+  setTimeout(function(){var i=_popup.querySelector('input');if(i)i.focus();},100);
+  _popup.querySelectorAll('input').forEach(function(e){e.addEventListener('keydown',function(ev){if(ev.key==='Enter'){var b=_popup.querySelector('.auth-btn');if(b)b.click();}});});
+}
+function _xhrGet(u,cb){var x=new XMLHttpRequest();x.open('GET',u,true);x.onreadystatechange=function(){if(x.readyState===4){try{cb(JSON.parse(x.responseText));}catch(e){cb(null);}}};x.send();}
+function _xhrPost(u,d,cb){var x=new XMLHttpRequest();x.open('POST',u,true);x.setRequestHeader('Content-Type','application/json');x.onreadystatechange=function(){if(x.readyState===4){try{cb(x.status,JSON.parse(x.responseText));}catch(e){cb(x.status,null);}}};x.send(JSON.stringify(d));}
+function showSistemaPopup(){
+  _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">🔐</div><h4>Acesso ao Sistema</h4><input type="text" id="popup-user" placeholder="Usu\u00e1rio" autofocus><input type="password" id="popup-pass" placeholder="Senha"><input type="password" id="popup-chave" placeholder="Chave" style="display:none"><div id="popup-error" class="auth-error"></div><button onclick="submitSistema()" class="auth-btn">Entrar</button></div></div>');
+  _xhrGet('/api/check-chave',function(d){if(d&&d.tem)document.getElementById('popup-chave').style.display='';});
+}
+window.submitSistema=function(){var u=document.getElementById('popup-user').value,p=document.getElementById('popup-pass').value,c=document.getElementById('popup-chave').value,e=document.getElementById('popup-error');e.textContent='';_xhrPost('/api/login-sistema',{username:u,password:p,chave:c},function(s,b){if(s===200)window.location.href=b.redirect;else e.textContent=(b&&b.error)||'Erro';});};
+function showAdminPopup(){
+  _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">🔑</div><h4>Administrador</h4><input type="text" id="admin-user" placeholder="Usu\u00e1rio" autofocus><input type="password" id="admin-pass" placeholder="Senha" style="display:none"><input type="password" id="admin-chave" placeholder="Chave"><div id="admin-error" class="auth-error"></div><button onclick="submitAdmin()" class="auth-btn">Entrar</button></div></div>');
+  _xhrGet('/api/admin-config',function(d){if(d&&d.tem_usuario)document.getElementById('admin-user').style.display='';if(d&&d.tem_senha)document.getElementById('admin-pass').style.display='';});
+}
+window.submitAdmin=function(){var u=document.getElementById('admin-user').value,p=document.getElementById('admin-pass').value,c=document.getElementById('admin-chave').value,e=document.getElementById('admin-error');e.textContent='';_xhrPost('/api/login-admin',{username:u,password:p,chave:c},function(s,b){if(s===200)window.location.href=b.redirect;else e.textContent=(b&&b.error)||'Erro';});};
+(function(){var p=window.location.pathname;document.querySelectorAll('.nav-site a').forEach(function(l){if(l.getAttribute('href')===p)l.classList.add('active');});if(p.indexOf('/vitrine')===0){var t=document.getElementById('produtosNavLink');if(t)t.classList.add('active');}var m={'/sobre':'bnSobre','/vitrine':'bnProdutos','/orcamento':'bnOrcamento','/contato':'bnContato'};for(var k in m){if(p.indexOf(k)===0){var e=document.getElementById(m[k]);if(e)e.classList.add('active');}}})();
+(function(){var x=new XMLHttpRequest();x.open('GET','/api/orcamento-count',true);x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){var d=JSON.parse(x.responseText);if(d.total>0){var b=document.getElementById('bnOrcamento');var g=document.getElementById('bnOrcamentoBadge');if(b&&g){g.textContent=d.total;g.style.display='inline';b.classList.add('bn-ativo');}}}};x.send();})();
+</script>
+{% endblock %}

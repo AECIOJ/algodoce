@@ -1,0 +1,24 @@
+{% extends "page_sistema.html" %}
+{% from "components/page_list.html" import page_list %}
+{% from "components/table_list.html" import table_list %}
+
+{% macro edit_url(item) %}{{ url_for('ingredients.edit', id=item.id) }}{% endmacro %}
+
+{% block page_content %}
+{% call(section) page_list(title="Insumos", new_url=url_for('ingredients.new')) %}
+  {% if section == "dados" %}
+    {% call(item) table_list(ingredients, columns=[
+      {'label': '#', 'field': 'id'},
+      {'label': 'Nome', 'field': 'nome', 'filter': 'text'},
+      {'label': 'Tipo', 'field': 'tipo'},
+      {'label': 'Und', 'field': 'unidade_medida', 'filter': 'text'},
+    ], edit_url=edit_url) %}
+      <td>{{ item.id|fmtid }}</td>
+      <td>{{ item.nome }}</td>
+      <td>{{ TIPO_INGREDIENTE[item.tipo] }}</td>
+      <td>{{ item.unidade_medida }}</td>
+    {% endcall %}
+  {% elif section == "filtros" %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

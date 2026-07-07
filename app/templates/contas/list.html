@@ -1,106 +1,26 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "page_sistema.html" %}
+{% from "components/page_list.html" import page_list %}
+{% from "components/table_list.html" import table_list %}
 
-{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+{% macro edit_url(item) %}{{ url_for('contas.edit', id=item.id) }}{% endmacro %}
 
-{% set _actions %}
-<a href="{{ url_for('contas.new') }}" class="btn btn-success btn-sm text-nowrap">+ Nova</a>
-{% endset %}
-
-{% set filter_html %}
-<select id="filter-tipo" class="form-select form-select-sm" style="width:auto;" onchange="aplicarFiltro()">
-  <option value="todos" {{ 'selected' if filtro_tipo == 'todos' }}>Todos</option>
-  <option value="clientes" {{ 'selected' if filtro_tipo == 'clientes' }}>Clientes</option>
-  <option value="fornecedores" {{ 'selected' if filtro_tipo == 'fornecedores' }}>Fornecedores</option>
-</select>
-<select id="filter-ativo" class="form-select form-select-sm" style="width:auto;" onchange="aplicarFiltro()">
-    <option value="todos">Tudo</option>
-  <option value="ativos" selected>Ativos</option>
-  <option value="inativos">Inativos</option>
-</select>
-{% endset %}
-
-{% call panel_list("Contas", actions=_actions, filters=filter_html, model="Conta") %}
-  <thead>
-    <tr>
-      <th>#</th>
-      <th data-field="nome">Nome</th>
-      <th>Tipo</th>
-      <th>Telefone</th>
-      <th>Ativo</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for c in contas %}
-      <tr class="conta-row" data-ativo="{{ 'true' if c.ativo else 'false' }}" data-tipo="{{ c.tipo }}">
-        <td>{{ c.id|fmtid }}</td>
-        <td>{{ c.nome }}</td>
-        <td>{{ {'Cliente': 'C', 'Cliente/Fornecedor': 'C/F', 'Fornecedor': 'F'}[TIPO_CONTA[c.tipo]] }}</td>
-        <td>{{ c.telefone or '-' }}</td>
-        <td>
-          {% if c.ativo %}
-            <span class="badge bg-success">Sim</span>
-          {% else %}
-            <span class="badge bg-light text-muted border">Não</span>
-          {% endif %}
-        </td>
-        <td>{{ action_edit(url_for('contas.edit', id=c.id)) }}</td>
-      </tr>
-    {% else %}
-      <tr>
-        <td colspan="6" class="text-center text-muted">Nenhum registro encontrado.</td>
-      </tr>
-    {% endfor %}
-  </tbody>
-{% endcall %}
-
-{% call(item) card_list(contas) %}
-  <div class="conta-card" data-ativo="{{ 'true' if item.ativo else 'false' }}" data-tipo="{{ item.tipo }}">
-    <div class="d-flex justify-content-between align-items-start mb-1">
-      <div>
-        <span class="card-label">#{{ item.id|fmtid }}</span>
+{% block page_content %}
+{% call(section) page_list(title="Contas", new_url=url_for('contas.new')) %}
+  {% if section == "dados" %}
+    {% call(item) table_list(contas, fields=fields, ctx=ctx, edit_url=edit_url) %}
+      <td>{{ item.id|fmtid }}</td>
+      <td>{{ item.nome }}</td>
+      <td>{{ TIPO_CONTA[item.tipo] }}</td>
+      <td>{{ item.telefone or '-' }}</td>
+      <td>
         {% if item.ativo %}
-          <span class="badge bg-success">Ativo</span>
+          <span class="badge bg-success">Sim</span>
         {% else %}
-          <span class="badge bg-light text-muted border">Inativo</span>
+          <span class="badge bg-light text-muted border">Não</span>
         {% endif %}
-      </div>
-      {{ action_edit(url_for('contas.edit', id=item.id)) }}
-    </div>
-    <h6 class="mb-1">{{ item.nome }}</h6>
-    <div class="row g-0">
-      <div class="col-6">
-        <span class="card-label">Tipo</span><br>
-        <span class="card-value">{{ {'Cliente': 'C', 'Cliente/Fornecedor': 'C/F', 'Fornecedor': 'F'}[TIPO_CONTA[item.tipo]] }}</span>
-      </div>
-      <div class="col-6">
-        <span class="card-label">Telefone</span><br>
-        <span class="card-value">{{ item.telefone or '-' }}</span>
-      </div>
-    </div>
-  </div>
+      </td>
+    {% endcall %}
+  {% elif section == "filtros" %}
+  {% endif %}
 {% endcall %}
-
-{% endblock %}
-
-{% block scripts %}
-<script>
-function aplicarFiltro() {
-  const filtroAtivo = document.getElementById('filter-ativo').value;
-  const filtroTipo = document.getElementById('filter-tipo').value;
-  document.querySelectorAll('.conta-row, .conta-card').forEach(el => {
-    const ativo = el.dataset.ativo === 'true';
-    const tipo = parseInt(el.dataset.tipo);
-    let show = true;
-    if (filtroAtivo === 'ativos') show = show && ativo;
-    else if (filtroAtivo === 'inativos') show = show && !ativo;
-    if (filtroTipo === 'clientes') show = show && (tipo === 0 || tipo === 1);
-    else if (filtroTipo === 'fornecedores') show = show && (tipo === 1 || tipo === 2);
-    const target = el.classList.contains('conta-row') ? el : el.closest('.card-list-item');
-    if (target) target.style.display = show ? '' : 'none';
-  });
-}
-aplicarFiltro();
-</script>
 {% endblock %}

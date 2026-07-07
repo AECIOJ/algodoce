@@ -21,6 +21,7 @@
   {% include "components/sys_panel_top.html" %}
 
   <div id="top-spacer"></div>
+  <script>(function(){var s=document.getElementById('top-spacer'),f=document.getElementById('top-fixed');if(!s||!f)return;function ajustar(){var h=f.offsetHeight;if(h>0)s.style.height=h+'px';}ajustar();window.addEventListener('load',ajustar);if(window.ResizeObserver)new ResizeObserver(ajustar).observe(f);setTimeout(ajustar,1e3);})();</script>
 
   <main class="container mb-5">
     {% include "components/sys_barra_msg.html" %}

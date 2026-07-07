@@ -5,6 +5,17 @@ from app.models.carteira import Carteira
 from app.models.compra import Compra
 from app.models.order import Order
 from app.models.quote import Quote
+from app.fields import Field, build_field_context
+
+
+CARTEIRA_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='nome', label='Nome', width=50),
+    Field(name='uso', label='Uso', width=10, filter_options=[{0: 'Pedido', 1: 'Ambos', 2: 'Compra'}[i] for i in range(3)]),
+    Field(name='gerar', label='Gerar', width=10, filter_options=[{0: 'Movimento', 1: 'Previsão'}[i] for i in range(2)]),
+    Field(name='prazo_recebimento', label='Prazo', width=10),
+    Field(name='taxa_recebimento', label='Taxa', width=8, input='number', align='right'),
+]
 
 bp = Blueprint("carteira", __name__, url_prefix="/carteira")
 
@@ -18,7 +29,8 @@ def protect():
 @bp.route("/")
 def list():
     carteiras = Carteira.query.order_by(Carteira.nome).all()
-    return render_template("carteira/list.html", carteiras=carteiras)
+    ctx = build_field_context(CARTEIRA_FIELDS)
+    return render_template("carteira/list.html", carteiras=carteiras, fields=CARTEIRA_FIELDS, ctx=ctx)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

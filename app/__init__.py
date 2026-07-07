@@ -108,6 +108,18 @@ def create_app():
         from app.models.quote import Quote
         from app.models.previsao import Previsao
 
+        from app.fields import register_model
+        register_model('category', Category)
+        register_model('conta', Conta)
+        register_model('product', Product)
+        register_model('ingredient', Ingredient)
+        register_model('quote', Quote)
+        register_model('recurso', Recurso)
+        register_model('producao', Producao)
+        register_model('previsao', Previsao)
+        register_model('movto', Movto)
+        register_model('carteira', Carteira)
+
         for model_cls in [Category, Conta, Product, Ingredient, Quote, Recurso, Producao, Previsao, Movto, Carteira]:
             sa.event.listen(model_cls, 'before_insert', aplicar_transformacao)
             sa.event.listen(model_cls, 'before_update', aplicar_transformacao)
@@ -144,6 +156,9 @@ def create_app():
     app.jinja_env.filters['fmtzero'] = fmt_zero
     app.jinja_env.filters['fmtzeroi'] = fmt_zero_int
     app.jinja_env.filters['fmtdate'] = fmt_date
+    from app.fields import fields_to_columns, field_filter_options
+    app.jinja_env.filters['fields_to_columns'] = fields_to_columns
+    app.jinja_env.filters['field_filter_options'] = field_filter_options
 
     @app.context_processor
     def inject_globals():

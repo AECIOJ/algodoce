@@ -6,6 +6,22 @@ from app.models.previsao import Previsao
 from app.models.client import Conta
 from app.models.rubrica import Rubrica
 from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS
+from app.fields import Field, build_field_context
+
+
+PREVISOES_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='data', label='Data', width=12, input='date'),
+    Field(name='tipo', label='Tipo', width=8, filter_options=list(TIPO_PREVISAO.values())),
+    Field(name='status', label='Status', width=10, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='conta', label='Conta', width=30, query='conta'),
+    Field(name='documento', label='Documento', width=14),
+    Field(name='vencimento', label='Vencimento', width=12, input='date'),
+    Field(name='previsto', label='Previsto', width=12, input='number', align='right'),
+    Field(name='variacao', label='Variação', width=12, input='number', align='right'),
+    Field(name='realizado', label='Realizado', width=12, input='number', align='right'),
+    Field(name='saldo', label='Saldo', width=12, input='number', align='right'),
+]
 
 bp = Blueprint("previsoes", __name__, url_prefix="/previsoes")
 
@@ -51,11 +67,11 @@ def list():
         float(p.previsto + (p.variacao or 0) - (p.realizado or 0))
         for p in previsoes
     )
+    ctx = build_field_context(PREVISOES_FIELDS)
     return render_template(
         "previsoes/list.html", previsoes=previsoes, total_saldo=total_saldo,
-        filtro_tipo=tipo, filtro_status=filtro_status, filtro_venc=filtro_venc,
-        TIPO_PREVISAO=TIPO_PREVISAO, TIPO_RUBRICA=TIPO_RUBRICA,
-        PREVISAO_STATUS=PREVISAO_STATUS,
+        fields=PREVISOES_FIELDS, ctx=ctx,
+        TIPO_PREVISAO=TIPO_PREVISAO, PREVISAO_STATUS=PREVISAO_STATUS,
     )
 
 

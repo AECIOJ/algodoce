@@ -1,4 +1,4 @@
-{% extends "site/base.html" %}
+{% extends "page_site.html" %}
 {% block content %}
 <style>
   .vitrine-layout {
@@ -216,6 +216,7 @@
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script>
 var pendingItem = null;
 var clientPopup = null;

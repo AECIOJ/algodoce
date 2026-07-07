@@ -10,8 +10,26 @@ from app.models.rubrica import Rubrica
 from app.models.movto import Movto
 from app.models.order import Order
 from app.models.compra import Compra
-from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS, TIPO_TRANSACAO
+from app.constants import PREVISAO_STATUS
 from app.utils import LinhaTransacao, parse_prazo_recebimento
+from app.fields import Field, build_field_context
+
+
+CONTAS_A_RECEBER_FIELDS = [
+    Field(name='transacao_id', label='Transação', width=8),
+    Field(name='pedido_id', label='Pedido', width=8),
+    Field(name='status', label='Status', width=10, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='conta', label='Conta', width=30, query='conta'),
+    Field(name='fatura', label='Fatura', width=10),
+    Field(name='valor', label='Valor', width=12, input='number', align='right'),
+    Field(name='documento', label='Documento', width=12),
+    Field(name='vencimento', label='Vencimento', width=12, input='date'),
+    Field(name='previsao_id', label='Previsão', width=8),
+    Field(name='previsto', label='Previsto', width=12, input='number', align='right'),
+    Field(name='realizado', label='Realizado', width=12, input='number', align='right'),
+    Field(name='variacao', label='Variação', width=12, input='number', align='right'),
+    Field(name='saldo', label='Saldo', width=12, input='number', align='right'),
+]
 
 TIPO = ("R", "V")
 
@@ -93,11 +111,11 @@ def list():
         linhas = [l for l in linhas if l.vencimento > hoje and l.status not in (0, 8, 9)]
 
     total_saldo = sum(l.saldo for l in linhas)
+    ctx = build_field_context(CONTAS_A_RECEBER_FIELDS)
     return render_template(
         "contas_a_receber/list.html", previsoes=linhas, total_saldo=total_saldo,
-        filtro_status=filtro_status, filtro_venc=filtro_venc, hoje=hoje,
-        TIPO_PREVISAO=TIPO_PREVISAO, TIPO_RUBRICA=TIPO_RUBRICA,
-        PREVISAO_STATUS=PREVISAO_STATUS, TIPO_TRANSACAO=TIPO_TRANSACAO,
+        fields=CONTAS_A_RECEBER_FIELDS, ctx=ctx,
+        PREVISAO_STATUS=PREVISAO_STATUS,
     )
 
 

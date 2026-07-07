@@ -75,7 +75,7 @@ def login():
         session.permanent = True
         login_user(user, remember=True)
         _clear_attempts()
-        return jsonify(success=True, redirect="/orcamentos")
+    return jsonify(success=True, redirect="/sistema")
 
     _record_failure()
     count, _ = FAILED_ATTEMPTS.get(_get_ip(), (0, 0))

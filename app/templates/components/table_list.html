@@ -1,0 +1,36 @@
+{% from "components/panel_list.html" import action_edit %}
+
+{% macro table_list(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.') %}
+{% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
+<div class="table-list-wrap">
+  <table class="table table-hover">
+    <thead>
+      <tr>
+        {% for col in cols %}
+        <th{% if col.width %} style="min-width:{{ col.width }}ch"{% endif %}
+          class="{{ 'text-end' if col.align == 'right' else 'text-center' if col.align == 'center' else '' }}"{% if col.filter %}
+          data-filter-type="{{ col.filter }}" data-field="{{ col.field }}"{% if col.filter_options %} data-filter-options='{{ col.filter_options|tojson }}'{% endif %}
+        {% elif col.filter_options %}
+          data-filter-type="select" data-field="{{ col.field }}" data-filter-options='{{ col.filter_options|tojson }}'
+        {% elif col.filter is not defined and col.field and col.field != 'id' %}
+          data-filter-type="text" data-field="{{ col.field }}"
+        {% endif %}>{{ col.label }}</th>
+        {% endfor %}
+        {% if edit_url %}<th>Ações</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in data %}
+      <tr>
+        {{ caller(item) }}
+        {% if edit_url %}
+        <td>{{ action_edit(edit_url(item)) }}</td>
+        {% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}

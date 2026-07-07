@@ -2,6 +2,15 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required
 from app.extensions import db
 from app.models.category import Category
+from app.fields import Field, build_field_context
+
+
+CATEGORIES_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='nome', label='Nome', width=50),
+    Field(name='ordem', label='Ordem', width=5, input='number'),
+    Field(name='ativo', label='Ativo', input='boolean'),
+]
 
 bp = Blueprint("categories", __name__, url_prefix="/categorias")
 
@@ -21,7 +30,9 @@ def list():
     elif status == "inativos":
         query = query.filter_by(ativo=False)
     categorias = query.all()
-    return render_template("categories/list.html", categorias=categorias, status=status)
+    ctx = build_field_context(CATEGORIES_FIELDS, {})
+    return render_template("categories/list.html", categorias=categorias,
+                           fields=CATEGORIES_FIELDS, ctx=ctx)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

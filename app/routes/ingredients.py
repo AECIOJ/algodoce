@@ -6,6 +6,15 @@ from app.models.product import Product
 from app.models.product_ingredient import ProductIngredient
 from app.models.unit_conversion import UnitConversion
 from app.constants import TIPO_INGREDIENTE
+from app.fields import Field, build_field_context
+
+
+INGREDIENTS_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='nome', label='Nome', width=50),
+    Field(name='tipo', label='Tipo', width=12, filter_options=list(TIPO_INGREDIENTE.values())),
+    Field(name='unidade_medida', label='Und', width=8),
+]
 
 bp = Blueprint("ingredients", __name__)
 
@@ -23,7 +32,8 @@ def list():
     if filtro_tipo != "todos":
         query = query.filter_by(tipo=int(filtro_tipo))
     ingredients = query.all()
-    return render_template("ingredients/list.html", ingredients=ingredients, TIPO_INGREDIENTE=TIPO_INGREDIENTE, filtro_tipo=filtro_tipo)
+    ctx = build_field_context(INGREDIENTS_FIELDS)
+    return render_template("ingredients/list.html", ingredients=ingredients, fields=INGREDIENTS_FIELDS, ctx=ctx, TIPO_INGREDIENTE=TIPO_INGREDIENTE)
 
 
 @bp.route("/insumos/novo", methods=["GET", "POST"])

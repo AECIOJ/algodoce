@@ -1,0 +1,386 @@
+{% from "components/painel_filter.html" import painel_filter %}
+{% macro page_list(title, new_url=none, new_label='+ Novo', extra_actions=none) %}
+<div class="page-list-header d-flex align-items-center px-2 py-1 gap-2" style="border-bottom:1px solid #dee2e6;background:#fff;">
+  {% if title %}
+  <h2 class="mb-0 fs-4 d-none d-lg-block flex-shrink-0">{{ title }}</h2>
+  {% endif %}
+  <ul class="nav nav-underline mb-0 flex-shrink-0" role="tablist">
+    <li class="nav-item"><button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#panel_dados" type="button" role="tab">Dados</button></li>
+    <li class="nav-item"><button class="nav-link" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-tab-pane" type="button" role="tab">Filtros <span id="filtro-count-badge" class="badge bg-danger d-none">0</span></button></li>
+    <li class="nav-item d-none"><button class="nav-link disabled" type="button" role="tab">Relatórios</button></li>
+  </ul>
+  <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
+    {% if extra_actions %}{{ extra_actions }}{% endif %}
+    {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm">{{ new_label }}</a>{% endif %}
+  </div>
+</div>
+<div class="tab-content" style="flex:1;min-height:0;">
+  <div class="tab-pane fade show active" id="panel_dados" role="tabpanel">
+    {{ caller("dados") }}
+  </div>
+  <div class="tab-pane fade" id="filtros-tab-pane" role="tabpanel">
+    {{ painel_filter(caller_content=caller("filtros")) }}
+  </div>
+</div>
+
+<script>
+if (typeof window.pageListFilter === 'undefined') {
+window.pageListFilter = true;
+(function() {
+  var filterState = {};
+  var filterBody = document.getElementById('page-filter-body');
+  var table = document.querySelector('#panel_dados table.table');
+  var dadosTab = document.getElementById('dados-tab');
+  var filtersBuilt = false;
+
+  function _today() {
+    var d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function _daysAgo(n) {
+    var d = new Date(); d.setDate(d.getDate()-n);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function _monthStart(d) {
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';
+  }
+  function _monthEnd(d) {
+    var e = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    return e.getFullYear()+'-'+String(e.getMonth()+1).padStart(2,'0')+'-'+String(e.getDate()).padStart(2,'0');
+  }
+  function _fmtDate(d) {
+    return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+  }
+  var _months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  function headerWidth(th) {
+    var p = th.parentNode;
+    if (!p) return 200;
+    var ci = Array.prototype.indexOf.call(p.children, th);
+    var col = table.querySelectorAll('thead th')[ci];
+    return col ? col.offsetWidth : 200;
+  }
+
+  function updateFilterBadge() {
+    var badge = document.getElementById('filtro-count-badge');
+    if (!badge) return;
+    var cnt = Object.keys(filterState).length;
+    if (cnt > 0) { badge.textContent = cnt; badge.classList.remove('d-none'); }
+    else { badge.classList.add('d-none'); }
+  }
+
+  function buildDateValueArea(area, preset, field) {
+    area.innerHTML = '';
+    if (preset === 'período' || preset === 'periodo') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center flex-wrap';
+      var f = document.createElement('input'); f.type='date'; f.className='form-control form-control-sm'; f.style.width='auto';
+      f.dataset.field=field; f.dataset.subtype='from';
+      var t = document.createElement('input'); t.type='date'; t.className='form-control form-control-sm'; t.style.width='auto';
+      t.dataset.field=field; t.dataset.subtype='to';
+      if (filterState[field+'_from']) f.value=filterState[field+'_from'];
+      if (filterState[field+'_to']) t.value=filterState[field+'_to'];
+      d.appendChild(f); d.appendChild(t);
+      area.appendChild(d);
+    } else if (preset === 'hoje') {
+      var h = new Date();
+      area.appendChild(document.createTextNode(_fmtDate(h)));
+    } else if (preset === 'ontem') {
+      var o = new Date(); o.setDate(o.getDate()-1);
+      area.appendChild(document.createTextNode(_fmtDate(o)));
+    } else if (preset === 'últimos 7 dias') {
+      var s = new Date(); s.setDate(s.getDate()-6);
+      var h = new Date();
+      area.appendChild(document.createTextNode(_fmtDate(s)+' até '+_fmtDate(h)));
+    } else if (preset === 'mês anterior') {
+      var h = new Date(); var pm = h.getMonth()-1, py = h.getFullYear();
+      if(pm<0){pm=11;py--;}
+      area.appendChild(document.createTextNode(_months[pm]+' '+py));
+    } else if (preset === 'ano atual') {
+      area.appendChild(document.createTextNode(''+(new Date()).getFullYear()));
+    } else if (preset === 'mês') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var i = document.createElement('input'); i.type='month'; i.className='form-control form-control-sm'; i.style.width='auto';
+      i.dataset.field=field; i.dataset.subtype='mes';
+      if (filterState[field+'_mes']) i.value=filterState[field+'_mes'];
+      d.appendChild(i);
+      area.appendChild(d);
+    } else if (preset === 'ano') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var i = document.createElement('input'); i.type='number'; i.min=2000;
+      i.className='form-control form-control-sm'; i.style.width='100px';
+      i.placeholder='Ano'; i.dataset.field=field; i.dataset.subtype='ano';
+      if (filterState[field+'_ano']) i.value=filterState[field+'_ano'];
+      d.appendChild(i);
+      area.appendChild(d);
+    } else if (preset === 'a partir de') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var i = document.createElement('input'); i.type='date'; i.className='form-control form-control-sm'; i.style.width='auto';
+      i.dataset.field=field; i.dataset.subtype='from';
+      if (filterState[field+'_from']) i.value=filterState[field+'_from'];
+      d.appendChild(i);
+      area.appendChild(d);
+    } else if (preset === 'até a data de') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var i = document.createElement('input'); i.type='date'; i.className='form-control form-control-sm'; i.style.width='auto';
+      i.dataset.field=field; i.dataset.subtype='to';
+      if (filterState[field+'_to']) i.value=filterState[field+'_to'];
+      d.appendChild(i);
+      area.appendChild(d);
+    }
+  }
+
+  function buildFilters(bodyEl) {
+    if (!bodyEl || !table) return;
+    bodyEl.innerHTML = '';
+    var headers = table.querySelectorAll('thead th[data-filter-type]');
+    if (!headers.length) {
+      bodyEl.innerHTML = '<div class="text-muted small p-2">Nenhum filtro disponível.</div>';
+      return;
+    }
+    document.getElementById('page-filter-actions').style.display = '';
+    headers.forEach(function(th) {
+      var type = th.dataset.filterType;
+      var field = th.dataset.field || th.textContent.trim().toLowerCase();
+      var label = th.textContent.trim();
+      var group = document.createElement('div');
+      group.className = 'filter-group';
+
+      if (type === 'text') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1">';
+        var m = document.createElement('select'); m.className='form-select form-select-sm'; m.style.width='auto';
+        m.dataset.field=field; m.dataset.subtype='mode';
+        [['contains','Contém'],['exact','Exato'],['starts','Começa']].forEach(function(p){
+          var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
+          if(filterState[field+'_mode']===p[0]) o.selected=true; m.appendChild(o);
+        });
+        group.lastChild.appendChild(m);
+        var i=document.createElement('input'); i.type='text'; i.className='form-control form-control-sm';
+        i.style.width = Math.min(Math.max(headerWidth(th), 200), 350) + 'px';
+        i.dataset.field=field; i.dataset.subtype='value';
+        if(filterState[field+'_value']) i.value=filterState[field+'_value'];
+        group.lastChild.appendChild(i);
+
+      } else if (type === 'number') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1 align-items-center flex-wrap">';
+        var ms = document.createElement('select'); ms.className='form-select form-select-sm'; ms.style.width='auto';
+        ms.dataset.field=field; ms.dataset.subtype='mode';
+        [['entre','Entre'],['maior_que','Maior que'],['maior_igual','Maior ou igual a'],['menor_que','Menor que'],['menor_igual','Menor ou igual a'],['igual','Igual a']].forEach(function(p){
+          var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
+          if(filterState[field+'_mode']===p[0]) o.selected=true; ms.appendChild(o);
+        });
+        group.lastChild.appendChild(ms);
+        var nw = Math.min(Math.max(headerWidth(th)*0.35, 70), 150);
+        var nd = document.createElement('div'); nd.className='d-inline-flex gap-1 align-items-center number-value-area';
+        var v1 = document.createElement('input'); v1.type='number'; v1.className='form-control form-control-sm'; v1.style.width=nw+'px';
+        v1.dataset.field=field; v1.dataset.subtype='val1';
+        if(filterState[field+'_val1']) v1.value=filterState[field+'_val1'];
+        nd.appendChild(v1);
+        var v2 = document.createElement('input'); v2.type='number'; v2.className='form-control form-control-sm'; v2.style.width=nw+'px';
+        v2.dataset.field=field; v2.dataset.subtype='val2';
+        if(filterState[field+'_val2']) v2.value=filterState[field+'_val2'];
+        v2.style.display = (ms.value==='entre')?'':'none';
+        nd.appendChild(v2);
+        group.lastChild.appendChild(nd);
+        ms.addEventListener('change',function(){
+          v2.style.display = (this.value==='entre')?'':'none';
+        });
+
+      } else if (type === 'select') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1">';
+        var opts={}; try{opts=JSON.parse(th.dataset.filterOptions||'{}')}catch(e){}
+        var sel=document.createElement('select'); sel.className='form-select form-select-sm'; sel.style.width='auto';
+        sel.dataset.field=field;
+        var bo=document.createElement('option'); bo.value=''; bo.textContent='Todos';
+        sel.appendChild(bo);
+        Object.keys(opts).forEach(function(k){
+          var display=opts[k];
+          var o=document.createElement('option'); o.value=display; o.textContent=display;
+          if(filterState[field]&&filterState[field].toLowerCase()===display.toLowerCase()) o.selected=true;
+          sel.appendChild(o);
+        });
+        group.lastChild.appendChild(sel);
+
+      } else if (type === 'boolean') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-3 filter-radio-group">';
+        [['','Todos',true],['true','Sim'],['false','Não']].forEach(function(p){
+          var l=document.createElement('label'); l.className='d-flex align-items-center gap-1';
+          var r=document.createElement('input'); r.type='radio'; r.name='filter_'+field; r.value=p[0];
+          r.dataset.field=field;
+          if(filterState[field]===p[0]) r.checked=true;
+          else if(!filterState[field]&&p[2]) r.checked=true;
+          l.appendChild(r); l.appendChild(document.createTextNode(p[1]));
+          group.lastChild.appendChild(l);
+        });
+
+      } else if (type === 'date') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-2 align-items-center flex-wrap">';
+        var ps=document.createElement('select'); ps.className='form-select form-select-sm'; ps.style.width='auto'; ps.style.flexShrink='0';
+        ps.dataset.field=field; ps.dataset.subtype='preset';
+        ['Período','Hoje','Ontem','Últimos 7 dias','Mês','Mês Anterior','Ano','Ano Atual','A partir de','Até a data de'].forEach(function(p){
+          var o=document.createElement('option'); o.value=p.toLowerCase(); o.textContent=p;
+          if(filterState[field+'_preset']===p.toLowerCase()) o.selected=true; ps.appendChild(o);
+        });
+        group.lastChild.appendChild(ps);
+        var va=document.createElement('div'); va.className='d-inline-flex align-items-center gap-1 date-value-area';
+        va.dataset.field=field;
+        group.lastChild.appendChild(va);
+        buildDateValueArea(va, filterState[field+'_preset']||'período', field);
+        ps.addEventListener('change',function(){
+          buildDateValueArea(va, this.value, field);
+        });
+      }
+      bodyEl.appendChild(group);
+    });
+  }
+
+  function getFilterValue(el) {
+    if(el.tagName==='SELECT'){return el.value;}
+    if(el.type==='radio'){return el.checked?el.value:'';}
+    return el.value;
+  }
+
+  function applyFiltersFrom(bodyEl) {
+    if(!bodyEl||!table)return;
+    var inputs=bodyEl.querySelectorAll('input, select');
+    var filters={}; filterState={};
+    inputs.forEach(function(el){
+      if(el.type==='radio'&&!el.checked)return;
+      var f=el.dataset.field; if(!f)return;
+      var v=getFilterValue(el).trim();
+      if(v===''||v==='contains'||v==='período'||v==='entre')return;
+      var st=el.dataset.subtype||''; var key=f+(st?'_'+st:'');
+      filters[key]=v.toLowerCase(); filterState[key]=v;
+    });
+
+    var rows=table.querySelectorAll('tbody tr');
+    var headers=table.querySelectorAll('thead th[data-filter-type]');
+    var allHeaders=table.querySelectorAll('thead th');
+    rows.forEach(function(row){
+      var show=true;
+      headers.forEach(function(th){
+        if(!show)return;
+        var type=th.dataset.filterType;
+        var field=th.dataset.field||th.textContent.trim().toLowerCase();
+        var ci=Array.prototype.indexOf.call(allHeaders,th);
+        var cell=row.cells[ci]; if(!cell)return;
+        var ct=cell.textContent.trim().toLowerCase();
+
+        if(type==='text'){
+          var q=filters[field+'_value']; var md=filters[field+'_mode'];
+          if(q){
+            if(md==='exact'&&ct!==q)show=false;
+            else if(md==='starts'&&!ct.startsWith(q))show=false;
+            else if(!ct.includes(q))show=false;
+          }
+        }else if(type==='number'){
+          var n=parseFloat(ct.replace(/[^0-9.,\-]/g,'').replace(',','.'));
+          if(!isNaN(n)){
+            var mode=filters[field+'_mode']||'entre';
+            var v1=filters[field+'_val1']; var v2=filters[field+'_val2'];
+            if(mode==='entre'){
+              if(v1&&n<parseFloat(v1))show=false;
+              if(v2&&n>parseFloat(v2))show=false;
+            }else if(mode==='maior_que'&&v1&&n<=parseFloat(v1))show=false;
+            else if(mode==='maior_igual'&&v1&&n<parseFloat(v1))show=false;
+            else if(mode==='menor_que'&&v1&&n>=parseFloat(v1))show=false;
+            else if(mode==='menor_igual'&&v1&&n>parseFloat(v1))show=false;
+            else if(mode==='igual'&&v1&&n!==parseFloat(v1))show=false;
+          }
+        }else if(type==='select'){
+          var fv=filters[field];
+          if(fv&&!ct.includes(fv))show=false;
+        }else if(type==='boolean'){
+          if(filters[field]){
+            var act=ct==='sim'||ct==='ativo'||ct==='true';
+            if((filters[field]==='true'&&!act)||(filters[field]==='false'&&act))show=false;
+          }
+        }else if(type==='date'){
+          var mm=ct.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+          if(mm){
+            var cd=new Date(+mm[3],+mm[2]-1,+mm[1]);
+            var pr=filters[field+'_preset']||'período';
+            if(pr==='período'){
+              if(filters[field+'_from']){var f=new Date(filters[field+'_from']);if(cd<f)show=false;}
+              if(filters[field+'_to']){var t=new Date(filters[field+'_to']);t.setHours(23,59,59,999);if(cd>t)show=false;}
+            }else if(pr==='hoje'){
+              var h=new Date();h.setHours(0,0,0,0);if(cd.getTime()!==h.getTime())show=false;
+            }else if(pr==='ontem'){
+              var o=new Date();o.setDate(o.getDate()-1);o.setHours(0,0,0,0);if(cd.getTime()!==o.getTime())show=false;
+            }else if(pr==='últimos 7 dias'){
+              var s=new Date();s.setDate(s.getDate()-6);s.setHours(0,0,0,0);
+              var hh=new Date();hh.setHours(23,59,59,999);if(cd<s||cd>hh)show=false;
+            }else if(pr==='mês'){
+              var mV=filters[field+'_mes'];
+              if(mV){
+                var mP=mV.match(/(\d{4})-(\d{2})/);
+                if(mP){
+                  var tM=parseInt(mP[2]),tY=parseInt(mP[1]);
+                  if(cd.getMonth()+1!==tM||cd.getFullYear()!==tY)show=false;
+                }
+              }
+            }else if(pr==='a partir de'){
+              if(filters[field+'_from']){var f=new Date(filters[field+'_from']);if(cd<f)show=false;}
+            }else if(pr==='até a data de'){
+              if(filters[field+'_to']){var t=new Date(filters[field+'_to']);t.setHours(23,59,59,999);if(cd>t)show=false;}
+            }else if(pr==='mês anterior'){
+              var h2=new Date();var pm=h2.getMonth()-1,py=h2.getFullYear();
+              if(pm<0){pm=11;py--;}
+              if(cd.getMonth()!==pm||cd.getFullYear()!==py)show=false;
+            }else if(pr==='ano'){
+              var an=parseInt(filters[field+'_ano']);
+              if(!isNaN(an)&&cd.getFullYear()!==an)show=false;
+            }else if(pr==='ano atual'){
+              if(cd.getFullYear()!==(new Date()).getFullYear())show=false;
+            }
+          }
+        }
+      });
+      row.style.display=show?'':'none';
+    });
+    updateFilterBadge();
+  }
+
+  function clearFiltersFrom(bodyEl) {
+    filterState={};
+    if(bodyEl){
+      bodyEl.querySelectorAll('input, select').forEach(function(el){
+        if(el.type==='radio'){el.checked=(el.value==='');}
+        else if(el.type==='checkbox'){el.checked=false;}
+        else if(el.tagName==='SELECT'){el.selectedIndex=0;}
+        else{el.value='';}
+      });
+      bodyEl.querySelectorAll('.date-value-area').forEach(function(area){
+        buildDateValueArea(area, 'periodo', area.dataset.field);
+      });
+      bodyEl.querySelectorAll('.number-value-area').forEach(function(area){
+        var v2=area.querySelector('input[data-subtype="val2"]');
+        if(v2) v2.style.display='';
+      });
+    }
+    applyFiltersFrom(bodyEl);
+  }
+
+  function goToDadosTab(){
+    if(dadosTab){var t=new bootstrap.Tab(dadosTab);t.show();}
+  }
+
+  var filterTab=document.getElementById('filtros-tab');
+  if(filterTab){
+    filterTab.addEventListener('shown.bs.tab',function(){
+      if(!filtersBuilt){buildFilters(filterBody);filtersBuilt=true;}
+    });
+  }
+
+  var applyBtn=document.getElementById('page-filter-apply');
+  if(applyBtn){
+    applyBtn.addEventListener('click',function(){applyFiltersFrom(filterBody);goToDadosTab();});
+  }
+
+  var clearBtn=document.getElementById('page-filter-clear');
+  if(clearBtn){
+    clearBtn.addEventListener('click',function(){clearFiltersFrom(filterBody);goToDadosTab();});
+  }
+})();
+}
+</script>
+{% endmacro %}

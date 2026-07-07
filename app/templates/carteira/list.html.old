@@ -1,0 +1,48 @@
+{% extends "page_sistema.html" %}
+{% from "components/panel_list.html" import panel_list, card_list, action_edit %}
+{% block content %}
+
+{% set _actions %}
+<a href="{{ url_for('carteira.new') }}" class="btn btn-sm btn-success text-nowrap">+ Nova</a>
+{% endset %}
+
+{% call panel_list("Carteiras", actions=_actions) %}
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Nome</th>
+      <th>Uso</th>
+      <th>Gerar</th>
+      <th>Prazo</th>
+      <th>Taxa</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in carteiras %}
+    <tr>
+      <td>{{ c.id|fmtid }}</td>
+      <td>{{ c.nome }}</td>
+      <td>{{ {0: "Pedido", 1: "Ambos", 2: "Compra"}.get(c.uso, c.uso) }}</td>
+      <td>{{ {0: "Movimento", 1: "Previsão"}.get(c.gerar, c.gerar) }}</td>
+      <td>{{ c.prazo_recebimento or '-' }}</td>
+      <td>{{ (c.taxa_recebimento or 0)|brl }}%</td>
+      <td>{{ action_edit(url_for('carteira.edit', id=c.id)) }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="7" class="text-muted text-center">Nenhuma carteira cadastrada.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+{% endcall %}
+
+{% call(item) card_list(carteiras) %}
+  <div class="d-flex justify-content-between align-items-center">
+    <span><strong>{{ item.nome }}</strong> — {{ {0:"Pedido",1:"Ambos",2:"Compra"}.get(item.uso) }} / {{ {0:"Movimento",1:"Previsão"}.get(item.gerar) }}</span>
+    <span class="text-muted small">Prazo: {{ item.prazo_recebimento or '-' }} | Taxa: {{ (item.taxa_recebimento or 0)|brl }}%</span>
+    {{ action_edit(url_for('carteira.edit', id=item.id)) }}
+  </div>
+{% endcall %}
+
+{% endblock %}

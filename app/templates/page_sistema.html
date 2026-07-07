@@ -1,0 +1,100 @@
+{% extends "page_base.html" %}
+
+{% block before_content %}
+<div class="area-menu">
+  <nav class="menu d-none d-lg-flex navbar navbar-expand-lg navbar-dark px-2" style="background-color:var(--cor-menu);">
+    <div class="navbar-nav w-100 d-flex align-items-center">
+      <div class="d-flex justify-content-center flex-grow-1 gap-1">
+        <a class="nav-link" href="{{ url_for('categories.list') }}">Cadastro</a>
+        <a class="nav-link" href="/orcamentos">Comercial</a>
+        <a class="nav-link" href="/producao">Produção</a>
+        <a class="nav-link" href="{{ url_for('contas_a_pagar.list') }}">Financeiro</a>
+      </div>
+      <a class="nav-link" href="/logout" style="color:#fff!important;"><img src="/static/icons/log-out.png" alt="Encerrar" style="height:1.2em;vertical-align:middle;filter:brightness(0)invert(1);"> Sair</a>
+    </div>
+  </nav>
+  <div class="cadastro-section d-none" id="cadastroSection">
+    <div class="container">
+      <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+        <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Categorias</a>
+        <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Insumos</a>
+        <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Produtos</a>
+        <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Contas</a>
+        <a href="{{ url_for('rubricas.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Rubricas</a>
+        <a href="{{ url_for('carteira.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Carteiras</a>
+      </div>
+    </div>
+  </div>
+  <div class="cadastro-section d-none" id="comercialSection">
+    <div class="container">
+      <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+        <a href="/orcamentos" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Orçamentos</a>
+        <a href="/pedidos" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Pedidos</a>
+        <a href="/compras/" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Compras</a>
+      </div>
+    </div>
+  </div>
+  <div class="cadastro-section d-none" id="financeiroSection">
+    <div class="container">
+      <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+        <a href="{{ url_for('recursos.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Recursos</a>
+        <a href="{{ url_for('contas_a_receber.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Contas a Receber</a>
+        <a href="{{ url_for('contas_a_pagar.list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Contas a Pagar</a>
+        <a href="{{ url_for('movimentos.recebimentos_list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Recebimentos</a>
+        <a href="{{ url_for('movimentos.pagamentos_list') }}" class="bar-link-lg text-decoration-none" style="color:#e91e63;font-weight:500;padding:0.1rem 0.3rem;border-bottom:2px solid transparent;">Pagamentos</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="page-content">
+  {% block page_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block page_header %}
+<header class="sistema-header" id="sistemaHeader">
+  <div class="container text-center py-0">
+    <a href="/">
+      <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce" class="brand-logo" id="brandLogo">
+    </a>
+  </div>
+  <div class="barra_mobile d-lg-none d-flex align-items-center px-2" style="background-color:var(--cor-menu);min-height:48px;">
+    <div class="flex-grow-1" style="line-height:1.2;">
+      <div id="mobileMenuTitle" class="text-white fw-bold" style="font-size:1rem;"></div>
+    </div>
+    <a class="text-white text-decoration-none d-flex flex-column align-items-center" href="/logout" style="gap:2px;min-width:70px;padding:6px 14px;border-radius:6px;">
+      <i class="bi bi-box-arrow-right" style="font-size:1.1rem;"></i>
+      <span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Sair</span>
+    </a>
+  </div>
+</header>
+{% endblock %}
+
+{% block after_content %}
+<nav class="menu_mobile d-lg-none" id="adminBottomNav" style="position:fixed;bottom:26px;left:8px;right:8px;z-index:1035;background:#fff;border:2px solid var(--rosa);display:flex;align-items:center;justify-content:space-around;padding:3px 0;padding-bottom:calc(3px + env(safe-area-inset-bottom,0px));border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+  <a href="#" class="bottom-nav-item" data-admin-nav="cadastro" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;line-height:1;"><i class="bi bi-journal"></i></span><span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Cadastro</span></a>
+  <a href="#" class="bottom-nav-item" data-admin-nav="comercial" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;line-height:1;"><i class="bi bi-cart"></i></span><span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Comercial</span></a>
+  <a href="/producao" class="bottom-nav-item" data-admin-nav="producao" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;line-height:1;"><i class="bi bi-gear"></i></span><span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Produção</span></a>
+  <a href="#" class="bottom-nav-item" data-admin-nav="financeiro" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;line-height:1;"><i class="bi bi-cash-stack"></i></span><span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Financeiro</span></a>
+</nav>
+{% endblock %}
+
+{% block page_footer %}
+<footer class="sistema-rodape">
+  <div>{{ versao }} | {{ usuario }}</div>
+  <div>&copy; 2026 AJ Systems</div>
+</footer>
+{% endblock %}
+
+{% block modals %}
+{% include "components/sys_modals.html" %}
+{% include "components/sys_panel_subnav.html" %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include "components/sys_nav_js.html" %}
+{% endblock %}

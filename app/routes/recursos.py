@@ -3,6 +3,16 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.recurso import Recurso
 from app.constants import TIPO_RECURSO
+from app.fields import Field, build_field_context
+
+
+RECURSOS_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='nome', label='Nome', width=50),
+    Field(name='tipo', label='Tipo', width=12, filter_options=list(TIPO_RECURSO.values())),
+    Field(name='saldo', label='Saldo', width=12, input='number', align='right'),
+    Field(name='data', label='Balanço', width=12, input='date'),
+]
 
 bp = Blueprint("recursos", __name__, url_prefix="/recursos")
 
@@ -15,9 +25,10 @@ def list():
     if filtro_tipo != "todos":
         query = query.filter(Recurso.tipo == int(filtro_tipo))
     recursos = query.order_by(Recurso.nome).all()
+    ctx = build_field_context(RECURSOS_FIELDS)
     return render_template(
-        "recursos/list.html", recursos=recursos,
-        TIPO_RECURSO=TIPO_RECURSO, filtro_tipo=filtro_tipo,
+        "recursos/list.html", recursos=recursos, fields=RECURSOS_FIELDS, ctx=ctx,
+        TIPO_RECURSO=TIPO_RECURSO,
     )
 
 

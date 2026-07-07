@@ -8,18 +8,16 @@
   <div class="d-flex flex-column panel-tab-wrapper" style="flex:1;min-height:0;">
 
     {# === HEADER: title + tabs + actions === #}
-    <div class="panel-tab-header bg-white" style="flex:none;border-bottom:1px solid #dee2e6;">
-      <div class="d-flex align-items-center px-2 py-1 gap-2 gap-lg-3">
-        <h2 class="mb-0 fs-4 d-none d-lg-block flex-shrink-0">{{ title }}</h2>
-        <ul class="nav nav-underline mb-0 flex-shrink-0" id="formListTabs" role="tablist">
-          <li class="nav-item"><button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#panel_dados" type="button" role="tab">Dados</button></li>
-          <li class="nav-item"><button class="nav-link" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-tab-pane" type="button" role="tab">Filtros</button></li>
-          <li class="nav-item d-none"><button class="nav-link disabled" id="relatorios-tab" type="button" role="tab">Relatórios</button></li>
-        </ul>
-        <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
-          {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm">{{ new_label }}</a>{% endif %}
-          {% if actions %}{{ actions|safe }}{% endif %}
-        </div>
+    <div class="panel-tab-header d-flex align-items-center px-2 py-1 gap-2 gap-lg-3" style="flex:none;border-bottom:1px solid #dee2e6;background:#fff;">
+      {% if title %}<h2 class="mb-0 fs-4 d-none d-lg-block flex-shrink-0">{{ title }}</h2>{% endif %}
+      <ul class="nav nav-underline mb-0 flex-shrink-0" id="formListTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#panel_dados" type="button" role="tab">Dados</button></li>
+        <li class="nav-item"><button class="nav-link" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-tab-pane" type="button" role="tab">Filtros</button></li>
+        <li class="nav-item d-none"><button class="nav-link disabled" id="relatorios-tab" type="button" role="tab">Relatórios</button></li>
+      </ul>
+      <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
+        {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm">{{ new_label }}</a>{% endif %}
+        {% if actions %}{{ actions|safe }}{% endif %}
       </div>
     </div>
 
@@ -52,7 +50,8 @@
                 <div class="card-list-summary" onclick="toggleCard(event,this)">
                   <div class="d-flex justify-content-between align-items-start w-100">
                     <div class="text-truncate me-2">{{ caller(item, "summary") }}</div>
-                    <div class="d-flex align-items-center gap-1">
+                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                      <i class="bi bi-chevron-down card-chevron"></i>
                       <span onclick="event.stopPropagation()">{{ action_edit(edit_url(item)) }}</span>
                     </div>
                   </div>
@@ -117,7 +116,8 @@
             <div class="card-list-summary" onclick="toggleCard(event,this)">
               <div class="d-flex justify-content-between align-items-start w-100">
                 <div class="text-truncate me-2">{{ caller(item, "summary") }}</div>
-                <div class="d-flex align-items-center gap-1">
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                  <i class="bi bi-chevron-down card-chevron"></i>
                   <span onclick="event.stopPropagation()">{{ action_edit(edit_url(item)) }}</span>
                 </div>
               </div>
@@ -183,17 +183,14 @@
       window._tableCheckFit = checkFit;
       checkFit();
       setTimeout(function() {
-        if (typeof syncTopSpacer === 'function') syncTopSpacer();
         checkFit();
       }, 0);
       window.addEventListener('load', function() {
         checkFit();
-        if (typeof syncTopSpacer === 'function') syncTopSpacer();
         checkFit();
       });
       window.addEventListener('resize', function() {
         checkFit();
-        if (typeof syncTopSpacer === 'function') syncTopSpacer();
         checkFit();
       });
     }

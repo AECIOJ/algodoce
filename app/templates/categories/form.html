@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "page_sistema.html" %}
 {% from "components/edit_top.html" import edit_top %}
 {% from "components/edit_save.html" import edit_save %}
 {% block content %}
@@ -15,7 +15,7 @@
 {{ edit_top(title='Nova Categoria') }}
 {% endif %}
 
-<form method="POST" id="main-form">
+<form method="POST" id="main-form" class="px-2 px-md-0 mt-2">
   <div class="row mb-3">
     <div class="col-md-9">
       <label class="form-label">Nome *</label>
@@ -24,7 +24,9 @@
     <div class="col-md-3">
       <label class="form-label">Ordem</label>
       <input type="number" name="ordem" class="form-control" min="0" max="99" value="{{ category.ordem if category else 0 }}">
+    </div>
   </div>
+  <div class="form-bottom-spacer"></div>
 </form>
 
 {% call edit_save(back_url=url_for('categories.list')) %}
