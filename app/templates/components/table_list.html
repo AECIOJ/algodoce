@@ -3,11 +3,11 @@
 {% macro table_list(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.') %}
 {% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
 <div class="table-list-wrap">
-  <table class="table table-sm table-hover d-none d-lg-table">
+  <table class="table table-sm table-hover d-none d-lg-table" style="table-layout:fixed;width:100%;">
     <thead>
       <tr>
         {% for col in cols %}
-        <th{% if col.width %} style="min-width:{{ col.width }}ch"{% endif %}
+        <th{% if col.width %} style="width:{{ col.width }}ch"{% endif %}
           class="{{ 'text-end' if col.align == 'right' else 'text-center' if col.align == 'center' else '' }}"{% if col.filter %}
           data-filter-type="{{ col.filter }}" data-field="{{ col.field }}"{% if col.filter_options %} data-filter-options='{{ col.filter_options|tojson }}'{% endif %}
         {% elif col.filter_options %}

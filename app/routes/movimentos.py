@@ -20,14 +20,14 @@ bp = Blueprint("movimentos", __name__, url_prefix="/movimentos")
 
 MOVIMENTOS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='data', label='Data', width=12, input='date'),
-    Field(name='recurso', label='Recurso', width=20, query='recurso'),
-    Field(name='conta', label='Conta', width=30, query='conta'),
+    Field(name='data', label='Data', width=10, input='date'),
+    Field(name='recurso', label='Recurso', width=15, query='recurso'),
+    Field(name='conta', label='Conta', width=15, query='conta'),
     Field(name='previsao', label='Previsão', width=10, filter=False),
-    Field(name='documento', label='Documento', width=14),
-    Field(name='valor', label='Valor', width=12, input='number', align='right'),
-    Field(name='rubrica', label='Rubrica', width=30, query='rubrica'),
-    Field(name='historico', label='Histórico', width=40),
+    Field(name='documento', label='Documento', width=10),
+    Field(name='valor', label='Valor', width=10, input='number', align='right'),
+    Field(name='rubrica', label='Rubrica', width=15, query='rubrica'),
+    Field(name='historico', label='Histórico', width=30),
 ]
 
 

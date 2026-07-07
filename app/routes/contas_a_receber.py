@@ -17,18 +17,18 @@ from app.fields import Field, build_field_context
 
 CONTAS_A_RECEBER_FIELDS = [
     Field(name='transacao_id', label='Transação', width=8),
-    Field(name='pedido_id', label='Pedido', width=8),
+    Field(name='pedido_id', label='Pedido', width=6),
     Field(name='status', label='Status', width=10, filter_options=list(PREVISAO_STATUS.values())),
-    Field(name='conta', label='Conta', width=30, query='conta'),
+    Field(name='conta', label='Conta', width=15, query='conta'),
     Field(name='fatura', label='Fatura', width=10),
-    Field(name='valor', label='Valor', width=12, input='number', align='right'),
-    Field(name='documento', label='Documento', width=12),
-    Field(name='vencimento', label='Vencimento', width=12, input='date'),
+    Field(name='valor', label='Valor', width=10, input='number', align='right'),
+    Field(name='documento', label='Documento', width=10),
+    Field(name='vencimento', label='Vencimento', width=10, input='date'),
     Field(name='previsao_id', label='Previsão', width=8),
-    Field(name='previsto', label='Previsto', width=12, input='number', align='right'),
-    Field(name='realizado', label='Realizado', width=12, input='number', align='right'),
-    Field(name='variacao', label='Variação', width=12, input='number', align='right'),
-    Field(name='saldo', label='Saldo', width=12, input='number', align='right'),
+    Field(name='previsto', label='Previsto', width=10, input='number', align='right'),
+    Field(name='realizado', label='Realizado', width=10, input='number', align='right'),
+    Field(name='variacao', label='Variação', width=10, input='number', align='right'),
+    Field(name='saldo', label='Saldo', width=10, input='number', align='right'),
 ]
 
 TIPO = ("R", "V")

@@ -11,16 +11,16 @@ from app.fields import Field, build_field_context
 
 PREVISOES_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='data', label='Data', width=12, input='date'),
+    Field(name='data', label='Data', width=10, input='date'),
     Field(name='tipo', label='Tipo', width=8, filter_options=list(TIPO_PREVISAO.values())),
     Field(name='status', label='Status', width=10, filter_options=list(PREVISAO_STATUS.values())),
-    Field(name='conta', label='Conta', width=30, query='conta'),
-    Field(name='documento', label='Documento', width=14),
-    Field(name='vencimento', label='Vencimento', width=12, input='date'),
-    Field(name='previsto', label='Previsto', width=12, input='number', align='right'),
-    Field(name='variacao', label='Variação', width=12, input='number', align='right'),
-    Field(name='realizado', label='Realizado', width=12, input='number', align='right'),
-    Field(name='saldo', label='Saldo', width=12, input='number', align='right'),
+    Field(name='conta', label='Conta', width=15, query='conta'),
+    Field(name='documento', label='Documento', width=10),
+    Field(name='vencimento', label='Vencimento', width=10, input='date'),
+    Field(name='previsto', label='Previsto', width=10, input='number', align='right'),
+    Field(name='variacao', label='Variação', width=10, input='number', align='right'),
+    Field(name='realizado', label='Realizado', width=10, input='number', align='right'),
+    Field(name='saldo', label='Saldo', width=10, input='number', align='right'),
 ]
 
 bp = Blueprint("previsoes", __name__, url_prefix="/previsoes")
