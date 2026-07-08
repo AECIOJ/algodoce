@@ -8,11 +8,11 @@
 {% endfor %}
 {% if edit_url %}{% set ns.total = ns.total + 10 %}{% endif %}
 <div class="table-list-wrap">
-  <table class="table table-sm table-hover sortable" style="width:100%;">
+  <table class="table table-sm table-hover sortable" style="table-layout:fixed;width:100%;border-collapse:collapse;">
     <thead>
       <tr>
         {% for col in cols %}
-        <th{% if col.width %} style="min-width:{{ col.width }}ch;border-left:none;border-right:none;"{% else %} style="border-left:none;border-right:none;"{% endif %}
+        <th{% if col.width %} style="width:{{ col.width }}ch;border-left:none;border-right:none;"{% else %} style="border-left:none;border-right:none;"{% endif %}
           class="{{ 'text-end' if col.align == 'right' else 'text-center' if col.align == 'center' else '' }}"{% if col.filter %}
           data-filter-type="{{ col.filter }}" data-field="{{ col.field }}"{% if col.filter_options %} data-filter-options='{{ col.filter_options|tojson }}'{% endif %}
         {% elif col.filter_options %}
@@ -21,7 +21,7 @@
           data-filter-type="text" data-field="{{ col.field }}"
         {% endif %}>{{ col.label }}</th>
         {% endfor %}
-        {% if edit_url %}<th style="min-width:10ch;border-left:none;border-right:none;">Ações</th>{% endif %}
+        {% if edit_url %}<th style="width:10ch;border-left:none;border-right:none;">Ações</th>{% endif %}
       </tr>
     </thead>
     <tbody>
