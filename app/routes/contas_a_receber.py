@@ -16,9 +16,9 @@ from app.fields import Field, build_field_context
 
 
 CONTAS_A_RECEBER_FIELDS = [
-    Field(name='transacao_id', label='Transação', width=8),
+    Field(name='transacao_id', label='Transação', width=8, card_path='transacao.id'),
     Field(name='pedido_id', label='Pedido', width=6),
-    Field(name='status', label='Status', width=10, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
     Field(name='conta', label='Conta', width=15, query='conta'),
     Field(name='fatura', label='Fatura', width=10),
     Field(name='valor', label='Valor', width=10, input='number', align='right', aggregate='sum', currency='brl'),

@@ -1,6 +1,6 @@
 {% from "components/panel_list.html" import action_edit %}
 
-{% macro table_list(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.') %}
+{% macro table_list(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.', card_id_field=none, card_label_field=none, card_status_field=none) %}
 {% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
 
 <div class="table-list-wrap">
@@ -65,15 +65,38 @@
 
   <div class="d-lg-none">
     {% for item in data %}
-    {% set id_col = cols[0] if cols else none %}
-    {% set label_col = cols[1] if cols and cols[1].field != 'imagem' else (cols[2] if cols|length > 2 else none) %}
-    {% set status_col = cols|selectattr('field', 'equalto', 'ativo')|first or cols|selectattr('filter', 'equalto', 'boolean')|first %}
+    {% set _id_col = cols[0] if cols else none %}
+    {% set _id_path = (_id_col.card_path or _id_col.field) if _id_col else none %}
+    {% set _label_cols = cols[1:]|selectattr('card_pos', 'equalto', 1)|list %}
+    {% if _label_cols|length %}
+      {% set _label_col = _label_cols[0] %}
+      {% set _label_path = _label_col.card_path or _label_col.field %}
+    {% elif card_label_field %}
+      {% set _label_path = card_label_field %}
+    {% elif cols and cols|length > 1 %}
+      {% set _label_path = (cols[1].card_path or cols[1].field) if cols[1].field != 'imagem' else ((cols[2].card_path or cols[2].field) if cols|length > 2 else none) %}
+    {% else %}
+      {% set _label_path = none %}
+    {% endif %}
+    {% set _st_col = cols|selectattr('filter', 'equalto', 'boolean')|first or cols|selectattr('field', 'equalto', 'status')|first %}
+    {% set _st_path = card_status_field or (_st_col.card_path or _st_col.field if _st_col else none) %}
+    {% set _header_exclude = namespace(fields=[]) %}
+    {% if _id_col %}{% set _ = _header_exclude.fields.append(_id_col.field) %}{% endif %}
+    {% if _label_path and _label_path not in _header_exclude.fields %}{% set _ = _header_exclude.fields.append(_label_path) %}{% endif %}
+    {% if _label_col and _label_col.field and _label_col.field not in _header_exclude.fields %}{% set _ = _header_exclude.fields.append(_label_col.field) %}{% endif %}
+    {% if _st_path and _st_path not in _header_exclude.fields %}{% set _ = _header_exclude.fields.append(_st_path) %}{% endif %}
+    {% if _st_col and _st_col.field and _st_col.field not in _header_exclude.fields %}{% set _ = _header_exclude.fields.append(_st_col.field) %}{% endif %}
     <div class="border-bottom">
       <div class="d-flex align-items-center px-3 py-2" data-bs-toggle="collapse" data-bs-target="#card-{{ loop.index }}" role="button" style="cursor:pointer;">
-        <span class="text-muted small me-2 flex-shrink-0">{{ item|attr(id_col.field) if id_col and id_col.field else '#' }}</span>
-        <span class="fw-bold flex-grow-1 me-2">{{ item|attr(label_col.field) if label_col and label_col.field else '' }}</span>
-        {% if status_col %}
-        <span class="flex-shrink-0 me-2">{{ 'Ativo' if item|attr(status_col.field) else 'Inativo' }}</span>
+        <span class="text-muted small me-2 flex-shrink-0">{{ item|deep_attr(_id_path) if _id_path else '#' }}</span>
+        <span class="fw-bold flex-grow-1 me-2">{{ item|deep_attr(_label_path) if _label_path else '' }}</span>
+        {% if _st_path %}
+        {% set _st = item|deep_attr(_st_path) %}
+        {% if _st is boolean %}
+        <span class="flex-shrink-0 me-2">{{ 'Ativo' if _st else 'Inativo' }}</span>
+        {% else %}
+        <span class="flex-shrink-0 me-2">{{ _st }}</span>
+        {% endif %}
         {% endif %}
         {% if edit_url %}
         <a href="{{ edit_url(item) }}" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-edit-link flex-shrink-0 ms-2" onclick="event.stopPropagation()">
@@ -84,10 +107,11 @@
       </div>
       <div class="collapse px-3 pb-2" id="card-{{ loop.index }}">
         {% for col in cols %}
-        {% if col.field and col.field != id_col.field and col.field != label_col.field and (not status_col or col.field != status_col.field) %}
+        {% set _attr_path = col.card_path or col.field %}
+        {% if not loop.first and col.card_pos != 0 and col.field not in _header_exclude.fields and _attr_path not in _header_exclude.fields %}
         <div class="row small mb-1">
           <span class="text-muted col-4">{{ col.label }}</span>
-          <span class="col-8">{% if 'imagem' in col.field and item|attr(col.field) %}<img src="{{ url_for('uploads.uploaded_file', filename=item|attr(col.field)) }}" class="img-thumbnail" style="max-height:50px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif item|attr(col.field) is not none %}{{ item|attr(col.field) }}{% else %}—{% endif %}</span>
+           <span class="col-8">{% set _raw = item|deep_attr(_attr_path) %}{% if 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:50px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif _raw is not none %}<span class="d-inline-block{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}"{% if col.width %} style="max-width:{{ col.width }}ch"{% endif %}>{% if col.options %}{{ col.options.get(_raw, _raw) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdatetime }}{% else %}{{ _raw }}{% endif %}</span>{% else %}—{% endif %}</span>
         </div>
         {% endif %}
         {% endfor %}
@@ -105,7 +129,7 @@
         {% for col in cols %}{% if col.aggregate %}
         <div class="row small mb-1">
           <span class="text-muted col-4">{{ col.label }}</span>
-          <span class="col-8 card-total-val" data-col-idx="{{ loop.index0 }}"></span>
+           <span class="col-8 card-total-val{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}" data-col-idx="{{ loop.index0 }}"></span>
         </div>
         {% endif %}{% endfor %}
       </div>

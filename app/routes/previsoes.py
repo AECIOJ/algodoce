@@ -12,8 +12,8 @@ from app.fields import Field, build_field_context
 PREVISOES_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
     Field(name='data', label='Data', width=10, input='date'),
-    Field(name='tipo', label='Tipo', width=8, filter_options=list(TIPO_PREVISAO.values())),
-    Field(name='status', label='Status', width=10, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='tipo', label='Tipo', width=8, options=TIPO_PREVISAO, filter_options=list(TIPO_PREVISAO.values())),
+    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
     Field(name='conta', label='Conta', width=15, query='conta'),
     Field(name='documento', label='Documento', width=10),
     Field(name='vencimento', label='Vencimento', width=10, input='date'),

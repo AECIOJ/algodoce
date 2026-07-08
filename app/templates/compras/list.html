@@ -7,7 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Compras", new_url=url_for('compras.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(linhas, fields=fields, ctx=ctx, edit_url=edit_url) %}
+    {% call(item) table_list(linhas, fields=fields, ctx=ctx, edit_url=edit_url, card_label_field='transacao.conta.nome') %}
       {% set c = item.compra %}
       {% set t = item.transacao %}
       <td>

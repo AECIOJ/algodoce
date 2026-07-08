@@ -23,7 +23,7 @@ PRODUCAO_FIELDS = [
     Field(name='previsao_de', label='Previsão De', width=14, input='date'),
     Field(name='previsao_ate', label='Previsão Até', width=14, input='date'),
     Field(name='data_fim', label='Finalização', width=12, input='date'),
-    Field(name='status', label='Status', width=14, filter_options=list(PRODUCAO_STATUS.values())),
+    Field(name='status', label='Status', width=14, options=PRODUCAO_STATUS, filter_options=list(PRODUCAO_STATUS.values())),
 ]
 
 bp = Blueprint("producao", __name__, url_prefix="/producao")

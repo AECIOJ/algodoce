@@ -19,6 +19,8 @@ class Field:
     aggregate_label: Optional[str] = None
     currency: Optional[str] = None
     hide_zero: bool = True
+    card_pos: int = 2
+    card_path: Optional[str] = None
 
 
 def field_filter_type(f: Field) -> Optional[str]:
@@ -67,6 +69,12 @@ def field_to_column(f: Field) -> dict:
         col['currency'] = f.currency
     if f.hide_zero:
         col['hide_zero'] = True
+    if f.card_pos != 2:
+        col['card_pos'] = f.card_pos
+    if f.card_path:
+        col['card_path'] = f.card_path
+    if f.options:
+        col['options'] = f.options
     if f.aggregate:
         col['aggregate'] = f.aggregate
         if f.aggregate_label:

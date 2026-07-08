@@ -37,6 +37,22 @@ def fmt_brl(value):
     return f'{value:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
+def deep_attr(obj, path):
+    if obj is None:
+        return None
+    for part in path.split('.'):
+        if obj is None:
+            return None
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            try:
+                obj = obj[part]
+            except (TypeError, KeyError, IndexError):
+                return None
+    return obj
+
+
 def preco_unit(valor, qtd):
     if not valor:
         return 0
@@ -61,6 +77,15 @@ def fmt_zero_int(value):
     if not value:
         return ''
     return "%.0f" % value
+
+
+def fmt_datetime(value):
+    if not value:
+        return ''
+    try:
+        return value.strftime('%d/%m/%Y %H:%M')
+    except AttributeError:
+        return str(value)
 
 
 class LinhaTransacao:

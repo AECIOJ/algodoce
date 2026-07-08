@@ -18,8 +18,8 @@ from app.fields import Field, build_field_context
 
 
 COMPRAS_FIELDS = [
-    Field(name='compra_id', label='Compra', width=8),
-    Field(name='status', label='Status', width=10, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='compra_id', label='Compra', width=8, card_path='compra.id'),
+    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
     Field(name='carteira', label='FP', width=12, query='carteira'),
     Field(name='faturado', label='Faturado', width=10, filter=False),
     Field(name='fornecedor', label='Fornecedor', width=30, query='conta'),

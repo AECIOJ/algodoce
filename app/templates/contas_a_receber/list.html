@@ -7,7 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Contas a Receber", new_url=url_for('contas_a_receber.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(previsoes, fields=fields, ctx=ctx, edit_url=edit_url) %}
+    {% call(item) table_list(previsoes, fields=fields, ctx=ctx, edit_url=edit_url, card_label_field='transacao.conta.nome') %}
       {% set t = item.transacao %}
       <td>{{ t.id|fmtid }} {% if t.status == 0 %}<span class="badge bg-dark">Editando</span>{% endif %}</td>
       <td>{% if t.pedido %}<a href="{{ url_for('orders.edit', id=t.id) }}" class="btn btn-sm btn-outline-success">{{ t.pedido.id|fmtid }}</a>{% else %}-{% endif %}</td>

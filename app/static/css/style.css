@@ -599,6 +599,10 @@ html.edit-form #page-content {
   }
 }
 
+html.edit-form .page-footer-wrapper {
+  display: none;
+}
+
 /* === Edit save bar (bottom) === */
 .edit-save {
   position: sticky;

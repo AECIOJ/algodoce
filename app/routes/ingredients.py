@@ -12,7 +12,7 @@ from app.fields import Field, build_field_context
 INGREDIENTS_FIELDS = [
     Field(name='id', label='#', width=3, mask='999'),
     Field(name='nome', label='Nome', width=18),
-    Field(name='tipo', label='Tipo', width=12, filter_options=list(TIPO_INGREDIENTE.values())),
+    Field(name='tipo', label='Tipo', width=12, options=TIPO_INGREDIENTE, filter_options=list(TIPO_INGREDIENTE.values())),
     Field(name='unidade_medida', label='Und', width=8),
 ]
 
