@@ -12,7 +12,7 @@
       <td>{{ item.id|fmtid }}</td>
       <td>
         {% if item.imagem %}
-          <img src="{{ url_for('uploads.uploaded_file', filename=item.imagem) }}" class="img-thumbnail" style="max-height: 50px;">
+          <img src="{{ url_for('uploads.uploaded_file', filename=item.imagem) }}" class="img-thumbnail" style="max-height:50px;cursor:pointer;" onclick="previewImagem(this.src)">
         {% else %}
           <span class="text-muted">—</span>
         {% endif %}

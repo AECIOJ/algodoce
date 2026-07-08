@@ -34,7 +34,7 @@ ORDERS_FIELDS = [
     Field(name='total', label='Total', width=10, input='number', align='right'),
     Field(name='status', label='Status', width=12, filter_options=list(ORDER_STATUS.values())),
     Field(name='transacao', label='Faturado', width=10, filter=False),
-    Field(name='quote_id', label='Orçamento', width=10, filter=False),
+    Field(name='quote_id', label='Orçamento', width=9, filter=False),
 ]
 
 QUOTES_FIELDS = [

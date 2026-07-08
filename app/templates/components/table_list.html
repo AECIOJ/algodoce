@@ -8,11 +8,11 @@
 {% endfor %}
 {% if edit_url %}{% set ns.total = ns.total + 10 %}{% endif %}
 <div class="table-list-wrap">
-  <table class="table table-sm table-hover sortable" style="table-layout:fixed;width:{{ ns.total }}ch;margin:0 auto;max-width:100%;">
+  <table class="table table-sm table-hover sortable" style="width:100%;">
     <thead>
       <tr>
         {% for col in cols %}
-        <th{% if col.width %} style="width:{{ col.width }}ch"{% endif %}
+        <th{% if col.width %} style="min-width:{{ col.width }}ch;border-left:none;border-right:none;"{% else %} style="border-left:none;border-right:none;"{% endif %}
           class="{{ 'text-end' if col.align == 'right' else 'text-center' if col.align == 'center' else '' }}"{% if col.filter %}
           data-filter-type="{{ col.filter }}" data-field="{{ col.field }}"{% if col.filter_options %} data-filter-options='{{ col.filter_options|tojson }}'{% endif %}
         {% elif col.filter_options %}
@@ -21,7 +21,7 @@
           data-filter-type="text" data-field="{{ col.field }}"
         {% endif %}>{{ col.label }}</th>
         {% endfor %}
-        {% if edit_url %}<th style="width:10ch;">Ações</th>{% endif %}
+        {% if edit_url %}<th style="min-width:10ch;border-left:none;border-right:none;">Ações</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -62,7 +62,7 @@
         {% if col.field and col.field != id_col.field and col.field != label_col.field and (not status_col or col.field != status_col.field) %}
         <div class="row small mb-1">
           <span class="text-muted col-4">{{ col.label }}</span>
-          <span class="col-8">{{ item|attr(col.field) if item|attr(col.field) is not none else '—' }}</span>
+          <span class="col-8">{% if 'imagem' in col.field and item|attr(col.field) %}<img src="{{ url_for('uploads.uploaded_file', filename=item|attr(col.field)) }}" class="img-thumbnail" style="max-height:50px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif item|attr(col.field) is not none %}{{ item|attr(col.field) }}{% else %}—{% endif %}</span>
         </div>
         {% endif %}
         {% endfor %}
@@ -95,7 +95,7 @@
           cards.style.display = 'none';
         }
       }
-      ajustar();
+      setTimeout(ajustar, 100);
       window.addEventListener('resize', ajustar);
     })(tables[i]);
   }

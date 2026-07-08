@@ -122,6 +122,16 @@
   </div>
   <div class="subnav-panel-body" id="subNavBody"></div>
 </div>
+
+<div class="modal fade" id="imgPreviewModal" tabindex="-1" data-bs-backdrop="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-body text-center p-2" onclick="bootstrap.Modal.getInstance(document.getElementById('imgPreviewModal')).hide()">
+        <img id="imgPreviewSrc" src="" class="img-fluid" style="max-height:80vh;cursor:pointer;">
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -376,5 +386,11 @@ document.querySelectorAll('#adminBottomNav .bottom-nav-item').forEach(function(i
   }
 });
 setMobileTitle();
+</script>
+<script>
+function previewImagem(src) {
+  document.getElementById('imgPreviewSrc').src = src;
+  new bootstrap.Modal(document.getElementById('imgPreviewModal')).show();
+}
 </script>
 {% endblock %}

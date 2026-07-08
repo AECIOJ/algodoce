@@ -1,20 +1,22 @@
-{% extends "components/page_system.html" %}
-{% from "components/form_nav.html" import form_nav %}
-{% from "components/barra_edicao.html" import barra_edicao %}
-{% block content %}
+{% extends "components/page_form.html" %}
+
+{% set back_url = url_for('orders.orcamentos') %}
+{% set new_title = 'Orçamento' %}
+{% set entity_label = 'Orçamento' %}
+{% set edit_endpoint = 'orders.quote_edit' %}
+{% if quote %}{% set entity_id = quote.id %}{% endif %}
 
 {% set qs_colors = {0:'bg-secondary',1:'bg-info',6:'bg-warning',7:'bg-dark',8:'bg-danger',9:'bg-success'} %}
+
+{% block nav_right %}
 {% if quote %}
-{% set status_html %}
-<div class="d-flex align-items-center gap-1" style="display:inline-flex">
+<div class="d-flex align-items-center gap-1">
   <span class="badge {{ qs_colors[quote.status] }} fs-6">{{ QUOTE_STATUS[quote.status] }}</span>
-  {% if quote.status == 7 %}<form method="POST" action="{{ url_for('orders.quote_renovar', id=quote.id) }}" class="d-inline"><button type="submit" class="btn btn-sm btn-info text-white">Renovar</button></form>{% endif %}
-</div>
-{% endset %}
-{% set quote_id_raw = quote.id|fmtid %}
-{% set quote_secondary %}
+  {% if quote.status == 7 %}
+  <form method="POST" action="{{ url_for('orders.quote_renovar', id=quote.id) }}" class="d-inline"><button type="submit" class="btn btn-sm btn-info text-white">Renovar</button></form>
+  {% endif %}
   {% if quote.pedido_id %}
-    <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id|fmtid }}</a>
+  <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id|fmtid }}</a>
   {% else %}
     {% if perfect_match %}
     <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}" class="d-inline">
@@ -26,18 +28,13 @@
     <a href="#" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#converterModal">Converter</a>
     {% endif %}
   {% endif %}
-{% endset %}
-{% call form_nav(back_url=url_for('orders.orcamentos'), nome='Orçamento ' ~ quote_id_raw, nav=nav, edit_endpoint='orders.quote_edit', entity_id=quote.id, status=status_html, actions2=quote_secondary) %}
-  {{ quote_secondary }}
-{% endcall %}
-{% else %}
-<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <span class="fs-5 fw-bold">Orçamento</span>
 </div>
 {% endif %}
+{% endblock %}
 
-<form method="POST" id="main-form" action="{% if quote %}{{ url_for('orders.quote_edit', id=quote.id) }}{% else %}{{ url_for('orders.quote_new') }}{% endif %}" {% if quote %}data-editing{% endif %}>
-  <div class="row mb-3">
+{% block form_body %}
+{% if quote and quote.pedido_id %}<input type="hidden" id="has-pedido" value="1">{% endif %}
+<div class="row mb-3">
     <div class="col-md-3 mb-2 mb-md-0">
       <label class="form-label">Nome *</label>
       <div class="d-flex gap-2">
@@ -281,19 +278,6 @@
 
   <input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
   <input type="hidden" name="status" value="{{ quote.status if quote else 0 }}" id="status-field" data-original="{{ quote.status if quote else 0 }}">
-  <div class="form-bottom-spacer"></div>
-{% call barra_edicao(back_url=url_for('orders.orcamentos'), disable_save=quote is not none) %}
-  {% if quote %}
-  <div class="d-flex align-items-center gap-2">
-    <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" {{ 'disabled' if ro }} data-bs-toggle="modal" data-bs-target="#excluirModal"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-    <div class="form-check mb-0">
-      <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if quote.status == 8 }} onchange="toggleReprovado(this)">
-      <label class="form-check-label small" for="reprovado-check">Reprovado</label>
-    </div>
-  </div>
-  {% endif %}
-{% endcall %}
-</form>
 
 {% if quote and not quote.pedido_id and quote.status < 7 %}
 <div class="modal fade" id="converterModal" tabindex="-1">
@@ -310,9 +294,7 @@
             <strong>Cliente do orçamento:</strong> {{ quote.cliente_nome }} — {{ quote.cliente_telefone }}
           </div>
           {% if phone_conflict %}
-          <div class="alert alert-warning py-2 mb-3">
-            ⚠ O telefone {{ quote.cliente_telefone }} já está cadastrado para <strong>{{ phone_conflict.nome }}</strong>. Verifique se não há erro de digitação.
-          </div>
+          <div class="alert alert-warning py-2 mb-3">⚠ O telefone {{ quote.cliente_telefone }} já está cadastrado para <strong>{{ phone_conflict.nome }}</strong>. Verifique se não há erro de digitação.</div>
           {% endif %}
           <div class="d-flex gap-3 mb-3 p-3 rounded" style="background:#f8f9fa;">
             <div class="form-check">
@@ -346,16 +328,9 @@
     </div>
   </div>
 </div>
-<script>
-function toggleConvTipo() {
-  var existente = document.getElementById('convExistente').checked;
-  document.getElementById('convExistenteFields').style.display = existente ? '' : 'none';
-  document.getElementById('convNovaFields').style.display = existente ? 'none' : '';
-}
-</script>
 {% endif %}
 
-{% if quote and not ro %}
+{% if quote %}
 <div class="modal fade" id="excluirModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -390,22 +365,27 @@ function toggleConvTipo() {
   </div>
 </div>
 {% endif %}
-
 {% endblock %}
 
-{% block scripts %}
+{% block form_footer_left %}
+{% if quote %}
+<div class="d-flex align-items-center gap-2">
+  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" style="min-height:0;font-size:0.75rem;" {{ 'disabled' if ro }} data-bs-toggle="modal" data-bs-target="#excluirModal"><i class="bi bi-trash"></i>Excluir</button>
+  <div class="form-check mb-0">
+    <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if quote.status == 8 }} onchange="toggleReprovado(this)">
+    <label class="form-check-label small" for="reprovado-check">Reprovado</label>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_scripts %}
 <script src="{{ url_for('static', filename='js/itens.js') }}"></script>
 <script src="{{ url_for('static', filename='js/phone-mask.js') }}"></script>
 {% if not ro %}
 <script>
 var pendingDeleteEl = null;
-
-function confirmDelete(el) {
-  pendingDeleteEl = el;
-  var modal = new bootstrap.Modal(document.getElementById('deleteItemModal'));
-  modal.show();
-}
-
+function confirmDelete(el) { pendingDeleteEl = el; new bootstrap.Modal(document.getElementById('deleteItemModal')).show(); }
 document.getElementById('confirm-delete-item').addEventListener('click', function() {
   if (pendingDeleteEl) {
     markModified();
@@ -413,49 +393,26 @@ document.getElementById('confirm-delete-item').addEventListener('click', functio
     if (el) el.remove();
     pendingDeleteEl = null;
   }
-  var modalEl = document.getElementById('deleteItemModal');
-  var modal = bootstrap.Modal.getInstance(modalEl);
+  var modal = bootstrap.Modal.getInstance(document.getElementById('deleteItemModal'));
   if (modal) modal.hide();
 });
-
 function atualizarESalvar() {
   atualizarPrecos();
   document.getElementById('atualizar-precos-field').value = '1';
   disableHiddenInputs();
   document.getElementById('main-form').submit();
 }
-
 function disableHiddenInputs() {
-  if (window.innerWidth < 768) {
-    document.querySelectorAll('#itens-table input, #itens-table select').forEach(function(el) { el.disabled = true; });
-  } else {
-    document.querySelectorAll('#itens-mobile-list input, #itens-mobile-list select').forEach(function(el) { el.disabled = true; });
-  }
+  if (window.innerWidth < 768) { document.querySelectorAll('#itens-table input, #itens-table select').forEach(function(el) { el.disabled = true; }); }
+  else { document.querySelectorAll('#itens-mobile-list input, #itens-mobile-list select').forEach(function(el) { el.disabled = true; }); }
 }
-
 function addItem() {
   markModified();
   const tbody = document.getElementById('itens-body');
-  const tr = document.createElement('tr');
-  tr.className = 'item-row';
-  tr.innerHTML = `
-    <td>
-      <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)">
-        <option value="">Selecione</option>
-        {% for p in products %}
-          <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
-        {% endfor %}
-      </select>
-    </td>
-    <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)"></td>
-    <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
-    <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
-    <td><input type="text" name="observacao_item" class="form-control form-control-sm" ></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
-  `;
+  const tr = document.createElement('tr'); tr.className = 'item-row';
+  tr.innerHTML = `<td><select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)"><option value="">Selecione</option>{% for p in products %}<option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>{% endfor %}</select></td><td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)"></td><td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td><td class="text-end"><span class="valor-item">R$ 0,00</span></td><td><input type="text" name="observacao_item" class="form-control form-control-sm"></td><td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>`;
   tbody.appendChild(tr);
 }
-
 function addItemMobile() {
   markModified();
   const list = document.getElementById('itens-mobile-list');
@@ -469,15 +426,18 @@ function addItemMobile() {
     list.insertBefore(div, list.querySelector('.d-flex.justify-content-between')?.closest('.px-3') || null);
   }
 }
-
 function toggleReprovado(el) {
   const field = document.getElementById('status-field');
   if (!el._saved) el._saved = field.dataset.original;
   field.value = el.checked ? '8' : (el._saved != '8' ? el._saved : '1');
   if (!el.checked) el._saved = null;
 }
-
 document.getElementById('main-form').addEventListener('submit', disableHiddenInputs);
+</script>
+{% endif %}
+{% if quote and not quote.pedido_id and quote.status < 7 %}
+<script>
+function toggleConvTipo() { var e=document.getElementById('convExistente').checked; document.getElementById('convExistenteFields').style.display=e?'':'none'; document.getElementById('convNovaFields').style.display=e?'none':''; }
 </script>
 {% endif %}
 {% endblock %}

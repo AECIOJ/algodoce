@@ -63,9 +63,16 @@
   }
 }
 .table-list-wrap {
-  overflow-x: auto;
   overflow-y: auto;
   max-height: calc(100vh - 300px);
+}
+.table-list-wrap td,
+.table-list-wrap th {
+  border: 0 !important;
+  outline: 0 !important;
+}
+.table-list-wrap table {
+  border-collapse: collapse !important;
 }
 .table-list-wrap thead th {
   position: sticky;

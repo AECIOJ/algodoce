@@ -46,7 +46,7 @@ def field_to_column(f: Field) -> dict:
     label_len = len(col['label'])
     if w < label_len:
         w = label_len
-    col['width'] = w
+    col['width'] = w + 2
     if f.align != 'left':
         col['align'] = f.align
     ft = field_filter_type(f)
