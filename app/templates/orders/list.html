@@ -15,7 +15,7 @@
       <td>{{ item.data_entrega.strftime('%d/%m/%Y %H:%M') if item.data_entrega else '-' }}</td>
       <td>{{ FORMINHAS[item.forminhas] }}</td>
       <td>{{ item.carteira.nome or '-' }}</td>
-      <td class="text-end">R$ {{ (item.total or 0) | brl }}</td>
+      <td class="text-end">{{ (item.total or 0) | brl }}</td>
       <td>
         <span class="badge {{ 'border border-warning text-dark bg-transparent' if item.status == 0 else 'bg-info' if item.status == 1 else 'bg-success' if item.status == 2 else 'bg-secondary' if item.status == 8 else 'bg-dark' }}" style="min-width:95px">
           {{ ORDER_STATUS.get(item.status, item.status) }}

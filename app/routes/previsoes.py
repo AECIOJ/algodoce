@@ -17,10 +17,10 @@ PREVISOES_FIELDS = [
     Field(name='conta', label='Conta', width=15, query='conta'),
     Field(name='documento', label='Documento', width=10),
     Field(name='vencimento', label='Vencimento', width=10, input='date'),
-    Field(name='previsto', label='Previsto', width=10, input='number', align='right'),
-    Field(name='variacao', label='Variação', width=10, input='number', align='right'),
-    Field(name='realizado', label='Realizado', width=10, input='number', align='right'),
-    Field(name='saldo', label='Saldo', width=10, input='number', align='right'),
+    Field(name='previsto', label='Previsto', width=10, input='number', align='right', aggregate='sum', currency='brl'),
+    Field(name='variacao', label='Variação', width=10, input='number', align='right', aggregate='sum', currency='brl'),
+    Field(name='realizado', label='Realizado', width=10, input='number', align='right', aggregate='sum', currency='brl'),
+    Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
 ]
 
 bp = Blueprint("previsoes", __name__, url_prefix="/previsoes")

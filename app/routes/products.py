@@ -18,11 +18,11 @@ from app.fields import Field, build_field_context
 
 PRODUCTS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='imagem', label='Imagem', filter=False),
-    Field(name='nome', label='Nome', width=30),
+    Field(name='imagem', label='Imagem', width=15, filter=False),
+    Field(name='nome', label='Nome', width=20),
     Field(name='categoria', label='Categoria', width=15, query='category'),
-    Field(name='qtd_minima', label='Qtd. Mín.', width=8, input='number'),
-    Field(name='preco', label='Preço', width=10, input='number', align='right'),
+    Field(name='qtd_minima', label='Qtd. Mín.', width=8, input='number', aggregate='sum'),
+    Field(name='preco', label='Preço', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='ativo', label='Status', input='boolean'),
 ]
 

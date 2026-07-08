@@ -20,7 +20,7 @@
         {% set ref = item.data_renovacao or item.data_pedido %}
         {{ (ref.replace(tzinfo=None) + timedelta(days=item.validade or 3)).strftime('%d/%m/%Y') }}
       </td>
-      <td class="text-end">R$ {{ (item.total or 0) | brl }}</td>
+      <td class="text-end">{{ (item.total or 0) | brl }}</td>
       <td>{{ item.carteira.nome or '-' }}</td>
       <td>
         <span class="badge {{ 'border border-secondary text-dark' if item.status == 0 else 'bg-primary' if item.status == 1 else 'bg-info' if item.status == 6 else 'bg-expired' if item.status == 7 else 'bg-danger' if item.status == 8 else 'bg-success' }}" style="min-width:95px">

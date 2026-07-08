@@ -338,6 +338,7 @@ window.pageListFilter = true;
       row.style.display=show?'':'none';
     });
     updateFilterBadge();
+    if (window.__tableTotalsRefresh) window.__tableTotalsRefresh();
   }
 
   function clearFiltersFrom(bodyEl) {

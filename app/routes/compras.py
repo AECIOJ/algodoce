@@ -24,14 +24,14 @@ COMPRAS_FIELDS = [
     Field(name='faturado', label='Faturado', width=10, filter=False),
     Field(name='fornecedor', label='Fornecedor', width=30, query='conta'),
     Field(name='fatura', label='Fatura', width=10),
-    Field(name='valor', label='Valor', width=12, input='number', align='right'),
+    Field(name='valor', label='Valor', width=12, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='documento', label='Documento', width=12),
     Field(name='vencimento', label='Vencimento', width=12, input='date'),
     Field(name='previsao_id', label='Previsão', width=8),
-    Field(name='previsto', label='Previsto', width=12, input='number', align='right'),
-    Field(name='realizado', label='Realizado', width=12, input='number', align='right'),
-    Field(name='variacao', label='Variação', width=12, input='number', align='right'),
-    Field(name='saldo', label='Saldo', width=12, input='number', align='right'),
+    Field(name='previsto', label='Previsto', width=12, input='number', align='right', aggregate='sum', currency='brl'),
+    Field(name='realizado', label='Realizado', width=12, input='number', align='right', aggregate='sum', currency='brl'),
+    Field(name='variacao', label='Variação', width=12, input='number', align='right', aggregate='sum', currency='brl'),
+    Field(name='saldo', label='Saldo', width=12, input='number', align='right', aggregate='sum', currency='brl'),
 ]
 
 TIPO = "C"

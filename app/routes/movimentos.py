@@ -25,7 +25,7 @@ MOVIMENTOS_FIELDS = [
     Field(name='conta', label='Conta', width=15, query='conta'),
     Field(name='previsao', label='Previsão', width=10, filter=False),
     Field(name='documento', label='Documento', width=10),
-    Field(name='valor', label='Valor', width=10, input='number', align='right'),
+    Field(name='valor', label='Valor', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='rubrica', label='Rubrica', width=15, query='rubrica'),
     Field(name='historico', label='Histórico', width=30),
 ]

@@ -2,11 +2,7 @@
 
 {% macro table_list(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.') %}
 {% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
-{% set ns = namespace(total=0) %}
-{% for col in cols %}
-{% set ns.total = ns.total + (col.width|default(10)|int) %}
-{% endfor %}
-{% if edit_url %}{% set ns.total = ns.total + 10 %}{% endif %}
+
 <div class="table-list-wrap">
   <table class="table table-sm table-hover sortable" style="table-layout:fixed;width:100%;border-collapse:collapse;">
     <thead>
@@ -19,7 +15,7 @@
           data-filter-type="select" data-field="{{ col.field }}" data-filter-options='{{ col.filter_options|tojson }}'
         {% elif col.filter is not defined and col.field and col.field != 'id' %}
           data-filter-type="text" data-field="{{ col.field }}"
-        {% endif %}>{{ col.label }}</th>
+        {% endif %}{% if col.hide_zero %} data-hide-zero{% endif %}>{{ col.label }}</th>
         {% endfor %}
         {% if edit_url %}<th style="width:10ch;border-left:none;border-right:none;">Ações</th>{% endif %}
       </tr>
@@ -36,6 +32,35 @@
       <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
       {% endfor %}
     </tbody>
+    {% set _has_agg = cols|selectattr('aggregate')|list %}
+    {% if _has_agg %}
+    {% set _ft_label = namespace(label='Total') %}
+    {% for col in cols %}
+      {% if col.aggregate_label and _ft_label.label == 'Total' %}
+        {% set _ft_label.label = col.aggregate_label %}
+      {% endif %}
+    {% endfor %}
+    <tfoot class="table-totals d-none">
+      <tr>
+        {% for col in cols %}
+        <td style="border-left:none;border-right:none;"
+            class="fw-bold{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}"
+            {%- if loop.first %} data-footer-label="true"{% endif %}
+            {%- if col.aggregate %} data-aggregate="{{ col.aggregate }}"{% endif %}
+            {%- if col.mask %} data-mask="{{ col.mask }}"{% endif %}
+            {%- if col.currency %} data-currency="{{ col.currency }}"{% endif %}>
+          {%- if loop.first -%}
+            {{- _ft_label.label -}}
+          {%- elif col.aggregate -%}
+          {%- else -%}
+            &nbsp;
+          {%- endif -%}
+        </td>
+        {% endfor %}
+        {% if edit_url %}<td style="border-left:none;border-right:none;">&nbsp;</td>{% endif %}
+      </tr>
+    </tfoot>
+    {% endif %}
   </table>
 
   <div class="d-lg-none">
@@ -71,6 +96,21 @@
     {% else %}
     <p class="text-muted text-center my-3">{{ empty_msg }}</p>
     {% endfor %}
+    {% if _has_agg %}
+    <div class="border-bottom">
+      <div class="d-flex align-items-center px-3 py-2 card-totals-toggle" role="button" style="cursor:pointer;">
+        <span class="fw-bold flex-grow-1">Totais</span>
+      </div>
+      <div class="px-3 pb-2 card-totals-content" style="display:none;">
+        {% for col in cols %}{% if col.aggregate %}
+        <div class="row small mb-1">
+          <span class="text-muted col-4">{{ col.label }}</span>
+          <span class="col-8 card-total-val" data-col-idx="{{ loop.index0 }}"></span>
+        </div>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 <script>
@@ -98,6 +138,163 @@
       setTimeout(ajustar, 100);
       window.addEventListener('resize', ajustar);
     })(tables[i]);
+  }
+})();
+
+(function(){
+  function _parseNum(s) {
+    if (!s || typeof s !== 'string') return NaN;
+    s = s.replace(/^R\$\s*/,'').trim();
+    var c = s.replace(/[^0-9.,\-]/g,'');
+    var lastComma = c.lastIndexOf(',');
+    var lastDot = c.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      c = c.replace(/\./g,'').replace(',','.');
+    }
+    return parseFloat(c);
+  }
+
+  function _fmtNum(v, isBRL, hasR$) {
+    if (isBRL) {
+      var s = v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+      if (hasR$) return 'R$ ' + s;
+      return s;
+    }
+    return v % 1 === 0 ? v.toString() : v.toFixed(2);
+  }
+
+  var wraps = document.querySelectorAll('.table-list-wrap');
+  for (var wi = 0; wi < wraps.length; wi++) {
+    (function(wrap){
+      var table = wrap.querySelector('table');
+      if (!table) return;
+      var tfoot = table.querySelector('tfoot.table-totals');
+      if (!tfoot) return;
+
+      function _restoreHiddenZeros(tbl) {
+        var tds = tbl.querySelectorAll('tbody td[data-hidden-zero]');
+        for (var i = 0; i < tds.length; i++) {
+          tds[i].textContent = tds[i].dataset.hiddenZero;
+          delete tds[i].dataset.hiddenZero;
+        }
+      }
+
+      function _hideZeroValues(tbl) {
+        var ths = tbl.querySelectorAll('thead th[data-hide-zero]');
+        for (var i = 0; i < ths.length; i++) {
+          var ci = Array.prototype.indexOf.call(ths[i].parentNode.children, ths[i]);
+          var rows = tbl.querySelectorAll('tbody tr');
+          for (var ri = 0; ri < rows.length; ri++) {
+            if (rows[ri].style.display === 'none') continue;
+            var td = rows[ri].cells[ci];
+            if (!td) continue;
+            var txt = td.textContent.trim();
+            if (txt === '') continue;
+            var num = _parseNum(txt);
+            if (!isNaN(num) && num === 0) {
+              td.dataset.hiddenZero = txt;
+              td.textContent = '';
+            }
+          }
+        }
+      }
+
+      function _syncCardTotals(tbl) {
+        var wrap2 = tbl.closest('.table-list-wrap');
+        if (!wrap2) return;
+        var vals = wrap2.querySelectorAll('.card-total-val');
+        if (!vals.length) return;
+        var foot = tbl.querySelector('tfoot.table-totals');
+        if (!foot) return;
+        var cells = foot.querySelectorAll('td');
+        for (var i = 0; i < vals.length; i++) {
+          var ci = parseInt(vals[i].dataset.colIdx);
+          if (cells[ci]) vals[i].textContent = cells[ci].textContent;
+        }
+      }
+
+      function updateTotals() {
+        _restoreHiddenZeros(table);
+        var aggCells = tfoot.querySelectorAll('td[data-aggregate]');
+        if (!aggCells.length) { tfoot.classList.add('d-none'); return; }
+        var bodyRows = table.querySelectorAll('tbody tr');
+        var visibleRows = [];
+        for (var ri = 0; ri < bodyRows.length; ri++) {
+          if (bodyRows[ri].style.display !== 'none') visibleRows.push(bodyRows[ri]);
+        }
+        if (visibleRows.length === 0) {
+          tfoot.classList.add('d-none');
+          return;
+        }
+        tfoot.classList.remove('d-none');
+
+        for (var ai = 0; ai < aggCells.length; ai++) {
+          var cell = aggCells[ai];
+          var aggType = cell.dataset.aggregate;
+          var ci = Array.prototype.indexOf.call(cell.parentNode.children, cell);
+
+          var isBRL = cell.dataset.currency === 'brl';
+          var hasR$ = cell.dataset.mask && cell.dataset.mask.indexOf('R$') !== -1;
+          var values = [];
+          for (var ri2 = 0; ri2 < visibleRows.length; ri2++) {
+            var td = visibleRows[ri2].cells[ci];
+            if (!td) continue;
+            var txt = td.textContent.trim();
+            if (txt === '' || txt === '-') continue;
+            var num = _parseNum(txt);
+            if (!isNaN(num)) {
+              if (!isBRL) {
+                var ct = txt.replace(/^R\$\s*/, '');
+                isBRL = ct.lastIndexOf(',') > ct.lastIndexOf('.');
+              }
+              values.push(num);
+            }
+          }
+
+          var result;
+          if (aggType === 'count') {
+            result = visibleRows.length;
+            cell.textContent = result;
+          } else if (values.length === 0) {
+            cell.textContent = '';
+          } else if (aggType === 'sum') {
+            result = values.reduce(function(a,b){return a+b;}, 0);
+            cell.textContent = _fmtNum(result, isBRL, hasR$);
+          } else if (aggType === 'avg') {
+            result = values.reduce(function(a,b){return a+b;}, 0) / values.length;
+            cell.textContent = _fmtNum(result, isBRL, hasR$);
+          } else if (aggType === 'min') {
+            result = Math.min.apply(null, values);
+            cell.textContent = _fmtNum(result, isBRL, hasR$);
+          } else if (aggType === 'max') {
+            result = Math.max.apply(null, values);
+            cell.textContent = _fmtNum(result, isBRL, hasR$);
+          }
+        }
+        _hideZeroValues(table);
+        _syncCardTotals(table);
+      }
+
+      var cardToggle = wrap.querySelector('.card-totals-toggle');
+      var cardContent = wrap.querySelector('.card-totals-content');
+      if (cardToggle && cardContent) {
+        cardToggle.addEventListener('click', function() {
+          cardContent.style.display = cardContent.style.display === 'none' ? '' : 'none';
+        });
+      }
+
+      updateTotals();
+      wrap._updateTotals = function() { updateTotals(); };
+    })(wraps[wi]);
+  }
+
+  if (typeof window.__tableTotalsRefresh === 'undefined') {
+    window.__tableTotalsRefresh = function() {
+      var wraps2 = document.querySelectorAll('.table-list-wrap');
+      for (var i = 0; i < wraps2.length; i++) {
+        if (wraps2[i]._updateTotals) wraps2[i]._updateTotals();
+      }
+    };
   }
 })();
 </script>

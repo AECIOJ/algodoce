@@ -15,6 +15,10 @@ class Field:
     mask: Optional[str] = None
     query: Optional[str] = None
     validate: Optional[list] = None
+    aggregate: Optional[str] = None
+    aggregate_label: Optional[str] = None
+    currency: Optional[str] = None
+    hide_zero: bool = True
 
 
 def field_filter_type(f: Field) -> Optional[str]:
@@ -57,6 +61,16 @@ def field_to_column(f: Field) -> dict:
     fo = field_filter_options(f)
     if fo:
         col['filter_options'] = fo
+    if f.mask:
+        col['mask'] = f.mask
+    if f.currency:
+        col['currency'] = f.currency
+    if f.hide_zero:
+        col['hide_zero'] = True
+    if f.aggregate:
+        col['aggregate'] = f.aggregate
+        if f.aggregate_label:
+            col['aggregate_label'] = f.aggregate_label
     return col
 
 
