@@ -135,6 +135,35 @@ class LinhaTransacao:
     @property
     def id(self):
         return self.previsao.id if self.previsao else None
+    @property
+    def fornecedor(self):
+        if self.transacao and self.transacao.conta:
+            return self.transacao.conta.nome
+        if self.compra and self.compra.fornecedor:
+            return self.compra.fornecedor.nome
+        return None
+    @property
+    def carteira(self):
+        return self.compra.carteira.nome if self.compra and self.compra.carteira else None
+    @property
+    def fatura(self):
+        return self.transacao.fatura if self.transacao else None
+    @property
+    def valor(self):
+        if self.transacao:
+            return float(self.transacao.valor)
+        if self.compra:
+            return float(self.compra.valor)
+        return 0
+    @property
+    def compra_id(self):
+        return self.compra.id if self.compra else None
+    @property
+    def faturado(self):
+        return bool(self.transacao) or bool(self.compra and (self.compra.transacao_id or self.compra.movto_id))
+    @property
+    def status_compra(self):
+        return self.compra.status if self.compra else None
 
 
 def _title_case(text):

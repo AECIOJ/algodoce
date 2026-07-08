@@ -10,7 +10,7 @@ RECURSOS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
     Field(name='nome', label='Nome', width=50),
     Field(name='tipo', label='Tipo', width=12, options=TIPO_RECURSO, filter_options=list(TIPO_RECURSO.values())),
-    Field(name='saldo', label='Saldo', width=12, input='number', align='right', aggregate='sum', currency='brl'),
+    Field(name='saldo', label='Saldo Inicial', width=12, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='data', label='Balanço', width=12, input='date'),
 ]
 

@@ -9,24 +9,26 @@
   {% if section == "dados" %}
     {% call(item) table_list(linhas, fields=fields, ctx=ctx, edit_url=edit_url, card_label_field='transacao.conta.nome') %}
       {% set c = item.compra %}
-      {% set t = item.transacao %}
+      <td>{% if c %}#{{ c.id|fmtid }}{% endif %}</td>
       <td>
-        {% if c %}
-          #{{ c.id|fmtid }}
-          {% set cs = COMPRA_STATUS.get(c.status, '') %}
-          {% if c.status == 0 %}
-            <span class="badge bg-info">{{ cs }}</span>
-          {% elif c.status == 1 %}
-            <span class="badge bg-primary">{{ cs }}</span>
-          {% elif c.status == 6 %}
-            <span class="badge bg-secondary">{{ cs }}</span>
-          {% elif c.status == 8 %}
-            <span class="badge bg-success">{{ cs }}</span>
-          {% elif c.status == 9 %}
-            <span class="badge bg-warning">{{ cs }}</span>
-          {% endif %}
+        {% set cs = COMPRA_STATUS.get(item.status_compra, '') %}
+        {% if item.status_compra == 0 %}
+          <span class="badge bg-info">{{ cs }}</span>
+        {% elif item.status_compra == 1 %}
+          <span class="badge bg-primary">{{ cs }}</span>
+        {% elif item.status_compra == 6 %}
+          <span class="badge bg-secondary">{{ cs }}</span>
+        {% elif item.status_compra == 8 %}
+          <span class="badge bg-success">{{ cs }}</span>
+        {% elif item.status_compra == 9 %}
+          <span class="badge bg-warning">{{ cs }}</span>
         {% endif %}
       </td>
+      <td>{{ item.carteira if item.carteira else '-' }}</td>
+      <td>{% if item.faturado %}<span class="badge bg-success">Faturado ✓</span>{% else %}-{% endif %}</td>
+      <td>{{ item.fornecedor if item.fornecedor else '-' }}</td>
+      <td>{{ item.fatura if item.fatura else '-' }}</td>
+      <td class="text-end">{{ item.valor|brl }}</td>
       <td>
         {% set st = PREVISAO_STATUS.get(item.status, '') %}
         {% if item.status == 9 %}
@@ -41,11 +43,6 @@
           <span class="badge bg-secondary">{{ st }}</span>
         {% endif %}
       </td>
-      <td>{% if c and c.carteira %}{{ c.carteira.nome }}{% else %}-{% endif %}</td>
-      <td>{% if c and (c.transacao_id or c.movto_id) %}<span class="badge bg-success">Faturado ✓</span>{% else %}-{% endif %}</td>
-      <td>{{ t.conta.nome if t and t.conta else '-' }}</td>
-      <td>{{ t.fatura if t and t.fatura else '-' }}</td>
-      <td class="text-end">{{ t.valor|brl if t else (c.valor|brl if c else '-') }}</td>
       <td>{{ item.documento if item.documento else '-' }}</td>
       <td>{{ item.vencimento|fmtdate if item.vencimento else '-' }}</td>
       <td>{% if item.id and c %}<a href="{{ url_for('compras.edit', id=c.id) }}" class="btn btn-sm btn-outline-success">{{ item.id|fmtid }}</a>{% else %}-{% endif %}</td>
