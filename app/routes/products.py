@@ -19,10 +19,10 @@ from app.fields import Field, build_field_context
 PRODUCTS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
     Field(name='imagem', label='Imagem', filter=False),
-    Field(name='nome', label='Nome', width=50),
-    Field(name='categoria', label='Categoria', width=20, query='category'),
+    Field(name='nome', label='Nome', width=30),
+    Field(name='categoria', label='Categoria', width=15, query='category'),
     Field(name='qtd_minima', label='Qtd. Mín.', width=8, input='number'),
-    Field(name='preco', label='Preço', width=12, input='number', align='right'),
+    Field(name='preco', label='Preço', width=10, input='number', align='right'),
     Field(name='ativo', label='Status', input='boolean'),
 ]
 

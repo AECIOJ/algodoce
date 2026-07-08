@@ -2,8 +2,13 @@
 
 {% macro table_list(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.') %}
 {% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
+{% set ns = namespace(total=0) %}
+{% for col in cols %}
+{% set ns.total = ns.total + (col.width|default(10)|int) %}
+{% endfor %}
+{% if edit_url %}{% set ns.total = ns.total + 10 %}{% endif %}
 <div class="table-list-wrap">
-  <table class="table table-sm table-hover d-none d-lg-table" style="table-layout:fixed;width:100%;">
+  <table class="table table-sm table-hover sortable" style="table-layout:fixed;width:{{ ns.total }}ch;margin:0 auto;max-width:100%;">
     <thead>
       <tr>
         {% for col in cols %}
@@ -16,7 +21,7 @@
           data-filter-type="text" data-field="{{ col.field }}"
         {% endif %}>{{ col.label }}</th>
         {% endfor %}
-        {% if edit_url %}<th>Ações</th>{% endif %}
+        {% if edit_url %}<th style="width:10ch;">Ações</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -68,4 +73,32 @@
     {% endfor %}
   </div>
 </div>
+<script>
+(function() {
+  var tables = document.querySelectorAll('.table-list-wrap');
+  for (var i = 0; i < tables.length; i++) {
+    (function(wrap) {
+      var table = wrap.querySelector('table');
+      var cards = wrap.querySelector('.d-lg-none');
+      if (!table || !cards) return;
+      function ajustar() {
+        if (window.innerWidth < 992) {
+          if (table.scrollWidth > wrap.clientWidth) {
+            table.style.display = 'none';
+            cards.style.display = '';
+          } else {
+            table.style.display = '';
+            cards.style.display = 'none';
+          }
+        } else {
+          table.style.display = '';
+          cards.style.display = 'none';
+        }
+      }
+      ajustar();
+      window.addEventListener('resize', ajustar);
+    })(tables[i]);
+  }
+})();
+</script>
 {% endmacro %}

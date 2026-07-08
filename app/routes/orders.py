@@ -23,6 +23,33 @@ from app.constants import ORDER_STATUS, QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMI
 from app.fields import Field, build_field_context
 
 
+ORDERS_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='cliente', label='Cliente', width=20, query='conta'),
+    Field(name='data_pedido', label='Data Pedido', width=10, input='date'),
+    Field(name='data_previsao_entrega', label='Prev. Entrega', width=10, input='date'),
+    Field(name='data_entrega', label='Data Entrega', width=10, input='date'),
+    Field(name='forminhas', label='Forminhas', width=12, filter_options=list(FORMINHAS.values())),
+    Field(name='carteira', label='Pagamento', width=15, query='carteira'),
+    Field(name='total', label='Total', width=10, input='number', align='right'),
+    Field(name='status', label='Status', width=12, filter_options=list(ORDER_STATUS.values())),
+    Field(name='transacao', label='Faturado', width=10, filter=False),
+    Field(name='quote_id', label='Orçamento', width=10, filter=False),
+]
+
+QUOTES_FIELDS = [
+    Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='cliente_nome', label='Cliente', width=20),
+    Field(name='cliente_telefone', label='Telefone', width=16),
+    Field(name='data_pedido', label='Data', width=10, input='date'),
+    Field(name='validade', label='Validade', width=10, input='number'),
+    Field(name='total', label='Total', width=12, input='number', align='right'),
+    Field(name='carteira', label='Pagamento', width=15, query='carteira'),
+    Field(name='status', label='Status', width=14, filter_options=list(QUOTE_STATUS.values())),
+    Field(name='pedido_id', label='Pedido', width=10, filter=False),
+]
+
+
 def _clean(val):
     if not val:
         return None
@@ -105,33 +132,6 @@ def _replace_order_items(order, form):
 
 
 bp = Blueprint("orders", __name__)
-
-
-ORDERS_FIELDS = [
-    Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='cliente', label='Cliente', width=30, query='conta'),
-    Field(name='data_pedido', label='Data Pedido', width=16, input='date'),
-    Field(name='data_previsao_entrega', label='Prev. Entrega', width=16, input='date'),
-    Field(name='data_entrega', label='Data Entrega', width=16, input='date'),
-    Field(name='forminhas', label='Forminhas', width=12, filter_options=list(FORMINHAS.values())),
-    Field(name='carteira', label='Pagamento', width=20, query='carteira'),
-    Field(name='total', label='Total', width=12, input='number', align='right'),
-    Field(name='status', label='Status', width=14, filter_options=list(ORDER_STATUS.values())),
-    Field(name='transacao', label='Faturado', width=12, filter=False),
-    Field(name='quote_id', label='Orçamento', width=10, filter=False),
-]
-
-QUOTES_FIELDS = [
-    Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='cliente_nome', label='Cliente', width=30),
-    Field(name='cliente_telefone', label='Telefone', width=16),
-    Field(name='data_pedido', label='Data', width=16, input='date'),
-    Field(name='validade', label='Validade', width=10, input='number'),
-    Field(name='total', label='Total', width=12, input='number', align='right'),
-    Field(name='carteira', label='Pagamento', width=20, query='carteira'),
-    Field(name='status', label='Status', width=14, filter_options=list(QUOTE_STATUS.values())),
-    Field(name='pedido_id', label='Pedido', width=10, filter=False),
-]
 
 
 @bp.before_request

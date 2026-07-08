@@ -41,8 +41,12 @@ def field_filter_options(f: Field) -> Optional[list]:
 
 def field_to_column(f: Field) -> dict:
     col = {'label': f.label or f.name, 'field': f.name}
-    if f.width:
-        col['width'] = f.width
+    DEFAULT_WIDTHS = {'boolean': 6, 'number': 8, 'date': 12, 'select': 15}
+    w = f.width or DEFAULT_WIDTHS.get(f.input, 15)
+    label_len = len(col['label'])
+    if w < label_len:
+        w = label_len
+    col['width'] = w
     if f.align != 'left':
         col['align'] = f.align
     ft = field_filter_type(f)
