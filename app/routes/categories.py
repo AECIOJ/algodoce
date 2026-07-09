@@ -6,10 +6,10 @@ from app.fields import Field, build_field_context
 
 
 CATEGORIES_FIELDS = [
-    Field(name='id', label='#', width=8, mask='999'),
-    Field(name='nome', label='Nome', width=20),
+    Field(name='id', label='#', width=3, mask='999',pos=1),
+    Field(name='nome', label='Nome', width=13, pos=1),
     Field(name='ordem', label='Ordem', width=5, input='number'),
-    Field(name='ativo', label='Ativo', input='boolean',width=5),
+    Field(name='ativo', label='Ativo', input='boolean', width=5, pos=1),
 ]
 
 bp = Blueprint("categories", __name__, url_prefix="/categorias")

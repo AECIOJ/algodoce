@@ -7,12 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Insumos", new_url=url_for('ingredients.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(ingredients, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td>{{ item.id|fmtid }}</td>
-      <td>{{ item.nome }}</td>
-      <td>{{ TIPO_INGREDIENTE[item.tipo] }}</td>
-      <td>{{ item.unidade_medida }}</td>
-    {% endcall %}
+      {{ table_list(ingredients, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

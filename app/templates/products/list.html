@@ -7,38 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Produtos", new_url=url_for('products.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(products, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      {% set ativo = item.ativo and (not item.category or item.category.ativo) %}
-      <td>{{ item.id|fmtid }}</td>
-      <td>
-        {% if item.imagem %}
-          <img src="{{ url_for('uploads.uploaded_file', filename=item.imagem) }}" class="img-thumbnail" style="max-height:80px;max-width:100%;width:auto;height:auto;cursor:pointer;" onclick="previewImagem(this.src)">
-        {% else %}
-          <span class="text-muted">—</span>
-        {% endif %}
-      </td>
-      <td>{{ item.nome }}</td>
-      <td>
-        {% if item.category %}
-          {% if item.category.ativo %}
-            {{ item.category.nome }}
-          {% else %}
-            <span class="text-muted">{{ item.category.nome }}</span>
-          {% endif %}
-        {% else %}
-          —
-        {% endif %}
-      </td>
-      <td>{{ item.qtd_minima if item.qtd_minima else '—' }}</td>
-      <td class="text-end">{{ (item.preco or 0) | brl }}</td>
-      <td>
-        {% if ativo %}
-          <span class="badge bg-success">Ativo</span>
-        {% else %}
-          <span class="badge bg-danger">Inativo</span>
-        {% endif %}
-      </td>
-    {% endcall %}
+      {{ table_list(products, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

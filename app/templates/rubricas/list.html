@@ -7,22 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Rubricas", new_url=url_for('rubricas.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(rubricas, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td class="text-muted" style="white-space:nowrap;">{{ item.indice }}</td>
-      <td>{{ item.rubrica.id|fmtid }}</td>
-      <td>{{ item.rubrica.nome }}</td>
-      <td>{{ TIPO_RUBRICA.get(item.rubrica.tipo, item.rubrica.tipo) }}</td>
-      <td>{{ item.rubrica.fator }}</td>
-      <td>{{ item.rubrica.pai.nome if item.rubrica.pai else '' }}</td>
-      <td>
-        {% if item.rubrica.ativa %}
-          <span class="badge bg-success">Sim</span>
-        {% else %}
-          <span class="badge bg-light text-muted border">Não</span>
-        {% endif %}
-      </td>
-      <td class="text-muted">{{ item.rubrica.ordem }}</td>
-    {% endcall %}
+      {{ table_list(rubricas, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

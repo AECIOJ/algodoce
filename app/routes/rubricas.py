@@ -9,9 +9,9 @@ bp = Blueprint("rubricas", __name__, url_prefix="/rubricas")
 
 
 RUBRICAS_FIELDS = [
-    Field(name='indice', label='Índice', width=8, filter=False),
+    Field(name='indice', label='Índice', width=6, filter=False, pos=1),
     Field(name='id', label='#', width=7, mask='999.999', card_path='rubrica.id'),
-    Field(name='nome', label='Nome', width=40, card_pos=1, card_path='rubrica.nome'),
+    Field(name='nome', label='Nome', width=20, card_path='rubrica.nome', pos=1),
     Field(name='tipo', label='Tipo', width=12, options=TIPO_RUBRICA, filter_options=list(TIPO_RUBRICA.values()), card_path='rubrica.tipo'),
     Field(name='fator', label='Fator', width=8, card_path='rubrica.fator'),
     Field(name='pai', label='Pai', width=30, query='rubrica', card_path='rubrica.pai.nome'),

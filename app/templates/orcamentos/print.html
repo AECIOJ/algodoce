@@ -20,7 +20,7 @@ th { background: #f0f0f0; text-align: center; }
 </style>
 
 <div class="d-flex justify-content-end gap-2 mb-3 no-print">
-  <a href="{{ url_for('orders.quote_edit', id=quote.id) }}" class="btn btn-outline-secondary">Voltar</a>
+  <a href="{{ url_for('orcamentos.edit', id=quote.id) }}" class="btn btn-outline-secondary">Voltar</a>
   <button class="btn btn-primary" onclick="window.print()">Imprimir</button>
 </div>
 

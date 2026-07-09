@@ -7,19 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Contas", new_url=url_for('contas.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(contas, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td>{{ item.id|fmtid }}</td>
-      <td>{{ item.nome }}</td>
-      <td>{{ TIPO_CONTA[item.tipo] }}</td>
-      <td>{{ item.telefone or '-' }}</td>
-      <td>
-        {% if item.ativo %}
-          <span class="badge bg-success">Sim</span>
-        {% else %}
-          <span class="badge bg-light text-muted border">Não</span>
-        {% endif %}
-      </td>
-    {% endcall %}
+      {{ table_list(contas, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

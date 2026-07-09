@@ -10,10 +10,10 @@ from app.fields import Field, build_field_context
 
 CONTAS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='nome', label='Nome', width=50),
+    Field(name='nome', label='Nome', width=20, pos=1),
     Field(name='tipo', label='Tipo', width=12, options=TIPO_CONTA, filter_options=list(TIPO_CONTA.values())),
     Field(name='telefone', label='Telefone', width=14),
-    Field(name='ativo', label='Ativo', input='boolean'),
+    Field(name='ativo', label='Ativo', input='boolean', pos=1),
 ]
 
 bp = Blueprint("contas", __name__)

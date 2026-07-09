@@ -3,7 +3,7 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Orçamento #{{ quote.id|fmtid }}</h2>
-  <a href="{{ url_for('orders.orcamentos') }}" class="btn btn-outline-secondary btn-sm">
+  <a href="{{ url_for('orcamentos.list') }}" class="btn btn-outline-secondary btn-sm">
     <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
   </a>
 </div>
@@ -11,11 +11,11 @@
 {% set s = url_for('static', filename='icons/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
-    <a href="{{ url_for('orders.quote_detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
+    <a href="{{ url_for('orcamentos.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
       <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
     </a>
     {% if nav.prev_id %}
-      <a href="{{ url_for('orders.quote_detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
+      <a href="{{ url_for('orcamentos.detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
         <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
       </a>
     {% else %}
@@ -24,7 +24,7 @@
       </a>
     {% endif %}
     {% if nav.next_id %}
-      <a href="{{ url_for('orders.quote_detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
+      <a href="{{ url_for('orcamentos.detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
         <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
       </a>
     {% else %}
@@ -32,7 +32,7 @@
         <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
       </a>
     {% endif %}
-    <a href="{{ url_for('orders.quote_detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
+    <a href="{{ url_for('orcamentos.detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
       <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
     </a>
   </div>
@@ -163,16 +163,16 @@
 {% endif %}
 
 <div class="d-flex flex-wrap gap-2">
-  <a href="{{ url_for('orders.quote_edit', id=quote.id) }}" class="btn btn-outline-primary">Revisar</a>
+  <a href="{{ url_for('orcamentos.edit', id=quote.id) }}" class="btn btn-outline-primary">Revisar</a>
   {% if not quote.pedido_id and quote.status < 7 %}
     {% if perfect_match %}
-    <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
+    <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
       <input type="hidden" name="converter_tipo" value="auto">
       <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
       <button type="submit" class="btn btn-success">Converter</button>
     </form>
     {% else %}
-    <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
+    <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
       <button type="submit" class="btn btn-success"
               onclick="return confirmFormSubmit(this, 'Converter este orçamento em pedido?')">Converter</button>
     </form>

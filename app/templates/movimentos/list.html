@@ -7,17 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title=tipo_nome_plural, new_url=url_for('movimentos.recebimentos_new' if tipo == 'E' else 'movimentos.pagamentos_new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(movtos, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td>{{ item.id|fmtid }}</td>
-      <td>{{ item.data|fmtdate }}</td>
-      <td>{{ item.recurso.nome if item.recurso else '' }}</td>
-      <td>{{ item.conta.nome if item.conta else '' }}</td>
-      <td>{% if item.previsao %}<a href="{{ url_for('contas_a_receber.edit' if tipo == 'E' else 'contas_a_pagar.edit', id=item.previsao.transacao_id) }}" class="btn btn-sm btn-outline-success">{{ item.previsao_id|fmtid }}</a>{% endif %}</td>
-      <td>{{ item.documento or '' }}</td>
-      <td{% if tipo == 'E' %} class="text-success fw-bold text-end"{% else %} class="text-danger fw-bold text-end"{% endif %}>{{ item.valor|brl }}</td>
-      <td>{{ item.rubrica.nome if item.rubrica else '' }}</td>
-      <td>{{ item.historico_display }}</td>
-    {% endcall %}
+      {{ table_list(movtos, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

@@ -7,14 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Carteiras", new_url=url_for('carteira.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(carteiras, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td>{{ item.id|fmtid }}</td>
-      <td>{{ item.nome }}</td>
-      <td>{{ {0: "Pedido", 1: "Ambos", 2: "Compra"}.get(item.uso, item.uso) }}</td>
-      <td>{{ {0: "Movimento", 1: "Previsão"}.get(item.gerar, item.gerar) }}</td>
-      <td>{{ item.prazo_recebimento or '-' }}</td>
-      <td class="text-end">{{ (item.taxa_recebimento or 0)|brl }}%</td>
-    {% endcall %}
+      {{ table_list(carteiras, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

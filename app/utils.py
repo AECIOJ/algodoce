@@ -1,5 +1,6 @@
 import os
 import markdown
+from datetime import datetime
 from app.constants import CONECTORES, TRANSFORMAR_AO_SALVAR
 
 
@@ -143,6 +144,11 @@ class LinhaTransacao:
             return self.compra.fornecedor.nome
         return None
     @property
+    def cliente(self):
+        if self.transacao and self.transacao.conta:
+            return self.transacao.conta.nome
+        return None
+    @property
     def carteira(self):
         return self.compra.carteira.nome if self.compra and self.compra.carteira else None
     @property
@@ -157,7 +163,18 @@ class LinhaTransacao:
         return 0
     @property
     def compra_id(self):
-        return self.compra.id if self.compra else None
+        if self.compra:
+            return self.compra.id
+        if self.transacao:
+            c = self.transacao.compra
+            return c.id if c else None
+        return None
+    @property
+    def pedido_id(self):
+        if self.transacao:
+            o = self.transacao.pedido
+            return o.id if o else None
+        return None
     @property
     def faturado(self):
         return bool(self.transacao) or bool(self.compra and (self.compra.transacao_id or self.compra.movto_id))
@@ -252,3 +269,35 @@ def parse_prazo_recebimento(texto: str, data_pedido, data_entrega, total: float)
         return parcelas
 
     return [{"vencimento": data_pedido, "previsto": total}]
+
+
+def _clean(val):
+    if not val:
+        return None
+    s = val.strip()
+    if not s or s.lower() == "none":
+        return None
+    return s
+
+
+def _save_event(obj, form):
+    from app.extensions import db
+    from app.models.event import Event
+    if not obj.event:
+        event = Event()
+        obj.event = event
+        db.session.add(event)
+        db.session.flush()
+    event = obj.event
+    event.tipo = _clean(form.get("evento_tipo"))
+    event.tema = _clean(form.get("evento_tema"))
+    event.obs = _clean(form.get("evento_complemento"))
+    data_str = form.get("evento_data")
+    event.data = datetime.strptime(data_str, "%Y-%m-%d").date() if data_str else None
+    hora_str = form.get("evento_hora")
+    event.hora = datetime.strptime(hora_str, "%H:%M").time() if hora_str else None
+    event.local = _clean(form.get("evento_local"))
+    conv_str = form.get("evento_convidados")
+    event.convidados = int(conv_str) if conv_str else None
+    event.cerimonial = _clean(form.get("evento_cerimonial"))
+    return event

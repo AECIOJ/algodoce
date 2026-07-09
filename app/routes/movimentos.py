@@ -22,7 +22,7 @@ MOVIMENTOS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
     Field(name='data', label='Data', width=10, input='date'),
     Field(name='recurso', label='Recurso', width=15, query='recurso'),
-    Field(name='conta', label='Conta', width=15, query='conta', card_pos=1, card_path='conta.nome'),
+    Field(name='conta', label='Conta', width=15, query='conta', card_path='conta.nome'),
     Field(name='previsao', label='Previsão', width=10, filter=False),
     Field(name='documento', label='Documento', width=10),
     Field(name='valor', label='Valor', width=10, input='number', align='right', aggregate='sum', currency='brl'),

@@ -7,13 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Recursos", new_url=url_for('recursos.create')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(recursos, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td>{{ item.id|fmtid }}</td>
-      <td>{{ item.nome }}</td>
-      <td>{{ TIPO_RECURSO.get(item.tipo, item.tipo) }}</td>
-      <td class="text-end">{{ item.saldo|brl }}</td>
-      <td>{{ item.data|fmtdate if item.data else '' }}</td>
-    {% endcall %}
+      {{ table_list(recursos, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

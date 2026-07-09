@@ -1,9 +1,9 @@
 {% extends "components/page_form.html" %}
 
-{% set back_url = url_for('orders.orcamentos') %}
+{% set back_url = url_for('orcamentos.list') %}
 {% set new_title = 'Orçamento' %}
 {% set entity_label = 'Orçamento' %}
-{% set edit_endpoint = 'orders.quote_edit' %}
+{% set edit_endpoint = 'orcamentos.edit' %}
 {% if quote %}{% set entity_id = quote.id %}{% endif %}
 
 {% set qs_colors = {0:'bg-secondary',1:'bg-info',6:'bg-warning',7:'bg-dark',8:'bg-danger',9:'bg-success'} %}
@@ -13,13 +13,13 @@
 <div class="d-flex align-items-center gap-1">
   <span class="badge {{ qs_colors[quote.status] }} fs-6">{{ QUOTE_STATUS[quote.status] }}</span>
   {% if quote.status == 7 %}
-  <form method="POST" action="{{ url_for('orders.quote_renovar', id=quote.id) }}" class="d-inline"><button type="submit" class="btn btn-sm btn-info text-white">Renovar</button></form>
+  <form method="POST" action="{{ url_for('orcamentos.renovar', id=quote.id) }}" class="d-inline"><button type="submit" class="btn btn-sm btn-info text-white">Renovar</button></form>
   {% endif %}
   {% if quote.pedido_id %}
   <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-outline-success btn-sm">Pedido #{{ quote.pedido_id|fmtid }}</a>
   {% else %}
     {% if perfect_match %}
-    <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}" class="d-inline">
+    <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}" class="d-inline">
       <input type="hidden" name="converter_tipo" value="auto">
       <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
       <button type="submit" class="btn btn-success btn-sm">Converter</button>
@@ -41,7 +41,7 @@
         <input type="text" name="cliente_nome" class="form-control" required
                value="{{ quote.cliente_nome if quote else '' }}" {{ 'disabled' if ro }}>
         {% if quote %}
-        <a href="{{ url_for('orders.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success btn-sm flex-shrink-0 {{ 'disabled' if ro }}">Enviar</a>
+        <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success btn-sm flex-shrink-0 {{ 'disabled' if ro }}">Enviar</a>
         {% endif %}
       </div>
     </div>
@@ -283,7 +283,7 @@
 <div class="modal fade" id="converterModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="POST" action="{{ url_for('orders.converter_orcamento', id=quote.id) }}">
+      <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
         <div class="modal-header">
           <h5 class="modal-title">Converter Orçamento #{{ quote.id|fmtid }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -343,7 +343,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <form method="POST" action="{{ url_for('orders.quote_delete', id=quote.id) }}" class="d-inline">
+        <form method="POST" action="{{ url_for('orcamentos.excluir', id=quote.id) }}" class="d-inline">
           <button type="submit" class="btn btn-danger d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
         </form>
       </div>

@@ -7,31 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Previsões", new_url=url_for('previsoes.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(previsoes, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td>{{ item.id|fmtid }}</td>
-      <td>{{ item.data|fmtdate }}</td>
-      <td><span class="badge bg-{{ 'success' if item.tipo == 'R' else 'danger' }}">{{ TIPO_PREVISAO.get(item.tipo, item.tipo) }}</span></td>
-      <td>
-        {% set st = PREVISAO_STATUS.get(item.status, '') %}
-        {% if item.status == 9 %}
-          <span class="badge bg-success">{{ st }}</span>
-        {% elif item.status == 8 %}
-          <span class="badge bg-secondary">{{ st }}</span>
-        {% elif item.status == 1 %}
-          <span class="badge bg-warning">{{ st }}</span>
-        {% else %}
-          <span class="badge bg-info">{{ st }}</span>
-        {% endif %}
-      </td>
-      <td>{{ item.conta.nome if item.conta else '' }}</td>
-      <td>{{ item.documento }}</td>
-      <td>{{ item.vencimento|fmtdate }}</td>
-      {% set saldo = item.previsto + (item.variacao or 0) - (item.realizado or 0) %}
-      <td class="text-end">{{ item.previsto|brl }}</td>
-      <td class="text-end">{{ item.variacao|brl if item.variacao else '-' }}</td>
-      <td class="text-end">{{ item.realizado|brl if item.realizado is not none else '-' }}</td>
-      <td class="text-end {{ 'text-danger' if saldo > 0 else ('text-success' if saldo <= 0 else '') }}">{{ saldo|brl }}</td>
-    {% endcall %}
+      {{ table_list(previsoes, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

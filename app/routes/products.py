@@ -18,12 +18,12 @@ from app.fields import Field, build_field_context
 
 PRODUCTS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
+    Field(name='nome', label='Nome', width=20, pos=1),
     Field(name='imagem', label='Imagem', width=15, filter=False),
-    Field(name='nome', label='Nome', width=20),
     Field(name='categoria', label='Categoria', width=15, query='category', card_path='category.nome'),
     Field(name='qtd_minima', label='Qtd. Mín.', width=8, input='number'),
     Field(name='preco', label='Preço', width=10, input='number', align='right', currency='brl'),
-    Field(name='ativo', label='Status', input='boolean'),
+    Field(name='ativo', label='Ativo', input='boolean', pos=1),
 ]
 
 bp = Blueprint("products", __name__)

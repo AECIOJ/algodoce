@@ -63,7 +63,7 @@
         <div class="item-row" data-product-id="{{ i.product_id }}">
           <div class="d-flex w-100 align-items-center" style="justify-content:space-between;">
             <span class="item-nome">{{ i.produto.nome }}</span>
-            <form method="POST" action="{{ url_for('orcamento.remover', id=i.product_id) }}" style="display:inline;">
+            <form method="POST" action="{{ url_for('site_orcamento.remover', id=i.product_id) }}" style="display:inline;">
               <button type="submit" class="btn btn-sm btn-outline-danger px-2" title="Remover">🗑️</button>
             </form>
           </div>
@@ -90,7 +90,7 @@
 
   <hr>
   <h5 style="color: var(--rosa);">📅 Dados do Evento</h5>
-  <form method="POST" action="{{ url_for('orcamento.enviar') }}" style="padding-bottom: 80px;">
+  <form method="POST" action="{{ url_for('site_orcamento.enviar') }}" style="padding-bottom: 80px;">
     <div class="evento-grid">
       <label>Tipo</label>
       <select class="form-select form-select-sm" name="evento_tipo">

@@ -7,50 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Compras", new_url=url_for('compras.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(linhas, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      {% set c = item.compra %}
-      <td>{% if c %}#{{ c.id|fmtid }}{% endif %}</td>
-      <td>
-        {% set cs = COMPRA_STATUS.get(item.status_compra, '') %}
-        {% if item.status_compra == 0 %}
-          <span class="badge bg-info">{{ cs }}</span>
-        {% elif item.status_compra == 1 %}
-          <span class="badge bg-primary">{{ cs }}</span>
-        {% elif item.status_compra == 6 %}
-          <span class="badge bg-secondary">{{ cs }}</span>
-        {% elif item.status_compra == 8 %}
-          <span class="badge bg-success">{{ cs }}</span>
-        {% elif item.status_compra == 9 %}
-          <span class="badge bg-warning">{{ cs }}</span>
-        {% endif %}
-      </td>
-      <td>{{ item.carteira if item.carteira else '-' }}</td>
-      <td>{% if item.faturado %}<span class="badge bg-success">Faturado ✓</span>{% else %}-{% endif %}</td>
-      <td>{{ item.fornecedor if item.fornecedor else '-' }}</td>
-      <td>{{ item.fatura if item.fatura else '-' }}</td>
-      <td class="text-end">{{ item.valor|brl }}</td>
-      <td>
-        {% set st = PREVISAO_STATUS.get(item.status, '') %}
-        {% if item.status == 9 %}
-          <span class="badge bg-success">{{ st }}</span>
-        {% elif item.status == 8 %}
-          <span class="badge bg-secondary">{{ st }}</span>
-        {% elif item.status == 2 %}
-          <span class="badge bg-warning">{{ st }}</span>
-        {% elif item.status == 1 %}
-          <span class="badge bg-info">{{ st }}</span>
-        {% else %}
-          <span class="badge bg-secondary">{{ st }}</span>
-        {% endif %}
-      </td>
-      <td>{{ item.documento if item.documento else '-' }}</td>
-      <td>{{ item.vencimento|fmtdate if item.vencimento else '-' }}</td>
-      <td>{% if item.id and c %}<a href="{{ url_for('compras.edit', id=c.id) }}" class="btn btn-sm btn-outline-success">{{ item.id|fmtid }}</a>{% else %}-{% endif %}</td>
-      <td class="text-end">{{ item.previsto|brl if item.previsto is not none else '-' }}</td>
-      <td class="text-end">{{ item.realizado|brl if item.realizado is not none else '-' }}</td>
-      <td class="text-end">{{ item.variacao|brl if item.variacao is not none else '-' }}</td>
-      <td class="text-end {{ 'text-danger' if item.saldo > 0 else ('text-success' if item.saldo <= 0 else '') }}">{{ item.saldo|brl }}</td>
-    {% endcall %}
+      {{ table_list(linhas, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

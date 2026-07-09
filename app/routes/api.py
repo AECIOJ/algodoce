@@ -69,10 +69,3 @@ def transformar_texto():
 
     db.session.commit()
     return jsonify({"success": True, "count": count})
-
-
-@bp.route("/orcamento-count")
-def orcamento_count():
-    items = session.get("orcamento_items", [])
-    total = len(items)
-    return jsonify(total=total)

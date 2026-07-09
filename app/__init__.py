@@ -61,7 +61,7 @@ def create_app():
 
     with app.app_context():
         from app.routes import clients as contas, products, ingredients, orders, compras
-        from app.routes import auth, site, uploads, vitrine, orcamento, categories, seguranca, producao, rubricas, previsoes, recursos, contas_a_pagar, contas_a_receber, movimentos, api
+        from app.routes import auth, site, uploads, site_vitrine, site_orcamento, categories, seguranca, producao, rubricas, previsoes, recursos, contas_a_pagar, contas_a_receber, movimentos, api, orcamentos
 
         app.register_blueprint(contas.bp)
         app.register_blueprint(products.bp)
@@ -71,8 +71,8 @@ def create_app():
         app.register_blueprint(auth.bp)
         app.register_blueprint(site.bp)
         app.register_blueprint(uploads.bp)
-        app.register_blueprint(vitrine.bp)
-        app.register_blueprint(orcamento.bp)
+        app.register_blueprint(site_vitrine.bp)
+        app.register_blueprint(site_orcamento.bp)
         app.register_blueprint(categories.bp)
         app.register_blueprint(seguranca.bp)
         app.register_blueprint(producao.bp)
@@ -83,6 +83,7 @@ def create_app():
         app.register_blueprint(contas_a_receber.bp)
         app.register_blueprint(movimentos.bp)
         app.register_blueprint(api.bp)
+        app.register_blueprint(orcamentos.bp)
 
         from app.routes.carteira import bp as carteira_bp
         app.register_blueprint(carteira_bp)

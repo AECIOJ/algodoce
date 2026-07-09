@@ -7,18 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Categorias", new_url=url_for('categories.new')) %}
   {% if section == "dados" %}
-    {% call(item) table_list(categorias, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td>{{ item.id|fmtid }}</td>
-      <td>{{ item.nome }}</td>
-      <td>{{ item.ordem }}</td>
-      <td>
-        {% if item.ativo %}
-          <span class="badge bg-success">Sim</span>
-        {% else %}
-          <span class="badge bg-light text-muted border">Não</span>
-        {% endif %}
-      </td>
-    {% endcall %}
+      {{ table_list(categorias, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

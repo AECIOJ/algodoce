@@ -4,21 +4,21 @@
 {% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
 
 <div class="table-list-wrap">
-  <table class="table table-sm table-hover sortable" style="table-layout:fixed;width:100%;border-collapse:collapse;">
+  <table class="table table-sm table-hover sortable" style="table-layout:fixed;border-collapse:collapse;">
     <thead>
       <tr>
-        <th style="width:3ch;border-left:none;border-right:none;"></th>
+        <th style="width:3ch;border-left:none;border-right:none;" data-pos="0" data-width-ch="3"></th>
         {% for col in cols %}
         <th{% if col.width %} style="width:{{ col.width }}ch;border-left:none;border-right:none;"{% else %} style="border-left:none;border-right:none;"{% endif %}
-          class="{{ 'text-end' if col.align == 'right' else 'text-center' if col.align == 'center' else '' }}"{% if col.filter %}
-          data-filter-type="{{ col.filter }}" data-field="{{ col.field }}"{% if col.filter_options %} data-filter-options='{{ col.filter_options|tojson }}'{% endif %}
+          class="{{ 'text-end' if col.align == 'right' else 'text-center' if col.align == 'center' else '' }}" data-field="{{ col.field }}" data-pos="{{ col.pos|default(9) }}" data-width-ch="{{ col.width or '' }}"{% if col.filter %}
+          data-filter-type="{{ col.filter }}"{% if col.filter_options %} data-filter-options='{{ col.filter_options|tojson }}'{% endif %}
         {% elif col.filter_options %}
-          data-filter-type="select" data-field="{{ col.field }}" data-filter-options='{{ col.filter_options|tojson }}'
+          data-filter-type="select" data-filter-options='{{ col.filter_options|tojson }}'
         {% elif col.filter is not defined and col.field and col.field != 'id' %}
-          data-filter-type="text" data-field="{{ col.field }}"
+          data-filter-type="text"
         {% endif %}{% if col.hide_zero %} data-hide-zero{% endif %}>{{ col.label }}</th>
         {% endfor %}
-        {% if edit_url %}<th style="width:10ch;border-left:none;border-right:none;">Ações</th>{% endif %}
+        {% if edit_url %}<th style="width:10ch;border-left:none;border-right:none;" data-pos="0" data-width-ch="10">Ações</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -27,25 +27,44 @@
         <td class="text-center py-1" style="width:3ch;border-left:none;border-right:none;">
           <span class="collapse-icon">▶</span>
         </td>
-        {{ caller(item) }}
+        {% for col in cols %}
+        <td{% if col.align == 'right' %} class="text-end"{% elif col.align == 'center' %} class="text-center"{% endif %} style="border-left:none;border-right:none;">
+          {%- set _raw = item|deep_attr(col.card_path or col.field) %}
+          {%- if col.function %}
+            {{- col.function(item) }}
+          {%- elif 'imagem' in col.field and _raw %}
+            <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:80px;max-width:100%;width:auto;height:auto;cursor:pointer;" onclick="previewImagem(this.src)">
+          {%- elif col.options and _raw is not none %}
+            {{ col.options.get(_raw, _raw) }}
+          {%- elif col.currency and _raw is not none %}
+            {{ _raw|brl }}
+          {%- elif col.input == 'boolean' and _raw is not none %}
+            {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
+          {%- elif col.link and _raw is not none %}
+            <a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>
+          {%- elif _raw is not none %}
+            {%- if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+          {%- else %}—
+          {%- endif %}
+        </td>
+        {% endfor %}
         {% if edit_url %}
         <td onclick="event.stopPropagation();">{{ action_edit(edit_url(item)) }}</td>
         {% endif %}
       </tr>
       <tr class="collapse" id="detail-{{ loop.index }}">
-        <td colspan="{{ cols|length + 1 + (1 if edit_url else 0) }}">
-          <div class="p-2 small">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.15rem 1rem;">
+        <td style="border-left:none;border-right:none;"></td>
+        <td colspan="{{ cols|length + (1 if edit_url else 0) }}">
+          <div class="p-2 small" style="display:flex;flex-direction:column;gap:0.15rem;">
             {% for col in cols %}
-            {% if not loop.first and (col.detail is not defined or col.detail) %}
+            {% if col.pos|default(9) != 0 %}
             {% set _raw = item|deep_attr(col.card_path or col.field) %}
-            <div>
+            <div data-field="{{ col.field }}" style="display:{{ 'block' if col.pos|default(9) == -1 else 'none' }}">
               <span class="text-muted">{{ col.label }}:</span>
-              <span>{% if 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif _raw is not none %}{% if col.options %}{{ col.options.get(_raw, _raw) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdatetime }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</span>
+              <span>{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif _raw is not none %}{% if col.options %}{{ col.options.get(_raw, _raw) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdatetime }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</span>
             </div>
             {% endif %}
             {% endfor %}
-            </div>
           </div>
         </td>
       </tr>
@@ -67,6 +86,7 @@
         {% for col in cols %}
         <td style="border-left:none;border-right:none;"
             class="fw-bold{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}"
+            data-field="{{ col.field }}"
             {%- if loop.first %} data-footer-label="true"{% endif %}
             {%- if col.aggregate %} data-aggregate="{{ col.aggregate }}"{% endif %}
             {%- if col.mask %} data-mask="{{ col.mask }}"{% endif %}
@@ -119,7 +139,7 @@
       var table = wrap.querySelector('table');
       if (!table) return;
       var tfoot = table.querySelector('tfoot.table-totals');
-      if (!tfoot) return;
+      var ths = table.querySelectorAll('thead th');
 
       function _restoreHiddenZeros(tbl) {
         var tds = tbl.querySelectorAll('tbody td[data-hidden-zero]');
@@ -130,9 +150,9 @@
       }
 
       function _hideZeroValues(tbl) {
-        var ths = tbl.querySelectorAll('thead th[data-hide-zero]');
-        for (var i = 0; i < ths.length; i++) {
-          var ci = Array.prototype.indexOf.call(ths[i].parentNode.children, ths[i]);
+        var ths2 = tbl.querySelectorAll('thead th[data-hide-zero]');
+        for (var i = 0; i < ths2.length; i++) {
+          var ci = Array.prototype.indexOf.call(ths2[i].parentNode.children, ths2[i]);
           var rows = tbl.querySelectorAll('tbody tr');
           for (var ri = 0; ri < rows.length; ri++) {
             if (rows[ri].style.display === 'none') continue;
@@ -163,14 +183,117 @@
         }
       }
 
+      function leftCols() {
+        var cols = [];
+        for (var i = 0; i < ths.length; i++) {
+          var th = ths[i];
+          var pos = parseInt(th.dataset.pos);
+          if (isNaN(pos)) pos = 9;
+          var wCh = parseFloat(th.dataset.widthCh);
+          if (isNaN(wCh)) wCh = 0;
+          cols.push({idx: i, pos: pos, widthCh: wCh, th: th, field: th.dataset.field || ''});
+        }
+        return cols;
+      }
+
+      function setCol(idx, show) {
+        var d = show ? '' : 'none';
+        ths[idx].style.display = d;
+        var rows = table.querySelectorAll('tbody tr');
+        for (var ri = 0; ri < rows.length; ri++) {
+          if (rows[ri].classList.contains('collapse')) continue;
+          if (rows[ri].cells[idx]) rows[ri].cells[idx].style.display = d;
+        }
+        if (tfoot) {
+          var ftCells = tfoot.querySelectorAll('td');
+          if (ftCells[idx]) ftCells[idx].style.display = d;
+        }
+      }
+
+      function ajustarTabela() {
+        var cols = leftCols();
+        var measure = document.createElement('span');
+        measure.textContent = '0';
+        measure.style.cssText = 'position:absolute;font:inherit;white-space:nowrap;';
+        wrap.appendChild(measure);
+        var oneCh = measure.offsetWidth;
+        wrap.removeChild(measure);
+
+        var avail = wrap.clientWidth - 1;
+        var pos0 = [], posNeg1 = [], flex = [];
+        for (var ci = 0; ci < cols.length; ci++) {
+          var c = cols[ci];
+          if (c.pos === 0) pos0.push(c);
+          else if (c.pos < 0) posNeg1.push(c);
+          else flex.push(c);
+        }
+        flex.sort(function(a,b) { return a.pos - b.pos || a.idx - b.idx; });
+
+        var used = 0;
+        for (var fi = 0; fi < pos0.length; fi++) used += pos0[fi].widthCh * oneCh;
+
+        var visible = [];
+        for (var pi = 0; pi < flex.length; pi++) {
+          var c = flex[pi];
+          var w = c.widthCh * oneCh;
+          if (used + w <= avail) { visible.push(c); used += w; }
+        }
+
+        var visIdx = {};
+        for (var vi = 0; vi < pos0.length; vi++) visIdx[pos0[vi].idx] = true;
+        for (var vi = 0; vi < visible.length; vi++) visIdx[visible[vi].idx] = true;
+
+        for (var ci = 0; ci < cols.length; ci++) {
+          setCol(cols[ci].idx, !!visIdx[cols[ci].idx]);
+        }
+
+        var hasDetail = posNeg1.length > 0 || flex.length > visible.length;
+        setCol(0, hasDetail);
+        var dataRows = table.querySelectorAll('tbody tr');
+        for (var ri = 0; ri < dataRows.length; ri++) {
+          var tr = dataRows[ri];
+          if (tr.classList.contains('collapse')) continue;
+          if (hasDetail) {
+            tr.setAttribute('data-bs-toggle', 'collapse');
+            tr.style.cursor = 'pointer';
+          } else {
+            tr.removeAttribute('data-bs-toggle');
+            tr.style.cursor = '';
+          }
+        }
+
+        var detailContainers = wrap.querySelectorAll('.collapse td > div');
+        for (var dri = 0; dri < detailContainers.length; dri++) {
+          var items = detailContainers[dri].children;
+          for (var di = 0; di < items.length; di++) {
+            var item = items[di];
+            var field = item.dataset.field;
+            var col = null;
+            for (var cj = 0; cj < cols.length; cj++) {
+              if (cols[cj].field === field) { col = cols[cj]; break; }
+            }
+            if (col) item.style.display = (col.pos < 0 || !visIdx[col.idx]) && col.pos !== 0 ? 'block' : 'none';
+          }
+        }
+
+        if (tfoot) {
+          _restoreHiddenZeros(table);
+          _hideZeroValues(table);
+        }
+      }
+
       function updateTotals() {
+        if (!tfoot) return;
         _restoreHiddenZeros(table);
         var aggCells = tfoot.querySelectorAll('td[data-aggregate]');
         if (!aggCells.length) { tfoot.classList.add('d-none'); return; }
         var bodyRows = table.querySelectorAll('tbody tr');
         var visibleRows = [];
         for (var ri = 0; ri < bodyRows.length; ri++) {
-          if (bodyRows[ri].style.display !== 'none') visibleRows.push(bodyRows[ri]);
+          var tr = bodyRows[ri];
+          if (tr.classList.contains('collapse')) continue;
+          if (tr.style.display === 'none') continue;
+          visibleRows.push(tr);
         }
         if (visibleRows.length === 0) {
           tfoot.classList.add('d-none');
@@ -225,18 +348,22 @@
         _syncCardTotals(table);
       }
 
-      var cardToggle = wrap.querySelector('.card-totals-toggle');
-      var cardContent = wrap.querySelector('.card-totals-content');
-      if (cardToggle && cardContent) {
-        cardToggle.addEventListener('click', function() {
-          cardContent.style.display = cardContent.style.display === 'none' ? '' : 'none';
-        });
-      }
-
+      ajustarTabela();
       updateTotals();
       wrap._updateTotals = function() { updateTotals(); };
+      wrap._ajustarTabela = function() { ajustarTabela(); updateTotals(); };
     })(wraps[wi]);
   }
+
+  var _resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(function() {
+      for (var i = 0; i < wraps.length; i++) {
+        if (wraps[i]._ajustarTabela) wraps[i]._ajustarTabela();
+      }
+    }, 200);
+  });
 
   if (typeof window.__tableTotalsRefresh === 'undefined') {
     window.__tableTotalsRefresh = function() {

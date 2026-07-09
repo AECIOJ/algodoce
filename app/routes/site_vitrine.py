@@ -3,7 +3,7 @@ from sqlalchemy import or_
 from app.models.product import Product
 from app.models.category import Category
 
-bp = Blueprint("vitrine", __name__, url_prefix="/vitrine")
+bp = Blueprint("site_vitrine", __name__, url_prefix="/vitrine")
 
 
 @bp.route("/")
@@ -22,7 +22,7 @@ def listar():
     produtos = query.all()
     items = session.get("orcamento_items", [])
     total_itens = len(items)
-    return render_template("orcamento/navegador.html",
+    return render_template("site_orcamento/navegador.html",
                            produtos=produtos, categorias=categorias,
                            categoria_id=categoria_id, total_itens=total_itens)
 

@@ -63,7 +63,8 @@
   }
 }
 .table-list-wrap {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   max-height: calc(100vh - 300px);
 }
 .table-list-wrap td,
@@ -73,6 +74,13 @@
 }
 .table-list-wrap table {
   border-collapse: collapse !important;
+  width: 100%;
+}
+@media (min-width: 992px) {
+  .table-list-wrap table {
+    width: auto;
+    min-width: 60vw;
+  }
 }
 .table-list-wrap thead th {
   position: sticky;
@@ -80,6 +88,17 @@
   z-index: 1;
   background: #c2185b;
   color: #fff;
+}
+.page-list-inner {
+  width: 100%;
+  max-width: 100%;
+}
+@media (min-width: 992px) {
+  .page-list-inner {
+    width: fit-content;
+    min-width: 60vw;
+    max-width: 100%;
+  }
 }
 .tab-pane.active {
   display: flex;

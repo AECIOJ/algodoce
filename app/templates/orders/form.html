@@ -9,7 +9,7 @@
 
 {% block nav_right %}
 {% if order and order.quote_id %}
-<a href="{{ url_for('orders.quote_edit', id=order.quote_id) }}" class="btn btn-outline-info btn-sm">Orçamento #{{ order.quote_id|fmtid }}</a>
+<a href="{{ url_for('orcamentos.edit', id=order.quote_id) }}" class="btn btn-outline-info btn-sm">Orçamento #{{ order.quote_id|fmtid }}</a>
 {% endif %}
 {% endblock %}
 

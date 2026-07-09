@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Callable
 
 
 @dataclass
@@ -19,9 +19,10 @@ class Field:
     aggregate_label: Optional[str] = None
     currency: Optional[str] = None
     hide_zero: bool = True
-    card_pos: int = 2
     card_path: Optional[str] = None
-    detail: bool = True
+    pos: Optional[int] = None
+    link: Optional[str] = None
+    function: Optional[Callable] = None
 
 
 def field_filter_type(f: Field) -> Optional[str]:
@@ -47,7 +48,7 @@ def field_filter_options(f: Field) -> Optional[list]:
 
 
 def field_to_column(f: Field) -> dict:
-    col = {'label': f.label or f.name, 'field': f.name}
+    col = {'label': f.label or f.name, 'field': f.name, 'input': f.input}
     DEFAULT_WIDTHS = {'boolean': 6, 'number': 8, 'date': 12, 'select': 15}
     w = f.width or DEFAULT_WIDTHS.get(f.input, 15)
     largest_word = max(len(w) for w in (f.label or f.name).split())
@@ -70,14 +71,20 @@ def field_to_column(f: Field) -> dict:
         col['currency'] = f.currency
     if f.hide_zero:
         col['hide_zero'] = True
-    if f.card_pos != 2:
-        col['card_pos'] = f.card_pos
     if f.card_path:
         col['card_path'] = f.card_path
     if f.options:
         col['options'] = f.options
-    if not f.detail:
-        col['detail'] = False
+    if f.pos is not None:
+        col['pos'] = f.pos
+    elif f.name == 'id':
+        col['pos'] = 0
+    else:
+        col['pos'] = 9
+    if f.link:
+        col['link'] = f.link
+    if f.function:
+        col['function'] = f.function
     if f.aggregate:
         col['aggregate'] = f.aggregate
         if f.aggregate_label:
@@ -86,7 +93,8 @@ def field_to_column(f: Field) -> dict:
 
 
 def fields_to_columns(fields: list[Field]) -> list[dict]:
-    return [field_to_column(f) for f in fields]
+    cols = [field_to_column(f) for f in fields]
+    return [c for _, c in sorted(enumerate(cols), key=lambda x: (x[1]['pos'], x[0]))]
 
 
 MODEL_MAP: dict[str, type] = {}

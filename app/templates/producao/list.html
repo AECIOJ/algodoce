@@ -7,18 +7,7 @@
 {% block page_content %}
 {% call(section) page_list(title="Produção", new_url=url_for('producao.nova'), new_label='+ Nova') %}
   {% if section == "dados" %}
-    {% call(item) table_list(producoes, fields=fields, ctx=ctx, edit_url=edit_url) %}
-      <td>{{ item.id }}</td>
-      <td>{{ item.descricao }}</td>
-      <td>{{ item.previsao_de.strftime('%d/%m/%Y') if item.previsao_de else '-' }}</td>
-      <td>{{ item.previsao_ate.strftime('%d/%m/%Y') if item.previsao_ate else '-' }}</td>
-      <td>{{ item.data_fim.strftime('%d/%m/%Y') if item.data_fim else '-' }}</td>
-      <td>
-        <span class="badge bg-{{ 'success' if item.status == 9 else 'info' }}">
-          {{ 'Finalizado' if item.status == 9 else 'Executando' }}
-        </span>
-      </td>
-    {% endcall %}
+      {{ table_list(producoes, fields=fields, ctx=ctx, edit_url=edit_url) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}
