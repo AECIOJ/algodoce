@@ -63,7 +63,7 @@
   }
 }
 .table-list-wrap {
-  overflow-y: auto;
+  overflow: auto;
   max-height: calc(100vh - 300px);
 }
 .table-list-wrap td,

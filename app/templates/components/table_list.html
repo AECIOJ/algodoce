@@ -7,6 +7,7 @@
   <table class="table table-sm table-hover sortable" style="table-layout:fixed;width:100%;border-collapse:collapse;">
     <thead>
       <tr>
+        <th style="width:3ch;border-left:none;border-right:none;"></th>
         {% for col in cols %}
         <th{% if col.width %} style="width:{{ col.width }}ch;border-left:none;border-right:none;"{% else %} style="border-left:none;border-right:none;"{% endif %}
           class="{{ 'text-end' if col.align == 'right' else 'text-center' if col.align == 'center' else '' }}"{% if col.filter %}
@@ -22,11 +23,31 @@
     </thead>
     <tbody>
       {% for item in data %}
-      <tr>
+      <tr data-bs-toggle="collapse" data-bs-target="#detail-{{ loop.index }}" style="cursor:pointer;">
+        <td class="text-center py-1" style="width:3ch;border-left:none;border-right:none;">
+          <span class="collapse-icon">▶</span>
+        </td>
         {{ caller(item) }}
         {% if edit_url %}
-        <td>{{ action_edit(edit_url(item)) }}</td>
+        <td onclick="event.stopPropagation();">{{ action_edit(edit_url(item)) }}</td>
         {% endif %}
+      </tr>
+      <tr class="collapse" id="detail-{{ loop.index }}">
+        <td colspan="{{ cols|length + 1 + (1 if edit_url else 0) }}">
+          <div class="p-2 small">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.15rem 1rem;">
+            {% for col in cols %}
+            {% if not loop.first and (col.detail is not defined or col.detail) %}
+            {% set _raw = item|deep_attr(col.card_path or col.field) %}
+            <div>
+              <span class="text-muted">{{ col.label }}:</span>
+              <span>{% if 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif _raw is not none %}{% if col.options %}{{ col.options.get(_raw, _raw) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdatetime }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+            </div>
+          </div>
+        </td>
       </tr>
       {% else %}
       <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
@@ -42,6 +63,7 @@
     {% endfor %}
     <tfoot class="table-totals d-none">
       <tr>
+        <td style="border-left:none;border-right:none;">&nbsp;</td>
         {% for col in cols %}
         <td style="border-left:none;border-right:none;"
             class="fw-bold{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}"
@@ -63,108 +85,12 @@
     {% endif %}
   </table>
 
-  <div class="d-lg-none">
-    {% for item in data %}
-    {% set _id_col = cols[0] if cols else none %}
-    {% set _id_path = (_id_col.card_path or _id_col.field) if _id_col else none %}
-    {% set _label_cols = cols[1:]|selectattr('card_pos', 'equalto', 1)|list %}
-    {% if _label_cols|length %}
-      {% set _label_col = _label_cols[0] %}
-      {% set _label_path = _label_col.card_path or _label_col.field %}
-    {% elif card_label_field %}
-      {% set _label_path = card_label_field %}
-    {% elif cols and cols|length > 1 %}
-      {% set _label_path = (cols[1].card_path or cols[1].field) if cols[1].field != 'imagem' else ((cols[2].card_path or cols[2].field) if cols|length > 2 else none) %}
-    {% else %}
-      {% set _label_path = none %}
-    {% endif %}
-    {% set _st_col = cols|selectattr('filter', 'equalto', 'boolean')|first or cols|selectattr('field', 'equalto', 'status')|first %}
-    {% set _st_path = card_status_field or (_st_col.card_path or _st_col.field if _st_col else none) %}
-    {% set _header_exclude = namespace(fields=[]) %}
-    {% if _id_col %}{% set _ = _header_exclude.fields.append(_id_col.field) %}{% endif %}
-    {% if _label_path and _label_path not in _header_exclude.fields %}{% set _ = _header_exclude.fields.append(_label_path) %}{% endif %}
-    {% if _label_col and _label_col.field and _label_col.field not in _header_exclude.fields %}{% set _ = _header_exclude.fields.append(_label_col.field) %}{% endif %}
-    {% if _st_path and _st_path not in _header_exclude.fields %}{% set _ = _header_exclude.fields.append(_st_path) %}{% endif %}
-    {% if _st_col and _st_col.field and _st_col.field not in _header_exclude.fields %}{% set _ = _header_exclude.fields.append(_st_col.field) %}{% endif %}
-    <div class="border-bottom">
-      <div class="d-flex align-items-center px-3 py-2" data-bs-toggle="collapse" data-bs-target="#card-{{ loop.index }}" role="button" style="cursor:pointer;">
-        <span class="text-muted small me-2 flex-shrink-0">{{ item|deep_attr(_id_path) if _id_path else '#' }}</span>
-        <span class="fw-bold flex-grow-1 me-2">{{ item|deep_attr(_label_path) if _label_path else '' }}</span>
-        {% if _st_path %}
-        {% set _st = item|deep_attr(_st_path) %}
-        {% if _st is boolean %}
-        <span class="flex-shrink-0 me-2">{{ 'Ativo' if _st else 'Inativo' }}</span>
-        {% else %}
-        <span class="flex-shrink-0 me-2">{{ _st }}</span>
-        {% endif %}
-        {% endif %}
-        {% if edit_url %}
-        <a href="{{ edit_url(item) }}" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-edit-link flex-shrink-0 ms-2" onclick="event.stopPropagation()">
-          <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18">
-          <small style="font-size:0.65rem;line-height:1.2;">Editar</small>
-        </a>
-        {% endif %}
-      </div>
-      <div class="collapse px-3 pb-2" id="card-{{ loop.index }}">
-        {% for col in cols %}
-        {% set _attr_path = col.card_path or col.field %}
-        {% if not loop.first and col.card_pos != 0 and col.field not in _header_exclude.fields and _attr_path not in _header_exclude.fields %}
-        <div class="row small mb-1">
-          <span class="text-muted col-4">{{ col.label }}</span>
-           <span class="col-8">{% set _raw = item|deep_attr(_attr_path) %}{% if 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:50px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif _raw is not none %}<span class="d-inline-block{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}"{% if col.width %} style="max-width:{{ col.width }}ch"{% endif %}>{% if col.options %}{{ col.options.get(_raw, _raw) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdatetime }}{% else %}{{ _raw }}{% endif %}</span>{% else %}—{% endif %}</span>
-        </div>
-        {% endif %}
-        {% endfor %}
-      </div>
-    </div>
-    {% else %}
-    <p class="text-muted text-center my-3">{{ empty_msg }}</p>
-    {% endfor %}
-    {% if _has_agg %}
-    <div class="border-bottom">
-      <div class="d-flex align-items-center px-3 py-2 card-totals-toggle" role="button" style="cursor:pointer;">
-        <span class="fw-bold flex-grow-1">Totais</span>
-      </div>
-      <div class="px-3 pb-2 card-totals-content" style="display:none;">
-        {% for col in cols %}{% if col.aggregate %}
-        <div class="row small mb-1">
-          <span class="text-muted col-4">{{ col.label }}</span>
-           <span class="col-8 card-total-val{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}" data-col-idx="{{ loop.index0 }}"></span>
-        </div>
-        {% endif %}{% endfor %}
-      </div>
-    </div>
-    {% endif %}
-  </div>
+  <style>
+  .collapse-icon { display: inline-block; transition: transform .2s; font-size: .7rem; }
+  tr[aria-expanded="true"] .collapse-icon { transform: rotate(90deg); }
+  </style>
 </div>
 <script>
-(function() {
-  var tables = document.querySelectorAll('.table-list-wrap');
-  for (var i = 0; i < tables.length; i++) {
-    (function(wrap) {
-      var table = wrap.querySelector('table');
-      var cards = wrap.querySelector('.d-lg-none');
-      if (!table || !cards) return;
-      function ajustar() {
-        if (window.innerWidth < 992) {
-          if (table.scrollWidth > wrap.clientWidth) {
-            table.style.display = 'none';
-            cards.style.display = '';
-          } else {
-            table.style.display = '';
-            cards.style.display = 'none';
-          }
-        } else {
-          table.style.display = '';
-          cards.style.display = 'none';
-        }
-      }
-      setTimeout(ajustar, 100);
-      window.addEventListener('resize', ajustar);
-    })(tables[i]);
-  }
-})();
-
 (function(){
   function _parseNum(s) {
     if (!s || typeof s !== 'string') return NaN;

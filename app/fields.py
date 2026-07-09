@@ -21,6 +21,7 @@ class Field:
     hide_zero: bool = True
     card_pos: int = 2
     card_path: Optional[str] = None
+    detail: bool = True
 
 
 def field_filter_type(f: Field) -> Optional[str]:
@@ -75,6 +76,8 @@ def field_to_column(f: Field) -> dict:
         col['card_path'] = f.card_path
     if f.options:
         col['options'] = f.options
+    if not f.detail:
+        col['detail'] = False
     if f.aggregate:
         col['aggregate'] = f.aggregate
         if f.aggregate_label:
