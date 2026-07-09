@@ -188,12 +188,19 @@ document.addEventListener('DOMContentLoaded', function () {
         var ascending = !th.classList.contains('asc');
         headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
         th.classList.add(ascending ? 'asc' : 'desc');
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        var dataRows = rows.filter(function (r) { return !r.querySelector('td[colspan]'); });
-        if (dataRows.length === 0) return;
-        dataRows.sort(function (a, b) {
-          var aVal = (a.cells[col] ? a.cells[col].textContent.trim() : '');
-          var bVal = (b.cells[col] ? b.cells[col].textContent.trim() : '');
+        var allRows = Array.from(tbody.querySelectorAll('tr'));
+        var groups = [];
+        for (var gi = 0; gi < allRows.length; gi++) {
+          var r = allRows[gi];
+          if (r.querySelector('td[colspan]')) continue;
+          var detail = (gi + 1 < allRows.length && allRows[gi+1].querySelector('td[colspan]')) ? allRows[gi+1] : null;
+          groups.push({data: r, detail: detail});
+          if (detail) gi++;
+        }
+        if (groups.length === 0) return;
+        groups.sort(function (a, b) {
+          var aVal = (a.data.cells[col] ? a.data.cells[col].textContent.trim() : '');
+          var bVal = (b.data.cells[col] ? b.data.cells[col].textContent.trim() : '');
           var aNum = parseFloat(aVal.replace(/[R$\s]/g, '').replace(',', '.'));
           var bNum = parseFloat(bVal.replace(/[R$\s]/g, '').replace(',', '.'));
           if (!isNaN(aNum) && !isNaN(bNum)) { return ascending ? aNum - bNum : bNum - aNum; }
@@ -202,7 +209,7 @@ document.addEventListener('DOMContentLoaded', function () {
           if (aDate && bDate) { return ascending ? aDate - bDate : bDate - aDate; }
           return ascending ? aVal.localeCompare(bVal, 'pt-BR') : bVal.localeCompare(aVal, 'pt-BR');
         });
-        dataRows.forEach(function (r) { tbody.appendChild(r); });
+        groups.forEach(function (g) { tbody.appendChild(g.data); if (g.detail) tbody.appendChild(g.detail); });
       });
     });
   });
