@@ -22,7 +22,7 @@ COMPRAS_FIELDS = [
     Field(name='status_compra', label='Status', width=10, options=COMPRA_STATUS, filter_options=list(COMPRA_STATUS.values())),
     Field(name='carteira', label='FP', width=12, query='carteira'),
     Field(name='faturado', label='Faturado', width=10, filter=False),
-    Field(name='fornecedor', label='Fornecedor', width=30, query='conta'),
+    Field(name='fornecedor', label='Fornecedor', width=30, query='conta', pos=1),
     Field(name='fatura', label='Fatura', width=10),
     Field(name='valor', label='Valor', width=12, input='number', align='right', currency='brl'),
     Field(name='status', label='Pagamento', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),

@@ -26,7 +26,7 @@ def quote_validade(item):
 
 QUOTES_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='cliente_nome', label='Cliente', width=20),
+    Field(name='cliente_nome', label='Cliente', width=20, pos=1),
     Field(name='cliente_telefone', label='Telefone', width=16),
     Field(name='data_pedido', label='Data', width=10, input='date'),
     Field(name='validade', label='Validade', width=14, input='number', function=quote_validade),

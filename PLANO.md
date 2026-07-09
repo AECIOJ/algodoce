@@ -1,7 +1,7 @@
 ## Resumo do Sistema **AlgoDoce**
 
 ### Visão Geral
-Sistema completo em **Python/Flask** para gestão de uma **doceria/confeitaria** (pessoa jurídica). Possui site público (vitrine, orçamento) e painel administrativo completo. Banco **PostgreSQL 16** com SQLAlchemy, templates **Jinja2 + Bootstrap 5**, Docker Compose (PostgreSQL + App + ngrok).
+Sistema completo em **Python/Flask** para gestão de uma **doceria/confeitaria** (pessoa jurídica). Possui site público (vitrine, orçamento) e painel administrativo completo. Banco **PostgreSQL 16** com SQLAlchemy, templates **Jinja2 + Bootstrap 5**, Docker Compose (PostgreSQL + App + Pinggy).
 
 ---
 

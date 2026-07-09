@@ -11,39 +11,44 @@ import sqlalchemy as sa
 
 from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, aplicar_transformacao, deep_attr
 
-_ngrok_url = None
+_tunnel_url = None
+_tunnel_url_ts = 0
+TUNNEL_TTL = 3300
 
 
-def _fetch_ngrok_url():
-    global _ngrok_url
+def _fetch_tunnel_url():
+    global _tunnel_url, _tunnel_url_ts
     try:
-        r = requests.get("http://algodoce_ngrok:4040/api/tunnels", timeout=2)
+        r = requests.get("http://algodoce_pinggy:4040/api/tunnels", timeout=2)
         data = r.json()
         for t in data.get("tunnels", []):
             u = t.get("public_url", "")
             if u.startswith("https://"):
-                _ngrok_url = u
+                _tunnel_url = u
+                _tunnel_url_ts = time.time()
                 return
     except Exception:
         pass
 
 
-def get_ngrok_url():
-    if _ngrok_url is None:
-        _fetch_ngrok_url()
-    return _ngrok_url or ""
+def get_tunnel_url(force=False):
+    global _tunnel_url, _tunnel_url_ts
+    now = time.time()
+    if force or _tunnel_url is None or (now - _tunnel_url_ts) > TUNNEL_TTL:
+        _fetch_tunnel_url()
+    return _tunnel_url or ""
 
 
-def _bg_fetch_ngrok():
+def _bg_fetch_tunnel():
     time.sleep(3)
-    _fetch_ngrok_url()
+    _fetch_tunnel_url()
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    threading.Thread(target=_bg_fetch_ngrok, daemon=True).start()
+    threading.Thread(target=_bg_fetch_tunnel, daemon=True).start()
 
     db.init_app(app)
     migrate.init_app(
@@ -168,7 +173,10 @@ def create_app():
     @app.context_processor
     def inject_globals():
         from datetime import date
-        return dict(ngrok_url=get_ngrok_url(), timedelta=timedelta, hoje=date.today())
+        from flask import request
+        host = request.host.split(':')[0]
+        qr_enabled = host in ('localhost', '127.0.0.1', '::1')
+        return dict(tunnel_url=get_tunnel_url(), qr_enabled=qr_enabled, timedelta=timedelta, hoje=date.today())
 
     @app.context_processor
     def inject_versao():

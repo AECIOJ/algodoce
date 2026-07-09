@@ -36,16 +36,12 @@ services:
       - internal
       - proxy
 
-  ngrok:
-    container_name: algodoce_ngrok
-    image: ngrok/ngrok:latest
+  pinggy:
+    container_name: algodoce_pinggy
+    build:
+      context: .
+      dockerfile: Dockerfile.pinggy
     restart: unless-stopped
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command:
-      - 'http'
-      - 'algodoce:5000'
-      - '--host-header=algodoce.local'
     depends_on:
       - app
     networks:

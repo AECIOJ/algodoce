@@ -36,7 +36,7 @@
 
 O topo é **fixo** (`#top-fixed`, `position: fixed`, `z-index: 1030`). Um `#top-spacer` vazio é sincronizado dinamicamente com `syncTopSpacer()` via `ResizeObserver` + evento `resize` para evitar que o conteúdo fique atrás do topo fixo.
 
-**Logo**: clicar abre modal com QR code da URL do sistema (ngrok ou origin).
+**Logo**: clicar abre modal com QR code da URL do sistema (tunnel Pinggy ou origin).
 
 ### Mobile (< 992px)
 ```

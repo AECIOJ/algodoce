@@ -16,19 +16,19 @@ from app.fields import Field, build_field_context
 
 
 CONTAS_A_PAGAR_FIELDS = [
-    Field(name='transacao_id', label='Transação', width=8, card_path='transacao.id'),
-    Field(name='compra_id', label='Compra', width=6),
-    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='id', label='Previsão', width=8),
     Field(name='fornecedor', label='Conta', width=15, query='conta'),
-    Field(name='fatura', label='Fatura', width=10),
-    Field(name='valor', label='Valor', width=10, input='number', align='right', currency='brl'),
     Field(name='documento', label='Documento', width=10),
     Field(name='vencimento', label='Vencimento', width=10, input='date'),
-    Field(name='id', label='Previsão', width=8),
     Field(name='previsto', label='Previsto', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='realizado', label='Realizado', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='variacao', label='Variação', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
+    Field(name='transacao_id', label='Transação', width=8, card_path='transacao.id',pos=-1),
+    Field(name='compra_id', label='Compra', width=6,pos=-1),
+    Field(name='fatura', label='Fatura', width=10,pos=-1),
+    Field(name='valor', label='Valor', width=10, input='number', align='right', currency='brl',pos=-1),
+    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
 ]
 
 TIPO = ("P", "C")

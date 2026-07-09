@@ -69,3 +69,10 @@ def transformar_texto():
 
     db.session.commit()
     return jsonify({"success": True, "count": count})
+
+
+@bp.route("/tunnel-url")
+def tunnel_url():
+    from app import get_tunnel_url
+    url = get_tunnel_url(force=True)
+    return jsonify({"url": url or None})
