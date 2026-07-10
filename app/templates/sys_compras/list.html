@@ -1,11 +1,10 @@
 {% extends "components/page_sys.html" %}
-{% from "components/action_list.html" import action_list %}
-{% from "components/action_table.html" import action_table %}
+{% from "components/macros.html" import action_list, action_table %}
 
 {% block page_content %}
 {% call(section) action_list(title="Compras", new_url=url_for('compras.new')) %}
   {% if section == "dados" %}
-      {{ action_table(linhas, fields=fields, ctx=ctx, edit_endpoint='compras.edit', edit_if_field='compra.id') }}
+      {{ action_table(linhas, table=COMPRAS_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

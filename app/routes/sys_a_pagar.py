@@ -25,7 +25,7 @@ CONTAS_A_PAGAR_FIELDS = [
     Field(name='variacao', label='Variação', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='transacao_id', label='Transação', width=8, card_path='transacao.id',pos=-1),
-    Field(name='compra_id', label='Compra', width=6,pos=-1),
+    Field(name='compra_id', label='Compra', width=6, pos=-1, link='compras.edit'),
     Field(name='fatura', label='Fatura', width=10,pos=-1),
     Field(name='valor', label='Valor', width=10, input='number', align='right', currency='brl',pos=-1),
     Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),

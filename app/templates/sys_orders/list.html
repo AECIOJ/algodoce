@@ -1,6 +1,5 @@
 {% extends "components/page_sys.html" %}
-{% from "components/action_list.html" import action_list %}
-{% from "components/action_table.html" import action_table %}
+{% from "components/macros.html" import action_list, action_table %}
 
 {% block page_content %}
 {% call(section) action_list(title="Pedidos", new_url=url_for('orders.new')) %}

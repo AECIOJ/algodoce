@@ -1,0 +1,949 @@
+{% macro action_edit(url, label='Editar') %}
+<a href="{{ url }}" class="text-decoration-none d-inline-flex flex-column flex-lg-row align-items-center gap-1 text-nowrap action-edit-link">
+  <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18">
+  <small class="ms-lg-1 ms-0" style="font-size:0.65rem;line-height:1.2;">{{ label }}</small>
+</a>
+{% endmacro %}
+
+{% macro action_filter(caller_content='') %}
+<div class="painel-filtros" style="max-height:calc(100vh - 300px);overflow-y:auto;">
+  <div class="px-2">
+    <div id="page-filter-body"></div>
+    <div class="d-flex gap-2 mt-3 bg-white p-2 border-top" id="page-filter-actions" style="display:none!important;">
+      <button class="btn btn-primary flex-fill" id="page-filter-apply">Aplicar</button>
+      <button class="btn btn-outline-secondary flex-fill" id="page-filter-clear">Limpar</button>
+    </div>
+    {{ caller_content }}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro action_nav(back_url, nome, nav, edit_endpoint, entity_id=none, status=none, actions2=none) %}
+{% set s = url_for('static', filename='icons/') %}
+<div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
+  <div class="d-flex align-items-center nav-side">
+    <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
+      <img src="{{ url_for('static', filename='icons/list.png') }}" alt="Voltar" height="20">
+    </a>
+  </div>
+  <div class="d-flex align-items-center flex-grow-1 justify-content-center gap-1">
+    <div class="btn-group btn-group-sm" role="group">
+      <a href="{{ url_for(edit_endpoint, id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
+        <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
+      </a>
+      {% if nav.prev_id %}
+        <a href="{{ url_for(edit_endpoint, id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
+          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+        </a>
+      {% else %}
+        <a class="btn btn-outline-secondary disabled" title="Anterior">
+          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+        </a>
+      {% endif %}
+    </div>
+    <span id="nav-title" class="nav-title mx-2 fs-5 fw-bold text-nowrap" {% if entity_id is not none %}data-entity-id="{{ entity_id }}" data-edit-url="{{ url_for(edit_endpoint, id=999999) }}" style="cursor:pointer"{% endif %}>{{ nome }}</span>
+    <div class="btn-group btn-group-sm" role="group">
+      {% if nav.next_id %}
+        <a href="{{ url_for(edit_endpoint, id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
+          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+        </a>
+      {% else %}
+        <a class="btn btn-outline-secondary disabled" title="Próximo">
+          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+        </a>
+      {% endif %}
+      <a href="{{ url_for(edit_endpoint, id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
+        <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
+      </a>
+    </div>
+    {% if status %}<span class="mx-1 d-none d-lg-inline">{{ status | safe }}</span>{% endif %}
+  </div>
+  <div class="d-flex align-items-center justify-content-end gap-2 nav-side {{ 'd-none d-lg-flex' if actions2 else '' }}">
+    {{ caller() }}
+  </div>
+  {% if status or actions2 %}
+  <div class="w-100 d-lg-none d-flex align-items-center justify-content-center gap-2 mt-1">
+    {% if status %}{{ status | safe }}{% endif %}
+    {% if actions2 %}{{ actions2 | safe }}{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro action_list(title, new_url=none, new_label='+ Novo', extra_actions=none) %}
+<div style="display:flex;flex-direction:column;align-items:center;">
+<div class="page-list-inner">
+<div class="page-list-header d-flex align-items-center px-2 py-1 gap-2" style="border-bottom:1px solid #dee2e6;background:#fff;flex-wrap:wrap;width:100%;">
+  {% if title %}
+  <h2 class="mb-0 fs-5 fs-lg-4 flex-shrink-0 d-none d-lg-block">{{ title }}</h2>
+  {% endif %}
+  <ul class="nav nav-underline mb-0 flex-shrink-0" role="tablist">
+    <li class="nav-item"><button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#panel_dados" type="button" role="tab">Dados</button></li>
+    <li class="nav-item"><button class="nav-link" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-tab-pane" type="button" role="tab">Filtros <span id="filtro-count-badge" class="badge bg-danger d-none">0</span></button></li>
+    <li class="nav-item d-none"><button class="nav-link disabled" type="button" role="tab">Relatórios</button></li>
+  </ul>
+  <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
+    {% if extra_actions %}{{ extra_actions }}{% endif %}
+    {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm">{{ new_label }}</a>{% endif %}
+  </div>
+</div>
+<div class="tab-content" style="flex:1;min-height:0;">
+  <div class="tab-pane fade show active" id="panel_dados" role="tabpanel">
+    {{ caller("dados") }}
+  </div>
+  <div class="tab-pane fade" id="filtros-tab-pane" role="tabpanel">
+    {{ action_filter(caller_content=caller("filtros")) }}
+  </div>
+</div>
+
+</div>
+</div>
+<script>
+if (typeof window.pageListFilter === 'undefined') {
+window.pageListFilter = true;
+(function() {
+  var filterState = {};
+  var filterBody = document.getElementById('page-filter-body');
+  var table = document.querySelector('#panel_dados table.table');
+  var dadosTab = document.getElementById('dados-tab');
+  var filtersBuilt = false;
+
+  function _today() {
+    var d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function _daysAgo(n) {
+    var d = new Date(); d.setDate(d.getDate()-n);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function _monthStart(d) {
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';
+  }
+  function _monthEnd(d) {
+    var e = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    return e.getFullYear()+'-'+String(e.getMonth()+1).padStart(2,'0')+'-'+String(e.getDate()).padStart(2,'0');
+  }
+  function _fmtDate(d) {
+    return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+  }
+  var _months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  function headerWidth(th) {
+    var p = th.parentNode;
+    if (!p) return 200;
+    var ci = Array.prototype.indexOf.call(p.children, th);
+    var col = table.querySelectorAll('thead th')[ci];
+    return col ? col.offsetWidth : 200;
+  }
+
+  function updateFilterBadge() {
+    var badge = document.getElementById('filtro-count-badge');
+    if (!badge) return;
+    var cnt = Object.keys(filterState).length;
+    if (cnt > 0) { badge.textContent = cnt; badge.classList.remove('d-none'); }
+    else { badge.classList.add('d-none'); }
+  }
+
+  function buildDateValueArea(area, preset, field) {
+    area.innerHTML = '';
+    if (preset === 'período' || preset === 'periodo') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center flex-wrap';
+      var f = document.createElement('input'); f.type='date'; f.className='form-control form-control-sm'; f.style.width='auto';
+      f.dataset.field=field; f.dataset.subtype='from';
+      var t = document.createElement('input'); t.type='date'; t.className='form-control form-control-sm'; t.style.width='auto';
+      t.dataset.field=field; t.dataset.subtype='to';
+      if (filterState[field+'_from']) f.value=filterState[field+'_from'];
+      if (filterState[field+'_to']) t.value=filterState[field+'_to'];
+      d.appendChild(f); d.appendChild(t);
+      area.appendChild(d);
+    } else if (preset === 'hoje') {
+      var h = new Date();
+      area.appendChild(document.createTextNode(_fmtDate(h)));
+    } else if (preset === 'ontem') {
+      var o = new Date(); o.setDate(o.getDate()-1);
+      area.appendChild(document.createTextNode(_fmtDate(o)));
+    } else if (preset === 'últimos 7 dias') {
+      var s = new Date(); s.setDate(s.getDate()-6);
+      var h = new Date();
+      area.appendChild(document.createTextNode(_fmtDate(s)+' até '+_fmtDate(h)));
+    } else if (preset === 'mês anterior') {
+      var h = new Date(); var pm = h.getMonth()-1, py = h.getFullYear();
+      if(pm<0){pm=11;py--;}
+      area.appendChild(document.createTextNode(_months[pm]+' '+py));
+    } else if (preset === 'ano atual') {
+      area.appendChild(document.createTextNode(''+(new Date()).getFullYear()));
+    } else if (preset === 'mês') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var i = document.createElement('input'); i.type='month'; i.className='form-control form-control-sm'; i.style.width='auto';
+      i.dataset.field=field; i.dataset.subtype='mes';
+      if (filterState[field+'_mes']) i.value=filterState[field+'_mes'];
+      d.appendChild(i);
+      area.appendChild(d);
+    } else if (preset === 'ano') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var i = document.createElement('input'); i.type='number'; i.min=2000;
+      i.className='form-control form-control-sm'; i.style.width='100px';
+      i.placeholder='Ano'; i.dataset.field=field; i.dataset.subtype='ano';
+      if (filterState[field+'_ano']) i.value=filterState[field+'_ano'];
+      d.appendChild(i);
+      area.appendChild(d);
+    } else if (preset === 'a partir de') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var i = document.createElement('input'); i.type='date'; i.className='form-control form-control-sm'; i.style.width='auto';
+      i.dataset.field=field; i.dataset.subtype='from';
+      if (filterState[field+'_from']) i.value=filterState[field+'_from'];
+      d.appendChild(i);
+      area.appendChild(d);
+    } else if (preset === 'até a data de') {
+      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var i = document.createElement('input'); i.type='date'; i.className='form-control form-control-sm'; i.style.width='auto';
+      i.dataset.field=field; i.dataset.subtype='to';
+      if (filterState[field+'_to']) i.value=filterState[field+'_to'];
+      d.appendChild(i);
+      area.appendChild(d);
+    }
+  }
+
+  function buildFilters(bodyEl) {
+    if (!bodyEl || !table) return;
+    bodyEl.innerHTML = '';
+    var headers = table.querySelectorAll('thead th[data-filter-type]');
+    if (!headers.length) {
+      bodyEl.innerHTML = '<div class="text-muted small p-2">Nenhum filtro disponível.</div>';
+      return;
+    }
+    document.getElementById('page-filter-actions').style.display = '';
+    headers.forEach(function(th) {
+      var type = th.dataset.filterType;
+      var field = th.dataset.field || th.textContent.trim().toLowerCase();
+      var label = th.textContent.trim();
+      var group = document.createElement('div');
+      group.className = 'filter-group';
+
+      if (type === 'text') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1">';
+        var m = document.createElement('select'); m.className='form-select form-select-sm'; m.style.width='auto';
+        m.dataset.field=field; m.dataset.subtype='mode';
+        [['contains','Contém'],['exact','Exato'],['starts','Começa']].forEach(function(p){
+          var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
+          if(filterState[field+'_mode']===p[0]) o.selected=true; m.appendChild(o);
+        });
+        group.lastChild.appendChild(m);
+        var i=document.createElement('input'); i.type='text'; i.className='form-control form-control-sm';
+        i.style.width = Math.min(Math.max(headerWidth(th), 200), 350) + 'px';
+        i.dataset.field=field; i.dataset.subtype='value';
+        if(filterState[field+'_value']) i.value=filterState[field+'_value'];
+        group.lastChild.appendChild(i);
+
+      } else if (type === 'number') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1 align-items-center flex-wrap">';
+        var ms = document.createElement('select'); ms.className='form-select form-select-sm'; ms.style.width='auto';
+        ms.dataset.field=field; ms.dataset.subtype='mode';
+        [['entre','Entre'],['maior_que','Maior que'],['maior_igual','Maior ou igual a'],['menor_que','Menor que'],['menor_igual','Menor ou igual a'],['igual','Igual a']].forEach(function(p){
+          var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
+          if(filterState[field+'_mode']===p[0]) o.selected=true; ms.appendChild(o);
+        });
+        group.lastChild.appendChild(ms);
+        var nw = Math.min(Math.max(headerWidth(th)*0.35, 70), 150);
+        var nd = document.createElement('div'); nd.className='d-inline-flex gap-1 align-items-center number-value-area';
+        var v1 = document.createElement('input'); v1.type='number'; v1.className='form-control form-control-sm'; v1.style.width=nw+'px';
+        v1.dataset.field=field; v1.dataset.subtype='val1';
+        if(filterState[field+'_val1']) v1.value=filterState[field+'_val1'];
+        nd.appendChild(v1);
+        var v2 = document.createElement('input'); v2.type='number'; v2.className='form-control form-control-sm'; v2.style.width=nw+'px';
+        v2.dataset.field=field; v2.dataset.subtype='val2';
+        if(filterState[field+'_val2']) v2.value=filterState[field+'_val2'];
+        v2.style.display = (ms.value==='entre')?'':'none';
+        nd.appendChild(v2);
+        group.lastChild.appendChild(nd);
+        ms.addEventListener('change',function(){
+          v2.style.display = (this.value==='entre')?'':'none';
+        });
+
+      } else if (type === 'select') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1">';
+        var opts={}; try{opts=JSON.parse(th.dataset.filterOptions||'{}')}catch(e){}
+        var sel=document.createElement('select'); sel.className='form-select form-select-sm'; sel.style.width='auto';
+        sel.dataset.field=field;
+        var bo=document.createElement('option'); bo.value=''; bo.textContent='Todos';
+        sel.appendChild(bo);
+        Object.keys(opts).forEach(function(k){
+          var display=opts[k];
+          var o=document.createElement('option'); o.value=display; o.textContent=display;
+          if(filterState[field]&&filterState[field].toLowerCase()===display.toLowerCase()) o.selected=true;
+          sel.appendChild(o);
+        });
+        group.lastChild.appendChild(sel);
+
+      } else if (type === 'boolean') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-3 filter-radio-group">';
+        [['','Todos',true],['true','Sim'],['false','Não']].forEach(function(p){
+          var l=document.createElement('label'); l.className='d-flex align-items-center gap-1';
+          var r=document.createElement('input'); r.type='radio'; r.name='filter_'+field; r.value=p[0];
+          r.dataset.field=field;
+          if(filterState[field]===p[0]) r.checked=true;
+          else if(!filterState[field]&&p[2]) r.checked=true;
+          l.appendChild(r); l.appendChild(document.createTextNode(p[1]));
+          group.lastChild.appendChild(l);
+        });
+
+      } else if (type === 'date') {
+        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-2 align-items-center flex-wrap">';
+        var ps=document.createElement('select'); ps.className='form-select form-select-sm'; ps.style.width='auto'; ps.style.flexShrink='0';
+        ps.dataset.field=field; ps.dataset.subtype='preset';
+        ['Período','Hoje','Ontem','Últimos 7 dias','Mês','Mês Anterior','Ano','Ano Atual','A partir de','Até a data de'].forEach(function(p){
+          var o=document.createElement('option'); o.value=p.toLowerCase(); o.textContent=p;
+          if(filterState[field+'_preset']===p.toLowerCase()) o.selected=true; ps.appendChild(o);
+        });
+        group.lastChild.appendChild(ps);
+        var va=document.createElement('div'); va.className='d-inline-flex align-items-center gap-1 date-value-area';
+        va.dataset.field=field;
+        group.lastChild.appendChild(va);
+        buildDateValueArea(va, filterState[field+'_preset']||'período', field);
+        ps.addEventListener('change',function(){
+          buildDateValueArea(va, this.value, field);
+        });
+      }
+      bodyEl.appendChild(group);
+    });
+  }
+
+  function getFilterValue(el) {
+    if(el.tagName==='SELECT'){return el.value;}
+    if(el.type==='radio'){return el.checked?el.value:'';}
+    return el.value;
+  }
+
+  function applyFiltersFrom(bodyEl) {
+    if(!bodyEl||!table)return;
+    var inputs=bodyEl.querySelectorAll('input, select');
+    var filters={}; filterState={};
+    inputs.forEach(function(el){
+      if(el.type==='radio'&&!el.checked)return;
+      var f=el.dataset.field; if(!f)return;
+      var v=getFilterValue(el).trim();
+      if(v===''||v==='contains'||v==='período'||v==='entre')return;
+      var st=el.dataset.subtype||''; var key=f+(st?'_'+st:'');
+      filters[key]=v.toLowerCase(); filterState[key]=v;
+    });
+
+    var rows=table.querySelectorAll('tbody tr');
+    var headers=table.querySelectorAll('thead th[data-filter-type]');
+    var allHeaders=table.querySelectorAll('thead th');
+    rows.forEach(function(row){
+      var show=true;
+      headers.forEach(function(th){
+        if(!show)return;
+        var type=th.dataset.filterType;
+        var field=th.dataset.field||th.textContent.trim().toLowerCase();
+        var ci=Array.prototype.indexOf.call(allHeaders,th);
+        var cell=row.cells[ci]; if(!cell)return;
+        var ct=cell.textContent.trim().toLowerCase();
+
+        if(type==='text'){
+          var q=filters[field+'_value']; var md=filters[field+'_mode'];
+          if(q){
+            if(md==='exact'&&ct!==q)show=false;
+            else if(md==='starts'&&!ct.startsWith(q))show=false;
+            else if(!ct.includes(q))show=false;
+          }
+        }else if(type==='number'){
+          var n=parseFloat(ct.replace(/[^0-9.,\-]/g,'').replace(',','.'));
+          if(!isNaN(n)){
+            var mode=filters[field+'_mode']||'entre';
+            var v1=filters[field+'_val1']; var v2=filters[field+'_val2'];
+            if(mode==='entre'){
+              if(v1&&n<parseFloat(v1))show=false;
+              if(v2&&n>parseFloat(v2))show=false;
+            }else if(mode==='maior_que'&&v1&&n<=parseFloat(v1))show=false;
+            else if(mode==='maior_igual'&&v1&&n<parseFloat(v1))show=false;
+            else if(mode==='menor_que'&&v1&&n>=parseFloat(v1))show=false;
+            else if(mode==='menor_igual'&&v1&&n>parseFloat(v1))show=false;
+            else if(mode==='igual'&&v1&&n!==parseFloat(v1))show=false;
+          }
+        }else if(type==='select'){
+          var fv=filters[field];
+          if(fv&&!ct.includes(fv))show=false;
+        }else if(type==='boolean'){
+          if(filters[field]){
+            var act=ct==='sim'||ct==='ativo'||ct==='true';
+            if((filters[field]==='true'&&!act)||(filters[field]==='false'&&act))show=false;
+          }
+        }else if(type==='date'){
+          var mm=ct.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+          if(mm){
+            var cd=new Date(+mm[3],+mm[2]-1,+mm[1]);
+            var pr=filters[field+'_preset']||'período';
+            if(pr==='período'){
+              if(filters[field+'_from']){var f=new Date(filters[field+'_from']);if(cd<f)show=false;}
+              if(filters[field+'_to']){var t=new Date(filters[field+'_to']);t.setHours(23,59,59,999);if(cd>t)show=false;}
+            }else if(pr==='hoje'){
+              var h=new Date();h.setHours(0,0,0,0);if(cd.getTime()!==h.getTime())show=false;
+            }else if(pr==='ontem'){
+              var o=new Date();o.setDate(o.getDate()-1);o.setHours(0,0,0,0);if(cd.getTime()!==o.getTime())show=false;
+            }else if(pr==='últimos 7 dias'){
+              var s=new Date();s.setDate(s.getDate()-6);s.setHours(0,0,0,0);
+              var hh=new Date();hh.setHours(23,59,59,999);if(cd<s||cd>hh)show=false;
+            }else if(pr==='mês'){
+              var mV=filters[field+'_mes'];
+              if(mV){
+                var mP=mV.match(/(\d{4})-(\d{2})/);
+                if(mP){
+                  var tM=parseInt(mP[2]),tY=parseInt(mP[1]);
+                  if(cd.getMonth()+1!==tM||cd.getFullYear()!==tY)show=false;
+                }
+              }
+            }else if(pr==='a partir de'){
+              if(filters[field+'_from']){var f=new Date(filters[field+'_from']);if(cd<f)show=false;}
+            }else if(pr==='até a data de'){
+              if(filters[field+'_to']){var t=new Date(filters[field+'_to']);t.setHours(23,59,59,999);if(cd>t)show=false;}
+            }else if(pr==='mês anterior'){
+              var h2=new Date();var pm=h2.getMonth()-1,py=h2.getFullYear();
+              if(pm<0){pm=11;py--;}
+              if(cd.getMonth()!==pm||cd.getFullYear()!==py)show=false;
+            }else if(pr==='ano'){
+              var an=parseInt(filters[field+'_ano']);
+              if(!isNaN(an)&&cd.getFullYear()!==an)show=false;
+            }else if(pr==='ano atual'){
+              if(cd.getFullYear()!==(new Date()).getFullYear())show=false;
+            }
+          }
+        }
+      });
+      row.style.display=show?'':'none';
+    });
+    updateFilterBadge();
+    if (window.__tableTotalsRefresh) window.__tableTotalsRefresh();
+  }
+
+  function clearFiltersFrom(bodyEl) {
+    filterState={};
+    if(bodyEl){
+      bodyEl.querySelectorAll('input, select').forEach(function(el){
+        if(el.type==='radio'){el.checked=(el.value==='');}
+        else if(el.type==='checkbox'){el.checked=false;}
+        else if(el.tagName==='SELECT'){el.selectedIndex=0;}
+        else{el.value='';}
+      });
+      bodyEl.querySelectorAll('.date-value-area').forEach(function(area){
+        buildDateValueArea(area, 'periodo', area.dataset.field);
+      });
+      bodyEl.querySelectorAll('.number-value-area').forEach(function(area){
+        var v2=area.querySelector('input[data-subtype="val2"]');
+        if(v2) v2.style.display='';
+      });
+    }
+    applyFiltersFrom(bodyEl);
+  }
+
+  function goToDadosTab(){
+    if(dadosTab){var t=new bootstrap.Tab(dadosTab);t.show();}
+  }
+
+  var filterTab=document.getElementById('filtros-tab');
+  if(filterTab){
+    filterTab.addEventListener('shown.bs.tab',function(){
+      if(!filtersBuilt){buildFilters(filterBody);filtersBuilt=true;}
+    });
+  }
+
+  var applyBtn=document.getElementById('page-filter-apply');
+  if(applyBtn){
+    applyBtn.addEventListener('click',function(){applyFiltersFrom(filterBody);goToDadosTab();});
+  }
+
+  var clearBtn=document.getElementById('page-filter-clear');
+  if(clearBtn){
+    clearBtn.addEventListener('click',function(){clearFiltersFrom(filterBody);goToDadosTab();});
+  }
+})();
+}
+</script>
+{% endmacro %}
+
+{% macro action_table(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.', card_id_field=none, card_label_field=none, card_status_field=none, edit_endpoint=none, edit_id_field='id', edit_endpoint_map=none, edit_endpoint_key=none, edit_if_field=none, table=none, detail_fields=none, detail_data=none) %}
+{% if table %}
+  {% set fields = table.fields %}
+  {% set edit_endpoint = table.edit_endpoint %}
+  {% set edit_id_field = table.edit_id_field if table.edit_id_field is not none else edit_id_field %}
+  {% set edit_if_field = table.edit_if_field %}
+  {% set edit_endpoint_map = table.edit_endpoint_map %}
+  {% set edit_endpoint_key = table.edit_endpoint_key %}
+  {% set detail_fields = table.detail_fields %}
+  {% set detail_data = table.detail_data %}
+{% endif %}
+{% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
+
+<div class="table-list-wrap">
+  <table class="table table-sm table-hover sortable" style="table-layout:fixed;border-collapse:collapse;">
+    <thead>
+      <tr>
+        <th style="width:3ch;border-left:none;border-right:none;" data-pos="0" data-width-ch="3"></th>
+        {% for col in cols %}
+        <th{% if col.width %} style="width:{{ col.width }}ch;border-left:none;border-right:none;"{% else %} style="border-left:none;border-right:none;"{% endif %}
+          class="{{ 'text-end' if col.align == 'right' else 'text-center' if col.align == 'center' else '' }}" data-field="{{ col.field }}" data-pos="{{ col.pos|default(9) }}" data-width-ch="{{ col.width or '' }}"{% if col.filter %}
+          data-filter-type="{{ col.filter }}"{% if col.filter_options %} data-filter-options='{{ col.filter_options|tojson }}'{% endif %}
+        {% elif col.filter_options %}
+          data-filter-type="select" data-filter-options='{{ col.filter_options|tojson }}'
+        {% elif col.filter is not defined and col.field and col.field != 'id' %}
+          data-filter-type="text"
+        {% endif %}{% if col.hide_zero %} data-hide-zero{% endif %}>{{ col.label }}</th>
+        {% endfor %}
+        {% if edit_url or edit_endpoint or edit_endpoint_map %}<th style="width:10ch;border-left:none;border-right:none;" data-pos="0" data-width-ch="10">Ações</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in data %}
+      <tr data-bs-toggle="collapse" data-bs-target="#detail-{{ loop.index }}" style="cursor:pointer;">
+        <td class="text-center py-1" style="width:3ch;border-left:none;border-right:none;">
+          <span class="collapse-icon">▶</span>
+        </td>
+        {% for col in cols %}
+        <td{% if col.align == 'right' %} class="text-end"{% elif col.align == 'center' %} class="text-center"{% endif %} style="border-left:none;border-right:none;">
+          {%- set _raw = item|deep_attr(col.card_path or col.field) %}
+          {%- if col.function %}
+            {{- col.function(item) }}
+          {%- elif 'imagem' in col.field and _raw %}
+            <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:80px;max-width:100%;width:auto;height:auto;cursor:pointer;" onclick="previewImagem(this.src)">
+          {%- elif col.options and _raw is not none %}
+            {{ col.options.get(_raw, _raw) }}
+          {%- elif col.currency and _raw is not none %}
+            {{ _raw|brl }}
+          {%- elif col.input == 'boolean' and _raw is not none %}
+            {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
+          {%- elif col.link and _raw is not none %}
+            <a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>
+          {%- elif _raw is not none %}
+            {%- if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+          {%- else %}—
+          {%- endif %}
+        </td>
+        {% endfor %}
+        {% if edit_url %}
+        <td onclick="event.stopPropagation();">{{ action_edit(edit_url(item)) }}</td>
+        {% elif edit_endpoint_map %}
+        {% set _ep = edit_endpoint_map.get(edit_endpoint_key) %}
+        {% if _ep %}
+        {% set _item_id = item|deep_attr(edit_id_field) %}
+        {% if _item_id is not none and (not edit_if_field or item|deep_attr(edit_if_field) is not none) %}
+        <td onclick="event.stopPropagation();">{{ action_edit(url_for(_ep, id=_item_id)) }}</td>
+        {% endif %}
+        {% endif %}
+        {% elif edit_endpoint %}
+        {% set _item_id = item|deep_attr(edit_id_field) %}
+        {% if _item_id is not none and (not edit_if_field or item|deep_attr(edit_if_field) is not none) %}
+        <td onclick="event.stopPropagation();">{{ action_edit(url_for(edit_endpoint, id=_item_id)) }}</td>
+        {% endif %}
+        {% endif %}
+      </tr>
+      <tr class="collapse" id="detail-{{ loop.index }}">
+        <td style="border-left:none;border-right:none;"></td>
+        <td colspan="{{ cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) }}" style="border-left:none;border-right:none;">
+          {% if detail_fields is not none and detail_data is not none %}
+          {% set _sub_items = item|deep_attr(detail_data) %}
+          {% if _sub_items %}
+          {% set _detail_cols = detail_fields|fields_to_columns %}
+          <table class="table table-sm table-borderless mb-0 detail-table" style="font-size:0.85em;">
+            <thead>
+              <tr>
+                {% for dcol in _detail_cols %}
+                <th class="{{ 'text-end' if dcol.align == 'right' else 'text-center' if dcol.align == 'center' else '' }}" style="width:{{ dcol.width }}ch;{% if dcol.hide_zero %}data-hide-zero{% endif %}">{{ dcol.label }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for sub in _sub_items %}
+              <tr>
+                {% for dcol in _detail_cols %}
+                <td class="{{ 'text-end' if dcol.align == 'right' else 'text-center' if dcol.align == 'center' else '' }}">
+                  {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
+                  {% if dcol.function %}
+                    {{ dcol.function(sub) }}
+                  {% elif dcol.options and _raw is not none %}
+                    {{ dcol.options.get(_raw, _raw) }}
+                  {% elif dcol.currency and _raw is not none %}
+                    {{ _raw|brl }}
+                  {% elif dcol.input == 'boolean' and _raw is not none %}
+                    {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
+                  {% elif dcol.link and _raw is not none %}
+                    <a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>
+                  {% elif _raw is not none %}
+                    {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+                  {% else %}—
+                  {% endif %}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="p-2 text-muted small">Nenhum registro encontrado.</div>
+          {% endif %}
+          {% else %}
+          <div class="p-2 small" style="display:flex;flex-direction:column;gap:0.15rem;">
+            {% for col in cols %}
+            {% if col.pos|default(9) != 0 %}
+            {% set _raw = item|deep_attr(col.card_path or col.field) %}
+            <div data-field="{{ col.field }}" style="display:{{ 'block' if col.pos|default(9) == -1 else 'none' }}">
+              <span class="text-muted">{{ col.label }}:</span>
+              <span>{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif _raw is not none %}{% if col.options %}{{ col.options.get(_raw, _raw) }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw.strftime is defined %}{{ _raw|fmtdatetime }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% set _has_agg = cols|selectattr('aggregate')|list %}
+    {% if _has_agg %}
+    {% set _ft_label = namespace(label='Total') %}
+    {% for col in cols %}
+      {% if col.aggregate_label and _ft_label.label == 'Total' %}
+        {% set _ft_label.label = col.aggregate_label %}
+      {% endif %}
+    {% endfor %}
+    <tfoot class="table-totals d-none">
+      <tr>
+        <td style="border-left:none;border-right:none;">&nbsp;</td>
+        {% for col in cols %}
+        <td style="border-left:none;border-right:none;"
+            class="fw-bold{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}"
+            data-field="{{ col.field }}"
+            {%- if loop.first %} data-footer-label="true"{% endif %}
+            {%- if col.aggregate %} data-aggregate="{{ col.aggregate }}"{% endif %}
+            {%- if col.mask %} data-mask="{{ col.mask }}"{% endif %}
+            {%- if col.currency %} data-currency="{{ col.currency }}"{% endif %}>
+          {%- if loop.first -%}
+            {{- _ft_label.label -}}
+          {%- elif col.aggregate -%}
+          {%- else -%}
+            &nbsp;
+          {%- endif -%}
+        </td>
+        {% endfor %}
+        {% if edit_url or edit_endpoint or edit_endpoint_map %}<td style="border-left:none;border-right:none;">&nbsp;</td>{% endif %}
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+
+  <style>
+  .collapse-icon { display: inline-block; transition: transform .2s; font-size: .7rem; }
+  tr[aria-expanded="true"] .collapse-icon { transform: rotate(90deg); }
+  </style>
+</div>
+<script>
+(function(){
+  function _parseNum(s) {
+    if (!s || typeof s !== 'string') return NaN;
+    s = s.replace(/^R\$\s*/,'').trim();
+    var c = s.replace(/[^0-9.,\-]/g,'');
+    var lastComma = c.lastIndexOf(',');
+    var lastDot = c.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      c = c.replace(/\./g,'').replace(',','.');
+    }
+    return parseFloat(c);
+  }
+
+  function _fmtNum(v, isBRL, hasR$) {
+    if (isBRL) {
+      var s = v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+      if (hasR$) return 'R$ ' + s;
+      return s;
+    }
+    return v % 1 === 0 ? v.toString() : v.toFixed(2);
+  }
+
+  var wraps = document.querySelectorAll('.table-list-wrap');
+  for (var wi = 0; wi < wraps.length; wi++) {
+    (function(wrap){
+      var table = wrap.querySelector('table');
+      if (!table) return;
+      var tfoot = table.querySelector('tfoot.table-totals');
+      var ths = table.querySelectorAll('thead th');
+
+      function _restoreHiddenZeros(tbl) {
+        var tds = tbl.querySelectorAll('tbody td[data-hidden-zero]');
+        for (var i = 0; i < tds.length; i++) {
+          tds[i].textContent = tds[i].dataset.hiddenZero;
+          delete tds[i].dataset.hiddenZero;
+        }
+      }
+
+      function _hideZeroValues(tbl) {
+        var ths2 = tbl.querySelectorAll('thead th[data-hide-zero]');
+        for (var i = 0; i < ths2.length; i++) {
+          var ci = Array.prototype.indexOf.call(ths2[i].parentNode.children, ths2[i]);
+          var rows = tbl.querySelectorAll('tbody tr');
+          for (var ri = 0; ri < rows.length; ri++) {
+            if (rows[ri].style.display === 'none') continue;
+            var td = rows[ri].cells[ci];
+            if (!td) continue;
+            var txt = td.textContent.trim();
+            if (txt === '') continue;
+            var num = _parseNum(txt);
+            if (!isNaN(num) && num === 0) {
+              td.dataset.hiddenZero = txt;
+              td.textContent = '';
+            }
+          }
+        }
+      }
+
+      function _syncCardTotals(tbl) {
+        var wrap2 = tbl.closest('.table-list-wrap');
+        if (!wrap2) return;
+        var vals = wrap2.querySelectorAll('.card-total-val');
+        if (!vals.length) return;
+        var foot = tbl.querySelector('tfoot.table-totals');
+        if (!foot) return;
+        var cells = foot.querySelectorAll('td');
+        for (var i = 0; i < vals.length; i++) {
+          var ci = parseInt(vals[i].dataset.colIdx);
+          if (cells[ci]) vals[i].textContent = cells[ci].textContent;
+        }
+      }
+
+      function leftCols() {
+        var cols = [];
+        for (var i = 0; i < ths.length; i++) {
+          var th = ths[i];
+          var pos = parseInt(th.dataset.pos);
+          if (isNaN(pos)) pos = 9;
+          var wCh = parseFloat(th.dataset.widthCh);
+          if (isNaN(wCh)) wCh = 0;
+          cols.push({idx: i, pos: pos, widthCh: wCh, th: th, field: th.dataset.field || ''});
+        }
+        return cols;
+      }
+
+      function setCol(idx, show) {
+        var d = show ? '' : 'none';
+        ths[idx].style.display = d;
+        var rows = table.querySelectorAll('tbody tr');
+        for (var ri = 0; ri < rows.length; ri++) {
+          if (rows[ri].classList.contains('collapse')) continue;
+          if (rows[ri].cells[idx]) rows[ri].cells[idx].style.display = d;
+        }
+        if (tfoot) {
+          var ftCells = tfoot.querySelectorAll('td');
+          if (ftCells[idx]) ftCells[idx].style.display = d;
+        }
+      }
+
+      function ajustarTabela() {
+        var cols = leftCols();
+        var measure = document.createElement('span');
+        measure.textContent = '0';
+        measure.style.cssText = 'position:absolute;font:inherit;white-space:nowrap;';
+        wrap.appendChild(measure);
+        var oneCh = measure.offsetWidth;
+        wrap.removeChild(measure);
+
+        var avail = wrap.clientWidth - 1;
+        var pos0 = [], posNeg1 = [], flex = [];
+        for (var ci = 0; ci < cols.length; ci++) {
+          var c = cols[ci];
+          if (c.pos === 0) pos0.push(c);
+          else if (c.pos < 0) posNeg1.push(c);
+          else flex.push(c);
+        }
+        flex.sort(function(a,b) { return a.pos - b.pos || a.idx - b.idx; });
+
+        var used = 0;
+        for (var fi = 0; fi < pos0.length; fi++) {
+          var c = pos0[fi];
+          if (c.idx === 0 || c.field) used += c.widthCh * oneCh;
+        }
+
+        var visible = [];
+        // Primeira coluna pos=1 é sempre forçada visível (com shrink se necessário)
+        for (var pi = 0; pi < flex.length; pi++) {
+          if (flex[pi].pos === 1) {
+            var c = flex[pi];
+            var w = c.widthCh * oneCh;
+            var rem = avail - used;
+            if (w > rem) {
+              var shrinkW = Math.max(60, rem);
+              c.th.style.width = shrinkW + 'px';
+              c.th.style.wordBreak = 'break-word';
+              c.th.style.whiteSpace = 'normal';
+              var rows = table.querySelectorAll('tbody tr');
+              for (var ri = 0; ri < rows.length; ri++) {
+                if (rows[ri].classList.contains('collapse')) continue;
+                if (rows[ri].cells[c.idx]) {
+                  rows[ri].cells[c.idx].style.width = shrinkW + 'px';
+                  rows[ri].cells[c.idx].style.wordBreak = 'break-word';
+                  rows[ri].cells[c.idx].style.whiteSpace = 'normal';
+                }
+              }
+              if (tfoot) {
+                var ftCells = tfoot.querySelectorAll('td');
+                if (ftCells[c.idx]) {
+                  ftCells[c.idx].style.width = shrinkW + 'px';
+                  ftCells[c.idx].style.wordBreak = 'break-word';
+                }
+              }
+              w = shrinkW;
+            }
+            visible.push(c); used += w;
+            break;
+          }
+        }
+
+        for (var pi = 0; pi < flex.length; pi++) {
+          var c = flex[pi];
+          if (visible.indexOf(c) !== -1) continue;
+          var w = c.widthCh * oneCh;
+          if (used + w <= avail) { visible.push(c); used += w; }
+        }
+
+        var visIdx = {};
+        for (var vi = 0; vi < pos0.length; vi++) visIdx[pos0[vi].idx] = true;
+        for (var vi = 0; vi < visible.length; vi++) visIdx[visible[vi].idx] = true;
+
+        for (var ci = 0; ci < cols.length; ci++) {
+          setCol(cols[ci].idx, !!visIdx[cols[ci].idx]);
+        }
+
+        // Força colunas utilitárias (sem field, não-ícone) sempre visíveis
+        for (var ci = 0; ci < cols.length; ci++) {
+          var c = cols[ci];
+          if (c.pos === 0 && !c.field && c.idx !== 0) setCol(c.idx, true);
+        }
+
+        var hasDetail = posNeg1.length > 0 || flex.length > visible.length;
+        setCol(0, hasDetail);
+        var dataRows = table.querySelectorAll('tbody tr');
+        for (var ri = 0; ri < dataRows.length; ri++) {
+          var tr = dataRows[ri];
+          if (tr.classList.contains('collapse')) continue;
+          if (hasDetail) {
+            tr.setAttribute('data-bs-toggle', 'collapse');
+            tr.style.cursor = 'pointer';
+          } else {
+            tr.removeAttribute('data-bs-toggle');
+            tr.style.cursor = '';
+          }
+        }
+
+        var detailContainers = wrap.querySelectorAll('.collapse td > div');
+        for (var dri = 0; dri < detailContainers.length; dri++) {
+          var items = detailContainers[dri].children;
+          for (var di = 0; di < items.length; di++) {
+            var item = items[di];
+            var field = item.dataset.field;
+            var col = null;
+            for (var cj = 0; cj < cols.length; cj++) {
+              if (cols[cj].field === field) { col = cols[cj]; break; }
+            }
+            if (col) item.style.display = (col.pos < 0 || !visIdx[col.idx]) && col.pos !== 0 ? 'block' : 'none';
+          }
+        }
+
+        if (tfoot) {
+          _restoreHiddenZeros(table);
+          _hideZeroValues(table);
+        }
+      }
+
+      function updateTotals() {
+        if (!tfoot) return;
+        _restoreHiddenZeros(table);
+        var aggCells = tfoot.querySelectorAll('td[data-aggregate]');
+        if (!aggCells.length) { tfoot.classList.add('d-none'); return; }
+        var bodyRows = table.querySelectorAll('tbody tr');
+        var visibleRows = [];
+        for (var ri = 0; ri < bodyRows.length; ri++) {
+          var tr = bodyRows[ri];
+          if (tr.classList.contains('collapse')) continue;
+          if (tr.style.display === 'none') continue;
+          visibleRows.push(tr);
+        }
+        if (visibleRows.length === 0) {
+          tfoot.classList.add('d-none');
+          return;
+        }
+        tfoot.classList.remove('d-none');
+
+        for (var ai = 0; ai < aggCells.length; ai++) {
+          var cell = aggCells[ai];
+          var aggType = cell.dataset.aggregate;
+          var ci = Array.prototype.indexOf.call(cell.parentNode.children, cell);
+
+          var isBRL = cell.dataset.currency === 'brl';
+          var hasR$ = cell.dataset.mask && cell.dataset.mask.indexOf('R$') !== -1;
+          var values = [];
+          for (var ri2 = 0; ri2 < visibleRows.length; ri2++) {
+            var td = visibleRows[ri2].cells[ci];
+            if (!td) continue;
+            var txt = td.textContent.trim();
+            if (txt === '' || txt === '-') continue;
+            var num = _parseNum(txt);
+            if (!isNaN(num)) {
+              if (!isBRL) {
+                var ct = txt.replace(/^R\$\s*/, '');
+                isBRL = ct.lastIndexOf(',') > ct.lastIndexOf('.');
+              }
+              values.push(num);
+            }
+          }
+
+          var result;
+          if (aggType === 'count') {
+            result = visibleRows.length;
+            cell.textContent = result;
+          } else if (values.length === 0) {
+            cell.textContent = '';
+          } else if (aggType === 'sum') {
+            result = values.reduce(function(a,b){return a+b;}, 0);
+            cell.textContent = _fmtNum(result, isBRL, hasR$);
+          } else if (aggType === 'avg') {
+            result = values.reduce(function(a,b){return a+b;}, 0) / values.length;
+            cell.textContent = _fmtNum(result, isBRL, hasR$);
+          } else if (aggType === 'min') {
+            result = Math.min.apply(null, values);
+            cell.textContent = _fmtNum(result, isBRL, hasR$);
+          } else if (aggType === 'max') {
+            result = Math.max.apply(null, values);
+            cell.textContent = _fmtNum(result, isBRL, hasR$);
+          }
+        }
+        _hideZeroValues(table);
+        _syncCardTotals(table);
+      }
+
+      ajustarTabela();
+      updateTotals();
+      wrap._updateTotals = function() { updateTotals(); };
+      wrap._ajustarTabela = function() { ajustarTabela(); updateTotals(); };
+    })(wraps[wi]);
+  }
+
+  var _resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(function() {
+      for (var i = 0; i < wraps.length; i++) {
+        if (wraps[i]._ajustarTabela) wraps[i]._ajustarTabela();
+      }
+    }, 200);
+  });
+
+  if (typeof window.__tableTotalsRefresh === 'undefined') {
+    window.__tableTotalsRefresh = function() {
+      var wraps2 = document.querySelectorAll('.table-list-wrap');
+      for (var i = 0; i < wraps2.length; i++) {
+        if (wraps2[i]._updateTotals) wraps2[i]._updateTotals();
+      }
+    };
+  }
+})();
+</script>
+{% endmacro %}

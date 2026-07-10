@@ -33,7 +33,7 @@ QUOTES_FIELDS = [
     Field(name='total', label='Total', width=12, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='carteira', label='Pagamento', width=15, query='carteira'),
     Field(name='status', label='Status', width=14, options=QUOTE_STATUS, filter_options=list(QUOTE_STATUS.values())),
-    Field(name='pedido_id', label='Pedido', width=10, filter=False),
+    Field(name='pedido_id', label='Pedido', width=10, filter=False, link='orders.edit'),
 ]
 
 

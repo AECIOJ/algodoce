@@ -32,7 +32,7 @@ ORDERS_FIELDS = [
     Field(name='total', label='Total', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='status', label='Status', width=10, options=ORDER_STATUS, filter_options=list(ORDER_STATUS.values())),
     Field(name='transacao', label='Faturado', width=10, filter=False),
-    Field(name='quote_id', label='Orçamento', width=9, filter=False),
+    Field(name='quote_id', label='Orçamento', width=9, filter=False, link='orcamentos.edit'),
 ]
 
 

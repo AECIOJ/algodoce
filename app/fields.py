@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Callable
 
 
@@ -139,3 +139,15 @@ def get_field(fields: list[Field], name: str) -> Optional[Field]:
         if f.name == name:
             return f
     return None
+
+
+@dataclass
+class Table:
+    fields: list[Field]
+    edit_endpoint: Optional[str] = None
+    edit_id_field: str = 'id'
+    edit_if_field: Optional[str] = None
+    edit_endpoint_map: Optional[dict] = None
+    edit_endpoint_key: Optional[str] = None
+    detail_fields: Optional[list[Field]] = None
+    detail_data: Optional[str] = None

@@ -183,6 +183,46 @@ class LinhaTransacao:
         return self.compra.status if self.compra else None
 
 
+class CompraLinha:
+    """Wrapper para linha mestre de compra, com previsões no detalhe."""
+    __slots__ = ("compra", "transacao")
+    def __init__(self, compra=None, transacao=None):
+        self.compra = compra
+        self.transacao = transacao
+    @property
+    def compra_id(self):
+        return self.compra.id if self.compra else None
+    @property
+    def status_compra(self):
+        return self.compra.status if self.compra else None
+    @property
+    def carteira(self):
+        return self.compra.carteira.nome if self.compra and self.compra.carteira else None
+    @property
+    def faturado(self):
+        return bool(self.transacao) or bool(self.compra and (self.compra.transacao_id or self.compra.movto_id))
+    @property
+    def fornecedor(self):
+        if self.compra and self.compra.fornecedor:
+            return self.compra.fornecedor.nome
+        if self.transacao and self.transacao.conta:
+            return self.transacao.conta.nome
+        return None
+    @property
+    def fatura(self):
+        return self.transacao.fatura if self.transacao else None
+    @property
+    def valor(self):
+        if self.transacao:
+            return float(self.transacao.valor)
+        if self.compra:
+            return float(self.compra.valor)
+        return 0
+    @property
+    def previsoes(self):
+        return self.transacao.previsoes if self.transacao else []
+
+
 def _title_case(text):
     words = text.strip().split()
     result = []
