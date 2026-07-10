@@ -1,0 +1,87 @@
+{% extends "components/page_sys.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0" style="color: #e91e63;">🔒 Painel Admin</h4>
+  <a href="{{ url_for('seguranca.sair') }}" class="btn btn-outline-secondary btn-sm">Travar</a>
+</div>
+<p class="text-muted small">Os dados serão armazenados criptografados no banco de dados.</p>
+
+<form method="post" action="{{ url_for('seguranca.salvar') }}">
+  {% set ns = namespace(painel_user='', painel_pass='', painel_chave_s='') %}
+  {% for s in settings %}
+    {% if s.key == "painel_usuario" %}
+      {% set ns.painel_user = s %}
+    {% elif s.key == "painel_senha" %}
+      {% set ns.painel_pass = s %}
+    {% elif s.key == "painel_chave" %}
+      {% set ns.painel_chave_s = s %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label class="form-label">{{ ns.painel_user.label }}</label>
+      <input type="text" name="painel_usuario" class="form-control" value="{{ ns.painel_user.value }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">{{ ns.painel_pass.label }}</label>
+      <input type="password" name="painel_senha" class="form-control" value="{{ ns.painel_pass.value }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">{{ ns.painel_chave_s.label }}</label>
+      <select name="painel_chave" class="form-select" style="max-width:120px">
+        <option value="">—</option>
+        {% for p in permutacoes %}
+        <option value="{{ p }}"{% if p == codigo_atual %} selected{% endif %}>{{ p }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <hr>
+  <h5>Notificações</h5>
+  {% set ns2 = namespace(nome='', email='', fone='', topico='', token='') %}
+  {% for s in settings %}
+    {% if s.key == "doceira_nome" %}
+      {% set ns2.nome = s %}
+    {% elif s.key == "doceira_email" %}
+      {% set ns2.email = s %}
+    {% elif s.key == "doceira_telefone" %}
+      {% set ns2.fone = s %}
+    {% elif s.key == "ntfy_topic" %}
+      {% set ns2.topico = s %}
+    {% elif s.key == "ntfy_token" %}
+      {% set ns2.token = s %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label class="form-label">{{ ns2.nome.label }}</label>
+      <input type="text" name="doceira_nome" class="form-control" value="{{ ns2.nome.value }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">{{ ns2.email.label }}</label>
+      <input type="text" name="doceira_email" class="form-control" value="{{ ns2.email.value }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">{{ ns2.fone.label }}</label>
+      <input type="text" name="doceira_telefone" class="form-control" value="{{ ns2.fone.value }}">
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <label class="form-label">{{ ns2.topico.label }}</label>
+      <input type="text" name="ntfy_topic" class="form-control" value="{{ ns2.topico.value }}">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">{{ ns2.token.label }}</label>
+      <input type="text" name="ntfy_token" class="form-control" value="{{ ns2.token.value }}">
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-danger">Salvar</button>
+  <a href="/" class="btn btn-outline-secondary">Cancelar</a>
+</form>
+{% endblock %}

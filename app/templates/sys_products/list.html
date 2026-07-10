@@ -1,0 +1,14 @@
+{% extends "components/page_sys.html" %}
+{% from "components/page_list.html" import page_list %}
+{% from "components/table_list.html" import table_list %}
+
+{% macro edit_url(item) %}{{ url_for('products.edit', id=item.id) }}{% endmacro %}
+
+{% block page_content %}
+{% call(section) page_list(title="Produtos", new_url=url_for('products.new')) %}
+  {% if section == "dados" %}
+      {{ table_list(products, fields=fields, ctx=ctx, edit_url=edit_url) }}
+  {% elif section == "filtros" %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

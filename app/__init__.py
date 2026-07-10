@@ -65,32 +65,34 @@ def create_app():
         return User.query.get(int(user_id))
 
     with app.app_context():
-        from app.routes import clients as contas, products, ingredients, orders, compras
-        from app.routes import auth, site, uploads, site_vitrine, site_orcamento, categories, seguranca, producao, rubricas, previsoes, recursos, contas_a_pagar, contas_a_receber, movimentos, api, orcamentos
+        from app.routes import sys_clients as contas, sys_products, sys_ingredients, sys_orders, sys_compras
+        from app.routes import site, uploads, site_vitrine, site_orcamento
+        from app.routes import sys_categories, sys_producao, sys_rubricas, sys_previsoes, sys_recursos, sys_a_pagar, sys_a_receber, sys_movimentos, sys_api, sys_orcamentos
+        from app.routes.sys_auth import bp as auth, bp_seguranca as seguranca
 
         app.register_blueprint(contas.bp)
-        app.register_blueprint(products.bp)
-        app.register_blueprint(ingredients.bp)
-        app.register_blueprint(orders.bp)
-        app.register_blueprint(compras.bp)
-        app.register_blueprint(auth.bp)
+        app.register_blueprint(sys_products.bp)
+        app.register_blueprint(sys_ingredients.bp)
+        app.register_blueprint(sys_orders.bp)
+        app.register_blueprint(sys_compras.bp)
+        app.register_blueprint(auth)
         app.register_blueprint(site.bp)
         app.register_blueprint(uploads.bp)
         app.register_blueprint(site_vitrine.bp)
         app.register_blueprint(site_orcamento.bp)
-        app.register_blueprint(categories.bp)
-        app.register_blueprint(seguranca.bp)
-        app.register_blueprint(producao.bp)
-        app.register_blueprint(rubricas.bp)
-        app.register_blueprint(previsoes.bp)
-        app.register_blueprint(recursos.bp)
-        app.register_blueprint(contas_a_pagar.bp)
-        app.register_blueprint(contas_a_receber.bp)
-        app.register_blueprint(movimentos.bp)
-        app.register_blueprint(api.bp)
-        app.register_blueprint(orcamentos.bp)
+        app.register_blueprint(sys_categories.bp)
+        app.register_blueprint(seguranca)
+        app.register_blueprint(sys_producao.bp)
+        app.register_blueprint(sys_rubricas.bp)
+        app.register_blueprint(sys_previsoes.bp)
+        app.register_blueprint(sys_recursos.bp)
+        app.register_blueprint(sys_a_pagar.bp)
+        app.register_blueprint(sys_a_receber.bp)
+        app.register_blueprint(sys_movimentos.bp)
+        app.register_blueprint(sys_api.bp)
+        app.register_blueprint(sys_orcamentos.bp)
 
-        from app.routes.carteira import bp as carteira_bp
+        from app.routes.sys_carteira import bp as carteira_bp
         app.register_blueprint(carteira_bp)
 
         from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, rubrica, transacao, previsao  # noqa

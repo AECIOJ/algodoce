@@ -1,0 +1,507 @@
+{% extends "components/page_form.html" %}
+
+
+{% set back_url = url_for('orders.list') %}
+{% set new_title = 'Novo Pedido' %}
+{% set entity_label = 'Pedido' %}
+{% set edit_endpoint = 'orders.edit' %}
+{% if order %}{% set entity_id = order.id %}{% endif %}
+
+{% block nav_right %}
+{% if order and order.quote_id %}
+<a href="{{ url_for('orcamentos.edit', id=order.quote_id) }}" class="btn btn-outline-info btn-sm">Orçamento #{{ order.quote_id|fmtid }}</a>
+{% endif %}
+{% endblock %}
+
+{% block form_body %}
+<div class="row mb-3">
+  <div class="col-md-3 mb-2 mb-md-0">
+    <label class="form-label">Cliente *</label>
+    <select name="client_id" class="form-select" required {{ 'disabled' if ro }} onchange="preencherTelefone(this)">
+      <option value="">Selecione</option>
+      {% for c in clients %}
+        <option value="{{ c.id }}" data-telefone="{{ c.telefone or '' }}" {{ 'selected' if order and order.client_id == c.id }}>{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3 mb-2 mb-md-0">
+    <label class="form-label">Telefone</label>
+    <div class="input-group">
+      <input type="text" name="cliente_telefone" class="form-control" value="{{ order.conta.telefone if order and order.conta and order.conta.telefone else '' }}" {{ 'readonly' if ro else '' }}>
+      {% if order %}<a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success">Enviar</a>{% endif %}
+    </div>
+  </div>
+  <div class="col-md-2 mb-2 mb-md-0">
+    <label class="form-label">Data Pedido</label>
+    <input type="datetime-local" name="data_pedido" class="form-control" value="{{ order.data_pedido.strftime('%Y-%m-%dT%H:%M') if order else '' }}" {{ 'disabled' if ro }}>
+  </div>
+  <div class="col-md-2 mb-2 mb-md-0">
+    <label class="form-label">Prev. Entrega</label>
+    <input type="datetime-local" name="data_previsao_entrega" id="data-previsao-entrega" class="form-control" value="{{ order.data_previsao_entrega.strftime('%Y-%m-%dT%H:%M') if order.data_previsao_entrega else '' }}" {{ 'disabled' if ro }}>
+  </div>
+  <div class="col-md-2 mb-2 mb-md-0">
+    <label class="form-label">Data Entrega</label>
+    <input type="datetime-local" name="data_entrega" class="form-control" value="{{ order.data_entrega.strftime('%Y-%m-%dT%H:%M') if order.data_entrega else '' }}">
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+    <span>Itens do Pedido</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive d-none d-md-block">
+      <table class="table mb-0" id="itens-table">
+        <thead>
+          <tr>
+            <th style="min-width:200px">Produto</th>
+            <th class="text-end">Qtd</th>
+            <th class="text-end">Preço</th>
+            <th class="text-end">Valor</th>
+            <th style="min-width:140px">Obs</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="itens-body">
+          {% if order and order.items %}
+            {% for item in order.items %}
+            <tr class="item-row">
+              <td>
+                <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+                  <option value="">Selecione</option>
+                  {% for p in products %}
+                    <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+              <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+              <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
+              <td><input type="text" name="observacao_item" class="form-control form-control-sm" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
+              <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr class="item-row">
+              <td>
+                <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+                  <option value="">Selecione</option>
+                  {% for p in products %}
+                    <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+              <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+              <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
+              <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
+              <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+            </tr>
+          {% endif %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="3" class="text-end">Total</th>
+            <th id="total-geral" class="text-end">R$ {{ (order.total or 0) | brl if order else 'R$ 0,00' }}</th>
+            <th colspan="2"></th>
+          </tr>
+          <tr id="add-item-row"><td colspan="6" class="py-2"><div class="d-flex gap-2">{% if not ro %}<button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm" onclick="atualizarESalvar()">Atualizar Preço 0,00</button>{% endif %}</div></td></tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="d-md-none" id="itens-mobile-list">
+      {% if order and order.items %}
+        {% for item in order.items %}
+        <div class="px-3 py-2 border-bottom item-mobile-card">
+          <select name="product_id" class="form-select form-select-sm mb-1 product-select" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+            <option value="">Selecione</option>
+            {% for p in products %}
+              <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
+            {% endfor %}
+          </select>
+          <div class="row g-1 align-items-center">
+            <div class="col-4">
+              <span class="card-label">Qtd</span>
+              <input type="number" name="quantidade" class="form-control form-control-sm" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Preço</span>
+              <input type="text" name="preco_unitario" class="form-control form-control-sm preco-input" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Valor</span><br>
+              <span class="valor-item fw-bold">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span>
+            </div>
+          </div>
+          <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}>
+          {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="px-3 py-2 border-bottom item-mobile-card">
+          <select name="product_id" class="form-select form-select-sm mb-1 product-select" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+            <option value="">Selecione</option>
+            {% for p in products %}
+              <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+            {% endfor %}
+          </select>
+          <div class="row g-1 align-items-center">
+            <div class="col-4">
+              <span class="card-label">Qtd</span>
+              <input type="number" name="quantidade" class="form-control form-control-sm" min="1" step="1" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Preço</span>
+              <input type="text" name="preco_unitario" class="form-control form-control-sm preco-input" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Valor</span><br>
+              <span class="valor-item fw-bold">R$ 0,00</span>
+            </div>
+          </div>
+          <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" {{ 'disabled' if ro }}>
+          {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+        </div>
+      {% endif %}
+      <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
+        <span>Total</span>
+        <span id="total-geral-mobile">R$ {{ (order.total or 0) | brl if order else 'R$ 0,00' }}</span>
+      </div>
+      <div class="px-3 py-2">
+        {% if not ro %}
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-success btn-sm flex-fill" onclick="addItemMobile()">+ Adicionar</button>
+          <button type="button" class="btn btn-outline-primary btn-sm flex-fill" onclick="atualizarESalvar()">Atualizar Preços</button>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if order %}
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold d-flex align-items-center gap-2">
+    <span>Financeiro</span>
+    {% if order.transacao_id %}
+    <span class="badge bg-success fs-6">Faturado {{ order.transacao.data|fmtdate }}</span>
+    {% elif order.movto_id %}
+    <span class="badge bg-success fs-6">Faturado {{ order.movto.data|fmtdate }}</span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    <div class="d-flex align-items-end gap-3 flex-wrap mb-3">
+      <div>
+        <label class="form-label mb-0">Carteira</label>
+        <select name="carteira_id" id="carteira-select" class="form-select form-select-sm" required
+          data-saved-id="{{ order.carteira_id or '' }}"
+          data-entrega="{{ order.data_entrega or '' }}"
+          data-previsao-entrega="{{ order.data_previsao_entrega or '' }}"
+          {{ 'disabled' if ro or order.transacao_id or order.movto_id }}>
+          <option value="">Selecione...</option>
+          {% for c in carteiras %}
+            <option value="{{ c.id }}" {{ 'selected' if order.carteira and order.carteira.id == c.id }} data-gerar="{{ c.gerar }}" data-prazo="{{ c.prazo_recebimento or '' }}">{{ c.nome }} ({{ {0:'Movimento',1:'Previsão'}[c.gerar] }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if not order.transacao_id and not order.movto_id %}
+      <div id="gerar-financeiro-wrapper">
+        <a href="{{ url_for('a_receber.new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-previsao-link" style="display:none">Gerar Previsão</a>
+        <a href="{{ url_for('movimentos.recebimentos_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-movimento-link" style="display:none">Gerar</a>
+        <small id="gerar-financeiro-msg" class="badge bg-warning text-dark d-none">Salve o pedido antes de gerar.</small>
+        <small id="gerar-financeiro-msg-entrega" class="badge bg-warning text-dark d-none">Informe Previsão de Entrega para gerar.</small>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if order.transacao %}
+    {% set t = order.transacao %}
+    {% set prevs = t.previsoes %}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>Transação</th>
+            <th>Previsão</th>
+            <th>Documento</th>
+            <th>Vencimento</th>
+            <th class="text-end">Previsto</th>
+            <th class="text-end">Realizado</th>
+            <th class="text-end">Variação</th>
+            <th class="text-end">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in prevs %}
+          <tr>
+            <td><a href="{{ url_for('a_receber.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">#{{ t.id|fmtid }}</a></td>
+            <td>#{{ p.id|fmtid if p.id else '' }}</td>
+            <td>{{ p.documento or '-' }}</td>
+            <td>{{ p.vencimento|fmtdate }}</td>
+            <td class="text-end">{{ p.previsto|brl }}</td>
+            <td class="text-end">{{ p.realizado|brl if p.realizado is not none else '-' }}</td>
+            <td class="text-end">{{ p.variacao|brl }}</td>
+            <td class="text-end">{{ p.saldo|brl }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if order.movto %}
+    {% set m = order.movto %}
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead>
+          <tr>
+            <th>Recebimento</th>
+            <th>Recurso</th>
+            <th class="text-end">Valor</th>
+            <th>Histórico</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="{{ url_for('movimentos.recebimentos_edit', id=m.id) }}" class="btn btn-sm btn-outline-primary">#{{ m.id|fmtid }}</a></td>
+            <td>{{ m.recurso.nome if m.recurso else '-' }}</td>
+            <td class="text-end">{{ m.valor|brl }}</td>
+            <td>{{ m.historico_display }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold">Evento</div>
+  <div class="card-body">
+    <div class="row mb-2">
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Tipo</label>
+        <select name="evento_tipo" class="form-select" {{ 'disabled' if ro }}>
+          <option value="">—</option>
+          <option value="Aniversário" {{ 'selected' if order and order.event and order.event.tipo == 'Aniversário' }}>Aniversário</option>
+          <option value="Casamento" {{ 'selected' if order and order.event and order.event.tipo == 'Casamento' }}>Casamento</option>
+          <option value="Debutante" {{ 'selected' if order and order.event and order.event.tipo == 'Debutante' }}>Debutante</option>
+          <option value="Corporativo" {{ 'selected' if order and order.event and order.event.tipo == 'Corporativo' }}>Corporativo</option>
+          <option value="Infantil" {{ 'selected' if order and order.event and order.event.tipo == 'Infantil' }}>Infantil</option>
+          <option value="Família" {{ 'selected' if order and order.event and order.event.tipo == 'Família' }}>Família</option>
+          <option value="Confraternização" {{ 'selected' if order and order.event and order.event.tipo == 'Confraternização' }}>Confraternização</option>
+          <option value="Religioso" {{ 'selected' if order and order.event and order.event.tipo == 'Religioso' }}>Religioso</option>
+          <option value="Outros" {{ 'selected' if order and order.event and order.event.tipo == 'Outros' }}>Outros</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Tema</label>
+        <input type="text" name="evento_tema" class="form-control" value="{{ order.event.tema or '' if order and order.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Nº Convidados</label>
+        <input type="number" name="evento_convidados" class="form-control" min="1" step="1" value="{{ order.event.convidados or '' if order and order.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Obs</label>
+        <input type="text" name="evento_complemento" class="form-control" value="{{ order.event.obs or '' if order and order.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Data</label>
+        <input type="date" name="evento_data" class="form-control" value="{{ order.event.data.strftime('%Y-%m-%d') if order and order.event and order.event.data else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Hora</label>
+        <input type="time" name="evento_hora" class="form-control" value="{{ order.event.hora.strftime('%H:%M') if order and order.event and order.event.hora else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Local</label>
+        <input type="text" name="evento_local" class="form-control" value="{{ order.event.local or '' if order and order.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Cerimonial</label>
+        <input type="text" name="evento_cerimonial" class="form-control" value="{{ order.event.cerimonial or '' if order and order.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Forminhas</label>
+        <select name="forminhas" class="form-select" {{ 'disabled' if ro }}>
+          {% for val, label in FORMINHAS.items() %}
+            <option value="{{ val }}" {{ 'selected' if order and order.forminhas == val }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="row mt-2">
+      <div class="col-12">
+        <label class="form-label small mb-0">Observação</label>
+        <textarea name="observacao" class="form-control" rows="2" {{ 'disabled' if ro }}>{{ order.observacao or '' if order else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="hidden" name="status" value="{{ order.status if order else 0 }}" id="status-field" data-original="{{ order.status if order else 0 }}">
+<input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
+{% endblock %}
+
+{% block form_footer_left %}
+{% if order %}
+<div class="form-check mb-0">
+  <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if order.status == 3 }} onchange="toggleReprovado(this)">
+  <label class="form-check-label small" for="reprovado-check">Cancelado</label>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_scripts %}
+<div class="modal fade" id="deleteItemModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <img src="{{ url_for('static', filename='icons/trash.png') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
+        <p class="mb-3 fw-bold">Remover este item?</p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger btn-sm" id="confirm-delete-item">Remover</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/itens.js') }}"></script>
+<script>
+var pendingDeleteEl = null;
+
+function confirmDelete(el) {
+  pendingDeleteEl = el;
+  var modal = new bootstrap.Modal(document.getElementById('deleteItemModal'));
+  modal.show();
+}
+
+document.getElementById('confirm-delete-item').addEventListener('click', function() {
+  if (pendingDeleteEl) {
+    markModified();
+    var el = pendingDeleteEl.closest('.item-row') || pendingDeleteEl.closest('.item-mobile-card');
+    if (el) el.remove();
+    pendingDeleteEl = null;
+  }
+  var modalEl = document.getElementById('deleteItemModal');
+  var modal = bootstrap.Modal.getInstance(modalEl);
+  if (modal) modal.hide();
+});
+
+function atualizarESalvar() {
+  atualizarPrecos();
+  document.getElementById('atualizar-precos-field').value = '1';
+  disableHiddenInputs();
+  document.getElementById('main-form').submit();
+}
+
+function disableHiddenInputs() {
+  if (window.innerWidth < 768) {
+    document.querySelectorAll('#itens-table input, #itens-table select').forEach(function(el) { el.disabled = true; });
+  } else {
+    document.querySelectorAll('#itens-mobile-list input, #itens-mobile-list select').forEach(function(el) { el.disabled = true; });
+  }
+}
+
+function addItem() {
+  markModified();
+  const tbody = document.getElementById('itens-body');
+  const tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.innerHTML = `
+    <td>
+      <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)">
+        <option value="">Selecione</option>
+        {% for p in products %}
+          <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)"></td>
+    <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
+    <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
+    <td><input type="text" name="observacao_item" class="form-control form-control-sm"></td>
+    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function addItemMobile() {
+  markModified();
+  const list = document.getElementById('itens-mobile-list');
+  const firstItem = list.querySelector('.item-mobile-card');
+  const div = document.createElement('div');
+  div.className = 'px-3 py-2 border-bottom item-mobile-card';
+  div.innerHTML = firstItem ? firstItem.innerHTML : '';
+  if (div.innerHTML) {
+    div.querySelectorAll('input').forEach(function(inp) { inp.value = ''; });
+    div.querySelector('.valor-item').textContent = 'R$ 0,00';
+    list.insertBefore(div, list.querySelector('.d-flex.justify-content-between')?.closest('.px-3') || null);
+  }
+}
+
+function toggleReprovado(el) {
+  const field = document.getElementById('status-field');
+  if (!el._saved) el._saved = field.dataset.original;
+  field.value = el.checked ? '3' : (el._saved != '3' ? el._saved : '1');
+  if (!el.checked) el._saved = null;
+}
+
+document.getElementById('main-form').addEventListener('submit', disableHiddenInputs);
+
+function preencherTelefone(select) {
+  var opt = select.options[select.selectedIndex];
+  var tel = opt ? opt.getAttribute('data-telefone') : '';
+  var input = document.querySelector('input[name="cliente_telefone"]');
+  if (input) input.value = tel;
+}
+
+(function() {
+  var select = document.getElementById('carteira-select');
+  var wrapper = document.getElementById('gerar-financeiro-wrapper');
+  if (!select || !wrapper) return;
+  var previsaoLink = document.getElementById('gerar-previsao-link');
+  var movimentoLink = document.getElementById('gerar-movimento-link');
+  var msg = document.getElementById('gerar-financeiro-msg');
+  var msgEntrega = document.getElementById('gerar-financeiro-msg-entrega');
+  function precisaDataEntrega(prazo) {
+    return prazo && prazo.toUpperCase().indexOf('E') !== -1;
+  }
+  function temDataEntrega() {
+    return select.getAttribute('data-entrega') || select.getAttribute('data-previsao-entrega');
+  }
+  function atualizarBotaoGerar() {
+    var selectedId = select.value;
+    var opt = select.options[select.selectedIndex];
+    var gerar = opt ? opt.getAttribute('data-gerar') : null;
+    var prazo = opt ? opt.getAttribute('data-prazo') : '';
+    var inputPrev = document.getElementById('data-previsao-entrega');
+    if (precisaDataEntrega(prazo)) {
+      inputPrev && inputPrev.setAttribute('required', 'required');
+    } else {
+      inputPrev && inputPrev.removeAttribute('required');
+    }
+    msg.classList.add('d-none');
+    msgEntrega.classList.add('d-none');
+    previsaoLink.style.display = 'none';
+    movimentoLink.style.display = 'none';
+    if (!selectedId) return;
+    if (gerar === '1' && precisaDataEntrega(prazo) && !temDataEntrega()) {
+      msgEntrega.classList.remove('d-none');
+    } else if (gerar === '1') {
+      previsaoLink.style.display = '';
+    } else {
+      movimentoLink.style.display = '';
+    }
+  }
+  select.addEventListener('change', atualizarBotaoGerar);
+  atualizarBotaoGerar();
+})();
+</script>
+{% endblock %}

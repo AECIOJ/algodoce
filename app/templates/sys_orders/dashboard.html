@@ -1,0 +1,126 @@
+{% extends "components/page_sys.html" %}
+{% block content %}
+
+<div class="d-flex flex-column flex-md-row align-items-center sticky-top gap-2 gap-md-3" style="top:188px; z-index:30; background:#f8f9fa; padding:0.75rem 0; margin-bottom:1rem; border-bottom:1px solid #dee2e6; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+  <div class="d-flex justify-content-between align-items-center w-100 d-md-none">
+    <select class="form-select fw-bold border-0 pe-4" style="font-size:1.25rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+      <option value="/dashboard" selected>Produção</option>
+      <option value="/orcamentos">Orçamentos</option>
+      <option value="/pedidos">Pedidos</option>
+      <option value="/relatorios/compras">Compras</option>
+    </select>
+    <a href="{{ url_for('orders.new') }}" class="btn btn-success btn-sm text-nowrap">Novo Pedido</a>
+  </div>
+  <select class="form-select fw-bold border-0 pe-4 d-none d-md-inline-block" style="font-size:1.5rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
+    <option value="/dashboard" selected>Produção</option>
+    <option value="/orcamentos">Orçamentos</option>
+    <option value="/pedidos">Pedidos</option>
+    <option value="/relatorios/compras">Compras</option>
+  </select>
+  <div class="d-flex align-items-center gap-2 gap-md-3 flex-wrap justify-content-center flex-fill">
+    <div class="form-check form-check-inline mb-0">
+      <input type="checkbox" class="form-check-input" id="chk-0" checked onchange="toggleGrupo(0)">
+      <label class="form-check-label" for="chk-0">Pendentes</label>
+    </div>
+    <div class="form-check form-check-inline mb-0">
+      <input type="checkbox" class="form-check-input" id="chk-1" checked onchange="toggleGrupo(1)">
+      <label class="form-check-label" for="chk-1">Em Produção</label>
+    </div>
+    <div class="form-check form-check-inline mb-0">
+      <input type="checkbox" class="form-check-input" id="chk-2" onchange="toggleGrupo(2)">
+      <label class="form-check-label" for="chk-2">Prontos</label>
+    </div>
+    <div class="form-check form-check-inline mb-0">
+      <input type="checkbox" class="form-check-input" id="chk-8" onchange="toggleGrupo(8)">
+      <label class="form-check-label" for="chk-8">Cancelados</label>
+    </div>
+    <div class="form-check form-check-inline mb-0">
+      <input type="checkbox" class="form-check-input" id="chk-9" onchange="toggleGrupo(9)">
+      <label class="form-check-label" for="chk-9">Entregues</label>
+    </div>
+  </div>
+  <a href="{{ url_for('orders.new') }}" class="btn btn-success btn-sm text-nowrap d-none d-md-block">Novo Pedido</a>
+</div>
+
+{% set cores = {
+  0: 'warning',
+  1: 'info',
+  2: 'success',
+  8: 'secondary',
+  9: 'dark'
+} %}
+
+{% for status, lista in grupos.items() %}
+<div class="card mb-4 grupo-card" id="grupo-{{ status }}">
+  <div class="card-header d-flex justify-content-between align-items-center bg-{{ cores[status] }} text-white fw-bold">
+    <span>{{ ORDER_STATUS[status] }} ({{ lista|length }})</span>
+  </div>
+  <div class="card-body p-0">
+    {% if lista %}
+      <div class="table-responsive table-scroll">
+      <table class="table table-hover table-sm mb-0 sortable tabela-producao" style="width:100%;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Cliente</th>
+            <th>Pedido</th>
+            <th>Entrega</th>
+            <th class="d-none d-sm-table-cell">Total</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in lista %}
+          <tr class="clickable-row" data-href="{{ url_for('orders.edit', id=o.id) }}" style="cursor:pointer">
+            <td>{{ o.id|fmtid }}</td>
+            <td>{{ o.conta.nome }}</td>
+            <td style="white-space:nowrap;">{{ o.data_pedido.strftime('%d/%m/%Y') }}</td>
+            <td style="white-space:nowrap;">{{ o.data_entrega.strftime('%d/%m/%Y') if o.data_entrega else '-' }}</td>
+            <td class="d-none d-sm-table-cell" style="white-space:nowrap;">R$ {{ (o.total or 0) | brl }}</td>
+            <td>
+              <span class="badge {{ 'border border-warning text-dark bg-transparent' if o.status == 0 else 'bg-info' if o.status == 1 else 'bg-success' if o.status == 2 else 'bg-secondary' if o.status == 8 else 'bg-dark' }}">{{ ORDER_STATUS[o.status] }}</span>
+              {% if o.transacao_id or o.movto_id %}<span class="badge bg-primary ms-1">Faturado</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+    <div class="p-3 text-muted text-center">Nenhum pedido com este status.</div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+<style>
+@media (max-width: 575.98px) {
+  .tabela-producao { font-size: 0.75rem; }
+  .tabela-producao .badge { font-size: 0.6rem; }
+}
+</style>
+
+{% block scripts %}
+<script>
+function toggleGrupo(status) {
+  const chk = document.getElementById('chk-' + status);
+  const grupo = document.getElementById('grupo-' + status);
+  if (grupo) {
+    grupo.style.display = chk.checked ? '' : 'none';
+  }
+}
+
+  document.addEventListener('DOMContentLoaded', function() {
+    [0, 1, 2, 8, 9].forEach(toggleGrupo);
+
+  document.querySelectorAll('.clickable-row').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+      if (e.target.closest('a')) return;
+      window.location = row.dataset.href;
+    });
+  });
+});
+</script>
+{% endblock %}

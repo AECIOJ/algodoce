@@ -1,0 +1,188 @@
+{% extends "components/page_sys.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Orçamento #{{ quote.id|fmtid }}</h2>
+  <a href="{{ url_for('orcamentos.list') }}" class="btn btn-outline-secondary btn-sm">
+    <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
+  </a>
+</div>
+
+{% set s = url_for('static', filename='icons/') %}
+<div class="text-center mb-3">
+  <div class="btn-group btn-group-sm" role="group">
+    <a href="{{ url_for('orcamentos.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
+      <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
+    </a>
+    {% if nav.prev_id %}
+      <a href="{{ url_for('orcamentos.detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
+        <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+      </a>
+    {% else %}
+      <a class="btn btn-outline-secondary disabled" title="Anterior">
+        <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+      </a>
+    {% endif %}
+    {% if nav.next_id %}
+      <a href="{{ url_for('orcamentos.detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
+        <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+      </a>
+    {% else %}
+      <a class="btn btn-outline-secondary disabled" title="Próximo">
+        <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+      </a>
+    {% endif %}
+    <a href="{{ url_for('orcamentos.detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
+      <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
+    </a>
+  </div>
+</div>
+
+<div class="row mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><strong>Cliente</strong></div>
+      <div class="card-body">
+        <p class="mb-1"><strong>{{ quote.cliente_nome }}</strong></p>
+        <p class="mb-0">{{ quote.cliente_telefone }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><strong>Informações</strong></div>
+      <div class="card-body">
+        <p class="mb-1">Data: {{ quote.data_pedido.strftime('%d/%m/%Y %H:%M') }}</p>
+        {% set ref = quote.data_renovacao or quote.data_pedido %}
+        <p class="mb-1">Validade: {{ (ref.replace(tzinfo=None) + timedelta(days=quote.validade or 3)).strftime('%d/%m/%Y') }} ({{ quote.validade }} dias){% if quote.data_renovacao %} — Renovado em: {{ quote.data_renovacao.strftime('%d/%m/%Y') }}{% endif %}</p>
+        <p class="mb-1">Forminhas: {{ FORMINHAS[quote.forminhas] }}</p>
+        <p class="mb-1">Carteira: {{ quote.carteira.nome or '-' }}</p>
+        <p class="mb-0">
+          Status:
+          <span class="badge {{ 'border border-secondary text-dark' if quote.status == 0 else 'bg-primary' if quote.status == 1 else 'bg-info' if quote.status == 6 else 'bg-expired' if quote.status == 7 else 'bg-danger' if quote.status == 8 else 'bg-success' }}">
+            {{ QUOTE_STATUS[quote.status] }}
+          </span>
+        </p>
+        {% if quote.pedido_id %}
+          <p class="mt-1 mb-0">
+            <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-sm btn-outline-success">Ver Pedido #{{ quote.pedido_id|fmtid }}</a>
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><strong>Itens</strong></div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table mb-0 sortable">
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Qtd</th>
+            <th>Preço Und.</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in quote.items %}
+            <tr>
+              <td>{{ item.product.nome }}</td>
+              <td>{{ item.quantidade }}</td>
+              <td>R$ {{ (item.preco_unitario or 0) | brl if item.preco_unitario else '-' }}</td>
+              <td>R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl if item.preco_unitario else '-' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="3" class="text-end">Total</th>
+            <th>R$ {{ (quote.total or 0) | brl }}</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if quote.event and quote.event.tipo %}
+<div class="card mb-4">
+  <div class="card-header"><strong>Evento</strong></div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-4 mb-2">
+        <strong>Tipo:</strong> {{ quote.event.tipo }}
+      </div>
+      {% if quote.event.tema %}
+      <div class="col-md-4 mb-2">
+        <strong>Tema:</strong> {{ quote.event.tema }}
+      </div>
+      {% endif %}
+      {% if quote.event.obs %}
+      <div class="col-md-4 mb-2">
+        <strong>Obs:</strong> {{ quote.event.obs }}
+      </div>
+      {% endif %}
+      {% if quote.event.data %}
+      <div class="col-md-3 mb-2">
+        <strong>Data:</strong> {{ quote.event.data.strftime('%d/%m/%Y') }}
+      </div>
+      {% endif %}
+      {% if quote.event.hora %}
+      <div class="col-md-3 mb-2">
+        <strong>Hora:</strong> {{ quote.event.hora.strftime('%H:%M') }}
+      </div>
+      {% endif %}
+      {% if quote.event.local %}
+      <div class="col-md-3 mb-2">
+        <strong>Local:</strong> {{ quote.event.local }}
+      </div>
+      {% endif %}
+      {% if quote.event.cerimonial %}
+      <div class="col-md-3 mb-2">
+        <strong>Cerimonial:</strong> {{ quote.event.cerimonial }}
+      </div>
+      {% endif %}
+      {% if quote.event.convidados %}
+      <div class="col-md-3 mb-2">
+        <strong>Convidados:</strong> {{ quote.event.convidados }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if quote.observacao %}
+  <div class="mb-4">
+    <strong>Observação:</strong>
+    <p class="text-muted">{{ quote.observacao }}</p>
+  </div>
+{% endif %}
+
+<div class="d-flex flex-wrap gap-2">
+  <a href="{{ url_for('orcamentos.edit', id=quote.id) }}" class="btn btn-outline-primary">Revisar</a>
+  {% if not quote.pedido_id and quote.status < 7 %}
+    {% if perfect_match %}
+    <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
+      <input type="hidden" name="converter_tipo" value="auto">
+      <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
+      <button type="submit" class="btn btn-success">Converter</button>
+    </form>
+    {% else %}
+    <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
+      <button type="submit" class="btn btn-success"
+              onclick="return confirmFormSubmit(this, 'Converter este orçamento em pedido?')">Converter</button>
+    </form>
+    {% endif %}
+  {% endif %}
+  {% if quote.cliente_telefone %}
+    {% set tel = quote.cliente_telefone|string|replace('(', '')|replace(')', '')|replace('-', '')|replace(' ', '') %}
+    {% set msg = 'Olá! Segue o orçamento #' ~ quote.id ~ ' da Algodoce Doçaria.' %}
+    <a href="https://wa.me/55{{ tel }}?text={{ msg | urlencode }}" target="_blank" class="btn btn-outline-success">WhatsApp</a>
+  {% endif %}
+</div>
+
+{% endblock %}

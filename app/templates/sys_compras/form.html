@@ -1,0 +1,723 @@
+{% extends "components/page_form.html" %}
+
+{% set back_url = url_for('compras.list') %}
+{% set new_title = 'Nova Compra' %}
+{% set entity_label = 'Compra' %}
+{% set edit_endpoint = 'compras.edit' %}
+{% if compra and compra.id %}{% set entity_id = compra.id %}{% endif %}
+
+{% set previsoes = submitted_previsoes if submitted_previsoes is not none else (transacao.previsoes if transacao else None) %}
+
+{% block form_body %}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-2">
+    <label class="form-label">Data</label>
+    <input type="date" name="data" class="form-control" value="{{ compra.data if compra else hoje }}">
+  </div>
+  <div class="col-6 col-md-4">
+    <label class="form-label">Fornecedor *</label>
+    <select name="conta_id" class="form-select" required>
+      <option value="">Nenhum</option>
+      {% for c in contas %}
+        <option value="{{ c.id }}" {% if compra and compra.fornecedor_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label">Rubrica *</label>
+    <select name="rubrica_id" class="form-select" required>
+      <option value="">Nenhuma</option>
+      {% for r in rubricas %}
+        <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label">Data Recepção</label>
+    <input type="date" name="data_recepcao" class="form-control" value="{{ compra.data_recepcao.strftime('%Y-%m-%d') if compra and compra.data_recepcao else '' }}">
+  </div>
+  <div class="col-12 col-md-6">
+    <label class="form-label">Histórico</label>
+    <input type="text" name="historico" class="form-control" value="{{ compra.historico if compra and compra.historico else '' }}">
+  </div>
+</div>
+
+<hr>
+<h5 class="mb-2">Itens da Compra</h5>
+
+{% set items_total = namespace(valor=0) %}
+{% for ci in compra.items %}
+  {% set items_total.valor = items_total.valor + (ci.preco|float * ci.quantidade|float) %}
+{% endfor %}
+
+<div class="table-responsive d-none d-md-block">
+  <table class="table mb-0" id="itens-table">
+    <thead>
+      <tr>
+        <th style="min-width:200px">Insumo</th>
+        <th class="text-end">Quantidade</th>
+        <th class="text-end">Preço Unit.</th>
+        <th class="text-end">Valor</th>
+        <th style="width:40px"></th>
+      </tr>
+    </thead>
+    <tbody id="itens-container">
+      {% for ci in compra.items %}
+      <tr class="item-row">
+        <td>
+          <select name="insumo_id[]" class="form-select form-select-sm" onchange="calcValor(this)">
+            <option value="">Selecione...</option>
+            {% for ins in insumos %}
+              <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td class="text-end">
+          <div class="d-flex align-items-center justify-content-end gap-1">
+            <input type="number" name="quantidade[]" class="form-control form-control-sm text-end" step="0.001" min="0" oninput="calcValor(this)" value="{{ ci.quantidade }}">
+            <span class="unidade-display text-muted small"></span>
+          </div>
+        </td>
+        <td class="text-end">
+          <input type="number" name="preco[]" class="form-control form-control-sm text-end preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}">
+        </td>
+        <td class="text-end">
+          <span class="valor-item">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
+        </td>
+        <td class="text-center">
+          <input type="hidden" name="item_id[]" value="{{ ci.id }}">
+          <input type="hidden" name="item_remover[]" value="0">
+          <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th colspan="3" class="text-end">Total</th>
+        <th id="total-geral" class="text-end" data-total-db="{{ '%.2f'|format(items_total.valor) }}">R$ {{ items_total.valor|brl }}</th>
+        <input type="hidden" id="total-display" value="{{ '%.2f'|format(items_total.valor) }}">
+        <th></th>
+      </tr>
+      <tr id="add-item-row">
+        <td colspan="5">
+          <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button>
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<div class="d-md-none" id="itens-mobile-container">
+  {% for ci in compra.items %}
+  <div class="px-3 py-2 border-bottom item-mobile-card">
+    <select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="calcValor(this)">
+      <option value="">Selecione...</option>
+      {% for ins in insumos %}
+        <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+      {% endfor %}
+    </select>
+    <div class="row g-1 align-items-center">
+      <div class="col-4">
+        <span class="card-label">Qtd</span>
+        <div class="d-flex align-items-center gap-1">
+          <input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="calcValor(this)" value="{{ ci.quantidade }}">
+          <span class="unidade-display text-muted small"></span>
+        </div>
+      </div>
+      <div class="col-4">
+        <span class="card-label">Preço</span>
+        <input type="number" name="preco[]" class="form-control form-control-sm preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}">
+      </div>
+      <div class="col-4">
+        <span class="card-label">Valor</span><br>
+        <span class="valor-item fw-bold">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
+      </div>
+    </div>
+    <input type="hidden" name="item_id[]" value="{{ ci.id }}">
+    <input type="hidden" name="item_remover[]" value="0">
+    <button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+  </div>
+  {% endfor %}
+  <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
+    <span>Total</span>
+    <span id="total-geral-mobile">R$ {{ items_total.valor|brl }}</span>
+  </div>
+  <div class="px-3 py-2">
+    <button type="button" class="btn btn-outline-success btn-sm" onclick="addItemMobile()">+ Adicionar Item</button>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold">Financeiro</div>
+  <div class="card-body">
+    <div class="d-flex align-items-end gap-3 flex-wrap mb-3">
+      <div>
+        <label class="form-label mb-0">Carteira</label>
+        <select name="carteira_id" id="carteira-select" class="form-select form-select-sm" required
+          data-saved-id="{{ compra.carteira_id or '' if compra else '' }}">
+          <option value="">Selecione...</option>
+          {% for c in carteiras %}
+          <option value="{{ c.id }}" {{ 'selected' if compra.carteira and compra.carteira.id == c.id }} data-gerar="{{ c.gerar }}" data-prazo="{{ c.prazo_recebimento or '' }}">{{ c.nome }} ({{ {0:'Movimento',1:'Previsão'}[c.gerar] }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if compra and compra.id and not compra.movto_id and not compra.transacao_id %}
+      <div id="gerar-financeiro-wrapper" style="padding-bottom:1px">
+        <input type="hidden" name="redirect_after" id="redirect-after-input" value="">
+        <button type="button" class="btn btn-sm btn-success d-none" id="btn-gerar" onclick="gerarClick()">Gerar</button>
+        <small id="gerar-financeiro-msg" class="badge bg-warning text-dark d-none">Salve a compra antes de gerar.</small>
+      </div>
+      {% endif %}
+      {% if compra and compra.id and compra.transacao_id %}
+      <a href="{{ url_for('a_pagar.edit', id=compra.transacao_id) }}" class="btn btn-sm btn-outline-primary">Transação #{{ compra.transacao_id }}</a>
+      {% elif compra and compra.id and compra.movto_id %}
+      <a href="{{ url_for('movimentos.pagamentos_edit', id=compra.movto_id) }}" class="btn btn-sm btn-outline-primary">Movimento #{{ compra.movto_id }}</a>
+      {% endif %}
+    </div>
+
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <h5 class="mb-0">Parcelas
+        {% if transacao and transacao.status == 0 %}<span class="badge bg-dark ms-1 align-middle" style="font-size:0.55rem;">Soma difere do valor total</span>{% endif %}
+      </h5>
+    </div>
+
+    <div class="table-responsive d-none d-md-block">
+      <table class="table table-sm table-bordered align-middle mb-0" style="position:relative;">
+        <thead style="position:sticky;top:0;z-index:10;background:#fff;">
+          <tr>
+            <th style="width:80px;" class="text-center">Previsão</th>
+            <th style="width:130px;">Documento</th>
+            <th style="width:120px;">Vencimento</th>
+            <th style="width:100px;" class="text-end">Previsto</th>
+            <th style="width:100px;" class="text-end">Realizado</th>
+            <th style="width:100px;" class="text-end">Variação</th>
+            <th style="width:100px;" class="text-end">Saldo</th>
+            <th style="width:40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="previsoes-container">
+          {% if previsoes is not none %}
+          {% for p in previsoes %}
+          <tr class="previsao-row">
+            <td class="text-center text-muted small previsao-num">#{{ p.id|fmtid if p.id else '' }}</td>
+            <td>
+              <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
+              <input type="hidden" name="previsao_remover[]" value="0">
+              <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" value="{{ p.documento or '' }}">
+            </td>
+            <td>
+              <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}">
+            </td>
+            <td class="text-end">
+              <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor text-end" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}">
+            </td>
+            <td class="text-end">
+              <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}">
+            </td>
+            <td class="text-end">
+              <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}">
+            </td>
+            <td class="text-end">
+              <span class="previsao-saldo form-control form-control-sm bg-light text-end" style="display:block;min-width:70px;">
+                {% set pv = p.previsto|float if p.previsto else 0 %}
+                {% set vr = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+                {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+                {{ (pv + vr - rl)|brl }}
+              </span>
+            </td>
+            <td class="text-center">
+              {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+              {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+              {% if vl == 0 and rl == 0 %}
+              <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-md-none" id="previsoes-mobile-container">
+      {% if previsoes is not none %}
+      {% for p in previsoes %}
+      <div class="px-3 py-2 border-bottom previsao-mobile-card">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="text-muted small previsao-num">#{{ p.id|fmtid if p.id else '' }}</span>
+          {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+          {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+          {% if vl == 0 and rl == 0 %}
+          <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+          {% endif %}
+        </div>
+        <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
+        <input type="hidden" name="previsao_remover[]" value="0">
+        <div class="mb-1">
+          <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" placeholder="Documento" value="{{ p.documento or '' }}">
+        </div>
+        <div class="mb-1">
+          <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required value="{{ p.vencimento }}">
+        </div>
+        <div class="row g-1 mb-1">
+          <div class="col-4">
+            <span class="card-label">Previsto</span>
+            <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor" required step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.previsto|float) }}">
+          </div>
+          <div class="col-4">
+            <span class="card-label">Realizado</span>
+            <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.realizado|float) if p.realizado is not none and p.realizado != '' else '' }}">
+          </div>
+          <div class="col-4">
+            <span class="card-label">Variação</span>
+            <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)" value="{{ '%.2f'|format(p.variacao|float) if p.variacao and p.variacao != '' else '' }}">
+          </div>
+        </div>
+        <div>
+          <span class="card-label">Saldo: </span>
+          <span class="previsao-saldo fw-bold">
+            {% set pv = p.previsto|float if p.previsto else 0 %}
+            {% set vr = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
+            {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
+            {{ (pv + vr - rl)|brl }}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+
+    <div class="px-3 py-1">
+      <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar Parcela</button>
+      <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar Parcela</button>
+    </div>
+
+    {% if movimentos %}
+    <hr>
+    <div class="mt-0">
+      <h5 class="mb-2">{{ tipo_nome }}s relacionados</h5>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover">
+        <thead>
+          <tr>
+            <th>Movto</th>
+            <th>Data</th>
+            <th>Recurso</th>
+            <th>Previsão</th>
+            <th>Documento</th>
+            <th class="text-end">Valor</th>
+            <th>Rubrica</th>
+            <th>Histórico</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movimentos %}
+          <tr>
+            <td>{{ m.id|fmtid }}</td>
+            <td>{{ m.data|fmtdate }}</td>
+            <td>{{ m.recurso.nome if m.recurso else '' }}</td>
+            <td>#{{ m.previsao_id|fmtid }}</td>
+            <td>{{ m.documento or '' }}</td>
+            <td class="text-danger fw-bold text-end">{{ m.valor|brl }}</td>
+            <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
+            <td>{{ m.historico_display }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block form_footer_left %}
+{% if transacao %}
+<div class="d-flex align-items-center gap-1">
+  <label class="form-label small mb-0 text-danger">Cancelado</label>
+  <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ transacao.cancelado.strftime('%Y-%m-%d') if transacao and transacao.cancelado else '' }}">
+</div>
+{% endif %}
+{% endblock %}
+
+{% block page_scripts %}
+<template id="item-template">
+  <tr class="item-row">
+    <td>
+      <select name="insumo_id[]" class="form-select form-select-sm" onchange="calcValor(this)">
+        <option value="">Selecione...</option>
+        {% for ins in insumos %}
+          <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}">{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td class="text-end">
+      <div class="d-flex align-items-center justify-content-end gap-1">
+        <input type="number" name="quantidade[]" class="form-control form-control-sm text-end" step="0.001" min="0" oninput="calcValor(this)">
+        <span class="unidade-display text-muted small"></span>
+      </div>
+    </td>
+    <td class="text-end">
+      <input type="number" name="preco[]" class="form-control form-control-sm text-end preco-input" step="0.01" min="0" oninput="calcValor(this)">
+    </td>
+    <td class="text-end">
+      <span class="valor-item">R$ 0,00</span>
+    </td>
+    <td class="text-center">
+      <input type="hidden" name="item_id[]" value="">
+      <input type="hidden" name="item_remover[]" value="0">
+      <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </td>
+  </tr>
+</template>
+
+<template id="previsao-template">
+  <tr class="previsao-row">
+    <td class="text-center text-muted small previsao-num"></td>
+    <td>
+      <input type="hidden" name="previsao_id[]" value="">
+      <input type="hidden" name="previsao_remover[]" value="0">
+      <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15">
+    </td>
+    <td>
+      <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required>
+    </td>
+    <td class="text-end">
+      <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor text-end" required step="0.01" oninput="calcSaldo(this)">
+    </td>
+    <td class="text-end">
+      <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)">
+    </td>
+    <td class="text-end">
+      <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor text-end" step="0.01" oninput="calcSaldo(this)">
+    </td>
+    <td class="text-end">
+      <span class="previsao-saldo form-control form-control-sm bg-light text-end" style="display:block;min-width:70px;">0,00</span>
+    </td>
+    <td class="text-center">
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </td>
+  </tr>
+</template>
+
+<template id="previsao-mobile-template">
+  <div class="px-3 py-2 border-bottom previsao-mobile-card">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <span class="text-muted small previsao-num"></span>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </div>
+    <input type="hidden" name="previsao_id[]" value="">
+    <input type="hidden" name="previsao_remover[]" value="0">
+    <div class="mb-1">
+      <input type="text" name="previsao_documento[]" class="form-control form-control-sm" maxlength="15" placeholder="Documento">
+    </div>
+    <div class="mb-1">
+      <input type="date" name="previsao_vencimento[]" class="form-control form-control-sm" required>
+    </div>
+    <div class="row g-1 mb-1">
+      <div class="col-4">
+        <span class="card-label">Previsto</span>
+        <input type="number" name="previsao_previsto[]" class="form-control form-control-sm previsao-valor" required step="0.01" oninput="calcSaldo(this)">
+      </div>
+      <div class="col-4">
+        <span class="card-label">Realizado</span>
+        <input type="number" name="previsao_realizado[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)">
+      </div>
+      <div class="col-4">
+        <span class="card-label">Variação</span>
+        <input type="number" name="previsao_variacao[]" class="form-control form-control-sm previsao-valor" step="0.01" oninput="calcSaldo(this)">
+      </div>
+    </div>
+    <div>
+      <span class="card-label">Saldo: </span>
+      <span class="previsao-saldo fw-bold">0,00</span>
+    </div>
+  </div>
+</template>
+
+<div class="modal fade" id="removeParcelaModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <p class="mb-3">Remover parcela?</p>
+        <button type="button" class="btn btn-outline-secondary btn-sm me-2" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger btn-sm" id="btn-confirm-remove-parcela" data-bs-dismiss="modal">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
+  if (!opt.value) return;
+  var show = opt.dataset.tipoRubrica == "2" && opt.dataset.temPai == "1";
+  opt.style.display = show ? '' : 'none';
+});
+</script>
+
+<script>
+function fmt_brl(valor) {
+  return valor.toFixed(2).replace('.', ',').replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+}
+
+function container(el) {
+  return el.closest('.item-row, .item-mobile-card');
+}
+
+function calcValor(el) {
+  var c = container(el);
+  if (!c) return;
+  var sel = c.querySelector('select[name="insumo_id[]"]');
+  if (sel) {
+    var opt = sel.options[sel.selectedIndex];
+    var unidade = opt ? opt.getAttribute('data-unidade') || '' : '';
+    var span = c.querySelector('.unidade-display');
+    if (span) span.textContent = unidade;
+  }
+  var qtd = parseFloat(c.querySelector('[name="quantidade[]"]').value) || 0;
+  var precoInput = c.querySelector('.preco-input');
+  var preco = parseFloat(precoInput.value) || 0;
+  precoInput.classList.toggle('bg-warning', preco === 0);
+  var valor = qtd * preco;
+  c.querySelector('.valor-item').textContent = 'R$ ' + fmt_brl(valor);
+  calcTotal();
+}
+
+function calcTotal() {
+  var isDesktop = window.innerWidth >= 768;
+  var sel = isDesktop ? '.item-row' : '.item-mobile-card';
+  var rows = document.querySelectorAll(sel);
+  var total = 0;
+  rows.forEach(function(r) {
+    if (r.style.display === 'none') return;
+    var qtd = parseFloat(r.querySelector('[name="quantidade[]"]').value) || 0;
+    var prc = parseFloat(r.querySelector('[name="preco[]"]').value) || 0;
+    var v = qtd * prc;
+    var span = r.querySelector('.valor-item');
+    if (span) span.textContent = 'R$ ' + fmt_brl(v);
+    total += v;
+  });
+  var fmt = 'R$ ' + fmt_brl(total);
+  var dt = document.getElementById('total-geral');
+  if (dt) {
+    dt.textContent = fmt;
+    var dbVal = parseFloat(dt.getAttribute('data-total-db')) || 0;
+    dt.classList.toggle('bg-warning', total !== dbVal);
+  }
+  var mt = document.getElementById('total-geral-mobile');
+  if (mt) mt.textContent = fmt;
+  document.getElementById('total-display').value = total.toFixed(2);
+}
+
+function addItemMobile() {
+  var container = document.getElementById('itens-mobile-container');
+  var firstCard = container.querySelector('.item-mobile-card');
+  var div = document.createElement('div');
+  div.className = 'px-3 py-2 border-bottom item-mobile-card';
+  if (firstCard) {
+    div.innerHTML = firstCard.innerHTML;
+    div.querySelectorAll('input').forEach(function(inp) { inp.value = ''; });
+    div.querySelectorAll('select').forEach(function(sel) { sel.selectedIndex = 0; });
+    div.querySelector('.valor-item').textContent = 'R$ 0,00';
+  } else {
+    div.innerHTML = '<select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="calcValor(this)"><option value="">Selecione...</option>{% for ins in insumos %}<option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}">{{ ins.nome }} ({{ ins.unidade_medida }})</option>{% endfor %}</select><div class="row g-1 align-items-center"><div class="col-4"><span class="card-label">Qtd</span><div class="d-flex align-items-center gap-1"><input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="calcValor(this)"><span class="unidade-display text-muted small"></span></div></div><div class="col-4"><span class="card-label">Preço</span><input type="number" name="preco[]" class="form-control form-control-sm preco-input" step="0.01" min="0" oninput="calcValor(this)"></div><div class="col-4"><span class="card-label">Valor</span><br><span class="valor-item fw-bold">R$ 0,00</span></div></div><input type="hidden" name="item_id[]" value=""><input type="hidden" name="item_remover[]" value="0"><button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>';
+  }
+  var totalLine = container.querySelector('.d-flex.justify-content-between.fw-bold');
+  if (totalLine) container.insertBefore(div, totalLine);
+  else container.appendChild(div);
+  calcTotal();
+}
+
+function addItem() {
+  var container = document.getElementById('itens-container');
+  var template = document.getElementById('item-template');
+  var clone = template.content.cloneNode(true);
+  container.appendChild(clone);
+  marcarFormAlterado();
+  calcTotal();
+}
+
+function removerItem(btn) {
+  var row = btn.closest('.item-row, .item-mobile-card');
+  row.querySelector('[name="item_remover[]"]').value = "1";
+  row.style.display = 'none';
+  marcarFormAlterado();
+  calcTotal();
+}
+
+function marcarFormAlterado() {
+  window._formModified = true;
+  var btn = document.getElementById('btn-salvar');
+  if (btn && btn.hasAttribute('disabled')) btn.disabled = false;
+}
+
+function addRow() {
+  var container = document.getElementById('previsoes-container');
+  var template = document.getElementById('previsao-template');
+  var clone = template.content.cloneNode(true);
+  var visiveis = 0;
+  container.querySelectorAll('.previsao-row').forEach(function(row) {
+    if (row.style.display !== 'none') visiveis++;
+  });
+  var x = visiveis + 1;
+  var numCell = clone.querySelector('.previsao-num');
+  if (numCell) numCell.textContent = '#' + x;
+  var doc = clone.querySelector('[name="previsao_documento[]"]');
+  if (doc) doc.value = 'Parcela ' + x;
+  var prev = clone.querySelector('[name="previsao_previsto[]"]');
+  var gerarValor = document.getElementById('gerar-valor');
+  if (prev && gerarValor) prev.value = gerarValor.value;
+  var dataVal = document.querySelector('[name="data"]').value;
+  if (dataVal) {
+    var dt = new Date(dataVal + 'T12:00:00');
+    dt.setDate(dt.getDate() + 30);
+    var venc = clone.querySelector('[name="previsao_vencimento[]"]');
+    if (venc) venc.value = dt.toISOString().slice(0, 10);
+  }
+  container.appendChild(clone);
+  marcarFormAlterado();
+}
+
+function addRowMobile() {
+  var container = document.getElementById('previsoes-mobile-container');
+  var template = document.getElementById('previsao-mobile-template');
+  var clone = template.content.cloneNode(true);
+  var visiveis = 0;
+  container.querySelectorAll('.previsao-mobile-card').forEach(function(row) {
+    if (row.style.display !== 'none') visiveis++;
+  });
+  var x = visiveis + 1;
+  var numCell = clone.querySelector('.previsao-num');
+  if (numCell) numCell.textContent = '#' + x;
+  var doc = clone.querySelector('[name="previsao_documento[]"]');
+  if (doc) doc.value = 'Parcela ' + x;
+  var prev = clone.querySelector('[name="previsao_previsto[]"]');
+  var gerarValor = document.getElementById('gerar-valor');
+  if (prev && gerarValor) prev.value = gerarValor.value;
+  var dataVal = document.querySelector('[name="data"]').value;
+  if (dataVal) {
+    var dt = new Date(dataVal + 'T12:00:00');
+    dt.setDate(dt.getDate() + 30);
+    var venc = clone.querySelector('[name="previsao_vencimento[]"]');
+    if (venc) venc.value = dt.toISOString().slice(0, 10);
+  }
+  container.appendChild(clone);
+  marcarFormAlterado();
+}
+
+var removeParcelaBtn = null;
+var removeParcelaModal = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  removeParcelaModal = new bootstrap.Modal(document.getElementById('removeParcelaModal'));
+});
+
+var previsoesContainer = document.getElementById('previsoes-container');
+if (previsoesContainer) previsoesContainer.addEventListener('click', function(e) {
+  var btn = e.target.closest('.btn-remove-parcela');
+  if (!btn) return;
+  removeParcelaBtn = btn;
+  removeParcelaModal.show();
+});
+var previsoesMobileContainer = document.getElementById('previsoes-mobile-container');
+if (previsoesMobileContainer) previsoesMobileContainer.addEventListener('click', function(e) {
+  var btn = e.target.closest('.btn-remove-parcela');
+  if (!btn) return;
+  removeParcelaBtn = btn;
+  removeParcelaModal.show();
+});
+
+document.getElementById('btn-confirm-remove-parcela').addEventListener('click', function() {
+  if (!removeParcelaBtn) return;
+  var row = removeParcelaBtn.closest('.previsao-row, .previsao-mobile-card');
+  row.querySelector('[name="previsao_remover[]"]').value = "1";
+  row.style.display = 'none';
+  marcarFormAlterado();
+  recalcularSaldoGerar();
+  removeParcelaBtn = null;
+});
+
+function calcSaldo(el) {
+  var row = el.closest('.previsao-row, .previsao-mobile-card');
+  var inputs = row.querySelectorAll('.previsao-valor');
+  var prev = parseFloat(inputs[0].value) || 0;
+  var real = parseFloat(inputs[1].value) || 0;
+  var vari = parseFloat(inputs[2].value) || 0;
+  var saldo = prev + vari - real;
+  row.querySelector('.previsao-saldo').textContent = saldo.toFixed(2).replace('.', ',');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  calcTotal();
+});
+
+document.getElementById('main-form').addEventListener('submit', function(e) {
+  if (window.innerWidth < 768) {
+    document.querySelectorAll('#itens-container input, #itens-container select, #previsoes-container input, #previsoes-container select').forEach(function(el) { el.disabled = true; });
+  } else {
+    document.querySelectorAll('#itens-mobile-container input, #itens-mobile-container select, #previsoes-mobile-container input, #previsoes-mobile-container select').forEach(function(el) { el.disabled = true; });
+  }
+});
+
+(function() {
+  var select = document.getElementById('carteira-select');
+  var wrapper = document.getElementById('gerar-financeiro-wrapper');
+  if (!select || !wrapper) return;
+  var btn = document.getElementById('btn-gerar');
+  var msg = document.getElementById('gerar-financeiro-msg');
+  var redirectInput = document.getElementById('redirect-after-input');
+  {% if compra and compra.id %}
+  function atualizarBtnGerar() {
+    var selectedId = select.value;
+    var opt = select.options[select.selectedIndex];
+    var gerar = opt ? opt.getAttribute('data-gerar') : null;
+    var prazo = opt ? opt.getAttribute('data-prazo') : '';
+    msg.classList.add('d-none');
+    btn.classList.add('d-none');
+    if (selectedId) {
+      var baseUrl = gerar === '1'
+        ? '{{ url_for('a_pagar.new', compra_id=compra.id) }}'
+        : '{{ url_for('movimentos.pagamentos_new', compra_id=compra.id) }}';
+      var v = document.getElementById('total-display').value;
+      var rubricaEl = document.querySelector('[name="rubrica_id"]');
+      var rubricaId = rubricaEl ? rubricaEl.value : '';
+      var sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
+      redirectInput.value = baseUrl + sep + 'prazo=' + encodeURIComponent(prazo) + '&valor=' + encodeURIComponent(v) + '&rubrica_id=' + encodeURIComponent(rubricaId);
+      btn.classList.remove('d-none');
+    }
+  }
+  select.addEventListener('change', atualizarBtnGerar);
+  atualizarBtnGerar();
+  {% endif %}
+})();
+
+function gerarClick() {
+  var input = document.getElementById('redirect-after-input');
+  var rubricaEl = document.querySelector('[name="rubrica_id"]');
+  if (rubricaEl && rubricaEl.value) {
+    var u = new URL(input.value, window.location.origin);
+    u.searchParams.set('rubrica_id', rubricaEl.value);
+    input.value = u.toString();
+  }
+  var url = input.value;
+  if (!url) return;
+  if (!window._formModified) {
+    window.location.href = url;
+    return;
+  }
+  var form = document.getElementById('main-form');
+  if (!form.checkValidity()) {
+    form.reportValidity();
+    return;
+  }
+  if (window.innerWidth >= 768) {
+    document.querySelectorAll('#itens-mobile-container input, #itens-mobile-container select, #previsoes-mobile-container input, #previsoes-mobile-container select').forEach(function(el) { el.disabled = true; });
+  } else {
+    document.querySelectorAll('#itens-container input, #itens-container select, #previsoes-container input, #previsoes-container select').forEach(function(el) { el.disabled = true; });
+  }
+  form.submit();
+}
+</script>
+{% endblock %}
