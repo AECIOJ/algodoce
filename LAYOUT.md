@@ -65,28 +65,24 @@ A seção ativa é detectada por JS ao carregar a página, baseada no `window.lo
 ## Páginas de Listagem
 
 ### Componentes Usados
-- `components/panel_list.html` — `panel_list(title, actions, filters, table_wrapper_class, model)` (macro mestra)
-- `components/barra_filtro.html` — `barra_filtro(title, actions)` (chamado por panel_list)
-- `components/barra_report.html` — `barra_report()` (barra inferior expansível)
+- `components/action_list.html` — `action_list(title, new_url, extra_actions)` (macro mestra)
+- `components/action_table.html` — `action_table(data, fields, ctx, edit_endpoint, ...)` (tabela dinâmica)
+- `components/action_filter.html` — `action_filter(caller_content)` (filtros)
+- `components/action_edit.html` — `action_edit(url)` (botão editar)
 
 ### Estrutura HTML
 ```
 base.html
   └── {% block content %}
-        └── {% call panel_list("Título", actions, filters) %}
-              ├── {% call barra_filtro("Título", actions) %}
-              │     caller() = filters (selects/inputs de filtro)
-              └── <table class="table table-hover sortable">
-                    <thead> ... </thead>
-                    <tbody> ... </tbody>
-                  </table>
-        └── {% call(item) card_list(items) %}
-              caller(item) = card content para mobile
-        └── <div class="form-bottom-spacer"></div>
-  └── {% block bottom_bar %}
-        └── {% call barra_report() %}
-              caller() = texto do resumo (ex: "N registro(s)")
-  └── {% block scripts %}
+        └── {% call action_list("Título", new_url=url_for('.new')) %}
+              {% if section == "filtros" %}
+                └── {% call action_filter() %}
+                      selects/inputs de filtro
+                └── {% endcall %}
+              {% elif section == "dados" %}
+                └── {{ action_table(items, fields=fields, ctx=ctx, edit_endpoint='.edit') }}
+              {% endif %}
+        └── {% endcall %}
 ```
 
 ### Desktop (>= 992px)
@@ -143,27 +139,27 @@ base.html
 - `barra_report` na parte inferior — mostra contagem e ao clicar expande painel fullscreen
 
 ### Páginas que usam o padrão de listagem
-- `categories/list.html` — sem `barra_report`
-- `products/list.html` — sem `barra_report`
-- `ingredients/list.html` — sem `barra_report`
-- `contas/list.html` — sem `barra_report`
-- `rubricas/list.html` — sem `barra_report`
-- `recursos/list.html` — sem `barra_report`
-- `orders/list.html` (pedidos) — com `barra_report`
-- `orders/orcamentos.html` — com `barra_report`
-- `compras/list.html` — com `barra_report`
-- `contas_a_pagar/list.html` — com `barra_report`
-- `contas_a_receber/list.html` — com `barra_report`
-- `producao/list.html` — com `barra_report`
-- `movimentos/list.html` — com `barra_report`
-- `previsoes/list.html` — com `barra_report`
+- `sys_categories/list.html`
+- `sys_products/list.html`
+- `sys_ingredients/list.html`
+- `sys_contas/list.html`
+- `sys_rubricas/list.html`
+- `sys_recursos/list.html`
+- `sys_orders/list.html` (pedidos)
+- `sys_orders/orcamentos.html`
+- `sys_compras/list.html`
+- `sys_a_pagar/list.html`
+- `sys_a_receber/list.html`
+- `sys_producao/list.html`
+- `sys_movimentos/list.html`
+- `sys_previsoes/list.html`
 
 ---
 
 ## Páginas de Formulário (Edição/Criação)
 
 ### Componentes Usados
-- `components/form_nav.html` — `form_nav(back_url, nome, nav, edit_endpoint, entity_id, status, actions2)` (navegação entre registros)
+- `components/action_nav.html` — `action_nav(back_url, nome, nav, edit_endpoint, entity_id, status, actions2)` (navegação entre registros)
 - `components/barra_edicao.html` — `barra_edicao(back_url)` (barra inferior fixa com Salvar/Sair)
 
 ### Desktop (>= 992px)
@@ -185,7 +181,7 @@ Em modo **edição** (registro existente):
 └─────────────────────────────────────────────────┘
 ```
 
-Em modo **novo** (sem `form_nav`):
+Em modo **novo** (sem `action_nav`):
 ```
 ┌─────────────────────────────────────────────────┐
 │              Novo Registro                       │
@@ -196,7 +192,7 @@ Em modo **novo** (sem `form_nav`):
 └─────────────────────────────────────────────────┘
 ```
 
-- `form_nav` tem `position: sticky; top: 0; z-index: 102` (sempre visível)
+- `action_nav` tem `position: sticky; top: 0; z-index: 102` (sempre visível)
 - A primeira linha de campos (`row.mb-3`) também fica sticky abaixo do nav (`top: navHeight`)
 - A `barra_edicao` fica `position: fixed; bottom: 0` com fundo branco, `box-shadow: 0 -2px 4px rgba(0,0,0,0.08)`
 - `.form-bottom-spacer` com `height: 56px` evita que o conteúdo fique atrás da barra
@@ -220,31 +216,31 @@ Em modo **novo** (sem `form_nav`):
 - Nav: fundo branco, cantos arredondados, `flex-wrap: wrap`
 - Botões Primeiro/Último escondidos; Anterior/Próximo com ícones 16x16px
 - Título (`nav-title`) com `max-width: 220px`, `text-overflow: ellipsis`, `overflow: hidden`
-- `actions2` renderizada em linha separada (fora do `form_nav`, chamada pelo caller)
+- `actions2` renderizada em linha separada (fora do `action_nav`, chamada pelo caller)
 - **Sticky fields**: a primeira coluna da primeira `row.mb-3` é clonada como `position: fixed` quando o scroll a levaria para trás do nav. O input do clone é sincronizado com o original via eventos `input`/`change`.
 
 ### Páginas que usam este padrão de formulário
-- `categories/form.html`
-- `products/form.html` (com Cropper.js para recorte de imagem)
-- `ingredients/form.html`
-- `contas/form.html`
-- `rubricas/form.html`
-- `recursos/form.html`
-- `carteira/form.html`
-- `orders/form.html` (pedidos — com lista dinâmica de itens)
-- `orders/quote_form.html` (orçamentos)
-- `compras/form.html` (com lista dinâmica de itens)
-- `contas_a_pagar/form.html` (com lista de parcelas)
-- `contas_a_receber/form.html` (com lista de parcelas)
-- `movimentos/form.html`
-- `previsoes/form.html`
+- `sys_categories/form.html`
+- `sys_products/form.html` (com Cropper.js para recorte de imagem)
+- `sys_ingredients/form.html`
+- `sys_contas/form.html`
+- `sys_rubricas/form.html`
+- `sys_recursos/form.html`
+- `sys_carteira/form.html`
+- `sys_orders/form.html` (pedidos — com lista dinâmica de itens)
+- `sys_orders/quote_form.html` (orçamentos)
+- `sys_compras/form.html` (com lista dinâmica de itens)
+- `sys_a_pagar/form.html` (com lista de parcelas)
+- `sys_a_receber/form.html` (com lista de parcelas)
+- `sys_movimentos/form.html`
+- `sys_previsoes/form.html`
 
 ---
 
 ## Páginas de Detalhe
 
 ### Produção (detail.html — híbrido com tabs)
-Usa `form_nav` + abas Bootstrap (`nav-tabs`) para organizar seções:
+Usa `action_nav` + abas Bootstrap (`nav-tabs`) para organizar seções:
 - **Pedidos**: lista de pedidos na produção com progresso
 - **Compras**: insumos calculados com qtd comprada
 - **Etapas**: progresso por etapa (preparo, montagem, embalagem)
@@ -265,33 +261,37 @@ Não usa `barra_edicao` — a edição é inline via JavaScript/AJAX.
 
 ## Componentes Macro
 
-### 1. `panel_list(title, actions, filters, table_wrapper_class, model)`
+### 1. `action_list(title, new_url, new_label, extra_actions)`
 Macro mestra que estrutura a página de listagem:
-- Chama `barra_filtro` com `filters` via caller
-- Renderiza `<table class="table table-hover sortable" data-model="ModelName">`
-- Toda a `<thead>` + `<tbody>` vem via `{{ caller() }}`
+```
+┌─ Título (h2)  [Dados | Filtros]  [extra_actions]  [+ Novo] ─┐
+│                                                                │
+│  caller("dados") = {{ action_table(...) }}                     │
+│  ou caller("filtros") = {{ action_filter(...) }}               │
+└────────────────────────────────────────────────────────────────┘
+```
+- Abas Dados/Filtros via Bootstrap tabs (`nav-underline`)
+- Cabeçalho com título (desktop apenas), botões de ação, link "+ Novo"
+- Responsivo: empilha elementos em mobile
 
-### 2. `barra_filtro(title, actions)`
-```
-┌─────────────────────────────────────────────────┐
-│  Título (h2)    [filtros via caller]  [actions] │
-└─────────────────────────────────────────────────┘
-```
-- Desktop: título à esquerda, filtros centralizados, ações à direita
-- Mobile: título escondido, filtros e ações em wrap, `position: sticky; top: 0; z-index: 1020`
-- Filtros e botões com `font-size: 0.875rem` (desktop) / `0.8rem` (mobile)
+### 2. `action_table(data, fields, ctx, edit_endpoint, edit_id_field, edit_if_field, edit_endpoint_map, edit_endpoint_key)`
+Tabela com colunas dinâmicas a partir de `*_FIELDS`:
+- Colunas definidas pelo dataclass `Field` (label, width, input, filter, query)
+- Ordenação por clique no `<th>` (asc/desc) via JS
+- Linha de detalhe expansível via colapso Bootstrap (`collapse`)
+- Ações: botão editar centralizado via `action_edit`
+- Suporta `edit_endpoint` (string), `edit_endpoint_map` (dict), `edit_if_field` (condicional)
 
-### 3. `card_list(items, empty_message)`
-Renderiza `<div class="d-lg-none">` com cards para mobile:
-```
-<div class="card mb-2 shadow-sm card-list-item">
-  <div class="card-body py-2 px-3">
-    {{ caller(item) }}
-  </div>
-</div>
-```
+### 3. `action_filter(caller_content)`
+Painel de filtros reutilizável (ex-painel_filter):
+- Inputs/selects de filtro passados via caller
+- Botão "Limpar Filtros" com JS para reset
 
-### 4. `form_nav(back_url, nome, nav, edit_endpoint, entity_id, status, actions2)`
+### 4. `action_edit(url)`
+Botão editar (ícone lápis Bootstrap):
+- Link para `url` dentro do `<td>` de ações
+
+### 5. `action_nav(back_url, nome, nav, edit_endpoint, entity_id, status, actions2)`
 Barra de navegação entre registros (sticky):
 ```
 [← Voltar]  [◀ Anterior]  Nome do Item  [Próximo ▶]  [Status badge]
@@ -300,17 +300,10 @@ Barra de navegação entre registros (sticky):
 - Nome clicável: transforma em input para pular para outro ID
 - Recebe `actions2` para renderizar abaixo em mobile
 
-### 5. `barra_edicao(back_url)`
-Barra fixa inferior com botões Salvar + Sair. Detecta modificações no formulário via eventos `input`/`change` — ao sair, exibe modal de confirmação "Descartar alterações?".
-
-### 6. `barra_report()`
-Barra inferior expansível:
-```
-┌─────────────────────────────────────────────────┐
-│  N registro(s)                         [▲ painel]│
-└─────────────────────────────────────────────────┘
-```
-Ao clicar, expande painel fullscreen (usado para relatórios carregados via AJAX).
+### 6. `page_form(back_url, title)`
+Barra inferior fixa com botões Salvar + Sair (ex-barra_edicao):
+- Detecta modificações via eventos `input`/`change`
+- Ao sair, exibe modal de confirmação "Descartar alterações?"
 
 ---
 

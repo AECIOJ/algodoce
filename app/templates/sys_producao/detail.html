@@ -1,5 +1,5 @@
 {% extends "components/page_sys.html" %}
-{% from "components/form_nav.html" import form_nav %}
+{% from "components/action_nav.html" import action_nav %}
 {% block content %}
 
 {% set producao_actions %}
@@ -22,7 +22,7 @@
   {% endif %}
 {% endset %}
 
-{% call form_nav(back_url=url_for('producao.list'),
+{% call action_nav(back_url=url_for('producao.list'),
                   nome='Produção ' ~ producao.id|fmtid,
                   nav=nav,
                   edit_endpoint='producao.detail',

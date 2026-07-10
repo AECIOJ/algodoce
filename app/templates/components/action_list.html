@@ -1,5 +1,5 @@
-{% from "components/painel_filter.html" import painel_filter %}
-{% macro page_list(title, new_url=none, new_label='+ Novo', extra_actions=none) %}
+{% from "components/action_filter.html" import action_filter %}
+{% macro action_list(title, new_url=none, new_label='+ Novo', extra_actions=none) %}
 <div style="display:flex;flex-direction:column;align-items:center;">
 <div class="page-list-inner">
 <div class="page-list-header d-flex align-items-center px-2 py-1 gap-2" style="border-bottom:1px solid #dee2e6;background:#fff;flex-wrap:wrap;width:100%;">
@@ -21,7 +21,7 @@
     {{ caller("dados") }}
   </div>
   <div class="tab-pane fade" id="filtros-tab-pane" role="tabpanel">
-    {{ painel_filter(caller_content=caller("filtros")) }}
+    {{ action_filter(caller_content=caller("filtros")) }}
   </div>
 </div>
 

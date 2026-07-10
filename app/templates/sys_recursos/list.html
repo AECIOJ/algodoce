@@ -1,13 +1,11 @@
 {% extends "components/page_sys.html" %}
-{% from "components/page_list.html" import page_list %}
-{% from "components/table_list.html" import table_list %}
-
-{% macro edit_url(item) %}{{ url_for('recursos.edit', id=item.id) }}{% endmacro %}
+{% from "components/action_list.html" import action_list %}
+{% from "components/action_table.html" import action_table %}
 
 {% block page_content %}
-{% call(section) page_list(title="Recursos", new_url=url_for('recursos.create')) %}
+{% call(section) action_list(title="Recursos", new_url=url_for('recursos.create')) %}
   {% if section == "dados" %}
-      {{ table_list(recursos, fields=fields, ctx=ctx, edit_url=edit_url) }}
+      {{ action_table(recursos, fields=fields, ctx=ctx, edit_endpoint='recursos.edit') }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

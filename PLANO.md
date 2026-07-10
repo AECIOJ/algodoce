@@ -76,9 +76,9 @@ algodoce/
 │   ├── utils.py                    # Helpers (formatação, parse, transformação)
 │   ├── versao.py                   # Versão do sistema
 │   │
-│   ├── models/                     # SQLAlchemy models (26 models)
+│   ├── models/                     # SQLAlchemy models (24 models)
 │   ├── routes/                     # Blueprints Flask (23 arquivos)
-│   ├── templates/                  # Jinja2 (22 diretórios — sys_* prefix)
+│   ├── templates/                  # Jinja2 (21 diretórios — 17 sys_*, components/, site/, admin/)
 │   ├── static/                     # CSS, JS, imagens, uploads
 │   └── migrations/                 # Alembic (6 migrations)
 │
@@ -87,7 +87,6 @@ algodoce/
 │   ├── pgdata/                     # Dados PostgreSQL (volume Docker)
 │   └── uploads/                    # Uploads de fotos
 │
-├── old/                            # Arquivos não utilizados (movidos de app/)
 ├── compose.yml                     # Docker Compose (db + app + pinggy)
 ├── Dockerfile                      # Imagem da aplicação
 ├── Pipfile                         # Dependências Python
@@ -119,13 +118,11 @@ algodoce/
 .
 ├── page_base.html                 ─ ─ Layout base (doctype, head, bootstrap CDN)
 │   ├── page_sys.html              ─ ─ Layout do módulo sys (navbar, submenu, footer)
-│   │   ├── page_list.html (macro) ─   Página de listagem com abas Dados/Filtros
-│   │   │   ├── panel_list.html    ─     Painel de listagem
-│   │   │   │   ├── painel_filter.html  ─   Painel de filtros
-│   │   │   │   └── table_list.html     ─   Tabela com colunas dinâmicas
-│   │   │   └── (JS de filtro)         ─   Filtragem client-side
+│   │   ├── action_list.html (macro) ─ Página de listagem com abas Dados/Filtros
+│   │   │   ├── action_filter.html  ─   Painel de filtros
+│   │   │   └── action_table.html   ─   Tabela com colunas dinâmicas
 │   │   └── page_form.html         ─   Página de formulário
-│   │       └── form_nav.html      ─     Navegação entre registros (sticky)
+│   │       └── action_nav.html    ─     Navegação entre registros (sticky)
 │   ├── page_site.html             ─ ─ Layout do módulo site (header, nav, footer)
 │   └── admin/page_admin.html      ─ ─ Placeholder do módulo admin
 ```
@@ -134,18 +131,17 @@ algodoce/
 
 | Macro | Arquivo | Descrição |
 |-------|---------|-----------|
-| `page_list(title, new_url, extra_actions)` | `page_list.html` | Macro mestra de listagem: abas Dados/Filtros, tabela sortable, filtro JS client-side |
-| `panel_list(title, actions, filters, table_wrapper_class, model)` | `panel_list.html` | Painel de listagem (legado) |
-| `card_list(items, empty_message)` | `panel_list.html` | Cards para mobile (substitui tabela em < 992px) |
-| `barra_report()` | `panel_list.html` | Barra inferior expansível com relatório |
-| `form_nav(back_url, nome, nav, edit_endpoint, entity_id, status, actions2)` | `form_nav.html` | Navegação entre registros (anterior/próximo, sticky, responsivo) |
-| `painel_filter(caller_content)` | `painel_filter.html` | Painel de filtros |
+| `action_list(title, new_url, extra_actions)` | `action_list.html` | Macro mestra de listagem: abas Dados/Filtros, tabela sortable, filtro JS client-side |
+| `action_table(data, fields, ctx, edit_endpoint, ...)` | `action_table.html` | Tabela com colunas dinâmicas, ordenação, detalhe expansível, botão de ação centralizado |
+| `action_filter(caller_content)` | `action_filter.html` | Painel de filtros |
+| `action_edit(url)` | `action_edit.html` | Botão de editar (ícone lápis) |
+| `action_nav(back_url, nome, nav, edit_endpoint, entity_id, status, actions2)` | `action_nav.html` | Navegação entre registros (anterior/próximo, sticky, responsivo) |
 
 **Sistema de Fields:** Cada blueprint define `*_FIELDS = [Field(name, label, width, input, options, filter, query, ...)]`. O dataclass `Field` configura colunas, filtros, máscaras, agregadores (soma), links e validação — usado para renderizar tabelas e formulários dinamicamente.
 
 ### Banco de Dados (PostgreSQL 16)
 
-**25 tabelas**, sem views/stored procedures — toda lógica em Python.
+**24 tabelas**, sem views/stored procedures — toda lógica em Python.
 
 | Grupo | Tabelas | Descrição |
 |-------|---------|-----------|
@@ -252,8 +248,8 @@ algodoce/
 
 ### Boas Práticas
 
-- **Listagens:** Definir array `*_FIELDS = [Field(...)]` usando o dataclass `Field` em vez de HTML fixo. Usar `build_field_context()` para populares selects.
-- **Formulários:** Usar `page_form.html` (herda `page_sys.html`), `form_nav` + `barra_edicao`. Para formulários com itens dinâmicos, usar JS em `static/js/itens.js`.
+- **Listagens:** Definir array `*_FIELDS = [Field(...)]` usando o dataclass `Field` em vez de HTML fixo. Usar `build_field_context()` para populares selects. Usar `edit_endpoint` + `edit_id_field` na `action_table` em vez de macros `edit_url` inline.
+- **Formulários:** Usar `page_form.html` (herda `page_sys.html`), `action_nav` + `page_form` (barra inferior fixa com Salvar/Sair). Para formulários com itens dinâmicos, usar JS em `static/js/itens.js`.
 - **Financeiro:** Respeitar 2 camadas: `carteira.gerar=0` → Movto (fluxo de caixa), `carteira.gerar=1` → Transacao+Previsoes (contas a pagar/receber). Não criar financeiro manualmente fora do fluxo de carteira.
 - **Migrations:** Usar `flask db migrate -m "mensagem"` + `flask db upgrade`. Migrations rodam automáticas no startup, mas devem ser versionadas.
 - **Autenticação:** 3 níveis. Anônimo → site. Doceira (login + chave HMA) → sys. Admin (login + chave + 2FA) → `/seguranca/`. Proteção contra força bruta com delay progressivo.

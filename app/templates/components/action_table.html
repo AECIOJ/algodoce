@@ -1,6 +1,6 @@
-{% from "components/panel_list.html" import action_edit %}
+{% from "components/action_edit.html" import action_edit %}
 
-{% macro table_list(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.', card_id_field=none, card_label_field=none, card_status_field=none) %}
+{% macro action_table(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.', card_id_field=none, card_label_field=none, card_status_field=none, edit_endpoint=none, edit_id_field='id', edit_endpoint_map=none, edit_endpoint_key=none, edit_if_field=none) %}
 {% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
 
 <div class="table-list-wrap">
@@ -18,7 +18,7 @@
           data-filter-type="text"
         {% endif %}{% if col.hide_zero %} data-hide-zero{% endif %}>{{ col.label }}</th>
         {% endfor %}
-        {% if edit_url %}<th style="width:10ch;border-left:none;border-right:none;" data-pos="0" data-width-ch="10">Ações</th>{% endif %}
+        {% if edit_url or edit_endpoint or edit_endpoint_map %}<th style="width:10ch;border-left:none;border-right:none;" data-pos="0" data-width-ch="10">Ações</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -50,11 +50,24 @@
         {% endfor %}
         {% if edit_url %}
         <td onclick="event.stopPropagation();">{{ action_edit(edit_url(item)) }}</td>
+        {% elif edit_endpoint_map %}
+        {% set _ep = edit_endpoint_map.get(edit_endpoint_key) %}
+        {% if _ep %}
+        {% set _item_id = item|deep_attr(edit_id_field) %}
+        {% if _item_id is not none and (not edit_if_field or item|deep_attr(edit_if_field) is not none) %}
+        <td onclick="event.stopPropagation();">{{ action_edit(url_for(_ep, id=_item_id)) }}</td>
+        {% endif %}
+        {% endif %}
+        {% elif edit_endpoint %}
+        {% set _item_id = item|deep_attr(edit_id_field) %}
+        {% if _item_id is not none and (not edit_if_field or item|deep_attr(edit_if_field) is not none) %}
+        <td onclick="event.stopPropagation();">{{ action_edit(url_for(edit_endpoint, id=_item_id)) }}</td>
+        {% endif %}
         {% endif %}
       </tr>
       <tr class="collapse" id="detail-{{ loop.index }}">
         <td style="border-left:none;border-right:none;"></td>
-        <td colspan="{{ cols|length + (1 if edit_url else 0) }}">
+        <td colspan="{{ cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) }}">
           <div class="p-2 small" style="display:flex;flex-direction:column;gap:0.15rem;">
             {% for col in cols %}
             {% if col.pos|default(9) != 0 %}
@@ -99,7 +112,7 @@
           {%- endif -%}
         </td>
         {% endfor %}
-        {% if edit_url %}<td style="border-left:none;border-right:none;">&nbsp;</td>{% endif %}
+        {% if edit_url or edit_endpoint or edit_endpoint_map %}<td style="border-left:none;border-right:none;">&nbsp;</td>{% endif %}
       </tr>
     </tfoot>
     {% endif %}

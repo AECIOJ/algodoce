@@ -1,13 +1,11 @@
 {% extends "components/page_sys.html" %}
-{% from "components/page_list.html" import page_list %}
-{% from "components/table_list.html" import table_list %}
-
-{% macro edit_url(item) %}{{ url_for('a_receber.edit', id=item.transacao.id) }}{% endmacro %}
+{% from "components/action_list.html" import action_list %}
+{% from "components/action_table.html" import action_table %}
 
 {% block page_content %}
-{% call(section) page_list(title="Contas a Receber", new_url=url_for('a_receber.new')) %}
+{% call(section) action_list(title="Contas a Receber", new_url=url_for('a_receber.new')) %}
   {% if section == "dados" %}
-      {{ table_list(previsoes, fields=fields, ctx=ctx, edit_url=edit_url) }}
+      {{ action_table(previsoes, fields=fields, ctx=ctx, edit_endpoint='a_receber.edit', edit_id_field='transacao.id') }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}
