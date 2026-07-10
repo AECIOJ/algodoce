@@ -12,7 +12,7 @@ from app.models.compra import Compra
 from app.models.order import Order
 from app.models.rubrica import Rubrica
 from app.constants import TIPO_RECURSO, TIPO_RUBRICA, PREVISAO_STATUS
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context
 from decimal import Decimal
 
 bp = Blueprint("movimentos", __name__, url_prefix="/movimentos")

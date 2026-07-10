@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required
 from app.extensions import db
 from app.models.category import Category
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 
 CATEGORIES_FIELDS = [
@@ -11,6 +11,8 @@ CATEGORIES_FIELDS = [
     Field(name='ordem', label='Ordem', width=5, input='number'),
     Field(name='ativo', label='Ativo', input='boolean', width=5, pos=1),
 ]
+
+CATEGORIES_TABLE = Table(fields=CATEGORIES_FIELDS, edit_endpoint='categories.edit')
 
 bp = Blueprint("categories", __name__, url_prefix="/categorias")
 
@@ -32,7 +34,7 @@ def list():
     categorias = query.all()
     ctx = build_field_context(CATEGORIES_FIELDS, {})
     return render_template("sys_categories/list.html", categorias=categorias,
-                           fields=CATEGORIES_FIELDS, ctx=ctx)
+                           CATEGORIES_TABLE=CATEGORIES_TABLE, ctx=ctx)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

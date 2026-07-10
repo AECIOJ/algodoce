@@ -116,7 +116,7 @@ def create_app():
         from app.models.quote import Quote
         from app.models.previsao import Previsao
 
-        from app.fields import register_model
+        from app.table import register_model
         register_model('category', Category)
         register_model('conta', Conta)
         register_model('product', Product)
@@ -166,7 +166,7 @@ def create_app():
     app.jinja_env.filters['fmtzeroi'] = fmt_zero_int
     app.jinja_env.filters['fmtdate'] = fmt_date
     app.jinja_env.filters['fmtdatetime'] = fmt_datetime
-    from app.fields import fields_to_columns, field_filter_options, field_grid, get_field
+    from app.table import fields_to_columns, field_filter_options, field_grid, get_field
     app.jinja_env.filters['fields_to_columns'] = fields_to_columns
     app.jinja_env.filters['field_filter_options'] = field_filter_options
     app.jinja_env.filters['field_grid'] = field_grid
@@ -203,5 +203,12 @@ def create_app():
         from app.models.category import Category
         cats = Category.query.filter_by(ativo=True).order_by(Category.ordem).all()
         return dict(site_categories=cats)
+
+    @app.after_request
+    def cache_static(response):
+        from flask import request as _r
+        if _r.path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return response
 
     return app

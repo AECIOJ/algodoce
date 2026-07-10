@@ -3,7 +3,7 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.rubrica import Rubrica
 from app.constants import TIPO_RUBRICA, CONECTORES
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 bp = Blueprint("rubricas", __name__, url_prefix="/rubricas")
 
@@ -18,6 +18,8 @@ RUBRICAS_FIELDS = [
     Field(name='ativa', label='Ativa', input='boolean', card_path='rubrica.ativa'),
     Field(name='ordem', label='Ordem', width=8, input='number', card_path='rubrica.ordem'),
 ]
+
+RUBRICAS_TABLE = Table(fields=RUBRICAS_FIELDS, edit_endpoint='rubricas.edit', edit_id_field='rubrica.id')
 
 
 def _transformar_nome(nome, pai_id):
@@ -105,7 +107,7 @@ def list():
                 flat_list.append(item)
 
     ctx = build_field_context(RUBRICAS_FIELDS)
-    return render_template("sys_rubricas/list.html", rubricas=flat_list, fields=RUBRICAS_FIELDS, ctx=ctx, TIPO_RUBRICA=TIPO_RUBRICA)
+    return render_template("sys_rubricas/list.html", rubricas=flat_list, RUBRICAS_TABLE=RUBRICAS_TABLE, ctx=ctx, TIPO_RUBRICA=TIPO_RUBRICA)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

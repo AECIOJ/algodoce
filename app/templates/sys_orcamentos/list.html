@@ -8,7 +8,7 @@
 {% block page_content %}
 {% call(section) action_list(title="Orçamentos", new_url=url_for('orcamentos.new'), extra_actions=validar_btn) %}
   {% if section == "dados" %}
-      {{ action_table(orders, fields=fields, ctx=ctx, edit_endpoint='orcamentos.edit') }}
+      {{ action_table(orders, table=QUOTES_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

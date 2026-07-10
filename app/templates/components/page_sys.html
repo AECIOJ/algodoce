@@ -110,7 +110,7 @@
     <div class="modal-content">
       <div class="modal-body text-center py-4">
         <div id="qrcode" class="mb-3 d-inline-block"></div>
-        <p class="text-muted small mb-0">Aponte a câmera do celular para o QR code</p>
+        <p id="qrUrl" class="small mb-0" style="word-break:break-all;color:#555;"></p>
       </div>
     </div>
   </div>
@@ -238,24 +238,30 @@ document.addEventListener('DOMContentLoaded', function () {
       timer = setTimeout(function() {
         timer = null;
         const container = document.getElementById('qrcode');
+        const urlEl = document.getElementById('qrUrl');
         container.innerHTML = '';
         fetch('/api/tunnel-url')
           .then(r => r.json())
           .then(data => {
-            var url = data.url || window.location.origin;
-            if (url) { new QRCode(container, { text: url, width: 256, height: 256 }); }
-            else { container.innerHTML = '<p class="text-muted">URL indisponível</p>'; }
+            var rawUrl = data.url || '';
+            var m = rawUrl.match(/https?:\/\/[^\s]+/);
+            var displayUrl = m ? m[0] : 'http://localhost:5000';
+            urlEl.textContent = displayUrl;
+            var qr = qrcode(0, 'L');
+            qr.addData(displayUrl);
+            qr.make();
+            container.style.overflow = 'hidden';
+            container.innerHTML = qr.createImgTag(5, 20);
             modal.show();
           })
           .catch(function() {
-            var url = window.location.origin;
-            new QRCode(container, { text: url, width: 256, height: 256 });
+            container.innerHTML = '<p style="color:#c00;font-weight:bold;margin:2rem 0;">QR indisponível</p>';
+            urlEl.textContent = 'http://localhost:5000';
             modal.show();
           });
       }, 300);
     }
   });
-  modalEl.addEventListener('click', function () { modal.hide(); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.hide(); });
   {% else %}
   logo.addEventListener('click', function(e) {

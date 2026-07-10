@@ -5,7 +5,7 @@ from app.extensions import db
 from app.models.client import Conta
 from app.models.order import Order
 from app.constants import ORDER_STATUS, TIPO_CONTA
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 
 CONTAS_FIELDS = [
@@ -15,6 +15,8 @@ CONTAS_FIELDS = [
     Field(name='telefone', label='Telefone', width=14),
     Field(name='ativo', label='Ativo', input='boolean', pos=1),
 ]
+
+CONTAS_TABLE = Table(fields=CONTAS_FIELDS, edit_endpoint='contas.edit')
 
 bp = Blueprint("contas", __name__)
 
@@ -63,7 +65,7 @@ def list():
         query = query.filter(Conta.tipo.in_([1, 2]))
     contas = query.all()
     ctx = build_field_context(CONTAS_FIELDS)
-    return render_template("sys_contas/list.html", contas=contas, fields=CONTAS_FIELDS, ctx=ctx, TIPO_CONTA=TIPO_CONTA)
+    return render_template("sys_contas/list.html", contas=contas, CONTAS_TABLE=CONTAS_TABLE, ctx=ctx, TIPO_CONTA=TIPO_CONTA)
 
 
 @bp.route("/contas/search")

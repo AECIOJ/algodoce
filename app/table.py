@@ -144,10 +144,24 @@ def get_field(fields: list[Field], name: str) -> Optional[Field]:
 @dataclass
 class Table:
     fields: list[Field]
+    fields_master: Optional[list[int]] = None
+    fields_detail: Optional[list[int]] = None
+    master_key: Optional[str] = None
     edit_endpoint: Optional[str] = None
     edit_id_field: str = 'id'
     edit_if_field: Optional[str] = None
     edit_endpoint_map: Optional[dict] = None
     edit_endpoint_key: Optional[str] = None
-    detail_fields: Optional[list[Field]] = None
     detail_data: Optional[str] = None
+
+    @property
+    def master_fields(self):
+        if self.fields_master:
+            return [self.fields[i-1] for i in self.fields_master]
+        return self.fields
+
+    @property
+    def detail_fields(self):
+        if self.fields_detail:
+            return [self.fields[i-1] for i in self.fields_detail]
+        return None

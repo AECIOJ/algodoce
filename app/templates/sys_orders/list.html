@@ -4,7 +4,7 @@
 {% block page_content %}
 {% call(section) action_list(title="Pedidos", new_url=url_for('orders.new')) %}
   {% if section == "dados" %}
-      {{ action_table(orders, fields=fields, ctx=ctx, edit_endpoint='orders.edit') }}
+      {{ action_table(orders, table=ORDERS_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

@@ -74,5 +74,8 @@ def transformar_texto():
 @bp.route("/tunnel-url")
 def tunnel_url():
     from app import get_tunnel_url
+
     url = get_tunnel_url(force=True)
-    return jsonify({"url": url or None})
+    if not url:
+        url = request.host_url.rstrip("/")
+    return jsonify({"url": url})

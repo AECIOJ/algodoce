@@ -4,7 +4,7 @@
 {% block page_content %}
 {% call(section) action_list(title="Rubricas", new_url=url_for('rubricas.new')) %}
   {% if section == "dados" %}
-      {{ action_table(rubricas, fields=fields, ctx=ctx, edit_endpoint='rubricas.edit', edit_id_field='rubrica.id') }}
+      {{ action_table(rubricas, table=RUBRICAS_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

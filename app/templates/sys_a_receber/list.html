@@ -4,7 +4,7 @@
 {% block page_content %}
 {% call(section) action_list(title="Contas a Receber", new_url=url_for('a_receber.new')) %}
   {% if section == "dados" %}
-      {{ action_table(previsoes, fields=fields, ctx=ctx, edit_endpoint='a_receber.edit', edit_id_field='transacao.id') }}
+      {{ action_table(previsoes, table=CONTAS_A_RECEBER_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

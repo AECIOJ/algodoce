@@ -5,7 +5,7 @@ from app.models.carteira import Carteira
 from app.models.compra import Compra
 from app.models.order import Order
 from app.models.quote import Quote
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 
 CARTEIRA_FIELDS = [
@@ -16,6 +16,8 @@ CARTEIRA_FIELDS = [
     Field(name='prazo_recebimento', label='Prazo', width=5),
     Field(name='taxa_recebimento', label='Taxa', width=8, input='number', align='right'),
 ]
+
+CARTEIRA_TABLE = Table(fields=CARTEIRA_FIELDS, edit_endpoint='carteira.edit')
 
 bp = Blueprint("carteira", __name__, url_prefix="/carteira")
 
@@ -30,7 +32,7 @@ def protect():
 def list():
     carteiras = Carteira.query.order_by(Carteira.nome).all()
     ctx = build_field_context(CARTEIRA_FIELDS)
-    return render_template("sys_carteira/list.html", carteiras=carteiras, fields=CARTEIRA_FIELDS, ctx=ctx)
+    return render_template("sys_carteira/list.html", carteiras=carteiras, CARTEIRA_TABLE=CARTEIRA_TABLE, ctx=ctx)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

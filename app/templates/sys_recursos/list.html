@@ -4,7 +4,7 @@
 {% block page_content %}
 {% call(section) action_list(title="Recursos", new_url=url_for('recursos.create')) %}
   {% if section == "dados" %}
-      {{ action_table(recursos, fields=fields, ctx=ctx, edit_endpoint='recursos.edit') }}
+      {{ action_table(recursos, table=RECURSOS_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

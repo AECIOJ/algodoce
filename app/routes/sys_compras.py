@@ -13,11 +13,11 @@ from app.models.compra_item import CompraItem
 from app.models.movto import Movto
 from app.constants import PREVISAO_STATUS, COMPRA_STATUS
 from app.models.carteira import Carteira
-from app.utils import CompraLinha
-from app.fields import Field, build_field_context, Table
+from app.utils import LinhaTransacao
+from app.table import Field, build_field_context, Table
 
 
-COMPRAS_MASTER_FIELDS = [
+COMPRAS_FIELDS = [
     Field(name='compra_id', label='Compra', width=8),
     Field(name='status_compra', label='Status', width=10, options=COMPRA_STATUS, filter_options=list(COMPRA_STATUS.values())),
     Field(name='carteira', label='FP', width=12, query='carteira'),
@@ -25,9 +25,6 @@ COMPRAS_MASTER_FIELDS = [
     Field(name='fornecedor', label='Fornecedor', width=30, query='conta', pos=1),
     Field(name='fatura', label='Fatura', width=10),
     Field(name='valor', label='Valor', width=12, input='number', align='right', currency='brl'),
-]
-
-PREVISOES_DETAIL_FIELDS = [
     Field(name='id', label='Previsão', width=8),
     Field(name='vencimento', label='Vencimento', width=10, input='date'),
     Field(name='documento', label='Documento', width=10),
@@ -39,11 +36,12 @@ PREVISOES_DETAIL_FIELDS = [
 ]
 
 COMPRAS_TABLE = Table(
-    fields=COMPRAS_MASTER_FIELDS,
+    fields=COMPRAS_FIELDS,
+    fields_master=[1,2,3,4,5,6,7],
+    fields_detail=[8,9,10,11,12,13,14,15],
+    master_key='compra_id',
     edit_endpoint='compras.edit',
     edit_id_field='compra_id',
-    detail_fields=PREVISOES_DETAIL_FIELDS,
-    detail_data='previsoes',
 )
 
 TIPO = "C"
@@ -66,17 +64,19 @@ def list():
         joinedload(Compra.transacao).joinedload(Transacao.previsoes)
     ).order_by(Compra.data.desc(), Compra.id.desc()).all()
 
-    linhas = [CompraLinha(compra=c, transacao=c.transacao) for c in compras]
+    linhas = []
+    for c in compras:
+        t = c.transacao
+        if t and t.previsoes:
+            for p in t.previsoes:
+                linhas.append(LinhaTransacao(t, p, c))
+        else:
+            linhas.append(LinhaTransacao(t, compra=c))
 
     if filtro_status != "todos":
-        linhas = [l for l in linhas if any(
-            p.status == int(filtro_status) for p in l.previsoes
-        )]
+        linhas = [l for l in linhas if l.status == int(filtro_status)]
     if filtro_venc == "em_atraso":
-        linhas = [l for l in linhas if any(
-            p.vencimento and p.vencimento < hoje and p.status not in (8, 9)
-            for p in l.previsoes
-        )]
+        linhas = [l for l in linhas if l.vencimento and l.vencimento < hoje and l.status not in (8, 9)]
     elif filtro_venc == "hoje":
         w = hoje.weekday()
         if w == 5:
@@ -87,18 +87,12 @@ def list():
             dias = [hoje, hoje - timedelta(days=1), hoje - timedelta(days=2)]
         else:
             dias = [hoje]
-        linhas = [l for l in linhas if any(
-            p.vencimento in dias and p.status not in (0, 8, 9)
-            for p in l.previsoes
-        )]
+        linhas = [l for l in linhas if l.vencimento in dias and l.status not in (0, 8, 9)]
     elif filtro_venc == "a_vencer":
-        linhas = [l for l in linhas if any(
-            p.vencimento and p.vencimento > hoje and p.status not in (0, 8, 9)
-            for p in l.previsoes
-        )]
+        linhas = [l for l in linhas if l.vencimento and l.vencimento > hoje and l.status not in (0, 8, 9)]
 
-    total_saldo = sum(sum(p.saldo for p in l.previsoes) for l in linhas)
-    ctx = build_field_context(COMPRAS_MASTER_FIELDS)
+    total_saldo = sum(l.saldo for l in linhas)
+    ctx = build_field_context(COMPRAS_TABLE.master_fields)
     return render_template(
         "sys_compras/list.html", linhas=linhas, total_saldo=total_saldo,
         COMPRAS_TABLE=COMPRAS_TABLE, ctx=ctx,

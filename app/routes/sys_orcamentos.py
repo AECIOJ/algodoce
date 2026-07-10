@@ -14,7 +14,7 @@ from app.models.quote_item import QuoteItem
 from app.models.event import Event
 from app.models.carteira import Carteira
 from app.constants import QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 from app.pdf import gerar_pdf_orcamento
 
 
@@ -35,6 +35,8 @@ QUOTES_FIELDS = [
     Field(name='status', label='Status', width=14, options=QUOTE_STATUS, filter_options=list(QUOTE_STATUS.values())),
     Field(name='pedido_id', label='Pedido', width=10, filter=False, link='orders.edit'),
 ]
+
+QUOTES_TABLE = Table(fields=QUOTES_FIELDS, edit_endpoint='orcamentos.edit')
 
 
 def _replace_quote_items(quote, form):
@@ -80,7 +82,7 @@ def list():
     quotes = query.all()
     ctx = build_field_context(QUOTES_FIELDS)
     return render_template(
-        "sys_orcamentos/list.html", orders=quotes, fields=QUOTES_FIELDS, ctx=ctx,
+        "sys_orcamentos/list.html", orders=quotes, QUOTES_TABLE=QUOTES_TABLE, ctx=ctx,
         filtro=str(status) if status is not None else "todos",
         QUOTE_STATUS=QUOTE_STATUS, QUOTE_STATUS_FILTER=QUOTE_STATUS_FILTER,
     )

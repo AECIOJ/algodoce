@@ -14,7 +14,7 @@ from app.models.producao_insumo import ProducaoInsumo
 from app.models.producao_produto import ProducaoProduto
 
 from app.constants import ORDER_STATUS, PRODUCAO_STATUS, PRODUCAO_ETAPAS
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 
 PRODUCAO_FIELDS = [
@@ -25,6 +25,8 @@ PRODUCAO_FIELDS = [
     Field(name='data_fim', label='Finalização', width=12, input='date'),
     Field(name='status', label='Status', width=14, options=PRODUCAO_STATUS, filter_options=list(PRODUCAO_STATUS.values())),
 ]
+
+PRODUCAO_TABLE = Table(fields=PRODUCAO_FIELDS, edit_endpoint='producao.detail')
 
 bp = Blueprint("producao", __name__, url_prefix="/producao")
 
@@ -43,7 +45,7 @@ def list():
         query = query.filter(Producao.status == status_filter)
     producoes = query.order_by(Producao.previsao_de.desc().nullslast()).all()
     ctx = build_field_context(PRODUCAO_FIELDS)
-    return render_template("sys_producao/list.html", producoes=producoes, fields=PRODUCAO_FIELDS, ctx=ctx)
+    return render_template("sys_producao/list.html", producoes=producoes, PRODUCAO_TABLE=PRODUCAO_TABLE, ctx=ctx)
 
 
 def _calcular_qtd_produzir(produto, quantidade):

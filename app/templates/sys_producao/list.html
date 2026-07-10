@@ -4,7 +4,7 @@
 {% block page_content %}
 {% call(section) action_list(title="Produção", new_url=url_for('producao.nova'), new_label='+ Nova') %}
   {% if section == "dados" %}
-      {{ action_table(producoes, fields=fields, ctx=ctx, edit_endpoint='producao.detail') }}
+      {{ action_table(producoes, table=PRODUCAO_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

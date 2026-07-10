@@ -463,7 +463,7 @@ window.pageListFilter = true;
 
 {% macro action_table(data, columns=none, fields=none, ctx=none, edit_url=none, empty_msg='Nenhum registro encontrado.', card_id_field=none, card_label_field=none, card_status_field=none, edit_endpoint=none, edit_id_field='id', edit_endpoint_map=none, edit_endpoint_key=none, edit_if_field=none, table=none, detail_fields=none, detail_data=none) %}
 {% if table %}
-  {% set fields = table.fields %}
+  {% set fields = table.master_fields %}
   {% set edit_endpoint = table.edit_endpoint %}
   {% set edit_id_field = table.edit_id_field if table.edit_id_field is not none else edit_id_field %}
   {% set edit_if_field = table.edit_if_field %}
@@ -493,8 +493,101 @@ window.pageListFilter = true;
       </tr>
     </thead>
     <tbody>
+      {% if table and table.master_key %}
+      {% set _master_key = table.master_key %}
+      {% for _group in data | groupby(_master_key) %}
+      {% set _master = _group.list[0] %}
+      {% set _sub_items = _group.list %}
+      {% set _det_cols = detail_fields | fields_to_columns %}
+      <tr data-expand-target="#detail-{{ loop.index }}" style="cursor:pointer;">
+        <td class="text-center py-1" style="width:3ch;border-left:none;border-right:none;">
+          <span class="collapse-icon">▶</span>
+        </td>
+        {% for col in cols %}
+        <td{% if col.align == 'right' %} class="text-end"{% elif col.align == 'center' %} class="text-center"{% endif %} style="border-left:none;border-right:none;">
+          {%- set _raw = _master|deep_attr(col.card_path or col.field) %}
+          {%- if col.function %}
+            {{- col.function(_master) }}
+          {%- elif 'imagem' in col.field and _raw %}
+            <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:80px;max-width:100%;width:auto;height:auto;cursor:pointer;" onclick="previewImagem(this.src)">
+          {%- elif col.options and _raw is not none %}
+            {{ col.options.get(_raw, _raw) }}
+          {%- elif col.currency and _raw is not none %}
+            {{ _raw|brl }}
+          {%- elif col.input == 'boolean' and _raw is not none %}
+            {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
+          {%- elif col.link and _raw is not none %}
+            <a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>
+          {%- elif _raw is not none %}
+            {%- if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+          {%- else %}—
+          {%- endif %}
+        </td>
+        {% endfor %}
+        {% if edit_url %}
+        <td onclick="event.stopPropagation();">{{ action_edit(edit_url(_master)) }}</td>
+        {% elif edit_endpoint_map %}
+        {% set _ep = edit_endpoint_map.get(edit_endpoint_key) %}
+        {% if _ep %}
+        {% set _item_id = _master|deep_attr(edit_id_field) %}
+        {% if _item_id is not none and (not edit_if_field or _master|deep_attr(edit_if_field) is not none) %}
+        <td onclick="event.stopPropagation();">{{ action_edit(url_for(_ep, id=_item_id)) }}</td>
+        {% endif %}
+        {% endif %}
+        {% elif edit_endpoint %}
+        {% set _item_id = _master|deep_attr(edit_id_field) %}
+        {% if _item_id is not none and (not edit_if_field or _master|deep_attr(edit_if_field) is not none) %}
+        <td onclick="event.stopPropagation();">{{ action_edit(url_for(edit_endpoint, id=_item_id)) }}</td>
+        {% endif %}
+        {% endif %}
+      </tr>
+      <tr class="detail-row collapsed" id="detail-{{ loop.index }}">
+        <td style="border-left:none;border-right:none;width:0;overflow:hidden;padding:0;"></td>
+        <td colspan="{{ cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) }}" style="border-left:none;border-right:none;">
+          <div class="detail-carousel">
+            <button type="button" class="carousel-btn carousel-prev" aria-label="Anterior">‹</button>
+            <div class="carousel-header">
+              {% for dcol in _det_cols %}
+              <div class="carousel-field"><span class="carousel-label">{{ dcol.label }}</span></div>
+              {% endfor %}
+            </div>
+            <div class="carousel-track">
+              {% for sub in _sub_items %}
+              <div class="carousel-card">
+                {% for dcol in _det_cols %}
+                {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
+                <div class="carousel-field">
+                  <span class="carousel-value">
+                  {% if dcol.function %}
+                    {{ dcol.function(sub) }}
+                  {% elif dcol.options and _raw is not none %}
+                    {{ dcol.options.get(_raw, _raw) }}
+                  {% elif dcol.currency and _raw is not none %}
+                    {{ _raw|brl }}
+                  {% elif dcol.input == 'boolean' and _raw is not none %}
+                    {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
+                  {% elif dcol.link and _raw is not none %}
+                    <a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>
+                  {% elif _raw is not none %}
+                    {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+                  {% else %}—
+                  {% endif %}
+                  </span>
+                </div>
+                {% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+            <button type="button" class="carousel-btn carousel-next" aria-label="Próximo">›</button>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
+      {% endfor %}
+      {% elif detail_fields is not none and detail_data is not none %}
       {% for item in data %}
-      <tr data-bs-toggle="collapse" data-bs-target="#detail-{{ loop.index }}" style="cursor:pointer;">
+      <tr data-expand-target="#detail-{{ loop.index }}" style="cursor:pointer;">
         <td class="text-center py-1" style="width:3ch;border-left:none;border-right:none;">
           <span class="collapse-icon">▶</span>
         </td>
@@ -536,27 +629,26 @@ window.pageListFilter = true;
         {% endif %}
         {% endif %}
       </tr>
-      <tr class="collapse" id="detail-{{ loop.index }}">
-        <td style="border-left:none;border-right:none;"></td>
+      <tr class="detail-row collapsed" id="detail-{{ loop.index }}">
+        <td style="border-left:none;border-right:none;width:0;overflow:hidden;padding:0;"></td>
         <td colspan="{{ cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) }}" style="border-left:none;border-right:none;">
-          {% if detail_fields is not none and detail_data is not none %}
           {% set _sub_items = item|deep_attr(detail_data) %}
           {% if _sub_items %}
-          {% set _detail_cols = detail_fields|fields_to_columns %}
-          <table class="table table-sm table-borderless mb-0 detail-table" style="font-size:0.85em;">
-            <thead>
-              <tr>
-                {% for dcol in _detail_cols %}
-                <th class="{{ 'text-end' if dcol.align == 'right' else 'text-center' if dcol.align == 'center' else '' }}" style="width:{{ dcol.width }}ch;{% if dcol.hide_zero %}data-hide-zero{% endif %}">{{ dcol.label }}</th>
-                {% endfor %}
-              </tr>
-            </thead>
-            <tbody>
+          {% set _det_cols = detail_fields|fields_to_columns %}
+          <div class="detail-carousel">
+            <button type="button" class="carousel-btn carousel-prev" aria-label="Anterior">‹</button>
+            <div class="carousel-header">
+              {% for dcol in _det_cols %}
+              <div class="carousel-field"><span class="carousel-label">{{ dcol.label }}</span></div>
+              {% endfor %}
+            </div>
+            <div class="carousel-track">
               {% for sub in _sub_items %}
-              <tr>
-                {% for dcol in _detail_cols %}
-                <td class="{{ 'text-end' if dcol.align == 'right' else 'text-center' if dcol.align == 'center' else '' }}">
-                  {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
+              <div class="carousel-card">
+                {% for dcol in _det_cols %}
+                {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
+                <div class="carousel-field">
+                  <span class="carousel-value">
                   {% if dcol.function %}
                     {{ dcol.function(sub) }}
                   {% elif dcol.options and _raw is not none %}
@@ -571,16 +663,69 @@ window.pageListFilter = true;
                     {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
                   {% else %}—
                   {% endif %}
-                </td>
+                  </span>
+                </div>
                 {% endfor %}
-              </tr>
+              </div>
               {% endfor %}
-            </tbody>
-          </table>
+            </div>
+            <button type="button" class="carousel-btn carousel-next" aria-label="Próximo">›</button>
+          </div>
           {% else %}
           <div class="p-2 text-muted small">Nenhum registro encontrado.</div>
           {% endif %}
-          {% else %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
+      {% endfor %}
+      {% else %}
+      {% for item in data %}
+      <tr data-expand-target="#detail-{{ loop.index }}" style="cursor:pointer;">
+        <td class="text-center py-1" style="width:3ch;border-left:none;border-right:none;">
+          <span class="collapse-icon">▶</span>
+        </td>
+        {% for col in cols %}
+        <td{% if col.align == 'right' %} class="text-end"{% elif col.align == 'center' %} class="text-center"{% endif %} style="border-left:none;border-right:none;">
+          {%- set _raw = item|deep_attr(col.card_path or col.field) %}
+          {%- if col.function %}
+            {{- col.function(item) }}
+          {%- elif 'imagem' in col.field and _raw %}
+            <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:80px;max-width:100%;width:auto;height:auto;cursor:pointer;" onclick="previewImagem(this.src)">
+          {%- elif col.options and _raw is not none %}
+            {{ col.options.get(_raw, _raw) }}
+          {%- elif col.currency and _raw is not none %}
+            {{ _raw|brl }}
+          {%- elif col.input == 'boolean' and _raw is not none %}
+            {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
+          {%- elif col.link and _raw is not none %}
+            <a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>
+          {%- elif _raw is not none %}
+            {%- if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+          {%- else %}—
+          {%- endif %}
+        </td>
+        {% endfor %}
+        {% if edit_url %}
+        <td onclick="event.stopPropagation();">{{ action_edit(edit_url(item)) }}</td>
+        {% elif edit_endpoint_map %}
+        {% set _ep = edit_endpoint_map.get(edit_endpoint_key) %}
+        {% if _ep %}
+        {% set _item_id = item|deep_attr(edit_id_field) %}
+        {% if _item_id is not none and (not edit_if_field or item|deep_attr(edit_if_field) is not none) %}
+        <td onclick="event.stopPropagation();">{{ action_edit(url_for(_ep, id=_item_id)) }}</td>
+        {% endif %}
+        {% endif %}
+        {% elif edit_endpoint %}
+        {% set _item_id = item|deep_attr(edit_id_field) %}
+        {% if _item_id is not none and (not edit_if_field or item|deep_attr(edit_if_field) is not none) %}
+        <td onclick="event.stopPropagation();">{{ action_edit(url_for(edit_endpoint, id=_item_id)) }}</td>
+        {% endif %}
+        {% endif %}
+      </tr>
+      <tr class="detail-row collapsed" id="detail-{{ loop.index }}">
+        <td style="border-left:none;border-right:none;width:0;overflow:hidden;padding:0;"></td>
+        <td colspan="{{ cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) }}" style="border-left:none;border-right:none;">
           <div class="p-2 small" style="display:flex;flex-direction:column;gap:0.15rem;">
             {% for col in cols %}
             {% if col.pos|default(9) != 0 %}
@@ -592,12 +737,12 @@ window.pageListFilter = true;
             {% endif %}
             {% endfor %}
           </div>
-          {% endif %}
         </td>
       </tr>
       {% else %}
       <tr><td colspan="99" class="text-center text-muted py-3">{{ empty_msg }}</td></tr>
       {% endfor %}
+      {% endif %}
     </tbody>
     {% set _has_agg = cols|selectattr('aggregate')|list %}
     {% if _has_agg %}
@@ -634,7 +779,47 @@ window.pageListFilter = true;
 
   <style>
   .collapse-icon { display: inline-block; transition: transform .2s; font-size: .7rem; }
-  tr[aria-expanded="true"] .collapse-icon { transform: rotate(90deg); }
+  tr.expanded .collapse-icon { transform: rotate(90deg); }
+  tr.detail-row.collapsed { display: none; }
+  tr.detail-row { display: table-row; }
+  .detail-carousel { display: flex; align-items: stretch; }
+
+  tr.detail-row > td { padding: 0 !important; }
+  .carousel-header {
+    flex: 0 0 88px; max-width: 88px; margin: 8px 0;
+    border-radius: 6px; padding: 6px 6px;
+    background: #eef2f7; font-size: .8rem;
+  }
+  .carousel-header .carousel-field { padding: 1px 0; border-color: #dce3ec; }
+  .carousel-header .carousel-field + .carousel-field { border-top: 1px solid #dce3ec; }
+  .carousel-header .carousel-label { color: #445; font-weight: 600; white-space: nowrap; }
+  .carousel-track {
+    flex: 1; display: flex; overflow-x: auto; gap: 6px;
+    scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; align-items: stretch; padding: 0;
+  }
+  .carousel-track::-webkit-scrollbar { display: none; }
+  .carousel-btn {
+    flex: 0 0 24px; display: flex; align-items: center; justify-content: center;
+    border: none; background: #f5f5f5; color: #555; font-size: 1.1rem;
+    cursor: pointer; padding: 0; margin: 8px 0; border-radius: 4px;
+  }
+  .carousel-btn:hover { background: #e8e8e8; }
+  .carousel-btn.hidden { visibility: hidden; }
+  .carousel-card {
+    flex: 0 0 70vw; max-width: 260px; scroll-snap-align: start;
+    border: 1px solid #dee2e6; border-radius: 6px; padding: 6px 8px;
+    background: #fff; font-size: .8rem; margin-top: 8px; margin-bottom: 8px;
+  }
+  .carousel-card:first-child { margin-left: 2px; }
+  .carousel-card:last-child { margin-right: 6px; }
+  @media (min-width: 768px) {
+    .carousel-card { flex: 0 0 200px; max-width: none; }
+  }
+  .carousel-field { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; padding: 1px 0; }
+  .carousel-field + .carousel-field { border-top: 1px solid #f0f0f0; }
+  .carousel-label { color: #888; white-space: nowrap; font-size: .75rem; }
+  .carousel-value { text-align: right; flex-shrink: 0; }
   </style>
 </div>
 <script>
@@ -728,7 +913,7 @@ window.pageListFilter = true;
         ths[idx].style.display = d;
         var rows = table.querySelectorAll('tbody tr');
         for (var ri = 0; ri < rows.length; ri++) {
-          if (rows[ri].classList.contains('collapse')) continue;
+          if (rows[ri].classList.contains('detail-row')) continue;
           if (rows[ri].cells[idx]) rows[ri].cells[idx].style.display = d;
         }
         if (tfoot) {
@@ -776,7 +961,7 @@ window.pageListFilter = true;
               c.th.style.whiteSpace = 'normal';
               var rows = table.querySelectorAll('tbody tr');
               for (var ri = 0; ri < rows.length; ri++) {
-                if (rows[ri].classList.contains('collapse')) continue;
+                if (rows[ri].classList.contains('detail-row')) continue;
                 if (rows[ri].cells[c.idx]) {
                   rows[ri].cells[c.idx].style.width = shrinkW + 'px';
                   rows[ri].cells[c.idx].style.wordBreak = 'break-word';
@@ -818,22 +1003,50 @@ window.pageListFilter = true;
           if (c.pos === 0 && !c.field && c.idx !== 0) setCol(c.idx, true);
         }
 
-        var hasDetail = posNeg1.length > 0 || flex.length > visible.length;
-        setCol(0, hasDetail);
-        var dataRows = table.querySelectorAll('tbody tr');
-        for (var ri = 0; ri < dataRows.length; ri++) {
-          var tr = dataRows[ri];
-          if (tr.classList.contains('collapse')) continue;
-          if (hasDetail) {
-            tr.setAttribute('data-bs-toggle', 'collapse');
-            tr.style.cursor = 'pointer';
-          } else {
-            tr.removeAttribute('data-bs-toggle');
-            tr.style.cursor = '';
-          }
-        }
+        var hasOverflow = posNeg1.length > 0 || flex.length > visible.length;
+        var hasCards = wrap.querySelector('.detail-carousel') !== null;
+        var showIcons = hasOverflow || hasCards;
+        setCol(0, showIcons);
+        table.querySelectorAll('tbody tr[data-expand-target]:not([data-expand-bound])').forEach(function(tr) {
+          tr.style.cursor = showIcons ? 'pointer' : '';
+          if (!showIcons) return;
+          tr.setAttribute('data-expand-bound', '1');
+          tr.addEventListener('click', function(e) {
+            var targetId = tr.getAttribute('data-expand-target');
+            var target = document.getElementById(targetId.replace('#', ''));
+            if (target) {
+              target.classList.toggle('collapsed');
+              tr.classList.toggle('expanded');
+              if (!target.classList.contains('collapsed')) {
+                setTimeout(function() {
+                  var car = target.querySelector('.detail-carousel');
+                  if (!car) return;
+                  if (!car._ready) {
+                    car._ready = true;
+                    var track = car.querySelector('.carousel-track');
+                    var prev = car.querySelector('.carousel-prev');
+                    var next = car.querySelector('.carousel-next');
+                    if (track && prev) prev.addEventListener('click', function() {
+                      track.scrollBy({ left: -Math.max(track.clientWidth * 0.6, 150), behavior: 'smooth' });
+                    });
+                    if (track && next) next.addEventListener('click', function() {
+                      track.scrollBy({ left: Math.max(track.clientWidth * 0.6, 150), behavior: 'smooth' });
+                    });
+                    if (track) track.addEventListener('scroll', function() {
+                      var hasOverflow = track.scrollWidth > track.clientWidth;
+                      if (prev) prev.classList.toggle('hidden', !hasOverflow);
+                      if (next) next.classList.toggle('hidden', !hasOverflow);
+                    });
+                  }
+                  track = car.querySelector('.carousel-track');
+                  if (track) track.dispatchEvent(new Event('scroll'));
+                }, 100);
+              }
+            }
+          });
+        });
 
-        var detailContainers = wrap.querySelectorAll('.collapse td > div');
+        var detailContainers = wrap.querySelectorAll('.detail-row td > div');
         for (var dri = 0; dri < detailContainers.length; dri++) {
           var items = detailContainers[dri].children;
           for (var di = 0; di < items.length; di++) {
@@ -862,7 +1075,7 @@ window.pageListFilter = true;
         var visibleRows = [];
         for (var ri = 0; ri < bodyRows.length; ri++) {
           var tr = bodyRows[ri];
-          if (tr.classList.contains('collapse')) continue;
+          if (tr.classList.contains('detail-row')) continue;
           if (tr.style.display === 'none') continue;
           visibleRows.push(tr);
         }
@@ -923,6 +1136,7 @@ window.pageListFilter = true;
       updateTotals();
       wrap._updateTotals = function() { updateTotals(); };
       wrap._ajustarTabela = function() { ajustarTabela(); updateTotals(); };
+
     })(wraps[wi]);
   }
 

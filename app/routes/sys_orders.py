@@ -18,7 +18,7 @@ from app.models.previsao import Previsao
 from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.constants import ORDER_STATUS, QUOTE_STATUS, FORMINHAS, PREVISAO_STATUS
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 
 ORDERS_FIELDS = [
@@ -34,6 +34,8 @@ ORDERS_FIELDS = [
     Field(name='transacao', label='Faturado', width=10, filter=False),
     Field(name='quote_id', label='Orçamento', width=9, filter=False, link='orcamentos.edit'),
 ]
+
+ORDERS_TABLE = Table(fields=ORDERS_FIELDS, edit_endpoint='orders.edit')
 
 
 def _replace_order_items(order, form):
@@ -99,7 +101,7 @@ def order_list():
         .all()
     )
     ctx = build_field_context(ORDERS_FIELDS)
-    return render_template("sys_orders/list.html", orders=orders, fields=ORDERS_FIELDS, ctx=ctx, ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS)
+    return render_template("sys_orders/list.html", orders=orders, ORDERS_TABLE=ORDERS_TABLE, ctx=ctx, ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS)
 
 
 @bp.route("/pedidos/novo", methods=["GET", "POST"])

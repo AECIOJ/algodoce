@@ -3,7 +3,7 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.recurso import Recurso
 from app.constants import TIPO_RECURSO
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 
 RECURSOS_FIELDS = [
@@ -13,6 +13,8 @@ RECURSOS_FIELDS = [
     Field(name='saldo', label='Saldo Inicial', width=12, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='data', label='Balanço', width=12, input='date'),
 ]
+
+RECURSOS_TABLE = Table(fields=RECURSOS_FIELDS, edit_endpoint='recursos.edit')
 
 bp = Blueprint("recursos", __name__, url_prefix="/recursos")
 
@@ -27,7 +29,7 @@ def list():
     recursos = query.order_by(Recurso.nome).all()
     ctx = build_field_context(RECURSOS_FIELDS)
     return render_template(
-        "sys_recursos/list.html", recursos=recursos, fields=RECURSOS_FIELDS, ctx=ctx,
+        "sys_recursos/list.html", recursos=recursos, RECURSOS_TABLE=RECURSOS_TABLE, ctx=ctx,
         TIPO_RECURSO=TIPO_RECURSO,
     )
 

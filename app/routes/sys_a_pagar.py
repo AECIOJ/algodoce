@@ -12,24 +12,32 @@ from app.models.compra import Compra
 from app.models.order import Order
 from app.constants import PREVISAO_STATUS
 from app.utils import LinhaTransacao
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 
 CONTAS_A_PAGAR_FIELDS = [
-    Field(name='id', label='Previsão', width=8),
+    Field(name='transacao_id', label='Transação', width=8, card_path='transacao.id'),
     Field(name='fornecedor', label='Conta', width=15, query='conta'),
+    Field(name='compra_id', label='Compra', width=6,  link='compras.edit'),
+    Field(name='fatura', label='Fatura', width=10),
+    Field(name='valor', label='Valor', width=10, input='number', align='right', currency='brl'),
+    Field(name='id', label='Previsão', width=8),
     Field(name='documento', label='Documento', width=10),
     Field(name='vencimento', label='Vencimento', width=10, input='date'),
     Field(name='previsto', label='Previsto', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='realizado', label='Realizado', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='variacao', label='Variação', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='transacao_id', label='Transação', width=8, card_path='transacao.id',pos=-1),
-    Field(name='compra_id', label='Compra', width=6, pos=-1, link='compras.edit'),
-    Field(name='fatura', label='Fatura', width=10,pos=-1),
-    Field(name='valor', label='Valor', width=10, input='number', align='right', currency='brl',pos=-1),
     Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
 ]
+
+CONTAS_A_PAGAR_TABLE = Table(
+    fields=CONTAS_A_PAGAR_FIELDS, 
+    fields_master=[1,2,3,4,5],
+    fields_detail=[6,7,8,9,10,11,12,13],
+    master_key='transacao_id',
+    edit_endpoint='a_pagar.edit', 
+    edit_id_field='transacao.id')
 
 TIPO = ("P", "C")
 
@@ -114,7 +122,7 @@ def list():
     ctx = build_field_context(CONTAS_A_PAGAR_FIELDS)
     return render_template(
         "sys_a_pagar/list.html", previsoes=linhas, total_saldo=total_saldo,
-        fields=CONTAS_A_PAGAR_FIELDS, ctx=ctx,
+        CONTAS_A_PAGAR_TABLE=CONTAS_A_PAGAR_TABLE, ctx=ctx,
         PREVISAO_STATUS=PREVISAO_STATUS,
     )
 

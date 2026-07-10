@@ -6,7 +6,7 @@ from app.models.previsao import Previsao
 from app.models.client import Conta
 from app.models.rubrica import Rubrica
 from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS
-from app.fields import Field, build_field_context
+from app.table import Field, build_field_context, Table
 
 
 PREVISOES_FIELDS = [
@@ -22,6 +22,8 @@ PREVISOES_FIELDS = [
     Field(name='realizado', label='Realizado', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
 ]
+
+PREVISOES_TABLE = Table(fields=PREVISOES_FIELDS, edit_endpoint='previsoes.edit')
 
 bp = Blueprint("previsoes", __name__, url_prefix="/previsoes")
 
@@ -70,7 +72,7 @@ def list():
     ctx = build_field_context(PREVISOES_FIELDS)
     return render_template(
         "sys_previsoes/list.html", previsoes=previsoes, total_saldo=total_saldo,
-        fields=PREVISOES_FIELDS, ctx=ctx,
+        PREVISOES_TABLE=PREVISOES_TABLE, ctx=ctx,
         TIPO_PREVISAO=TIPO_PREVISAO, PREVISAO_STATUS=PREVISAO_STATUS,
     )
 
