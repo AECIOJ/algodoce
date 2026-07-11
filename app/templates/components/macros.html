@@ -493,6 +493,17 @@ window.pageListFilter = true;
       </tr>
     </thead>
     <tbody>
+      {% set _local_det_cols = detail_fields|fields_to_columns if detail_fields else [] %}
+      {% set _local_agg_det = _local_det_cols|selectattr('aggregate')|list %}
+      {% set _all_agg = (cols|selectattr('aggregate')|list) + _local_agg_det %}
+      {% set _col_fields = cols|map(attribute='field')|list %}
+      {% set _nc_ns_det = namespace(v=[]) %}
+      {% for acol in _all_agg %}
+        {% if acol.field not in _col_fields %}
+          {% set _ = _nc_ns_det.v.append(acol) %}
+        {% endif %}
+      {% endfor %}
+      {% set _detail_only_agg = _nc_ns_det.v %}
       {% if table and table.master_key %}
       {% set _master_key = table.master_key %}
       {% for _group in data | groupby(_master_key) %}
@@ -544,41 +555,76 @@ window.pageListFilter = true;
       <tr class="detail-row collapsed" id="detail-{{ loop.index }}">
         <td style="border-left:none;border-right:none;width:0;overflow:hidden;padding:0;"></td>
         <td colspan="{{ cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) }}" style="border-left:none;border-right:none;">
-          <div class="detail-carousel">
-            <button type="button" class="carousel-btn carousel-prev" aria-label="Anterior">‹</button>
-            <div class="carousel-header">
-              {% for dcol in _det_cols %}
-              <div class="carousel-field"><span class="carousel-label">{{ dcol.label }}</span></div>
-              {% endfor %}
+          <div class="detail-overflow">
+            {% for col in cols %}
+            {% if col.pos|default(9) != 0 %}
+            {% set _raw = _master|deep_attr(col.card_path or col.field) %}
+            <div data-field="{{ col.field }}" class="overflow-field">
+              <div class="overflow-label">{{ col.label }}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(_master) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input == 'boolean' and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
             </div>
-            <div class="carousel-track">
-              {% for sub in _sub_items %}
-              <div class="carousel-card">
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% if _detail_only_agg %}
+          {% set _grp_ns = namespace(v={}) %}
+          {% for sub in _sub_items %}
+            {% for acol in _detail_only_agg %}
+              {% set val = sub|deep_attr(acol.card_path or acol.field) %}
+              {% if val is number %}
+                {% set _ = _grp_ns.v.update({acol.field: _grp_ns.v.get(acol.field, 0) + val}) %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          <div class="detail-totals detail-overflow">
+            {% for acol in _detail_only_agg %}
+            <div class="overflow-field" data-field="{{ acol.field }}">
+              <div class="overflow-label">{{ acol.label }}</div>
+              <div class="overflow-value">{{ _grp_ns.v.get(acol.field, 0)|brl }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div class="detail-carousel">
+            <div class="carousel-body">
+              <div class="carousel-header">
                 {% for dcol in _det_cols %}
-                {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
-                <div class="carousel-field">
-                  <span class="carousel-value">
-                  {% if dcol.function %}
-                    {{ dcol.function(sub) }}
-                  {% elif dcol.options and _raw is not none %}
-                    {{ dcol.options.get(_raw, _raw) }}
-                  {% elif dcol.currency and _raw is not none %}
-                    {{ _raw|brl }}
-                  {% elif dcol.input == 'boolean' and _raw is not none %}
-                    {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
-                  {% elif dcol.link and _raw is not none %}
-                    <a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>
-                  {% elif _raw is not none %}
-                    {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
-                  {% else %}—
-                  {% endif %}
-                  </span>
+                <div class="carousel-field"><span class="carousel-label">{{ dcol.label }}</span></div>
+                {% endfor %}
+              </div>
+              <div class="carousel-track">
+                {% for sub in _sub_items %}
+                <div class="carousel-card">
+                  {% for dcol in _det_cols %}
+                  {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
+                  <div class="carousel-field">
+                    <span class="carousel-value">
+                    {% if dcol.function %}
+                      {{ dcol.function(sub) }}
+                    {% elif dcol.options and _raw is not none %}
+                      {{ dcol.options.get(_raw, _raw) }}
+                    {% elif dcol.currency and _raw is not none %}
+                      {{ _raw|brl }}
+                    {% elif dcol.input == 'boolean' and _raw is not none %}
+                      {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
+                    {% elif dcol.link and _raw is not none %}
+                      <a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>
+                    {% elif _raw is not none %}
+                      {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+                    {% else %}—
+                    {% endif %}
+                    </span>
+                  </div>
+                  {% endfor %}
                 </div>
                 {% endfor %}
               </div>
-              {% endfor %}
             </div>
-            <button type="button" class="carousel-btn carousel-next" aria-label="Próximo">›</button>
+            <div class="carousel-nav">
+              <button type="button" class="carousel-arrow carousel-arrow-left" aria-label="Anterior">‹</button>
+              <div class="carousel-dots"><span class="carousel-dot"></span><span class="carousel-dot"></span><span class="carousel-dot"></span></div>
+              <button type="button" class="carousel-arrow carousel-arrow-right" aria-label="Próximo">›</button>
+            </div>
           </div>
         </td>
       </tr>
@@ -633,43 +679,59 @@ window.pageListFilter = true;
         <td style="border-left:none;border-right:none;width:0;overflow:hidden;padding:0;"></td>
         <td colspan="{{ cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) }}" style="border-left:none;border-right:none;">
           {% set _sub_items = item|deep_attr(detail_data) %}
+          <div class="detail-overflow">
+            {% for col in cols %}
+            {% if col.pos|default(9) != 0 %}
+            {% set _raw = item|deep_attr(col.card_path or col.field) %}
+            <div data-field="{{ col.field }}" class="overflow-field">
+              <div class="overflow-label">{{ col.label }}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input == 'boolean' and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
           {% if _sub_items %}
           {% set _det_cols = detail_fields|fields_to_columns %}
           <div class="detail-carousel">
-            <button type="button" class="carousel-btn carousel-prev" aria-label="Anterior">‹</button>
-            <div class="carousel-header">
-              {% for dcol in _det_cols %}
-              <div class="carousel-field"><span class="carousel-label">{{ dcol.label }}</span></div>
-              {% endfor %}
-            </div>
-            <div class="carousel-track">
-              {% for sub in _sub_items %}
-              <div class="carousel-card">
+            <div class="carousel-body">
+              <div class="carousel-header">
                 {% for dcol in _det_cols %}
-                {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
-                <div class="carousel-field">
-                  <span class="carousel-value">
-                  {% if dcol.function %}
-                    {{ dcol.function(sub) }}
-                  {% elif dcol.options and _raw is not none %}
-                    {{ dcol.options.get(_raw, _raw) }}
-                  {% elif dcol.currency and _raw is not none %}
-                    {{ _raw|brl }}
-                  {% elif dcol.input == 'boolean' and _raw is not none %}
-                    {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
-                  {% elif dcol.link and _raw is not none %}
-                    <a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>
-                  {% elif _raw is not none %}
-                    {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
-                  {% else %}—
-                  {% endif %}
-                  </span>
+                <div class="carousel-field"><span class="carousel-label">{{ dcol.label }}</span></div>
+                {% endfor %}
+              </div>
+              <div class="carousel-track">
+                {% for sub in _sub_items %}
+                <div class="carousel-card">
+                  {% for dcol in _det_cols %}
+                  {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
+                  <div class="carousel-field">
+                    <span class="carousel-value">
+                    {% if dcol.function %}
+                      {{ dcol.function(sub) }}
+                    {% elif dcol.options and _raw is not none %}
+                      {{ dcol.options.get(_raw, _raw) }}
+                    {% elif dcol.currency and _raw is not none %}
+                      {{ _raw|brl }}
+                    {% elif dcol.input == 'boolean' and _raw is not none %}
+                      {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
+                    {% elif dcol.link and _raw is not none %}
+                      <a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>
+                    {% elif _raw is not none %}
+                      {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+                    {% else %}—
+                    {% endif %}
+                    </span>
+                  </div>
+                  {% endfor %}
                 </div>
                 {% endfor %}
               </div>
-              {% endfor %}
             </div>
-            <button type="button" class="carousel-btn carousel-next" aria-label="Próximo">›</button>
+            <div class="carousel-nav">
+              <button type="button" class="carousel-arrow carousel-arrow-left" aria-label="Anterior">‹</button>
+              <div class="carousel-dots"><span class="carousel-dot"></span><span class="carousel-dot"></span><span class="carousel-dot"></span></div>
+              <button type="button" class="carousel-arrow carousel-arrow-right" aria-label="Próximo">›</button>
+            </div>
           </div>
           {% else %}
           <div class="p-2 text-muted small">Nenhum registro encontrado.</div>
@@ -726,17 +788,46 @@ window.pageListFilter = true;
       <tr class="detail-row collapsed" id="detail-{{ loop.index }}">
         <td style="border-left:none;border-right:none;width:0;overflow:hidden;padding:0;"></td>
         <td colspan="{{ cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) }}" style="border-left:none;border-right:none;">
-          <div class="p-2 small" style="display:flex;flex-direction:column;gap:0.15rem;">
+          <div class="detail-overflow">
             {% for col in cols %}
             {% if col.pos|default(9) != 0 %}
             {% set _raw = item|deep_attr(col.card_path or col.field) %}
-            <div data-field="{{ col.field }}" style="display:{{ 'block' if col.pos|default(9) == -1 else 'none' }}">
-              <span class="text-muted">{{ col.label }}:</span>
-              <span>{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif _raw is not none %}{% if col.options %}{{ col.options.get(_raw, _raw) }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw.strftime is defined %}{{ _raw|fmtdatetime }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</span>
+            <div data-field="{{ col.field }}" class="overflow-field">
+              <div class="overflow-label">{{ col.label }}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input == 'boolean' and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
             </div>
             {% endif %}
             {% endfor %}
           </div>
+          {% if _detail_only_agg %}
+          {% set _grp_ns = namespace(v={}) %}
+          {% set _subs = item|deep_attr(detail_data) if detail_data else null %}
+          {% if _subs %}
+            {% for sub in _subs %}
+              {% for acol in _detail_only_agg %}
+                {% set val = sub|deep_attr(acol.card_path or acol.field) %}
+                {% if val is number %}
+                  {% set _ = _grp_ns.v.update({acol.field: _grp_ns.v.get(acol.field, 0) + val}) %}
+                {% endif %}
+              {% endfor %}
+            {% endfor %}
+          {% else %}
+            {% for acol in _detail_only_agg %}
+              {% set val = item|deep_attr(acol.card_path or acol.field) %}
+              {% if val is number %}
+                {% set _ = _grp_ns.v.update({acol.field: _grp_ns.v.get(acol.field, 0) + val}) %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          <div class="detail-totals detail-overflow">
+            {% for acol in _detail_only_agg %}
+            <div class="overflow-field" data-field="{{ acol.field }}">
+              <div class="overflow-label">{{ acol.label }}</div>
+              <div class="overflow-value">{{ _grp_ns.v.get(acol.field, 0)|brl }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </td>
       </tr>
       {% else %}
@@ -744,34 +835,83 @@ window.pageListFilter = true;
       {% endfor %}
       {% endif %}
     </tbody>
-    {% set _has_agg = cols|selectattr('aggregate')|list %}
-    {% if _has_agg %}
-    {% set _ft_label = namespace(label='Total') %}
-    {% for col in cols %}
-      {% if col.aggregate_label and _ft_label.label == 'Total' %}
-        {% set _ft_label.label = col.aggregate_label %}
-      {% endif %}
-    {% endfor %}
+    {% if _all_agg %}
+    {% set _grand_ns = namespace(v={}) %}
+    {% if table and table.master_key %}
+      {% for _group in data|groupby(table.master_key) %}
+        {% set _gmaster = _group.list[0] %}
+        {% for acol in _all_agg %}
+          {% if acol.field in _col_fields %}
+            {% set val = _gmaster|deep_attr(acol.card_path or acol.field) %}
+            {% if val is number %}
+              {% set _ = _grand_ns.v.update({acol.field: _grand_ns.v.get(acol.field, 0) + val}) %}
+            {% endif %}
+          {% else %}
+            {% for sub in _group.list %}
+              {% set val = sub|deep_attr(acol.card_path or acol.field) %}
+              {% if val is number %}
+                {% set _ = _grand_ns.v.update({acol.field: _grand_ns.v.get(acol.field, 0) + val}) %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+    {% else %}
+      {% for item in data %}
+        {% set _subs = item|deep_attr(detail_data) if detail_data else null %}
+        {% if _subs %}
+          {% for sub in _subs %}
+            {% for acol in _all_agg %}
+              {% set val = sub|deep_attr(acol.card_path or acol.field) %}
+              {% if val is number %}
+                {% set _ = _grand_ns.v.update({acol.field: _grand_ns.v.get(acol.field, 0) + val}) %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+        {% else %}
+          {% for acol in _all_agg %}
+            {% set val = item|deep_attr(acol.card_path or acol.field) %}
+            {% if val is number %}
+              {% set _ = _grand_ns.v.update({acol.field: _grand_ns.v.get(acol.field, 0) + val}) %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% set _col_count = cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) %}
     <tfoot class="table-totals d-none">
-      <tr>
-        <td style="border-left:none;border-right:none;">&nbsp;</td>
+      <tr class="totals-header-row" style="cursor:pointer;">
+        <td style="border-left:none;border-right:none;" class="py-1">
+          <span class="collapse-icon d-inline-block text-center" style="width:3ch;">▶</span>
+          <span class="totals-label fw-bold ms-1" style="font-size:.85rem;white-space:nowrap;">{{ 'Totais' if _all_agg|length > 1 else 'Total' }}</span>
+        </td>
         {% for col in cols %}
         <td style="border-left:none;border-right:none;"
             class="fw-bold{{ ' text-end' if col.align == 'right' else ' text-center' if col.align == 'center' else '' }}"
             data-field="{{ col.field }}"
-            {%- if loop.first %} data-footer-label="true"{% endif %}
             {%- if col.aggregate %} data-aggregate="{{ col.aggregate }}"{% endif %}
             {%- if col.mask %} data-mask="{{ col.mask }}"{% endif %}
             {%- if col.currency %} data-currency="{{ col.currency }}"{% endif %}>
-          {%- if loop.first -%}
-            {{- _ft_label.label -}}
-          {%- elif col.aggregate -%}
+          {%- if col.aggregate -%}
           {%- else -%}
             &nbsp;
           {%- endif -%}
         </td>
         {% endfor %}
         {% if edit_url or edit_endpoint or edit_endpoint_map %}<td style="border-left:none;border-right:none;">&nbsp;</td>{% endif %}
+      </tr>
+      <tr class="totals-detail-row" style="display:none;">
+        <td style="border-left:none;border-right:none;width:0;overflow:hidden;padding:0;"></td>
+        <td colspan="{{ _col_count }}" style="border-left:none;border-right:none;">
+          <div class="detail-totals detail-overflow">
+            {% for acol in _all_agg %}
+            <div class="overflow-field" data-field="{{ acol.field }}" data-is-col="{{ 'true' if acol.field in _col_fields else 'false' }}">
+              <div class="overflow-label">{{ acol.label }}</div>
+              <div class="overflow-value">{{ _grand_ns.v.get(acol.field, 0)|brl }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </td>
       </tr>
     </tfoot>
     {% endif %}
@@ -782,9 +922,17 @@ window.pageListFilter = true;
   tr.expanded .collapse-icon { transform: rotate(90deg); }
   tr.detail-row.collapsed { display: none; }
   tr.detail-row { display: table-row; }
-  .detail-carousel { display: flex; align-items: stretch; }
+  .detail-carousel { display: flex; flex-direction: column; }
+  .detail-overflow {
+    display: flex; flex-wrap: wrap; gap: 2px 16px;
+    padding: 6px 8px; font-size: .8rem;
+  }
+  .overflow-field { flex: 0 0 auto; min-width: 80px; }
+  .overflow-label { color: #888; font-size: .72rem; font-weight: 600; }
+  .overflow-value { color: #333; }
 
   tr.detail-row > td { padding: 0 !important; }
+  .carousel-body { display: flex; align-items: stretch; }
   .carousel-header {
     flex: 0 0 88px; max-width: 88px; margin: 8px 0;
     border-radius: 6px; padding: 6px 6px;
@@ -799,20 +947,12 @@ window.pageListFilter = true;
     scrollbar-width: none; align-items: stretch; padding: 0;
   }
   .carousel-track::-webkit-scrollbar { display: none; }
-  .carousel-btn {
-    flex: 0 0 24px; display: flex; align-items: center; justify-content: center;
-    border: none; background: #f5f5f5; color: #555; font-size: 1.1rem;
-    cursor: pointer; padding: 0; margin: 8px 0; border-radius: 4px;
-  }
-  .carousel-btn:hover { background: #e8e8e8; }
-  .carousel-btn.hidden { visibility: hidden; }
   .carousel-card {
     flex: 0 0 70vw; max-width: 260px; scroll-snap-align: start;
     border: 1px solid #dee2e6; border-radius: 6px; padding: 6px 8px;
     background: #fff; font-size: .8rem; margin-top: 8px; margin-bottom: 8px;
   }
   .carousel-card:first-child { margin-left: 2px; }
-  .carousel-card:last-child { margin-right: 6px; }
   @media (min-width: 768px) {
     .carousel-card { flex: 0 0 200px; max-width: none; }
   }
@@ -820,6 +960,22 @@ window.pageListFilter = true;
   .carousel-field + .carousel-field { border-top: 1px solid #f0f0f0; }
   .carousel-label { color: #888; white-space: nowrap; font-size: .75rem; }
   .carousel-value { text-align: right; flex-shrink: 0; }
+  .carousel-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 2px 8px 4px;
+  }
+  .carousel-arrow {
+    border: none; background: #e9ecef; color: #444; cursor: pointer;
+    font-size: 1.4rem; padding: 4px 12px; line-height: 1;
+    border-radius: 4px; font-weight: 700;
+  }
+  .carousel-arrow:hover { background: #dee2e6; color: #111; }
+  .carousel-dots { display: flex; gap: 6px; align-items: center; }
+  .carousel-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ccc; transition: background .2s;
+  }
+  .carousel-dot.active { background: #555; }
   </style>
 </div>
 <script>
@@ -944,7 +1100,7 @@ window.pageListFilter = true;
         var used = 0;
         for (var fi = 0; fi < pos0.length; fi++) {
           var c = pos0[fi];
-          if (c.idx === 0 || c.field) used += c.widthCh * oneCh;
+          used += c.widthCh * oneCh;
         }
 
         var visible = [];
@@ -1020,26 +1176,33 @@ window.pageListFilter = true;
               if (!target.classList.contains('collapsed')) {
                 setTimeout(function() {
                   var car = target.querySelector('.detail-carousel');
-                  if (!car) return;
-                  if (!car._ready) {
-                    car._ready = true;
-                    var track = car.querySelector('.carousel-track');
-                    var prev = car.querySelector('.carousel-prev');
-                    var next = car.querySelector('.carousel-next');
-                    if (track && prev) prev.addEventListener('click', function() {
-                      track.scrollBy({ left: -Math.max(track.clientWidth * 0.6, 150), behavior: 'smooth' });
-                    });
-                    if (track && next) next.addEventListener('click', function() {
-                      track.scrollBy({ left: Math.max(track.clientWidth * 0.6, 150), behavior: 'smooth' });
-                    });
-                    if (track) track.addEventListener('scroll', function() {
-                      var hasOverflow = track.scrollWidth > track.clientWidth;
-                      if (prev) prev.classList.toggle('hidden', !hasOverflow);
-                      if (next) next.classList.toggle('hidden', !hasOverflow);
-                    });
+                  if (!car || car._ready) return;
+                  car._ready = true;
+                  var track = car.querySelector('.carousel-track');
+                  var nav = car.querySelector('.carousel-nav');
+                  var dots = car.querySelectorAll('.carousel-dot');
+                  var arrowL = car.querySelector('.carousel-arrow-left');
+                  var arrowR = car.querySelector('.carousel-arrow-right');
+                  if (!track) return;
+                  var cards = track.querySelectorAll('.carousel-card');
+                  if (cards.length <= 1 && nav) { nav.style.display = 'none'; return; }
+                  function _updateDots() {
+                    var sl = track.scrollLeft, sw = track.scrollWidth, cw = track.clientWidth;
+                    var atEnd = sl + cw >= sw - 2;
+                    var atStart = sl <= 2;
+                    for (var i = 0; i < dots.length; i++) dots[i].classList.remove('active');
+                    if (atStart) dots[0].classList.add('active');
+                    else if (atEnd) dots[dots.length - 1].classList.add('active');
+                    else dots[1].classList.add('active');
                   }
-                  track = car.querySelector('.carousel-track');
-                  if (track) track.dispatchEvent(new Event('scroll'));
+                  track.addEventListener('scroll', _updateDots);
+                  if (arrowL) arrowL.addEventListener('click', function() {
+                    track.scrollBy({ left: -Math.max(track.clientWidth * 0.6, 150), behavior: 'smooth' });
+                  });
+                  if (arrowR) arrowR.addEventListener('click', function() {
+                    track.scrollBy({ left: Math.max(track.clientWidth * 0.6, 150), behavior: 'smooth' });
+                  });
+                  _updateDots();
                 }, 100);
               }
             }
@@ -1059,6 +1222,33 @@ window.pageListFilter = true;
             if (col) item.style.display = (col.pos < 0 || !visIdx[col.idx]) && col.pos !== 0 ? 'block' : 'none';
           }
         }
+        var ovfls = wrap.querySelectorAll('.detail-overflow');
+        for (var oi = 0; oi < ovfls.length; oi++) {
+          var vis = ovfls[oi].querySelectorAll('.overflow-field');
+          var hasVis = false;
+          for (var vi = 0; vi < vis.length; vi++) {
+            if (vis[vi].style.display !== 'none') { hasVis = true; break; }
+          }
+          ovfls[oi].style.display = hasVis ? '' : 'none';
+        }
+        var totPanels = wrap.querySelectorAll('.detail-totals');
+        for (var tpi = 0; tpi < totPanels.length; tpi++) {
+          var totColFields = totPanels[tpi].querySelectorAll('.overflow-field[data-is-col="true"]');
+          for (var tfi = 0; tfi < totColFields.length; tfi++) {
+            var tField = totColFields[tfi].dataset.field;
+            var tCol = null;
+            for (var tcj = 0; tcj < cols.length; tcj++) {
+              if (cols[tcj].field === tField) { tCol = cols[tcj]; break; }
+            }
+            if (tCol) totColFields[tfi].style.display = !visIdx[tCol.idx] ? 'block' : 'none';
+          }
+          var totVis = totPanels[tpi].querySelectorAll('.overflow-field');
+          var totHasVis = false;
+          for (var tvi = 0; tvi < totVis.length; tvi++) {
+            if (totVis[tvi].style.display !== 'none') { totHasVis = true; break; }
+          }
+          totPanels[tpi].style.display = totHasVis ? '' : 'none';
+        }
 
         if (tfoot) {
           _restoreHiddenZeros(table);
@@ -1070,7 +1260,6 @@ window.pageListFilter = true;
         if (!tfoot) return;
         _restoreHiddenZeros(table);
         var aggCells = tfoot.querySelectorAll('td[data-aggregate]');
-        if (!aggCells.length) { tfoot.classList.add('d-none'); return; }
         var bodyRows = table.querySelectorAll('tbody tr');
         var visibleRows = [];
         for (var ri = 0; ri < bodyRows.length; ri++) {
@@ -1134,6 +1323,17 @@ window.pageListFilter = true;
 
       ajustarTabela();
       updateTotals();
+      if (tfoot) {
+        var totalsHdr = tfoot.querySelector('.totals-header-row');
+        var totalsDet = tfoot.querySelector('.totals-detail-row');
+        if (totalsHdr && totalsDet) {
+          totalsHdr.addEventListener('click', function() {
+            var open = totalsDet.style.display !== 'none';
+            totalsDet.style.display = open ? 'none' : '';
+            totalsHdr.querySelector('.collapse-icon').style.transform = open ? '' : 'rotate(90deg)';
+          });
+        }
+      }
       wrap._updateTotals = function() { updateTotals(); };
       wrap._ajustarTabela = function() { ajustarTabela(); updateTotals(); };
 

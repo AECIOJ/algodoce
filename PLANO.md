@@ -69,7 +69,7 @@ algodoce/
 │   ├── extensions.py               # SQLAlchemy, Migrate, LoginManager
 │   ├── config.py                   # Configurações (DB, SECRET_KEY, sessão)
 │   ├── constants.py                # Enums (status, tipos, conectores)
-│   ├── fields.py                   # Sistema de campos dinâmicos (Field dataclass)
+│   ├── table.py                    # Sistema de campos + tabelas (Field, Table dataclasses)
 │   ├── crypto.py                   # Criptografia Fernet (AES)
 │   ├── ntfy.py                     # Notificação push (ntfy.sh)
 │   ├── pdf.py                      # Geração de PDF (fpdf2)
@@ -80,6 +80,7 @@ algodoce/
 │   ├── routes/                     # Blueprints Flask (23 arquivos)
 │   ├── templates/                  # Jinja2 (21 diretórios — 17 sys_*, components/, site/, admin/)
 │   ├── static/                     # CSS, JS, imagens, uploads
+│   │   ├── lib/                    #   Bibliotecas locais (bootstrap, bootstrap-icons, qrcode-generator)
 │   └── migrations/                 # Alembic (6 migrations)
 │
 ├── dados/                          # Dados persistentes
@@ -183,11 +184,12 @@ algodoce/
 | `utils.py` | `_title_case()` | Title Case respeitando conectores pt-BR |
 | `utils.py` | `_save_event()` | Persiste dados de evento (quote/order) |
 | `utils.py` | `render_pagina()` | Renderiza Markdown → HTML (páginas institucionais) |
-| `utils.py` | `LinhaTransacao` | Wrapper para listar transações com/sem previsões na mesma lista |
-| `fields.py` | `Field` | Dataclass de definição de campo |
-| `fields.py` | `fields_to_columns()` | Converte Field[] para colunas de tabela HTML |
-| `fields.py` | `build_field_context()` | Popula selects com dados do banco |
-| `fields.py` | `register_model()` | Registra model para consulta via `Field.query` |
+| `utils.py` | `LinhaTransacao` | Wrapper para listar transações com/sem previsões. Properties: `transacao_id`, `compra_id`, `pedido_id`, `status_compra`, `carteira`, `fornecedor`, `cliente`, `fatura`, `valor`, `faturado`, `id` (previsão), `vencimento`, `documento`, `previsto`, `realizado`, `variacao`, `saldo`, `status` |
+| `table.py` (ex‑`fields.py`) | `Field` | Dataclass de definição de campo |
+| `table.py` | `Table` | Dataclass com `fields`, `fields_master/detail`, `master_key`, `edit_endpoint`, `detail_data` |
+| `table.py` | `fields_to_columns()` | Converte Field[] para colunas de tabela HTML |
+| `table.py` | `build_field_context()` | Popula selects com dados do banco |
+| `table.py` | `register_model()` | Registra model para consulta via `Field.query` |
 | `constants.py` | `TRANSFORMAR_AO_SALVAR` | Mapping model → campos com modo de transformação |
 | `crypto.py` | `encrypt()` / `decrypt()` | Fernet AES com chave derivada de SECRET_KEY |
 | `ntfy.py` | `notificar()` | Envia notificação push de novo orçamento |
@@ -232,8 +234,8 @@ algodoce/
 - **Models:** SQLAlchemy declarative, `__tablename__` explícito em snake_case. Transformação automática via `TRANSFORMAR_AO_SALVAR` (SQLAlchemy event listeners `before_insert`/`before_update`).
 - **Views:** Blueprints Flask com nome em inglês (`products`, `orders`). Rotas em português (`/produtos`, `/pedidos`). `@login_required` via `before_request` no blueprint.
 - **Templates:** Jinja2 com macros (`{% macro %}`, `{% call %}`). **Sem `{% include %}`** — todo reuso é via macros. Herança via `{% extends %}`.
-- **JS:** Vanilla JavaScript. Sem jQuery, sem frameworks JS. Bootstrap bundle via CDN. Dependências externas: QRCode.js, Cropper.js.
-- **CSS:** Customizado em `static/css/style.css`. Cache-busting manual `?v=N`. Variáveis CSS: `--rosa`, `--verde-menta`, `--bg-claro`. Bootstrap 5.3.2 via CDN. Tema claro fixo (`data-bs-theme="light"`).
+- **JS:** Vanilla JavaScript. Sem jQuery, sem frameworks JS. Bootstrap bundle servido localmente em `static/lib/`. Dependências externas: Cropper.js (CDN). QR code gerado via `qrcode-generator` (CDN) no cliente.
+- **CSS:** Customizado em `static/css/style.css`. Cache-busting manual `?v=N`. Variáveis CSS: `--rosa`, `--verde-menta`, `--bg-claro`. Bootstrap 5.3.2 + Bootstrap Icons servidos localmente em `static/lib/` (sem CDN). Tema claro fixo (`data-bs-theme="light"`).
 
 ### Separação dos Módulos
 
@@ -248,7 +250,9 @@ algodoce/
 
 ### Boas Práticas
 
-- **Listagens:** Definir array `*_FIELDS = [Field(...)]` usando o dataclass `Field` em vez de HTML fixo. Usar `build_field_context()` para populares selects. Usar `edit_endpoint` + `edit_id_field` na `action_table` em vez de macros `edit_url` inline.
+- **Listagens:** Definir array `*_FIELDS = [Field(...)]` usando o dataclass `Field` em vez de HTML fixo. Usar `build_field_context()` para populares selects. Usar `Table(fields=..., edit_endpoint=...)` e passar `table=XXX_TABLE` para `action_table` em vez de `fields=`, `edit_endpoint=` individuais.
+  - `Table.fields_master`/`fields_detail` (listas de ints 1‑based) para split master/detail com properties `master_fields`/`detail_fields`.
+  - `Table.master_key` ativa `groupby()` no Jinja: primeiro item do grupo é a linha mestre, todos os itens são o detalhe (cards).
 - **Formulários:** Usar `page_form.html` (herda `page_sys.html`), `action_nav` + `page_form` (barra inferior fixa com Salvar/Sair). Para formulários com itens dinâmicos, usar JS em `static/js/itens.js`.
 - **Financeiro:** Respeitar 2 camadas: `carteira.gerar=0` → Movto (fluxo de caixa), `carteira.gerar=1` → Transacao+Previsoes (contas a pagar/receber). Não criar financeiro manualmente fora do fluxo de carteira.
 - **Migrations:** Usar `flask db migrate -m "mensagem"` + `flask db upgrade`. Migrations rodam automáticas no startup, mas devem ser versionadas.
@@ -256,3 +260,50 @@ algodoce/
 - **Nomenclatura:** Models em inglês (`Conta`, `Order`, `Product`), rotas em português (`/contas`, `/pedidos`, `/produtos`), blueprints em inglês (`clients`, `orders`, `products`).
 - **Pastas de templates:** Diretórios de templates do módulo **sys** prefixados com `sys_` (`sys_orders/`, `sys_products/`, `sys_auth/`). Módulos **site** e **admin** sem prefixo (`site/`, `admin/`). Componentes compartilhados em `components/`.
 - **Estilo de código:** Sem comentários desnecessários. Código limpo e auto-documentado.
+
+---
+
+## Histórico de Alterações
+
+### Sessão 2026-07-10
+
+#### `app/fields.py` → `app/table.py`
+- Renomeado para `table.py`. Adicionado dataclass `Table` com campos `fields_master`/`fields_detail`, `master_key`, `edit_endpoint`, etc.
+- Properties `master_fields` e `detail_fields` derivam das listas de índices 1‑based.
+- `fields.py` removido. Todos os imports atualizados (15 rotas + `__init__.py`).
+
+#### Migração de rotas para `table=`
+- 15 rotas: definem `XXX_TABLE = Table(fields=..., edit_endpoint=...)` e passam `XXX_TABLE=XXX_TABLE` para o template.
+- 14 templates: `action_table(data, table=XXX_TABLE, ctx=ctx)` em vez de parâmetros individuais.
+- `sys_movimentos` manteve padrão antigo (`edit_endpoint_map` dinâmico).
+- `sys_categories` mantém `build_field_context(FIELDS, {})`.
+
+#### Master-detail com `master_key`
+- Adicionado campo `master_key` ao `Table`.
+- Template usa `data | groupby(table.master_key)` no Jinja: primeiro item do grupo é a linha mestre, todos os itens são detalhe.
+- Compras: dados achatados via `LinhaTransacao(transacao, previsao, compra)`, `master_key='compra_id'`.
+- Contas a pagar/receber: `master_key='transacao_id'`.
+- Adicionadas properties `transacao_id`, `status_compra`, `carteira` a `LinhaTransacao`.
+- Removida classe `CompraLinha` (substituída por `LinhaTransacao`).
+
+#### Detalhe expansível
+- Substituído Bootstrap Collapse por click handler JS customizado com `data-expand-target`.
+- Classes `detail-row` + `collapsed` para controle de visibilidade.
+- `data-expand-bound` para evitar duplicação de handlers em múltiplas chamadas de `ajustarTabela()`.
+
+#### Carrossel de detalhe
+- Cards com header fixo (labels) + track rolável com dados.
+- Layout flex: `‹` 24px + header 88px + track flex + `›` 24px.
+- Lazy init na primeira expansão (`car._ready`).
+- Setas visíveis apenas quando `scrollWidth > clientWidth`.
+
+#### QR code
+- Troca de `qrcodejs@1.0.0` CDN (ilegível) para geração server-side Python `qrcode` + fallback `qrcode-generator` JS.
+- Sanitização da URL com regex `https?:\/\/[^\s]+`.
+- Adicionados `qrcode==8.2` e `Pillow==10.2.0` ao `requirements.txt` e `Pipfile`.
+- Modal não fecha mais ao clicar no QR code.
+
+#### Performance
+- Bootstrap CSS/JS + Bootstrap Icons + `qrcode-generator` baixados para `app/static/lib/`.
+- `page_base.html` atualizado para servir localmente (sem CDN).
+- `Cache-Control: public, max-age=31536000, immutable` para `/static/*`.

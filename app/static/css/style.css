@@ -64,7 +64,7 @@
 }
 .table-list-wrap {
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   max-height: calc(100vh - 300px);
 }
 .table-list-wrap td,
@@ -85,7 +85,7 @@
 .table-list-wrap thead th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 10;
   background: #c2185b;
   color: #fff;
 }

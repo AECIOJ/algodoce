@@ -20,7 +20,7 @@ CONTAS_A_RECEBER_FIELDS = [
     Field(name='cliente', label='Conta', width=15, query='conta',pos=1),
     Field(name='pedido_id', label='Pedido', width=6, link='orders.edit'),
     Field(name='fatura', label='Fatura', width=10),
-    Field(name='valor', label='Valor', width=10, input='number', align='right', currency='brl'),
+    Field(name='valor', label='Valor', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='id', label='Previsão', width=8),
     Field(name='documento', label='Documento', width=10),
     Field(name='vencimento', label='Vencimento', width=10, input='date'),

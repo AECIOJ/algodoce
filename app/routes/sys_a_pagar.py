@@ -20,7 +20,7 @@ CONTAS_A_PAGAR_FIELDS = [
     Field(name='fornecedor', label='Conta', width=15, query='conta'),
     Field(name='compra_id', label='Compra', width=6,  link='compras.edit'),
     Field(name='fatura', label='Fatura', width=10),
-    Field(name='valor', label='Valor', width=10, input='number', align='right', currency='brl'),
+    Field(name='valor', label='Valor', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='id', label='Previsão', width=8),
     Field(name='documento', label='Documento', width=10),
     Field(name='vencimento', label='Vencimento', width=10, input='date'),
