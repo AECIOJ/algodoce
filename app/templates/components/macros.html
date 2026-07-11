@@ -1190,6 +1190,7 @@ window.pageListFilter = true;
               target.classList.toggle('collapsed');
               tr.classList.toggle('expanded');
               if (!target.classList.contains('collapsed')) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 setTimeout(function() {
                   var car = target.querySelector('.detail-carousel');
                   if (!car || car._ready) return;
