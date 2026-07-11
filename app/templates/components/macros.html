@@ -566,7 +566,7 @@ window.pageListFilter = true;
             {% endif %}
             {% endfor %}
           </div>
-          {% if _detail_only_agg %}
+          {% if _all_agg %}
           {% set _grp_ns = namespace(v={}) %}
           {% for sub in _sub_items %}
             {% for acol in _detail_only_agg %}
@@ -576,9 +576,17 @@ window.pageListFilter = true;
               {% endif %}
             {% endfor %}
           {% endfor %}
+          {% for acol in _all_agg %}
+            {% if acol.field in _col_fields %}
+              {% set val = _sub_items[0]|deep_attr(acol.card_path or acol.field) %}
+              {% if val is number %}
+                {% set _ = _grp_ns.v.update({acol.field: val}) %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
           <div class="detail-totals detail-overflow">
-            {% for acol in _detail_only_agg %}
-            <div class="overflow-field" data-field="{{ acol.field }}">
+            {% for acol in _all_agg %}
+            <div class="overflow-field" data-field="{{ acol.field }}" data-is-col="{{ 'true' if acol.field in _col_fields else 'false' }}">
               <div class="overflow-label">{{ acol.label }}</div>
               <div class="overflow-value">{{ _grp_ns.v.get(acol.field, 0)|brl }}</div>
             </div>
@@ -799,7 +807,7 @@ window.pageListFilter = true;
             {% endif %}
             {% endfor %}
           </div>
-          {% if _detail_only_agg %}
+          {% if _all_agg %}
           {% set _grp_ns = namespace(v={}) %}
           {% set _subs = item|deep_attr(detail_data) if detail_data else null %}
           {% if _subs %}
@@ -811,8 +819,16 @@ window.pageListFilter = true;
                 {% endif %}
               {% endfor %}
             {% endfor %}
+            {% for acol in _all_agg %}
+              {% if acol.field in _col_fields %}
+                {% set val = item|deep_attr(acol.card_path or acol.field) %}
+                {% if val is number %}
+                  {% set _ = _grp_ns.v.update({acol.field: val}) %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
           {% else %}
-            {% for acol in _detail_only_agg %}
+            {% for acol in _all_agg %}
               {% set val = item|deep_attr(acol.card_path or acol.field) %}
               {% if val is number %}
                 {% set _ = _grp_ns.v.update({acol.field: _grp_ns.v.get(acol.field, 0) + val}) %}
@@ -820,8 +836,8 @@ window.pageListFilter = true;
             {% endfor %}
           {% endif %}
           <div class="detail-totals detail-overflow">
-            {% for acol in _detail_only_agg %}
-            <div class="overflow-field" data-field="{{ acol.field }}">
+            {% for acol in _all_agg %}
+            <div class="overflow-field" data-field="{{ acol.field }}" data-is-col="{{ 'true' if acol.field in _col_fields else 'false' }}">
               <div class="overflow-label">{{ acol.label }}</div>
               <div class="overflow-value">{{ _grp_ns.v.get(acol.field, 0)|brl }}</div>
             </div>
@@ -881,9 +897,9 @@ window.pageListFilter = true;
     {% set _col_count = cols|length + (1 if edit_url or edit_endpoint or edit_endpoint_map else 0) %}
     <tfoot class="table-totals d-none">
       <tr class="totals-header-row" style="cursor:pointer;">
-        <td style="border-left:none;border-right:none;" class="py-1">
-          <span class="collapse-icon d-inline-block text-center" style="width:3ch;">▶</span>
-          <span class="totals-label fw-bold ms-1" style="font-size:.85rem;white-space:nowrap;">{{ 'Totais' if _all_agg|length > 1 else 'Total' }}</span>
+        <td class="text-center py-1" style="width:3ch;border-left:none;border-right:none;position:relative;">
+          <span class="collapse-icon">▶</span>
+          <span class="totals-label fw-bold position-absolute text-nowrap" style="left:calc(100% + 4px);top:50%;transform:translateY(-50%);font-size:.85rem;">{{ 'Totais' if _all_agg|length > 1 else 'Total' }}</span>
         </td>
         {% for col in cols %}
         <td style="border-left:none;border-right:none;"
