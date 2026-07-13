@@ -6,7 +6,7 @@ from app.extensions import db
 from app.models.previsao import Previsao
 from app.models.transacao import Transacao
 from app.models.client import Conta
-from app.models.rubrica import Rubrica
+from app.models.operacao import Operacao
 from app.models.movto import Movto
 from app.models.compra import Compra
 from app.models.order import Order
@@ -48,7 +48,7 @@ def _build_submitted():
     data = {
         "data": request.form.get("data"),
         "conta_id": request.form.get("conta_id"),
-        "rubrica_id": request.form.get("rubrica_id"),
+        "operacao_id": request.form.get("operacao_id"),
         "fatura": request.form.get("fatura"),
         "valor": request.form.get("valor"),
         "cancelado": request.form.get("cancelado"),
@@ -149,20 +149,20 @@ def new():
         if compra and compra.transacao_id:
             return redirect(url_for("a_pagar.edit", id=compra.transacao_id))
         contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-        rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+        operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
         submitted_data = None
         if compra:
             submitted_data = {
                 "data": str(compra.data or date.today()),
                 "conta_id": str(compra.fornecedor_id),
-                "rubrica_id": "",
+                "operacao_id": "",
                 "fatura": f"C#{compra.id}",
                 "valor": str(compra.valor or 0),
                 "historico": compra.historico or "",
             }
         return render_template(
             "sys_a_pagar/form.html",
-            contas=contas, rubricas=rubricas, hoje=date.today(),
+            contas=contas, operacoes=operacoes, hoje=date.today(),
             submitted_data=submitted_data, submitted_previsoes=None,
             prazo_inicial=prazo_inicial,
             locked=False, transacao=None, nav={}, movimentos=[],
@@ -176,7 +176,7 @@ def new():
             data=request.form.get("data") or date.today(),
             tipo='P',
             conta_id=request.form.get("conta_id", type=int) or None,
-            rubrica_id=request.form.get("rubrica_id", type=int) or None,
+            operacao_id=request.form.get("operacao_id", type=int) or None,
             fatura=request.form.get("fatura") or None,
             valor=float(request.form.get("valor", 0)),
             cancelado=cancelado,
@@ -215,10 +215,10 @@ def new():
             db.session.rollback()
             flash(f"Total das parcelas ({prev_total:.2f}) difere do valor da fatura ({float(transacao.valor):.2f})", "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+            operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
             return render_template(
                 "sys_a_pagar/form.html",
-                contas=contas, rubricas=rubricas, hoje=date.today(),
+                contas=contas, operacoes=operacoes, hoje=date.today(),
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
                 prazo_inicial=prazo_inicial,
                 locked=False, transacao=None, nav={}, movimentos=[],
@@ -229,10 +229,10 @@ def new():
             db.session.rollback()
             flash(f"Valor da transação ({transacao.valor:.2f}) difere do valor da compra ({float(compra.valor or 0):.2f})", "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+            operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
             return render_template(
                 "sys_a_pagar/form.html",
-                contas=contas, rubricas=rubricas, hoje=date.today(),
+                contas=contas, operacoes=operacoes, hoje=date.today(),
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
                 prazo_inicial=prazo_inicial,
                 locked=False, transacao=None, nav={}, movimentos=[],
@@ -278,7 +278,7 @@ def edit(id):
             cancelado = request.form.get("cancelado") or None
             transacao.data = request.form.get("data") or date.today()
             transacao.conta_id = request.form.get("conta_id", type=int) or None
-            transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
+            transacao.operacao_id = request.form.get("operacao_id", type=int) or None
             transacao.fatura = request.form.get("fatura") or None
             transacao.valor = float(request.form.get("valor", 0))
             transacao.cancelado = cancelado
@@ -354,12 +354,12 @@ def edit(id):
             for err in errors:
                 flash(err, "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+            operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
             previsao_ids = [p.id for p in transacao.previsoes]
             movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
             return render_template(
                 "sys_a_pagar/form.html", transacao=transacao,
-                contas=contas, rubricas=rubricas,
+                contas=contas, operacoes=operacoes,
                 PREVISAO_STATUS=PREVISAO_STATUS,
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes, nav=nav,
                 movimentos=movimentos, tipo_nome="Pagamento", locked=locked,
@@ -371,12 +371,12 @@ def edit(id):
             return redirect(url_for("a_pagar.list"))
 
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes]
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
         "sys_a_pagar/form.html", transacao=transacao,
-        contas=contas, rubricas=rubricas,
+        contas=contas, operacoes=operacoes,
         PREVISAO_STATUS=PREVISAO_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
         movimentos=movimentos, tipo_nome="Pagamento", locked=locked,

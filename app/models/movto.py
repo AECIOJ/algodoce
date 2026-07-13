@@ -14,13 +14,13 @@ class Movto(db.Model):
     valor = db.Column(db.Numeric(12, 2), nullable=False)
     variacao = db.Column(db.Numeric(12, 2), nullable=True, default=0)
     sincronizar = db.Column(db.Boolean, nullable=False, default=True)
-    rubrica_id = db.Column(db.Integer, db.ForeignKey("rubrica.id"), nullable=True)
+    operacao_id = db.Column(db.Integer, db.ForeignKey("operacao.id"), nullable=True)
     historico = db.Column(db.Text, nullable=True)
 
     recurso = db.relationship("Recurso", backref="movtos")
     conta = db.relationship("Conta", backref="movtos")
     previsao = db.relationship("Previsao", backref="movtos")
-    rubrica = db.relationship("Rubrica", backref="movtos")
+    operacao = db.relationship("Operacao", backref="movtos")
 
     @property
     def historico_display(self):

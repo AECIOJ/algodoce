@@ -23,7 +23,7 @@ PRODUCAO_ETAPAS = {0: "Preparação", 1: "Montagem", 2: "Embalagem"}
 
 FORMINHAS = {0: "Simples", 1: "Fornecidas pelo Cliente"}
 
-TIPO_RUBRICA = {1: "Receitas", 2: "Despesas"}
+TIPO_OPERACAO = {1: "Receitas", 2: "Despesas"}
 
 TIPO_PREVISAO = {"P": "Pagar", "R": "Receber"}
 TIPO_TRANSACAO = {"P": "Contas a Pagar", "R": "Contas a Receber",

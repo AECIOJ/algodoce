@@ -2,9 +2,9 @@
 {% from "components/macros.html" import action_list, action_table %}
 
 {% block page_content %}
-{% call(section) action_list(title="Rubricas", new_url=url_for('rubricas.new')) %}
+{% call(section) action_list(title="Operacoes", new_url=url_for('operacoes.new')) %}
   {% if section == "dados" %}
-      {{ action_table(rubricas, table=RUBRICAS_TABLE, ctx=ctx) }}
+      {{ action_table(operacoes, table=OPERACOES_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

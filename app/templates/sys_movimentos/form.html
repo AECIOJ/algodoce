@@ -73,7 +73,7 @@
       <input type="hidden" name="previsao_id" id="previsao-id" value="{{ movto.previsao_id if movto and movto.previsao_id is not none else '' }}">
       <input type="hidden" id="previsao-saldo" value="{{ movto.previsao.saldo if movto and movto.previsao else 0 }}">
       <input type="hidden" name="acao" id="acao-field" value="">
-      <input type="hidden" name="rubrica_acrescimos_id" id="rubrica-acrescimos-id" value="">
+      <input type="hidden" name="operacao_acrescimos_id" id="operacao-acrescimos-id" value="">
       {% if (not movto or not movto.previsao_id) and not from_order and not compra %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
     </div>
   </div>
@@ -86,11 +86,11 @@
     <input type="number" name="valor" class="form-control text-end" required step="0.01" value="{{ '%.2f'|format(movto.valor) if movto else (prefill.valor if prefill and prefill.valor else '') }}">
   </div>
   <div class="col-6 col-md-3">
-    <label class="form-label">Rubrica *</label>
-    <select name="rubrica_id" class="form-select" required>
+    <label class="form-label">Operacao *</label>
+    <select name="operacao_id" class="form-select" required>
       <option value="">Selecione...</option>
-      {% for r in rubricas %}
-        <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if movto and movto.rubrica_id == r.id %}selected{% elif prefill and prefill.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% for r in operacoes %}
+        <option value="{{ r.id }}" data-tipo-operacao="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if movto and movto.operacao_id == r.id %}selected{% elif prefill and prefill.operacao_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
       {% endfor %}
     </select>
   </div>
@@ -174,12 +174,12 @@
           <input class="form-check-input" type="radio" name="acrescimos-opcao" id="acrescimos-sim" value="acrescimo" onchange="onAcrescimosOpcaoChange()">
           <label class="form-check-label" for="acrescimos-sim">(+) Acréscimos de R$ <span id="acrescimos-diferenca"></span></label>
         </div>
-        <div id="erro-acrescimos-rubrica" style="display:none;">
+        <div id="erro-acrescimos-operacao" style="display:none;">
           <hr>
-          <label class="form-label">Selecionar Rubrica para o Acréscimo</label>
-          <select id="rubrica-acrescimos-select" class="form-select">
+          <label class="form-label">Operacao para o Acréscimo</label>
+          <select id="operacao-acrescimos-select" class="form-select">
             <option value="">Selecione...</option>
-            {% for r in rubricas %}
+            {% for r in operacoes %}
               <option value="{{ r.id }}">{{ r.nome }}</option>
             {% endfor %}
           </select>
@@ -193,9 +193,9 @@
   </div>
 </div>
 <script>
-document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
+document.querySelectorAll('[name="operacao_id"] option').forEach(function(opt) {
   if (!opt.value) return;
-  var show = opt.dataset.tipoRubrica == "{{ '1' if tipo == 'E' else '2' }}" && opt.dataset.temPai == "1";
+  var show = opt.dataset.tipoOperacao == "{{ '1' if tipo == 'E' else '2' }}" && opt.dataset.temPai == "1";
   opt.style.display = show ? '' : 'none';
 });
 var previsaoModal = null;
@@ -230,7 +230,7 @@ function carregarPrevisoes(contaId) {
       var html = '<div class="list-group">';
       data.forEach(function(p) {
         var selected = document.getElementById('previsao-id').value == p.id;
-        html += '<a href="#" class="list-group-item list-group-item-action' + (selected ? ' active' : '') + '" onclick="selecionarPrevisao(' + p.id + ', \'' + p.conta_nome.replace(/'/g, "\\'") + '\', \'' + (p.documento || '').replace(/'/g, "\\'") + '\', ' + p.saldo + ', \'' + p.vencimento + '\', ' + (p.rubrica_id || 'null') + '); return false;">';
+        html += '<a href="#" class="list-group-item list-group-item-action' + (selected ? ' active' : '') + '" onclick="selecionarPrevisao(' + p.id + ', \'' + p.conta_nome.replace(/'/g, "\\'") + '\', \'' + (p.documento || '').replace(/'/g, "\\'") + '\', ' + p.saldo + ', \'' + p.vencimento + '\',             ' + (p.operacao_id || 'null') + '); return false;">';
         html += '<div class="d-flex justify-content-between align-items-center">';
         html += '<span><strong>#' + p.id + '</strong> - ' + p.conta_nome + '</span>';
         html += '<span class="badge bg-info">R$ ' + p.saldo.toFixed(2).replace('.', ',') + '</span>';
@@ -245,13 +245,13 @@ function carregarPrevisoes(contaId) {
       body.innerHTML = '<p class="text-danger text-center">Erro ao carregar previsões.</p>';
     });
 }
-function selecionarPrevisao(id, contaNome, documento, saldo, vencimento, rubricaId) {
+function selecionarPrevisao(id, contaNome, documento, saldo, vencimento, operacaoId) {
   document.getElementById('previsao-id').value = id;
   document.getElementById('previsao-saldo').value = saldo;
   document.getElementById('previsao-info').value = '#' + id + ' - ' + contaNome;
   if (documento) document.querySelector('[name="documento"]').value = documento;
   if (saldo > 0) document.querySelector('[name="valor"]').value = saldo.toFixed(2);
-  if (rubricaId) document.querySelector('[name="rubrica_id"]').value = rubricaId;
+  if (operacaoId) document.querySelector('[name="operacao_id"]').value = operacaoId;
   if (previsaoModal) previsaoModal.hide();
 }
 document.getElementById('main-form').addEventListener('submit', function(e) {
@@ -296,7 +296,7 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
     document.getElementById('acrescimos-saldo').textContent = saldo.toFixed(2).replace('.', ',');
     document.getElementById('acrescimos-diferenca').textContent = (valor - saldo).toFixed(2).replace('.', ',');
     document.getElementById('acrescimos-erro').checked = true;
-    document.getElementById('erro-acrescimos-rubrica').style.display = 'none';
+    document.getElementById('erro-acrescimos-operacao').style.display = 'none';
     erroAcrescimosModal.show();
   }
 });
@@ -308,7 +308,7 @@ function confirmarDesconto() {
 }
 function onAcrescimosOpcaoChange() {
   var opcao = document.querySelector('input[name="acrescimos-opcao"]:checked').value;
-  document.getElementById('erro-acrescimos-rubrica').style.display = opcao === 'acrescimo' ? '' : 'none';
+  document.getElementById('erro-acrescimos-operacao').style.display = opcao === 'acrescimo' ? '' : 'none';
 }
 function confirmarAcrescimos() {
   var opcao = document.querySelector('input[name="acrescimos-opcao"]:checked').value;
@@ -317,12 +317,12 @@ function confirmarAcrescimos() {
     flash('Valor informado é maior que o saldo da previsão. Verifique o lançamento.', 'danger');
     return;
   }
-  var rubricaId = document.getElementById('rubrica-acrescimos-select').value;
-  if (!rubricaId) {
-    showAlert('Selecione uma rubrica para o acréscimo.');
+  var operacaoId = document.getElementById('operacao-acrescimos-select').value;
+  if (!operacaoId) {
+    showAlert('Selecione uma operacao para o acrescimo.');
     return;
   }
-  document.getElementById('rubrica-acrescimos-id').value = rubricaId;
+  document.getElementById('operacao-acrescimos-id').value = operacaoId;
   document.getElementById('acao-field').value = 'acrescimos';
   erroAcrescimosModal.hide();
   document.getElementById('main-form').submit();

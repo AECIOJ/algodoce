@@ -20,7 +20,7 @@
         <a href="{{ url_for('ingredients.list') }}" class="bar-link-lg text-decoration-none">Insumos</a>
         <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none">Produtos</a>
         <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none">Contas</a>
-        <a href="{{ url_for('rubricas.list') }}" class="bar-link-lg text-decoration-none">Rubricas</a>
+        <a href="{{ url_for('operacoes.list') }}" class="bar-link-lg text-decoration-none">Operações</a>
         <a href="{{ url_for('carteira.list') }}" class="bar-link-lg text-decoration-none">Carteiras</a>
       </div>
     </div>
@@ -279,7 +279,7 @@ var SUB_NAV_SECTIONS = {
       { label: 'Insumos', url: '/insumos', icon: 'bi-box-seam' },
       { label: 'Produtos', url: '/produtos', icon: 'bi-gift' },
       { label: 'Contas', url: '/contas', icon: 'bi-people' },
-      { label: 'Rubricas', url: '/rubricas/', icon: 'bi-tags' },
+      { label: 'Operações', url: '/operacoes/', icon: 'bi-tags' },
       { label: 'Carteiras', url: '/carteira/', icon: 'bi-wallet2' }
     ]
   },
@@ -382,7 +382,7 @@ function activateSection(section, path) {
   }
 }
 var path = window.location.pathname;
-var cadastroPaths = ['/categorias/', '/insumos', '/produtos', '/contas', '/rubricas/', '/carteira/'];
+var cadastroPaths = ['/categorias/', '/insumos', '/produtos', '/contas', '/operacoes/', '/carteira/'];
 var comercialPaths = ['/orcamentos', '/pedidos', '/compras/'];
 var financeiroPaths = ['/recursos/', '/movimentos', '/contas-a-pagar/', '/contas-a-receber/'];
 var onCadastro = cadastroPaths.some(function(p) { return matchPath(path, p); });

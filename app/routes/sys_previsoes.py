@@ -4,8 +4,8 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.previsao import Previsao
 from app.models.client import Conta
-from app.models.rubrica import Rubrica
-from app.constants import TIPO_PREVISAO, TIPO_RUBRICA, PREVISAO_STATUS
+from app.models.operacao import Operacao
+from app.constants import TIPO_PREVISAO, TIPO_OPERACAO, PREVISAO_STATUS
 from app.table import Field, build_field_context, Table
 
 
@@ -95,7 +95,7 @@ def new():
             previsto=previsto,
             realizado=realizado,
             variacao=variacao,
-            rubrica_id=request.form.get("rubrica_id", type=int) or None,
+            operacao_id=request.form.get("operacao_id", type=int) or None,
             cancelado=cancelado,
             historico=request.form.get("historico") or None,
         )
@@ -104,11 +104,11 @@ def new():
         flash("Previsão cadastrada!", "success")
         return redirect(url_for("previsoes.list"))
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
     return render_template(
         "sys_previsoes/form.html", TIPO_PREVISAO=TIPO_PREVISAO,
         PREVISAO_STATUS=PREVISAO_STATUS,
-        contas=contas, rubricas=rubricas,
+        contas=contas, operacoes=operacoes,
     )
 
 
@@ -129,7 +129,7 @@ def edit(id):
         previsao.realizado = float(_realizado) if _realizado else None
         _variacao = request.form.get("variacao")
         previsao.variacao = float(_variacao) if _variacao else 0
-        previsao.rubrica_id = request.form.get("rubrica_id", type=int) or None
+        previsao.operacao_id = request.form.get("operacao_id", type=int) or None
         cancelado = request.form.get("cancelado") or None
         previsao.cancelado = cancelado
         previsao.historico = request.form.get("historico") or None
@@ -138,11 +138,11 @@ def edit(id):
         return redirect(url_for("previsoes.list"))
 
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
     return render_template(
         "sys_previsoes/form.html", previsao=previsao,
         TIPO_PREVISAO=TIPO_PREVISAO, PREVISAO_STATUS=PREVISAO_STATUS,
-        contas=contas, rubricas=rubricas,
+        contas=contas, operacoes=operacoes,
     )
 
 

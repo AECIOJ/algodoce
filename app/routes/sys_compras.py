@@ -7,7 +7,7 @@ from app.models.previsao import Previsao
 from app.models.transacao import Transacao
 from app.models.compra import Compra
 from app.models.client import Conta
-from app.models.rubrica import Rubrica
+from app.models.operacao import Operacao
 from app.models.ingredient import Ingredient
 from app.models.compra_item import CompraItem
 from app.models.movto import Movto
@@ -105,7 +105,7 @@ def new():
     if request.method == "POST":
         data = request.form.get("data") or date.today()
         conta_id = request.form.get("conta_id", type=int) or None
-        rubrica_id = request.form.get("rubrica_id", type=int) or None
+        operacao_id = request.form.get("operacao_id", type=int) or None
         fatura = request.form.get("fatura") or None
         historico = request.form.get("historico") or None
         cancelado = request.form.get("cancelado") or None
@@ -149,11 +149,11 @@ def new():
         return redirect(url_for("compras.list"))
 
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     carteiras = Carteira.query.order_by(Carteira.nome).all()
     return render_template(
-        "sys_compras/form.html", contas=contas, rubricas=rubricas,
+        "sys_compras/form.html", contas=contas, operacoes=operacoes,
         insumos=insumos, carteiras=carteiras,
         hoje=date.today(), COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None,
@@ -192,7 +192,7 @@ def edit(id):
         if transacao and not compra.movto_id:
             transacao.data = compra.data
             transacao.conta_id = compra.fornecedor_id
-            transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
+            transacao.operacao_id = request.form.get("operacao_id", type=int) or None
             transacao.fatura = request.form.get("fatura") or None
             transacao.historico = compra.historico
 
@@ -318,14 +318,14 @@ def edit(id):
             return redirect(url_for("compras.edit", id=compra.id))
 
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     carteiras = Carteira.query.order_by(Carteira.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes] if transacao else []
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
         "sys_compras/form.html", transacao=transacao, compra=compra,
-        contas=contas, rubricas=rubricas, insumos=insumos,
+        contas=contas, operacoes=operacoes, insumos=insumos,
         carteiras=carteiras,
         PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,

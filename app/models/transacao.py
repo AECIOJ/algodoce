@@ -8,7 +8,7 @@ class Transacao(db.Model):
     data = db.Column(db.Date, nullable=False)
     tipo = db.Column(db.String(1), nullable=False)
     conta_id = db.Column(db.Integer, db.ForeignKey("conta.id"), nullable=True)
-    rubrica_id = db.Column(db.Integer, db.ForeignKey("rubrica.id"), nullable=True)
+    operacao_id = db.Column(db.Integer, db.ForeignKey("operacao.id"), nullable=True)
     fatura = db.Column(db.String(50), nullable=True)
     valor = db.Column(db.Numeric(12, 2), nullable=False)
     historico = db.Column(db.Text, nullable=True)
@@ -16,7 +16,7 @@ class Transacao(db.Model):
     total_previsto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
 
     conta = db.relationship("Conta", backref="transacoes")
-    rubrica = db.relationship("Rubrica", backref="transacoes")
+    operacao = db.relationship("Operacao", backref="transacoes")
     previsoes = db.relationship("Previsao", backref="transacao",
                                 order_by="Previsao.vencimento, Previsao.id")
 

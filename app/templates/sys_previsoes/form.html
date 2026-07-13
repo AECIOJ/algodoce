@@ -54,11 +54,11 @@
     <input type="number" name="variacao" class="form-control" step="0.01" value="{{ '%.2f'|format(previsao.variacao) if previsao and previsao.variacao is not none else '' }}">
   </div>
   <div class="col-md-4">
-    <label class="form-label">Rubrica</label>
-    <select name="rubrica_id" class="form-select">
+    <label class="form-label">Operacao</label>
+    <select name="operacao_id" class="form-select">
       <option value="">Nenhuma</option>
-      {% for r in rubricas %}
-        <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if previsao and previsao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% for r in operacoes %}
+        <option value="{{ r.id }}" data-tipo-operacao="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if previsao and previsao.operacao_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
       {% endfor %}
     </select>
   </div>
@@ -77,16 +77,16 @@
 <script>
 var TIPO_MAP = {"R": 1, "P": 2};
 document.querySelector('[name="tipo"]').addEventListener('change', function() {
-  var tipoRubrica = TIPO_MAP[this.value];
-  var rubricaSelect = document.querySelector('[name="rubrica_id"]');
-  var selectedVal = rubricaSelect.value;
-  rubricaSelect.querySelectorAll('option').forEach(function(opt) {
+  var tipoOperacao = TIPO_MAP[this.value];
+  var operacaoSelect = document.querySelector('[name="operacao_id"]');
+  var selectedVal = operacaoSelect.value;
+  operacaoSelect.querySelectorAll('option').forEach(function(opt) {
     if (!opt.value) return;
-    var show = tipoRubrica && opt.dataset.tipoRubrica == tipoRubrica && opt.dataset.temPai == "1";
+    var show = tipoOperacao && opt.dataset.tipoOperacao == tipoOperacao && opt.dataset.temPai == "1";
     opt.style.display = show ? '' : 'none';
   });
-  if (rubricaSelect.querySelector('option[value="' + selectedVal + '"]')?.style.display === 'none') {
-    rubricaSelect.value = '';
+  if (operacaoSelect.querySelector('option[value="' + selectedVal + '"]')?.style.display === 'none') {
+    operacaoSelect.value = '';
   }
 });
 document.querySelector('[name="tipo"]').dispatchEvent(new Event('change'));

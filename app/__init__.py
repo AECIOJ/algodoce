@@ -67,7 +67,7 @@ def create_app():
     with app.app_context():
         from app.routes import sys_clients as contas, sys_products, sys_ingredients, sys_orders, sys_compras
         from app.routes import site, uploads, site_vitrine, site_orcamento
-        from app.routes import sys_categories, sys_producao, sys_rubricas, sys_previsoes, sys_recursos, sys_a_pagar, sys_a_receber, sys_movimentos, sys_api, sys_orcamentos
+        from app.routes import sys_categories, sys_producao, sys_operacoes, sys_previsoes, sys_recursos, sys_a_pagar, sys_a_receber, sys_movimentos, sys_api, sys_orcamentos
         from app.routes.sys_auth import bp as auth, bp_seguranca as seguranca
 
         app.register_blueprint(contas.bp)
@@ -83,7 +83,7 @@ def create_app():
         app.register_blueprint(sys_categories.bp)
         app.register_blueprint(seguranca)
         app.register_blueprint(sys_producao.bp)
-        app.register_blueprint(sys_rubricas.bp)
+        app.register_blueprint(sys_operacoes.bp)
         app.register_blueprint(sys_previsoes.bp)
         app.register_blueprint(sys_recursos.bp)
         app.register_blueprint(sys_a_pagar.bp)
@@ -95,7 +95,7 @@ def create_app():
         from app.routes.sys_carteira import bp as carteira_bp
         app.register_blueprint(carteira_bp)
 
-        from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, rubrica, transacao, previsao  # noqa
+        from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, operacao, transacao, previsao  # noqa
         from app.models.event import Event  # noqa
         from app.models.quote_item import QuoteItem  # noqa
         from app.models.compra import Compra  # noqa

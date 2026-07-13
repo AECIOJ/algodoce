@@ -1,17 +1,17 @@
 {% extends "components/page_form.html" %}
 
 
-{% set back_url = url_for('rubricas.list') %}
-{% set new_title = 'Nova Rubrica' %}
-{% set entity_label = 'Rubrica' %}
-{% set edit_endpoint = 'rubricas.edit' %}
-{% if rubrica %}{% set entity_id = rubrica.id %}{% endif %}
+{% set back_url = url_for('operacoes.list') %}
+{% set new_title = 'Nova Operacao' %}
+{% set entity_label = 'Operacao' %}
+{% set edit_endpoint = 'operacoes.edit' %}
+{% if operacao %}{% set entity_id = operacao.id %}{% endif %}
 
 {% block nav_right %}
-{% if rubrica %}
-{% if not rubrica.ativa %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
-<a href="{{ url_for('rubricas.toggle', id=rubrica.id) }}" class="btn btn-{{ 'success' if rubrica.ativa else 'outline-secondary' }} btn-sm" style="min-width:90px">
-  {{ 'Desativar' if rubrica.ativa else 'Ativar' }}
+{% if operacao %}
+{% if not operacao.ativa %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
+<a href="{{ url_for('operacoes.toggle', id=operacao.id) }}" class="btn btn-{{ 'success' if operacao.ativa else 'outline-secondary' }} btn-sm" style="min-width:90px">
+  {{ 'Desativar' if operacao.ativa else 'Ativar' }}
 </a>
 {% endif %}
 {% endblock %}
@@ -20,14 +20,14 @@
 <div class="row mb-3">
   <div class="col-md-6">
     <label class="form-label">Nome *</label>
-    <input type="text" name="nome" class="form-control" required value="{{ rubrica.nome if rubrica else '' }}">
+    <input type="text" name="nome" class="form-control" required value="{{ operacao.nome if operacao else '' }}">
   </div>
   <div class="col-md-3">
     <label class="form-label">Tipo *</label>
     <select name="tipo" class="form-select" required>
       <option value="">Selecione...</option>
-      {% for k, v in TIPO_RUBRICA.items() %}
-        <option value="{{ k }}" {% if rubrica and rubrica.tipo == k %}selected{% endif %}>{{ v }}</option>
+      {% for k, v in TIPO_OPERACAO.items() %}
+        <option value="{{ k }}" {% if operacao and operacao.tipo == k %}selected{% endif %}>{{ v }}</option>
       {% endfor %}
     </select>
   </div>
@@ -36,7 +36,7 @@
     <select name="pai_id" class="form-select">
       <option value="">Nenhum</option>
       {% for p in paises %}
-        <option value="{{ p.id }}" data-tipo="{{ p.tipo }}" {% if rubrica and rubrica.pai_id == p.id %}selected{% endif %}>{{ p.nome }}</option>
+        <option value="{{ p.id }}" data-tipo="{{ p.tipo }}" {% if operacao and operacao.pai_id == p.id %}selected{% endif %}>{{ p.nome }}</option>
       {% endfor %}
     </select>
   </div>
@@ -44,18 +44,18 @@
 <div class="row mb-3">
   <div class="col-md-3">
     <label class="form-label">Ordem</label>
-    <input type="number" name="ordem" class="form-control" min="0" value="{{ rubrica.ordem if rubrica else 0 }}">
+    <input type="number" name="ordem" class="form-control" min="0" value="{{ operacao.ordem if operacao else 0 }}">
   </div>
   <div class="col-md-3">
     <label class="form-label">Fator</label>
     <select name="fator" class="form-select">
-      <option value="1" {% if not rubrica or rubrica.fator == 1 %}selected{% endif %}>1 (Soma)</option>
-      <option value="-1" {% if rubrica and rubrica.fator == -1 %}selected{% endif %}>-1 (Subtrai)</option>
+      <option value="1" {% if not operacao or operacao.fator == 1 %}selected{% endif %}>1 (Soma)</option>
+      <option value="-1" {% if operacao and operacao.fator == -1 %}selected{% endif %}>-1 (Subtrai)</option>
     </select>
   </div>
   <div class="col-md-6">
     <div class="form-check mt-2">
-      <input type="checkbox" name="ativa" class="form-check-input" id="checkAtiva" {% if not rubrica or rubrica.ativa %}checked{% endif %}>
+      <input type="checkbox" name="ativa" class="form-check-input" id="checkAtiva" {% if not operacao or operacao.ativa %}checked{% endif %}>
       <label class="form-check-label" for="checkAtiva">Ativa</label>
     </div>
   </div>
@@ -63,18 +63,18 @@
 {% endblock %}
 
 {% block form_footer_left %}
-{% if rubrica %}
-<button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" style="min-height:0;font-size:0.75rem;padding:2px 6px;" data-rubrica-id="{{ rubrica.id }}" data-rubrica-nome="{{ rubrica.nome }}" onclick="confirmarExclusao(this)"><i class="bi bi-trash"></i>Excluir</button>
+{% if operacao %}
+<button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" style="min-height:0;font-size:0.75rem;padding:2px 6px;" data-operacao-id="{{ operacao.id }}" data-operacao-nome="{{ operacao.nome }}" onclick="confirmarExclusao(this)"><i class="bi bi-trash"></i>Excluir</button>
 {% endif %}
 {% endblock %}
 
 {% block page_scripts %}
-{% if rubrica %}
+{% if operacao %}
 <div class="modal fade" id="modalExcluir" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Excluir Rubrica</h5>
+        <h5 class="modal-title">Excluir Operacao</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" id="modalExcluirBody"></div>
@@ -85,18 +85,18 @@
 <form method="POST" id="formExcluir" style="display:none"></form>
 <script>
 function confirmarExclusao(btn) {
-  const id = btn.dataset.rubricaId;
-  const nome = btn.dataset.rubricaNome;
+  const id = btn.dataset.operacaoId;
+  const nome = btn.dataset.operacaoNome;
   const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
   const body = document.getElementById('modalExcluirBody');
   const footer = document.getElementById('modalExcluirFooter');
-  fetch('/rubricas/' + id + '/uso')
+  fetch('/operacoes/' + id + '/uso')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.em_uso) {
         body.innerHTML = '<div class="alert alert-danger mb-0">' +
-          '<strong>' + nome + '</strong> possui <strong>' + data.quantidade + '</strong> rubrica(s) vinculada(s). ' +
-          'Remova os vínculos antes de excluí-la.</div>';
+          '<strong>' + nome + '</strong> possui <strong>' + data.quantidade + '</strong> operacao(es) vinculada(s). ' +
+          'Remova os vinculos antes de exclui-la.</div>';
         footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>';
       } else {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
@@ -109,7 +109,7 @@ function confirmarExclusao(btn) {
 }
 function efetuarExclusao(id) {
   var form = document.getElementById('formExcluir');
-  form.action = '/rubricas/' + id + '/excluir';
+  form.action = '/operacoes/' + id + '/excluir';
   form.submit();
 }
 </script>

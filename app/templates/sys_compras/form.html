@@ -24,11 +24,11 @@
     </select>
   </div>
   <div class="col-6 col-md-3">
-    <label class="form-label">Rubrica *</label>
-    <select name="rubrica_id" class="form-select" required>
+    <label class="form-label">Operacao *</label>
+    <select name="operacao_id" class="form-select" required>
       <option value="">Nenhuma</option>
-      {% for r in rubricas %}
-        <option value="{{ r.id }}" data-tipo-rubrica="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if transacao and transacao.rubrica_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
+      {% for r in operacoes %}
+        <option value="{{ r.id }}" data-tipo-operacao="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if transacao and transacao.operacao_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
       {% endfor %}
     </select>
   </div>
@@ -307,7 +307,7 @@
             <th>Previsão</th>
             <th>Documento</th>
             <th class="text-end">Valor</th>
-            <th>Rubrica</th>
+            <th>Operacao</th>
             <th>Histórico</th>
           </tr>
         </thead>
@@ -320,7 +320,7 @@
             <td>#{{ m.previsao_id|fmtid }}</td>
             <td>{{ m.documento or '' }}</td>
             <td class="text-danger fw-bold text-end">{{ m.valor|brl }}</td>
-            <td>{{ m.rubrica.nome if m.rubrica else '' }}</td>
+            <td>{{ m.operacao.nome if m.operacao else '' }}</td>
             <td>{{ m.historico_display }}</td>
           </tr>
           {% endfor %}
@@ -450,9 +450,9 @@
 </div>
 
 <script>
-document.querySelectorAll('[name="rubrica_id"] option').forEach(function(opt) {
+document.querySelectorAll('[name="operacao_id"] option').forEach(function(opt) {
   if (!opt.value) return;
-  var show = opt.dataset.tipoRubrica == "2" && opt.dataset.temPai == "1";
+  var show = opt.dataset.tipoOperacao == "2" && opt.dataset.temPai == "1";
   opt.style.display = show ? '' : 'none';
 });
 </script>
@@ -681,10 +681,10 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
         ? '{{ url_for('a_pagar.new', compra_id=compra.id) }}'
         : '{{ url_for('movimentos.pagamentos_new', compra_id=compra.id) }}';
       var v = document.getElementById('total-display').value;
-      var rubricaEl = document.querySelector('[name="rubrica_id"]');
-      var rubricaId = rubricaEl ? rubricaEl.value : '';
+      var operacaoEl = document.querySelector('[name="operacao_id"]');
+      var operacaoId = operacaoEl ? operacaoEl.value : '';
       var sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
-      redirectInput.value = baseUrl + sep + 'prazo=' + encodeURIComponent(prazo) + '&valor=' + encodeURIComponent(v) + '&rubrica_id=' + encodeURIComponent(rubricaId);
+      redirectInput.value = baseUrl + sep + 'prazo=' + encodeURIComponent(prazo) + '&valor=' + encodeURIComponent(v) + '&operacao_id=' + encodeURIComponent(operacaoId);
       btn.classList.remove('d-none');
     }
   }
@@ -695,10 +695,10 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
 
 function gerarClick() {
   var input = document.getElementById('redirect-after-input');
-  var rubricaEl = document.querySelector('[name="rubrica_id"]');
-  if (rubricaEl && rubricaEl.value) {
+  var operacaoEl = document.querySelector('[name="operacao_id"]');
+  if (operacaoEl && operacaoEl.value) {
     var u = new URL(input.value, window.location.origin);
-    u.searchParams.set('rubrica_id', rubricaEl.value);
+    u.searchParams.set('operacao_id', operacaoEl.value);
     input.value = u.toString();
   }
   var url = input.value;

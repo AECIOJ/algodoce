@@ -10,8 +10,8 @@ from app.models.previsao import Previsao
 from app.models.transacao import Transacao
 from app.models.compra import Compra
 from app.models.order import Order
-from app.models.rubrica import Rubrica
-from app.constants import TIPO_RECURSO, TIPO_RUBRICA, PREVISAO_STATUS
+from app.models.operacao import Operacao
+from app.constants import TIPO_RECURSO, TIPO_OPERACAO, PREVISAO_STATUS
 from app.table import Field, build_field_context
 from decimal import Decimal
 
@@ -26,7 +26,7 @@ MOVIMENTOS_FIELDS = [
     Field(name='previsao', label='Previsão', width=10, filter=False),
     Field(name='documento', label='Documento', width=10),
     Field(name='valor', label='Valor', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='rubrica', label='Rubrica', width=15, query='rubrica'),
+    Field(name='operacao', label='Operacao', width=15, query='operacao'),
     Field(name='historico', label='Histórico', width=30),
 ]
 
@@ -64,12 +64,12 @@ def _new(tipo, prefill=None, from_order=False, compra=None):
     recursos = Recurso.query.order_by(Recurso.nome).all()
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     if tipo == "E":
-        rubricas = Rubrica.query.filter_by(ativa=True, tipo=1).order_by(Rubrica.ordem, Rubrica.nome).all()
+        operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
     else:
-        rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
+        operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
     return render_template(
         "sys_movimentos/form.html",
-        movto=None, recursos=recursos, contas=contas, rubricas=rubricas,
+        movto=None, recursos=recursos, contas=contas, operacoes=operacoes,
         tipo=tipo, tipo_nome=_movto_tipo(tipo),
         tipo_nome_plural=_movto_tipo_plural(tipo),
         TIPO_RECURSO=TIPO_RECURSO, PREVISAO_STATUS=PREVISAO_STATUS,
@@ -106,7 +106,7 @@ def _create_or_update(movto, tipo, compra=None):
     previsao_id = request.form.get("previsao_id", type=int) or None
     documento = request.form.get("documento") or None
     valor = float(request.form.get("valor", 0))
-    rubrica_id = request.form.get("rubrica_id", type=int) or None
+    operacao_id = request.form.get("operacao_id", type=int) or None
     historico = request.form.get("historico") or None
     acao = request.form.get("acao", "")
 
@@ -137,7 +137,7 @@ def _create_or_update(movto, tipo, compra=None):
             movto.conta_id = conta_id
             movto.previsao_id = previsao_id
             movto.documento = documento
-            movto.rubrica_id = rubrica_id
+            movto.operacao_id = operacao_id
             movto.historico = historico
             db.session.commit()
             return True
@@ -152,7 +152,7 @@ def _create_or_update(movto, tipo, compra=None):
         movto.valor = valor
         movto.variacao = 0
         movto.sincronizar = True
-        movto.rubrica_id = rubrica_id
+        movto.operacao_id = operacao_id
         movto.historico = historico
         _sincronizar_previsao(movto, 'criar')
         db.session.commit()
@@ -169,9 +169,9 @@ def _create_or_update(movto, tipo, compra=None):
             variacao = -diferenca
 
     elif acao == "acrescimos":
-        rubrica_acrescimos_id = request.form.get("rubrica_acrescimos_id", type=int)
-        if not rubrica_acrescimos_id:
-            flash("Selecione a rubrica para acréscimos", "danger")
+        operacao_acrescimos_id = request.form.get("operacao_acrescimos_id", type=int)
+        if not operacao_acrescimos_id:
+            flash("Selecione a operacao para acrescimos", "danger")
             return False
         p = Previsao.query.get(previsao_id)
         if p:
@@ -184,7 +184,7 @@ def _create_or_update(movto, tipo, compra=None):
             conta_id=conta_id, previsao_id=previsao_id,
             documento=documento, valor=diferenca,
             variacao=diferenca, sincronizar=False,
-            rubrica_id=rubrica_acrescimos_id,
+            operacao_id=operacao_acrescimos_id,
             historico=historico_sec,
         )
         valor = saldo
@@ -200,7 +200,7 @@ def _create_or_update(movto, tipo, compra=None):
         conta_id=conta_id, previsao_id=previsao_id,
         documento=documento, valor=valor,
         variacao=variacao, sincronizar=sincronizar,
-        rubrica_id=rubrica_id, historico=historico,
+        operacao_id=operacao_id, historico=historico,
     )
     db.session.add(movto)
 
@@ -253,7 +253,7 @@ def recebimentos_edit(id):
 
     recursos = Recurso.query.order_by(Recurso.nome).all()
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True, tipo=1).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
 
     query = Movto.query.with_entities(Movto.id).filter(Movto.tipo == "E").order_by(Movto.data.desc(), Movto.id.desc())
     ids = [m.id for m in query.all()]
@@ -275,7 +275,7 @@ def recebimentos_edit(id):
 
     return render_template(
         "sys_movimentos/form.html",
-        movto=movto, recursos=recursos, contas=contas, rubricas=rubricas,
+        movto=movto, recursos=recursos, contas=contas, operacoes=operacoes,
         nav=nav,
         tipo="E", tipo_nome=_movto_tipo("E"),
         tipo_nome_plural=_movto_tipo_plural("E"),
@@ -292,7 +292,7 @@ def pagamentos_list():
 def pagamentos_new():
     compra_id = request.args.get("compra_id", type=int)
     compra = Compra.query.get(compra_id) if compra_id else None
-    rubrica_id = request.args.get("rubrica_id", type=int)
+    operacao_id = request.args.get("operacao_id", type=int)
     if request.method == "POST":
         if _create_or_update(None, "S", compra=compra):
             flash("Pagamento registrado!", "success")
@@ -303,7 +303,7 @@ def pagamentos_new():
             "data": str(compra.data or date.today()),
             "conta_id": compra.fornecedor_id,
             "documento": f"C#{compra.id}",
-            "rubrica_id": rubrica_id,
+            "operacao_id": operacao_id,
             "valor": str(compra.valor or 0),
             "historico": f"Pagamento na data ref. Compra (#{compra.id}) e Fatura (#C{compra.id})",
         }
@@ -318,7 +318,7 @@ def pagamentos_edit(id):
 
     recursos = Recurso.query.order_by(Recurso.nome).all()
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True, tipo=2).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
 
     query = Movto.query.with_entities(Movto.id).filter(Movto.tipo == "S").order_by(Movto.data.desc(), Movto.id.desc())
     ids = [m.id for m in query.all()]
@@ -340,7 +340,7 @@ def pagamentos_edit(id):
 
     return render_template(
         "sys_movimentos/form.html",
-        movto=movto, recursos=recursos, contas=contas, rubricas=rubricas,
+        movto=movto, recursos=recursos, contas=contas, operacoes=operacoes,
         nav=nav,
         tipo="S", tipo_nome=_movto_tipo("S"),
         tipo_nome_plural=_movto_tipo_plural("S"),
@@ -401,5 +401,5 @@ def api_previsoes():
         "transacao_id": p.transacao_id,
         "conta_nome": p.transacao.conta.nome if p.transacao.conta else "",
         "fatura": p.transacao.fatura or "",
-        "rubrica_id": p.transacao.rubrica_id,
+        "operacao_id": p.transacao.operacao_id,
     } for p in previsoes])

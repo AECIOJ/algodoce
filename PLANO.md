@@ -77,21 +77,36 @@ algodoce/
 │   ├── versao.py                   # Versão do sistema
 │   │
 │   ├── models/                     # SQLAlchemy models (24 models)
-│   ├── routes/                     # Blueprints Flask (23 arquivos)
-│   ├── templates/                  # Jinja2 (21 diretórios — 17 sys_*, components/, site/, admin/)
-│   ├── static/                     # CSS, JS, imagens, uploads
+│   ├── routes/                     # Blueprints Flask (22 arquivos — 23 blueprints)
+│   ├── templates/                  # Jinja2 (21 diretórios — 16 sys_*, site/, site_orcamento/, components/, admin/)
+│   ├── static/                     # CSS, JS, ícones, uploads
+│   │   ├── css/                    #   style.css
+│   │   ├── icons/                  #   Ícones PNG (Logo, setas, etc.)
+│   │   ├── js/                     #   iteMS.js, phone-mask.js
 │   │   ├── lib/                    #   Bibliotecas locais (bootstrap, bootstrap-icons, qrcode-generator)
-│   └── migrations/                 # Alembic (6 migrations)
+│   │   └── uploads/                #   Uploads de imagens
+│   └── migrations/                 # Alembic (7 migrations)
 │
 ├── dados/                          # Dados persistentes
 │   ├── paginas/                    # Páginas Markdown (sobre.md)
 │   ├── pgdata/                     # Dados PostgreSQL (volume Docker)
 │   └── uploads/                    # Uploads de fotos
 │
+├── scripts/
+│   └── pinggy_entrypoint.sh        # Script de entrada Pinggy
+│
 ├── compose.yml                     # Docker Compose (db + app + pinggy)
 ├── Dockerfile                      # Imagem da aplicação
+├── Dockerfile.pinggy               # Imagem do túnel Pinggy
 ├── Pipfile                         # Dependências Python
-└── requirements.txt                # Pip freeze
+├── Pipfile.lock                    # Lock de dependências
+├── requirements.txt                # Pip freeze
+├── COMERCIAL.md                    # Docs comerciais
+├── LAYOUT.md                       # Docs de layout
+├── PLANO.md                        # Este arquivo
+├── .env                            # Variáveis de ambiente
+├── .dockerignore                   # Ignorados pelo Docker
+└── .gitignore                      # Ignorados pelo Git
 ```
 
 #### Models por Módulo
@@ -100,7 +115,7 @@ algodoce/
 |--------|--------|----------|
 | **admin** | User, Setting | `models/user.py`, `models/setting.py` |
 | **site** | — (usa session/cookies) | — |
-| **sys** | Conta, Category, Product, Ingredient, ProductIngredient, UnitConversion, Quote, QuoteItem, Order, OrderItem, Compra, CompraItem, Event, Producao, ProducaoProduto, ProducaoInsumo, Rubrica, Carteira, Transacao, Previsao, Recurso, Movto | `models/*.py` |
+| **sys** | Conta, Category, Product, Ingredient, ProductIngredient, UnitConversion, Quote, QuoteItem, Order, OrderItem, Compra, CompraItem, Event, Producao, ProducaoProduto, ProducaoInsumo, Operacao, Carteira, Transacao, Previsao, Recurso, Movto | `models/*.py` |
 
 #### Rotas por Módulo
 
@@ -110,33 +125,30 @@ algodoce/
 | **site** | `site_vitrine` | `routes/site_vitrine.py` | `/vitrine/`, `/vitrine/<id>/add` |
 | **site** | `site_orcamento` | `routes/site_orcamento.py` | `/orcamento`, `/api/cliente`, `/orcamento/enviar` |
 | **sys** | `auth`, `seguranca` | `routes/sys_auth.py` (unificado) | `/login`, `/logout`, `/seguranca/` (painel + settings) |
-| **sys** | `clients`, `products`, `categories`, `ingredients`, `orders`, `compras`, `orcamentos`, `producao`, `rubricas`, `carteira`, `a_pagar`, `a_receber`, `previsoes`, `movimentos`, `recursos`, `reports`, `api` | `routes/sys_*.py` | CRUDs de todas as entidades |
+| **sys** | `contas`, `products`, `categories`, `ingredients`, `orders`, `compras`, `orcamentos`, `producao`, `operacoes`, `carteira`, `a_pagar`, `a_receber`, `previsoes`, `movimentos`, `recursos`, `reports`, `api` | `routes/sys_*.py` | CRUDs de todas as entidades |
 | **site** | `uploads` | `routes/uploads.py` | Uploads de imagens (sys + site) |
 
 ### Hierarquia de Componentes (Telas)
 
 ```
 .
-├── page_base.html                 ─ ─ Layout base (doctype, head, bootstrap CDN)
+├── page_base.html                 ─ ─ Layout base (doctype, head, bootstrap local)
 │   ├── page_sys.html              ─ ─ Layout do módulo sys (navbar, submenu, footer)
-│   │   ├── action_list.html (macro) ─ Página de listagem com abas Dados/Filtros
-│   │   │   ├── action_filter.html  ─   Painel de filtros
-│   │   │   └── action_table.html   ─   Tabela com colunas dinâmicas
-│   │   └── page_form.html         ─   Página de formulário
-│   │       └── action_nav.html    ─     Navegação entre registros (sticky)
+│   │   ├── page_form.html         ─   Página de formulário
+│   │   └── (macros.html)          ─   Macros: action_list, action_table, action_filter, action_edit, action_nav
 │   ├── page_site.html             ─ ─ Layout do módulo site (header, nav, footer)
-│   └── admin/page_admin.html      ─ ─ Placeholder do módulo admin
+│   └── admin/                     ─ ─ Módulo admin (via page_sys.html)
 ```
 
 **Macros compartilhadas:**
 
 | Macro | Arquivo | Descrição |
 |-------|---------|-----------|
-| `action_list(title, new_url, extra_actions)` | `action_list.html` | Macro mestra de listagem: abas Dados/Filtros, tabela sortable, filtro JS client-side |
-| `action_table(data, fields, ctx, edit_endpoint, ...)` | `action_table.html` | Tabela com colunas dinâmicas, ordenação, detalhe expansível, botão de ação centralizado |
-| `action_filter(caller_content)` | `action_filter.html` | Painel de filtros |
-| `action_edit(url)` | `action_edit.html` | Botão de editar (ícone lápis) |
-| `action_nav(back_url, nome, nav, edit_endpoint, entity_id, status, actions2)` | `action_nav.html` | Navegação entre registros (anterior/próximo, sticky, responsivo) |
+| `action_list(title, new_url=none, new_label='+ Novo', extra_actions=none)` | `macros.html` | Macro mestra de listagem: abas Dados/Filtros, tabela sortable, filtro JS client-side |
+| `action_table(data, columns=none, fields=none, ctx=none, table=none, edit_endpoint=none, ...)` | `macros.html` | Tabela com colunas dinâmicas, ordenação, detalhe expansível, botão de ação centralizado |
+| `action_filter(caller_content='')` | `macros.html` | Painel de filtros |
+| `action_edit(url, label='Editar')` | `macros.html` | Botão de editar (ícone lápis) |
+| `action_nav(back_url, nome, nav, edit_endpoint, entity_id=none, status=none, actions2=none)` | `macros.html` | Navegação entre registros (anterior/próximo, responsivo) |
 
 **Sistema de Fields:** Cada blueprint define `*_FIELDS = [Field(name, label, width, input, options, filter, query, ...)]`. O dataclass `Field` configura colunas, filtros, máscaras, agregadores (soma), links e validação — usado para renderizar tabelas e formulários dinamicamente.
 
@@ -150,7 +162,7 @@ algodoce/
 | **Cadastros (sys)** | `conta`, `categories`, `products`, `ingredients`, `product_ingredients`, `unit_conversions` | Clientes/fornecedores, categorias, produtos, insumos, receituário, conversões |
 | **Comercial (sys)** | `quotes`, `quote_items`, `orders`, `order_items`, `compras`, `compra_itens`, `events` | Orçamentos, pedidos, compras, eventos |
 | **Produção (sys)** | `producao`, `producao_produtos`, `producao_insumos` | Batches de produção, produtos por batch, insumos calculados |
-| **Financeiro (sys)** | `rubrica`, `carteira`, `transacao`, `previsao`, `recurso`, `movto` | Plano de contas, formas de pagamento, transações, parcelas, recursos, movimentações |
+| **Financeiro (sys)** | `operacao`, `carteira`, `transacao`, `previsao`, `recurso`, `movto` | Plano de contas, formas de pagamento, transações, parcelas, recursos, movimentações |
 
 **Relacionamentos chave:**
 
@@ -161,7 +173,7 @@ algodoce/
 - `transacao` → `previsao` (1:N parcelas)
 - `previsao` → `movto` (baixa de previsão no fluxo de caixa)
 
-**Hierarquia rubrica:** Auto-referenciada (`rubrica.pai_id` → `rubrica.id`) para plano de contas em árvore.
+**Hierarquia operacao:** Auto-referenciada (`operacao.pai_id` → `operacao.id`) para plano de contas em árvore.
 
 **Status calculados:**
 
@@ -171,13 +183,289 @@ algodoce/
 | `Previsao.status` | 8 se transação cancelada; 0=Editando; 1=Pendente; 2=Parcial; 9=Quitado |
 | Faturado (pedido/compra) | Derivado: `True` se `transacao_id` ou `movto_id` preenchido |
 
+#### Estrutura das Tabelas
+
+##### `users` — User
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| username | VARCHAR(80) | UNIQUE, NOT NULL |
+| password_hash | VARCHAR(256) | NOT NULL |
+
+##### `settings` — Setting
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| key | VARCHAR(100) | UNIQUE, NOT NULL |
+| encrypted_value | TEXT | NOT NULL, DEFAULT '' |
+| updated_at | TIMESTAMP | DEFAULT now() |
+
+##### `conta` — Conta
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| nome | VARCHAR(100) | NOT NULL |
+| email | VARCHAR(120) | UNIQUE, NULLABLE |
+| telefone | VARCHAR(20) | NULLABLE |
+| endereco | TEXT | NULLABLE |
+| cpf | VARCHAR(14) | NULLABLE |
+| cnpj | VARCHAR(18) | NULLABLE |
+| insc_estadual | VARCHAR(20) | NULLABLE |
+| ativo | BOOLEAN | DEFAULT TRUE |
+| tipo | INTEGER | DEFAULT 0 |
+
+##### `categories` — Category
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| nome | VARCHAR(100) | NOT NULL |
+| ativo | BOOLEAN | DEFAULT TRUE |
+| ordem | INTEGER | DEFAULT 0 |
+
+##### `products` — Product
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| nome | VARCHAR(100) | NOT NULL |
+| descricao | TEXT | NULLABLE |
+| preco | NUMERIC(10,2) | NOT NULL |
+| qtd_minima | INTEGER | NOT NULL, DEFAULT 0 |
+| imagem | VARCHAR(255) | NULLABLE |
+| ativo | BOOLEAN | DEFAULT TRUE |
+| category_id | INTEGER | FK→categories.id, NULLABLE |
+
+##### `ingredients` — Ingredient
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| nome | VARCHAR(100) | NOT NULL |
+| unidade_medida | VARCHAR(20) | NOT NULL |
+| tipo | INTEGER | NOT NULL, DEFAULT 0 |
+
+##### `product_ingredients` — ProductIngredient
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| product_id | INTEGER | FK→products.id, PK |
+| ingredient_id | INTEGER | FK→ingredients.id, PK |
+| quantidade | NUMERIC(10,3) | NOT NULL |
+| unidade | VARCHAR(20) | NOT NULL, DEFAULT 'un' |
+| etapa_id | INTEGER | NULLABLE |
+
+##### `unit_conversions` — UnitConversion
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| ingredient_id | INTEGER | FK→ingredients.id, NOT NULL |
+| unidade | VARCHAR(20) | NOT NULL |
+| fator | NUMERIC(10,6) | NOT NULL |
+
+##### `quotes` — Quote
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| data_pedido | TIMESTAMP | NOT NULL, DEFAULT now() |
+| cliente_nome | VARCHAR(100) | NOT NULL |
+| cliente_telefone | VARCHAR(20) | NOT NULL |
+| status | INTEGER | NOT NULL, DEFAULT 0 |
+| pedido_id | INTEGER | FK→orders.id, NULLABLE |
+| total | NUMERIC(10,2) | NULLABLE |
+| observacao | TEXT | NULLABLE |
+| validade | INTEGER | NOT NULL, DEFAULT 3 |
+| carteira_id | INTEGER | FK→carteira.id, NULLABLE |
+| data_renovacao | TIMESTAMP | NULLABLE |
+| forminhas | INTEGER | NOT NULL, DEFAULT 0 |
+
+##### `quote_items` — QuoteItem
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| quote_id | INTEGER | FK→quotes.id, NOT NULL |
+| product_id | INTEGER | FK→products.id, NOT NULL |
+| quantidade | INTEGER | NOT NULL |
+| preco_unitario | NUMERIC(10,2) | NULLABLE |
+| observacao | TEXT | NULLABLE |
+
+##### `orders` — Order
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| client_id | INTEGER | FK→conta.id, NOT NULL |
+| data_pedido | TIMESTAMP | NOT NULL, DEFAULT now() |
+| data_previsao_entrega | TIMESTAMP | NULLABLE |
+| data_entrega | TIMESTAMP | NULLABLE |
+| status | INTEGER | NOT NULL, DEFAULT 0 |
+| observacao | TEXT | NULLABLE |
+| total | NUMERIC(10,2) | NULLABLE |
+| carteira_id | INTEGER | FK→carteira.id, NULLABLE |
+| transacao_id | INTEGER | FK→transacao.id, UNIQUE, NULLABLE |
+| movto_id | INTEGER | FK→movto.id, UNIQUE, NULLABLE |
+| forminhas | INTEGER | NOT NULL, DEFAULT 0 |
+| producao_id | INTEGER | FK→producao.id, NULLABLE |
+| quote_id | INTEGER | FK→quotes.id, NULLABLE |
+
+##### `order_items` — OrderItem
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| order_id | INTEGER | FK→orders.id, NOT NULL |
+| product_id | INTEGER | FK→products.id, NOT NULL |
+| quantidade | INTEGER | NOT NULL |
+| preco_unitario | NUMERIC(10,2) | NULLABLE |
+| observacao | TEXT | NULLABLE |
+
+##### `events` — Event
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| quote_id | INTEGER | FK→quotes.id, UNIQUE, NULLABLE |
+| order_id | INTEGER | FK→orders.id, UNIQUE, NULLABLE |
+| tipo | VARCHAR(30) | NULLABLE |
+| tema | VARCHAR(200) | NULLABLE |
+| obs | TEXT | NULLABLE |
+| data | DATE | NULLABLE |
+| hora | TIME | NULLABLE |
+| local | VARCHAR(200) | NULLABLE |
+| convidados | INTEGER | NULLABLE |
+| cerimonial | VARCHAR(200) | NULLABLE |
+
+##### `compras` — Compra
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| data | DATE | NOT NULL |
+| fornecedor_id | INTEGER | FK→conta.id, NULLABLE |
+| valor | NUMERIC(12,2) | NOT NULL |
+| historico | TEXT | NULLABLE |
+| status | INTEGER | NOT NULL, DEFAULT 0 |
+| data_recepcao | DATE | NULLABLE |
+| carteira_id | INTEGER | FK→carteira.id, NULLABLE |
+| transacao_id | INTEGER | FK→transacao.id, UNIQUE, NULLABLE |
+| movto_id | INTEGER | FK→movto.id, UNIQUE, NULLABLE |
+
+##### `compra_itens` — CompraItem
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| compra_id | INTEGER | FK→compras.id, NOT NULL |
+| insumo_id | INTEGER | FK→ingredients.id, NOT NULL |
+| quantidade | NUMERIC(12,3) | NOT NULL |
+| preco | NUMERIC(12,2) | NOT NULL |
+
+##### `producao` — Producao
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| descricao | VARCHAR(200) | NOT NULL |
+| data_fim | TIMESTAMP | NULLABLE |
+| status | INTEGER | NOT NULL, DEFAULT 0 |
+| previsao_de | DATE | NULLABLE |
+| previsao_ate | DATE | NULLABLE |
+
+##### `producao_produtos` — ProducaoProduto
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| producao_id | INTEGER | FK→producao.id, NOT NULL |
+| order_id | INTEGER | FK→orders.id, NOT NULL |
+| product_id | INTEGER | FK→products.id, NOT NULL |
+| quantidade | INTEGER | NOT NULL |
+| producao_0 | INTEGER | NOT NULL, DEFAULT 0 |
+| producao_1 | INTEGER | NOT NULL, DEFAULT 0 |
+| producao_2 | INTEGER | NOT NULL, DEFAULT 0 |
+
+##### `producao_insumos` — ProducaoInsumo
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| producao_id | INTEGER | FK→producao.id, NOT NULL |
+| insumo_id | INTEGER | FK→ingredients.id, NOT NULL |
+| quantidade | NUMERIC(10,3) | NOT NULL |
+| comprado | NUMERIC(10,3) | NOT NULL, DEFAULT 0 |
+| unidade | VARCHAR(20) | NOT NULL |
+| tipo | INTEGER | NOT NULL, DEFAULT 0 |
+
+##### `operacao` — Operacao
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| nome | VARCHAR(100) | NOT NULL |
+| tipo | INTEGER | NOT NULL, SERVER_DEFAULT '1' |
+| pai_id | INTEGER | FK→operacao.id, NULLABLE |
+| ordem | INTEGER | NOT NULL, SERVER_DEFAULT '0' |
+| fator | INTEGER | NOT NULL, SERVER_DEFAULT '1' |
+| ativa | BOOLEAN | DEFAULT TRUE |
+
+##### `carteira` — Carteira
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| nome | VARCHAR(50) | NOT NULL |
+| uso | INTEGER | NOT NULL, DEFAULT 1 |
+| gerar | INTEGER | NOT NULL, DEFAULT 0 |
+| prazo_recebimento | VARCHAR(100) | NULLABLE |
+| taxa_recebimento | NUMERIC(5,2) | NOT NULL, DEFAULT 0 |
+
+##### `transacao` — Transacao
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| data | DATE | NOT NULL |
+| tipo | VARCHAR(1) | NOT NULL |
+| conta_id | INTEGER | FK→conta.id, NULLABLE |
+| operacao_id | INTEGER | FK→operacao.id, NULLABLE |
+| fatura | VARCHAR(50) | NULLABLE |
+| valor | NUMERIC(12,2) | NOT NULL |
+| historico | TEXT | NULLABLE |
+| cancelado | DATE | NULLABLE |
+| total_previsto | NUMERIC(12,2) | NOT NULL, DEFAULT 0 |
+
+##### `previsao` — Previsao
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| transacao_id | INTEGER | FK→transacao.id, NOT NULL |
+| documento | VARCHAR(50) | NULLABLE |
+| vencimento | DATE | NOT NULL |
+| previsto | NUMERIC(12,2) | NOT NULL |
+| realizado | NUMERIC(12,2) | NULLABLE |
+| variacao | NUMERIC(12,2) | NULLABLE, SERVER_DEFAULT '0' |
+| carteira_id | INTEGER | FK→carteira.id, NULLABLE |
+| taxa | NUMERIC(5,2) | NOT NULL, DEFAULT 0 |
+
+##### `recurso` — Recurso
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| nome | VARCHAR(100) | NOT NULL |
+| tipo | INTEGER | NOT NULL, SERVER_DEFAULT '0' |
+| saldo | NUMERIC(12,2) | NOT NULL, SERVER_DEFAULT '0' |
+| data | DATE | NULLABLE |
+
+##### `movto` — Movto
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| data | DATE | NOT NULL |
+| recurso_id | INTEGER | FK→recurso.id, NOT NULL |
+| tipo | VARCHAR(1) | NOT NULL |
+| conta_id | INTEGER | FK→conta.id, NULLABLE |
+| previsao_id | INTEGER | FK→previsao.id, NULLABLE |
+| documento | VARCHAR(50) | NULLABLE |
+| valor | NUMERIC(12,2) | NOT NULL |
+| variacao | NUMERIC(12,2) | NULLABLE, DEFAULT 0 |
+| sincronizar | BOOLEAN | NOT NULL, DEFAULT TRUE |
+| operacao_id | INTEGER | FK→operacao.id, NULLABLE |
+| historico | TEXT | NULLABLE |
+
 ### Funções Principais no Código
 
 | Arquivo | Função | Descrição |
 |---------|--------|-----------|
 | `__init__.py` | `create_app()` | Factory: configura Flask, DB, blueprints, models, filters, executa upgrade(), cria admin |
 | `__init__.py` | `_fetch_tunnel_url()` | Busca URL do túnel Pinggy |
-| `utils.py` | `fmt_brl()`, `fmt_date()`, `fmt_id()` | Formatação para templates (moeda, data, ID) |
+| `utils.py` | `fmt_brl()`, `fmt_date()`, `fmt_id()`, `fmt_zero()`, `fmt_zero_int()`, `fmt_datetime()` | Formatação para templates (moeda, data, ID, decimais, datetime) |
+| `utils.py` | `parse_brl()` | Parse de string BRL para float |
+| `utils.py` | `preco_unit(valor, qtd)` | Calcula preço unitário |
 | `utils.py` | `deep_attr()` | Acesso aninhado a atributos (`obj.conta.nome`) |
 | `utils.py` | `parse_prazo_recebimento()` | DSL de prazos: "P/E", "3x", "30", "0/15" |
 | `utils.py` | `aplicar_transformacao()` | Listener before_insert/update: Title Case/UPPERCASE automático |
@@ -185,12 +473,16 @@ algodoce/
 | `utils.py` | `_save_event()` | Persiste dados de evento (quote/order) |
 | `utils.py` | `render_pagina()` | Renderiza Markdown → HTML (páginas institucionais) |
 | `utils.py` | `LinhaTransacao` | Wrapper para listar transações com/sem previsões. Properties: `transacao_id`, `compra_id`, `pedido_id`, `status_compra`, `carteira`, `fornecedor`, `cliente`, `fatura`, `valor`, `faturado`, `id` (previsão), `vencimento`, `documento`, `previsto`, `realizado`, `variacao`, `saldo`, `status` |
-| `table.py` (ex‑`fields.py`) | `Field` | Dataclass de definição de campo |
-| `table.py` | `Table` | Dataclass com `fields`, `fields_master/detail`, `master_key`, `edit_endpoint`, `detail_data` |
+| `table.py` | `Field` | Dataclass de definição de campo: `name`, `label`, `width`, `align`, `input`, `options`, `filter`, `filter_options`, `mask`, `query`, `validate`, `aggregate`, `aggregate_label`, `currency`, `hide_zero`, `card_path`, `pos`, `link`, `function` |
+| `table.py` | `Table` | Dataclass com `fields`, `fields_master/detail`, `master_key`, `edit_endpoint`, `edit_id_field`, `edit_if_field`, `edit_endpoint_map`, `edit_endpoint_key`, `detail_data`. Properties: `master_fields`, `detail_fields` |
 | `table.py` | `fields_to_columns()` | Converte Field[] para colunas de tabela HTML |
+| `table.py` | `field_to_column()` | Converte um Field para dict de coluna |
+| `table.py` | `field_filter_type()` | Deriva tipo de filtro do input do campo |
+| `table.py` | `field_filter_options()` | Deriva opções de filtro do campo |
+| `table.py` | `field_grid()` | Mapeia largura do field para colunas Bootstrap |
+| `table.py` | `get_field()` | Busca Field por nome numa lista |
 | `table.py` | `build_field_context()` | Popula selects com dados do banco |
 | `table.py` | `register_model()` | Registra model para consulta via `Field.query` |
-| `constants.py` | `TRANSFORMAR_AO_SALVAR` | Mapping model → campos com modo de transformação |
 | `crypto.py` | `encrypt()` / `decrypt()` | Fernet AES com chave derivada de SECRET_KEY |
 | `ntfy.py` | `notificar()` | Envia notificação push de novo orçamento |
 | `pdf.py` | `gerar_pdf_pedido()` | Gera PDF do pedido |
@@ -204,6 +496,29 @@ algodoce/
 | `sys_producao.py` | `_calcular_insumos()` | Calcula insumos totais baseado no receituário |
 | `sys_clients.py` | `_cpf_valido()` / `_cnpj_valido()` | Validação de CPF/CNPJ |
 
+### Constantes (`constants.py`)
+
+| Constante | Tipo | Descrição |
+|-----------|------|-----------|
+| `TIPO_CONTA` | dict | `{0: "Cliente", 1: "Cliente/Fornecedor", 2: "Fornecedor"}` |
+| `TIPO_INGREDIENTE` | dict | `{0: "Ingrediente", 1: "Forminha", 2: "Embalagem"}` |
+| `ORDER_STATUS` | dict | `{0: "Pendente", 1: "Produzindo", 2: "Pronto", 8: "Cancelado", 9: "Entregue"}` |
+| `ORDER_STATUS_FILTER` | list | 6 tuplas de filtro |
+| `COMPRA_STATUS` | dict | `{0: "Orcamento", 1: "Pedido", 6: "Cancelado", 8: "Recebido", 9: "Devolvido"}` |
+| `COMPRA_STATUS_FILTER` | list | 6 tuplas de filtro |
+| `QUOTE_STATUS` | dict | `{0: "Pendente", 1: "Negociacao", 6: "Renovado", 7: "Expirado", 8: "Reprovado", 9: "Aprovado"}` |
+| `QUOTE_STATUS_FILTER` | list | 7 tuplas de filtro |
+| `PRODUCAO_STATUS` | dict | `{0: "Executando", 9: "Finalizado"}` |
+| `PRODUCAO_ETAPAS` | dict | `{0: "Preparação", 1: "Montagem", 2: "Embalagem"}` |
+| `FORMINHAS` | dict | `{0: "Simples", 1: "Fornecidas pelo Cliente"}` |
+| `TIPO_RUBRICA` | dict | `{1: "Receitas", 2: "Despesas"}` |
+| `TIPO_PREVISAO` | dict | `{"P": "Pagar", "R": "Receber"}` |
+| `TIPO_TRANSACAO` | dict | `{"P": "Contas a Pagar", "R": "Contas a Receber", "C": "Compras", "V": "Vendas"}` |
+| `PREVISAO_STATUS` | dict | `{0: "Editando", 1: "Pendente", 2: "Parcial", 8: "Cancelado", 9: "Quitado"}` |
+| `TIPO_RECURSO` | dict | `{0: "Caixa", 1: "Banco", 2: "Cartão"}` |
+| `CONECTORES` | set | 42 palavras conectoras pt-BR (usadas pelo `_title_case`) |
+| `TRANSFORMAR_AO_SALVAR` | dict | Mapping model → campos com modo de transformação (Title Case/UPPERCASE) |
+
 ### Casos de Uso
 
 | Caso de Uso | Módulo | Fluxo |
@@ -212,7 +527,7 @@ algodoce/
 | **Solicitar orçamento** | site | Cliente informa nome/telefone → adiciona itens → envia → notificação push (ntfy.sh) |
 | **Login doceira** | admin | 1 click no logo → popup → user+senha + chave HMA (hora/mês/ano) |
 | **Login admin** | admin | 2 clicks rápidos no logo → popup admin → user+senha+chave |
-| **Gerenciar cadastros** | sys | CRUD: categorias, insumos, produtos, contas, rubricas, carteiras |
+| **Gerenciar cadastros** | sys | CRUD: categorias, insumos, produtos, contas, operacoes, carteiras |
 | **Gerenciar orçamentos** | sys | Listar, editar, validar (expiração automática), renovar, converter para pedido |
 | **Converter orçamento** | sys | Sistema busca conta por nome+telefone → perfect_match (1 clique) ou phone_conflict (modal) |
 | **Gerenciar pedidos** | sys | CRUD, alterar status (Pendente→Produzindo→Pronto→Entregue), gerar financeiro |
@@ -234,8 +549,8 @@ algodoce/
 - **Models:** SQLAlchemy declarative, `__tablename__` explícito em snake_case. Transformação automática via `TRANSFORMAR_AO_SALVAR` (SQLAlchemy event listeners `before_insert`/`before_update`).
 - **Views:** Blueprints Flask com nome em inglês (`products`, `orders`). Rotas em português (`/produtos`, `/pedidos`). `@login_required` via `before_request` no blueprint.
 - **Templates:** Jinja2 com macros (`{% macro %}`, `{% call %}`). **Sem `{% include %}`** — todo reuso é via macros. Herança via `{% extends %}`.
-- **JS:** Vanilla JavaScript. Sem jQuery, sem frameworks JS. Bootstrap bundle servido localmente em `static/lib/`. Dependências externas: Cropper.js (CDN). QR code gerado via `qrcode-generator` (CDN) no cliente.
-- **CSS:** Customizado em `static/css/style.css`. Cache-busting manual `?v=N`. Variáveis CSS: `--rosa`, `--verde-menta`, `--bg-claro`. Bootstrap 5.3.2 + Bootstrap Icons servidos localmente em `static/lib/` (sem CDN). Tema claro fixo (`data-bs-theme="light"`).
+- **JS:** Vanilla JavaScript. Sem jQuery, sem frameworks JS. Bootstrap bundle servido localmente em `static/lib/`. Dependências externas: Cropper.js (CDN). QR code gerado via `qrcode-generator` (local em `lib/qrcode.min.js`) no cliente.
+- **CSS:** Customizado em `static/css/style.css`. Cache-busting manual `?v=N`. Variáveis CSS: `--rosa`, `--cor-menu`, `--verde-menta`, `--bg-claro`. Bootstrap 5.3.2 + Bootstrap Icons servidos localmente em `static/lib/` (sem CDN). Tema claro fixo (`data-bs-theme="light"`).
 
 ### Separação dos Módulos
 
@@ -257,7 +572,7 @@ algodoce/
 - **Financeiro:** Respeitar 2 camadas: `carteira.gerar=0` → Movto (fluxo de caixa), `carteira.gerar=1` → Transacao+Previsoes (contas a pagar/receber). Não criar financeiro manualmente fora do fluxo de carteira.
 - **Migrations:** Usar `flask db migrate -m "mensagem"` + `flask db upgrade`. Migrations rodam automáticas no startup, mas devem ser versionadas.
 - **Autenticação:** 3 níveis. Anônimo → site. Doceira (login + chave HMA) → sys. Admin (login + chave + 2FA) → `/seguranca/`. Proteção contra força bruta com delay progressivo.
-- **Nomenclatura:** Models em inglês (`Conta`, `Order`, `Product`), rotas em português (`/contas`, `/pedidos`, `/produtos`), blueprints em inglês (`clients`, `orders`, `products`).
+- **Nomenclatura:** Models em inglês (`Conta`, `Order`, `Product`), rotas em português (`/contas`, `/pedidos`, `/produtos`), blueprints em inglês (`contas`, `orders`, `products`).
 - **Pastas de templates:** Diretórios de templates do módulo **sys** prefixados com `sys_` (`sys_orders/`, `sys_products/`, `sys_auth/`). Módulos **site** e **admin** sem prefixo (`site/`, `admin/`). Componentes compartilhados em `components/`.
 - **Estilo de código:** Sem comentários desnecessários. Código limpo e auto-documentado.
 
@@ -307,3 +622,29 @@ algodoce/
 - Bootstrap CSS/JS + Bootstrap Icons + `qrcode-generator` baixados para `app/static/lib/`.
 - `page_base.html` atualizado para servir localmente (sem CDN).
 - `Cache-Control: public, max-age=31536000, immutable` para `/static/*`.
+
+### Sessão 2026-07-13
+
+#### Fix `TypeError: list()` — sombreamento de builtin
+- `sys_orcamentos.py`: handler `def list()` sombreava o builtin `list()`, causando `TypeError` em `list(quote.items)`.
+- Renomeado para `def orcamento_list()` com `endpoint="list"` para preservar compatibilidade com `url_for("orcamentos.list")`.
+
+#### Menu desktop — destaque do item selecionado
+- CSS: `.navbar .nav-link.active` — fundo branco + texto rosa + bold (menu principal).
+- CSS: `.bar-link-lg.active` — fundo rosa semi-transparente + texto branco (sub-menu).
+- Template `page_sys.html`: removidos estilos inline `style="...border-bottom:2px solid transparent;"` dos links `.bar-link-lg` — estilos movidos para CSS.
+- Estilos base `.bar-link-lg` definidos em CSS (cor, padding, border-radius, hover).
+
+#### Menu/sub-menu fixo no desktop
+- CSS: `.area-menu` alterado de `margin-top: 100px` para `position: fixed; top: 100px;` (fixo abaixo do header).
+- CSS: `main` recebeu `padding-top: 200px` no desktop para compensar header (100px) + navbar (~48px) + submenu (~40px).
+
+#### Intensidade decrescente dos destaques (topo → rodapé)
+- Menu ativo: fundo branco + texto rosa (mais forte).
+- Sub-menu ativo: `background: rgba(233,30,99,0.75)` (suave).
+- Header da tabela: `background: #e9a6b9; color: #880e4f;` (opaco, suave).
+- Rodapé (`.sistema-rodape`): `background: rgba(233,30,99,0.08)` (mais suave).
+
+#### Nota: `position: sticky` no `.page-list-header`
+- Tentativa de fixar aba Dados/Filtros abaixo do menu com `sticky; top: 190px` causou reorder dentro do flex container (tabs abaixo da lista).
+- Revertido — `padding-top: 200px` no `main` é suficiente para manter as tabs visíveis.

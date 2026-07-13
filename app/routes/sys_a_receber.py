@@ -6,7 +6,7 @@ from app.extensions import db
 from app.models.previsao import Previsao
 from app.models.transacao import Transacao
 from app.models.client import Conta
-from app.models.rubrica import Rubrica
+from app.models.operacao import Operacao
 from app.models.movto import Movto
 from app.models.order import Order
 from app.models.compra import Compra
@@ -48,7 +48,7 @@ def _build_submitted():
     data = {
         "data": request.form.get("data"),
         "conta_id": request.form.get("conta_id"),
-        "rubrica_id": request.form.get("rubrica_id"),
+        "operacao_id": request.form.get("operacao_id"),
         "fatura": request.form.get("fatura"),
         "valor": request.form.get("valor"),
         "cancelado": request.form.get("cancelado"),
@@ -154,7 +154,7 @@ def new():
             data=request.form.get("data") or date.today(),
             tipo='R',
             conta_id=request.form.get("conta_id", type=int) or None,
-            rubrica_id=request.form.get("rubrica_id", type=int) or None,
+            operacao_id=request.form.get("operacao_id", type=int) or None,
             fatura=request.form.get("fatura") or None,
             valor=float(request.form.get("valor", 0)),
             cancelado=cancelado,
@@ -202,10 +202,10 @@ def new():
             for err in errors:
                 flash(err, "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-            rubricas = Rubrica.query.filter_by(ativa=True, tipo=1).order_by(Rubrica.ordem, Rubrica.nome).all()
+            operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
             return render_template(
                 "sys_a_receber/form.html",
-                contas=contas, rubricas=rubricas, hoje=date.today(),
+                contas=contas, operacoes=operacoes, hoje=date.today(),
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
                 back_url=back_url, prazo_inicial=prazo_inicial,
             )
@@ -236,7 +236,7 @@ def new():
             submitted_data = {
                 "data": str(order.data_pedido.date()),
                 "conta_id": str(order.client_id),
-                "rubrica_id": "",
+                "operacao_id": "",
                 "fatura": f"P#{order.id}",
                 "valor": str(total),
                 "historico": order.observacao or "",
@@ -254,10 +254,10 @@ def new():
                 })
 
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
     return render_template(
         "sys_a_receber/form.html",
-        contas=contas, rubricas=rubricas, hoje=date.today(),
+        contas=contas, operacoes=operacoes, hoje=date.today(),
         submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
         back_url=back_url, prazo_inicial=prazo_inicial,
     )
@@ -289,7 +289,7 @@ def edit(id):
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
 
-        transacao.rubrica_id = request.form.get("rubrica_id", type=int) or None
+        transacao.operacao_id = request.form.get("operacao_id", type=int) or None
 
         if not locked:
             cancelado = request.form.get("cancelado") or None
@@ -370,12 +370,12 @@ def edit(id):
                 for err in errors:
                     flash(err, "danger")
                 contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-                rubricas = Rubrica.query.filter_by(ativa=True, tipo=1).order_by(Rubrica.ordem, Rubrica.nome).all()
+                operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
                 previsao_ids = [p.id for p in transacao.previsoes]
                 movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
                 return render_template(
                     "sys_a_receber/form.html", transacao=transacao,
-                    contas=contas, rubricas=rubricas,
+                    contas=contas, operacoes=operacoes,
                     PREVISAO_STATUS=PREVISAO_STATUS,
                     submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
                     nav=nav, movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
@@ -387,12 +387,12 @@ def edit(id):
         return redirect(url_for("a_receber.list"))
 
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    rubricas = Rubrica.query.filter_by(ativa=True).order_by(Rubrica.ordem, Rubrica.nome).all()
+    operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes]
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
         "sys_a_receber/form.html", transacao=transacao,
-        contas=contas, rubricas=rubricas,
+        contas=contas, operacoes=operacoes,
         PREVISAO_STATUS=PREVISAO_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
         movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
