@@ -67,7 +67,7 @@ def create_app():
     with app.app_context():
         from app.routes import sys_clients as contas, sys_products, sys_ingredients, sys_orders, sys_compras
         from app.routes import site, uploads, site_vitrine, site_orcamento
-        from app.routes import sys_categories, sys_producao, sys_operacoes, sys_previsoes, sys_recursos, sys_a_pagar, sys_a_receber, sys_movimentos, sys_api, sys_orcamentos
+        from app.routes import sys_categories, sys_producao, sys_operacoes, sys_previsoes, sys_recursos, sys_transacao, sys_movimentos, sys_api, sys_orcamentos
         from app.routes.sys_auth import bp as auth, bp_seguranca as seguranca
 
         app.register_blueprint(contas.bp)
@@ -86,8 +86,7 @@ def create_app():
         app.register_blueprint(sys_operacoes.bp)
         app.register_blueprint(sys_previsoes.bp)
         app.register_blueprint(sys_recursos.bp)
-        app.register_blueprint(sys_a_pagar.bp)
-        app.register_blueprint(sys_a_receber.bp)
+        app.register_blueprint(sys_transacao.bp)
         app.register_blueprint(sys_movimentos.bp)
         app.register_blueprint(sys_api.bp)
         app.register_blueprint(sys_orcamentos.bp)

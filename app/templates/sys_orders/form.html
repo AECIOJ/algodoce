@@ -206,7 +206,7 @@
       </div>
       {% if not order.transacao_id and not order.movto_id %}
       <div id="gerar-financeiro-wrapper">
-        <a href="{{ url_for('a_receber.new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-previsao-link" style="display:none">Gerar Previsão</a>
+        <a href="{{ url_for('transacao.receber_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-previsao-link" style="display:none">Gerar Previsão</a>
         <a href="{{ url_for('movimentos.recebimentos_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-movimento-link" style="display:none">Gerar</a>
         <small id="gerar-financeiro-msg" class="badge bg-warning text-dark d-none">Salve o pedido antes de gerar.</small>
         <small id="gerar-financeiro-msg-entrega" class="badge bg-warning text-dark d-none">Informe Previsão de Entrega para gerar.</small>
@@ -234,7 +234,7 @@
         <tbody>
           {% for p in prevs %}
           <tr>
-            <td><a href="{{ url_for('a_receber.edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">#{{ t.id|fmtid }}</a></td>
+            <td><a href="{{ url_for('transacao.receber_edit', id=t.id) }}" class="btn btn-sm btn-outline-primary">#{{ t.id|fmtid }}</a></td>
             <td>#{{ p.id|fmtid if p.id else '' }}</td>
             <td>{{ p.documento or '-' }}</td>
             <td>{{ p.vencimento|fmtdate }}</td>

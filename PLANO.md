@@ -85,7 +85,7 @@ algodoce/
 │   │   ├── js/                     #   iteMS.js, phone-mask.js
 │   │   ├── lib/                    #   Bibliotecas locais (bootstrap, bootstrap-icons, qrcode-generator)
 │   │   └── uploads/                #   Uploads de imagens
-│   └── migrations/                 # Alembic (7 migrations)
+│   └── migrations/                 # Alembic (8 migrations)
 │
 ├── dados/                          # Dados persistentes
 │   ├── paginas/                    # Páginas Markdown (sobre.md)
@@ -125,7 +125,7 @@ algodoce/
 | **site** | `site_vitrine` | `routes/site_vitrine.py` | `/vitrine/`, `/vitrine/<id>/add` |
 | **site** | `site_orcamento` | `routes/site_orcamento.py` | `/orcamento`, `/api/cliente`, `/orcamento/enviar` |
 | **sys** | `auth`, `seguranca` | `routes/sys_auth.py` (unificado) | `/login`, `/logout`, `/seguranca/` (painel + settings) |
-| **sys** | `contas`, `products`, `categories`, `ingredients`, `orders`, `compras`, `orcamentos`, `producao`, `operacoes`, `carteira`, `a_pagar`, `a_receber`, `previsoes`, `movimentos`, `recursos`, `reports`, `api` | `routes/sys_*.py` | CRUDs de todas as entidades |
+| **sys** | `contas`, `products`, `categories`, `ingredients`, `orders`, `compras`, `orcamentos`, `producao`, `operacoes`, `carteira`, `transacao`, `previsoes`, `movimentos`, `recursos`, `reports`, `api` | `routes/sys_*.py` | CRUDs de todas as entidades |
 | **site** | `uploads` | `routes/uploads.py` | Uploads de imagens (sys + site) |
 
 ### Hierarquia de Componentes (Telas)
@@ -472,7 +472,7 @@ algodoce/
 | `utils.py` | `_title_case()` | Title Case respeitando conectores pt-BR |
 | `utils.py` | `_save_event()` | Persiste dados de evento (quote/order) |
 | `utils.py` | `render_pagina()` | Renderiza Markdown → HTML (páginas institucionais) |
-| `utils.py` | `LinhaTransacao` | Wrapper para listar transações com/sem previsões. Properties: `transacao_id`, `compra_id`, `pedido_id`, `status_compra`, `carteira`, `fornecedor`, `cliente`, `fatura`, `valor`, `faturado`, `id` (previsão), `vencimento`, `documento`, `previsto`, `realizado`, `variacao`, `saldo`, `status` |
+| `utils.py` | `LinhaTransacao` | Wrapper para listar transações com/sem previsões. Properties: `transacao_id`, `compra_id`, `pedido_id`, `status_compra`, `carteira`, `fornecedor`, `cliente`, `conta`, `fatura`, `valor`, `faturado`, `id` (previsão), `vencimento`, `documento`, `previsto`, `realizado`, `variacao`, `saldo`, `status` |
 | `table.py` | `Field` | Dataclass de definição de campo: `name`, `label`, `width`, `align`, `input`, `options`, `filter`, `filter_options`, `mask`, `query`, `validate`, `aggregate`, `aggregate_label`, `currency`, `hide_zero`, `card_path`, `pos`, `link`, `function` |
 | `table.py` | `Table` | Dataclass com `fields`, `fields_master/detail`, `master_key`, `edit_endpoint`, `edit_id_field`, `edit_if_field`, `edit_endpoint_map`, `edit_endpoint_key`, `detail_data`. Properties: `master_fields`, `detail_fields` |
 | `table.py` | `fields_to_columns()` | Converte Field[] para colunas de tabela HTML |
@@ -511,7 +511,7 @@ algodoce/
 | `PRODUCAO_STATUS` | dict | `{0: "Executando", 9: "Finalizado"}` |
 | `PRODUCAO_ETAPAS` | dict | `{0: "Preparação", 1: "Montagem", 2: "Embalagem"}` |
 | `FORMINHAS` | dict | `{0: "Simples", 1: "Fornecidas pelo Cliente"}` |
-| `TIPO_RUBRICA` | dict | `{1: "Receitas", 2: "Despesas"}` |
+| `TIPO_OPERACAO` | dict | `{1: "Receitas", 2: "Despesas"}` |
 | `TIPO_PREVISAO` | dict | `{"P": "Pagar", "R": "Receber"}` |
 | `TIPO_TRANSACAO` | dict | `{"P": "Contas a Pagar", "R": "Contas a Receber", "C": "Compras", "V": "Vendas"}` |
 | `PREVISAO_STATUS` | dict | `{0: "Editando", 1: "Pendente", 2: "Parcial", 8: "Cancelado", 9: "Quitado"}` |
@@ -648,3 +648,21 @@ algodoce/
 #### Nota: `position: sticky` no `.page-list-header`
 - Tentativa de fixar aba Dados/Filtros abaixo do menu com `sticky; top: 190px` causou reorder dentro do flex container (tabs abaixo da lista).
 - Revertido — `padding-top: 200px` no `main` é suficiente para manter as tabs visíveis.
+
+#### Rename Rubrica → Operação
+- Model `rubrica.py` renomeado para `operacao.py` (classe `Rubrica` → `Operacao`, tabela `rubrica` → `operacao`).
+- FK columns renomeadas: `rubrica_id` → `operacao_id` em `transacao` e `movto`.
+- Constante `TIPO_RUBRICA` renomeada para `TIPO_OPERACAO`.
+- Blueprint `rubricas` renomeado para `operacoes`, rota `sys_rubricas.py` → `sys_operacoes.py`.
+- Templates `sys_rubricas/` renomeados para `sys_operacoes/`.
+- Migration `a1b2c3d4e5f6_rename_rubrica_to_operacao.py` criada.
+- 22 arquivos atualizados (model, routes, templates, __init__.py, docs).
+
+#### Unificação financeiro: a_pagar + a_receber → transacao
+- Blueprints `a_pagar` e `a_receber` unificados em `transacao` (prefixo `/transacao`).
+- Arquivo único `sys_transacao.py` com helpers compartilhados: `_list(tipo)`, `_detail(id, tipo)`, `_excluir(id, tipo)`, `_filtrar_vencimento()`, `_build_submitted()`, `_salvar_previsoes()`, `_build_nav()`.
+- `TRANSACAO_FIELDS` unificado com `Field(name='conta')` usando property `LinhaTransacao.conta`.
+- Sub-rotas: `/pagar/` e `/receber/`. Endpoints: `transacao.pagar_list`, `transacao.pagar_edit`, `transacao.receber_list`, etc.
+- Templates renomeados: `sys_a_pagar/` + `sys_a_receber/` → `sys_transacao/pagar/` + `sys_transacao/receber/`.
+- `LinhaTransacao` em `utils.py`: adicionada property `conta` (combina `transacao.conta.nome` e `compra.fornecedor.nome`).
+- Todas as referências `financeiro.*` → `transacao.*` atualizadas: `page_sys.html`, `sys_compras/form.html`, `sys_orders/form.html`, `__init__.py`, PLANO.md, LAYOUT.md.

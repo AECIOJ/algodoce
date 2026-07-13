@@ -1,8 +1,8 @@
 {% extends "components/page_form.html" %}
-{% set back_url = url_for('a_pagar.list') %}
+{% set back_url = url_for('transacao.pagar_list') %}
 {% set new_title = 'Nova Conta a Pagar' %}
 {% set entity_label = 'Transação' %}
-{% set edit_endpoint = 'a_pagar.edit' %}
+{% set edit_endpoint = 'transacao.pagar_edit' %}
 {% if transacao %}{% set entity_id = transacao.id %}{% endif %}
 
 {% set previsoes = submitted_previsoes if submitted_previsoes is not none else (transacao.previsoes if transacao else None) %}
@@ -254,7 +254,7 @@
 {% endblock %}
 {% block page_scripts %}
 {% if transacao %}
-<form id="excluir-form" method="POST" action="{{ url_for('a_pagar.excluir', id=transacao.id) }}" style="display:none"></form>
+<form id="excluir-form" method="POST" action="{{ url_for('transacao.pagar_excluir', id=transacao.id) }}" style="display:none"></form>
 {% endif %}
 <template id="previsao-template">
   <tr class="previsao-row">

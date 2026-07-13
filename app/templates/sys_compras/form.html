@@ -170,7 +170,7 @@
       </div>
       {% endif %}
       {% if compra and compra.id and compra.transacao_id %}
-      <a href="{{ url_for('a_pagar.edit', id=compra.transacao_id) }}" class="btn btn-sm btn-outline-primary">Transação #{{ compra.transacao_id }}</a>
+      <a href="{{ url_for('transacao.pagar_edit', id=compra.transacao_id) }}" class="btn btn-sm btn-outline-primary">Transação #{{ compra.transacao_id }}</a>
       {% elif compra and compra.id and compra.movto_id %}
       <a href="{{ url_for('movimentos.pagamentos_edit', id=compra.movto_id) }}" class="btn btn-sm btn-outline-primary">Movimento #{{ compra.movto_id }}</a>
       {% endif %}
@@ -678,7 +678,7 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
     btn.classList.add('d-none');
     if (selectedId) {
       var baseUrl = gerar === '1'
-        ? '{{ url_for('a_pagar.new', compra_id=compra.id) }}'
+        ? '{{ url_for('transacao.pagar_new', compra_id=compra.id) }}'
         : '{{ url_for('movimentos.pagamentos_new', compra_id=compra.id) }}';
       var v = document.getElementById('total-display').value;
       var operacaoEl = document.querySelector('[name="operacao_id"]');

@@ -149,6 +149,13 @@ class LinhaTransacao:
             return self.transacao.conta.nome
         return None
     @property
+    def conta(self):
+        if self.transacao and self.transacao.conta:
+            return self.transacao.conta.nome
+        if self.compra and self.compra.fornecedor:
+            return self.compra.fornecedor.nome
+        return None
+    @property
     def carteira(self):
         return self.compra.carteira.nome if self.compra and self.compra.carteira else None
     @property

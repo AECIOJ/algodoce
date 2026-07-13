@@ -148,8 +148,8 @@ base.html
 - `sys_orders/list.html` (pedidos)
 - `sys_orders/orcamentos.html`
 - `sys_compras/list.html`
-- `sys_a_pagar/list.html`
-- `sys_a_receber/list.html`
+- `sys_transacao/pagar/list.html`
+- `sys_transacao/receber/list.html`
 - `sys_producao/list.html`
 - `sys_movimentos/list.html`
 - `sys_previsoes/list.html`
@@ -230,8 +230,8 @@ Em modo **novo** (sem `action_nav`):
 - `sys_orders/form.html` (pedidos — com lista dinâmica de itens)
 - `sys_orders/quote_form.html` (orçamentos)
 - `sys_compras/form.html` (com lista dinâmica de itens)
-- `sys_a_pagar/form.html` (com lista de parcelas)
-- `sys_a_receber/form.html` (com lista de parcelas)
+- `sys_transacao/pagar/form.html` (com lista de parcelas)
+- `sys_transacao/receber/form.html` (com lista de parcelas)
 - `sys_movimentos/form.html`
 - `sys_previsoes/form.html`
 
@@ -252,8 +252,8 @@ Não usa `barra_edicao` — a edição é inline via JavaScript/AJAX.
 ### Outras páginas de detalhe (read-only)
 - `orders/detail.html` — detalhe do pedido
 - `orders/quote_detail.html` — detalhe do orçamento
-- `contas_a_pagar/detalhes.html` — detalhe da transação
-- `contas_a_receber/detalhes.html` — detalhe da transação
+- `sys_transacao/pagar/detalhes.html` — detalhe da transação
+- `sys_transacao/receber/detalhes.html` — detalhe da transação
 - `contas/detail.html` — detalhe da conta
 - `ingredients/detail.html` — detalhe do insumo
 
