@@ -73,8 +73,8 @@ def protect():
     pass
 
 
-@bp.route("/orcamentos")
-def list():
+@bp.route("/orcamentos", endpoint="list")
+def orcamento_list():
     status = request.args.get("status", type=int)
     query = Quote.query.order_by(Quote.id.desc())
     if status is not None:
