@@ -67,7 +67,7 @@ def create_app():
     with app.app_context():
         from app.routes import sys_clients as contas, sys_products, sys_ingredients, sys_orders, sys_compras
         from app.routes import site, uploads, site_vitrine, site_orcamento
-        from app.routes import sys_categories, sys_producao, sys_operacoes, sys_previsoes, sys_recursos, sys_transacao, sys_movimentos, sys_api, sys_orcamentos
+        from app.routes import sys_categories, sys_producao, sys_operacoes, sys_previsoes, sys_recursos, sys_transacao, sys_movimentos, sys_transferencias, sys_api, sys_orcamentos
         from app.routes.sys_auth import bp as auth, bp_seguranca as seguranca
 
         app.register_blueprint(contas.bp)
@@ -88,6 +88,7 @@ def create_app():
         app.register_blueprint(sys_recursos.bp)
         app.register_blueprint(sys_transacao.bp)
         app.register_blueprint(sys_movimentos.bp)
+        app.register_blueprint(sys_transferencias.bp)
         app.register_blueprint(sys_api.bp)
         app.register_blueprint(sys_orcamentos.bp)
 
@@ -106,6 +107,7 @@ def create_app():
         from app.models.producao_produto import ProducaoProduto  # noqa
         from app.models.recurso import Recurso  # noqa
         from app.models.movto import Movto  # noqa
+        from app.models.trf import Trf  # noqa
         from app.models.carteira import Carteira  # noqa
 
         from app.models.category import Category
@@ -125,9 +127,10 @@ def create_app():
         register_model('producao', Producao)
         register_model('previsao', Previsao)
         register_model('movto', Movto)
+        register_model('trf', Trf)
         register_model('carteira', Carteira)
 
-        for model_cls in [Category, Conta, Product, Ingredient, Quote, Recurso, Producao, Previsao, Movto, Carteira]:
+        for model_cls in [Category, Conta, Product, Ingredient, Quote, Recurso, Producao, Previsao, Movto, Trf, Carteira]:
             sa.event.listen(model_cls, 'before_insert', aplicar_transformacao)
             sa.event.listen(model_cls, 'before_update', aplicar_transformacao)
 

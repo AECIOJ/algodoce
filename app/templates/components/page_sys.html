@@ -42,6 +42,7 @@
         <a href="{{ url_for('transacao.pagar_list') }}" class="bar-link-lg text-decoration-none">Contas a Pagar</a>
         <a href="{{ url_for('movimentos.recebimentos_list') }}" class="bar-link-lg text-decoration-none">Recebimentos</a>
         <a href="{{ url_for('movimentos.pagamentos_list') }}" class="bar-link-lg text-decoration-none">Pagamentos</a>
+        <a href="{{ url_for('transferencias.trf_list') }}" class="bar-link-lg text-decoration-none">Transferências</a>
       </div>
     </div>
   </div>
@@ -298,7 +299,8 @@ var SUB_NAV_SECTIONS = {
       { label: 'Contas a Receber', url: '/transacao/receber/', icon: 'bi-arrow-down-circle' },
       { label: 'Contas a Pagar', url: '/transacao/pagar/', icon: 'bi-arrow-up-circle' },
       { label: 'Recebimentos', url: '/movimentos/recebimentos', icon: 'bi-cash' },
-      { label: 'Pagamentos', url: '/movimentos/pagamentos', icon: 'bi-credit-card' }
+      { label: 'Pagamentos', url: '/movimentos/pagamentos', icon: 'bi-credit-card' },
+      { label: 'Transferências', url: '/transferencias', icon: 'bi-arrow-left-right' }
     ]
   }
 };
@@ -384,7 +386,7 @@ function activateSection(section, path) {
 var path = window.location.pathname;
 var cadastroPaths = ['/categorias/', '/insumos', '/produtos', '/contas', '/operacoes/', '/carteira/'];
 var comercialPaths = ['/orcamentos', '/pedidos', '/compras/'];
-var financeiroPaths = ['/recursos/', '/movimentos', '/transacao/pagar/', '/transacao/receber/'];
+var financeiroPaths = ['/recursos/', '/movimentos', '/transacao/pagar/', '/transacao/receber/', '/transferencias'];
 var onCadastro = cadastroPaths.some(function(p) { return matchPath(path, p); });
 var onComercial = comercialPaths.some(function(p) { return matchPath(path, p); });
 var onFinanceiro = financeiroPaths.some(function(p) { return matchPath(path, p); });

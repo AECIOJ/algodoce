@@ -46,4 +46,5 @@ TRANSFORMAR_AO_SALVAR = {
     "Producao":    {"descricao": 1},
     "Previsao":    {"documento": 2},
     "Movto":       {"documento": 2, "historico": 1},
+    "Trf":         {"historico": 1},
 }

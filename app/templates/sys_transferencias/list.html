@@ -1,0 +1,11 @@
+{% extends "components/page_sys.html" %}
+{% from "components/macros.html" import action_list, action_table %}
+
+{% block page_content %}
+{% call(section) action_list(title='Transferências', new_url=url_for('transferencias.trf_new')) %}
+  {% if section == "dados" %}
+      {{ action_table(trfs, fields=fields, ctx=ctx, edit_endpoint='transferencias.trf_edit') }}
+  {% elif section == "filtros" %}
+  {% endif %}
+{% endcall %}
+{% endblock %}
