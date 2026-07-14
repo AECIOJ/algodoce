@@ -72,12 +72,14 @@ algodoce/
 │   ├── table.py                    # Sistema de campos + tabelas (Field, Table dataclasses)
 │   ├── crypto.py                   # Criptografia Fernet (AES)
 │   ├── ntfy.py                     # Notificação push (ntfy.sh)
-│   ├── pdf.py                      # Geração de PDF (fpdf2)
+│   ├── pdf.py                      # Geração de PDF (fpdf2) — DocPDFReport + gerar_pdf_relatorio()
+│   ├── report.py                   # Dataclass Report (header dict, table dict) para relatórios declarativos
 │   ├── utils.py                    # Helpers (formatação, parse, transformação)
 │   ├── versao.py                   # Versão do sistema
 │   │
 │   ├── models/                     # SQLAlchemy models (24 models)
 │   ├── routes/                     # Blueprints Flask (22 arquivos — 23 blueprints)
+│   ├── reports/                    # Definições de relatórios (orcamento.py)
 │   ├── templates/                  # Jinja2 (21 diretórios — 16 sys_*, site/, site_orcamento/, components/, admin/)
 │   ├── static/                     # CSS, JS, ícones, uploads
 │   │   ├── css/                    #   style.css
@@ -486,7 +488,9 @@ algodoce/
 | `crypto.py` | `encrypt()` / `decrypt()` | Fernet AES com chave derivada de SECRET_KEY |
 | `ntfy.py` | `notificar()` | Envia notificação push de novo orçamento |
 | `pdf.py` | `gerar_pdf_pedido()` | Gera PDF do pedido |
-| `pdf.py` | `gerar_pdf_orcamento()` | Gera PDF do orçamento |
+| `pdf.py` | `gerar_pdf_orcamento()` | Gera PDF do orçamento (legado) |
+| `pdf.py` | `gerar_pdf_relatorio()` | Gera PDF genérico a partir de um Report |
+| `report.py` | `Report` | Dataclass de relatório declarativo (header/table dicts) |
 | `sys_auth.py` | `login_sistema()` | Login doceira (user+senha+chave HMA) |
 | `sys_auth.py` | `login_admin()` | Login admin (user+senha+chave, 2FA) |
 | `sys_auth.py` | `_impose_delay()` | Proteção brute-force (delay progressivo após 3 falhas) |
@@ -666,3 +670,36 @@ algodoce/
 - Templates renomeados: `sys_a_pagar/` + `sys_a_receber/` → `sys_transacao/pagar/` + `sys_transacao/receber/`.
 - `LinhaTransacao` em `utils.py`: adicionada property `conta` (combina `transacao.conta.nome` e `compra.fornecedor.nome`).
 - Todas as referências `financeiro.*` → `transacao.*` atualizadas: `page_sys.html`, `sys_compras/form.html`, `sys_orders/form.html`, `__init__.py`, PLANO.md, LAYOUT.md.
+
+### Sessão 2026-07-14
+
+#### Relatório declarativo `Report` (`app/report.py`)
+- Dataclass `Report` com `header: dict` e `table: dict` (tudo dict, sem tuples).
+- `header`: `show_logo`, `logo_width`, `layout` (`centered`/`logo_left`), `title`, `subtitle`, `title_font_size`, `title_font_style`, `title_align`, `fields` (lista de dicts), `field_columns`, `on_each_page` (default `True`).
+- `table`: `columns` (dict raw), `groups`, `footer`, `footer_label`, `after` (callable/text pós-tabela).
+- Defaults em `_HEADER_DEFAULTS`.
+- `_build_header()`, `_build_table()`, `_build_footer()` resolvem defaults.
+
+#### PDF genérico (`app/pdf.py`)
+- `DocPDFReport` com `_build_header()`, `_build_table()`, `_build_footer()`.
+- Header: `_render_header_logo_left()` (logo à esquerda, título+campos à direita), `_render_header_centered()`, `_render_header_fields()` com `x_start`/`area_width`.
+- Tabela: `_render_table()` centralizada, linhas horizontais (`_draw_hline`), page break com repetição de colunas (`_check_page_break`, `_render_column_headers`), `_render_data_row()`, `_render_footer_row()`, `_calc_col_widths()` (proporcional), shrink-to-fit (`MIN_COL_WIDTH=15mm`).
+- Cada célula usa `set_x()` explícito + `new_x="LMARGIN", new_y="NEXT"` na última coluna (mesmo padrão do `gerar_pdf_pedido` que funciona).
+- `_render_grouped_tables()`: passa `draw_top_line=False` em contexto de grupo.
+- `gerar_pdf_relatorio()`: usa `report.header` dict para logo, `tbl.after` para pós-tabela.
+
+#### Relatório Orçamento (`app/reports/orcamento.py`)
+- `ORCAMENTO_REPORT = Report(label='Orçamento', header={...}, table={...})`.
+- Header: `layout='logo_left'`, `title='Orçamento #{id}'`, campos (cliente, data, telefone, validade).
+- Table: 4 colunas (produto, qtd, preço, valor), footer com total, `after=_forminhas_carteira`.
+- Helpers: `_valor_item()`, `_validade_text()`, `_forminhas_carteira()`.
+
+#### Exibição do relatório
+- Botão "Enviar" no `form.html` e botão imprimir no `detail.html` apontam para `print_quote` (rota HTML).
+- `print.html`: renderiza iframe com `pdf_quote` (PDF FPDF inline) dentro de `{% block content }` → posicionado naturalmente dentro de `<main>`, abaixo do menu, acima do footer.
+- Sem overlay, sem `position:fixed`, sem z-index.
+
+#### Textos
+- Rodapé PDF: removido prefixo "Usuário:" — mostra só o nome.
+- "Carteira:" → "Forma de Pagamento:" (PDF + HTML detail).
+- Default "Forma de Pagamento": "50% no pedido + 50% na entrega" quando não informado.

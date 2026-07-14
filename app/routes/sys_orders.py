@@ -11,7 +11,7 @@ from app.models.product import Product
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.quote import Quote
-from app.pdf import gerar_pdf_pedido
+from app.pdf import gerar_pdf_pedido, gerar_pdf_relatorio
 from app.models.carteira import Carteira
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
@@ -288,8 +288,9 @@ def print_order(id):
 @bp.route("/pedidos/<int:id>/pdf")
 def pdf_order(id):
     order = Order.query.get_or_404(id)
-    logo_path = os.path.join(current_app.root_path, "static", "imagens", "Logo.png")
-    pdf = gerar_pdf_pedido(order, logo_path)
+    from app.reports.pedido import ORDER_REPORT
+    logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
+    pdf = gerar_pdf_relatorio(ORDER_REPORT, order.items, logo_path, instance=order)
     buf = BytesIO()
     pdf.output(buf)
     return Response(buf.getvalue(), mimetype="application/pdf",

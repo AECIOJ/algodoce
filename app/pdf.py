@@ -462,7 +462,7 @@ class DocPDFReport(FPDF):
             except Exception:
                 user_name = ''
             if user_name:
-                parts.append(user_name)
+                parts.append(user_name.upper())
         if f.show_datetime:
             parts.append(datetime.now().strftime('%d/%m/%Y %H:%M'))
         if f.show_company:

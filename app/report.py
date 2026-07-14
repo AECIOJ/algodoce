@@ -119,7 +119,7 @@ class Report:
 
     # Report footer (última linha de cada página)
     report_footer: Optional[object] = None
-    show_user: bool = True
+    show_user: bool = False
     show_datetime: bool = True
     show_company: bool = False
     show_page_number: bool = True
@@ -221,7 +221,7 @@ class _ReportTable:
 class _ReportFooter:
     """Rodapé de página (interno)."""
     text: Optional[object] = None
-    show_user: bool = True
+    show_user: bool = False
     show_datetime: bool = True
     show_company: bool = False
     show_page_number: bool = True
