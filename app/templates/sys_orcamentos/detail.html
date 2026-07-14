@@ -1,40 +1,45 @@
 {% extends "components/page_sys.html" %}
-{% block content %}
+{% block page_content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Orçamento #{{ quote.id|fmtid }}</h2>
-  <a href="{{ url_for('orcamentos.list') }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
-  </a>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-secondary btn-sm" title="Imprimir PDF">
+      <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Imprimir" height="20">
+    </a>
+    <a href="{{ url_for('orcamentos.list') }}" class="btn btn-outline-secondary btn-sm">
+      <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
+    </a>
+  </div>
 </div>
 
 {% set s = url_for('static', filename='icons/') %}
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
-    <a href="{{ url_for('orcamentos.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
-      <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
-    </a>
-    {% if nav.prev_id %}
-      <a href="{{ url_for('orcamentos.detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
-        <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+      <a href="{{ url_for('orcamentos.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
+        <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
       </a>
-    {% else %}
-      <a class="btn btn-outline-secondary disabled" title="Anterior">
-        <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+      {% if nav.prev_id %}
+        <a href="{{ url_for('orcamentos.detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
+          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+        </a>
+      {% else %}
+        <a class="btn btn-outline-secondary disabled" title="Anterior">
+          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+        </a>
+      {% endif %}
+      {% if nav.next_id %}
+        <a href="{{ url_for('orcamentos.detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
+          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+        </a>
+      {% else %}
+        <a class="btn btn-outline-secondary disabled" title="Próximo">
+          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+        </a>
+      {% endif %}
+      <a href="{{ url_for('orcamentos.detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
+        <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
       </a>
-    {% endif %}
-    {% if nav.next_id %}
-      <a href="{{ url_for('orcamentos.detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
-        <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
-      </a>
-    {% else %}
-      <a class="btn btn-outline-secondary disabled" title="Próximo">
-        <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
-      </a>
-    {% endif %}
-    <a href="{{ url_for('orcamentos.detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
-      <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
-    </a>
   </div>
 </div>
 
@@ -56,7 +61,7 @@
         {% set ref = quote.data_renovacao or quote.data_pedido %}
         <p class="mb-1">Validade: {{ (ref.replace(tzinfo=None) + timedelta(days=quote.validade or 3)).strftime('%d/%m/%Y') }} ({{ quote.validade }} dias){% if quote.data_renovacao %} — Renovado em: {{ quote.data_renovacao.strftime('%d/%m/%Y') }}{% endif %}</p>
         <p class="mb-1">Forminhas: {{ FORMINHAS[quote.forminhas] }}</p>
-        <p class="mb-1">Carteira: {{ quote.carteira.nome or '-' }}</p>
+        <p class="mb-1">Forma de Pagamento: {{ quote.carteira.nome or '50% no pedido + 50% na entrega' }}</p>
         <p class="mb-0">
           Status:
           <span class="badge {{ 'border border-secondary text-dark' if quote.status == 0 else 'bg-primary' if quote.status == 1 else 'bg-info' if quote.status == 6 else 'bg-expired' if quote.status == 7 else 'bg-danger' if quote.status == 8 else 'bg-success' }}">

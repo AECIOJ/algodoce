@@ -15,7 +15,8 @@ from app.models.event import Event
 from app.models.carteira import Carteira
 from app.constants import QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS
 from app.table import Field, build_field_context, Table
-from app.pdf import gerar_pdf_orcamento
+from app.pdf import gerar_pdf_orcamento, gerar_pdf_relatorio
+from app.reports.orcamento import ORCAMENTO_REPORT
 
 
 def quote_validade(item):
@@ -414,8 +415,8 @@ def print_quote(id):
 @bp.route("/orcamentos/<int:id>/pdf")
 def pdf_quote(id):
     quote = Quote.query.get_or_404(id)
-    logo_path = os.path.join(current_app.root_path, "static", "imagens", "Logo.png")
-    pdf = gerar_pdf_orcamento(quote, logo_path)
+    logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
+    pdf = gerar_pdf_relatorio(ORCAMENTO_REPORT, quote.items, logo_path, instance=quote)
     buf = BytesIO()
     pdf.output(buf)
     return Response(buf.getvalue(), mimetype="application/pdf",

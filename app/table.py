@@ -153,6 +153,7 @@ class Table:
     edit_endpoint_map: Optional[dict] = None
     edit_endpoint_key: Optional[str] = None
     detail_data: Optional[str] = None
+    reports: Optional[list] = None
 
     @property
     def master_fields(self):
