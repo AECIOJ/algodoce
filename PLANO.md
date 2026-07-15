@@ -79,7 +79,7 @@ algodoce/
 │   │
 │   ├── models/                     # SQLAlchemy models (24 models)
 │   ├── routes/                     # Blueprints Flask (22 arquivos — 23 blueprints)
-│   ├── reports/                    # Definições de relatórios (orcamento.py)
+│   ├── reports/                    # Definições de relatórios (orcamento.py, pedido.py)
 │   ├── templates/                  # Jinja2 (21 diretórios — 16 sys_*, site/, site_orcamento/, components/, admin/)
 │   ├── static/                     # CSS, JS, ícones, uploads
 │   │   ├── css/                    #   style.css
@@ -491,6 +491,8 @@ algodoce/
 | `pdf.py` | `gerar_pdf_orcamento()` | Gera PDF do orçamento (legado) |
 | `pdf.py` | `gerar_pdf_relatorio()` | Gera PDF genérico a partir de um Report |
 | `report.py` | `Report` | Dataclass de relatório declarativo (header/table dicts) |
+| `reports/orcamento.py` | `ORCAMENTO_REPORT` | Config do relatório de orçamento |
+| `reports/pedido.py` | `ORDER_REPORT` | Config do relatório de pedido |
 | `sys_auth.py` | `login_sistema()` | Login doceira (user+senha+chave HMA) |
 | `sys_auth.py` | `login_admin()` | Login admin (user+senha+chave, 2FA) |
 | `sys_auth.py` | `_impose_delay()` | Proteção brute-force (delay progressivo após 3 falhas) |
@@ -696,10 +698,20 @@ algodoce/
 
 #### Exibição do relatório
 - Botão "Enviar" no `form.html` e botão imprimir no `detail.html` apontam para `print_quote` (rota HTML).
-- `print.html`: renderiza iframe com `pdf_quote` (PDF FPDF inline) dentro de `{% block content }` → posicionado naturalmente dentro de `<main>`, abaixo do menu, acima do footer.
+- `print.html`: renderiza iframe com `pdf_quote` (PDF FPDF inline) dentro de `{% block content %}` → posicionado naturalmente dentro de `<main>`, abaixo do menu, acima do footer.
 - Sem overlay, sem `position:fixed`, sem z-index.
 
 #### Textos
 - Rodapé PDF: removido prefixo "Usuário:" — mostra só o nome.
 - "Carteira:" → "Forma de Pagamento:" (PDF + HTML detail).
 - Default "Forma de Pagamento": "50% no pedido + 50% na entrega" quando não informado.
+- `show_user` default `False` (em `Report` e `_ReportFooter`).
+- Username em uppercase no rodapé PDF: `user_name.upper()`.
+
+#### Relatório Pedido (`app/reports/pedido.py`)
+- `ORDER_REPORT` — mesmo padrão do orçamento.
+- Header: `logo_left`, título "Pedido #{id}", campos (cliente via function, data, telefone via function, previsão entrega).
+- Table: 4 colunas (produto, qtd, preço, valor com aggregate sum), footer "Total".
+- After: "Forminhas: X | Forma de Pagamento: Y".
+- `routes/sys_orders.py`: `pdf_order` usa `gerar_pdf_relatorio(ORDER_REPORT, ...)`.
+- `print_order.html`: iframe com `pdf_order` dentro de `{% block content %}`, botão "Voltar".
