@@ -7,13 +7,14 @@ from app.models.client import Conta
 from app.models.operacao import Operacao
 from app.constants import TIPO_PREVISAO, TIPO_OPERACAO, PREVISAO_STATUS
 from app.table import Field, build_field_context, Table
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 
 
 PREVISOES_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
     Field(name='data', label='Data', width=10, input='date'),
-    Field(name='tipo', label='Tipo', width=8, options=TIPO_PREVISAO, filter_options=list(TIPO_PREVISAO.values())),
-    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='tipo', label='Tipo', width=8, options=TIPO_PREVISAO, filter_options=TIPO_PREVISAO),
+    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=PREVISAO_STATUS),
     Field(name='conta', label='Conta', width=15, query='conta'),
     Field(name='documento', label='Documento', width=10),
     Field(name='vencimento', label='Vencimento', width=10, input='date'),
@@ -24,6 +25,20 @@ PREVISOES_FIELDS = [
 ]
 
 PREVISOES_TABLE = Table(fields=PREVISOES_FIELDS, edit_endpoint='previsoes.edit')
+
+PREVISOES_FILTERS = {
+    'id':         MODE_NUMBER,
+    'data':       MODE_DATE,
+    'tipo':       {**MODE_SELECT, 'options': TIPO_PREVISAO},
+    'status':     {**MODE_SELECT, 'options': PREVISAO_STATUS},
+    'conta':      {**MODE_SELECT, 'filter_path': 'transacao.conta.nome'},
+    'documento':  MODE_TEXT,
+    'vencimento': MODE_DATE,
+    'previsto':   MODE_NUMBER,
+    'variacao':   MODE_NUMBER,
+    'realizado':  MODE_NUMBER,
+    'saldo':      MODE_NUMBER,
+}
 
 bp = Blueprint("previsoes", __name__, url_prefix="/previsoes")
 
@@ -37,43 +52,36 @@ def protect():
 @bp.route("/")
 def list():
     hoje = date.today()
-    tipo = request.args.get("tipo", "todos")
-    filtro_status = request.args.get("status", "todos")
-    filtro_venc = request.args.get("vencimento", "todos")
+    active = resolve_filters(PREVISOES_FILTERS, request.args)
+    tipo_cfg = active.get('tipo')
     query = Previsao.query.order_by(Previsao.vencimento, Previsao.id)
-    if tipo in ("P", "R"):
-        query = query.filter_by(tipo=tipo)
-    if filtro_venc == "em_atraso":
-        query = query.filter(Previsao.vencimento < hoje)
-    elif filtro_venc == "hoje":
-        w = hoje.weekday()
-        if w == 5:
-            dias = [hoje, hoje + timedelta(days=1), hoje + timedelta(days=2)]
-            query = query.filter(Previsao.vencimento.in_(dias))
-        elif w == 6:
-            dias = [hoje, hoje - timedelta(days=1), hoje + timedelta(days=1)]
-            query = query.filter(Previsao.vencimento.in_(dias))
-        elif w == 0:
-            dias = [hoje, hoje - timedelta(days=1), hoje - timedelta(days=2)]
-            query = query.filter(Previsao.vencimento.in_(dias))
-        else:
-            query = query.filter(Previsao.vencimento == hoje)
-    elif filtro_venc == "a_vencer":
-        query = query.filter(Previsao.vencimento > hoje)
+    if tipo_cfg:
+        tipo_key = next((k for k, v in TIPO_PREVISAO.items() if v == tipo_cfg), None)
+        if tipo_key is not None:
+            query = query.filter_by(tipo=tipo_key)
     previsoes = query.all()
-    if filtro_status != "todos":
-        previsoes = [p for p in previsoes if p.status == int(filtro_status)]
-    if filtro_venc in ("em_atraso", "hoje", "a_vencer"):
-        previsoes = [p for p in previsoes if p.status < 8]
+    linhas = previsoes[:]
+    linhas = apply_select_filter(linhas, 'status', active.get('status'), PREVISAO_STATUS)
+    linhas = apply_date_filter(linhas, 'vencimento', active.get('vencimento'))
+    linhas = apply_date_filter(linhas, 'data', active.get('data'))
+    linhas = apply_select_filter(linhas, 'conta', active.get('conta'), build_fk_options(Conta), filter_path='transacao.conta.nome')
+    linhas = apply_text_filter(linhas, 'documento', active.get('documento'))
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_number_filter(linhas, 'previsto', active.get('previsto'))
+    linhas = apply_number_filter(linhas, 'realizado', active.get('realizado'))
+    linhas = apply_number_filter(linhas, 'variacao', active.get('variacao'))
+    linhas = apply_number_filter(linhas, 'saldo', active.get('saldo'))
+    previsoes = linhas
     total_saldo = sum(
         float(p.previsto + (p.variacao or 0) - (p.realizado or 0))
         for p in previsoes
     )
-    ctx = build_field_context(PREVISOES_FIELDS)
+    ctx = build_field_context(PREVISOES_FIELDS, filters_config=PREVISOES_FILTERS)
     return render_template(
         "sys_previsoes/list.html", previsoes=previsoes, total_saldo=total_saldo,
         PREVISOES_TABLE=PREVISOES_TABLE, ctx=ctx,
         TIPO_PREVISAO=TIPO_PREVISAO, PREVISAO_STATUS=PREVISAO_STATUS,
+        active_filters=active, FILTERS=PREVISOES_FILTERS,
     )
 
 

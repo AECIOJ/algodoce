@@ -1,5 +1,75 @@
+"""
+XXX_TABLE / XXX_FIELDS — Configuração de tabelas e campos de listagem.
+
+Cada rota sys_*.py declara:
+  XXX_FIELDS = [Field(...), ...]          # lista de campos
+  XXX_TABLE  = Table(fields=XXX_FIELDS, ...)  # config da tabela
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Field — configuração de uma coluna
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Campo            Tipo       Default   Descrição
+ ──────────────── ────────── ───────── ──────────────────────────────────
+ name             str        (obrig.)  Nome do campo (chave do dict)
+ label            str        name      Título da coluna
+ width            int        auto      Largura em caracteres (ch)
+ align            str        'left'    'left' | 'right' | 'center'
+ input            str        'text'    Tipo do campo (define filtro auto):
+                                        'text'    → filtro texto
+                                        'number'  → filtro numérico
+                                        'date'    → filtro data
+                                        'boolean' → filtro Sim/Não
+                                        'select'  → filtro select
+ options          dict       None      Opções para select: {chave: label}
+ filter           str|False  auto      Tipo do filtro forçado, ou False p/ desabilitar
+ filter_options   list       None      Opções customizadas para o filtro select
+ mask             str        None      Máscara de formatação (ex: '999.999')
+ query            str        None      Chave do MODEL_MAP p/ popular options do banco
+ validate         list       None      Regras de validação no form
+ aggregate        str        None      'sum' p/ exibir total no rodapé
+ aggregate_label  str        None      Label do total (ex: 'Total Geral')
+ currency         str        None      'brl' p/ formatar como moeda R$
+ hide_zero        bool       True      Ocultar valor zero
+ card_path        str        None      Acesso aninhado (ex: 'conta.nome')
+ pos              int        9         Ordem da coluna (0=ID, 9=último)
+ link             str        None      Endpoint p/ gerar link (ex: 'orders.edit')
+ function         callable   None      Função para valor computado: f(item) -> valor
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Table — configuração da tabela
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Campo              Tipo       Default   Descrição
+ ────────────────── ────────── ───────── ──────────────────────────────────
+ fields             list       (obrig.)  Lista de Field
+ fields_master      list[int]  None      Índices 1-based dos campos mestre (master-detail)
+ fields_detail      list[int]  None      Índices 1-based dos campos detalhe (master-detail)
+ master_key         str        None      Campo para groupby no master-detail
+ edit_endpoint      str        None      Endpoint de edição (ex: 'orders.edit')
+ edit_id_field      str        'id'      Campo que contém o ID para edição
+ edit_if_field      str        None      Só exibe edição se este campo for não-nulo
+ edit_endpoint_map  dict       None      Mapa de endpoints por tipo
+ edit_endpoint_key  str        None      Chave do item para lookup no edit_endpoint_map
+ detail_data        str        None      Atributo com sub-itens do detalhe
+ reports            list       None      Lista de Report vinculados
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Exemplos
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Simples:
+   Field(name='nome', label='Nome', width=20, pos=1)
+
+ Select do banco:
+   Field(name='categoria', label='Categoria', width=15, query='category')
+
+ Master-detail:
+   Table(fields=FIELDS, fields_master=[1,2,3], fields_detail=[4,5,6],
+         master_key='compra_id', edit_endpoint='compras.edit')
+"""
 from dataclasses import dataclass, field
-from typing import Optional, Callable
+from typing import Any, Optional, Callable
 
 
 @dataclass
@@ -11,7 +81,7 @@ class Field:
     input: str = 'text'
     options: Optional[dict] = None
     filter: Optional[str] = None
-    filter_options: Optional[list] = None
+    filter_options: Any = field(default=None)
     mask: Optional[str] = None
     query: Optional[str] = None
     validate: Optional[list] = None
@@ -37,12 +107,12 @@ def field_filter_type(f: Field) -> Optional[str]:
     return None
 
 
-def field_filter_options(f: Field) -> Optional[list]:
+def field_filter_options(f: Field):
     if f.filter_options is not None:
         return f.filter_options
     if f.options is not None and f.input == 'select':
         if isinstance(f.options, dict):
-            return list(f.options.values())
+            return f.options
         return list(f.options)
     return None
 
@@ -104,7 +174,7 @@ def register_model(name: str, model_class: type) -> None:
     MODEL_MAP[name] = model_class
 
 
-def build_field_context(fields: list[Field], model_map: dict[str, type] | None = None) -> dict:
+def build_field_context(fields: list[Field], model_map: dict[str, type] | None = None, filters_config: dict | None = None) -> dict:
     from flask import current_app
 
     if model_map is None:
@@ -120,6 +190,15 @@ def build_field_context(fields: list[Field], model_map: dict[str, type] | None =
                     f.filter_options = names
                 if f.options is None:
                     f.options = {str(i.id): i.nome for i in items}
+                if filters_config and f.name in filters_config:
+                    fcfg = filters_config[f.name]
+                    if fcfg.get('type') == 'select' and 'options' not in fcfg:
+                        ctx['filter_options'][f.name] = {i.id: i.nome for i in items}
+            ft = field_filter_type(f)
+            if ft == 'select':
+                fo = field_filter_options(f)
+                if fo is not None and f.name not in ctx['filter_options']:
+                    ctx['filter_options'][f.name] = fo
     return ctx
 
 

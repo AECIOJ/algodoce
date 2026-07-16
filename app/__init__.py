@@ -159,6 +159,7 @@ def create_app():
         admin.set_password(admin_password)
         db.session.commit()
 
+    app.jinja_env.policies['json.dumps_kwargs'] = {'sort_keys': False}
     app.jinja_env.finalize = lambda x: 'Sim' if x is True else 'Não' if x is False else '' if x is None else x
 
     app.jinja_env.filters['deep_attr'] = deep_attr

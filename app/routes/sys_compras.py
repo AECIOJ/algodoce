@@ -13,13 +13,14 @@ from app.models.compra_item import CompraItem
 from app.models.movto import Movto
 from app.constants import PREVISAO_STATUS, COMPRA_STATUS
 from app.models.carteira import Carteira
+from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 from app.utils import LinhaTransacao
 from app.table import Field, build_field_context, Table
 
 
 COMPRAS_FIELDS = [
     Field(name='compra_id', label='Compra', width=8),
-    Field(name='status_compra', label='Status', width=10, options=COMPRA_STATUS, filter_options=list(COMPRA_STATUS.values())),
+    Field(name='status_compra', label='Status', width=10, options=COMPRA_STATUS, filter_options=COMPRA_STATUS),
     Field(name='carteira', label='FP', width=12, query='carteira'),
     Field(name='faturado', label='Faturado', width=10, filter=False, input='boolean'),
     Field(name='fornecedor', label='Fornecedor', width=30, query='conta', pos=1),
@@ -32,7 +33,7 @@ COMPRAS_FIELDS = [
     Field(name='realizado', label='Realizado', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='variacao', label='Variação', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='status', label='Pagamento', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='status', label='Pagamento', width=10, options=PREVISAO_STATUS, filter_options=PREVISAO_STATUS),
 ]
 
 COMPRAS_TABLE = Table(
@@ -43,6 +44,23 @@ COMPRAS_TABLE = Table(
     edit_endpoint='compras.edit',
     edit_id_field='compra_id',
 )
+
+COMPRAS_FILTERS = {
+    'compra_id':    MODE_NUMBER,
+    'status_compra': {**MODE_SELECT, 'options': COMPRA_STATUS},
+    'carteira':     {**MODE_SELECT, 'filter_path': 'carteira'},
+    'fornecedor':   {**MODE_SELECT, 'filter_path': 'fornecedor'},
+    'fatura':       MODE_TEXT,
+    'valor':        MODE_NUMBER,
+    'id':           MODE_NUMBER,
+    'vencimento':   MODE_DATE,
+    'documento':    MODE_TEXT,
+    'previsto':     MODE_NUMBER,
+    'realizado':    MODE_NUMBER,
+    'variacao':     MODE_NUMBER,
+    'saldo':        MODE_NUMBER,
+    'status':       {**MODE_SELECT, 'options': PREVISAO_STATUS},
+}
 
 TIPO = "C"
 
@@ -58,8 +76,7 @@ def protect():
 @bp.route("/")
 def list():
     hoje = date.today()
-    filtro_status = request.args.get("status", "todos")
-    filtro_venc = request.args.get("vencimento", "todos")
+    active = resolve_filters(COMPRAS_FILTERS, request.args)
     compras = Compra.query.options(
         joinedload(Compra.transacao).joinedload(Transacao.previsoes)
     ).order_by(Compra.data.desc(), Compra.id.desc()).all()
@@ -73,30 +90,27 @@ def list():
         else:
             linhas.append(LinhaTransacao(t, compra=c))
 
-    if filtro_status != "todos":
-        linhas = [l for l in linhas if l.status == int(filtro_status)]
-    if filtro_venc == "em_atraso":
-        linhas = [l for l in linhas if l.vencimento and l.vencimento < hoje and l.status not in (8, 9)]
-    elif filtro_venc == "hoje":
-        w = hoje.weekday()
-        if w == 5:
-            dias = [hoje, hoje + timedelta(days=1), hoje + timedelta(days=2)]
-        elif w == 6:
-            dias = [hoje, hoje - timedelta(days=1), hoje + timedelta(days=1)]
-        elif w == 0:
-            dias = [hoje, hoje - timedelta(days=1), hoje - timedelta(days=2)]
-        else:
-            dias = [hoje]
-        linhas = [l for l in linhas if l.vencimento in dias and l.status not in (0, 8, 9)]
-    elif filtro_venc == "a_vencer":
-        linhas = [l for l in linhas if l.vencimento and l.vencimento > hoje and l.status not in (0, 8, 9)]
+    linhas = apply_date_filter(linhas, 'vencimento', active.get('vencimento'))
+    linhas = apply_select_filter(linhas, 'status', active.get('status'), PREVISAO_STATUS)
+    linhas = apply_select_filter(linhas, 'status_compra', active.get('status_compra'), COMPRA_STATUS)
+    linhas = apply_select_filter(linhas, 'carteira', active.get('carteira'), {c.nome for c in Carteira.query.all()})
+    linhas = apply_select_filter(linhas, 'fornecedor', active.get('fornecedor'), {c.nome for c in Conta.query.all()})
+    linhas = apply_text_filter(linhas, 'fatura', active.get('fatura'))
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'documento', active.get('documento'))
+    linhas = apply_number_filter(linhas, 'valor', active.get('valor'))
+    linhas = apply_number_filter(linhas, 'previsto', active.get('previsto'))
+    linhas = apply_number_filter(linhas, 'realizado', active.get('realizado'))
+    linhas = apply_number_filter(linhas, 'variacao', active.get('variacao'))
+    linhas = apply_number_filter(linhas, 'saldo', active.get('saldo'))
 
     total_saldo = sum(l.saldo for l in linhas)
-    ctx = build_field_context(COMPRAS_TABLE.master_fields)
+    ctx = build_field_context(COMPRAS_TABLE.master_fields, filters_config=COMPRAS_FILTERS)
     return render_template(
         "sys_compras/list.html", linhas=linhas, total_saldo=total_saldo,
         COMPRAS_TABLE=COMPRAS_TABLE, ctx=ctx,
         PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
+        active_filters=active, FILTERS=COMPRAS_FILTERS,
     )
 
 

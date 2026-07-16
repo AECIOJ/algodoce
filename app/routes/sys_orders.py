@@ -18,6 +18,7 @@ from app.models.previsao import Previsao
 from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.constants import ORDER_STATUS, QUOTE_STATUS, FORMINHAS, PREVISAO_STATUS
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 from app.table import Field, build_field_context, Table
 
 
@@ -27,15 +28,27 @@ ORDERS_FIELDS = [
     Field(name='data_pedido', label='Data Pedido', width=10, input='date'),
     Field(name='data_previsao_entrega', label='Previsão Entrega', width=10, input='date'),
     Field(name='data_entrega', label='Data Entrega', width=10, input='date'),
-    Field(name='forminhas', label='Forminhas', width=12, options=FORMINHAS, filter_options=list(FORMINHAS.values())),
+    Field(name='forminhas', label='Forminhas', width=12, options=FORMINHAS, filter_options=FORMINHAS),
     Field(name='carteira', label='Pagamento', width=15, query='carteira'),
     Field(name='total', label='Total', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='status', label='Status', width=10, options=ORDER_STATUS, filter_options=list(ORDER_STATUS.values())),
+    Field(name='status', label='Status', width=10, options=ORDER_STATUS, filter_options=ORDER_STATUS),
     Field(name='transacao', label='Faturado', width=10, filter=False),
     Field(name='quote_id', label='Orçamento', width=9, filter=False, link='orcamentos.edit'),
 ]
 
 ORDERS_TABLE = Table(fields=ORDERS_FIELDS, edit_endpoint='orders.edit')
+
+ORDERS_FILTERS = {
+    'id':                    MODE_NUMBER,
+    'cliente':               {**MODE_SELECT, 'filter_path': 'conta.nome'},
+    'data_pedido':           MODE_DATE,
+    'data_previsao_entrega': MODE_DATE,
+    'data_entrega':          MODE_DATE,
+    'forminhas':             {**MODE_SELECT, 'options': FORMINHAS},
+    'carteira':              {**MODE_SELECT, 'filter_path': 'carteira.nome'},
+    'total':                 MODE_NUMBER,
+    'status':                {**MODE_SELECT, 'options': ORDER_STATUS},
+}
 
 
 def _replace_order_items(order, form):
@@ -91,17 +104,29 @@ def dashboard():
 
 @bp.route("/pedidos", endpoint="list")
 def order_list():
-    orders = (
+    active = resolve_filters(ORDERS_FILTERS, request.args)
+    q = (
         Order.query
         .options(
             db.joinedload(Order.conta),
             db.joinedload(Order.carteira),
         )
         .order_by(Order.data_entrega)
-        .all()
     )
-    ctx = build_field_context(ORDERS_FIELDS)
-    return render_template("sys_orders/list.html", orders=orders, ORDERS_TABLE=ORDERS_TABLE, ctx=ctx, ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS)
+    orders = q.all()
+    linhas = orders[:]
+    linhas = apply_select_filter(linhas, 'status', active.get('status'), ORDER_STATUS)
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_select_filter(linhas, 'cliente', active.get('cliente'), build_fk_options(Conta), filter_path='conta.nome')
+    linhas = apply_date_filter(linhas, 'data_pedido', active.get('data_pedido'))
+    linhas = apply_date_filter(linhas, 'data_previsao_entrega', active.get('data_previsao_entrega'))
+    linhas = apply_date_filter(linhas, 'data_entrega', active.get('data_entrega'))
+    linhas = apply_select_filter(linhas, 'forminhas', active.get('forminhas'), FORMINHAS)
+    linhas = apply_select_filter(linhas, 'carteira', active.get('carteira'), build_fk_options(Carteira), filter_path='carteira.nome')
+    linhas = apply_number_filter(linhas, 'total', active.get('total'))
+    orders = linhas
+    ctx = build_field_context(ORDERS_FIELDS, filters_config=ORDERS_FILTERS)
+    return render_template("sys_orders/list.html", orders=orders, ORDERS_TABLE=ORDERS_TABLE, ctx=ctx, ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS, active_filters=active, FILTERS=ORDERS_FILTERS)
 
 
 @bp.route("/pedidos/novo", methods=["GET", "POST"])

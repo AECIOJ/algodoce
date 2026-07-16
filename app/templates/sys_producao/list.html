@@ -2,7 +2,7 @@
 {% from "components/macros.html" import action_list, action_table %}
 
 {% block page_content %}
-{% call(section) action_list(title="Produção", new_url=url_for('producao.nova'), new_label='+ Nova') %}
+{% call(section) action_list(title="Produção", new_url=url_for('producao.nova'), new_label='+ Nova', active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
   {% if section == "dados" %}
       {{ action_table(producoes, table=PRODUCAO_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}

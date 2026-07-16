@@ -1,3 +1,125 @@
+"""
+XXX_REPORT — Configuração de relatórios PDF.
+
+Cada rota ou módulo de relatório declara:
+  XXX_REPORT = Report(label='...', header={...}, table={...})
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Report — configuração completa
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Campo             Tipo         Default     Descrição
+ ───────────────── ──────────── ─────────── ──────────────────────────────
+ label             str          (obrig.)    Título do relatório
+ endpoint          str          None        Endpoint de geração
+ page_size         str          'A4'        Tamanho da página
+ orientation       str          'portrait'  'portrait' | 'landscape'
+ orientation_mutable bool       False       Usuário pode mudar orientação
+ header            dict         None        Config do cabeçalho (ver abaixo)
+ table             dict         None        Config da tabela (ver abaixo)
+ report_footer     object       None        Texto do rodapé de página
+ show_user         bool         False       Exibir usuário no rodapé
+ show_datetime     bool         True        Exibir data/hora no rodapé
+ show_company      bool         False       Exibir empresa no rodapé
+ show_page_number  bool         True        Exibir número da página
+ footer_separator  str          ' | '       Separador dos itens do rodapé
+ footer_align      str          'C'         Alinhamento do rodapé
+ footer_font_size  int          8           Tamanho da fonte do rodapé
+ texts             list         None        Textos avulsos (ver ReportText)
+ margin_top        float        10          Margem superior (mm)
+ margin_bottom     float        20          Margem inferior (mm)
+ margin_left       float        10          Margem esquerda (mm)
+ margin_right      float        10          Margem direita (mm)
+ auto_page_break   bool         True        Quebra automática de página
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ header (dict)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Chave             Tipo         Default     Descrição
+ ───────────────── ──────────── ─────────── ──────────────────────────────
+ layout            str          'centered'  'centered' | 'logo_left'
+ title             str          label       Título (suporta {id}, {campo})
+ title_font_size   int          16          Tamanho do título
+ title_font_style  str          'B'         Estilo: '' normal, 'B' bold
+ title_align       str          'C'         'L' | 'C' | 'R'
+ subtitle          str          None        Subtítulo
+ subtitle_font_size int         10
+ subtitle_align    str          'C'
+ show_logo         bool         True        Exibir logotipo
+ logo_path         str          None        Caminho da imagem (None=padrão)
+ logo_width        float        None        Largura do logo (mm)
+ logo_align        str          'C'         Alinhamento do logo
+ fields            list[dict]   None        Lista de campos do cabeçalho
+ field_columns     int          2           Colunas de campos
+ on_each_page      bool         True        Repetir em cada página
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ header.fields (lista de dicts)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Chave      Tipo       Descrição
+ ────────── ────────── ────────────────────────────────────────────────
+ field      str        Nome do campo do model (acesso aninhado: 'conta.nome')
+ label      str        Rótulo do campo
+ align      str        'left' | 'right' | 'center'
+ format     str        'datetime' | 'date' | 'brl' | None
+ function   callable   Função customizada: f(item) -> str
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ table (dict)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Chave        Tipo         Default   Descrição
+ ──────────── ──────────── ───────── ──────────────────────────────────
+ columns      dict         (obrig.)  Dict de colunas (ver abaixo)
+ groups       list[dict]   None      Lista de ReportGroup
+ footer       bool         False     Exibir rodapé da tabela (totais)
+ footer_label str          'Total'   Label do total
+ after        callable     None      Função p/ texto após a tabela
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ table.columns (dict de dicts)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ Chave      Tipo       Descrição
+ ────────── ────────── ────────────────────────────────────────────────
+ label      str        Título da coluna
+ width      float      Largura da coluna (mm)
+ align      str        'left' | 'right' | 'center'
+ format     str        'brl' | 'datetime' | 'date' | None
+ aggregate  str        'sum' | None
+ function   callable   f(item) -> valor
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Exemplo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ ORCAMENTO_REPORT = Report(
+     label='Orçamento',
+     header={
+         'layout': 'logo_left',
+         'title': 'Orçamento #{id}',
+         'fields': [
+             {'field': 'cliente_nome', 'label': 'Cliente'},
+             {'field': 'data_pedido', 'label': 'Data', 'align': 'right', 'format': 'datetime'},
+             {'label': 'Validade', 'align': 'right', 'function': _validade_text},
+         ],
+     },
+     table={
+         'columns': {
+             'product.nome':   {'label': 'Produto', 'width': 50},
+             'quantidade':     {'label': 'Qtd.', 'width': 10, 'align': 'center'},
+             'preco_unitario': {'label': 'Preço', 'width': 20, 'align': 'right', 'format': 'brl'},
+             'valor':          {'label': 'Valor', 'width': 20, 'align': 'right', 'format': 'brl',
+                                'function': _valor_item, 'aggregate': 'sum'},
+         },
+         'footer': True,
+         'footer_label': 'Total',
+         'after': _forminhas_carteira,
+     },
+ )
+"""
 from dataclasses import dataclass, field as dc_field
 from typing import Optional, Callable
 

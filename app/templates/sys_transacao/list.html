@@ -2,7 +2,7 @@
 {% from "components/macros.html" import action_list, action_table %}
 
 {% block page_content %}
-{% call(section) action_list(title=tipo_nome_plural ~ " Financeiro", new_url=url_for('transacao.pagar_new' if tipo in ('P','C') else 'transacao.receber_new')) %}
+{% call(section) action_list(title=tipo_nome_plural ~ " Financeiro", new_url=url_for('transacao.pagar_new' if tipo in ('P','C') else 'transacao.receber_new'), active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
   {% if section == "dados" %}
       {{ action_table(previsoes, table=TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}

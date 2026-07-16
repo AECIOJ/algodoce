@@ -17,6 +17,7 @@ from app.constants import QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS
 from app.table import Field, build_field_context, Table
 from app.pdf import gerar_pdf_orcamento, gerar_pdf_relatorio
 from app.reports.orcamento import ORCAMENTO_REPORT
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 
 
 def quote_validade(item):
@@ -33,11 +34,22 @@ QUOTES_FIELDS = [
     Field(name='validade', label='Validade', width=14, input='number', function=quote_validade),
     Field(name='total', label='Total', width=12, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='carteira', label='Pagamento', width=15, query='carteira'),
-    Field(name='status', label='Status', width=14, options=QUOTE_STATUS, filter_options=list(QUOTE_STATUS.values())),
+    Field(name='status', label='Status', width=14, options=QUOTE_STATUS, filter_options=QUOTE_STATUS),
     Field(name='pedido_id', label='Pedido', width=10, filter=False, link='orders.edit'),
 ]
 
 QUOTES_TABLE = Table(fields=QUOTES_FIELDS, edit_endpoint='orcamentos.edit')
+
+QUOTES_FILTERS = {
+    'id':              MODE_NUMBER,
+    'cliente_nome':    MODE_TEXT,
+    'cliente_telefone': MODE_TEXT,
+    'data_pedido':     MODE_DATE,
+    'validade':        MODE_NUMBER,
+    'total':           MODE_NUMBER,
+    'carteira':        {**MODE_SELECT, 'filter_path': 'carteira.nome'},
+    'status':          {**MODE_SELECT, 'options': QUOTE_STATUS},
+}
 
 
 def _replace_quote_items(quote, form):
@@ -76,16 +88,25 @@ def protect():
 
 @bp.route("/orcamentos", endpoint="list")
 def orcamento_list():
-    status = request.args.get("status", type=int)
+    active = resolve_filters(QUOTES_FILTERS, request.args)
     query = Quote.query.order_by(Quote.id.desc())
-    if status is not None:
-        query = query.filter(Quote.status == status)
     quotes = query.all()
-    ctx = build_field_context(QUOTES_FIELDS)
+    linhas = quotes[:]
+    linhas = apply_select_filter(linhas, 'status', active.get('status'), QUOTE_STATUS)
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'cliente_nome', active.get('cliente_nome'))
+    linhas = apply_text_filter(linhas, 'cliente_telefone', active.get('cliente_telefone'))
+    linhas = apply_date_filter(linhas, 'data_pedido', active.get('data_pedido'))
+    linhas = apply_number_filter(linhas, 'validade', active.get('validade'))
+    linhas = apply_number_filter(linhas, 'total', active.get('total'))
+    linhas = apply_select_filter(linhas, 'carteira', active.get('carteira'), build_fk_options(Carteira), filter_path='carteira.nome')
+    quotes = linhas
+    ctx = build_field_context(QUOTES_FIELDS, filters_config=QUOTES_FILTERS)
     return render_template(
         "sys_orcamentos/list.html", orders=quotes, QUOTES_TABLE=QUOTES_TABLE, ctx=ctx,
-        filtro=str(status) if status is not None else "todos",
+        filtro=active.get('status', 'todos'),
         QUOTE_STATUS=QUOTE_STATUS, QUOTE_STATUS_FILTER=QUOTE_STATUS_FILTER,
+        active_filters=active, FILTERS=QUOTES_FILTERS,
     )
 
 

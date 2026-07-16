@@ -5,18 +5,27 @@ from app.extensions import db
 from app.models.client import Conta
 from app.models.order import Order
 from app.constants import ORDER_STATUS, TIPO_CONTA
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_boolean_filter, MODE_NUMBER, MODE_TEXT, MODE_BOOLEAN, MODE_SELECT
 from app.table import Field, build_field_context, Table
 
 
 CONTAS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
     Field(name='nome', label='Nome', width=20, pos=1),
-    Field(name='tipo', label='Tipo', width=12, options=TIPO_CONTA, filter_options=list(TIPO_CONTA.values())),
+    Field(name='tipo', label='Tipo', width=12, options=TIPO_CONTA, filter_options=TIPO_CONTA),
     Field(name='telefone', label='Telefone', width=14),
     Field(name='ativo', label='Ativo', input='boolean', pos=1),
 ]
 
 CONTAS_TABLE = Table(fields=CONTAS_FIELDS, edit_endpoint='contas.edit')
+
+CONTAS_FILTERS = {
+    'id':       MODE_NUMBER,
+    'nome':     MODE_TEXT,
+    'tipo':     {**MODE_SELECT, 'options': TIPO_CONTA},
+    'telefone': MODE_TEXT,
+    'ativo':    MODE_BOOLEAN,
+}
 
 bp = Blueprint("contas", __name__)
 
@@ -57,15 +66,18 @@ def protect():
 
 @bp.route("/contas")
 def list():
-    tipo = request.args.get("tipo", "todos")
+    active = resolve_filters(CONTAS_FILTERS, request.args)
     query = Conta.query.order_by(Conta.nome)
-    if tipo == "clientes":
-        query = query.filter(Conta.tipo.in_([0, 1]))
-    elif tipo == "fornecedores":
-        query = query.filter(Conta.tipo.in_([1, 2]))
     contas = query.all()
+    linhas = contas[:]
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
+    linhas = apply_select_filter(linhas, 'tipo', active.get('tipo'), TIPO_CONTA)
+    linhas = apply_text_filter(linhas, 'telefone', active.get('telefone'))
+    linhas = apply_boolean_filter(linhas, 'ativo', active.get('ativo'))
+    contas = linhas
     ctx = build_field_context(CONTAS_FIELDS)
-    return render_template("sys_contas/list.html", contas=contas, CONTAS_TABLE=CONTAS_TABLE, ctx=ctx, TIPO_CONTA=TIPO_CONTA)
+    return render_template("sys_contas/list.html", contas=contas, CONTAS_TABLE=CONTAS_TABLE, ctx=ctx, TIPO_CONTA=TIPO_CONTA, active_filters=active, FILTERS=CONTAS_FILTERS)
 
 
 @bp.route("/contas/search")

@@ -8,6 +8,7 @@ from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.models.client import Conta
 from app.constants import TIPO_RECURSO
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_date_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE
 from app.table import Field, build_field_context
 from decimal import Decimal
 
@@ -29,6 +30,13 @@ TRF_FIELDS = [
     Field(name='status', label='Status', width=12, function=_trf_status),
 ]
 
+TRF_FILTERS = {
+    'id':        MODE_NUMBER,
+    'data':      MODE_DATE,
+    'historico': MODE_TEXT,
+    'status':    MODE_TEXT,
+}
+
 
 @bp.before_request
 @login_required
@@ -37,11 +45,17 @@ def protect():
 
 
 def _list():
+    active = resolve_filters(TRF_FILTERS, request.args)
     trfs = Trf.query.order_by(Trf.data.desc(), Trf.id.desc()).all()
+    linhas = trfs[:]
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_date_filter(linhas, 'data', active.get('data'))
+    linhas = apply_text_filter(linhas, 'historico', active.get('historico'))
+    trfs = linhas
     ctx = build_field_context(TRF_FIELDS)
     return render_template(
         "sys_transferencias/list.html",
-        trfs=trfs, fields=TRF_FIELDS, ctx=ctx,
+        trfs=trfs, fields=TRF_FIELDS, ctx=ctx, active_filters=active, FILTERS=TRF_FILTERS,
     )
 
 

@@ -2,7 +2,7 @@
 {% from "components/macros.html" import action_list, action_table %}
 
 {% block page_content %}
-{% call(section) action_list(title="Previsões", new_url=url_for('previsoes.new')) %}
+{% call(section) action_list(title="Previsões", new_url=url_for('previsoes.new'), active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
   {% if section == "dados" %}
       {{ action_table(previsoes, table=PREVISOES_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}

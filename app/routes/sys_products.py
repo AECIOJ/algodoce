@@ -9,10 +9,11 @@ from app.extensions import db
 from app.models.product import Product
 from app.models.ingredient import Ingredient
 from app.models.product_ingredient import ProductIngredient
-from app.constants import PRODUCAO_ETAPAS
+from app.constants import PRODUCAO_ETAPAS, UNIDADES_RECEITA
 from app.models.category import Category
 from app.models.order_item import OrderItem
 from app.models.quote_item import QuoteItem
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_boolean_filter, apply_select_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_BOOLEAN, MODE_SELECT
 from app.table import Field, build_field_context, Table
 
 
@@ -27,6 +28,15 @@ PRODUCTS_FIELDS = [
 ]
 
 PRODUCTS_TABLE = Table(fields=PRODUCTS_FIELDS, edit_endpoint='products.edit')
+
+PRODUCTS_FILTERS = {
+    'id':          MODE_NUMBER,
+    'nome':        MODE_TEXT,
+    'categoria':   {**MODE_SELECT, 'filter_path': 'category.nome'},
+    'qtd_minima':  MODE_NUMBER,
+    'preco':       MODE_NUMBER,
+    'ativo':       MODE_BOOLEAN,
+}
 
 bp = Blueprint("products", __name__)
 
@@ -46,9 +56,18 @@ def allowed_file(filename):
 
 @bp.route("/produtos")
 def list():
+    active = resolve_filters(PRODUCTS_FILTERS, request.args)
     products = Product.query.order_by(Product.nome).all()
-    ctx = build_field_context(PRODUCTS_FIELDS)
-    return render_template("sys_products/list.html", products=products, PRODUCTS_TABLE=PRODUCTS_TABLE, ctx=ctx)
+    linhas = products[:]
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
+    linhas = apply_select_filter(linhas, 'categoria', active.get('categoria'), build_fk_options(Category), filter_path='category.nome')
+    linhas = apply_number_filter(linhas, 'qtd_minima', active.get('qtd_minima'))
+    linhas = apply_number_filter(linhas, 'preco', active.get('preco'))
+    linhas = apply_boolean_filter(linhas, 'ativo', active.get('ativo'))
+    products = linhas
+    ctx = build_field_context(PRODUCTS_FIELDS, filters_config=PRODUCTS_FILTERS)
+    return render_template("sys_products/list.html", products=products, PRODUCTS_TABLE=PRODUCTS_TABLE, ctx=ctx, active_filters=active, FILTERS=PRODUCTS_FILTERS)
 
 
 @bp.route("/produtos/novo", methods=["GET", "POST"])
@@ -304,9 +323,6 @@ def _handle_imagem(request, product):
     filepath = os.path.join(upload_dir, nome_arquivo)
     file.save(filepath)
     product.imagem = nome_arquivo
-
-
-UNIDADES_RECEITA = ["kg", "g", "L", "ml", "un", "cx", "pacote", "colher", "colher_sopa", "xicara", "pitada", "litro"]
 
 
 def _parse_insumos(request):

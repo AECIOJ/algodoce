@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from flask_login import login_required
 from app.extensions import db
 from app.models.category import Category
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_boolean_filter, MODE_NUMBER, MODE_TEXT, MODE_BOOLEAN
 from app.table import Field, build_field_context, Table
 
 
@@ -14,6 +15,13 @@ CATEGORIES_FIELDS = [
 
 CATEGORIES_TABLE = Table(fields=CATEGORIES_FIELDS, edit_endpoint='categories.edit')
 
+CATEGORIES_FILTERS = {
+    'id':     MODE_NUMBER,
+    'nome':   MODE_TEXT,
+    'ordem':  MODE_NUMBER,
+    'ativo':  MODE_BOOLEAN,
+}
+
 bp = Blueprint("categories", __name__, url_prefix="/categorias")
 
 
@@ -25,16 +33,18 @@ def protect():
 
 @bp.route("/")
 def list():
-    status = request.args.get("status", "todos")
+    active = resolve_filters(CATEGORIES_FILTERS, request.args)
     query = Category.query.order_by(Category.ordem, Category.nome)
-    if status == "ativos":
-        query = query.filter_by(ativo=True)
-    elif status == "inativos":
-        query = query.filter_by(ativo=False)
     categorias = query.all()
+    linhas = categorias[:]
+    linhas = apply_boolean_filter(linhas, 'ativo', active.get('ativo'))
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
+    linhas = apply_number_filter(linhas, 'ordem', active.get('ordem'))
+    categorias = linhas
     ctx = build_field_context(CATEGORIES_FIELDS, {})
     return render_template("sys_categories/list.html", categorias=categorias,
-                           CATEGORIES_TABLE=CATEGORIES_TABLE, ctx=ctx)
+                           CATEGORIES_TABLE=CATEGORIES_TABLE, ctx=ctx, active_filters=active, FILTERS=CATEGORIES_FILTERS)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

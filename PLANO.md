@@ -69,6 +69,7 @@ algodoce/
 │   ├── extensions.py               # SQLAlchemy, Migrate, LoginManager
 │   ├── config.py                   # Configurações (DB, SECRET_KEY, sessão)
 │   ├── constants.py                # Enums (status, tipos, conectores)
+│   ├── filters.py                   # Helpers de filtros (resolve_filters, filtrar_vencimento, filtrar_vencimento_query)
 │   ├── table.py                    # Sistema de campos + tabelas (Field, Table dataclasses)
 │   ├── crypto.py                   # Criptografia Fernet (AES)
 │   ├── ntfy.py                     # Notificação push (ntfy.sh)
@@ -146,13 +147,15 @@ algodoce/
 
 | Macro | Arquivo | Descrição |
 |-------|---------|-----------|
-| `action_list(title, new_url=none, new_label='+ Novo', extra_actions=none)` | `macros.html` | Macro mestra de listagem: abas Dados/Filtros, tabela sortable, filtro JS client-side |
+| `action_list(title, new_url=none, new_label='+ Novo', extra_actions=none, active_filters=none, filters=none, ctx=none)` | `macros.html` | Macro mestra de listagem: abas Dados/Filtros, tabela sortable, filtro JS config-driven (XXX_FILTERS) |
 | `action_table(data, columns=none, fields=none, ctx=none, table=none, edit_endpoint=none, ...)` | `macros.html` | Tabela com colunas dinâmicas, ordenação, detalhe expansível, botão de ação centralizado |
 | `action_filter(caller_content='')` | `macros.html` | Painel de filtros |
 | `action_edit(url, label='Editar')` | `macros.html` | Botão de editar (ícone lápis) |
 | `action_nav(back_url, nome, nav, edit_endpoint, entity_id=none, status=none, actions2=none)` | `macros.html` | Navegação entre registros (anterior/próximo, responsivo) |
 
 **Sistema de Fields:** Cada blueprint define `*_FIELDS = [Field(name, label, width, input, options, filter, query, ...)]`. O dataclass `Field` configura colunas, filtros, máscaras, agregadores (soma), links e validação — usado para renderizar tabelas e formulários dinamicamente.
+
+**Sistema de Filtros:** Cada blueprint define `*_FILTERS = {'campo': {'type': '...', 'options': {...}}}` — dict declarativo contendo TODOS os campos de `*_FIELDS` (exceto `filter=False`). O tipo é derivado do `input` do Field: `select` → `'select'` (com options), `boolean` → `'boolean'`, `date` → `'date'`, `number` → `'number'`, resto → `'text'`. O JS lê `data-filter-config` (JSON do FILTERS) e renderiza o painel automaticamente. Para esconder um filtro do painel, basta remover a entrada do dict. Sem valores default — o usuário define depois.
 
 ### Banco de Dados (PostgreSQL 16)
 
@@ -480,11 +483,14 @@ algodoce/
 | `table.py` | `fields_to_columns()` | Converte Field[] para colunas de tabela HTML |
 | `table.py` | `field_to_column()` | Converte um Field para dict de coluna |
 | `table.py` | `field_filter_type()` | Deriva tipo de filtro do input do campo |
-| `table.py` | `field_filter_options()` | Deriva opções de filtro do campo |
+| `table.py` | `field_filter_options()` | Deriva opções de filtro do campo (dict para select, list para query dinâmica) |
 | `table.py` | `field_grid()` | Mapeia largura do field para colunas Bootstrap |
 | `table.py` | `get_field()` | Busca Field por nome numa lista |
-| `table.py` | `build_field_context()` | Popula selects com dados do banco |
+| `table.py` | `build_field_context()` | Popula selects com dados do banco, inclui filter_options para select no painel |
 | `table.py` | `register_model()` | Registra model para consulta via `Field.query` |
+| `filters.py` | `resolve_filters(config, request_args)` | Lê query params da URL, usa 'default' do config se ausente |
+| `filters.py` | `filtrar_vencimento(linhas, field, preset, hoje)` | Aplica preset de data em lista (em_atraso, hoje, a_vencer, mes_atual, etc.) |
+| `filters.py` | `filtrar_vencimento_query(query, model_field, preset, hoje)` | Aplica preset de data em query SQLAlchemy |
 | `crypto.py` | `encrypt()` / `decrypt()` | Fernet AES com chave derivada de SECRET_KEY |
 | `ntfy.py` | `notificar()` | Envia notificação push de novo orçamento |
 | `pdf.py` | `gerar_pdf_pedido()` | Gera PDF do pedido |
@@ -715,3 +721,21 @@ algodoce/
 - After: "Forminhas: X | Forma de Pagamento: Y".
 - `routes/sys_orders.py`: `pdf_order` usa `gerar_pdf_relatorio(ORDER_REPORT, ...)`.
 - `print_order.html`: iframe com `pdf_order` dentro de `{% block content %}`, botão "Voltar".
+
+### Sessão 2026-07-15
+
+#### Sistema de Filtros Config-Driven (`XXX_FILTERS`)
+- Criado `app/filters.py` com `resolve_filters()`, `filtrar_vencimento()`, `filtrar_vencimento_query()`.
+- Cada blueprint define `XXX_FILTERS = {'campo': {'type': '...', ...}}` — TODOS os campos de `XXX_FIELDS` (exceto `filter=False`).
+- Painel de filtros (aba "Filtros") lê `data-filter-config` (JSON do FILTERS) e renderiza automaticamente.
+- Tipos: `text`, `number`, `select` (dict=checklist, array=dropdown), `boolean`, `date` (presets + inputs).
+- Para esconder filtro: remover entrada do dict. Sem defaults — usuário define depois.
+- Botão "Limpar": reseta campos in-place. Botão "Aplicar": navega com query params.
+- Todos os 15 módulos sys_* com `XXX_FILTERS` completos + `resolve_filters()` + `active_filters` no template.
+
+#### Botões do painel de filtros
+- Ordem invertida: "Limpar" (outline-danger) primeiro, "Aplicar" (primary) segundo.
+- "Limpar" não navega — apenas reseta campos do formulário e zera badge.
+
+#### `build_field_context()` atualizado
+- Retorna `ctx['filter_options']` com opções de select para o JS renderizar no painel.

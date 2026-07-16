@@ -5,19 +5,29 @@ from app.models.carteira import Carteira
 from app.models.compra import Compra
 from app.models.order import Order
 from app.models.quote import Quote
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, MODE_NUMBER, MODE_TEXT, MODE_SELECT
 from app.table import Field, build_field_context, Table
 
 
 CARTEIRA_FIELDS = [
     Field(name='id', label='#', width=7, mask='999'),
     Field(name='nome', label='Nome', width=50),
-    Field(name='uso', label='Uso', width=10, options={0: 'Pedido', 1: 'Ambos', 2: 'Compra'}, filter_options=[{0: 'Pedido', 1: 'Ambos', 2: 'Compra'}[i] for i in range(3)]),
-    Field(name='gerar', label='Gerar', width=10, options={0: 'Movimento', 1: 'Previsão'}, filter_options=[{0: 'Movimento', 1: 'Previsão'}[i] for i in range(2)]),
+    Field(name='uso', label='Uso', width=10, options={0: 'Pedido', 1: 'Ambos', 2: 'Compra'}, filter_options={0: 'Pedido', 1: 'Ambos', 2: 'Compra'}),
+    Field(name='gerar', label='Gerar', width=10, options={0: 'Movimento', 1: 'Previsão'}, filter_options={0: 'Movimento', 1: 'Previsão'}),
     Field(name='prazo_recebimento', label='Prazo', width=5),
     Field(name='taxa_recebimento', label='Taxa', width=8, input='number', align='right'),
 ]
 
 CARTEIRA_TABLE = Table(fields=CARTEIRA_FIELDS, edit_endpoint='carteira.edit')
+
+CARTEIRA_FILTERS = {
+    'id':                MODE_NUMBER,
+    'nome':              MODE_TEXT,
+    'uso':               {**MODE_SELECT, 'options': {0: 'Pedido', 1: 'Ambos', 2: 'Compra'}},
+    'gerar':             {**MODE_SELECT, 'options': {0: 'Movimento', 1: 'Previsão'}},
+    'prazo_recebimento': MODE_TEXT,
+    'taxa_recebimento':  MODE_NUMBER,
+}
 
 bp = Blueprint("carteira", __name__, url_prefix="/carteira")
 
@@ -30,9 +40,18 @@ def protect():
 
 @bp.route("/")
 def list():
+    active = resolve_filters(CARTEIRA_FILTERS, request.args)
     carteiras = Carteira.query.order_by(Carteira.nome).all()
+    linhas = carteiras[:]
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
+    linhas = apply_select_filter(linhas, 'uso', active.get('uso'), {0: 'Pedido', 1: 'Ambos', 2: 'Compra'})
+    linhas = apply_select_filter(linhas, 'gerar', active.get('gerar'), {0: 'Movimento', 1: 'Previsão'})
+    linhas = apply_text_filter(linhas, 'prazo_recebimento', active.get('prazo_recebimento'))
+    linhas = apply_number_filter(linhas, 'taxa_recebimento', active.get('taxa_recebimento'))
+    carteiras = linhas
     ctx = build_field_context(CARTEIRA_FIELDS)
-    return render_template("sys_carteira/list.html", carteiras=carteiras, CARTEIRA_TABLE=CARTEIRA_TABLE, ctx=ctx)
+    return render_template("sys_carteira/list.html", carteiras=carteiras, CARTEIRA_TABLE=CARTEIRA_TABLE, ctx=ctx, active_filters=active, FILTERS=CARTEIRA_FILTERS)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

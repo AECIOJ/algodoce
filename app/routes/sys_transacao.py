@@ -13,6 +13,7 @@ from app.models.order import Order
 from app.constants import PREVISAO_STATUS
 from app.utils import LinhaTransacao, parse_prazo_recebimento
 from app.table import Field, build_field_context, Table
+from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 
 
 TRANSACAO_FIELDS = [
@@ -28,13 +29,29 @@ TRANSACAO_FIELDS = [
     Field(name='realizado', label='Realizado', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='variacao', label='Variação', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=list(PREVISAO_STATUS.values())),
+    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=PREVISAO_STATUS),
 ]
 
 TIPO_PAGAR = ("P", "C")
 TIPO_RECEBER = ("R", "V")
 TIPO_NOME = {"P": "Pagamento", "R": "Recebimento"}
 TIPO_NOME_PLURAL = {"P": "Pagamentos", "R": "Recebimentos"}
+
+TRANSACAO_FILTERS = {
+    'transacao_id': MODE_NUMBER,
+    'conta':        MODE_TEXT,
+    'compra_id':    MODE_NUMBER,
+    'fatura':       MODE_TEXT,
+    'valor':        MODE_NUMBER,
+    'id':           MODE_NUMBER,
+    'documento':    MODE_TEXT,
+    'vencimento':   MODE_DATE,
+    'previsto':     MODE_NUMBER,
+    'realizado':    MODE_NUMBER,
+    'variacao':     MODE_NUMBER,
+    'saldo':        MODE_NUMBER,
+    'status':       {**MODE_SELECT, 'options': PREVISAO_STATUS},
+}
 
 bp = Blueprint("transacao", __name__, url_prefix="/transacao")
 
@@ -68,25 +85,6 @@ def _build_submitted():
             variacao=float(vars_[i]) if vars_[i] and vars_[i].strip() else 0,
         ))
     return data, previsoes
-
-
-def _filtrar_vencimento(linhas, hoje, filtro_venc):
-    if filtro_venc == "em_atraso":
-        return [l for l in linhas if l.vencimento < hoje and l.status not in (0, 8, 9)]
-    elif filtro_venc == "hoje":
-        w = hoje.weekday()
-        if w == 5:
-            dias = [hoje, hoje + timedelta(days=1), hoje + timedelta(days=2)]
-        elif w == 6:
-            dias = [hoje, hoje - timedelta(days=1), hoje + timedelta(days=1)]
-        elif w == 0:
-            dias = [hoje, hoje - timedelta(days=1), hoje - timedelta(days=2)]
-        else:
-            dias = [hoje]
-        return [l for l in linhas if l.vencimento in dias and l.status not in (0, 8, 9)]
-    elif filtro_venc == "a_vencer":
-        return [l for l in linhas if l.vencimento > hoje and l.status not in (0, 8, 9)]
-    return linhas
 
 
 def _nav_ids(query_tipo):
@@ -180,8 +178,7 @@ def _list(tipo):
     is_pagar = tipo in ("P", "C")
     tipos = TIPO_PAGAR if is_pagar else TIPO_RECEBER
     hoje = date.today()
-    filtro_status = request.args.get("status", "todos")
-    filtro_venc = request.args.get("vencimento", "todos")
+    active = resolve_filters(TRANSACAO_FILTERS, request.args)
     transacoes = Transacao.query.options(
         joinedload(Transacao.previsoes)
     ).filter(
@@ -196,12 +193,21 @@ def _list(tipo):
         else:
             linhas.append(LinhaTransacao(t))
 
-    if filtro_status != "todos":
-        linhas = [l for l in linhas if l.status == int(filtro_status)]
-    linhas = _filtrar_vencimento(linhas, hoje, filtro_venc)
+    linhas = apply_select_filter(linhas, 'status', active.get('status'), PREVISAO_STATUS)
+    linhas = apply_date_filter(linhas, 'vencimento', active.get('vencimento'))
+    linhas = apply_select_filter(linhas, 'conta', active.get('conta'), {c.nome for c in Conta.query.all()})
+    linhas = apply_text_filter(linhas, 'fatura', active.get('fatura'))
+    linhas = apply_number_filter(linhas, 'transacao_id', active.get('transacao_id'))
+    linhas = apply_number_filter(linhas, 'compra_id', active.get('compra_id'))
+    linhas = apply_text_filter(linhas, 'documento', active.get('documento'))
+    linhas = apply_number_filter(linhas, 'valor', active.get('valor'))
+    linhas = apply_number_filter(linhas, 'previsto', active.get('previsto'))
+    linhas = apply_number_filter(linhas, 'realizado', active.get('realizado'))
+    linhas = apply_number_filter(linhas, 'variacao', active.get('variacao'))
+    linhas = apply_number_filter(linhas, 'saldo', active.get('saldo'))
 
     total_saldo = sum(l.saldo for l in linhas)
-    ctx = build_field_context(TRANSACAO_FIELDS)
+    ctx = build_field_context(TRANSACAO_FIELDS, filters_config=TRANSACAO_FILTERS)
     table = Table(
         fields=TRANSACAO_FIELDS,
         fields_master=[1, 2, 3, 4, 5],
@@ -213,7 +219,7 @@ def _list(tipo):
         "sys_transacao/list.html", previsoes=linhas, total_saldo=total_saldo,
         TABLE=table, ctx=ctx, tipo=tipo,
         tipo_nome=TIPO_NOME[tipo], tipo_nome_plural=TIPO_NOME_PLURAL[tipo],
-        PREVISAO_STATUS=PREVISAO_STATUS)
+        PREVISAO_STATUS=PREVISAO_STATUS, active_filters=active, FILTERS=TRANSACAO_FILTERS)
 
 
 def _detail(id, tipo):

@@ -5,18 +5,26 @@ from app.models.ingredient import Ingredient
 from app.models.product import Product
 from app.models.product_ingredient import ProductIngredient
 from app.models.unit_conversion import UnitConversion
-from app.constants import TIPO_INGREDIENTE
+from app.constants import TIPO_INGREDIENTE, UNIDADES_RECEITA
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, MODE_NUMBER, MODE_TEXT, MODE_SELECT
 from app.table import Field, build_field_context, Table
 
 
 INGREDIENTS_FIELDS = [
     Field(name='id', label='#', width=3, mask='999'),
     Field(name='nome', label='Nome', width=18),
-    Field(name='tipo', label='Tipo', width=12, options=TIPO_INGREDIENTE, filter_options=list(TIPO_INGREDIENTE.values())),
+    Field(name='tipo', label='Tipo', width=12, options=TIPO_INGREDIENTE, filter_options=TIPO_INGREDIENTE),
     Field(name='unidade_medida', label='Und', width=8),
 ]
 
 INGREDIENTS_TABLE = Table(fields=INGREDIENTS_FIELDS, edit_endpoint='ingredients.edit')
+
+INGREDIENTS_FILTERS = {
+    'id':             MODE_NUMBER,
+    'nome':           MODE_TEXT,
+    'tipo':           {**MODE_SELECT, 'options': TIPO_INGREDIENTE},
+    'unidade_medida': {**MODE_SELECT, 'options': {u: u for u in UNIDADES_RECEITA}},
+}
 
 bp = Blueprint("ingredients", __name__)
 
@@ -29,13 +37,17 @@ def protect():
 
 @bp.route("/insumos")
 def list():
-    filtro_tipo = request.args.get("tipo", "todos")
+    active = resolve_filters(INGREDIENTS_FILTERS, request.args)
     query = Ingredient.query.order_by(Ingredient.nome)
-    if filtro_tipo != "todos":
-        query = query.filter_by(tipo=int(filtro_tipo))
     ingredients = query.all()
+    linhas = ingredients[:]
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
+    linhas = apply_select_filter(linhas, 'tipo', active.get('tipo'), TIPO_INGREDIENTE)
+    linhas = apply_select_filter(linhas, 'unidade_medida', active.get('unidade_medida'), {u: u for u in UNIDADES_RECEITA})
+    ingredients = linhas
     ctx = build_field_context(INGREDIENTS_FIELDS)
-    return render_template("sys_ingredients/list.html", ingredients=ingredients, INGREDIENTS_TABLE=INGREDIENTS_TABLE, ctx=ctx, TIPO_INGREDIENTE=TIPO_INGREDIENTE)
+    return render_template("sys_ingredients/list.html", ingredients=ingredients, INGREDIENTS_TABLE=INGREDIENTS_TABLE, ctx=ctx, TIPO_INGREDIENTE=TIPO_INGREDIENTE, active_filters=active, FILTERS=INGREDIENTS_FILTERS)
 
 
 @bp.route("/insumos/novo", methods=["GET", "POST"])
@@ -50,7 +62,7 @@ def new():
         db.session.commit()
         flash("Insumo cadastrado!", "success")
         return redirect(url_for("ingredients.list"))
-    return render_template("sys_ingredients/form.html", TIPO_INGREDIENTE=TIPO_INGREDIENTE)
+    return render_template("sys_ingredients/form.html", TIPO_INGREDIENTE=TIPO_INGREDIENTE, UNIDADES_RECEITA=UNIDADES_RECEITA)
 
 
 @bp.route("/insumos/<int:id>/editar", methods=["GET", "POST"])
@@ -108,6 +120,7 @@ def edit(id):
         nav=nav,
         products_using=products_using,
         TIPO_INGREDIENTE=TIPO_INGREDIENTE,
+        UNIDADES_RECEITA=UNIDADES_RECEITA,
     )
 
 

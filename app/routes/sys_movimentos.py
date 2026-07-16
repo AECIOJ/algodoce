@@ -12,6 +12,7 @@ from app.models.compra import Compra
 from app.models.order import Order
 from app.models.operacao import Operacao
 from app.constants import TIPO_RECURSO, TIPO_OPERACAO, PREVISAO_STATUS
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 from app.table import Field, build_field_context
 from decimal import Decimal
 
@@ -30,6 +31,17 @@ MOVIMENTOS_FIELDS = [
     Field(name='historico', label='Histórico', width=30),
 ]
 
+MOVIMENTOS_FILTERS = {
+    'id':        MODE_NUMBER,
+    'data':      MODE_DATE,
+    'recurso':   {**MODE_SELECT, 'options': TIPO_RECURSO, 'filter_path': 'recurso_id'},
+    'conta':     {**MODE_SELECT, 'filter_path': 'conta.nome'},
+    'documento': MODE_TEXT,
+    'valor':     MODE_NUMBER,
+    'operacao':  {**MODE_SELECT, 'filter_path': 'operacao.nome'},
+    'historico': MODE_TEXT,
+}
+
 
 @bp.before_request
 @login_required
@@ -46,17 +58,26 @@ def _movto_tipo_plural(tipo):
 
 
 def _list(tipo):
-    filtro_recurso = request.args.get("recurso", "todos")
+    active = resolve_filters(MOVIMENTOS_FILTERS, request.args)
     query = Movto.query.filter(Movto.tipo == tipo)
-    if filtro_recurso != "todos":
-        query = query.filter(Movto.recurso_id == int(filtro_recurso))
     movtos = query.order_by(Movto.data.desc(), Movto.id.desc()).all()
-    ctx = build_field_context(MOVIMENTOS_FIELDS)
+    linhas = movtos[:]
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_date_filter(linhas, 'data', active.get('data'))
+    linhas = apply_select_filter(linhas, 'recurso', active.get('recurso'), TIPO_RECURSO, filter_path='recurso_id')
+    linhas = apply_select_filter(linhas, 'conta', active.get('conta'), build_fk_options(Conta), filter_path='conta.nome')
+    linhas = apply_text_filter(linhas, 'documento', active.get('documento'))
+    linhas = apply_number_filter(linhas, 'valor', active.get('valor'))
+    linhas = apply_select_filter(linhas, 'operacao', active.get('operacao'), build_fk_options(Operacao), filter_path='operacao.nome')
+    linhas = apply_text_filter(linhas, 'historico', active.get('historico'))
+    movtos = linhas
+    ctx = build_field_context(MOVIMENTOS_FIELDS, filters_config=MOVIMENTOS_FILTERS)
     return render_template(
         "sys_movimentos/list.html",
         movtos=movtos, fields=MOVIMENTOS_FIELDS, ctx=ctx,
         tipo=tipo, tipo_nome=_movto_tipo(tipo),
         tipo_nome_plural=_movto_tipo_plural(tipo),
+        active_filters=active, FILTERS=MOVIMENTOS_FILTERS,
     )
 
 

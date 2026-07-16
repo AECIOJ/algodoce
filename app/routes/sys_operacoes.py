@@ -3,6 +3,7 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.operacao import Operacao
 from app.constants import TIPO_OPERACAO, CONECTORES
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_boolean_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_BOOLEAN, MODE_SELECT
 from app.table import Field, build_field_context, Table
 
 bp = Blueprint("operacoes", __name__, url_prefix="/operacoes")
@@ -12,7 +13,7 @@ OPERACOES_FIELDS = [
     Field(name='indice', label='Indice', width=6, filter=False, pos=1),
     Field(name='id', label='#', width=7, mask='999.999', card_path='operacao.id'),
     Field(name='nome', label='Nome', width=20, card_path='operacao.nome', pos=1),
-    Field(name='tipo', label='Tipo', width=12, options=TIPO_OPERACAO, filter_options=list(TIPO_OPERACAO.values()), card_path='operacao.tipo'),
+    Field(name='tipo', label='Tipo', width=12, options=TIPO_OPERACAO, filter_options=TIPO_OPERACAO, card_path='operacao.tipo'),
     Field(name='fator', label='Fator', width=8, card_path='operacao.fator'),
     Field(name='pai', label='Pai', width=30, query='operacao', card_path='operacao.pai.nome'),
     Field(name='ativa', label='Ativa', input='boolean', card_path='operacao.ativa'),
@@ -20,6 +21,16 @@ OPERACOES_FIELDS = [
 ]
 
 OPERACOES_TABLE = Table(fields=OPERACOES_FIELDS, edit_endpoint='operacoes.edit', edit_id_field='operacao.id')
+
+OPERACOES_FILTERS = {
+    'id':     MODE_NUMBER,
+    'nome':   MODE_TEXT,
+    'tipo':   {**MODE_SELECT, 'options': TIPO_OPERACAO},
+    'fator':  MODE_TEXT,
+    'pai':    {**MODE_SELECT, 'filter_path': 'pai.nome'},
+    'ativa':  MODE_BOOLEAN,
+    'ordem':  MODE_NUMBER,
+}
 
 
 def _transformar_nome(nome, pai_id):
@@ -91,13 +102,18 @@ def plano():
 
 @bp.route("/")
 def list():
-    status = request.args.get("status", "todos")
+    active = resolve_filters(OPERACOES_FILTERS, request.args)
     query = Operacao.query.order_by(Operacao.tipo, Operacao.nome)
-    if status == "ativos":
-        query = query.filter_by(ativa=True)
-    elif status == "inativos":
-        query = query.filter_by(ativa=False)
-    operacoes = set(r.id for r in query.all())
+    operacoes_list = query.all()
+    linhas = operacoes_list[:]
+    linhas = apply_boolean_filter(linhas, 'ativa', active.get('ativa'))
+    linhas = apply_select_filter(linhas, 'tipo', active.get('tipo'), TIPO_OPERACAO)
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
+    linhas = apply_text_filter(linhas, 'fator', active.get('fator'))
+    linhas = apply_select_filter(linhas, 'pai', active.get('pai'), build_fk_options(Operacao), filter_path='pai.nome')
+    linhas = apply_number_filter(linhas, 'ordem', active.get('ordem'))
+    operacoes = set(r.id for r in linhas)
 
     secoes = _build_tree()
     flat_list = []
@@ -106,8 +122,8 @@ def list():
             if item["operacao"].id in operacoes:
                 flat_list.append(item)
 
-    ctx = build_field_context(OPERACOES_FIELDS)
-    return render_template("sys_operacoes/list.html", operacoes=flat_list, OPERACOES_TABLE=OPERACOES_TABLE, ctx=ctx, TIPO_OPERACAO=TIPO_OPERACAO)
+    ctx = build_field_context(OPERACOES_FIELDS, filters_config=OPERACOES_FILTERS)
+    return render_template("sys_operacoes/list.html", operacoes=flat_list, OPERACOES_TABLE=OPERACOES_TABLE, ctx=ctx, TIPO_OPERACAO=TIPO_OPERACAO, active_filters=active, FILTERS=OPERACOES_FILTERS)
 
 
 @bp.route("/novo", methods=["GET", "POST"])

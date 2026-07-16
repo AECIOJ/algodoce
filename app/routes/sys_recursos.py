@@ -3,18 +3,27 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.recurso import Recurso
 from app.constants import TIPO_RECURSO
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 from app.table import Field, build_field_context, Table
 
 
 RECURSOS_FIELDS = [
     Field(name='id', label='#', width=7, mask='999.999'),
     Field(name='nome', label='Nome', width=20, pos=1),
-    Field(name='tipo', label='Tipo', width=12, options=TIPO_RECURSO, filter_options=list(TIPO_RECURSO.values())),
+    Field(name='tipo', label='Tipo', width=12, options=TIPO_RECURSO, filter_options=TIPO_RECURSO),
     Field(name='saldo', label='Saldo Inicial', width=12, input='number', align='right', currency='brl'),
     Field(name='data', label='Balanço', width=12, input='date'),
 ]
 
 RECURSOS_TABLE = Table(fields=RECURSOS_FIELDS, edit_endpoint='recursos.edit')
+
+RECURSOS_FILTERS = {
+    'id':    MODE_NUMBER,
+    'nome':  MODE_TEXT,
+    'tipo':  {**MODE_SELECT, 'options': TIPO_RECURSO},
+    'saldo': MODE_NUMBER,
+    'data':  MODE_DATE,
+}
 
 bp = Blueprint("recursos", __name__, url_prefix="/recursos")
 
@@ -22,15 +31,20 @@ bp = Blueprint("recursos", __name__, url_prefix="/recursos")
 @bp.route("/")
 @login_required
 def list():
-    filtro_tipo = request.args.get("tipo", "todos")
+    active = resolve_filters(RECURSOS_FILTERS, request.args)
     query = Recurso.query
-    if filtro_tipo != "todos":
-        query = query.filter(Recurso.tipo == int(filtro_tipo))
     recursos = query.order_by(Recurso.nome).all()
+    linhas = recursos[:]
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
+    linhas = apply_select_filter(linhas, 'tipo', active.get('tipo'), TIPO_RECURSO)
+    linhas = apply_number_filter(linhas, 'saldo', active.get('saldo'))
+    linhas = apply_date_filter(linhas, 'data', active.get('data'))
+    recursos = linhas
     ctx = build_field_context(RECURSOS_FIELDS)
     return render_template(
         "sys_recursos/list.html", recursos=recursos, RECURSOS_TABLE=RECURSOS_TABLE, ctx=ctx,
-        TIPO_RECURSO=TIPO_RECURSO,
+        TIPO_RECURSO=TIPO_RECURSO, active_filters=active, FILTERS=RECURSOS_FILTERS,
     )
 
 

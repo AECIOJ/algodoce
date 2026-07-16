@@ -14,6 +14,7 @@ from app.models.producao_insumo import ProducaoInsumo
 from app.models.producao_produto import ProducaoProduto
 
 from app.constants import ORDER_STATUS, PRODUCAO_STATUS, PRODUCAO_ETAPAS
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 from app.table import Field, build_field_context, Table
 
 
@@ -23,10 +24,19 @@ PRODUCAO_FIELDS = [
     Field(name='previsao_de', label='Previsão De', width=14, input='date'),
     Field(name='previsao_ate', label='Previsão Até', width=14, input='date'),
     Field(name='data_fim', label='Finalização', width=12, input='date'),
-    Field(name='status', label='Status', width=14, options=PRODUCAO_STATUS, filter_options=list(PRODUCAO_STATUS.values())),
+    Field(name='status', label='Status', width=14, options=PRODUCAO_STATUS, filter_options=PRODUCAO_STATUS),
 ]
 
 PRODUCAO_TABLE = Table(fields=PRODUCAO_FIELDS, edit_endpoint='producao.detail')
+
+PRODUCAO_FILTERS = {
+    'id':           MODE_NUMBER,
+    'descricao':    MODE_TEXT,
+    'previsao_de':  MODE_DATE,
+    'previsao_ate': MODE_DATE,
+    'data_fim':     MODE_DATE,
+    'status':       {**MODE_SELECT, 'options': PRODUCAO_STATUS},
+}
 
 bp = Blueprint("producao", __name__, url_prefix="/producao")
 
@@ -39,13 +49,19 @@ def protect():
 
 @bp.route("/")
 def list():
-    status_filter = request.args.get("status", type=int)
+    active = resolve_filters(PRODUCAO_FILTERS, request.args)
     query = Producao.query
-    if status_filter is not None:
-        query = query.filter(Producao.status == status_filter)
     producoes = query.order_by(Producao.previsao_de.desc().nullslast()).all()
+    linhas = producoes[:]
+    linhas = apply_select_filter(linhas, 'status', active.get('status'), PRODUCAO_STATUS)
+    linhas = apply_number_filter(linhas, 'id', active.get('id'))
+    linhas = apply_text_filter(linhas, 'descricao', active.get('descricao'))
+    linhas = apply_date_filter(linhas, 'previsao_de', active.get('previsao_de'))
+    linhas = apply_date_filter(linhas, 'previsao_ate', active.get('previsao_ate'))
+    linhas = apply_date_filter(linhas, 'data_fim', active.get('data_fim'))
+    producoes = linhas
     ctx = build_field_context(PRODUCAO_FIELDS)
-    return render_template("sys_producao/list.html", producoes=producoes, PRODUCAO_TABLE=PRODUCAO_TABLE, ctx=ctx)
+    return render_template("sys_producao/list.html", producoes=producoes, PRODUCAO_TABLE=PRODUCAO_TABLE, ctx=ctx, active_filters=active, FILTERS=PRODUCAO_FILTERS)
 
 
 def _calcular_qtd_produzir(produto, quantidade):

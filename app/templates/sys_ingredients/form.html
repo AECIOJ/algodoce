@@ -23,7 +23,7 @@
 <div class="mb-3">
   <label class="form-label">Unidade de Medida *</label>
   <select name="unidade_medida" class="form-select" required>
-    {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+    {% for un in UNIDADES_RECEITA %}
       <option value="{{ un }}" {% if ingredient and ingredient.unidade_medida == un %}selected{% endif %}>{{ un }}</option>
     {% endfor %}
   </select>
@@ -41,7 +41,7 @@
         <div class="row mb-2 conversao-row align-items-center">
           <div class="col-md-4 mb-1 mb-md-0">
             <select name="conversion_unidade" class="form-select">
-              {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+              {% for un in UNIDADES_RECEITA %}
                 <option value="{{ un }}" {% if cv.unidade == un %}selected{% endif %}>{{ un }}</option>
               {% endfor %}
             </select>
@@ -64,7 +64,7 @@
         <div class="row mb-2 conversao-row align-items-center">
           <div class="col-md-4 mb-1 mb-md-0">
             <select name="conversion_unidade" class="form-select">
-              {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+              {% for un in UNIDADES_RECEITA %}
                 <option value="{{ un }}">{{ un }}</option>
               {% endfor %}
             </select>
@@ -166,7 +166,7 @@ function addConversao() {
   row.innerHTML = `
     <div class="col-md-4">
       <select name="conversion_unidade" class="form-select">
-        {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+        {% for un in UNIDADES_RECEITA %}
           <option value="{{ un }}">{{ un }}</option>
         {% endfor %}
       </select>
