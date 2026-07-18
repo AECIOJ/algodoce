@@ -193,7 +193,7 @@ def build_field_context(fields: list[Field], model_map: dict[str, type] | None =
                 if filters_config and f.name in filters_config:
                     fcfg = filters_config[f.name]
                     if fcfg.get('type') == 'select' and 'options' not in fcfg:
-                        ctx['filter_options'][f.name] = {i.id: i.nome for i in items}
+                        ctx['filter_options'][f.name] = [i.nome for i in items if i.nome]
             ft = field_filter_type(f)
             if ft == 'select':
                 fo = field_filter_options(f)

@@ -263,7 +263,7 @@ window.pageListFilter = true;
       group.className = 'filter-group';
 
       if (type === 'text') {
-        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1">';
+        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="d-flex gap-1">';
         var m = document.createElement('select'); m.className='form-select form-select-sm'; m.style.width='auto';
         m.dataset.field=field; m.dataset.subtype='mode';
         (cfg.modes||[['igual','Igual a'],['contains','Contém'],['starts','Começa']]).forEach(function(p){
@@ -278,7 +278,7 @@ window.pageListFilter = true;
         group.lastChild.appendChild(i);
 
       } else if (type === 'number') {
-        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1 align-items-center flex-wrap">';
+        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="d-flex gap-1 align-items-center flex-wrap">';
         var ms = document.createElement('select'); ms.className='form-select form-select-sm'; ms.style.width='auto';
         ms.dataset.field=field; ms.dataset.subtype='mode';
         (cfg.modes||[['igual','Igual a'],['entre','Entre'],['maior_que','Maior que'],['maior_igual','Maior ou igual a'],['menor_que','Menor que'],['menor_igual','Menor ou igual a']]).forEach(function(p){
@@ -303,7 +303,7 @@ window.pageListFilter = true;
         });
 
       } else if (type === 'select') {
-        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-1">';
+        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="d-flex gap-1">';
         var isDict=opts&&!Array.isArray(opts)&&Object.keys(opts).length>0&&typeof opts[Object.keys(opts)[0]]==='string';
         if(isDict){
           var vals=(filterState[field]||'').split(',').filter(Boolean);
@@ -331,7 +331,7 @@ window.pageListFilter = true;
         }
 
       } else if (type === 'boolean') {
-        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-3 filter-radio-group">';
+        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="d-flex gap-3 filter-radio-group">';
         (cfg.modes||[['','Todos'],['true','Sim'],['false','Não']]).forEach(function(p,idx){
           var l=document.createElement('label'); l.className='d-flex align-items-center gap-1';
           var r=document.createElement('input'); r.type='radio'; r.name='filter_'+field; r.value=p[0];
@@ -343,7 +343,7 @@ window.pageListFilter = true;
         });
 
       } else if (type === 'date') {
-        group.innerHTML = '<label class="form-label small mb-1">'+label+'</label><div class="d-flex gap-2 align-items-center flex-wrap">';
+        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="d-flex gap-2 align-items-center flex-wrap">';
         var ps=document.createElement('select'); ps.className='form-select form-select-sm'; ps.style.width='auto'; ps.style.flexShrink='0';
         ps.dataset.field=field; ps.dataset.subtype='preset';
         (cfg.modes||[['hoje','Hoje'],['periodo','Período'],['ontem','Ontem'],['ultimos_7_dias','Últimos 7 dias'],['mes','Mês'],['mes_atual','Mês Atual'],['mes_anterior','Mês Anterior'],['ano','Ano'],['ano_atual','Ano Atual'],['a_partir_de','A partir de'],['ate_a_data_de','Até a data de']]).forEach(function(p){

@@ -40,7 +40,7 @@ TIPO_NOME_PLURAL = {"P": "Pagamentos", "R": "Recebimentos"}
 
 TRANSACAO_FILTERS = {
     'transacao_id': MODE_NUMBER,
-    'conta':        MODE_TEXT,
+    'conta':        {**MODE_SELECT},
     'compra_id':    MODE_NUMBER,
     'fatura':       MODE_TEXT,
     'valor':        MODE_NUMBER,
