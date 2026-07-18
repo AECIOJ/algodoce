@@ -307,7 +307,12 @@ def cancel(id):
 @bp.route("/pedidos/<int:id>/print")
 def print_order(id):
     order = Order.query.get_or_404(id)
-    return render_template("sys_orders/print_order.html", order=order, FORMINHAS=FORMINHAS)
+    from app.reports.pedido import rep_pedido
+    return render_template(
+        rep_pedido.print_template,
+        fallback_url=url_for(rep_pedido.edit_endpoint, id=order.id),
+        pdf_url=url_for('orders.pdf_order', id=order.id),
+    )
 
 
 @bp.route("/pedidos/<int:id>/pdf")

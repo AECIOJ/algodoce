@@ -319,6 +319,19 @@ html.list-page main {
   margin-bottom: 0 !important;
   overflow: hidden;
 }
+html.list-page main.container {
+  max-width: 98% !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+html.list-page .page-list-inner {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+html.list-page .table-list-wrap table {
+  width: 100% !important;
+  min-width: 0 !important;
+}
 html.list-page .table-scroll {
   flex: 1;
   overflow-y: auto;

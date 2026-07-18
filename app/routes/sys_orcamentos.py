@@ -430,7 +430,12 @@ def excluir(id):
 @bp.route("/orcamentos/<int:id>/print")
 def print_quote(id):
     quote = Quote.query.get_or_404(id)
-    return render_template("sys_orcamentos/print.html", quote=quote, FORMINHAS=FORMINHAS)
+    from app.reports.orcamento import rep_orcamento
+    return render_template(
+        rep_orcamento.print_template,
+        fallback_url=url_for(rep_orcamento.edit_endpoint, id=quote.id),
+        pdf_url=url_for('orcamentos.pdf_quote', id=quote.id),
+    )
 
 
 @bp.route("/orcamentos/<int:id>/pdf")

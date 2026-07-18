@@ -258,6 +258,11 @@ class Report:
     # Texts avulsos
     texts: Optional[list] = None
 
+    # Template de impressão HTML (wrapper com iframe + botão Voltar)
+    print_template: str = 'components/print_default.html'
+    # Endpoint de edição para fallback do botão Voltar (ex: 'compras.edit')
+    edit_endpoint: Optional[str] = None
+
     # Margens (mm)
     margin_top: float = 10
     margin_bottom: float = 20

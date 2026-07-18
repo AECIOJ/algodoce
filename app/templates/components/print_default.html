@@ -2,10 +2,10 @@
 {% block content %}
 
 <div class="d-flex justify-content-end gap-2 mb-3 no-print">
-  <a href="{{ url_for('orcamentos.edit', id=quote.id) }}" class="btn btn-outline-secondary">Voltar</a>
+  <a href="#" onclick="var ref=document.referrer||'{{ fallback_url }}';window.location.href=ref;" class="btn btn-outline-secondary">Voltar</a>
 </div>
 
-<iframe src="{{ url_for('orcamentos.pdf_quote', id=quote.id) }}"
+<iframe src="{{ pdf_url }}"
         style="width:100%;height:calc(100vh - 150px);border:none;"></iframe>
 
 {% endblock %}

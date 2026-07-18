@@ -405,8 +405,12 @@ def edit(id):
 @bp.route("/<int:id>/print")
 def print_compra(id):
     compra = Compra.query.get_or_404(id)
-    return render_template("sys_compras/print_compra.html", compra=compra,
-                           COMPRA_STATUS=COMPRA_STATUS)
+    from app.reports.compra import rep_compra
+    return render_template(
+        rep_compra.print_template,
+        fallback_url=url_for(rep_compra.edit_endpoint, id=compra.id),
+        pdf_url=url_for('compras.pdf_compra', id=compra.id),
+    )
 
 
 @bp.route("/<int:id>/pdf")

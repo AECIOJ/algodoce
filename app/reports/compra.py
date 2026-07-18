@@ -51,6 +51,7 @@ def _report_after(compra):
 
 rep_compra = Report(
     label='Compra',
+    edit_endpoint='compras.edit',
     header={
         'layout': 'logo_left',
         'title': _report_title,
