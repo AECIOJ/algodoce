@@ -38,7 +38,7 @@ QUOTES_FIELDS = [
     Field(name='pedido_id', label='Pedido', width=10, filter=False, link='orders.edit'),
 ]
 
-QUOTES_TABLE = Table(fields=QUOTES_FIELDS, edit_endpoint='orcamentos.edit')
+QUOTES_TABLE = Table(fields=QUOTES_FIELDS, edit_endpoint='orcamentos.edit', send_endpoint='orcamentos.print_quote')
 
 QUOTES_FILTERS = {
     'id':              MODE_NUMBER,

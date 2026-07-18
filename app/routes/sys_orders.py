@@ -36,7 +36,7 @@ ORDERS_FIELDS = [
     Field(name='quote_id', label='Orçamento', width=9, filter=False, link='orcamentos.edit'),
 ]
 
-ORDERS_TABLE = Table(fields=ORDERS_FIELDS, edit_endpoint='orders.edit')
+ORDERS_TABLE = Table(fields=ORDERS_FIELDS, edit_endpoint='orders.edit', send_endpoint='orders.print_order')
 
 ORDERS_FILTERS = {
     'id':                    MODE_NUMBER,

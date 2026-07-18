@@ -11,6 +11,8 @@
 {% if order and order.quote_id %}
 <a href="{{ url_for('orcamentos.edit', id=order.quote_id) }}" class="btn btn-outline-info btn-sm">Orçamento #{{ order.quote_id|fmtid }}</a>
 {% endif %}
+
+    <a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">Enviar</a>
 {% endblock %}
 
 {% block form_body %}
@@ -28,7 +30,7 @@
     <label class="form-label">Telefone</label>
     <div class="input-group">
       <input type="text" name="cliente_telefone" class="form-control" value="{{ order.conta.telefone if order and order.conta and order.conta.telefone else '' }}" {{ 'readonly' if ro else '' }}>
-      {% if order %}<a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success">Enviar</a>{% endif %}
+      {% if order %}<a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">Enviar</a>{% endif %}
     </div>
   </div>
   <div class="col-md-2 mb-2 mb-md-0">

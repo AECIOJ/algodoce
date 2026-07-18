@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from types import SimpleNamespace
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
-from flask_login import login_required
+from flask_login import login_required, current_user
 from app.extensions import db
 from app.models.movto import Movto
 from app.models.recurso import Recurso
@@ -11,6 +11,7 @@ from app.models.transacao import Transacao
 from app.models.compra import Compra
 from app.models.order import Order
 from app.models.operacao import Operacao
+from app.models.compra_historico import CompraHistorico
 from app.constants import TIPO_RECURSO, TIPO_OPERACAO, PREVISAO_STATUS
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 from app.table import Field, build_field_context
@@ -235,6 +236,13 @@ def _create_or_update(movto, tipo, compra=None):
         _sincronizar_previsao(movto, 'criar')
     if compra and not compra.movto_id:
         compra.movto_id = movto.id
+        evento = CompraHistorico(
+            compra_id=compra.id, status=2, data=movto.data,
+            usuario=current_user.username if current_user.is_authenticated else None,
+            responsavel=current_user.username if current_user.is_authenticated else None,
+        )
+        db.session.add(evento)
+        compra.status = compra.calc_status()
     db.session.commit()
     return True
 

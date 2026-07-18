@@ -6,8 +6,7 @@
   <div>
     <button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
     <a href="{{ url_for('ingredients.edit', id=ingredient.id) }}" class="btn btn-primary">Editar</a>
-    <a href="{{ url_for('ingredients.list') }}" class="btn btn-outline-secondary btn-sm">
-      <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
+    <a href="{{ url_for('ingredients.list') }}" class="btn btn-outline-secondary btn-sm p-1 border-0 d-inline-flex flex-column align-items-center gap-0" title="Voltar à lista" style="min-height:44px;min-width:44px;line-height:1;"><img src="{{ url_for('static', filename='icons/undo.png') }}" alt="" height="14"><span style="font-size:0.6rem;font-weight:600;line-height:1.1;">Lista</span>
     </a>
   </div>
 </div>

@@ -10,7 +10,6 @@ class Compra(db.Model):
     valor = db.Column(db.Numeric(12, 2), nullable=False)
     historico = db.Column(db.Text, nullable=True)
     status = db.Column(db.Integer, nullable=False, default=0)
-    data_recepcao = db.Column(db.Date, nullable=True)
     carteira_id = db.Column(db.Integer, db.ForeignKey("carteira.id"), nullable=True)
     transacao_id = db.Column(db.Integer, db.ForeignKey("transacao.id"), nullable=True, unique=True)
     movto_id = db.Column(db.Integer, db.ForeignKey("movto.id"), nullable=True, unique=True)
@@ -24,6 +23,25 @@ class Compra(db.Model):
         foreign_keys="CompraItem.compra_id",
         cascade="all, delete-orphan",
     )
+    historicos = db.relationship(
+        "CompraHistorico", back_populates="compra",
+        foreign_keys="CompraHistorico.compra_id",
+        cascade="all, delete-orphan",
+    )
+
+    def calc_status(self):
+        _st = {h.status for h in self.historicos}
+        if 9 in _st:
+            return 9
+        if 8 in _st:
+            return 8
+        if 6 in _st:
+            return 6
+        if 2 in _st:
+            return 2
+        if 1 in _st:
+            return 1
+        return 0
 
     def __repr__(self):
         return f"<Compra {self.id}>"

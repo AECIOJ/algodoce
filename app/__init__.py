@@ -100,6 +100,7 @@ def create_app():
         from app.models.quote_item import QuoteItem  # noqa
         from app.models.compra import Compra  # noqa
         from app.models.compra_item import CompraItem  # noqa
+        from app.models.compra_historico import CompraHistorico  # noqa
         from app.models.order_item import OrderItem  # noqa
         from app.models.setting import Setting  # noqa
         from app.models.producao import Producao  # noqa

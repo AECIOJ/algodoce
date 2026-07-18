@@ -2,8 +2,7 @@
 {% block content %}
 
 <div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
-  <a href="{{ url_for('orders.edit', id=order.id) }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='icons/undo.png') }}" alt="Voltar" height="20">
+  <a href="{{ url_for('orders.edit', id=order.id) }}" class="btn btn-outline-secondary btn-sm p-1 border-0 d-inline-flex flex-column align-items-center gap-0" title="Voltar à lista" style="min-height:44px;min-width:44px;line-height:1;"><img src="{{ url_for('static', filename='icons/undo.png') }}" alt="" height="14"><span style="font-size:0.6rem;font-weight:600;line-height:1.1;">Lista</span>
   </a>
   <span class="mx-2 fs-5 fw-bold">Gerar Financeiro — Pedido #{{ order.id|fmtid }}</span>
 </div>

@@ -6,9 +6,9 @@ ORDER_STATUS = {0: "Pendente", 1: "Produzindo", 2: "Pronto", 8: "Cancelado", 9: 
 ORDER_STATUS_FILTER = [("todos", "Todos"), ("0", "Pendente"), ("1", "Produzindo"),
                        ("2", "Pronto"), ("8", "Cancelado"), ("9", "Entregue")]
 
-COMPRA_STATUS = {0: "Orçamento", 1: "Pedido", 6: "Cancelado", 8: "Recebido", 9: "Devolvido"}
+COMPRA_STATUS = {0: "Orçamento", 1: "Pedido", 2: "Compra", 6: "Cancelado", 8: "Recebido", 9: "Devolvido"}
 COMPRA_STATUS_FILTER = [("todos", "Todos"), ("0", "Orçamento"), ("1", "Pedido"),
-                        ("6", "Cancelado"), ("8", "Recebido"), ("9", "Devolvido")]
+                        ("2", "Compra"), ("6", "Cancelado"), ("8", "Recebido"), ("9", "Devolvido")]
 
 QUOTE_STATUS = {0: "Pendente", 1: "Negociação", 6: "Renovado",
                 7: "Expirado", 8: "Reprovado", 9: "Aprovado"}

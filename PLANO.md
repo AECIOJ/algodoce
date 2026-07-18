@@ -739,3 +739,27 @@ algodoce/
 
 #### `build_field_context()` atualizado
 - Retorna `ctx['filter_options']` com opções de select para o JS renderizar no painel.
+
+### Sessão 2026-07-18
+
+#### Sistema de status por eventos (CompraHistorico)
+- Criado model `CompraHistorico` (tabela `compra_historico`, coluna `status` em vez de `evento`) substituindo `CompraEvento`.
+- Removidos campos de data do model `Compra` (`autorizacao`, `aquisicao`, `cancelado`, `devolucao`, `data_recepcao`).
+- Adicionada relação `Compra.historicos` e método `calc_status()` que deriva o status pela precedência: devolucao(9) > recepcao(8) > cancelado(6) > aquisicao(2) > autorizacao(1) > 0.
+- Migração: tabela `compra_eventos` renomeada para `compra_historico`, coluna `evento` renomeada para `status`.
+- Modal de adição de Histórico com select dinâmico via JS (apenas opções válidas conforme status já existentes).
+
+#### Relatório de Compra — título e texto por status
+- `Report` ganhou campos `before_table` e `after_table` (lista de linhas ou callable).
+- Cada linha: `text` (string ou callable), `font_size`, `font_style`, `align`, `width`.
+- `pdf.py`: título do cabeçalho aceita callable; nova `_render_table_lines()` para renderizar `before_table`/`after_table`.
+- `COMPRA_REPORT` usa título dinâmico: Orçamento/Pedido/Cancelamento de Pedido/Devolução de Pedido/Compra conforme `compra.status`.
+- `before_table`: espaçamento + fornecedor + texto descritivo (com motivo do histórico atual). Vazio para status sem texto (2, 8).
+- `after_table`: espaçamento + linha de assinatura + responsável do histórico do status atual.
+- `table.after` mantido como fallback para reports existentes (orcamento, pedido).
+
+#### Formulário de Compra
+- Removido campo Operação do formulário (era lido mas nunca persistido na criação).
+- Removidas queries e imports de `Operacao` das rotas `new()` e `edit()`.
+- Fix: `redirect_after` removido do hidden input no carregamento da página — só é definido ao clicar em "Gerar", evitando redirect acidental para pagamentos ao salvar.
+- JS do Histórico: filtro do select reconstroi opções do zero no `show.bs.modal`, usando `data-status` nas linhas da tabela em vez de comparar labels.

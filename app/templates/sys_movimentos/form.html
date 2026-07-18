@@ -2,8 +2,7 @@
 {% block nav_left %}
 {% if movto %}
 <div class="d-flex align-items-center nav-side">
-  <a href="{{ url_for('movimentos.recebimentos_list' if tipo == 'E' else 'movimentos.pagamentos_list') }}" class="btn btn-outline-secondary btn-sm">
-    <img src="{{ url_for('static', filename='icons/list.png') }}" alt="Voltar" height="20">
+  <a href="{{ url_for('movimentos.recebimentos_list' if tipo == 'E' else 'movimentos.pagamentos_list') }}" class="btn btn-outline-secondary btn-sm p-1 border-0 d-inline-flex flex-column align-items-center gap-0" title="Voltar à lista" style="min-height:44px;min-width:44px;line-height:1;"><img src="{{ url_for('static', filename='icons/list.png') }}" alt="" height="14"><span style="font-size:0.6rem;font-weight:600;line-height:1.1;">Lista</span>
   </a>
 </div>
 <div class="d-flex align-items-center flex-grow-1 justify-content-center gap-1">

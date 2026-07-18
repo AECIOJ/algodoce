@@ -1,13 +1,14 @@
 from datetime import date, timedelta
-from flask import Blueprint, render_template, request, redirect, url_for, flash
-from flask_login import login_required
+from io import BytesIO
+import os
+from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
+from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from app.extensions import db
 from app.models.previsao import Previsao
 from app.models.transacao import Transacao
 from app.models.compra import Compra
 from app.models.client import Conta
-from app.models.operacao import Operacao
 from app.models.ingredient import Ingredient
 from app.models.compra_item import CompraItem
 from app.models.movto import Movto
@@ -16,13 +17,14 @@ from app.models.carteira import Carteira
 from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 from app.utils import LinhaTransacao
 from app.table import Field, build_field_context, Table
+from app.pdf import gerar_pdf_relatorio
+from app.models.compra_historico import CompraHistorico
 
 
 COMPRAS_FIELDS = [
     Field(name='compra_id', label='Compra', width=8),
     Field(name='status_compra', label='Status', width=10, options=COMPRA_STATUS, filter_options=COMPRA_STATUS),
     Field(name='carteira', label='FP', width=12, query='carteira'),
-    Field(name='faturado', label='Faturado', width=10, filter=False, input='boolean'),
     Field(name='fornecedor', label='Fornecedor', width=30, query='conta', pos=1),
     Field(name='fatura', label='Fatura', width=10),
     Field(name='valor', label='Valor', width=12, input='number', align='right', aggregate='sum', currency='brl'),
@@ -38,11 +40,12 @@ COMPRAS_FIELDS = [
 
 COMPRAS_TABLE = Table(
     fields=COMPRAS_FIELDS,
-    fields_master=[1,2,3,4,5,6,7],
-    fields_detail=[8,9,10,11,12,13,14,15],
+    fields_master=[1,2,3,4,5,6],
+    fields_detail=[7,8,9,10,11,12,13,14],
     master_key='compra_id',
     edit_endpoint='compras.edit',
     edit_id_field='compra_id',
+    send_endpoint='compras.print_compra',
 )
 
 COMPRAS_FILTERS = {
@@ -65,6 +68,10 @@ COMPRAS_FILTERS = {
 TIPO = "C"
 
 bp = Blueprint("compras", __name__, url_prefix="/compras")
+
+
+def _calc_compra_status(compra):
+    return compra.calc_status()
 
 
 @bp.before_request
@@ -119,10 +126,8 @@ def new():
     if request.method == "POST":
         data = request.form.get("data") or date.today()
         conta_id = request.form.get("conta_id", type=int) or None
-        operacao_id = request.form.get("operacao_id", type=int) or None
         fatura = request.form.get("fatura") or None
         historico = request.form.get("historico") or None
-        cancelado = request.form.get("cancelado") or None
 
         insumo_ids = request.form.getlist("insumo_id[]")
         quantidades = request.form.getlist("quantidade[]")
@@ -140,7 +145,7 @@ def new():
             data=data, fornecedor_id=conta_id,
             valor=valor_total, historico=historico,
             carteira_id=request.form.get("carteira_id", type=int) or None,
-            status=1,
+            status=0,
         )
         db.session.add(compra)
         db.session.flush()
@@ -158,16 +163,41 @@ def new():
                 )
                 db.session.add(item)
 
+        evento_acoes = request.form.getlist("evento_acao[]")
+        evento_datas = request.form.getlist("evento_data[]")
+        evento_responsaveis = request.form.getlist("evento_responsavel[]")
+        evento_motivos = request.form.getlist("evento_motivo[]")
+        _ev_created = False
+        for i, acao in enumerate(evento_acoes):
+            acao = acao.strip()
+            if not acao:
+                continue
+            ev_data = evento_datas[i].strip() if i < len(evento_datas) and evento_datas[i] else data
+            ev_resp = evento_responsaveis[i].strip() if i < len(evento_responsaveis) else None
+            ev_mot = evento_motivos[i].strip() if i < len(evento_motivos) else None
+            evento = CompraHistorico(
+                compra_id=compra.id,
+                status=int(acao),
+                data=ev_data,
+                usuario=current_user.username if current_user.is_authenticated else None,
+                responsavel=ev_resp or None,
+                motivo=ev_mot or None,
+            )
+            db.session.add(evento)
+            _ev_created = True
+
         db.session.commit()
+        if _ev_created:
+            compra.status = _calc_compra_status(compra)
+            db.session.commit()
         flash("Compra cadastrada!", "success")
         return redirect(url_for("compras.list"))
 
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
-    operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     carteiras = Carteira.query.order_by(Carteira.nome).all()
     return render_template(
-        "sys_compras/form.html", contas=contas, operacoes=operacoes,
+        "sys_compras/form.html", contas=contas,
         insumos=insumos, carteiras=carteiras,
         hoje=date.today(), COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None,
@@ -201,7 +231,6 @@ def edit(id):
         compra.fornecedor_id = request.form.get("conta_id", type=int) or None
         compra.historico = request.form.get("historico") or None
         compra.carteira_id = request.form.get("carteira_id", type=int) or None
-        compra.data_recepcao = request.form.get("data_recepcao") or None
 
         if transacao and not compra.movto_id:
             transacao.data = compra.data
@@ -209,6 +238,29 @@ def edit(id):
             transacao.operacao_id = request.form.get("operacao_id", type=int) or None
             transacao.fatura = request.form.get("fatura") or None
             transacao.historico = compra.historico
+
+        evento_acoes = request.form.getlist("evento_acao[]")
+        evento_datas = request.form.getlist("evento_data[]")
+        evento_responsaveis = request.form.getlist("evento_responsavel[]")
+        evento_motivos = request.form.getlist("evento_motivo[]")
+        _ev_created = False
+        for i, acao in enumerate(evento_acoes):
+            acao = acao.strip()
+            if not acao:
+                continue
+            ev_data = evento_datas[i].strip() if i < len(evento_datas) and evento_datas[i] else compra.data
+            ev_resp = evento_responsaveis[i].strip() if i < len(evento_responsaveis) else None
+            ev_mot = evento_motivos[i].strip() if i < len(evento_motivos) else None
+            evento = CompraHistorico(
+                compra_id=compra.id,
+                status=int(acao),
+                data=ev_data,
+                usuario=current_user.username if current_user.is_authenticated else None,
+                responsavel=ev_resp or None,
+                motivo=ev_mot or None,
+            )
+            db.session.add(evento)
+            _ev_created = True
 
         insumo_ids = request.form.getlist("insumo_id[]")
         quantidades = request.form.getlist("quantidade[]")
@@ -317,6 +369,8 @@ def edit(id):
                 db.session.rollback()
                 flash(f"Total das parcelas ({prev_total:.2f}) excede o valor da compra ({float(transacao.valor):.2f})", "danger")
             else:
+                db.session.flush()
+                compra.status = _calc_compra_status(compra)
                 db.session.commit()
                 flash("Compra atualizada!", "success")
                 redirect_after = request.form.get("redirect_after")
@@ -324,6 +378,8 @@ def edit(id):
                     return redirect(redirect_after)
                 return redirect(url_for("compras.edit", id=compra.id))
         else:
+            db.session.flush()
+            compra.status = _calc_compra_status(compra)
             db.session.commit()
             flash("Compra atualizada!", "success")
             redirect_after = request.form.get("redirect_after")
@@ -332,16 +388,34 @@ def edit(id):
             return redirect(url_for("compras.edit", id=compra.id))
 
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
-    operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     carteiras = Carteira.query.order_by(Carteira.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes] if transacao else []
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
         "sys_compras/form.html", transacao=transacao, compra=compra,
-        contas=contas, operacoes=operacoes, insumos=insumos,
+        contas=contas, insumos=insumos,
         carteiras=carteiras,
         PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
         movimentos=movimentos, tipo_nome="Pagamento",
     )
+
+
+@bp.route("/<int:id>/print")
+def print_compra(id):
+    compra = Compra.query.get_or_404(id)
+    return render_template("sys_compras/print_compra.html", compra=compra,
+                           COMPRA_STATUS=COMPRA_STATUS)
+
+
+@bp.route("/<int:id>/pdf")
+def pdf_compra(id):
+    compra = Compra.query.get_or_404(id)
+    from app.reports.compra import COMPRA_REPORT
+    logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
+    pdf = gerar_pdf_relatorio(COMPRA_REPORT, compra.items, logo_path, instance=compra)
+    buf = BytesIO()
+    pdf.output(buf)
+    return Response(buf.getvalue(), mimetype="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename=compra_{compra.id}.pdf"})

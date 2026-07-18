@@ -8,6 +8,16 @@
 
 {% set previsoes = submitted_previsoes if submitted_previsoes is not none else (transacao.previsoes if transacao else None) %}
 
+{% block nav_right %}
+{% if compra and compra.id and compra.status in (0, 1) %}
+<a href="{{ url_for('compras.print_compra', id=compra.id) }}" target="_blank" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1">
+  <img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">
+  {% set _sl = COMPRA_STATUS.get(compra.status, 'Documento') %}
+  Enviar {{ _sl }}
+</a>
+{% endif %}
+{% endblock %}
+
 {% block form_body %}
 <div class="row g-2 mb-3">
   <div class="col-6 col-md-2">
@@ -22,19 +32,6 @@
         <option value="{{ c.id }}" {% if compra and compra.fornecedor_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
       {% endfor %}
     </select>
-  </div>
-  <div class="col-6 col-md-3">
-    <label class="form-label">Operacao *</label>
-    <select name="operacao_id" class="form-select" required>
-      <option value="">Nenhuma</option>
-      {% for r in operacoes %}
-        <option value="{{ r.id }}" data-tipo-operacao="{{ r.tipo }}" data-tem-pai="{{ 1 if r.pai_id else 0 }}" {% if transacao and transacao.operacao_id == r.id %}selected{% endif %}>{{ r.nome }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-6 col-md-2">
-    <label class="form-label">Data Recepção</label>
-    <input type="date" name="data_recepcao" class="form-control" value="{{ compra.data_recepcao.strftime('%Y-%m-%d') if compra and compra.data_recepcao else '' }}">
   </div>
   <div class="col-12 col-md-6">
     <label class="form-label">Histórico</label>
@@ -308,7 +305,7 @@
             <th>Documento</th>
             <th class="text-end">Valor</th>
             <th>Operacao</th>
-            <th>Histórico</th>
+        <th>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -331,16 +328,100 @@
   {% endif %}
   </div>
 </div>
+
+<hr>
+<h5 class="mb-2">Histórico</h5>
+
+<div class="table-responsive mb-2">
+  <table class="table table-sm table-bordered align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Histórico</th>
+        <th>Responsável</th>
+        <th>Motivo</th>
+      </tr>
+    </thead>
+    <tbody id="eventos-container">
+      {% if compra and compra.historicos %}
+      {% for ev in compra.historicos|sort(attribute='data') %}
+      <tr data-status="{{ ev.status }}">
+        <td>{{ ev.data.strftime('%d/%m/%Y') }}</td>
+        <td>{{ COMPRA_STATUS.get(ev.status, ev.status) }}</td>
+        <td>{{ ev.responsavel or ev.usuario or '' }}</td>
+        <td>{{ ev.motivo or '' }}</td>
+      </tr>
+      {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+
+<template id="evento-row-template">
+  <tr class="evento-pending-row" data-status="">
+    <td class="evento-data-cell"></td>
+    <td class="evento-label-cell"></td>
+    <td class="evento-resp-cell"></td>
+    <td class="evento-motivo-cell"></td>
+  </tr>
+</template>
+
+{% set _ev1 = compra.historicos|selectattr('status', 'equalto', 1)|first if compra else none %}
+{% set _ev2 = compra.historicos|selectattr('status', 'equalto', 2)|first if compra else none %}
+{% set _ev6 = compra.historicos|selectattr('status', 'equalto', 6)|first if compra else none %}
+{% set _ev8 = compra.historicos|selectattr('status', 'equalto', 8)|first if compra else none %}
+{% set _ev9 = compra.historicos|selectattr('status', 'equalto', 9)|first if compra else none %}
+
+<div class="mb-2">
+  <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#eventoModal">
+    + Adicionar Histórico
+  </button>
+</div>
+
+<div id="eventos-pendentes-container"></div>
+
+<div class="modal fade" id="eventoModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Novo Histórico</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label small">Evento</label>
+          <select id="modal-evento-acao" class="form-select">
+            <option value="">Selecionar...</option>
+            <option value="1">Autorização</option>
+            <option value="2">Aquisição</option>
+            <option value="6">Cancelado</option>
+            <option value="8">Recepção</option>
+            <option value="9">Devolução</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Data</label>
+          <input type="date" id="modal-evento-data" class="form-control" value="{{ hoje }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Responsável</label>
+          <input type="text" id="modal-evento-responsavel" class="form-control" value="{{ current_user.username if current_user.is_authenticated else '' }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Motivo</label>
+          <textarea id="modal-evento-motivo" class="form-control" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-sm btn-success" id="btn-confirm-evento">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
-{% block form_footer_left %}
-{% if transacao %}
-<div class="d-flex align-items-center gap-1">
-  <label class="form-label small mb-0 text-danger">Cancelado</label>
-  <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ transacao.cancelado.strftime('%Y-%m-%d') if transacao and transacao.cancelado else '' }}">
-</div>
-{% endif %}
-{% endblock %}
+{% block form_footer_left %}{% endblock %}
 
 {% block page_scripts %}
 <template id="item-template">
@@ -448,14 +529,6 @@
     </div>
   </div>
 </div>
-
-<script>
-document.querySelectorAll('[name="operacao_id"] option').forEach(function(opt) {
-  if (!opt.value) return;
-  var show = opt.dataset.tipoOperacao == "2" && opt.dataset.temPai == "1";
-  opt.style.display = show ? '' : 'none';
-});
-</script>
 
 <script>
 function fmt_brl(valor) {
@@ -681,10 +754,8 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
         ? '{{ url_for('transacao.pagar_new', compra_id=compra.id) }}'
         : '{{ url_for('movimentos.pagamentos_new', compra_id=compra.id) }}';
       var v = document.getElementById('total-display').value;
-      var operacaoEl = document.querySelector('[name="operacao_id"]');
-      var operacaoId = operacaoEl ? operacaoEl.value : '';
       var sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
-      redirectInput.value = baseUrl + sep + 'prazo=' + encodeURIComponent(prazo) + '&valor=' + encodeURIComponent(v) + '&operacao_id=' + encodeURIComponent(operacaoId);
+      btn.dataset.url = baseUrl + sep + 'prazo=' + encodeURIComponent(prazo) + '&valor=' + encodeURIComponent(v);
       btn.classList.remove('d-none');
     }
   }
@@ -695,14 +766,14 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
 
 function gerarClick() {
   var input = document.getElementById('redirect-after-input');
+  var btn = document.getElementById('btn-gerar');
+  var url = btn ? btn.dataset.url : '';
+  if (!url) return;
   var operacaoEl = document.querySelector('[name="operacao_id"]');
   if (operacaoEl && operacaoEl.value) {
-    var u = new URL(input.value, window.location.origin);
-    u.searchParams.set('operacao_id', operacaoEl.value);
-    input.value = u.toString();
+    url += '&operacao_id=' + encodeURIComponent(operacaoEl.value);
   }
-  var url = input.value;
-  if (!url) return;
+  input.value = url;
   if (!window._formModified) {
     window.location.href = url;
     return;
@@ -719,5 +790,87 @@ function gerarClick() {
   }
   form.submit();
 }
+
+// Evento modal
+document.getElementById('eventoModal').addEventListener('show.bs.modal', function() {
+  var sel = document.getElementById('modal-evento-acao');
+  var existing = new Set();
+
+  // existing events from DB (rendered rows) and pending rows
+  document.querySelectorAll('#eventos-container tr').forEach(function(tr) {
+    var st = tr.getAttribute('data-status');
+    if (st) existing.add(parseInt(st));
+  });
+
+  // pending events (hidden inputs)
+  document.querySelectorAll('#eventos-pendentes-container input[name="evento_acao[]"]').forEach(function(inp) {
+    existing.add(parseInt(inp.value));
+  });
+
+  var allOptions = [
+    {value: 1, label: 'Autorização'},
+    {value: 2, label: 'Aquisição'},
+    {value: 6, label: 'Cancelado'},
+    {value: 8, label: 'Recepção'},
+    {value: 9, label: 'Devolução'},
+  ];
+
+  var selVal = sel.value;
+  sel.innerHTML = '<option value="">Selecionar...</option>';
+  allOptions.forEach(function(o) {
+    var show = false;
+    if (o.value === 1 && !existing.has(1)) show = true;
+    else if (o.value === 2 && existing.has(1) && !existing.has(2)) show = true;
+    else if (o.value === 6 && existing.has(2) && !existing.has(6) && !existing.has(8)) show = true;
+    else if (o.value === 8 && existing.has(2) && !existing.has(6) && !existing.has(8)) show = true;
+    else if (o.value === 9 && existing.has(8) && !existing.has(9)) show = true;
+    if (show) {
+      var opt = document.createElement('option');
+      opt.value = o.value;
+      opt.textContent = o.label;
+      sel.appendChild(opt);
+    }
+  });
+  if (!sel.querySelector('option[value="' + selVal + '"]')) {
+    sel.value = '';
+  }
+});
+
+document.getElementById('btn-confirm-evento').addEventListener('click', function() {
+  var acao = document.getElementById('modal-evento-acao').value;
+  var data = document.getElementById('modal-evento-data').value;
+  var responsavel = document.getElementById('modal-evento-responsavel').value;
+  var motivo = document.getElementById('modal-evento-motivo').value;
+  if (!acao) return;
+
+  var acaoLabel = document.getElementById('modal-evento-acao').options[document.getElementById('modal-evento-acao').selectedIndex].text;
+
+  var tpl = document.getElementById('evento-row-template');
+  var row = tpl.content.cloneNode(true);
+  row.querySelector('.evento-data-cell').textContent = data ? data.split('-').reverse().join('/') : '';
+  row.querySelector('.evento-label-cell').textContent = acaoLabel;
+  row.querySelector('.evento-resp-cell').textContent = responsavel;
+  row.querySelector('.evento-motivo-cell').textContent = motivo;
+  row.querySelector('tr').setAttribute('data-status', acao);
+  document.getElementById('eventos-container').appendChild(row);
+
+  var container = document.getElementById('eventos-pendentes-container');
+  var html = '<input type="hidden" name="evento_acao[]" value="' + acao + '">';
+  html += '<input type="hidden" name="evento_data[]" value="' + data + '">';
+  html += '<input type="hidden" name="evento_responsavel[]" value="' + responsavel.replace(/"/g, '&quot;') + '">';
+  html += '<input type="hidden" name="evento_motivo[]" value="' + motivo.replace(/"/g, '&quot;') + '">';
+  container.insertAdjacentHTML('beforeend', html);
+
+  document.getElementById('modal-evento-acao').value = '';
+  document.getElementById('modal-evento-data').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('modal-evento-responsavel').value = '';
+  document.getElementById('modal-evento-motivo').value = '';
+
+  var m = bootstrap.Modal.getInstance(document.getElementById('eventoModal'));
+  if (m) {
+    document.getElementById('btn-confirm-evento').blur();
+    m.hide();
+  }
+});
 </script>
 {% endblock %}

@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from flask_login import login_required
+from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from app.extensions import db
 from app.models.previsao import Previsao
@@ -10,6 +10,7 @@ from app.models.operacao import Operacao
 from app.models.movto import Movto
 from app.models.compra import Compra
 from app.models.order import Order
+from app.models.compra_historico import CompraHistorico
 from app.constants import PREVISAO_STATUS
 from app.utils import LinhaTransacao, parse_prazo_recebimento
 from app.table import Field, build_field_context, Table
@@ -393,6 +394,13 @@ def pagar_new():
 
         if compra and not compra.transacao_id:
             compra.transacao_id = transacao.id
+            evento = CompraHistorico(
+                compra_id=compra.id, status=2, data=transacao.data,
+                usuario=current_user.username if current_user.is_authenticated else None,
+                responsavel=current_user.username if current_user.is_authenticated else None,
+            )
+            db.session.add(evento)
+            compra.status = compra.calc_status()
             db.session.commit()
         else:
             db.session.commit()

@@ -328,7 +328,9 @@ class DocPDFReport(FPDF):
         # Título centralizado na área direita
         if h.title:
             title = h.title
-            if self._instance and '{id}' in title:
+            if callable(title) and self._instance:
+                title = title(self._instance)
+            elif self._instance and '{id}' in title:
                 title = title.replace('{id}', str(getattr(self._instance, 'id', '')))
             self.set_xy(right_x, y0)
             self.set_font("Helvetica", h.title_font_style, h.title_font_size)
@@ -354,7 +356,9 @@ class DocPDFReport(FPDF):
         # Title
         if h.title:
             title = h.title
-            if self._instance and '{id}' in title:
+            if callable(title) and self._instance:
+                title = title(self._instance)
+            elif self._instance and '{id}' in title:
                 title = title.replace('{id}', str(getattr(self._instance, 'id', '')))
             if hasattr(self, '_title_substitutions'):
                 for k, v in self._title_substitutions.items():
@@ -639,6 +643,25 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
         _render_footer_row(pdf, cols, col_widths, footer_label, agg_values, x_start, total_w)
 
 
+def _render_table_lines(pdf, lines, instance=None):
+    """Renderiza lista de linhas (before_table / after_table)."""
+    for line in lines or []:
+        text = line.get('text', '')
+        if callable(text) and instance:
+            text = text(instance)
+        text = text or ''
+        size = line.get('font_size', 10)
+        style = line.get('font_style', '')
+        align = line.get('align', 'L')
+        w = line.get('width', 0)
+        if not text and w == 0:
+            pdf.ln(8)
+            continue
+        pdf.ln(2)
+        pdf.set_font("Helvetica", style, size)
+        pdf.cell(w, size * 0.5, text, align=align, new_x="LMARGIN", new_y="NEXT")
+
+
 def gerar_pdf_relatorio(report: Report, data: list, logo_path: str = None,
                         instance=None, title_substitutions: dict = None) -> DocPDFReport:
     """Gera PDF genérico a partir de um Report."""
@@ -661,6 +684,13 @@ def gerar_pdf_relatorio(report: Report, data: list, logo_path: str = None,
     # Primeira página
     pdf.add_page()
 
+    # Before table
+    _before = report.before_table
+    if callable(_before) and instance:
+        _before = _before(instance) or []
+    if _before:
+        _render_table_lines(pdf, _before, instance)
+
     # Tabela
     tbl = report._build_table()
     if tbl.columns:
@@ -671,8 +701,13 @@ def gerar_pdf_relatorio(report: Report, data: list, logo_path: str = None,
             # Tabela única
             _render_table(pdf, tbl.columns, data, tbl.footer, tbl.footer_label, instance)
 
-    # After table (texto pós-tabela)
-    if tbl.after and instance:
+    # After table
+    _after = report.after_table
+    if callable(_after) and instance:
+        _after = _after(instance) or []
+    if _after:
+        _render_table_lines(pdf, _after, instance)
+    elif tbl.after and instance:
         txt = tbl.after
         if callable(txt):
             try:

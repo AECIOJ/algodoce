@@ -222,7 +222,9 @@ class Report:
 
     Seções:
       - header: dict com config do cabeçalho (logo, título, campos)
+      - before_table: lista de linhas ou callable antes da tabela
       - table: dict com config da tabela (columns, groups, footer, after)
+      - after_table: lista de linhas ou callable depois da tabela
       - footer: rodapé de página (report_footer, show_*, footer_*)
     """
     label: str
@@ -248,6 +250,10 @@ class Report:
     footer_separator: str = ' | '
     footer_align: str = 'C'
     footer_font_size: int = 8
+
+    # Before / after table (list of line dicts or callable)
+    before_table: Optional[object] = None
+    after_table: Optional[object] = None
 
     # Texts avulsos
     texts: Optional[list] = None
