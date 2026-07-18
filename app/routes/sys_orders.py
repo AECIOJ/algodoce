@@ -313,9 +313,9 @@ def print_order(id):
 @bp.route("/pedidos/<int:id>/pdf")
 def pdf_order(id):
     order = Order.query.get_or_404(id)
-    from app.reports.pedido import ORDER_REPORT
+    from app.reports.pedido import rep_pedido
     logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
-    pdf = gerar_pdf_relatorio(ORDER_REPORT, order.items, logo_path, instance=order)
+    pdf = gerar_pdf_relatorio(rep_pedido, order.items, logo_path, instance=order)
     buf = BytesIO()
     pdf.output(buf)
     return Response(buf.getvalue(), mimetype="application/pdf",

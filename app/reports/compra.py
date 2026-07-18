@@ -49,7 +49,7 @@ def _report_after(compra):
     ]
 
 
-COMPRA_REPORT = Report(
+rep_compra = Report(
     label='Compra',
     header={
         'layout': 'logo_left',

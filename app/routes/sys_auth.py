@@ -79,6 +79,7 @@ def login():
     if user and user.check_password(password):
         session.permanent = True
         login_user(user, remember=True)
+        session['_last_activity'] = time.time()
         _clear_attempts()
         return jsonify(success=True, redirect="/sistema")
 
@@ -166,6 +167,13 @@ def admin_config():
 def check_chave():
     ordem = Setting.get("painel_chave")
     return jsonify(tem=ordem in PERMUTACOES)
+
+
+@bp.route("/api/keepalive", methods=["POST"])
+@login_required
+def keepalive():
+    session['_last_activity'] = time.time()
+    return jsonify(ok=True)
 
 
 @bp.route("/logout")

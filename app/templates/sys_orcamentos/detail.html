@@ -4,9 +4,11 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Orçamento #{{ quote.id|fmtid }}</h2>
   <div class="d-flex gap-2">
+    {% if not quote.pedido_id %}
     <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-secondary btn-sm" title="Imprimir PDF">
       <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Imprimir" height="20">
     </a>
+    {% endif %}
     <a href="{{ url_for('orcamentos.list') }}" class="btn btn-outline-secondary btn-sm p-1 border-0 d-inline-flex flex-column align-items-center gap-0" title="Voltar à lista" style="min-height:44px;min-width:44px;line-height:1;"><img src="{{ url_for('static', filename='icons/undo.png') }}" alt="" height="14"><span style="font-size:0.6rem;font-weight:600;line-height:1.1;">Lista</span>
     </a>
   </div>
@@ -167,7 +169,9 @@
 {% endif %}
 
 <div class="d-flex flex-wrap gap-2">
+  {% if not quote.pedido_id %}
   <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="16">Enviar</a>
+  {% endif %}
   <a href="{{ url_for('orcamentos.edit', id=quote.id) }}" class="btn btn-outline-primary">Revisar</a>
   {% if not quote.pedido_id and quote.status < 7 %}
     {% if perfect_match %}

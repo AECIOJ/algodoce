@@ -29,7 +29,9 @@
     {% endif %}
   {% endif %}
 
-    <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">Enviar</a></div>
+    {% if not quote.pedido_id %}
+    <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">Enviar</a>
+    {% endif %}</div>
 {% endif %}
 {% endblock %}
 
@@ -41,7 +43,7 @@
       <div class="d-flex gap-2">
         <input type="text" name="cliente_nome" class="form-control" required
                value="{{ quote.cliente_nome if quote else '' }}" {{ 'disabled' if ro }}>
-        {% if quote %}
+        {% if quote and not quote.pedido_id %}
         <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success btn-sm flex-shrink-0 d-inline-flex align-items-center gap-1 {{ 'disabled' if ro }}"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">Enviar</a>
         {% endif %}
       </div>

@@ -17,3 +17,4 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
+    SESSION_TIMEOUT = int(os.getenv("SESSION_TIMEOUT", "0"))

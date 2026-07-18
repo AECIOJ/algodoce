@@ -135,6 +135,24 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="timeoutModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Sessão expirando</h5>
+      </div>
+      <div class="modal-body text-center">
+        <p>Sua sessão expira em breve por inatividade. Deseja continuar logado?</p>
+        <p class="fs-3 fw-bold my-3" id="timeout-countdown"></p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Não</button>
+        <button type="button" class="btn btn-primary" id="keepalive-btn">Sim, continuar logado</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -419,6 +437,78 @@ document.querySelectorAll('#adminBottomNav .bottom-nav-item').forEach(function(i
   }
 });
 setMobileTitle();
+
+(function(){
+  var timeoutMinutes = {{ config.SESSION_TIMEOUT|default(0) }};
+  if (timeoutMinutes <= 0) return;
+  if (window.innerWidth <= 768) return;
+
+  var timeoutMs = timeoutMinutes * 60 * 1000;
+  var warningMs = 120 * 1000;
+  var countdownInterval = null;
+  var timeoutTimer = null;
+  var warningShown = false;
+
+  var modalEl = document.getElementById('timeoutModal');
+  var countdownEl = document.getElementById('timeout-countdown');
+  var keepaliveBtn = document.getElementById('keepalive-btn');
+  var timeoutModal = modalEl ? new bootstrap.Modal(modalEl, {backdrop: 'static', keyboard: false}) : null;
+
+  var modalHiddenHandler = function(){
+    if (!warningShown) return;
+    warningShown = false;
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  };
+  if (modalEl) modalEl.addEventListener('hidden.bs.modal', modalHiddenHandler);
+
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+
+  function showWarning(remaining){
+    warningShown = true;
+    if (timeoutModal) timeoutModal.show();
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(function(){
+      remaining -= 1000;
+      if (remaining <= 0){
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        if (timeoutModal) timeoutModal.hide();
+        window.location.href = '/';
+        return;
+      }
+      if (countdownEl){
+        var mins = Math.floor(remaining / 60000);
+        var secs = Math.floor((remaining % 60000) / 1000);
+        countdownEl.textContent = pad(mins) + ':' + pad(secs);
+      }
+    }, 1000);
+  }
+
+  function resetTimer(){
+    if (timeoutTimer) clearTimeout(timeoutTimer);
+    if (warningShown){
+      warningShown = false;
+      if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+      if (timeoutModal) timeoutModal.hide();
+    }
+    timeoutTimer = setTimeout(function(){
+      showWarning(warningMs);
+    }, timeoutMs - warningMs);
+  }
+
+  if (keepaliveBtn){
+    keepaliveBtn.addEventListener('click', function(){
+      fetch('/api/keepalive', { method: 'POST' }).then(function(r){ return r.json(); }).then(function(data){
+        if (data.ok) resetTimer();
+      });
+    });
+  }
+
+  var events = ['mousedown', 'keydown', 'click', 'scroll', 'touchstart'];
+  events.forEach(function(ev){ document.addEventListener(ev, resetTimer, {passive: true}); });
+
+  resetTimer();
+})();
 </script>
 <script>
 function previewImagem(src) {

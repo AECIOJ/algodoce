@@ -16,7 +16,7 @@ from app.models.carteira import Carteira
 from app.constants import QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS
 from app.table import Field, build_field_context, Table
 from app.pdf import gerar_pdf_orcamento, gerar_pdf_relatorio
-from app.reports.orcamento import ORCAMENTO_REPORT
+from app.reports.orcamento import rep_orcamento
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
 
 
@@ -436,8 +436,10 @@ def print_quote(id):
 @bp.route("/orcamentos/<int:id>/pdf")
 def pdf_quote(id):
     quote = Quote.query.get_or_404(id)
+    if quote.pedido_id:
+        return redirect(url_for('orders.pdf_order', id=quote.pedido_id))
     logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
-    pdf = gerar_pdf_relatorio(ORCAMENTO_REPORT, quote.items, logo_path, instance=quote)
+    pdf = gerar_pdf_relatorio(rep_orcamento, quote.items, logo_path, instance=quote)
     buf = BytesIO()
     pdf.output(buf)
     return Response(buf.getvalue(), mimetype="application/pdf",

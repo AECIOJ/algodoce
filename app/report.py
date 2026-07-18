@@ -1,8 +1,8 @@
 """
-XXX_REPORT — Configuração de relatórios PDF.
+rep_xxx — Configuração de relatórios PDF.
 
 Cada rota ou módulo de relatório declara:
-  XXX_REPORT = Report(label='...', header={...}, table={...})
+  rep_xxx = Report(label='...', header={...}, table={...})
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Report — configuração completa
@@ -95,7 +95,7 @@ Cada rota ou módulo de relatório declara:
  Exemplo
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
- ORCAMENTO_REPORT = Report(
+ rep_orcamento = Report(
      label='Orçamento',
      header={
          'layout': 'logo_left',

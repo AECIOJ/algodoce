@@ -707,7 +707,7 @@ def gerar_pdf_relatorio(report: Report, data: list, logo_path: str = None,
         _after = _after(instance) or []
     if _after:
         _render_table_lines(pdf, _after, instance)
-    elif tbl.after and instance:
+    if tbl.after and instance:
         txt = tbl.after
         if callable(txt):
             try:
