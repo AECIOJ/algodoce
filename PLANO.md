@@ -80,15 +80,15 @@ algodoce/
 │   │
 │   ├── models/                     # SQLAlchemy models (24 models)
 │   ├── routes/                     # Blueprints Flask (22 arquivos — 23 blueprints)
-│   ├── reports/                    # Definições de relatórios (orcamento.py, pedido.py)
-│   ├── templates/                  # Jinja2 (21 diretórios — 16 sys_*, site/, site_orcamento/, components/, admin/)
+│   ├── reports/                    # Definições de relatórios (orcamento.py, pedido.py, compra.py)
+│   ├── templates/                  # Jinja2 (21 diretórios — 17 sys_*, site/, site_orcamento/, components/, admin/)
 │   ├── static/                     # CSS, JS, ícones, uploads
 │   │   ├── css/                    #   style.css
 │   │   ├── icons/                  #   Ícones PNG (Logo, setas, etc.)
 │   │   ├── js/                     #   iteMS.js, phone-mask.js
 │   │   ├── lib/                    #   Bibliotecas locais (bootstrap, bootstrap-icons, qrcode-generator)
 │   │   └── uploads/                #   Uploads de imagens
-│   └── migrations/                 # Alembic (8 migrations)
+│   └── migrations/                 # Alembic (14 migrations)
 │
 ├── dados/                          # Dados persistentes
 │   ├── paginas/                    # Páginas Markdown (sobre.md)
@@ -104,7 +104,6 @@ algodoce/
 ├── Pipfile                         # Dependências Python
 ├── Pipfile.lock                    # Lock de dependências
 ├── requirements.txt                # Pip freeze
-├── COMERCIAL.md                    # Docs comerciais
 ├── LAYOUT.md                       # Docs de layout
 ├── PLANO.md                        # Este arquivo
 ├── .env                            # Variáveis de ambiente
@@ -118,7 +117,7 @@ algodoce/
 |--------|--------|----------|
 | **admin** | User, Setting | `models/user.py`, `models/setting.py` |
 | **site** | — (usa session/cookies) | — |
-| **sys** | Conta, Category, Product, Ingredient, ProductIngredient, UnitConversion, Quote, QuoteItem, Order, OrderItem, Compra, CompraItem, Event, Producao, ProducaoProduto, ProducaoInsumo, Operacao, Carteira, Transacao, Previsao, Recurso, Movto | `models/*.py` |
+| **sys** | Conta, Category, Product, Ingredient, ProductIngredient, UnitConversion, Quote, QuoteItem, Order, OrderItem, Compra, CompraItem, CompraHistorico, Event, Producao, ProducaoProduto, ProducaoInsumo, Operacao, Carteira, Transacao, Previsao, Recurso, Movto, Trf | `models/*.py` |
 
 #### Rotas por Módulo
 
@@ -128,7 +127,7 @@ algodoce/
 | **site** | `site_vitrine` | `routes/site_vitrine.py` | `/vitrine/`, `/vitrine/<id>/add` |
 | **site** | `site_orcamento` | `routes/site_orcamento.py` | `/orcamento`, `/api/cliente`, `/orcamento/enviar` |
 | **sys** | `auth`, `seguranca` | `routes/sys_auth.py` (unificado) | `/login`, `/logout`, `/seguranca/` (painel + settings) |
-| **sys** | `contas`, `products`, `categories`, `ingredients`, `orders`, `compras`, `orcamentos`, `producao`, `operacoes`, `carteira`, `transacao`, `previsoes`, `movimentos`, `recursos`, `reports`, `api` | `routes/sys_*.py` | CRUDs de todas as entidades |
+| **sys** | `contas`, `products`, `categories`, `ingredients`, `orders`, `compras`, `orcamentos`, `producao`, `operacoes`, `carteira`, `transacao`, `previsoes`, `movimentos`, `recursos`, `transferencias`, `reports`, `api` | `routes/sys_*.py` | CRUDs de todas as entidades |
 | **site** | `uploads` | `routes/uploads.py` | Uploads de imagens (sys + site) |
 
 ### Hierarquia de Componentes (Telas)
@@ -159,15 +158,15 @@ algodoce/
 
 ### Banco de Dados (PostgreSQL 16)
 
-**24 tabelas**, sem views/stored procedures — toda lógica em Python.
+**26 tabelas**, sem views/stored procedures — toda lógica em Python.
 
 | Grupo | Tabelas | Descrição |
 |-------|---------|-----------|
 | **Sistema (admin)** | `users`, `settings` | Login, configurações criptografadas |
 | **Cadastros (sys)** | `conta`, `categories`, `products`, `ingredients`, `product_ingredients`, `unit_conversions` | Clientes/fornecedores, categorias, produtos, insumos, receituário, conversões |
-| **Comercial (sys)** | `quotes`, `quote_items`, `orders`, `order_items`, `compras`, `compra_itens`, `events` | Orçamentos, pedidos, compras, eventos |
+| **Comercial (sys)** | `quotes`, `quote_items`, `orders`, `order_items`, `compras`, `compra_itens`, `compra_historico`, `events` | Orçamentos, pedidos, compras, histórico de status, eventos |
 | **Produção (sys)** | `producao`, `producao_produtos`, `producao_insumos` | Batches de produção, produtos por batch, insumos calculados |
-| **Financeiro (sys)** | `operacao`, `carteira`, `transacao`, `previsao`, `recurso`, `movto` | Plano de contas, formas de pagamento, transações, parcelas, recursos, movimentações |
+| **Financeiro (sys)** | `operacao`, `carteira`, `transacao`, `previsao`, `recurso`, `movto`, `recurso_trf` | Plano de contas, formas de pagamento, transações, parcelas, recursos, movimentações, transferências |
 
 **Relacionamentos chave:**
 
@@ -342,7 +341,6 @@ algodoce/
 | valor | NUMERIC(12,2) | NOT NULL |
 | historico | TEXT | NULLABLE |
 | status | INTEGER | NOT NULL, DEFAULT 0 |
-| data_recepcao | DATE | NULLABLE |
 | carteira_id | INTEGER | FK→carteira.id, NULLABLE |
 | transacao_id | INTEGER | FK→transacao.id, UNIQUE, NULLABLE |
 | movto_id | INTEGER | FK→movto.id, UNIQUE, NULLABLE |
@@ -355,6 +353,17 @@ algodoce/
 | insumo_id | INTEGER | FK→ingredients.id, NOT NULL |
 | quantidade | NUMERIC(12,3) | NOT NULL |
 | preco | NUMERIC(12,2) | NOT NULL |
+
+##### `compra_historico` — CompraHistorico
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| compra_id | INTEGER | FK→compras.id, NOT NULL |
+| status | INTEGER | NOT NULL |
+| data | DATE | NOT NULL |
+| usuario | VARCHAR(100) | NULLABLE |
+| responsavel | VARCHAR(100) | NULLABLE |
+| motivo | TEXT | NULLABLE |
 
 ##### `producao` — Producao
 | Coluna | Tipo SQL | Constraints |
@@ -460,7 +469,16 @@ algodoce/
 | variacao | NUMERIC(12,2) | NULLABLE, DEFAULT 0 |
 | sincronizar | BOOLEAN | NOT NULL, DEFAULT TRUE |
 | operacao_id | INTEGER | FK→operacao.id, NULLABLE |
+| trf_id | INTEGER | FK→recurso_trf.id, NULLABLE |
 | historico | TEXT | NULLABLE |
+
+##### `recurso_trf` — Trf
+| Coluna | Tipo SQL | Constraints |
+|--------|----------|-------------|
+| id | INTEGER | PK |
+| data | DATE | NOT NULL |
+| historico | TEXT | NULLABLE |
+| total | NUMERIC(12,2) | NOT NULL, DEFAULT 0 |
 
 ### Funções Principais no Código
 
@@ -516,8 +534,8 @@ algodoce/
 | `TIPO_INGREDIENTE` | dict | `{0: "Ingrediente", 1: "Forminha", 2: "Embalagem"}` |
 | `ORDER_STATUS` | dict | `{0: "Pendente", 1: "Produzindo", 2: "Pronto", 8: "Cancelado", 9: "Entregue"}` |
 | `ORDER_STATUS_FILTER` | list | 6 tuplas de filtro |
-| `COMPRA_STATUS` | dict | `{0: "Orcamento", 1: "Pedido", 6: "Cancelado", 8: "Recebido", 9: "Devolvido"}` |
-| `COMPRA_STATUS_FILTER` | list | 6 tuplas de filtro |
+| `COMPRA_STATUS` | dict | `{0: "Orçamento", 1: "Pedido", 2: "Compra", 6: "Cancelado", 8: "Recebido", 9: "Devolvido"}` |
+| `COMPRA_STATUS_FILTER` | list | 7 tuplas de filtro |
 | `QUOTE_STATUS` | dict | `{0: "Pendente", 1: "Negociacao", 6: "Renovado", 7: "Expirado", 8: "Reprovado", 9: "Aprovado"}` |
 | `QUOTE_STATUS_FILTER` | list | 7 tuplas de filtro |
 | `PRODUCAO_STATUS` | dict | `{0: "Executando", 9: "Finalizado"}` |
@@ -763,3 +781,19 @@ algodoce/
 - Removidas queries e imports de `Operacao` das rotas `new()` e `edit()`.
 - Fix: `redirect_after` removido do hidden input no carregamento da página — só é definido ao clicar em "Gerar", evitando redirect acidental para pagamentos ao salvar.
 - JS do Histórico: filtro do select reconstroi opções do zero no `show.bs.modal`, usando `data-status` nas linhas da tabela em vez de comparar labels.
+
+### Sessão 2026-07-20
+
+#### Sincronização PLANO.md com código implantado
+- Adicionados models `CompraHistorico` e `Trf` à tabela de models por módulo.
+- Contagem de tabelas corrigida: 24 → 26.
+- Tabelas `compra_historico` e `recurso_trf` adicionadas à seção de estrutura do banco.
+- Definição da tabela `compras`: removido campo `data_recepcao` (já removido no código).
+- Definição da tabela `movto`: adicionado campo `trf_id` (FK→recurso_trf.id).
+- `COMPRA_STATUS`: adicionado `{2: "Compra"}`. `COMPRA_STATUS_FILTER`: 6 → 7 tuplas.
+- Migrations: corrigido de 8 para 14.
+- Rotas: adicionado blueprint `transferencias`.
+- Templates: corrigido contagem sys_* de 16 para 17.
+- Reports: adicionado `compra.py`.
+- Removido `COMERCIAL.md` da árvore de diretórios (arquivo inexistente).
+- Tabela `trf` renomeada para `recurso_trf` (model, migration, FK em `movto`).

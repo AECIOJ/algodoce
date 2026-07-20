@@ -10,11 +10,8 @@
 
 {% block nav_right %}
 {% if compra and compra.id and compra.status in (0, 1) %}
-<a href="{{ url_for('compras.print_compra', id=compra.id) }}" target="_blank" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1">
-  <img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">
-  {% set _sl = COMPRA_STATUS.get(compra.status, 'Documento') %}
-  Enviar {{ _sl }}
-</a>
+{% set _sl = COMPRA_STATUS.get(compra.status, 'Documento') %}
+{{ btn(BTN_ENVIAR, url_for('compras.print_compra', id=compra.id), target='_blank', label='Enviar ' + _sl) }}
 {% endif %}
 {% endblock %}
 
@@ -84,7 +81,7 @@
         <td class="text-center">
           <input type="hidden" name="item_id[]" value="{{ ci.id }}">
           <input type="hidden" name="item_remover[]" value="0">
-          <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
         </td>
       </tr>
       {% endfor %}
@@ -133,7 +130,7 @@
     </div>
     <input type="hidden" name="item_id[]" value="{{ ci.id }}">
     <input type="hidden" name="item_remover[]" value="0">
-    <button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    <button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
   </div>
   {% endfor %}
   <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
@@ -227,7 +224,7 @@
               {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
               {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
               {% if vl == 0 and rl == 0 %}
-              <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+              <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
               {% endif %}
             </td>
           </tr>
@@ -246,7 +243,7 @@
           {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
           {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
           {% if vl == 0 and rl == 0 %}
-          <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+          <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
           {% endif %}
         </div>
         <input type="hidden" name="previsao_id[]" value="{{ p.id if p.id else '' }}">
@@ -449,7 +446,7 @@
     <td class="text-center">
       <input type="hidden" name="item_id[]" value="">
       <input type="hidden" name="item_remover[]" value="0">
-      <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </td>
   </tr>
 </template>
@@ -478,7 +475,7 @@
       <span class="previsao-saldo form-control form-control-sm bg-light text-end" style="display:block;min-width:70px;">0,00</span>
     </td>
     <td class="text-center">
-      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </td>
   </tr>
 </template>
@@ -487,7 +484,7 @@
   <div class="px-3 py-2 border-bottom previsao-mobile-card">
     <div class="d-flex justify-content-between align-items-center mb-1">
       <span class="text-muted small previsao-num"></span>
-      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </div>
     <input type="hidden" name="previsao_id[]" value="">
     <input type="hidden" name="previsao_remover[]" value="0">
@@ -595,7 +592,7 @@ function addItemMobile() {
     div.querySelectorAll('select').forEach(function(sel) { sel.selectedIndex = 0; });
     div.querySelector('.valor-item').textContent = 'R$ 0,00';
   } else {
-    div.innerHTML = '<select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="calcValor(this)"><option value="">Selecione...</option>{% for ins in insumos %}<option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}">{{ ins.nome }} ({{ ins.unidade_medida }})</option>{% endfor %}</select><div class="row g-1 align-items-center"><div class="col-4"><span class="card-label">Qtd</span><div class="d-flex align-items-center gap-1"><input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="calcValor(this)"><span class="unidade-display text-muted small"></span></div></div><div class="col-4"><span class="card-label">Preço</span><input type="number" name="preco[]" class="form-control form-control-sm preco-input" step="0.01" min="0" oninput="calcValor(this)"></div><div class="col-4"><span class="card-label">Valor</span><br><span class="valor-item fw-bold">R$ 0,00</span></div></div><input type="hidden" name="item_id[]" value=""><input type="hidden" name="item_remover[]" value="0"><button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>';
+    div.innerHTML = '<select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="calcValor(this)"><option value="">Selecione...</option>{% for ins in insumos %}<option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}">{{ ins.nome }} ({{ ins.unidade_medida }})</option>{% endfor %}</select><div class="row g-1 align-items-center"><div class="col-4"><span class="card-label">Qtd</span><div class="d-flex align-items-center gap-1"><input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="calcValor(this)"><span class="unidade-display text-muted small"></span></div></div><div class="col-4"><span class="card-label">Preço</span><input type="number" name="preco[]" class="form-control form-control-sm preco-input" step="0.01" min="0" oninput="calcValor(this)"></div><div class="col-4"><span class="card-label">Valor</span><br><span class="valor-item fw-bold">R$ 0,00</span></div></div><input type="hidden" name="item_id[]" value=""><input type="hidden" name="item_remover[]" value="0"><button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>';
   }
   var totalLine = container.querySelector('.d-flex.justify-content-between.fw-bold');
   if (totalLine) container.insertBefore(div, totalLine);

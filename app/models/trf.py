@@ -2,7 +2,7 @@ from app.extensions import db
 
 
 class Trf(db.Model):
-    __tablename__ = "trf"
+    __tablename__ = "recurso_trf"
 
     id = db.Column(db.Integer, primary_key=True)
     data = db.Column(db.Date, nullable=False)

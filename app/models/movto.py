@@ -15,7 +15,7 @@ class Movto(db.Model):
     variacao = db.Column(db.Numeric(12, 2), nullable=True, default=0)
     sincronizar = db.Column(db.Boolean, nullable=False, default=True)
     operacao_id = db.Column(db.Integer, db.ForeignKey("operacao.id"), nullable=True)
-    trf_id = db.Column(db.Integer, db.ForeignKey("trf.id"), nullable=True)
+    trf_id = db.Column(db.Integer, db.ForeignKey("recurso_trf.id"), nullable=True)
     historico = db.Column(db.Text, nullable=True)
 
     recurso = db.relationship("Recurso", backref="movtos")

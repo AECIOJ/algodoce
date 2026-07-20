@@ -79,7 +79,7 @@
   <div class="ms-auto d-flex align-items-center gap-2">
     <div class="input-group input-group-sm" style="max-width:160px;">
       <input type="number" id="lancar-valor" class="form-control text-end" step="0.01" readonly>
-      <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icons/arrow-list.png') }}" height="16" alt="Gerar"></button>
+      <button type="button" id="btn-gerar-parcelas" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#lancarModal"><img src="{{ url_for('static', filename='icons/arrow-list.svg') }}" height="16" alt="Gerar"></button>
     </div>
     <div>
       <label class="form-label small mb-0 text-nowrap">Prazo</label>
@@ -139,7 +139,7 @@
           {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
           {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
           {% if vl == 0 and rl == 0 %}
-          <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+          <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
           {% endif %}
           {% endif %}
         </td>
@@ -160,7 +160,7 @@
       {% set vl = p.variacao|float if p.variacao and p.variacao != '' else 0 %}
       {% set rl = p.realizado|float if p.realizado and p.realizado != '' else 0 %}
       {% if vl == 0 and rl == 0 %}
-      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
       {% endif %}
       {% endif %}
     </div>
@@ -282,7 +282,7 @@
       <span class="previsao-saldo form-control form-control-sm bg-light text-end" style="display:block;min-width:70px;">0,00</span>
     </td>
     <td class="text-center">
-      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </td>
   </tr>
 </template>
@@ -290,7 +290,7 @@
   <div class="px-3 py-2 border-bottom previsao-mobile-card">
     <div class="d-flex justify-content-between align-items-center mb-1">
       <span class="text-muted small previsao-num"></span>
-      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-parcela"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </div>
     <input type="hidden" name="previsao_id[]" value="">
     <input type="hidden" name="previsao_remover[]" value="0">

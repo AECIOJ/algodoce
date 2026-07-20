@@ -9,10 +9,10 @@
 
 {% block nav_right %}
 {% if order and order.quote_id %}
-<a href="{{ url_for('orcamentos.edit', id=order.quote_id) }}" class="btn btn-outline-info btn-sm">Orçamento #{{ order.quote_id|fmtid }}</a>
+{{ btn(BTN_DETALHES, url_for('orcamentos.edit', id=order.quote_id), label='Orçamento #' + (order.quote_id|fmtid)) }}
 {% endif %}
 
-    <a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">Enviar</a>
+    {{ btn(BTN_ENVIAR, url_for('orders.print_order', id=order.id), target='_blank') }}
 {% endblock %}
 
 {% block form_body %}
@@ -30,7 +30,7 @@
     <label class="form-label">Telefone</label>
     <div class="input-group">
       <input type="text" name="cliente_telefone" class="form-control" value="{{ order.conta.telefone if order and order.conta and order.conta.telefone else '' }}" {{ 'readonly' if ro else '' }}>
-      {% if order %}<a href="{{ url_for('orders.print_order', id=order.id) }}" target="_blank" class="btn btn-outline-success d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="14">Enviar</a>{% endif %}
+      {% if order %}{{ btn(BTN_ENVIAR, url_for('orders.print_order', id=order.id), target='_blank') }}{% endif %}
     </div>
   </div>
   <div class="col-md-2 mb-2 mb-md-0">
@@ -80,7 +80,7 @@
               <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
               <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
               <td><input type="text" name="observacao_item" class="form-control form-control-sm" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
-              <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+              <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
             </tr>
             {% endfor %}
           {% else %}
@@ -97,7 +97,7 @@
               <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
               <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
               <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
-              <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+              <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)" {{ 'disabled' if ro }}><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
             </tr>
           {% endif %}
         </tbody>
@@ -136,7 +136,7 @@
             </div>
           </div>
           <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}>
-          {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+          {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
         </div>
         {% endfor %}
       {% else %}
@@ -162,7 +162,7 @@
             </div>
           </div>
           <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" {{ 'disabled' if ro }}>
-          {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+          {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
         </div>
       {% endif %}
       <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
@@ -363,7 +363,7 @@
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content">
       <div class="modal-body text-center py-4">
-        <img src="{{ url_for('static', filename='icons/trash.png') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
+        <img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
         <p class="mb-3 fw-bold">Remover este item?</p>
         <div class="d-flex justify-content-center gap-2">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -429,7 +429,7 @@ function addItem() {
     <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td>
     <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
     <td><input type="text" name="observacao_item" class="form-control form-control-sm"></td>
-    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
+    <td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>
   `;
   tbody.appendChild(tr);
 }

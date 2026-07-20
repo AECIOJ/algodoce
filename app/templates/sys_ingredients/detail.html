@@ -3,46 +3,14 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>{{ ingredient.nome }}</h2>
-  <div>
-    <button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
-    <a href="{{ url_for('ingredients.edit', id=ingredient.id) }}" class="btn btn-primary">Editar</a>
-    <a href="{{ url_for('ingredients.list') }}" class="btn btn-outline-secondary btn-sm p-1 border-0 d-inline-flex flex-column align-items-center gap-0" title="Voltar à lista" style="min-height:44px;min-width:44px;line-height:1;"><img src="{{ url_for('static', filename='icons/undo.png') }}" alt="" height="14"><span style="font-size:0.6rem;font-weight:600;line-height:1.1;">Lista</span>
-    </a>
+  <div class="d-flex align-items-center gap-1">
+    <button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1 btn-lbl" data-insumo-id="{{ ingredient.id }}" data-insumo-nome="{{ ingredient.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.svg') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+    {{ btn(BTN_EDITAR, url_for('ingredients.edit', id=ingredient.id)) }}
+    {{ btn(BTN_LISTA, url_for('ingredients.list')) }}
   </div>
 </div>
 
-{% set s = url_for('static', filename='icons/') %}
-<div class="text-center mb-3">
-  <div class="btn-group btn-group-sm" role="group">
-    <a href="{{ url_for('ingredients.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
-      <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
-    </a>
-    {% if nav.prev_id %}
-      <a href="{{ url_for('ingredients.detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
-        <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
-      </a>
-    {% else %}
-      <a class="btn btn-outline-secondary disabled" title="Anterior">
-        <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
-      </a>
-    {% endif %}
-  </div>
-  <span class="mx-2 small text-muted">{{ ingredient.nome }}</span>
-  <div class="btn-group btn-group-sm" role="group">
-    {% if nav.next_id %}
-      <a href="{{ url_for('ingredients.detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
-        <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
-      </a>
-    {% else %}
-      <a class="btn btn-outline-secondary disabled" title="Próximo">
-        <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
-      </a>
-    {% endif %}
-    <a href="{{ url_for('ingredients.detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
-      <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
-    </a>
-  </div>
-</div>
+{{ paginator('ingredients.detail', nav, ingredient.nome) }}
 
 <div class="row mb-4">
   <div class="col-md-6">
@@ -124,7 +92,7 @@
                 <td>{{ pi.quantidade }}</td>
                 <td>{{ pi.unidade }}</td>
                 <td>
-                  <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-primary">Editar Produto</a>
+                  {{ btn(BTN_EDITAR_PRODUTO, url_for('products.edit', id=p.id)) }}
                 </td>
               </tr>
             {% endfor %}
@@ -145,7 +113,7 @@
             <span class="card-label">Quantidade:</span>
             <span class="card-value">{{ pi.quantidade }} {{ pi.unidade }}</span>
             <div class="mt-1">
-              <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary w-100">Editar Produto</a>
+              {{ btn(BTN_EDITAR_PRODUTO, url_for('products.edit', id=p.id), extra_class='w-100') }}
             </div>
           </div>
         {% endfor %}
@@ -201,7 +169,7 @@ function confirmarExclusao(btn) {
         body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
         footer.innerHTML =
           '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
-          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icons/trash.svg') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
       }
       modal.show();
     });

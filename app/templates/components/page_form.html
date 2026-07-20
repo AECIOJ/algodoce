@@ -3,7 +3,7 @@
 
 <div class="barra-nav d-flex align-items-center gap-2 px-2 py-1 flex-shrink-0" style="border-bottom:1px solid #dee2e6;background:#fff;min-height:44px;">
   <div class="d-flex align-items-center gap-2" style="flex:1;">
-    <a href="{{ back_url|default('#') }}" class="btn btn-outline-secondary btn-sm"><img src="{{ url_for('static', filename='icons/list.png') }}" alt="" height="14"><span style="font-size:0.6rem;font-weight:600;line-height:1.1;">Lista</span></a>
+    {{ btn(BTN_LISTA, back_url|default('#')) }}
   </div>
 
   {% if entity_id is defined and entity_id %}

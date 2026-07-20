@@ -660,6 +660,28 @@ html.edit-form #page-content {
     height: auto;
     padding: 0.15rem 0.3rem;
   }
+  html.edit-form .barra-nav {
+    flex-wrap: wrap;
+    min-height: auto;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    gap: 0.25rem;
+  }
+  html.edit-form .barra-nav > div {
+    flex: 1 1 auto !important;
+    min-width: 0;
+  }
+  html.edit-form .barra-nav > div:last-child {
+    flex: 0 0 100% !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .btn-lbl {
+    flex-direction: column !important;
+  }
 }
 
 html.edit-form .page-footer-wrapper {

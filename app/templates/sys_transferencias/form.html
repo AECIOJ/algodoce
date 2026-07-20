@@ -89,7 +89,7 @@
           <input type="text" name="trf_historico[]" class="form-control form-control-sm" value="{{ m.historico or '' }}">
         </td>
         <td class="text-center">
-          <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+          <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
         </td>
       </tr>
       {% endfor %}
@@ -102,7 +102,7 @@
   <div class="px-3 py-2 border-bottom movto-mobile-card {{ 'movto-entrada' if m.tipo == 'E' else 'movto-saida' }}">
     <div class="d-flex justify-content-between align-items-center mb-1">
       <span class="text-muted small movto-num">#{{ loop.index }}</span>
-      <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </div>
     <input type="hidden" name="trf_movto_id[]" value="{{ m.id }}">
     <input type="hidden" name="trf_remover[]" value="0">
@@ -209,7 +209,7 @@
       <input type="text" name="trf_historico[]" class="form-control form-control-sm">
     </td>
     <td class="text-center">
-      <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </td>
   </tr>
 </template>
@@ -218,7 +218,7 @@
   <div class="px-3 py-2 border-bottom movto-mobile-card movto-entrada">
     <div class="d-flex justify-content-between align-items-center mb-1">
       <span class="text-muted small movto-num"></span>
-      <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/trash.png') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
     </div>
     <input type="hidden" name="trf_movto_id[]" value="">
     <input type="hidden" name="trf_remover[]" value="0">

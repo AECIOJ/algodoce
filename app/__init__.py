@@ -154,7 +154,7 @@ def create_app():
         register_model('producao', Producao)
         register_model('previsao', Previsao)
         register_model('movto', Movto)
-        register_model('trf', Trf)
+        register_model('recurso_trf', Trf)
         register_model('carteira', Carteira)
 
         for model_cls in [Category, Conta, Product, Ingredient, Quote, Recurso, Producao, Previsao, Movto, Trf, Carteira]:
@@ -233,6 +233,36 @@ def create_app():
         from app.models.category import Category
         cats = Category.query.filter_by(ativo=True).order_by(Category.ordem).all()
         return dict(site_categories=cats)
+
+    @app.context_processor
+    def inject_buttons():
+        from app.buttons import (
+            BTN_SALVAR, BTN_ENVIAR, BTN_EXCLUIR, BTN_NOVO, BTN_VOLTAR,
+            BTN_EDITAR, BTN_CANCELAR, BTN_CONVERTER, BTN_LISTA,
+            BTN_IMPRIMIR, BTN_DETALHES, BTN_ADICIONAR, BTN_ADICIONAR_ITEM,
+            BTN_FINALIZAR, BTN_ATUALIZAR, BTN_REMOVER, BTN_SIM, BTN_NAO,
+            BTN_LIMPAR, BTN_APLICAR, BTN_OK, BTN_SAIR, BTN_RENOVAR,
+            BTN_RELATORIO, BTN_GERAR, BTN_CONFIRMAR, BTN_EDITAR_PRODUTO,
+            BTN_ENTRAR, BTN_ACESSAR, Button, ConfirmModal,
+            CONFIRM_EXCLUIR, CONFIRM_REMOVER_ITEM,
+        )
+        return dict(
+            BTN_SALVAR=BTN_SALVAR, BTN_ENVIAR=BTN_ENVIAR, BTN_EXCLUIR=BTN_EXCLUIR,
+            BTN_NOVO=BTN_NOVO, BTN_VOLTAR=BTN_VOLTAR, BTN_EDITAR=BTN_EDITAR,
+            BTN_CANCELAR=BTN_CANCELAR, BTN_CONVERTER=BTN_CONVERTER,
+            BTN_LISTA=BTN_LISTA, BTN_IMPRIMIR=BTN_IMPRIMIR,
+            BTN_DETALHES=BTN_DETALHES, BTN_ADICIONAR=BTN_ADICIONAR,
+            BTN_ADICIONAR_ITEM=BTN_ADICIONAR_ITEM, BTN_FINALIZAR=BTN_FINALIZAR,
+            BTN_ATUALIZAR=BTN_ATUALIZAR, BTN_REMOVER=BTN_REMOVER,
+            BTN_SIM=BTN_SIM, BTN_NAO=BTN_NAO,
+            BTN_LIMPAR=BTN_LIMPAR, BTN_APLICAR=BTN_APLICAR,
+            BTN_OK=BTN_OK, BTN_SAIR=BTN_SAIR, BTN_RENOVAR=BTN_RENOVAR,
+            BTN_RELATORIO=BTN_RELATORIO, BTN_GERAR=BTN_GERAR,
+            BTN_CONFIRMAR=BTN_CONFIRMAR, BTN_EDITAR_PRODUTO=BTN_EDITAR_PRODUTO,
+            BTN_ENTRAR=BTN_ENTRAR, BTN_ACESSAR=BTN_ACESSAR,
+            Button=Button, ConfirmModal=ConfirmModal,
+            CONFIRM_EXCLUIR=CONFIRM_EXCLUIR, CONFIRM_REMOVER_ITEM=CONFIRM_REMOVER_ITEM,
+        )
 
     @app.after_request
     def cache_static(response):

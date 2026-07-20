@@ -1,4 +1,5 @@
 {% extends "components/page_base.html" %}
+{% from "components/macros.html" import btn %}
 
 {% block before_content %}
 <div class="area-menu">
@@ -10,7 +11,7 @@
         <a class="nav-link" href="/producao">Produção</a>
         <a class="nav-link" href="{{ url_for('transacao.pagar_list') }}">Financeiro</a>
       </div>
-      <a class="nav-link" href="/logout" style="color:#fff!important;"><img src="/static/icons/log-out.png" alt="Encerrar" style="height:1.2em;vertical-align:middle;filter:brightness(0)invert(1);"> Sair</a>
+      <a class="nav-link" href="/logout" style="color:#fff!important;"><img src="/static/icons/log-out.svg" alt="Encerrar" style="height:1.2em;vertical-align:middle;filter:brightness(0)invert(1);"> Sair</a>
     </div>
   </nav>
   <div class="submenu-section d-none" id="cadastroSection">

@@ -1,14 +1,112 @@
+{% macro btn(button, url='#', label=none, target=none, onclick=none, extra_class='', modal_id=none) %}
+  {% set lbl = label if label is not none else button.label %}
+  {% set _outline = 'outline-' if button.outline else '' %}
+  {% set _size = ' btn-' + button.size if button.size else '' %}
+  {% set _dir = 'flex-column' if button.label_pos == 'bottom' else '' %}
+  {% set _cls = 'btn btn-' + _outline + button.color + _size + ' d-inline-flex align-items-center gap-1 btn-lbl ' + _dir + ' ' + button.cls + ' ' + extra_class %}
+  {% set _onclick = onclick or (button.confirm_msg and 'return confirm(\'' + button.confirm_msg + '\')') %}
+  {% set _href = '#' if modal_id else url %}
+  <a href="{{ _href }}" class="{{ _cls }}"
+     {% if target %}target="{{ target }}"{% endif %}
+     {% if _onclick %}onclick="{{ _onclick }}"{% endif %}
+     {% if modal_id %}data-bs-toggle="modal" data-bs-target="#{{ modal_id }}"{% endif %}
+     style="{% if button.extra %}{{ button.extra }}{% endif %}">
+    {% if button.icon %}<img src="{{ url_for('static', filename='icons/' + button.icon) }}" alt="" height="14">{% endif %}
+    {{ lbl }}
+  </a>
+{% endmacro %}
+
+{% macro btn_submit(button, onclick=none, disabled=false, extra_class='') %}
+  {% set _outline = 'outline-' if button.outline else '' %}
+  {% set _size = ' btn-' + button.size if button.size else '' %}
+  {% set _dir = 'flex-column' if button.label_pos == 'bottom' else '' %}
+  {% set _cls = 'btn btn-' + _outline + button.color + _size + ' d-inline-flex align-items-center gap-1 btn-lbl ' + _dir + ' ' + button.cls + ' ' + extra_class %}
+  {% set _onclick = onclick or (button.confirm_msg and 'return confirm(\'' + button.confirm_msg + '\')') %}
+  <button type="submit" class="{{ _cls }}"
+     {% if _onclick %}onclick="{{ _onclick }}"{% endif %}
+     {% if disabled %}disabled{% endif %}
+     style="{% if button.extra %}{{ button.extra }}{% endif %}">
+    {% if button.icon %}<img src="{{ url_for('static', filename='icons/' + button.icon) }}" alt="" height="14">{% endif %}
+    {{ button.label }}
+  </button>
+{% endmacro %}
+
+{% macro modal_confirm(modal, modal_id, form_action=none, body_extra='') %}
+<div class="modal fade" id="{{ modal_id }}" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ modal.title }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        {% if modal.icon %}
+        <img src="{{ url_for('static', filename='icons/' + modal.icon) }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
+        {% endif %}
+        <p class="mb-3 fw-bold">{{ modal.message }}</p>
+        {{ body_extra }}
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-outline-{{ modal.cancel_label|lower }} btn-sm" data-bs-dismiss="modal">{{ modal.cancel_label }}</button>
+          {% if form_action %}
+          <form method="POST" action="{{ form_action }}" class="d-inline">
+            <button type="submit" class="btn btn-{{ modal.confirm_color }} btn-sm">{{ modal.confirm_label }}</button>
+          </form>
+          {% else %}
+          <button type="button" class="btn btn-{{ modal.confirm_color }} btn-sm" id="{{ modal_id }}-confirm">{{ modal.confirm_label }}</button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro paginator(endpoint, nav, center='') %}
+{% set s = url_for('static', filename='icons/') %}
+<div class="text-center mb-3">
+  <div class="btn-group btn-group-sm" role="group">
+    <a href="{{ url_for(endpoint, id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
+      <img src="{{ s }}chevron-bar-left.svg" alt="Primeiro" width="20" height="20">
+    </a>
+    {% if nav.prev_id %}
+    <a href="{{ url_for(endpoint, id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
+      <img src="{{ s }}chevron-left.svg" alt="Anterior" width="20" height="20">
+    </a>
+    {% else %}
+    <a class="btn btn-outline-secondary disabled" title="Anterior">
+      <img src="{{ s }}chevron-left.svg" alt="Anterior" width="20" height="20">
+    </a>
+    {% endif %}
+  </div>
+  <span class="mx-2 small text-muted">{{ center }}</span>
+  <div class="btn-group btn-group-sm" role="group">
+    {% if nav.next_id %}
+    <a href="{{ url_for(endpoint, id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
+      <img src="{{ s }}chevron-right.svg" alt="Próximo" width="20" height="20">
+    </a>
+    {% else %}
+    <a class="btn btn-outline-secondary disabled" title="Próximo">
+      <img src="{{ s }}chevron-right.svg" alt="Próximo" width="20" height="20">
+    </a>
+    {% endif %}
+    <a href="{{ url_for(endpoint, id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
+      <img src="{{ s }}chevron-bar-right.svg" alt="Último" width="20" height="20">
+    </a>
+  </div>
+</div>
+{% endmacro %}
+
 {% macro action_edit(url, label='Editar') %}
-<a href="{{ url }}" class="text-decoration-none d-inline-flex flex-column align-items-center gap-1 text-nowrap action-edit-link">
-  <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="" height="18">
-  <small style="font-size:0.65rem;line-height:1.2;">{{ label }}</small>
+<a href="{{ url }}" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-edit-link">
+  <img src="{{ url_for('static', filename='icons/pencil.svg') }}" alt="" height="14">
+  <small style="font-size:0.65rem;">{{ label }}</small>
 </a>
 {% endmacro %}
 
 {% macro action_send(url, label='Enviar') %}
-<a href="{{ url }}" target="_blank" class="text-decoration-none d-inline-flex flex-column align-items-center gap-1 text-nowrap action-send-link">
-  <img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="18">
-  <small style="font-size:0.65rem;line-height:1.2;">{{ label }}</small>
+<a href="{{ url }}" target="_blank" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-send-link">
+  <img src="{{ url_for('static', filename='icons/send.svg') }}" alt="" height="14">
+  <small style="font-size:0.65rem;">{{ label }}</small>
 </a>
 {% endmacro %}
 
@@ -29,21 +127,20 @@
 {% set s = url_for('static', filename='icons/') %}
 <div class="d-flex align-items-center mb-3 mt-2 form-nav-wrap">
   <div class="d-flex align-items-center nav-side">
-    <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm p-1 border-0 d-inline-flex flex-column align-items-center gap-0" title="Voltar à lista" style="min-height:44px;min-width:44px;line-height:1;"><img src="{{ url_for('static', filename='icons/list.png') }}" alt="" height="14"><span style="font-size:0.6rem;font-weight:600;line-height:1.1;">Lista</span>
-    </a>
+    {{ btn(BTN_LISTA, back_url, extra_class='p-1 border-0 gap-0 flex-column') }}
   </div>
   <div class="d-flex align-items-center flex-grow-1 justify-content-center gap-1">
     <div class="btn-group btn-group-sm" role="group">
       <a href="{{ url_for(edit_endpoint, id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
-        <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
+        <img src="{{ s }}chevron-bar-left.svg" alt="Primeiro" width="20" height="20">
       </a>
       {% if nav.prev_id %}
         <a href="{{ url_for(edit_endpoint, id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
-          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+          <img src="{{ s }}chevron-left.svg" alt="Anterior" width="20" height="20">
         </a>
       {% else %}
         <a class="btn btn-outline-secondary disabled" title="Anterior">
-          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+          <img src="{{ s }}chevron-left.svg" alt="Anterior" width="20" height="20">
         </a>
       {% endif %}
     </div>
@@ -51,15 +148,15 @@
     <div class="btn-group btn-group-sm" role="group">
       {% if nav.next_id %}
         <a href="{{ url_for(edit_endpoint, id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
-          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+          <img src="{{ s }}chevron-right.svg" alt="Próximo" width="20" height="20">
         </a>
       {% else %}
         <a class="btn btn-outline-secondary disabled" title="Próximo">
-          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+          <img src="{{ s }}chevron-right.svg" alt="Próximo" width="20" height="20">
         </a>
       {% endif %}
       <a href="{{ url_for(edit_endpoint, id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
-        <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
+        <img src="{{ s }}chevron-bar-right.svg" alt="Último" width="20" height="20">
       </a>
     </div>
     {% if status %}<span class="mx-1 d-none d-lg-inline">{{ status | safe }}</span>{% endif %}

@@ -5,12 +5,9 @@
   <h2>Orçamento #{{ quote.id|fmtid }}</h2>
   <div class="d-flex gap-2">
     {% if not quote.pedido_id %}
-    <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-secondary btn-sm" title="Imprimir PDF">
-      <img src="{{ url_for('static', filename='icons/notebook-pen.png') }}" alt="Imprimir" height="20">
-    </a>
+    {{ btn(BTN_IMPRIMIR, url_for('orcamentos.print_quote', id=quote.id), target='_blank') }}
     {% endif %}
-    <a href="{{ url_for('orcamentos.list') }}" class="btn btn-outline-secondary btn-sm p-1 border-0 d-inline-flex flex-column align-items-center gap-0" title="Voltar à lista" style="min-height:44px;min-width:44px;line-height:1;"><img src="{{ url_for('static', filename='icons/undo.png') }}" alt="" height="14"><span style="font-size:0.6rem;font-weight:600;line-height:1.1;">Lista</span>
-    </a>
+    {{ btn(BTN_LISTA, url_for('orcamentos.list')) }}
   </div>
 </div>
 
@@ -18,28 +15,28 @@
 <div class="text-center mb-3">
   <div class="btn-group btn-group-sm" role="group">
       <a href="{{ url_for('orcamentos.detail', id=nav.first_id) }}" class="btn btn-outline-secondary" title="Primeiro">
-        <img src="{{ s }}chevron-first.png" alt="Primeiro" width="20" height="20">
+        <img src="{{ s }}chevron-bar-left.svg" alt="Primeiro" width="20" height="20">
       </a>
       {% if nav.prev_id %}
         <a href="{{ url_for('orcamentos.detail', id=nav.prev_id) }}" class="btn btn-outline-secondary" title="Anterior">
-          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+          <img src="{{ s }}chevron-left.svg" alt="Anterior" width="20" height="20">
         </a>
       {% else %}
         <a class="btn btn-outline-secondary disabled" title="Anterior">
-          <img src="{{ s }}chevron-left.png" alt="Anterior" width="20" height="20">
+          <img src="{{ s }}chevron-left.svg" alt="Anterior" width="20" height="20">
         </a>
       {% endif %}
       {% if nav.next_id %}
         <a href="{{ url_for('orcamentos.detail', id=nav.next_id) }}" class="btn btn-outline-secondary" title="Próximo">
-          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+          <img src="{{ s }}chevron-right.svg" alt="Próximo" width="20" height="20">
         </a>
       {% else %}
         <a class="btn btn-outline-secondary disabled" title="Próximo">
-          <img src="{{ s }}chevron-right.png" alt="Próximo" width="20" height="20">
+          <img src="{{ s }}chevron-right.svg" alt="Próximo" width="20" height="20">
         </a>
       {% endif %}
       <a href="{{ url_for('orcamentos.detail', id=nav.last_id) }}" class="btn btn-outline-secondary" title="Último">
-        <img src="{{ s }}chevron-last.png" alt="Último" width="20" height="20">
+        <img src="{{ s }}chevron-bar-right.svg" alt="Último" width="20" height="20">
       </a>
   </div>
 </div>
@@ -71,7 +68,7 @@
         </p>
         {% if quote.pedido_id %}
           <p class="mt-1 mb-0">
-            <a href="{{ url_for('orders.edit', id=quote.pedido_id) }}" class="btn btn-sm btn-outline-success">Ver Pedido #{{ quote.pedido_id|fmtid }}</a>
+            {{ btn(BTN_ENVIAR, url_for('orders.edit', id=quote.pedido_id), label='Ver Pedido #' + (quote.pedido_id|fmtid)) }}
           </p>
         {% endif %}
       </div>
@@ -170,9 +167,9 @@
 
 <div class="d-flex flex-wrap gap-2">
   {% if not quote.pedido_id %}
-  <a href="{{ url_for('orcamentos.print_quote', id=quote.id) }}" target="_blank" class="btn btn-outline-success d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/send.png') }}" alt="" height="16">Enviar</a>
+  {{ btn(BTN_ENVIAR, url_for('orcamentos.print_quote', id=quote.id), target='_blank') }}
   {% endif %}
-  <a href="{{ url_for('orcamentos.edit', id=quote.id) }}" class="btn btn-outline-primary">Revisar</a>
+  {{ btn(BTN_EDITAR, url_for('orcamentos.edit', id=quote.id), label='Revisar') }}
   {% if not quote.pedido_id and quote.status < 7 %}
     {% if perfect_match %}
     <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
@@ -190,7 +187,7 @@
   {% if quote.cliente_telefone %}
     {% set tel = quote.cliente_telefone|string|replace('(', '')|replace(')', '')|replace('-', '')|replace(' ', '') %}
     {% set msg = 'Olá! Segue o orçamento #' ~ quote.id ~ ' da Algodoce Doçaria.' %}
-    <a href="https://wa.me/55{{ tel }}?text={{ msg | urlencode }}" target="_blank" class="btn btn-outline-success">WhatsApp</a>
+    {{ btn(BTN_ENVIAR, 'https://wa.me/55' + tel|string + '?text=' + msg|urlencode, target='_blank', label='WhatsApp') }}
   {% endif %}
 </div>
 
