@@ -5,8 +5,8 @@
 {% endblock %}
 {% block content %}
 <div class="d-flex justify-content-end gap-2 mb-2 no-print">
-  <button onclick="document.getElementById('pdf-frame').contentWindow.print()" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
-    <i class="bi bi-printer"></i> Imprimir
+  <button onclick="shareOrPrint()" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
+    <i class="bi bi-send"></i> Enviar
   </button>
   <a href="#" onclick="var ref=document.referrer||'{{ fallback_url }}';window.location.href=ref;" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-left"></i> Voltar</a>
 </div>
@@ -23,5 +23,22 @@ function fitFrame(){
 window.addEventListener('load',fitFrame);
 window.addEventListener('resize',fitFrame);
 fitFrame();
+
+async function shareOrPrint(){
+  var f=document.getElementById('pdf-frame');
+  if(!f)return;
+  if(navigator.share&&navigator.canShare){
+    try{
+      var r=await fetch(f.getAttribute('src'));
+      var b=await r.blob();
+      var file=new File([b],'documento.pdf',{type:'application/pdf'});
+      if(navigator.canShare({files:[file]})){
+        await navigator.share({files:[file]});
+        return;
+      }
+    }catch(e){}
+  }
+  f.contentWindow.print();
+}
 </script>
 {% endblock %}

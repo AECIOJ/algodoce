@@ -146,7 +146,7 @@ algodoce/
 
 | Macro | Arquivo | Descrição |
 |-------|---------|-----------|
-| `action_list(title, new_url=none, new_label='+ Novo', extra_actions=none, active_filters=none, filters=none, ctx=none)` | `macros.html` | Macro mestra de listagem: abas Dados/Filtros, tabela sortable, filtro JS config-driven (XXX_FILTERS) |
+| `action_list(title, new_url=none, new_label='Novo', extra_actions=none, active_filters=none, filters=none, ctx=none)` | `macros.html` | Macro mestra de listagem: abas Dados/Filtros, tabela sortable, filtro JS config-driven (XXX_FILTERS) |
 | `action_table(data, columns=none, fields=none, ctx=none, table=none, edit_endpoint=none, ...)` | `macros.html` | Tabela com colunas dinâmicas, ordenação, detalhe expansível, botão de ação centralizado |
 | `action_filter(caller_content='')` | `macros.html` | Painel de filtros |
 | `action_edit(url, label='Editar')` | `macros.html` | Botão de editar (ícone lápis) |
@@ -797,3 +797,32 @@ algodoce/
 - Reports: adicionado `compra.py`.
 - Removido `COMERCIAL.md` da árvore de diretórios (arquivo inexistente).
 - Tabela `trf` renomeada para `recurso_trf` (model, migration, FK em `movto`).
+
+### Sessão 2026-07-20 (continuação)
+
+#### CSS — largura de tabela
+- `html.list-page .page-list-inner` alterado para `width: fit-content !important; max-width: 100% !important` — tabela ocupa largura natural, não força 100%.
+
+#### Página de impressão (`print_default.html`)
+- Componente compartilhado para todos os relatórios (orçamento, pedido, compra) — herda de `page_sys.html`.
+- Botão "Imprimir" (`iframe.contentWindow.print()`) + botão "Voltar" com `bi-arrow-left`.
+- `{% block modals %}{% endblock %}` vazio — suprime `qrModal`, `confirmModal`, etc. da página de impressão (resolve warning `aria-hidden`).
+- `{% block head_extra %}` com `overflow:hidden` em `html,body` — impede scroll da página.
+- JS `fitFrame()`: calcula altura do iframe dinamicamente (`window.innerHeight - r.top - footer.offsetHeight`), adaptando-se a qualquer viewport (desktop e mobile).
+
+#### Links de impressão centralizados
+- `action_send()` macro (`macros.html`): removido `target="_blank"` — navega na mesma janela.
+- 5 links raw `<a>` revertidos para `btn()` sem `target` em `sys_orcamentos/form.html`, `sys_orcamentos/detail.html` (×2), `sys_orders/form.html` (×2).
+- `sys_compras/form.html`: removido `target='_blank'` do `btn()`.
+- Regra: todos os links de impressão/relatório usam `btn()` ou `action_send()` — sem `target="_blank"` em nenhum dispositivo.
+
+#### Ícones Bootstrap Icons em botões
+- ~118 botões em 30+ arquivos receberam `<i class="bi bi-XXX"></i>` + `d-inline-flex align-items-center gap-1`.
+- Padrão: `bi-plus-lg` (adicionar), `bi-check-lg` (confirmar/salvar), `bi-arrow-left` (voltar), `bi-pencil` (editar), `bi-trash` (excluir), `bi-toggle-on`/`bi-toggle-off` (ativar/desativar), `bi-eye` (detalhes), `bi-send` (enviar), `bi-printer` (imprimir).
+- Rótulos `+ ` removidos: macro default `'+ Novo'` → `'Novo'`, producao list `'+ Nova'` → `'Nova'`, navegador JS `'+ Orçar'` → `'Orçar'`.
+
+#### Site público — vitrine
+- `site_vitrine.py`: passa `itens_ids` (IDs de produtos já no orçamento) ao template.
+- Botão "Orçar": item já incluído mostra `btn-success disabled` com `bi-check-circle` + "Incluído"; item novo mostra `btn-verde` com `bi-plus-circle` + "Orçar".
+- JS `adicionarItem()`: após adicionar, botão muda para estado "Incluído" (sem reverter após timeout).
+- `lista.html`: botão remover trocado de 🗑️ emoji para `bi-trash`.
