@@ -325,11 +325,11 @@ html.list-page main.container {
   padding-right: 0 !important;
 }
 html.list-page .page-list-inner {
-  width: 100% !important;
+  width: fit-content !important;
+  max-width: 100% !important;
   min-width: 0 !important;
 }
 html.list-page .table-list-wrap table {
-  width: 100% !important;
   min-width: 0 !important;
 }
 html.list-page .table-scroll {

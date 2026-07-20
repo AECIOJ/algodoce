@@ -6,6 +6,7 @@ Create Date: 2026-07-20 12:00:00.000000
 
 """
 from alembic import op
+import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'c7d8e9f0a1b2'
@@ -15,20 +16,19 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table('movto', schema=None) as batch_op:
-        batch_op.drop_constraint(None, type_='foreignkey')
-
+    op.execute("""
+        ALTER TABLE movto
+        DROP CONSTRAINT IF EXISTS movto_trf_id_fkey
+    """)
     op.rename_table('trf', 'recurso_trf')
-
-    with op.batch_alter_table('movto', schema=None) as batch_op:
-        batch_op.create_foreign_key(None, 'recurso_trf', ['trf_id'], ['id'])
+    op.create_foreign_key(
+        'movto_trf_id_fkey', 'movto', 'recurso_trf', ['trf_id'], ['id']
+    )
 
 
 def downgrade():
-    with op.batch_alter_table('movto', schema=None) as batch_op:
-        batch_op.drop_constraint(None, type_='foreignkey')
-
+    op.drop_constraint('movto_trf_id_fkey', 'movto', type_='foreignkey')
     op.rename_table('recurso_trf', 'trf')
-
-    with op.batch_alter_table('movto', schema=None) as batch_op:
-        batch_op.create_foreign_key(None, 'trf', ['trf_id'], ['id'])
+    op.create_foreign_key(
+        'movto_trf_id_fkey', 'movto', 'trf', ['trf_id'], ['id']
+    )
