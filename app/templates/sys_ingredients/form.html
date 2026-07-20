@@ -85,7 +85,7 @@
         </div>
       {% endfor %}
     </div>
-    <button type="button" class="btn btn-outline-success btn-sm mt-2" onclick="addConversao()">+ Adicionar Conversão</button>
+    <button type="button" class="btn btn-outline-success btn-sm mt-2 d-inline-flex align-items-center gap-1" onclick="addConversao()"><i class="bi bi-plus-lg"></i> Adicionar Conversão</button>
   </div>
 </div>
 {% endif %}
@@ -111,7 +111,7 @@
                 <td>{{ p.nome }} ({{ p.id|fmtid }})</td>
                 <td>{{ pi.quantidade }}</td>
                 <td>{{ pi.unidade }}</td>
-                <td><a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-primary">Editar Produto</a></td>
+                <td><a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"><i class="bi bi-pencil"></i> Editar Produto</a></td>
               </tr>
             {% endfor %}
           {% endfor %}
@@ -126,7 +126,7 @@
             <span class="card-label">Qtd:</span>
             <span class="card-value">{{ pi.quantidade }} {{ pi.unidade }}</span>
             <div class="mt-1">
-              <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary w-100">Editar Produto</a>
+              <a href="{{ url_for('products.edit', id=p.id) }}" class="btn btn-sm btn-outline-primary w-100 d-inline-flex align-items-center gap-1"><i class="bi bi-pencil"></i> Editar Produto</a>
             </div>
           </div>
         {% endfor %}

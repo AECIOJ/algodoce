@@ -31,8 +31,8 @@
   </h5>
   <div class="ms-auto">
     {% if not trf %}
-    <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar</button>
-    <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar</button>
+    <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block d-inline-flex align-items-center gap-1" onclick="addRow()"><i class="bi bi-plus-lg"></i> Adicionar</button>
+    <button type="button" class="btn btn-outline-success btn-sm d-md-none d-inline-flex align-items-center gap-1" onclick="addRowMobile()"><i class="bi bi-plus-lg"></i> Adicionar</button>
     {% endif %}
   </div>
 </div>
@@ -154,8 +154,8 @@
 </div>
 
 <div class="px-3 py-1">
-  <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar</button>
-  <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar</button>
+  <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block d-inline-flex align-items-center gap-1" onclick="addRow()"><i class="bi bi-plus-lg"></i> Adicionar</button>
+  <button type="button" class="btn btn-outline-success btn-sm d-md-none d-inline-flex align-items-center gap-1" onclick="addRowMobile()"><i class="bi bi-plus-lg"></i> Adicionar</button>
 </div>
 
 <div class="form-bottom-spacer"></div>
@@ -163,7 +163,7 @@
 
 {% block form_footer_left %}
 {% if trf %}
-<button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="showConfirm('Excluir transferência e todos os movimentos vinculados?',function(){document.getElementById('excluir-form').submit()})">Excluir</button>
+<button type="button" class="btn btn-sm btn-outline-danger ms-2 d-inline-flex align-items-center gap-1" onclick="showConfirm('Excluir transferência e todos os movimentos vinculados?',function(){document.getElementById('excluir-form').submit()})"><i class="bi bi-trash"></i> Excluir</button>
 {% endif %}
 {% endblock %}
 
@@ -274,7 +274,7 @@
       <div class="modal-body text-center py-4">
         <p class="mb-3">Remover movimentação?</p>
         <button type="button" class="btn btn-outline-secondary btn-sm me-2" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-danger btn-sm" id="btn-confirm-remove-movto" data-bs-dismiss="modal">Confirmar</button>
+        <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" id="btn-confirm-remove-movto" data-bs-dismiss="modal"><i class="bi bi-check-lg"></i> Confirmar</button>
       </div>
     </div>
   </div>

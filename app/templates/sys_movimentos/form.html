@@ -73,7 +73,7 @@
       <input type="hidden" id="previsao-saldo" value="{{ movto.previsao.saldo if movto and movto.previsao else 0 }}">
       <input type="hidden" name="acao" id="acao-field" value="">
       <input type="hidden" name="operacao_acrescimos_id" id="operacao-acrescimos-id" value="">
-      {% if (not movto or not movto.previsao_id) and not from_order and not compra %}<button type="button" class="btn btn-outline-secondary" onclick="abrirModalPrevisoes()">Selecionar</button>{% endif %}
+      {% if (not movto or not movto.previsao_id) and not from_order and not compra %}<button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center gap-1" onclick="abrirModalPrevisoes()"><i class="bi bi-list-check"></i> Selecionar</button>{% endif %}
     </div>
   </div>
   <div class="col-6 col-md-2">
@@ -149,7 +149,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" onclick="confirmarDesconto()">Confirmar</button>
+        <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-1" onclick="confirmarDesconto()"><i class="bi bi-check-lg"></i> Confirmar</button>
       </div>
     </div>
   </div>
@@ -186,7 +186,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" onclick="confirmarAcrescimos()">Confirmar</button>
+        <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-1" onclick="confirmarAcrescimos()"><i class="bi bi-check-lg"></i> Confirmar</button>
       </div>
     </div>
   </div>

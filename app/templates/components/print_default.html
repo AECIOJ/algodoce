@@ -8,7 +8,7 @@
   <button onclick="document.getElementById('pdf-frame').contentWindow.print()" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
     <i class="bi bi-printer"></i> Imprimir
   </button>
-  <a href="#" onclick="var ref=document.referrer||'{{ fallback_url }}';window.location.href=ref;" class="btn btn-outline-secondary btn-sm">Voltar</a>
+  <a href="#" onclick="var ref=document.referrer||'{{ fallback_url }}';window.location.href=ref;" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-left"></i> Voltar</a>
 </div>
 <iframe id="pdf-frame" src="{{ pdf_url }}" style="width:100%;border:none;"></iframe>
 <script>

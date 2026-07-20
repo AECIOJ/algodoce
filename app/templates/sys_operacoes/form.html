@@ -10,8 +10,8 @@
 {% block nav_right %}
 {% if operacao %}
 {% if not operacao.ativa %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
-<a href="{{ url_for('operacoes.toggle', id=operacao.id) }}" class="btn btn-{{ 'success' if operacao.ativa else 'outline-secondary' }} btn-sm" style="min-width:90px">
-  {{ 'Desativar' if operacao.ativa else 'Ativar' }}
+<a href="{{ url_for('operacoes.toggle', id=operacao.id) }}" class="btn btn-{{ 'success' if operacao.ativa else 'outline-secondary' }} btn-sm d-inline-flex align-items-center gap-1" style="min-width:90px">
+  <i class="bi bi-{{ 'toggle-on' if operacao.ativa else 'toggle-off' }}"></i> {{ 'Desativar' if operacao.ativa else 'Ativar' }}
 </a>
 {% endif %}
 {% endblock %}

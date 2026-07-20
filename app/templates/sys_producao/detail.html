@@ -5,10 +5,10 @@
 {% set producao_actions %}
   {% if producao.status == 0 %}
   <form method="POST" action="{{ url_for('producao.atualizar', id=producao.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Atualizar dados dos pedidos e recalcular insumos?')">
-    <button type="submit" class="btn btn-sm btn-outline-warning">Atualizar</button>
+    <button type="submit" class="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-repeat"></i> Atualizar</button>
   </form>
   {% endif %}
-  <a href="{{ url_for('producao.relatorio', id=producao.id) }}" class="btn btn-sm btn-outline-info">Relatório</a>
+  <a href="{{ url_for('producao.relatorio', id=producao.id) }}" class="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1"><i class="bi bi-file-earmark-text"></i> Relatório</a>
 {% endset %}
 
 {% set status_badge %}
@@ -17,7 +17,7 @@
   </span>
   {% if producao.status == 0 %}
   <form method="POST" action="{{ url_for('producao.finalizar', id=producao.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Finalizar produção?')">
-    <button type="submit" class="btn btn-sm btn-success">Finalizar</button>
+    <button type="submit" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1"><i class="bi bi-check-circle"></i> Finalizar</button>
   </form>
   {% endif %}
 {% endset %}
@@ -50,7 +50,7 @@
     <input type="date" name="data_fim" class="form-control form-control-sm" value="{{ producao.data_fim.strftime('%Y-%m-%d') if producao.data_fim else '' }}">
   </div>
   <div class="col-6 col-md-auto">
-    <button type="submit" class="btn btn-sm btn-success w-100 w-md-auto">Salvar</button>
+    <button type="submit" class="btn btn-sm btn-success w-100 w-md-auto d-inline-flex align-items-center gap-1"><i class="bi bi-check-lg"></i> Salvar</button>
   </div>
 </form>
 
@@ -130,7 +130,7 @@
         <tfoot>
           <tr>
             <td colspan="5" class="text-start border-0 pt-2">
-              <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addPedidoModal">+ Incluir Pedido</button>
+              <button class="btn btn-sm btn-success d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#addPedidoModal"><i class="bi bi-plus-lg"></i> Incluir Pedido</button>
             </td>
           </tr>
         </tfoot>
@@ -144,7 +144,7 @@
     {% if producao.status == 0 %}
     <div class="mb-2">
       <form method="POST" action="{{ url_for('producao.atualizar', id=producao.id) }}" style="display:inline" onsubmit="return confirmFormSubmit(this, 'Recalcular insumos a partir dos pedidos?')">
-        <button type="submit" class="btn btn-sm btn-outline-warning">Recalcular Insumos</button>
+        <button type="submit" class="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"><i class="bi bi-calculator"></i> Recalcular Insumos</button>
       </form>
     </div>
     {% endif %}
@@ -191,9 +191,9 @@
               </a>
             </td>
             <td style="padding-right:0.25rem;padding-left:0.25rem">
-              <button class="btn btn-sm btn-primary editar-comprado"
+              <button class="btn btn-sm btn-primary editar-comprado d-inline-flex align-items-center gap-1"
                       data-id="{{ pi.insumo_id }}"
-                      data-value="{{ pi.comprado }}">Editar</button>
+                      data-value="{{ pi.comprado }}"><i class="bi bi-pencil"></i> Editar</button>
             </td>
             {% endif %}
           </tr>
@@ -257,10 +257,10 @@
               </a>
             </td>
             <td style="padding-right:0.25rem;padding-left:0.25rem">
-              <button class="btn btn-sm btn-outline-primary editar-producao"
-                      data-pp-id="{{ pp.id }}"
-                      data-field="{{ field_name }}"
-                      data-value="{{ produzido }}">Editar</button>
+               <button class="btn btn-sm btn-outline-primary editar-producao d-inline-flex align-items-center gap-1"
+                       data-pp-id="{{ pp.id }}"
+                       data-field="{{ field_name }}"
+                       data-value="{{ produzido }}"><i class="bi bi-pencil"></i> Editar</button>
             </td>
             {% endif %}
           </tr>
@@ -325,10 +325,10 @@
               </a>
             </td>
             <td style="padding-right:0.25rem;padding-left:0.25rem">
-              <button class="btn btn-sm btn-outline-primary editar-producao"
-                      data-pp-id="{{ pp.id }}"
-                      data-field="{{ field_name }}"
-                      data-value="{{ produzido }}">Editar</button>
+               <button class="btn btn-sm btn-outline-primary editar-producao d-inline-flex align-items-center gap-1"
+                       data-pp-id="{{ pp.id }}"
+                       data-field="{{ field_name }}"
+                       data-value="{{ produzido }}"><i class="bi bi-pencil"></i> Editar</button>
             </td>
             {% endif %}
           </tr>
@@ -430,7 +430,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-sm btn-success">Adicionar</button>
+          <button type="submit" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1"><i class="bi bi-plus-lg"></i> Adicionar</button>
         </div>
       </form>
     </div>

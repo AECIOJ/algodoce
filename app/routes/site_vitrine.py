@@ -22,9 +22,11 @@ def listar():
     produtos = query.all()
     items = session.get("orcamento_items", [])
     total_itens = len(items)
+    itens_ids = [i["product_id"] for i in items]
     return render_template("site_orcamento/navegador.html",
                            produtos=produtos, categorias=categorias,
-                           categoria_id=categoria_id, total_itens=total_itens)
+                           categoria_id=categoria_id, total_itens=total_itens,
+                           itens_ids=itens_ids)
 
 
 @bp.route("/<int:id>/add", methods=["POST"])

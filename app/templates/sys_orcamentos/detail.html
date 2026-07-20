@@ -175,12 +175,12 @@
     <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
       <input type="hidden" name="converter_tipo" value="auto">
       <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
-      <button type="submit" class="btn btn-success">Converter</button>
+      <button type="submit" class="btn btn-success d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-right-circle"></i>Converter</button>
     </form>
     {% else %}
     <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
-      <button type="submit" class="btn btn-success"
-              onclick="return confirmFormSubmit(this, 'Converter este orçamento em pedido?')">Converter</button>
+      <button type="submit" class="btn btn-success d-inline-flex align-items-center gap-1"
+              onclick="return confirmFormSubmit(this, 'Converter este orçamento em pedido?')"><i class="bi bi-arrow-right-circle"></i>Converter</button>
     </form>
     {% endif %}
   {% endif %}

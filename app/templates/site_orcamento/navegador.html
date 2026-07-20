@@ -184,8 +184,11 @@
                          min="0" step="1" data-minima="{{ p.qtd_minima or 0 }}">
                   <button class="btn btn-outline-secondary qtd-plus vitrine-qtd-btn site-touch-btn">+</button>
                 </div>
-                <button class="btn btn-verde incluir-btn vitrine-incluir-btn site-touch-btn" data-id="{{ p.id }}">
-  + Orçar
+                <button class="btn incluir-btn vitrine-incluir-btn site-touch-btn d-inline-flex align-items-center gap-1
+                  {% if p.id in itens_ids %}btn-success disabled{% else %}btn-verde{% endif %}"
+                  data-id="{{ p.id }}" {% if p.id in itens_ids %}disabled{% endif %}>
+                  <i class="bi {% if p.id in itens_ids %}bi-check-circle{% else %}bi-plus-circle{% endif %}"></i>
+                  {% if p.id in itens_ids %}Incluído{% else %}Orçar{% endif %}
                 </button>
                 {% if p.qtd_minima and p.qtd_minima > 0 %}
                 <span class="text-muted small" style="font-size:0.7rem;">Mín: {{ p.qtd_minima }} und</span>
@@ -258,14 +261,10 @@ function adicionarItem(id, qtd, btn) {
       badge.textContent = data.total_itens;
       badge.classList.add('show');
       bn.classList.add('bn-ativo');
-      btn.textContent = '✓ Adicionado';
       btn.classList.remove('btn-verde');
-      btn.classList.add('btn-success');
-      setTimeout(function() {
-        btn.textContent = '+ Orçar';
-        btn.classList.remove('btn-success');
-        btn.classList.add('btn-verde');
-      }, 1500);
+      btn.classList.add('btn-success', 'disabled');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-check-circle"></i> Incluído';
     }
   });
 }

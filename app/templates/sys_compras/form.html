@@ -95,7 +95,7 @@
       </tr>
       <tr id="add-item-row">
         <td colspan="5">
-          <button type="button" class="btn btn-outline-success btn-sm" onclick="addItem()">+ Adicionar Item</button>
+          <button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" onclick="addItem()"><i class="bi bi-plus-lg"></i> Adicionar Item</button>
         </td>
       </tr>
     </tfoot>
@@ -138,7 +138,7 @@
     <span id="total-geral-mobile">R$ {{ items_total.valor|brl }}</span>
   </div>
   <div class="px-3 py-2">
-    <button type="button" class="btn btn-outline-success btn-sm" onclick="addItemMobile()">+ Adicionar Item</button>
+    <button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" onclick="addItemMobile()"><i class="bi bi-plus-lg"></i> Adicionar Item</button>
   </div>
 </div>
 
@@ -283,8 +283,8 @@
     </div>
 
     <div class="px-3 py-1">
-      <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block" onclick="addRow()">+ Adicionar Parcela</button>
-      <button type="button" class="btn btn-outline-success btn-sm d-md-none" onclick="addRowMobile()">+ Adicionar Parcela</button>
+      <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block d-inline-flex align-items-center gap-1" onclick="addRow()"><i class="bi bi-plus-lg"></i> Adicionar Parcela</button>
+      <button type="button" class="btn btn-outline-success btn-sm d-md-none d-inline-flex align-items-center gap-1" onclick="addRowMobile()"><i class="bi bi-plus-lg"></i> Adicionar Parcela</button>
     </div>
 
     {% if movimentos %}
@@ -370,8 +370,8 @@
 {% set _ev9 = compra.historicos|selectattr('status', 'equalto', 9)|first if compra else none %}
 
 <div class="mb-2">
-  <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#eventoModal">
-    + Adicionar Histórico
+  <button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#eventoModal">
+    <i class="bi bi-plus-lg"></i> Adicionar Histórico
   </button>
 </div>
 
@@ -411,7 +411,7 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-sm btn-success" id="btn-confirm-evento">Confirmar</button>
+        <button type="button" class="btn btn-sm btn-success d-inline-flex align-items-center gap-1" id="btn-confirm-evento"><i class="bi bi-check-lg"></i> Confirmar</button>
       </div>
     </div>
   </div>
@@ -521,7 +521,7 @@
       <div class="modal-body text-center py-4">
         <p class="mb-3">Remover parcela?</p>
         <button type="button" class="btn btn-outline-secondary btn-sm me-2" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-danger btn-sm" id="btn-confirm-remove-parcela" data-bs-dismiss="modal">Confirmar</button>
+        <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" id="btn-confirm-remove-parcela" data-bs-dismiss="modal"><i class="bi bi-check-lg"></i> Confirmar</button>
       </div>
     </div>
   </div>

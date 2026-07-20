@@ -10,8 +10,8 @@
 {% block nav_right %}
 {% if product %}
 {% if not product.ativo %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
-<a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm" style="min-width:90px">
-  {{ 'Desativar' if product.ativo else 'Ativar' }}
+<a href="{{ url_for('products.toggle', id=product.id) }}" class="btn btn-{{ 'success' if product.ativo else 'outline-secondary' }} btn-sm d-inline-flex align-items-center gap-1" style="min-width:90px">
+  <i class="bi bi-{{ 'toggle-on' if product.ativo else 'toggle-off' }}"></i> {{ 'Desativar' if product.ativo else 'Ativar' }}
 </a>
 {% endif %}
 {% endblock %}
@@ -59,7 +59,7 @@
       <div id="foto-placeholder" class="bg-light rounded d-flex align-items-center justify-content-center"
            style="width:120px;height:120px;color:#ccc;font-size:3rem;">📸</div>
     {% endif %}
-    <button type="button" class="btn btn-outline-primary btn-sm" onclick="abrirCrop()">Editar Foto</button>
+    <button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" onclick="abrirCrop()"><i class="bi bi-pencil-square"></i> Editar Foto</button>
   </div>
   <input type="file" id="crop-input" accept="image/*" style="display:none">
   <input type="hidden" name="temp_imagem" id="temp-imagem" value="">
@@ -154,7 +154,7 @@
       {% endif %}
       <div class="row mb-2" id="add-insumo-row">
         <div class="col-12">
-          <button type="button" class="btn btn-outline-success btn-sm" onclick="addInsumo()">+ Adicionar Insumo</button>
+          <button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" onclick="addInsumo()"><i class="bi bi-plus-lg"></i> Adicionar Insumo</button>
         </div>
       </div>
     </div>
@@ -207,7 +207,7 @@
       <div class="modal-footer">
         <span id="crop-status" class="text-muted small me-auto"></span>
         <button type="button" class="btn btn-outline-secondary" id="crop-cancel" onclick="fecharCrop()">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="crop-confirm" disabled onclick="salvarCrop()">Salvar</button>
+        <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-1" id="crop-confirm" disabled onclick="salvarCrop()"><i class="bi bi-check-lg"></i> Salvar</button>
       </div>
     </div>
   </div>

@@ -2,7 +2,7 @@
 {% from "components/macros.html" import action_list, action_table %}
 
 {% set validar_btn %}
-<a href="{{ url_for('orcamentos.validar') }}" class="btn btn-sm btn-validar text-nowrap">Validar</a>
+<a href="{{ url_for('orcamentos.validar') }}" class="btn btn-sm btn-validar text-nowrap d-inline-flex align-items-center gap-1"><i class="bi bi-check2-circle"></i>Validar</a>
 {% endset %}
 
 {% block page_content %}
