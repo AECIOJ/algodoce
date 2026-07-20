@@ -12,7 +12,7 @@
 {{ btn(BTN_DETALHES, url_for('orcamentos.edit', id=order.quote_id), label='Orçamento #' + (order.quote_id|fmtid)) }}
 {% endif %}
 
-    {{ btn(BTN_ENVIAR, url_for('orders.print_order', id=order.id), target='_blank') }}
+    {{ btn(BTN_ENVIAR, url_for('orders.print_order', id=order.id)) }}
 {% endblock %}
 
 {% block form_body %}
@@ -30,7 +30,7 @@
     <label class="form-label">Telefone</label>
     <div class="input-group">
       <input type="text" name="cliente_telefone" class="form-control" value="{{ order.conta.telefone if order and order.conta and order.conta.telefone else '' }}" {{ 'readonly' if ro else '' }}>
-      {% if order %}{{ btn(BTN_ENVIAR, url_for('orders.print_order', id=order.id), target='_blank') }}{% endif %}
+      {% if order %}{{ btn(BTN_ENVIAR, url_for('orders.print_order', id=order.id)) }}{% endif %}
     </div>
   </div>
   <div class="col-md-2 mb-2 mb-md-0">

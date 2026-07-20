@@ -1,11 +1,27 @@
 {% extends "components/page_sys.html" %}
+{% block modals %}{% endblock %}
+{% block head_extra %}
+<style>html,body{overflow:hidden!important}</style>
+{% endblock %}
 {% block content %}
-
-<div class="d-flex justify-content-end gap-2 mb-3 no-print">
-  <a href="#" onclick="var ref=document.referrer||'{{ fallback_url }}';window.location.href=ref;" class="btn btn-outline-secondary">Voltar</a>
+<div class="d-flex justify-content-end gap-2 mb-2 no-print">
+  <button onclick="document.getElementById('pdf-frame').contentWindow.print()" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
+    <i class="bi bi-printer"></i> Imprimir
+  </button>
+  <a href="#" onclick="var ref=document.referrer||'{{ fallback_url }}';window.location.href=ref;" class="btn btn-outline-secondary btn-sm">Voltar</a>
 </div>
-
-<iframe src="{{ pdf_url }}"
-        style="width:100%;height:calc(100vh - 150px);border:none;"></iframe>
-
+<iframe id="pdf-frame" src="{{ pdf_url }}" style="width:100%;border:none;"></iframe>
+<script>
+function fitFrame(){
+  var f=document.getElementById('pdf-frame');
+  if(!f)return;
+  var r=f.getBoundingClientRect();
+  var footer=document.querySelector('.page-footer-wrapper');
+  var bottom=footer?footer.offsetHeight:0;
+  f.style.height=Math.max(200,window.innerHeight-r.top-bottom)+'px';
+}
+window.addEventListener('load',fitFrame);
+window.addEventListener('resize',fitFrame);
+fitFrame();
+</script>
 {% endblock %}

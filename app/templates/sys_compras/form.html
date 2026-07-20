@@ -11,7 +11,7 @@
 {% block nav_right %}
 {% if compra and compra.id and compra.status in (0, 1) %}
 {% set _sl = COMPRA_STATUS.get(compra.status, 'Documento') %}
-{{ btn(BTN_ENVIAR, url_for('compras.print_compra', id=compra.id), target='_blank', label='Enviar ' + _sl) }}
+{{ btn(BTN_ENVIAR, url_for('compras.print_compra', id=compra.id), label='Enviar ' + _sl) }}
 {% endif %}
 {% endblock %}
 

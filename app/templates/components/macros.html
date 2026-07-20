@@ -104,7 +104,7 @@
 {% endmacro %}
 
 {% macro action_send(url, label='Enviar') %}
-<a href="{{ url }}" target="_blank" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-send-link">
+<a href="{{ url }}" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-send-link">
   <img src="{{ url_for('static', filename='icons/send.svg') }}" alt="" height="14">
   <small style="font-size:0.65rem;">{{ label }}</small>
 </a>

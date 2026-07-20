@@ -5,7 +5,7 @@
   <h2>Orçamento #{{ quote.id|fmtid }}</h2>
   <div class="d-flex gap-2">
     {% if not quote.pedido_id %}
-    {{ btn(BTN_IMPRIMIR, url_for('orcamentos.print_quote', id=quote.id), target='_blank') }}
+    {{ btn(BTN_IMPRIMIR, url_for('orcamentos.print_quote', id=quote.id)) }}
     {% endif %}
     {{ btn(BTN_LISTA, url_for('orcamentos.list')) }}
   </div>
@@ -167,7 +167,7 @@
 
 <div class="d-flex flex-wrap gap-2">
   {% if not quote.pedido_id %}
-  {{ btn(BTN_ENVIAR, url_for('orcamentos.print_quote', id=quote.id), target='_blank') }}
+  {{ btn(BTN_ENVIAR, url_for('orcamentos.print_quote', id=quote.id)) }}
   {% endif %}
   {{ btn(BTN_EDITAR, url_for('orcamentos.edit', id=quote.id), label='Revisar') }}
   {% if not quote.pedido_id and quote.status < 7 %}

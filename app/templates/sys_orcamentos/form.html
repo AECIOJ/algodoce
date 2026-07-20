@@ -30,7 +30,7 @@
   {% endif %}
 
     {% if not quote.pedido_id %}
-    {{ btn(BTN_ENVIAR, url_for('orcamentos.print_quote', id=quote.id), target='_blank') }}
+    {{ btn(BTN_ENVIAR, url_for('orcamentos.print_quote', id=quote.id)) }}
     {% endif %}</div>
 {% endif %}
 {% endblock %}
