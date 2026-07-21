@@ -5,6 +5,9 @@
     display: flex; gap: 1.5rem; align-items: stretch;
     justify-content: center;
   }
+  .vitrine-carousel-wrap {
+    display: flex; flex-direction: column; flex: 1;
+  }
   .cat-badges {
     width: 200px; flex-shrink: 0;
     display: flex; flex-direction: column; gap: 0.25rem;
@@ -18,73 +21,117 @@
     border-radius: 6px !important;
   }
   .cat-select-bar { display: none; }
-  @media (min-width: 576px) {
-    #carrossel {
-      width: 58%; height: 480px; display: flex; flex-direction: column;
-    }
-    #carrossel .produto-item {
-      height: 100%; display: flex; flex-direction: column;
-    }
-    #carrossel .produto-item h3 {
-      flex-shrink: 0;
-    }
-    #carrossel .produto-item .row {
-      flex: 1; height: auto; margin: 0;
-    }
-    #carrossel .col-md-6:first-child {
-      height: 100%; display: flex; align-items: flex-start; justify-content: center;
-      overflow: hidden; margin-bottom: 0;
-    }
-    #carrossel .col-md-6:first-child img {
-      max-height: 100%; max-width: 100%;
-      object-fit: contain; border-radius: 8px;
-    }
-    #carrossel .col-md-6:last-child {
-      display: flex; flex-direction: column;
-      height: 100%; justify-content: space-between;
-    }
-    #carrossel .col-md-6:last-child > div:first-child {
-      flex: 1; overflow-y: auto; min-height: 0;
-    }
-    .controles-row { gap: 4px; }
-    .controles-row .qtd-label { font-size: 0.8rem; }
-    .controles-row .qtd-input { width: 44px !important; font-size: 0.85rem; padding: 0.1rem; }
-    .controles-row .btn { padding: 0.15rem 0.4rem; font-size: 0.85rem; }
-    .controles-row .incluir-btn { font-size: 0.85rem; padding: 0.2rem 0.5rem; }
+
+  #carrossel {
+    height: 380px; display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+    padding: 0.75rem 1rem !important;
   }
+  #carrossel .produto-item {
+    height: 100%; display: flex; flex-direction: column;
+  }
+  #carrossel .produto-item h3 {
+    flex-shrink: 0; padding: 0.25rem 0;
+  }
+  #carrossel .produto-item .row {
+    flex: 1; height: auto; margin: 0; min-height: 0;
+  }
+  #carrossel .col-md-6:first-child {
+    height: 100%; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; margin-bottom: 0;
+  }
+  #carrossel .col-md-6:first-child img {
+    max-height: 220px; max-width: 100%;
+    object-fit: contain; border-radius: 8px;
+  }
+  #carrossel .col-md-6:last-child {
+    display: flex; flex-direction: column;
+    height: 100%; justify-content: center;
+  }
+  #carrossel .col-md-6:last-child > div:first-child {
+    flex: 1; overflow-y: auto; min-height: 0;
+  }
+
+  .carousel-bottom-bar {
+    display: flex; align-items: center;
+    padding: 8px 0; background: #fff; border-top: 1px solid #eee;
+    flex-shrink: 0; position: relative; min-height: 52px;
+  }
+  .ctrl-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; border: none; border-radius: 50%;
+    background: var(--rosa); color: #fff;
+    font-size: 1.5rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: opacity 0.2s;
+    flex-shrink: 0;
+  }
+  #prev-btn { left: 0; }
+  #next-btn { right: 0; }
+  .ctrl-nav:active { opacity: 0.7; }
+  .ctrl-center {
+    display: flex; align-items: center; gap: 6px;
+    margin: 0 auto;
+  }
+  .ctrl-qtd-btn {
+    width: 38px; height: 38px; border: 2px solid var(--rosa); border-radius: 50%;
+    background: #fff; color: var(--rosa);
+    font-size: 1.3rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+  }
+  .ctrl-qtd-btn:active { background: var(--rosa); color: #fff; }
+  .ctrl-qtd-input {
+    width: 58px; text-align: center;
+    font-size: 1.2rem; font-weight: 700; color: #333;
+    border: none; border-bottom: 2px solid var(--rosa);
+    background: transparent; outline: none;
+    -moz-appearance: textfield;
+  }
+  .ctrl-qtd-input::-webkit-outer-spin-button,
+  .ctrl-qtd-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .ctrl-action-btn {
+    height: 44px; padding: 0 20px; border: none; border-radius: 22px;
+    background: var(--rosa); color: #fff;
+    font-size: 1rem; font-weight: 600; white-space: nowrap;
+    cursor: pointer; transition: opacity 0.2s;
+  }
+  .ctrl-action-btn:active { opacity: 0.7; }
+  .ctrl-action-btn.action-salvar {
+    background: #198754;
+  }
+  .ctrl-action-btn.action-orcar {
+    background: var(--rosa);
+  }
+
   @media (max-width: 575.98px) {
     main.container {
-      display: flex; flex-direction: column; overflow: hidden;
+      display: flex; flex-direction: column; overflow-y: auto;
     }
-    .vitrine-layout { display: flex; flex-direction: column; flex: 1; overflow: hidden; gap: 0; }
+    .vitrine-layout { display: flex; flex-direction: column; flex: 1; gap: 0; }
+    .vitrine-carousel-wrap { flex: 1; }
     .cat-badges { display: none; }
     .cat-select-bar {
       display: flex; align-items: center; justify-content: center;
-      padding: 2px 12px;
-      background: #fff;
+      padding: 2px 12px; background: #fff;
     }
     .cat-select-bar select {
-      width: 100%;
-      min-height: 42px;
-      font-size: 1.05rem;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 4px 10px;
-      background: #fff;
-      color: var(--rosa);
-      font-weight: 500;
+      width: 100%; min-height: 42px; font-size: 1.05rem;
+      border: 1px solid #ccc; border-radius: 8px;
+      padding: 4px 10px; background: #fff;
+      color: var(--rosa); font-weight: 500;
     }
     #carrossel {
       flex: 1; display: flex; flex-direction: column;
-      overflow-y: auto; overflow-x: hidden; min-height: 0;
-      touch-action: pan-y;
-      padding: 0 0.5rem 0 0.5rem !important;
-      border: none !important; box-shadow: none !important; border-radius: 0 !important;
-      background: #fff;
+      overflow: hidden; min-height: 0; touch-action: pan-y;
+      padding: 0 0.5rem !important;
+      border: none !important; box-shadow: none !important;
+      border-radius: 0 !important; background: #fff;
+      height: auto;
     }
     #carrossel .produto-item:not(.d-none) {
       flex: 1; display: flex; flex-direction: column;
-      padding-bottom: 192px;
     }
     #carrossel .produto-item h3 { padding: 0.5rem 0; }
     #carrossel .produto-item .row {
@@ -102,36 +149,26 @@
       flex: 1; display: flex; flex-direction: column; padding-left: 0;
       padding-bottom: 0;
     }
-    #prev-btn, #next-btn { top: 15vh !important; }
-    .controles-row {
-      position: fixed; bottom: 88px; left: 8px; right: 8px; z-index: 1031;
-      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-      padding: 8px 12px;
-      background: #fff;
+    .carousel-bottom-bar {
+      flex-shrink: 0; padding: 6px 32px;
     }
-    .controles-row .qtd-label { font-size: 0.9rem; white-space: nowrap; }
-    .controles-row .qtd-input { width: 54px !important; font-size: 1rem; padding: 0.15rem; }
-    .controles-row .btn { padding: 0.2rem 0.5rem; font-size: 0.95rem; }
-    .controles-row .incluir-btn { font-size: 0.95rem; padding: 0.3rem 0.6rem; white-space: nowrap; }
-    .vitrine-dots {
-      position: fixed; bottom: 184px; left: 0; right: 0; z-index: 1033;
-      display: flex; justify-content: center; align-items: center;
-      gap: 8px; pointer-events: none;
+    .carousel-bottom-bar .ctrl-nav {
+      width: 34px; height: 34px; font-size: 1.2rem;
     }
-    .vitrine-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: rgba(0,0,0,0.2); cursor: pointer;
-      transition: background 0.2s, transform 0.2s;
-      pointer-events: auto;
+    .carousel-bottom-bar .ctrl-qtd-btn {
+      width: 32px; height: 32px; font-size: 1.1rem;
     }
-    .vitrine-dot.active {
-      background: var(--rosa);
-      transform: scale(1.3);
+    .carousel-bottom-bar .ctrl-qtd-input {
+      width: 38px; font-size: 1rem;
+    }
+    .carousel-bottom-bar .ctrl-action-btn {
+      height: 36px; padding: 0 14px; font-size: 0.85rem;
     }
   }
 </style>
 <div class="vitrine-layout">
   <div class="cat-badges">
+    <div class="text-center mb-2" style="font-size:0.95rem; font-weight:600; color:var(--rosa);">Categorias</div>
     <a href="/vitrine" class="badge bg-rosa mb-1 px-3 py-2 categoria-btn {% if not categoria_id %}opacity-100{% else %}opacity-50{% endif %}"
        style="background: var(--rosa); cursor:pointer; text-decoration:none;">Todas</a>
     {% for cat in categorias %}
@@ -151,68 +188,56 @@
     </select>
   </div>
 
-  <div id="carrossel" class="card shadow-sm border-0 p-4 text-center position-relative">
-  {% if produtos %}
-    {% for p in produtos %}
-      <div class="produto-item {% if not loop.first %}d-none{% endif %}" data-categoria="{{ p.category_id or '' }}">
-        <div class="text-muted small text-center mb-0" style="font-size:0.8rem;">{{ loop.index }} / {{ produtos|length }}</div>
-        <h3 style="color: var(--rosa); text-align: center;" class="produto-nome">{{ p.nome }}</h3>
-        <div class="row justify-content-center align-items-stretch">
-          <div class="col-md-6">
-            {% if p.imagem %}
-              <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}"
-                   class="img-fluid rounded shadow-sm">
-            {% else %}
-              <div class="bg-light rounded d-flex align-items-center justify-content-center"
-                   style="height: 250px; color: #ccc; font-size: 4rem;">
-                📸
-              </div>
-            {% endif %}
-          </div>
-          <div class="col-md-6 d-flex flex-column">
-            <div>
-              {% if p.descricao %}
-                <p style="font-size:0.9rem; line-height:1.4; text-align: justify;">{{ p.descricao }}</p>
+  <div class="vitrine-carousel-wrap">
+    <div id="carrossel" class="card shadow-sm border-0 text-center">
+    {% if produtos %}
+      {% for p in produtos %}
+        <div class="produto-item {% if not loop.first %}d-none{% endif %}"
+             data-categoria="{{ p.category_id or '' }}"
+             data-id="{{ p.id }}"
+             data-qtd-minima="{{ p.qtd_minima or 1 }}"
+             data-qtd-orcamento="{{ itens_qtd.get(p.id, '') }}">
+          <div class="text-muted small text-center mb-0" style="font-size:0.8rem;">{{ loop.index }} / {{ produtos|length }}</div>
+          <h3 style="color: var(--rosa); text-align: center;" class="produto-nome">{{ p.nome }}</h3>
+          <div class="row justify-content-center align-items-stretch">
+            <div class="col-md-6">
+              {% if p.imagem %}
+                <img src="{{ url_for('uploads.uploaded_file', filename=p.imagem) }}"
+                     class="img-fluid rounded shadow-sm">
+              {% else %}
+                <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                     style="height: 250px; color: #ccc; font-size: 4rem;">
+                  📸
+                </div>
               {% endif %}
             </div>
-              <div class="d-flex align-items-center gap-1 flex-wrap controles-row">
-                <div class="d-flex align-items-center gap-1">
-                  <label class="form-label small text-muted mb-0 qtd-label">Qtd.</label>
-                  <button class="btn btn-outline-secondary qtd-minus vitrine-qtd-btn site-touch-btn">−</button>
-                  <input type="number" class="form-control qtd-input vitrine-qtd-input"
-                         value="{{ p.qtd_minima or 1 }}"
-                         min="0" step="1" data-minima="{{ p.qtd_minima or 0 }}">
-                  <button class="btn btn-outline-secondary qtd-plus vitrine-qtd-btn site-touch-btn">+</button>
-                </div>
-                <button class="btn incluir-btn vitrine-incluir-btn site-touch-btn d-inline-flex align-items-center gap-1
-                  {% if p.id in itens_ids %}btn-success disabled{% else %}btn-verde{% endif %}"
-                  data-id="{{ p.id }}" {% if p.id in itens_ids %}disabled{% endif %}>
-                  <i class="bi {% if p.id in itens_ids %}bi-check-circle{% else %}bi-plus-circle{% endif %}"></i>
-                  {% if p.id in itens_ids %}Incluído{% else %}Orçar{% endif %}
-                </button>
-                {% if p.qtd_minima and p.qtd_minima > 0 %}
-                <span class="text-muted small" style="font-size:0.7rem;">Mín: {{ p.qtd_minima }} und</span>
+            <div class="col-md-6 d-flex flex-column">
+              <div>
+                {% if p.descricao %}
+                  <p style="font-size:0.9rem; line-height:1.4; text-align: justify;">{{ p.descricao }}</p>
                 {% endif %}
               </div>
+            </div>
           </div>
         </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted">Nenhum produto disponível no momento.</p>
+    {% endif %}
+    </div>
+
+    {% if produtos %}
+    <div class="carousel-bottom-bar">
+      <button id="prev-btn" class="ctrl-nav">‹</button>
+      <div class="ctrl-center">
+        <button class="ctrl-qtd-btn" id="ctrl-qtd-minus">−</button>
+        <input type="number" class="ctrl-qtd-input" id="ctrl-qtd-value" value="1" min="0">
+        <button class="ctrl-qtd-btn" id="ctrl-qtd-plus">+</button>
+        <button class="ctrl-action-btn" id="ctrl-action">ORÇAR</button>
       </div>
-    {% endfor %}
-    <button id="prev-btn" class="btn border-0 position-absolute top-50 translate-middle-y d-none d-sm-inline-block"
-            style="left: 0; color: var(--rosa); font-size: 2.5rem; z-index: 5;">‹</button>
-    <button id="next-btn" class="btn border-0 position-absolute top-50 translate-middle-y d-none d-sm-inline-block"
-            style="right: 0; color: var(--rosa); font-size: 2.5rem; z-index: 5;">›</button>
-  {% else %}
-    <p class="text-muted">Nenhum produto disponível no momento.</p>
-  {% endif %}
-  </div>
-  <div class="vitrine-dots d-sm-none">
-    <span class="vitrine-dot active" data-dot="0"></span>
-    <span class="vitrine-dot" data-dot="1"></span>
-    <span class="vitrine-dot" data-dot="2"></span>
-    <span class="vitrine-dot" data-dot="3"></span>
-    <span class="vitrine-dot" data-dot="4"></span>
-    <span class="vitrine-dot" data-dot="5"></span>
+      <button id="next-btn" class="ctrl-nav">›</button>
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -243,7 +268,7 @@ function phoneMask(input) {
   });
 }
 
-function adicionarItem(id, qtd, btn) {
+function adicionarItem(id, qtd) {
   fetch('/vitrine/' + id + '/add', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -261,12 +286,77 @@ function adicionarItem(id, qtd, btn) {
       badge.textContent = data.total_itens;
       badge.classList.add('show');
       bn.classList.add('bn-ativo');
-      btn.classList.remove('btn-verde');
-      btn.classList.add('btn-success', 'disabled');
-      btn.disabled = true;
-      btn.innerHTML = '<i class="bi bi-check-circle"></i> Incluído';
+      updateBarState(id, qtd);
     }
   });
+}
+
+function atualizarItem(id, qtd) {
+  fetch('/vitrine/' + id + '/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quantidade: qtd })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data && data.success) {
+      updateBarState(id, qtd);
+    }
+  });
+}
+
+function removerItem(id) {
+  fetch('/vitrine/' + id + '/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data && data.success) {
+      var bn = document.getElementById('bnOrcamento');
+      var badge = document.getElementById('bnOrcamentoBadge');
+      if (data.total_itens > 0) {
+        badge.textContent = data.total_itens;
+      } else {
+        badge.classList.remove('show');
+        bn.classList.remove('bn-ativo');
+      }
+      updateBarState(null, null);
+    }
+  });
+}
+
+function updateBarState(id, qtd) {
+  var item = document.querySelector('.produto-item:not(.d-none)');
+  if (!item) return;
+  var actionBtn = document.getElementById('ctrl-action');
+  var qtdValue = document.getElementById('ctrl-qtd-value');
+  var qtdMinus = document.getElementById('ctrl-qtd-minus');
+  var qtdPlus = document.getElementById('ctrl-qtd-plus');
+
+  if (qtd !== null && qtd !== undefined) {
+    item.dataset.qtdOrcamento = qtd;
+  } else if (id === null) {
+    item.dataset.qtdOrcamento = '';
+  }
+
+  var qtdOrc = item.dataset.qtdOrcamento;
+  var qtdMinima = parseInt(item.dataset.qtdMinima) || 1;
+
+  if (qtdOrc !== '') {
+    actionBtn.textContent = qtdOrc + ' no orçamento';
+    actionBtn.className = 'ctrl-action-btn action-salvar';
+    actionBtn.dataset.mode = 'edit';
+    qtdMinus.style.display = 'none';
+    qtdPlus.style.display = 'none';
+    qtdValue.style.display = 'none';
+  } else {
+    actionBtn.textContent = 'ORÇAR';
+    actionBtn.className = 'ctrl-action-btn action-orcar';
+    actionBtn.dataset.mode = 'add';
+    qtdMinus.style.display = '';
+    qtdPlus.style.display = '';
+    qtdValue.style.display = '';
+    qtdValue.value = qtdMinima;
+  }
 }
 
 function showClientPopup() {
@@ -323,7 +413,7 @@ function submitClient() {
     if (data.success) {
       fecharClientPopup();
       if (pendingItem) {
-        adicionarItem(pendingItem.id, pendingItem.qtd, pendingItem.btn);
+        adicionarItem(pendingItem.id, pendingItem.qtd);
         pendingItem = null;
       }
     } else {
@@ -335,26 +425,43 @@ function submitClient() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Carousel navigation
   var allItems = document.querySelectorAll('.produto-item');
   var currentIndex = 0;
+  var ctrlQtdValue = document.getElementById('ctrl-qtd-value');
+  var ctrlQtdMinus = document.getElementById('ctrl-qtd-minus');
+  var ctrlQtdPlus = document.getElementById('ctrl-qtd-plus');
+  var ctrlAction = document.getElementById('ctrl-action');
 
   function showProduto(index) {
     allItems.forEach(function(i, idx) {
       i.classList.toggle('d-none', idx !== index);
     });
     currentIndex = index;
-    var total = allItems.length;
-    var DOT_COUNT = 6;
-    document.querySelectorAll('.vitrine-dot').forEach(function(d, idx) {
-      var active;
-      if (total <= 1) {
-        active = idx === Math.floor(DOT_COUNT / 2);
-      } else {
-        active = idx === Math.round(index * (DOT_COUNT - 1) / (total - 1));
-      }
-      d.classList.toggle('active', active);
-    });
+    updateBarFromItem();
+  }
+
+  function updateBarFromItem() {
+    var item = allItems[currentIndex];
+    if (!item) return;
+    var qtdOrc = item.dataset.qtdOrcamento;
+    var qtdMinima = parseInt(item.dataset.qtdMinima) || 1;
+
+    if (qtdOrc !== '') {
+      ctrlAction.textContent = qtdOrc + ' no orçamento';
+      ctrlAction.className = 'ctrl-action-btn action-salvar';
+      ctrlAction.dataset.mode = 'edit';
+      ctrlQtdMinus.style.display = 'none';
+      ctrlQtdPlus.style.display = 'none';
+      ctrlQtdValue.style.display = 'none';
+    } else {
+      ctrlAction.textContent = 'ORÇAR';
+      ctrlAction.className = 'ctrl-action-btn action-orcar';
+      ctrlAction.dataset.mode = 'add';
+      ctrlQtdMinus.style.display = '';
+      ctrlQtdPlus.style.display = '';
+      ctrlQtdValue.style.display = '';
+      ctrlQtdValue.value = qtdMinima;
+    }
   }
 
   function prevProduto() { showProduto(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1); }
@@ -362,21 +469,57 @@ document.addEventListener('DOMContentLoaded', function() {
 
   document.getElementById('prev-btn').addEventListener('click', prevProduto);
   document.getElementById('next-btn').addEventListener('click', nextProduto);
-  document.querySelectorAll('.vitrine-dot').forEach(function(dot, dotIdx) {
-    dot.addEventListener('click', function() {
-      var total = allItems.length;
-      var DOT_COUNT = 6;
-      var targetIdx;
-      if (total <= 1) {
-        targetIdx = 0;
-      } else {
-        targetIdx = Math.round(dotIdx * (total - 1) / (DOT_COUNT - 1));
-      }
-      showProduto(targetIdx);
-    });
+
+  ctrlQtdMinus.addEventListener('click', function() {
+    var item = allItems[currentIndex];
+    if (!item) return;
+    var minima = parseInt(item.dataset.qtdMinima) || 1;
+    var current = parseInt(ctrlQtdValue.value) || minima;
+    if (current > minima) {
+      ctrlQtdValue.value = current - 1;
+    }
   });
 
-  // Swipe support
+  ctrlQtdPlus.addEventListener('click', function() {
+    var item = allItems[currentIndex];
+    if (!item) return;
+    var current = parseInt(ctrlQtdValue.value) || 1;
+    ctrlQtdValue.value = current + 1;
+  });
+
+  ctrlAction.addEventListener('click', function() {
+    var item = allItems[currentIndex];
+    if (!item) return;
+    var id = item.dataset.id;
+    var nome = item.querySelector('h3').textContent;
+    var qtd = parseInt(ctrlQtdValue.value) || 0;
+    var minima = parseInt(item.dataset.qtdMinima) || 1;
+    var mode = ctrlAction.dataset.mode;
+
+    if (mode === 'add') {
+      if (qtd <= 0) {
+        showAlert('A quantidade deve ser maior que zero.');
+        return;
+      }
+      if (qtd < minima) {
+        showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
+        return;
+      }
+      pendingItem = { id: id, qtd: qtd };
+      adicionarItem(id, qtd);
+    } else if (mode === 'edit') {
+      var qtdOrc = parseInt(item.dataset.qtdOrcamento) || 0;
+      var newQtd = parseInt(ctrlQtdValue.value) || qtdOrc;
+      if (newQtd < minima) {
+        showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
+        return;
+      }
+      if (newQtd !== qtdOrc) {
+        atualizarItem(id, newQtd);
+      }
+    }
+  });
+
   var touchStartX = 0;
   var touchEndX = 0;
   var carrossel = document.getElementById('carrossel');
@@ -392,48 +535,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }, { passive: true });
 
-  // Quantity controls
-  document.querySelectorAll('.qtd-minus').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var input = this.closest('.row').querySelector('.qtd-input');
-      var val = parseInt(input.value) || 0;
-      var minima = parseInt(input.dataset.minima) || 0;
-      var step = parseInt(input.step) || 1;
-      input.value = Math.max(val - step, minima || step);
-    });
-  });
-  document.querySelectorAll('.qtd-plus').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var input = this.closest('.row').querySelector('.qtd-input');
-      var val = parseInt(input.value) || 0;
-      var step = parseInt(input.step) || 1;
-      input.value = val + step;
-    });
-  });
-
-  // Add to quote button
-  document.querySelectorAll('.incluir-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var card = this.closest('.produto-item');
-      var qtd = parseInt(card.querySelector('.qtd-input').value) || 0;
-      var minima = parseInt(card.querySelector('.qtd-input').dataset.minima) || 0;
-      var id = this.dataset.id;
-      var nome = card.querySelector('h3').textContent;
-
-      if (qtd <= 0) {
-        showAlert('A quantidade deve ser maior que zero.');
-        return;
-      }
-      if (minima > 0 && qtd < minima) {
-        showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
-        return;
-      }
-
-      pendingItem = { id: id, qtd: qtd, btn: btn };
-      adicionarItem(id, qtd, btn);
-    });
-  });
+  if (allItems.length > 0) {
+    showProduto(0);
+  }
 });
+
 var initTotal = {{ total_itens }};
 if (initTotal > 0) {
   var bn = document.getElementById('bnOrcamento');

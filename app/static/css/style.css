@@ -10,41 +10,6 @@
   background: #fff;
   border-bottom: 1px solid #dee2e6;
 }
-@media (min-width: 992px) {
-  .sistema-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1010;
-  }
-  .area-menu {
-    position: fixed;
-    top: 100px;
-    left: 0;
-    right: 0;
-    z-index: 1010;
-  }
-  main {
-    padding-top: 200px;
-  }
-}
-@media (max-width: 991.98px) {
-  .sistema-header {
-    position: static;
-  }
-  .sistema-header ~ main {
-    position: static !important;
-    padding: inherit !important;
-    margin: inherit !important;
-    min-height: inherit !important;
-    top: auto !important;
-    bottom: auto !important;
-    left: auto !important;
-    right: auto !important;
-  }
-}
-
 .brand-logo {
   height: 100px;
 }
@@ -307,10 +272,6 @@ html.list-page body {
   height: 100%;
   overflow: hidden;
 }
-html.list-page body {
-  display: flex;
-  flex-direction: column;
-}
 html.list-page main {
   flex: 1;
   display: flex;
@@ -346,8 +307,11 @@ html.list-page .table-scroll {
   html.list-page main { overflow: hidden !important; }
 }
 
-/* === Admin Mobile: bottom-nav + rodape thin === */
+/* =============================================
+   Admin Mobile — overrides específicos
+   ============================================= */
 @media (max-width: 991.98px) {
+
   .rodape.form-bottom-bar {
     position: fixed !important;
     bottom: 0 !important;
@@ -365,37 +329,15 @@ html.list-page .table-scroll {
   }
   .rodape.form-bottom-bar > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* Bottom-nav para admin (< 992px) */
-  .bottom-nav {
-    bottom: 26px;
-    z-index: 1035;
-  }
-
-  /* Espaço no main para não ficar atrás da bottom-nav */
-  html.list-page main {
-    padding-bottom: 90px;
-  }
-  main.container {
-    padding-bottom: 90px;
-  }
-
-  /* Form bottom bar: sobe para não ficar atrás da bottom-nav */
   .form-bottom-bar.barra-edicao {
-    bottom: 90px;
+    bottom: 0px;
   }
 
-  /* Spacer maior para forms com bottom-nav */
-  .form-bottom-spacer {
-    height: 150px;
-  }
-
-  /* Touch targets nos botões da barra de edição */
   .form-bottom-bar .btn {
     min-height: 44px;
     font-size: 1rem;
   }
 
-  /* Icon+label buttons: empilha ícone sobre texto no mobile */
   .btn.d-inline-flex.align-items-center.gap-1 {
     flex-direction: column !important;
     gap: 2px !important;
@@ -616,10 +558,6 @@ html.edit-form body {
   height: 100%;
   overflow: hidden;
 }
-html.edit-form body {
-  display: flex;
-  flex-direction: column;
-}
 html.edit-form main {
   display: flex;
   flex-direction: column;
@@ -684,7 +622,8 @@ html.edit-form #page-content {
   }
 }
 
-html.edit-form .page-footer-wrapper {
+html.edit-form .bottom-nav,
+html.edit-form .rodape {
   display: none;
 }
 
@@ -759,10 +698,21 @@ html.edit-form .page-footer-wrapper {
   box-shadow: 0 -2px 4px rgba(0,0,0,0.08);
 }
 
+.app-shell {
+  overflow: hidden;
+  height: 100dvh;
+}
 .rodape {
+  height: 26px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 1000;
   justify-content: space-between;
   font-size: 0.8rem;
+  color: #555;
 }
 .sistema-rodape {
   height: 26px;
@@ -819,18 +769,13 @@ html.edit-form .page-footer-wrapper {
 }
 
 /* =============================================
-   Site Público — Thumb-Friendly Mobile
+   Site Público — overrides específicos
    ============================================= */
-
-/* Header compacto */
 @media (max-width: 575.98px) {
-  html, body {
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    overflow: hidden; margin: 0; padding: 0;
-  }
   .site-header .site-subtitle { font-size: 0.65rem !important; margin-top: 0 !important; margin-bottom: 2px; line-height: 1.1; }
   .site-header .container { padding-top: 0 !important; padding-bottom: 0 !important; }
   .site-header .brand-logo { height: 76px !important; }
+  .site-header .nav-site { display: none; }
   .site-nav-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -859,36 +804,6 @@ html.edit-form .page-footer-wrapper {
   .site-nav-wrap .nav-link-site:active {
     background: rgba(255,255,255,0.25);
   }
-  main.container {
-    position: absolute;
-    top: 88px; left: 0; right: 0; bottom: 76px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 0 !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    background: #fff;
-  }
-  .site-header .nav-site { display: none; }
-  .rodape {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 1034 !important;
-    height: 26px !important;
-    padding: 0 12px !important;
-    border: none !important;
-    background: #fff !important;
-    box-shadow: none !important;
-    gap: 0 !important;
-    font-size: 0.6rem !important;
-    color: #555 !important;
-    display: flex !important;
-    align-items: center !important;
-    text-shadow: 0 -1px 0 rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.6);
-  }
-  .rodape > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .contato-cta-bottom {
     position: fixed !important;
     bottom: 88px !important;
@@ -918,12 +833,10 @@ html.edit-form .page-footer-wrapper {
   transform: scale(0.96);
 }
 
-/* Bottom Navigation (mobile) */
+/* Bottom Navigation (mobile) — flex child, not position:fixed */
 .bottom-nav {
-  position: fixed;
-  bottom: 26px;
-  left: 8px;
-  right: 8px;
+  flex-shrink: 0;
+  margin: 4px 8px;
   z-index: 1035;
   background: #fff;
   border: 2px solid var(--rosa);
@@ -931,7 +844,6 @@ html.edit-form .page-footer-wrapper {
   align-items: center;
   justify-content: space-around;
   padding: 3px 0;
-  padding-bottom: calc(3px + env(safe-area-inset-bottom, 0px));
   border-radius: 14px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12);
 }

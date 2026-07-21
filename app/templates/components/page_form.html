@@ -81,13 +81,11 @@ document.addEventListener('DOMContentLoaded', function() {
   document.documentElement.classList.add('edit-form');
 
   function ajustar() {
-    var ft = document.querySelector('.page-footer-wrapper');
     var ff = document.querySelector('.form-footer');
     var form = document.getElementById('main-form');
-    if (!ft || !ff || !form) return;
-    var h = ft.offsetHeight;
-    ff.style.setProperty('bottom', h + 'px', 'important');
-    form.style.setProperty('padding-bottom', (ff.offsetHeight + h + 8) + 'px', 'important');
+    if (!ff || !form) return;
+    ff.style.setProperty('bottom', '0px', 'important');
+    form.style.setProperty('padding-bottom', (ff.offsetHeight + 8) + 'px', 'important');
   }
 
   ajustar();

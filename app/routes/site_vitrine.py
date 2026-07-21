@@ -23,10 +23,11 @@ def listar():
     items = session.get("orcamento_items", [])
     total_itens = len(items)
     itens_ids = [i["product_id"] for i in items]
+    itens_qtd = {i["product_id"]: i["quantidade"] for i in items}
     return render_template("site_orcamento/navegador.html",
                            produtos=produtos, categorias=categorias,
                            categoria_id=categoria_id, total_itens=total_itens,
-                           itens_ids=itens_ids)
+                           itens_ids=itens_ids, itens_qtd=itens_qtd)
 
 
 @bp.route("/<int:id>/add", methods=["POST"])
@@ -57,4 +58,27 @@ def adicionar(id):
         })
     session["orcamento_items"] = items
     total_itens = len(items)
+    return jsonify(success=True, total_itens=total_itens)
+
+
+@bp.route("/<int:id>/update", methods=["POST"])
+def atualizar(id):
+    data = request.get_json(silent=True) or {}
+    quantidade = int(data.get("quantidade", 1))
+
+    items = session.get("orcamento_items", [])
+    for i in items:
+        if i["product_id"] == id:
+            i["quantidade"] = quantidade
+            break
+    session["orcamento_items"] = items
+    total_itens = len(items)
+    return jsonify(success=True, total_itens=total_itens)
+
+
+@bp.route("/<int:id>/remove", methods=["POST"])
+def remover(id):
+    items = session.get("orcamento_items", [])
+    session["orcamento_items"] = [i for i in items if i["product_id"] != id]
+    total_itens = len(session["orcamento_items"])
     return jsonify(success=True, total_itens=total_itens)

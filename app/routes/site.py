@@ -9,7 +9,7 @@ bp = Blueprint("site", __name__)
 def index():
     if current_user.is_authenticated:
         return redirect("/sistema")
-    return render_template("site/index.html")
+    return redirect(url_for("site.sobre"))
 
 @bp.route("/sistema")
 @login_required

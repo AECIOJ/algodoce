@@ -19,7 +19,7 @@ TUNNEL_TTL = 3300
 def _fetch_tunnel_url():
     global _tunnel_url, _tunnel_url_ts
     try:
-        r = requests.get("http://algodoce_pinggy:4040/api/tunnels", timeout=2)
+        r = requests.get("http://algodoce_cloudflare:4040/api/tunnels", timeout=2)
         data = r.json()
         for t in data.get("tunnels", []):
             u = t.get("public_url", "")
@@ -89,6 +89,13 @@ def create_app():
             session.clear()
             return redirect(url_for('site.index'))
         session['_last_activity'] = now
+
+    @app.after_request
+    def no_static_cache(response):
+        from flask import request
+        if request.path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'no-store, max-age=0'
+        return response
 
     with app.app_context():
         from app.routes import sys_clients as contas, sys_products, sys_ingredients, sys_orders, sys_compras

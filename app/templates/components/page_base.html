@@ -8,50 +8,50 @@
   {% block css %}
   <link href="{{ url_for('static', filename='lib/bootstrap.min.css') }}?v=1" rel="stylesheet">
   <link href="{{ url_for('static', filename='lib/bootstrap-icons.min.css') }}?v=1" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/style.css') }}?v=15" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=22" rel="stylesheet">
   {% endblock %}
   {% block head_extra %}{% endblock %}
 </head>
 <body>
-  {% block page_header %}
-  <header class="site-header">
-    <div class="container text-center py-2">
-      <a href="/">
-        <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce" class="brand-logo">
-      </a>
-    </div>
-  </header>
-  {% endblock %}
-
-  {% block before_content %}{% endblock %}
-
-  <main class="container mb-5">
-    {% block messages %}
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+  <div class="app-shell d-flex flex-column">
+    {% block page_header %}
+    <header class="flex-shrink-0 site-header">
+      <div class="container text-center py-2">
+        <a href="/">
+          <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce" class="brand-logo">
+        </a>
+      </div>
+    </header>
     {% endblock %}
-    {% block content %}{% endblock %}
-  </main>
 
-  {% block after_content %}{% endblock %}
+    {% block before_content %}{% endblock %}
 
-  {% block modals %}{% endblock %}
+    <main class="container flex-grow-1 overflow-y-auto">
+      {% block messages %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% endblock %}
+      {% block content %}{% endblock %}
+    </main>
 
-  {% block page_footer %}
-  <footer class="rodape">
-    <div class="d-flex align-items-center px-3 py-2" style="justify-content:space-between;font-size:0.8rem;">
+    {% block after_content %}{% endblock %}
+
+    {% block modals %}{% endblock %}
+
+    {% block page_footer %}
+    <footer class="flex-shrink-0 rodape">
       <div>{{ versao }} | &copy; 2026 AJ Systems</div>
-    </div>
-  </footer>
-  {% endblock %}
+    </footer>
+    {% endblock %}
+  </div>
 
   <script src="{{ url_for('static', filename='lib/bootstrap.bundle.min.js') }}?v=1"></script>
   <script src="{{ url_for('static', filename='lib/qrcode.min.js') }}?v=1"></script>

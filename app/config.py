@@ -18,3 +18,4 @@ class Config:
     SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
     SESSION_TIMEOUT = int(os.getenv("SESSION_TIMEOUT", "0"))
+    SEND_FILE_MAX_AGE_DEFAULT = 0

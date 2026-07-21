@@ -16,9 +16,7 @@ function fitFrame(){
   var f=document.getElementById('pdf-frame');
   if(!f)return;
   var r=f.getBoundingClientRect();
-  var footer=document.querySelector('.page-footer-wrapper');
-  var bottom=footer?footer.offsetHeight:0;
-  f.style.height=Math.max(200,window.innerHeight-r.top-bottom)+'px';
+  f.style.height=Math.max(200,window.innerHeight-r.top)+'px';
 }
 window.addEventListener('load',fitFrame);
 window.addEventListener('resize',fitFrame);

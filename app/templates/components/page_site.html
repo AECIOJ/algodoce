@@ -11,7 +11,6 @@
 }
 body { background-color: var(--bg-claro); }
 .site-header {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 1030;
   backdrop-filter: blur(10px); background: rgba(255,255,255,0.95);
   border-bottom: 1px solid #eee;
 }
@@ -19,11 +18,7 @@ body { background-color: var(--bg-claro); }
 .nav-site a { color: #fff !important; font-weight: 500; padding: 0.5rem 0.6rem; font-size: 0.95rem; }
 .nav-site a:hover, .nav-site a.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
 .bar-link.active { border-bottom-color: var(--rosa) !important; }
-main.container {
-  padding-top: 150px; padding-bottom: 46px;
-}
 @media (max-width: 575.98px) {
-  main.container { padding-top: 170px; }
   .nav-site a { padding: 0.3rem 0.3rem; font-size: 0.82rem; }
   .nav-site .container { gap: 0 !important; }
 }
@@ -60,7 +55,7 @@ main.container {
 {% endblock %}
 
 {% block page_header %}
-<header class="site-header">
+<header class="flex-shrink-0 site-header">
   <div class="container text-center py-2">
     <img src="{{ url_for('static', filename='icons/Logo.png') }}"
          alt="AlgoDoce" class="brand-logo" id="siteLogo"
@@ -69,28 +64,31 @@ main.container {
       O doce sabor do seu evento!
     </div>
   </div>
-  <nav class="nav-site site-nav-wrap d-none d-sm-block" style="background:var(--rosa);">
-    <div class="container d-flex justify-content-center gap-3 px-2 py-2 flex-wrap">
-      <a href="/sobre" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Sobre</a>
-      <a href="/vitrine/" id="produtosNavLink" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Produtos</a>
-      <a href="/orcamento" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Orçamento</a>
-      <a href="/contato" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Contato</a>
-    </div>
-  </nav>
 </header>
 {% endblock %}
 
 {% block before_content %}
-<nav class="d-sm-none" id="bottomNav" style="position:fixed;bottom:26px;left:8px;right:8px;z-index:1035;background:#fff;border:2px solid var(--rosa);border-radius:14px;display:flex;align-items:center;justify-content:space-around;padding:3px 0;box-shadow:0 2px 8px rgba(0,0,0,0.12);">
-  <a href="/sobre" class="bottom-nav-item" id="bnSobre" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;">ℹ️</span><span style="font-size:0.65rem;font-weight:600;">Sobre</span></a>
-  <a href="/vitrine/" class="bottom-nav-item" id="bnProdutos" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;">🧁</span><span style="font-size:0.65rem;font-weight:600;">Produtos</span></a>
-  <a href="/orcamento" class="bottom-nav-item" id="bnOrcamento" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;position:relative;"><span style="font-size:1.2rem;">📋<span id="bnOrcamentoBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:var(--rosa);color:#fff;font-size:0.6rem;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 4px;">0</span></span><span style="font-size:0.65rem;font-weight:600;">Orçamento</span></a>
-  <a href="/contato" class="bottom-nav-item" id="bnContato" style="display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 10px;min-height:44px;min-width:60px;text-decoration:none;color:#555;border-radius:6px;"><span style="font-size:1.2rem;"><i class="bi bi-whatsapp"></i></span><span style="font-size:0.65rem;font-weight:600;">Contato</span></a>
+<nav class="flex-shrink-0 nav-site site-nav-wrap d-none d-sm-block" style="background:var(--rosa);">
+  <div class="container d-flex justify-content-center gap-3 px-2 py-2 flex-wrap">
+    <a href="/sobre" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Sobre</a>
+    <a href="/vitrine/" id="produtosNavLink" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Produtos</a>
+    <a href="/orcamento" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Orçamento</a>
+    <a href="/contato" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Contato</a>
+  </div>
+</nav>
+{% endblock %}
+
+{% block after_content %}
+<nav class="bottom-nav d-sm-none" id="bottomNav">
+  <a href="/sobre" class="bottom-nav-item" id="bnSobre"><span style="font-size:1.2rem;">ℹ️</span><span style="font-size:0.65rem;font-weight:600;">Sobre</span></a>
+  <a href="/vitrine/" class="bottom-nav-item" id="bnProdutos"><span style="font-size:1.2rem;">🧁</span><span style="font-size:0.65rem;font-weight:600;">Produtos</span></a>
+  <a href="/orcamento" class="bottom-nav-item" id="bnOrcamento"><span style="font-size:1.2rem;">📋<span id="bnOrcamentoBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:var(--rosa);color:#fff;font-size:0.6rem;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 4px;">0</span></span><span style="font-size:0.65rem;font-weight:600;">Orçamento</span></a>
+  <a href="/contato" class="bottom-nav-item" id="bnContato"><span style="font-size:1.2rem;"><i class="bi bi-whatsapp"></i></span><span style="font-size:0.65rem;font-weight:600;">Contato</span></a>
 </nav>
 {% endblock %}
 
 {% block page_footer %}
-<footer id="siteRodape" style="position:fixed;bottom:0;left:0;right:0;z-index:1034;height:26px;padding:0 12px;background:#fff;display:flex;align-items:center;justify-content:space-between;font-size:0.6rem;color:#555;">
+<footer class="flex-shrink-0 rodape" id="siteRodape">
   <div>{{ versao }}</div>
   <div>&copy; 2026 AJ Systems</div>
 </footer>

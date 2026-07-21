@@ -36,17 +36,16 @@ services:
       - internal
       - proxy
 
-  pinggy:
-    container_name: algodoce_pinggy
+  cloudflare:
+    container_name: algodoce_cloudflare
     build:
       context: .
-      dockerfile: Dockerfile.pinggy
+      dockerfile: Dockerfile.cloudflare
     restart: unless-stopped
     depends_on:
       - app
     networks:
       - internal
-      - proxy
 
 networks:
   internal:
