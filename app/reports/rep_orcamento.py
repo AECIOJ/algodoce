@@ -58,7 +58,7 @@ def _forminhas_carteira(q):
     return f"Forminhas: {f} | Forma de Pagamento: {c}"
 
 
-rep_orcamento = Report(
+ORCAMENTO_REPORT = Report(
     label='Orçamento',
     edit_endpoint='orcamentos.edit',
     header={

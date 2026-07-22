@@ -405,10 +405,10 @@ def edit(id):
 @bp.route("/<int:id>/print")
 def print_compra(id):
     compra = Compra.query.get_or_404(id)
-    from app.reports.compra import rep_compra
+    from app.reports.rep_compra import COMPRA_REPORT
     return render_template(
-        rep_compra.print_template,
-        fallback_url=url_for(rep_compra.edit_endpoint, id=compra.id),
+        COMPRA_REPORT.print_template,
+        fallback_url=url_for(COMPRA_REPORT.edit_endpoint, id=compra.id),
         pdf_url=url_for('compras.pdf_compra', id=compra.id),
     )
 
@@ -416,9 +416,9 @@ def print_compra(id):
 @bp.route("/<int:id>/pdf")
 def pdf_compra(id):
     compra = Compra.query.get_or_404(id)
-    from app.reports.compra import rep_compra
+    from app.reports.rep_compra import COMPRA_REPORT
     logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
-    pdf = gerar_pdf_relatorio(rep_compra, compra.items, logo_path, instance=compra)
+    pdf = gerar_pdf_relatorio(COMPRA_REPORT, compra.items, logo_path, instance=compra)
     buf = BytesIO()
     pdf.output(buf)
     return Response(buf.getvalue(), mimetype="application/pdf",

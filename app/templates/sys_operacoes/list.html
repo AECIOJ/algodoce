@@ -2,7 +2,10 @@
 {% from "components/macros.html" import action_list, action_table %}
 
 {% block page_content %}
-{% call(section) action_list(title="Operacoes", new_url=url_for('operacoes.new'), active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
+{% set _print_btn %}
+<a href="{{ url_for('operacoes.print_operacoes') }}" class="btn btn-outline-info btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-printer"></i> Imprimir</a>
+{% endset %}
+{% call(section) action_list(title="Operacoes", new_url=url_for('operacoes.new'), extra_actions=_print_btn, active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
   {% if section == "dados" %}
       {{ action_table(operacoes, table=OPERACOES_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}

@@ -107,10 +107,10 @@
 
   @media (max-width: 575.98px) {
     main.container {
-      display: flex; flex-direction: column; overflow-y: auto;
+      display: block; overflow-y: auto;
     }
-    .vitrine-layout { display: flex; flex-direction: column; flex: 1; gap: 0; }
-    .vitrine-carousel-wrap { flex: 1; }
+    .vitrine-layout { display: flex; flex-direction: column; gap: 0; }
+    .vitrine-carousel-wrap { flex: none; }
     .cat-badges { display: none; }
     .cat-select-bar {
       display: flex; align-items: center; justify-content: center;
@@ -123,12 +123,12 @@
       color: var(--rosa); font-weight: 500;
     }
     #carrossel {
-      flex: 1; display: flex; flex-direction: column;
-      overflow: hidden; min-height: 0; touch-action: pan-y;
+      display: flex; flex-direction: column;
+      overflow: hidden; touch-action: pan-y;
       padding: 0 0.5rem !important;
       border: none !important; box-shadow: none !important;
       border-radius: 0 !important; background: #fff;
-      height: auto;
+      height: 420px;
     }
     #carrossel .produto-item:not(.d-none) {
       flex: 1; display: flex; flex-direction: column;
@@ -159,7 +159,7 @@
       width: 32px; height: 32px; font-size: 1.1rem;
     }
     .carousel-bottom-bar .ctrl-qtd-input {
-      width: 38px; font-size: 1rem;
+      width: 58px; font-size: 1rem;
     }
     .carousel-bottom-bar .ctrl-action-btn {
       height: 36px; padding: 0 14px; font-size: 0.85rem;

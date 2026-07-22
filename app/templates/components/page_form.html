@@ -41,11 +41,11 @@
   </div>
 </div>
 
-<form method="POST" id="main-form" class="flex-grow-1 overflow-auto p-2 pb-5">
+<form method="POST" id="main-form" class="flex-grow-1 overflow-auto p-2 pb-3">
   {% block form_body %}{% endblock %}
 </form>
 
-<div class="form-footer d-flex align-items-center gap-2 px-2 py-1" style="position:fixed;background:#f5f5f5;z-index:1036;min-height:44px;left:0;right:0;">
+<div class="form-footer d-flex align-items-center gap-2 px-2 py-1" style="min-height:44px;">
   <div class="d-flex align-items-center gap-1">
     {% block form_footer_left %}{% endblock %}
   </div>
@@ -79,17 +79,6 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   document.documentElement.classList.add('edit-form');
-
-  function ajustar() {
-    var ff = document.querySelector('.form-footer');
-    var form = document.getElementById('main-form');
-    if (!ff || !form) return;
-    ff.style.setProperty('bottom', '0px', 'important');
-    form.style.setProperty('padding-bottom', (ff.offsetHeight + 8) + 'px', 'important');
-  }
-
-  ajustar();
-  window.addEventListener('resize', ajustar);
 
   var f = document.getElementById('main-form');
   if (f) {

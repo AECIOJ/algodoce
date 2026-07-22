@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+import os
+from io import BytesIO
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, Response, current_app
 from flask_login import login_required
 from app.extensions import db
 from app.models.operacao import Operacao
@@ -55,37 +57,7 @@ def _auto_ordem(tipo, pai_id):
     return (max_ordem or 0) + 1
 
 
-def _build_tree():
-    todas = Operacao.query.order_by(Operacao.ordem, Operacao.id).all()
-    filhos = {}
-    for r in todas:
-        filhos.setdefault(r.pai_id, []).append(r)
-
-    def _build(pid, tipo):
-        items = []
-        for r in sorted(filhos.get(pid, []), key=lambda x: (x.ordem, x.id)):
-            if r.tipo != tipo:
-                continue
-            item = {"operacao": r, "filhos": _build(r.id, tipo)}
-            items.append(item)
-        return items
-
-    def _assign(tree, prefix):
-        items = []
-        for i, node in enumerate(tree, 1):
-            idx = f"{prefix}.{i}" if prefix else str(i)
-            node["indice"] = idx
-            items.append(node)
-            items.extend(_assign(node["filhos"], idx))
-        return items
-
-    secoes = []
-    for tipo_num in sorted(TIPO_OPERACAO):
-        tree = _build(None, tipo_num)
-        if tree:
-            flat = _assign(tree, str(tipo_num))
-            secoes.append({"tipo": tipo_num, "label": TIPO_OPERACAO[tipo_num], "tree": tree, "flat": flat})
-    return secoes
+from app.reports.rep_operacao import _build_tree
 
 
 @bp.before_request
@@ -213,3 +185,28 @@ def toggle(id):
     db.session.commit()
     flash("Operacao atualizada!", "success")
     return redirect(url_for("operacoes.edit", id=id))
+
+
+@bp.route("/print")
+def print_operacoes():
+    from app.reports.rep_operacao import OPERACAO_REPORT
+    return render_template(
+        OPERACAO_REPORT.print_template,
+        fallback_url=url_for("operacoes.list"),
+        pdf_url=url_for("operacoes.pdf_operacoes"),
+    )
+
+
+@bp.route("/pdf")
+def pdf_operacoes():
+    from app.reports.rep_operacao import OPERACAO_REPORT
+    from app.pdf import gerar_pdf_relatorio
+    logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
+    pdf = gerar_pdf_relatorio(OPERACAO_REPORT, logo_path=logo_path)
+    buf = BytesIO()
+    pdf.output(buf)
+    return Response(
+        buf.getvalue(),
+        mimetype="application/pdf",
+        headers={"Content-Disposition": "inline; filename=operacoes.pdf"},
+    )

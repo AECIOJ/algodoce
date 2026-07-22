@@ -17,14 +17,10 @@ Cada rota ou módulo de relatório declara:
  orientation_mutable bool       False       Usuário pode mudar orientação
  header            dict         None        Config do cabeçalho (ver abaixo)
  table             dict         None        Config da tabela (ver abaixo)
- report_footer     object       None        Texto do rodapé de página
- show_user         bool         False       Exibir usuário no rodapé
- show_datetime     bool         True        Exibir data/hora no rodapé
- show_company      bool         False       Exibir empresa no rodapé
- show_page_number  bool         True        Exibir número da página
- footer_separator  str          ' | '       Separador dos itens do rodapé
- footer_align      str          'C'         Alinhamento do rodapé
- footer_font_size  int          8           Tamanho da fonte do rodapé
+  footer            dict         None        Dict consolidado do rodapé:
+                                              text, show_user, show_datetime,
+                                              show_company, show_page_number,
+                                              separator, align, font_size
  texts             list         None        Textos avulsos (ver ReportText)
  margin_top        float        10          Margem superior (mm)
  margin_bottom     float        20          Margem inferior (mm)
@@ -33,29 +29,31 @@ Cada rota ou módulo de relatório declara:
  auto_page_break   bool         True        Quebra automática de página
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- header (dict)
+  header (dict)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
- Chave             Tipo         Default     Descrição
- ───────────────── ──────────── ─────────── ──────────────────────────────
- layout            str          'centered'  'centered' | 'logo_left'
- title             str          label       Título (suporta {id}, {campo})
- title_font_size   int          16          Tamanho do título
- title_font_style  str          'B'         Estilo: '' normal, 'B' bold
- title_align       str          'C'         'L' | 'C' | 'R'
- subtitle          str          None        Subtítulo
- subtitle_font_size int         10
- subtitle_align    str          'C'
- show_logo         bool         True        Exibir logotipo
- logo_path         str          None        Caminho da imagem (None=padrão)
- logo_width        float        None        Largura do logo (mm)
- logo_align        str          'C'         Alinhamento do logo
- fields            list[dict]   None        Lista de campos do cabeçalho
- field_columns     int          2           Colunas de campos
- on_each_page      bool         True        Repetir em cada página
+  Chave             Tipo         Default     Descrição
+  ───────────────── ──────────── ─────────── ──────────────────────────────
+  layout            str          'centered'  'centered' | 'logo_left'
+  logo              dict         None        {position, lines}
+  titulo            dict         None        {label, align, font_style, font_size}
+  subtitle          dict/str     None        {label, align, font_size} ou str
+  fields            list[dict]   None        Lista de campos do cabeçalho
+  field_columns     int          2           Colunas de campos
+  on_each_page      bool         True        Repetir em cada página
+
+  Obs: layout='logo_left' usa formato chato (title, fields) sem logo/titulo aninhado.
+
+  logo.position: 'C' (centro), 'L' (esquerda), 'R' (direita), 'N' (nenhum)
+  logo.lines:    altura do logo em linhas (padrão 4)
+
+  titulo.label:       texto do título (suporta {id})
+  titulo.align:       'L' | 'C' | 'R'
+  titulo.font_style:  '' normal, 'B' bold
+  titulo.font_size:   tamanho da fonte (padrão 16)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- header.fields (lista de dicts)
+  header.fields (lista de dicts)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
  Chave      Tipo       Descrição
@@ -95,8 +93,8 @@ Cada rota ou módulo de relatório declara:
  Exemplo
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
- rep_orcamento = Report(
-     label='Orçamento',
+ ORCAMENTO_REPORT = Report(
+        label='Orçamento',
      header={
          'layout': 'logo_left',
          'title': 'Orçamento #{id}',
@@ -200,19 +198,13 @@ class ReportText:
 
 
 _HEADER_DEFAULTS = {
-    'show_logo': True,
-    'logo_width': None,
-    'logo_align': 'C',
-    'layout': 'centered',
-    'title_font_size': 16,
-    'title_font_style': 'B',
-    'title_align': 'C',
+    'logo': {'position': 'N', 'lines': 2},
+    'titulo': {'label': None, 'align': 'C', 'font_style': 'B', 'font_size': 16},
     'subtitle': None,
-    'subtitle_font_size': 10,
-    'subtitle_align': 'C',
     'fields': None,
     'field_columns': 2,
     'on_each_page': True,
+    'layout': 'centered',
 }
 
 
@@ -223,7 +215,7 @@ class Report:
     Seções:
       - header: dict com config do cabeçalho (logo, título, campos)
       - before_table: lista de linhas ou callable antes da tabela
-      - table: dict com config da tabela (columns, groups, footer, after)
+      - table: dict com config da tabela (columns, footer, after)
       - after_table: lista de linhas ou callable depois da tabela
       - footer: rodapé de página (report_footer, show_*, footer_*)
     """
@@ -241,15 +233,10 @@ class Report:
     # Table (dict consolidado)
     table: Optional[dict] = dc_field(default=None)
 
-    # Report footer (última linha de cada página)
-    report_footer: Optional[object] = None
-    show_user: bool = False
-    show_datetime: bool = True
-    show_company: bool = False
-    show_page_number: bool = True
-    footer_separator: str = ' | '
-    footer_align: str = 'C'
-    footer_font_size: int = 8
+    # Report footer (última linha de cada página) — dict consolidado
+    # Chaves: text, show_user, show_datetime, show_company, show_page_number,
+    #         separator, align, font_size. Todos default False (exceto text).
+    footer: Optional[dict] = None
 
     # Before / after table (list of line dicts or callable)
     before_table: Optional[object] = None
@@ -270,21 +257,60 @@ class Report:
     margin_right: float = 10
     auto_page_break: bool = True
 
+    # Ordem dos dados no relatório (field name). None = ordem original.
+    ordem: Optional[str] = None
+
+    # Níveis visuais de GroupRow. Lista de dicts com bg=(R,G,B), size, bold, indent.
+    # Ex: [{'bg': (240,240,240), 'size': 10, 'bold': True, 'indent': 2}]
+    groups: Optional[list] = None
+
+    # Função que retorna os dados do relatório (callable sem argumentos)
+    data_fn: Optional[callable] = None
+
+    # Linhas horizontais internas da tabela (entre linhas de dados e GroupRow)
+    show_table_lines: bool = False
+
     def _build_header(self) -> '_ReportHeader':
         h = {**_HEADER_DEFAULTS, **(self.header or {})}
-        title = h.get('title') or self.label
+
+        # Logo: nested (deep merge) ou flat
+        logo_cfg = {**_HEADER_DEFAULTS.get('logo', {}), **(h.get('logo') or {})}
+        pos = logo_cfg.get('position', h.get('logo_align', 'N'))
+        show_logo = pos != 'N'
+        logo_lines = logo_cfg.get('lines', 4)
+        logo_align = 'C' if pos == 'N' else pos
+
+        # Título: nested (deep merge) ou flat
+        titulo_cfg = {**_HEADER_DEFAULTS.get('titulo', {}), **(h.get('titulo') or {})}
+        title = titulo_cfg.get('label') or h.get('title') or self.label
+        title_font_size = titulo_cfg.get('font_size', h.get('title_font_size', 16))
+        title_font_style = titulo_cfg.get('font_style', h.get('title_font_style', 'B'))
+        title_align = titulo_cfg.get('align', h.get('title_align', 'C'))
+
+        # Subtítulo: dict, str ou None
+        sub_cfg = h.get('subtitle')
+        if isinstance(sub_cfg, dict):
+            subtitle = sub_cfg.get('label')
+            subtitle_font_size = sub_cfg.get('font_size', h.get('subtitle_font_size', 10))
+            subtitle_align = sub_cfg.get('align', h.get('subtitle_align', 'C'))
+        else:
+            subtitle = sub_cfg
+            subtitle_font_size = h.get('subtitle_font_size', 10)
+            subtitle_align = h.get('subtitle_align', 'C')
+
         return _ReportHeader(
-            show_logo=h.get('show_logo', True),
+            show_logo=show_logo,
             logo_path=h.get('logo_path'),
             logo_width=h.get('logo_width'),
-            logo_align=h.get('logo_align', 'C'),
+            logo_height=logo_lines * 6 if show_logo else 0,
+            logo_align=logo_align,
             title=title,
-            title_font_size=h.get('title_font_size', 16),
-            title_font_style=h.get('title_font_style', 'B'),
-            title_align=h.get('title_align', 'C'),
-            subtitle=h.get('subtitle'),
-            subtitle_font_size=h.get('subtitle_font_size', 10),
-            subtitle_align=h.get('subtitle_align', 'C'),
+            title_font_size=title_font_size,
+            title_font_style=title_font_style,
+            title_align=title_align,
+            subtitle=subtitle,
+            subtitle_font_size=subtitle_font_size,
+            subtitle_align=subtitle_align,
             fields=h.get('fields'),
             field_columns=h.get('field_columns', 2),
             on_each_page=h.get('on_each_page', True),
@@ -296,27 +322,26 @@ class Report:
         columns = t.get('columns')
         if isinstance(columns, dict):
             columns = ReportColumns(columns)
-        groups = t.get('groups')
-        if groups:
-            groups = [ReportGroup(**g) if isinstance(g, dict) else g for g in groups]
         return _ReportTable(
             columns=columns,
-            groups=groups,
             footer=t.get('footer', False),
             footer_label=t.get('footer_label', 'Total'),
             after=t.get('after'),
+            lines_before=t.get('lines_before', 0),
+            lines_after=t.get('lines_after', 0),
         )
 
     def _build_footer(self) -> '_ReportFooter':
+        f = self.footer or {}
         return _ReportFooter(
-            text=self.report_footer,
-            show_user=self.show_user,
-            show_datetime=self.show_datetime,
-            show_company=self.show_company,
-            show_page_number=self.show_page_number,
-            separator=self.footer_separator,
-            align=self.footer_align,
-            font_size=self.footer_font_size,
+            text=f.get('text'),
+            show_user=f.get('show_user', False),
+            show_datetime=f.get('show_datetime', False),
+            show_company=f.get('show_company', False),
+            show_page_number=f.get('show_page_number', False),
+            separator=f.get('separator', ' | '),
+            align=f.get('align', 'C'),
+            font_size=f.get('font_size', 8),
         )
 
 
@@ -326,6 +351,7 @@ class _ReportHeader:
     show_logo: bool = True
     logo_path: Optional[str] = None
     logo_width: Optional[float] = None
+    logo_height: float = 24
     logo_align: str = 'C'
     title: Optional[str] = None
     title_font_size: int = 16
@@ -344,10 +370,11 @@ class _ReportHeader:
 class _ReportTable:
     """Tabela do relatório (interno)."""
     columns: ReportColumns = None
-    groups: Optional[list] = None
     footer: bool = False
     footer_label: str = 'Total'
     after: Optional[object] = None
+    lines_before: int = 0
+    lines_after: int = 0
 
 
 @dataclass
@@ -355,9 +382,9 @@ class _ReportFooter:
     """Rodapé de página (interno)."""
     text: Optional[object] = None
     show_user: bool = False
-    show_datetime: bool = True
+    show_datetime: bool = False
     show_company: bool = False
-    show_page_number: bool = True
+    show_page_number: bool = False
     separator: str = ' | '
     align: str = 'C'
     font_size: int = 8

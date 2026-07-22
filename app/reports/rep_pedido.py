@@ -54,7 +54,7 @@ def _forminhas_carteira(order):
     return f"Forminhas: {f} | Forma de Pagamento: {c}"
 
 
-rep_pedido = Report(
+PEDIDO_REPORT = Report(
     label='Pedido',
     edit_endpoint='orders.edit',
     header={

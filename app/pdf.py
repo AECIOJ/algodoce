@@ -9,6 +9,22 @@ from app.report import (
 )
 
 
+def _deep_attr(obj, path):
+    if obj is None:
+        return None
+    for part in path.split('.'):
+        if obj is None:
+            return None
+        try:
+            obj = getattr(obj, part)
+        except AttributeError:
+            try:
+                obj = obj[part]
+            except (TypeError, KeyError, IndexError):
+                return None
+    return obj
+
+
 class DocPDF(FPDF):
     def header(self):
         pass
@@ -310,7 +326,7 @@ class DocPDFReport(FPDF):
                     else:
                         x = self.l_margin
                     self.image(logo, x=x, w=logo_w, h=0)
-                    self.ln(logo_w * 0.55)
+                    self.ln(h.logo_height)
             self._render_header_centered(h)
 
     def _render_header_logo_left(self, h, logo_w):
@@ -336,11 +352,6 @@ class DocPDFReport(FPDF):
             self.set_font("Helvetica", h.title_font_style, h.title_font_size)
             self.cell(right_w, h.title_font_size * 0.6, title, align='C',
                       new_x="LMARGIN", new_y="NEXT")
-            # Linha separadora
-            self.set_draw_color(180, 180, 180)
-            x1 = right_x + right_w * 0.1
-            x2 = right_x + right_w * 0.9
-            self.line(x1, self.get_y(), x2, self.get_y())
             self.ln(2)
 
         # Campos do header na área direita
@@ -366,11 +377,6 @@ class DocPDFReport(FPDF):
             self.set_font("Helvetica", h.title_font_style, h.title_font_size)
             self.cell(0, h.title_font_size * 0.6, title, align=h.title_align,
                       new_x="LMARGIN", new_y="NEXT")
-            # Linha separadora
-            self.set_draw_color(180, 180, 180)
-            x1 = self.w / 4
-            x2 = self.w * 3 / 4
-            self.line(x1, self.get_y(), x2, self.get_y())
             self.ln(4)
 
         # Subtitle
@@ -583,7 +589,8 @@ def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
                 agg_values[col.field] += float(val)
             except (ValueError, TypeError):
                 pass
-    _draw_hline(pdf, x_start, sum(col_widths))
+    if pdf._report.show_table_lines:
+        _draw_hline(pdf, x_start, sum(col_widths))
 
 
 def _render_footer_row(pdf, cols, col_widths, footer_label, agg_values, x_start, total_w):
@@ -601,10 +608,15 @@ def _render_footer_row(pdf, cols, col_widths, footer_label, agg_values, x_start,
     _draw_hline(pdf, x_start, total_w)
 
 
+def _table_close(pdf, x_start, total_w):
+    """Linha de fechamento da tabela."""
+    _draw_hline(pdf, x_start, total_w)
+
+
 def _render_table(pdf: DocPDFReport, columns: ReportColumns,
                   data: list, show_footer: bool = False,
                   footer_label: str = 'Total', instance=None,
-                  draw_top_line=True):
+                  draw_top_line=True, report=None):
     """Renderiza uma tabela no PDF com centralização, sem laterais,
     page break com repetição de cabeçalho e shrink-to-fit."""
     cols = list(columns)
@@ -623,19 +635,63 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
                      align="C", new_x="LMARGIN", new_y="NEXT")
             return
 
-    # Cabeçalho das colunas
-    _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line)
-
     # Dados
     agg_values = {c.field: 0 for c in cols if c.aggregate}
-    header_h = 7 + 6  # cabeçalho + uma linha de dados
+    header_h = 7 + 6
+    gera_cab = True
+    num_groups = len(report.groups) if report and report.groups else 0
+
     for row in data:
-        if _check_page_break(pdf, header_h):
-            # Nova página: repetir cabeçalhos das colunas
-            _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
+        indice = str(row.indice) if row.indice is not None else ''
+        depth = len(indice.split('.')) if indice else 0
+
+        if num_groups > 0 and 1 <= depth <= num_groups:
+            g = report.groups[depth - 1]
+            fmt = g.get('format', {})
+
+            if g.get('position') == 'Titulo':
+                if not gera_cab:
+                    _table_close(pdf, x_start, total_w)
+                    ln_after = (report.table or {}).get('lines_after', 0) if report else 0
+                    if ln_after:
+                        pdf.ln(ln_after * 6)
+                ln_before = (report.table or {}).get('lines_before', 0) if report else 0
+                if ln_before:
+                    pdf.ln(ln_before * 6)
+                if g.get('new_page'):
+                    pdf.add_page()
+                gera_cab = True
+
+            if g.get('position') == 'Linha':
+                page_break = _check_page_break(pdf, 8)
+                if gera_cab or page_break:
+                    _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=True)
+                    gera_cab = False
+
+            if report.show_table_lines:
+                _draw_hline(pdf, x_start, total_w)
+            pdf.set_font("Helvetica", fmt.get('font_style', ''), fmt.get('font_size', 10))
+            group_text = f"{indice} {row.nome}"
+            indent = fmt.get('indent', 2)
+            pdf.set_x(x_start + indent)
+            pdf.cell(total_w - indent, 8, group_text, border=0,
+                     new_x="LMARGIN", new_y="NEXT")
+            if report.show_table_lines:
+                _draw_hline(pdf, x_start, total_w)
+
+            continue
+
+        page_break = _check_page_break(pdf, header_h)
+        if gera_cab or page_break:
+            _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=True)
+            gera_cab = False
         _render_data_row(pdf, cols, col_widths, row, x_start, agg_values)
 
-    # Table footer (total) — só na última página
+    # Linha de fechamento da tabela
+    if not show_footer:
+        _table_close(pdf, x_start, total_w)
+
+    # Table footer (total) — com sua própria linha de fechamento
     if show_footer:
         footer_h = 7
         if _check_page_break(pdf, footer_h):
@@ -662,9 +718,13 @@ def _render_table_lines(pdf, lines, instance=None):
         pdf.cell(w, size * 0.5, text, align=align, new_x="LMARGIN", new_y="NEXT")
 
 
-def gerar_pdf_relatorio(report: Report, data: list, logo_path: str = None,
+def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None,
                         instance=None, title_substitutions: dict = None) -> DocPDFReport:
     """Gera PDF genérico a partir de um Report."""
+    # Resolver dados via data_fn se não foram passados explicitamente
+    if data is None:
+        data = report.data_fn() if report.data_fn else []
+
     pdf = DocPDFReport(report)
     pdf.set_auto_page_break(auto=report.auto_page_break, margin=report.margin_bottom)
     pdf.set_margins(report.margin_left, report.margin_top, report.margin_right)
@@ -681,6 +741,10 @@ def gerar_pdf_relatorio(report: Report, data: list, logo_path: str = None,
     # Definir instância
     pdf.set_instance(instance)
 
+    # Ordenar dados se ordem especificada
+    if report.ordem and data:
+        data = sorted(data, key=lambda r: str(_deep_attr(r, report.ordem) or ''))
+
     # Primeira página
     pdf.add_page()
 
@@ -694,12 +758,10 @@ def gerar_pdf_relatorio(report: Report, data: list, logo_path: str = None,
     # Tabela
     tbl = report._build_table()
     if tbl.columns:
-        if tbl.groups:
-            # Multi-tabela: agrupar data
-            _render_grouped_tables(pdf, report, tbl, data, instance)
-        else:
-            # Tabela única
-            _render_table(pdf, tbl.columns, data, tbl.footer, tbl.footer_label, instance)
+        _render_table(pdf, tbl.columns, data, tbl.footer, tbl.footer_label,
+                      instance, report=report)
+    if tbl.lines_after:
+        pdf.ln(tbl.lines_after * 6)
 
     # After table
     _after = report.after_table
@@ -730,59 +792,3 @@ def gerar_pdf_relatorio(report: Report, data: list, logo_path: str = None,
 
     return pdf
 
-
-def _render_grouped_tables(pdf: DocPDFReport, report: Report, tbl: _ReportTable,
-                           data: list, instance=None):
-    """Renderiza tabelas agrupadas."""
-    groups = tbl.groups
-    if not groups:
-        _render_table(pdf, tbl.columns, data, tbl.footer, tbl.footer_label, instance)
-        return
-
-    group = groups[0]  # Grupo principal
-    # Agrupar dados
-    from itertools import groupby as itertools_groupby
-    from operator import attrgetter as _attrgetter
-
-    # deep_attr helper
-    def _deep_attr(obj, name):
-        parts = name.split('.')
-        val = obj
-        for p in parts:
-            if val is None:
-                return None
-            val = getattr(val, p, None)
-        return val
-
-    sorted_data = sorted(data, key=lambda r: str(_deep_attr(r, group.field) or ''))
-    grouped = itertools_groupby(sorted_data, key=lambda r: str(_deep_attr(r, group.field) or ''))
-
-    first_group = True
-    for group_val, group_items in grouped:
-        items = list(group_items)
-
-        # Nova página para cada grupo
-        if group.nova_pagina and not first_group:
-            pdf.add_page()
-            # Re-render header se on_each_page
-            if pdf._header.on_each_page:
-                pdf._is_first_page = True
-                pdf.header()
-        first_group = False
-
-        # Título do grupo (sem linha acima)
-        if group.position == 'titulo':
-            lbl = group.label or group.field
-            pdf.set_font("Helvetica", "B", 12)
-            pdf.cell(0, 8, f"{lbl}: {group_val}", new_x="LMARGIN", new_y="NEXT")
-            pdf.ln(2)
-
-        # Tabela do grupo (sem linha acima do cabeçalho — grupo serve como separador)
-        _render_table(pdf, tbl.columns, items, group.subtotal and tbl.footer,
-                      tbl.footer_label, instance, draw_top_line=False)
-
-        # Fechar tabela
-        if group.fecha_tabela:
-            y = pdf.get_y()
-            pdf.line(pdf.l_margin, y, pdf.w - pdf.r_margin, y)
-            pdf.ln(4)
