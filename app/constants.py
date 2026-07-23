@@ -21,7 +21,7 @@ PRODUCAO_STATUS = {0: "Executando", 9: "Finalizado"}
 
 PRODUCAO_ETAPAS = {0: "Preparação", 1: "Montagem", 2: "Embalagem"}
 
-FORMINHAS = {0: "Simples", 1: "Fornecidas pelo Cliente"}
+FORMINHAS = {0: "Simples (Inclusa)", 1: "Fornecidas pelo Cliente"}
 
 TIPO_OPERACAO = {1: "Receitas", 2: "Despesas"}
 
@@ -32,6 +32,9 @@ TIPO_TRANSACAO = {"P": "Contas a Pagar", "R": "Contas a Receber",
 PREVISAO_STATUS = {0: "Editando", 1: "Pendente", 2: "Parcial", 8: "Cancelado", 9: "Quitado"}
 
 TIPO_RECURSO = {0: "Caixa", 1: "Banco", 2: "Cartão"}
+
+CARTEIRA_USO = {0: "Pedido", 1: "Pedido e Compra", 2: "Compra"}
+CARTEIRA_GERAR = {0: "Movimento", 1: "Previsão"}
 
 UNIDADES_RECEITA = ["kg", "g", "L", "ml", "un", "cx", "pacote", "colher", "colher_sopa", "xicara", "pitada", "litro"]
 

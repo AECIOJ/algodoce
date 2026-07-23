@@ -195,7 +195,7 @@ def new():
 
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
-    carteiras = Carteira.query.order_by(Carteira.nome).all()
+    carteiras = Carteira.query.filter(Carteira.uso.in_([1, 2])).order_by(Carteira.nome).all()
     return render_template(
         "sys_compras/form.html", contas=contas,
         insumos=insumos, carteiras=carteiras,
@@ -389,7 +389,7 @@ def edit(id):
 
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
-    carteiras = Carteira.query.order_by(Carteira.nome).all()
+    carteiras = Carteira.query.filter(Carteira.uso.in_([1, 2])).order_by(Carteira.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes] if transacao else []
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(

@@ -6,7 +6,7 @@
 {% endset %}
 
 {% block page_content %}
-{% call(section) action_list(title="Orçamentos", new_url=url_for('orcamentos.new'), extra_actions=validar_btn, active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
+{% call(section) action_list(title="Orçamentos", new_url=url_for('orcamentos.form'), extra_actions=validar_btn, active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
   {% if section == "dados" %}
       {{ action_table(orders, table=QUOTES_TABLE, ctx=ctx) }}
   {% elif section == "filtros" %}

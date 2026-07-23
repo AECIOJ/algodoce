@@ -1,3 +1,4 @@
+{% import "components/form_macros.html" as fm with context %}
 {% extends "components/page_sys.html" %}
 {% block page_content %}
 
@@ -37,6 +38,14 @@
   {% endif %}
 
   <div class="d-flex align-items-center gap-1 justify-content-end" style="flex:1;">
+    {% if instance and form.badge %}
+    {{ fm.render_badge(instance, form.badge) }}
+    {% endif %}
+    {% if instance and form.extra_buttons %}
+    {% for btn in form.extra_buttons if btn.position == 'nav_right' %}
+    {{ fm.render_extra_button(btn, instance) }}
+    {% endfor %}
+    {% endif %}
     {% block nav_right %}{% endblock %}
   </div>
 </div>
@@ -45,12 +54,23 @@
   {% block form_body %}{% endblock %}
 </form>
 
+
 <div class="form-footer d-flex align-items-center gap-2 px-2 py-1" style="min-height:44px;">
   <div class="d-flex align-items-center gap-1">
+    {% if instance and form.extra_buttons %}
+    {% for btn in form.extra_buttons if btn.position == 'footer_left' %}
+    {{ fm.render_extra_button(btn, instance) }}
+    {% endfor %}
+    {% endif %}
     {% block form_footer_left %}{% endblock %}
   </div>
   <div class="ms-auto d-flex align-items-center gap-1">
-    <button type="submit" form="main-form" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-check-lg"></i> Salvar</button>
+    {% if instance and form.extra_buttons %}
+    {% for btn in form.extra_buttons if btn.position == 'footer_right' %}
+    {{ fm.render_extra_button(btn, instance) }}
+    {% endfor %}
+    {% endif %}
+    <button type="submit" form="main-form" id="btn-salvar" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1" {% if not is_new %}disabled{% endif %}><i class="bi bi-check-lg"></i> Salvar</button>
     <button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" onclick="confirmSair()"><i class="bi bi-arrow-left"></i> Voltar</button>
   </div>
 </div>
@@ -82,8 +102,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
   var f = document.getElementById('main-form');
   if (f) {
-    f.addEventListener('input', function() { window._formModified = true; });
-    f.addEventListener('change', function() { window._formModified = true; });
+    var btn = document.getElementById('btn-salvar');
+    function markModified() {
+      window._formModified = true;
+      if (btn) btn.disabled = false;
+    }
+    f.addEventListener('input', markModified);
+    f.addEventListener('change', markModified);
   }
 });
 

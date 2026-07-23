@@ -169,7 +169,7 @@
   {% if not quote.pedido_id %}
   {{ btn(BTN_ENVIAR, url_for('orcamentos.print_quote', id=quote.id)) }}
   {% endif %}
-  {{ btn(BTN_EDITAR, url_for('orcamentos.edit', id=quote.id), label='Revisar') }}
+  {{ btn(BTN_EDITAR, url_for('orcamentos.form', id=quote.id), label='Revisar') }}
   {% if not quote.pedido_id and quote.status < 7 %}
     {% if perfect_match %}
     <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">

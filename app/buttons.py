@@ -2,6 +2,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
+def btn_style(color: str, outline: bool) -> str:
+    prefix = 'btn-outline' if outline else 'btn'
+    return f'{prefix}-{color}'
+
+
 @dataclass
 class Button:
     label: str
@@ -13,6 +18,17 @@ class Button:
     extra: str = ''
     label_pos: str = 'right'
     confirm_msg: Optional[str] = None
+    endpoint: Optional[str] = None
+    url: Optional[str] = None
+    method: str = 'GET'
+    show_if: Optional[tuple] = None
+    hide_if: Optional[tuple] = None
+    url_var: str = 'id'
+    extra_params: Optional[dict] = None
+    position: str = 'nav_right'
+
+    def btn_cls(self) -> str:
+        return btn_style(self.color, self.outline)
 
 
 @dataclass

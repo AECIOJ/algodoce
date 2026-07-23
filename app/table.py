@@ -72,6 +72,12 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Callable
 
 
+def _auto_label(name: str) -> str:
+    s = name[:-3] if name.endswith('_id') else name
+    s = s.replace('_', ' ')
+    return s[0].upper() + s[1:] if s else name
+
+
 @dataclass
 class Field:
     name: str
@@ -84,6 +90,7 @@ class Field:
     filter_options: Any = field(default=None)
     mask: Optional[str] = None
     query: Optional[str] = None
+    query_filter: Optional[dict] = None
     validate: Optional[list] = None
     aggregate: Optional[str] = None
     aggregate_label: Optional[str] = None
@@ -93,6 +100,14 @@ class Field:
     pos: Optional[int] = None
     link: Optional[str] = None
     function: Optional[Callable] = None
+    required: bool = False
+    placeholder: Optional[str] = None
+    disabled: bool = False
+    attrs: Optional[dict] = None
+
+    @property
+    def display_label(self) -> str:
+        return self.label or _auto_label(self.name)
 
 
 def field_filter_type(f: Field) -> Optional[str]:

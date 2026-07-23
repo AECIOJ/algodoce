@@ -159,7 +159,7 @@
       {% if compra and compra.id and not compra.movto_id and not compra.transacao_id %}
       <div id="gerar-financeiro-wrapper" style="padding-bottom:1px">
         <input type="hidden" name="redirect_after" id="redirect-after-input" value="">
-        <button type="button" class="btn btn-sm btn-success d-none" id="btn-gerar" onclick="gerarClick()">Gerar</button>
+        <button type="button" class="btn btn-sm btn-success d-none" id="btn-gerar" onclick="gerarClick()">Gerar Pagamento</button>
         <small id="gerar-financeiro-msg" class="badge bg-warning text-dark d-none">Salve a compra antes de gerar.</small>
       </div>
       {% endif %}
@@ -752,6 +752,7 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
         : '{{ url_for('movimentos.pagamentos_new', compra_id=compra.id) }}';
       var v = document.getElementById('total-display').value;
       var sep = baseUrl.indexOf('?') >= 0 ? '&' : '?';
+      btn.textContent = gerar === '1' ? 'Gerar Contas a Pagar' : 'Gerar Pagamento';
       btn.dataset.url = baseUrl + sep + 'prazo=' + encodeURIComponent(prazo) + '&valor=' + encodeURIComponent(v);
       btn.classList.remove('d-none');
     }

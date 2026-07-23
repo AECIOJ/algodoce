@@ -33,7 +33,7 @@ ORDERS_FIELDS = [
     Field(name='total', label='Total', width=10, input='number', align='right', aggregate='sum', currency='brl'),
     Field(name='status', label='Status', width=10, options=ORDER_STATUS, filter_options=ORDER_STATUS),
     Field(name='transacao', label='Faturado', width=10, filter=False),
-    Field(name='quote_id', label='Orçamento', width=9, filter=False, link='orcamentos.edit'),
+    Field(name='quote_id', label='Orçamento', width=9, filter=False, link='orcamentos.form'),
 ]
 
 ORDERS_TABLE = Table(fields=ORDERS_FIELDS, edit_endpoint='orders.edit', send_endpoint='orders.print_order')
@@ -173,7 +173,7 @@ def new():
 
     clients = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([0, 1])).order_by(Conta.nome).all()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
-    carteiras = Carteira.query.order_by(Carteira.nome).all()
+    carteiras = Carteira.query.filter(Carteira.uso.in_([0, 1])).order_by(Carteira.nome).all()
     return render_template(
         "sys_orders/form.html", order=None, clients=clients, products=products,
         ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS,
@@ -263,7 +263,7 @@ def edit(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    carteiras = Carteira.query.order_by(Carteira.nome).all()
+    carteiras = Carteira.query.filter(Carteira.uso.in_([0, 1])).order_by(Carteira.nome).all()
     return render_template(
         "sys_orders/form.html", order=order, clients=clients, products=products, nav=nav,
         ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS,

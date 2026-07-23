@@ -642,7 +642,7 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
     num_groups = len(report.groups) if report and report.groups else 0
 
     for row in data:
-        indice = str(row.indice) if row.indice is not None else ''
+        indice = str(row.indice) if getattr(row, 'indice', None) is not None else ''
         depth = len(indice.split('.')) if indice else 0
 
         if num_groups > 0 and 1 <= depth <= num_groups:

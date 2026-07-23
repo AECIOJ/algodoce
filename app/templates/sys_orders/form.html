@@ -9,7 +9,7 @@
 
 {% block nav_right %}
 {% if order and order.quote_id %}
-{{ btn(BTN_DETALHES, url_for('orcamentos.edit', id=order.quote_id), label='Orçamento #' + (order.quote_id|fmtid)) }}
+{{ btn(BTN_DETALHES, url_for('orcamentos.form', id=order.quote_id), label='Orçamento #' + (order.quote_id|fmtid)) }}
 {% endif %}
 
     {{ btn(BTN_ENVIAR, url_for('orders.print_order', id=order.id)) }}
@@ -208,8 +208,8 @@
       </div>
       {% if not order.transacao_id and not order.movto_id %}
       <div id="gerar-financeiro-wrapper">
-        <a href="{{ url_for('transacao.receber_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-previsao-link" style="display:none"><i class="bi bi-calendar-plus"></i> Gerar Previsão</a>
-        <a href="{{ url_for('movimentos.recebimentos_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-movimento-link" style="display:none"><i class="bi bi-cash-stack"></i> Gerar</a>
+        <a href="{{ url_for('transacao.receber_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-previsao-link" style="display:none"><i class="bi bi-calendar-plus"></i> Gerar Contas a Receber</a>
+        <a href="{{ url_for('movimentos.recebimentos_new', order_id=order.id) }}" class="btn btn-sm btn-success" id="gerar-movimento-link" style="display:none"><i class="bi bi-cash-stack"></i> Gerar Recebimento</a>
         <small id="gerar-financeiro-msg" class="badge bg-warning text-dark d-none">Salve o pedido antes de gerar.</small>
         <small id="gerar-financeiro-msg-entrega" class="badge bg-warning text-dark d-none">Informe Previsão de Entrega para gerar.</small>
       </div>

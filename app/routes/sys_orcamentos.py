@@ -13,11 +13,13 @@ from app.models.quote import Quote
 from app.models.quote_item import QuoteItem
 from app.models.event import Event
 from app.models.carteira import Carteira
-from app.constants import QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS
+from app.constants import QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS, CARTEIRA_GERAR
 from app.table import Field, build_field_context, Table
 from app.pdf import gerar_pdf_orcamento, gerar_pdf_relatorio
 from app.reports.rep_orcamento import ORCAMENTO_REPORT
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
+from app.form import Form, handle_form
+from app.buttons import Button
 
 
 def quote_validade(item):
@@ -38,7 +40,7 @@ QUOTES_FIELDS = [
     Field(name='pedido_id', label='Pedido', width=10, filter=False, link='orders.edit'),
 ]
 
-QUOTES_TABLE = Table(fields=QUOTES_FIELDS, edit_endpoint='orcamentos.edit', send_endpoint='orcamentos.print_quote')
+QUOTES_TABLE = Table(fields=QUOTES_FIELDS, edit_endpoint='orcamentos.form', send_endpoint='orcamentos.print_quote')
 
 QUOTES_FILTERS = {
     'id':              MODE_NUMBER,
@@ -76,6 +78,50 @@ def _replace_quote_items(quote, form):
             total += prc_val * qtd_val
     return total
 
+
+def _pre_save_orcamento(instance, request, is_new):
+    if hasattr(instance, 'data_pedido') and not instance.data_pedido:
+        instance.data_pedido = datetime.now(timezone.utc)
+    instance.status = int(request.form.get("status", 0))
+    if instance.status == 0:
+        instance.status = 1
+    instance.observacao = _clean(request.form.get("observacao"))
+    _save_event(instance, request.form)
+    total = _replace_quote_items(instance, request.form)
+    instance.total = total
+
+
+QS_COLORS = {0:'bg-secondary',1:'bg-info',6:'bg-warning',7:'bg-dark',8:'bg-danger',9:'bg-success'}
+
+RENOVAR_BTN = Button('Renovar', endpoint='orcamentos.renovar',
+                     icon='bi-arrow-clockwise', color='info', outline=False,
+                     method='POST', show_if=('status', 7))
+PEDIDO_BTN = Button('Pedido', endpoint='orders.edit',
+                    icon='bi-send', color='success', outline=True,
+                    show_if='pedido_id', url_var='pedido_id')
+ENVIAR_BTN = Button('Enviar', endpoint='orcamentos.print_quote',
+                    icon='bi-send', color='success', outline=True,
+                    show_if=('pedido_id', None))
+
+ORCAMENTOS_FORM = Form(
+    model=Quote,
+    redirect='orcamentos.list',
+    fields=[
+        Field('cliente_nome', label='Cliente', required=True, width=4),
+        Field('cliente_telefone', label='Telefone', required=True, width=4),
+        Field('validade', label='Validade (dias)', input='number', width=2, attrs={'min': 1}),
+        {'label': 'Financeiro', 'fields': [
+            Field('forminhas', input='select', options=FORMINHAS, width=3),
+            Field('carteira_id', input='select', query='carteira', width=4, query_filter={'uso': [0, 1]}),
+        ]},
+        Field('observacao', label='Observação', input='textarea', width=12),
+    ],
+    readonly_when={},
+    pre_save=_pre_save_orcamento,
+    badge=dict(field='status', options=QUOTE_STATUS, colors=QS_COLORS),
+    extra_buttons=[RENOVAR_BTN, PEDIDO_BTN, ENVIAR_BTN],
+    template='sys_orcamentos/form.html',
+)
 
 bp = Blueprint("orcamentos", __name__)
 
@@ -139,6 +185,62 @@ def detail(id):
                            perfect_match=perfect_match)
 
 
+@bp.route("/orcamentos/novo", defaults={"id": None}, methods=["GET", "POST"])
+@bp.route("/orcamentos/<int:id>/editar", methods=["GET", "POST"])
+def form(id):
+    extra = {}
+    if id is not None:
+        quote = Quote.query.get(id)
+        if quote:
+            products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
+            clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+            extra = dict(
+                products=products, clients=clients,
+                tipos_evento=tipos_evento_list,
+                QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS,
+            )
+            if quote.pedido_id:
+                order = Order.query.get(quote.pedido_id)
+                if order and not order.quote_id:
+                    order.quote_id = quote.id
+                    db.session.commit()
+            if quote.cliente_nome:
+                perfect_match = Conta.query.filter(
+                    Conta.nome.ilike(quote.cliente_nome),
+                    Conta.telefone == quote.cliente_telefone,
+                ).first()
+                extra['perfect_match'] = perfect_match
+                if not perfect_match:
+                    suggested_client = Conta.query.filter(
+                        Conta.nome.ilike(quote.cliente_nome)
+                    ).first()
+                    if not suggested_client and quote.cliente_telefone:
+                        suggested_client = Conta.query.filter(
+                            Conta.telefone == quote.cliente_telefone
+                        ).first()
+                    extra['suggested_client'] = suggested_client
+                    if quote.cliente_telefone:
+                        phone_owner = Conta.query.filter(
+                            Conta.telefone == quote.cliente_telefone,
+                        ).first()
+                        if phone_owner and (
+                            not suggested_client or phone_owner.id != suggested_client.id
+                        ):
+                            extra['phone_conflict'] = phone_owner
+    else:
+        products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
+        clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
+        extra = dict(products=products, clients=clients, tipos_evento=tipos_evento_list,
+                     QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS)
+    return handle_form(ORCAMENTOS_FORM, id, extra_ctx=extra)
+
+
+tipos_evento_list = [
+    "Aniversário", "Casamento", "Debutante", "Corporativo",
+    "Infantil", "Família", "Confraternização", "Religioso", "Outros"
+]
+
+
 @bp.route("/orcamentos/<int:id>/converter", methods=["POST"])
 def converter(id):
     quote = Quote.query.get(id)
@@ -159,11 +261,11 @@ def converter(id):
         telefone = request.form.get("novo_telefone", "").strip()
         if not nome:
             flash("Informe o nome da nova conta.", "warning")
-            return redirect(url_for("orcamentos.edit", id=id))
+            return redirect(url_for("orcamentos.form", id=id))
         existing = Conta.query.filter(Conta.nome.ilike(nome)).first()
         if existing:
             flash(f"Já existe uma conta com o nome '{existing.nome}'. Selecione-a na lista de contas existentes.", "warning")
-            return redirect(url_for("orcamentos.edit", id=id))
+            return redirect(url_for("orcamentos.form", id=id))
         conta = Conta(
             nome=nome,
             telefone=telefone or None,
@@ -177,13 +279,13 @@ def converter(id):
         conta = Conta.query.get(client_id)
         if not conta:
             flash("Conta não encontrada para conversão automática.", "warning")
-            return redirect(url_for("orcamentos.edit", id=id))
+            return redirect(url_for("orcamentos.form", id=id))
     else:
         client_id = request.form.get("client_id", type=int)
         conta = Conta.query.get(client_id)
         if not conta:
             flash("Selecione um cliente para converter.", "warning")
-            return redirect(url_for("orcamentos.edit", id=id))
+            return redirect(url_for("orcamentos.form", id=id))
 
     order = Order(
         client_id=conta.id,
@@ -196,7 +298,6 @@ def converter(id):
     db.session.add(order)
     db.session.flush()
 
-    # Copy quote items as order items
     for item in quote.items:
         order_item = OrderItem(
             order_id=order.id,
@@ -222,159 +323,6 @@ def converter(id):
     return redirect(url_for("orcamentos.list"))
 
 
-@bp.route("/orcamentos/<int:id>/editar", methods=["GET", "POST"])
-def edit(id):
-    quote = Quote.query.get(id)
-    if not quote:
-        flash("Código inexistente", "warning")
-        return redirect(url_for("orcamentos.list"))
-
-    if request.method == "POST":
-        if quote.pedido_id:
-            flash("Orçamento não pode ser alterado — já foi convertido em pedido.", "warning")
-            return redirect(url_for("orcamentos.edit", id=id))
-
-        quote.cliente_nome = request.form["cliente_nome"]
-        quote.cliente_telefone = request.form["cliente_telefone"]
-        quote.status = int(request.form.get("status", 0))
-        if quote.status == 0:
-            quote.status = 1
-        quote.observacao = _clean(request.form.get("observacao"))
-        quote.validade = request.form.get("validade", 3, type=int)
-        quote.carteira_id = request.form.get("carteira_id", type=int) or None
-        quote.forminhas = request.form.get("forminhas", 0, type=int)
-
-        _save_event(quote, request.form)
-
-        total = _replace_quote_items(quote, request.form)
-        quote.total = total
-        db.session.flush()
-
-        db.session.commit()
-        if request.form.get("atualizar_precos"):
-            flash("Preços zerados foram atualizados!", "success")
-        else:
-            flash("Orçamento atualizado!", "success")
-        return redirect(url_for("orcamentos.edit", id=id))
-
-    products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
-    tipos_evento = [
-        "Aniversário", "Casamento", "Debutante", "Corporativo",
-        "Infantil", "Família", "Confraternização", "Religioso", "Outros"
-    ]
-    # Backfill order.quote_id on load if missing
-    if quote.pedido_id:
-        order = Order.query.get(quote.pedido_id)
-        if order and not order.quote_id:
-            order.quote_id = quote.id
-            db.session.commit()
-
-    clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-
-    perfect_match = None
-    suggested_client = None
-    phone_conflict = None
-    if quote.cliente_nome:
-        perfect_match = Conta.query.filter(
-            Conta.nome.ilike(quote.cliente_nome),
-            Conta.telefone == quote.cliente_telefone,
-        ).first()
-    if not perfect_match:
-        if quote.cliente_nome:
-            suggested_client = Conta.query.filter(Conta.nome.ilike(quote.cliente_nome)).first()
-        if not suggested_client and quote.cliente_telefone:
-            suggested_client = Conta.query.filter(Conta.telefone == quote.cliente_telefone).first()
-        if quote.cliente_telefone:
-            phone_owner = Conta.query.filter(
-                Conta.telefone == quote.cliente_telefone,
-            ).first()
-            if phone_owner and (
-                not suggested_client or phone_owner.id != suggested_client.id
-            ):
-                phone_conflict = phone_owner
-
-    query = Quote.query.with_entities(Quote.id).order_by(Quote.id)
-    ids = [q.id for q in query.all()]
-    try:
-        current_idx = ids.index(id)
-        nav = {
-            "first_id": ids[0],
-            "last_id": ids[-1],
-            "prev_id": ids[current_idx - 1] if current_idx > 0 else None,
-            "next_id": ids[current_idx + 1] if current_idx < len(ids) - 1 else None,
-        }
-    except ValueError:
-        nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
-
-    carteiras = Carteira.query.order_by(Carteira.nome).all()
-    return render_template(
-        "sys_orcamentos/form.html", quote=quote, products=products, nav=nav,
-        tipos_evento=tipos_evento, clients=clients,
-        QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS,
-        carteiras=carteiras,
-        ro=bool(quote.pedido_id),
-        perfect_match=perfect_match,
-        suggested_client=suggested_client,
-        phone_conflict=phone_conflict,
-    )
-
-
-@bp.route("/orcamentos/novo", methods=["GET", "POST"])
-def new():
-    if request.method == "POST":
-        cliente_nome = request.form["cliente_nome"]
-        cliente_telefone = request.form["cliente_telefone"]
-
-        quote = Quote(
-            cliente_nome=cliente_nome,
-            cliente_telefone=cliente_telefone,
-            data_pedido=datetime.now(timezone.utc),
-            status=0,
-            validade=request.form.get("validade", 3, type=int),
-            carteira_id=request.form.get("carteira_id", type=int) or None,
-        )
-        db.session.add(quote)
-        db.session.flush()
-
-        produtos = request.form.getlist("product_id")
-        quantidades = request.form.getlist("quantidade")
-        precos = request.form.getlist("preco_unitario")
-        obs_itens = request.form.getlist("observacao_item")
-        total = 0
-        for pid, qtd, prc, obs in zip(produtos, quantidades, precos, obs_itens):
-            if not pid or not qtd:
-                continue
-            qtd_val = int(qtd)
-            prc_val = parse_brl(prc)
-            item = QuoteItem(
-                quote_id=quote.id, product_id=int(pid),
-                quantidade=qtd_val, preco_unitario=prc_val,
-                observacao=_clean(obs),
-            )
-            db.session.add(item)
-            if prc_val:
-                total += prc_val * qtd_val
-
-        quote.total = total
-        db.session.commit()
-        flash("Orçamento criado!", "success")
-        return redirect(url_for("orcamentos.edit", id=quote.id))
-
-    products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
-    tipos_evento = [
-        "Aniversário", "Casamento", "Debutante", "Corporativo",
-        "Infantil", "Família", "Confraternização", "Religioso", "Outros"
-    ]
-    clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
-    carteiras = Carteira.query.order_by(Carteira.nome).all()
-    return render_template(
-        "sys_orcamentos/form.html", quote=None, products=products,
-        tipos_evento=tipos_evento, clients=clients,
-        QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS,
-        carteiras=carteiras,
-    )
-
-
 @bp.route("/orcamentos/<int:id>/status", methods=["POST"])
 def status(id):
     quote = Quote.query.get_or_404(id)
@@ -383,7 +331,7 @@ def status(id):
         quote.status = int(novo_status)
         db.session.commit()
         flash("Status atualizado!", "success")
-    return redirect(url_for("orcamentos.edit", id=id))
+    return redirect(url_for("orcamentos.form", id=id))
 
 
 @bp.route("/orcamentos/validar")
@@ -413,7 +361,7 @@ def renovar(id):
     quote.status = 6
     db.session.commit()
     flash("Orçamento renovado com sucesso!", "success")
-    return redirect(url_for("orcamentos.edit", id=id))
+    return redirect(url_for("orcamentos.form", id=id))
 
 
 @bp.route("/orcamentos/<int:id>/excluir", methods=["POST"])

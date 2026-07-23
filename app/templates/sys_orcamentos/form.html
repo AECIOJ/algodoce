@@ -3,298 +3,230 @@
 {% set back_url = url_for('orcamentos.list') %}
 {% set new_title = 'Orçamento' %}
 {% set entity_label = 'Orçamento' %}
-{% set edit_endpoint = 'orcamentos.edit' %}
-{% if quote %}{% set entity_id = quote.id %}{% endif %}
-
-{% set qs_colors = {0:'bg-secondary',1:'bg-info',6:'bg-warning',7:'bg-dark',8:'bg-danger',9:'bg-success'} %}
+{% set edit_endpoint = 'orcamentos.form' %}
+{% if instance %}{% set entity_id = instance.id %}{% endif %}
 
 {% block nav_right %}
-{% if quote %}
-<div class="d-flex align-items-center gap-1">
-  <span class="badge {{ qs_colors[quote.status] }} fs-6">{{ QUOTE_STATUS[quote.status] }}</span>
-  {% if quote.status == 7 %}
-  <form method="POST" action="{{ url_for('orcamentos.renovar', id=quote.id) }}" class="d-inline"><button type="submit" class="btn btn-sm btn-info text-white d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-clockwise"></i>Renovar</button></form>
-  {% endif %}
-  {% if quote.pedido_id %}
-  {{ btn(BTN_ENVIAR, url_for('orders.edit', id=quote.pedido_id), label='Pedido #' + (quote.pedido_id|fmtid)) }}
+{% if instance and not instance.pedido_id %}
+  {% if perfect_match %}
+  <form method="POST" action="{{ url_for('orcamentos.converter', id=instance.id) }}" class="d-inline">
+    <input type="hidden" name="converter_tipo" value="auto">
+    <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
+    <button type="submit" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-right-circle"></i>Converter</button>
+  </form>
   {% else %}
-    {% if perfect_match %}
-    <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}" class="d-inline">
-      <input type="hidden" name="converter_tipo" value="auto">
-      <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
-      <button type="submit" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-right-circle"></i>Converter</button>
-    </form>
-    {% else %}
-    <a href="#" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#converterModal"><i class="bi bi-arrow-right-circle"></i>Converter</a>
-    {% endif %}
+  <a href="#" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#converterModal"><i class="bi bi-arrow-right-circle"></i>Converter</a>
   {% endif %}
-
-    {% if not quote.pedido_id %}
-    {{ btn(BTN_ENVIAR, url_for('orcamentos.print_quote', id=quote.id)) }}
-    {% endif %}</div>
 {% endif %}
 {% endblock %}
 
 {% block form_body %}
-{% if quote and quote.pedido_id %}<input type="hidden" id="has-pedido" value="1">{% endif %}
-<div class="row mb-3">
-    <div class="col-md-3 mb-2 mb-md-0">
-      <label class="form-label">Nome *</label>
-      <div class="d-flex gap-2">
-        <input type="text" name="cliente_nome" class="form-control" required
-               value="{{ quote.cliente_nome if quote else '' }}" {{ 'disabled' if ro }}>
-      </div>
-    </div>
-    <div class="col-md-4 mb-2 mb-md-0">
-      <label class="form-label">Telefone *</label>
-      <input type="text" name="cliente_telefone" class="form-control" required
-             value="{{ quote.cliente_telefone if quote else '' }}" {{ 'disabled' if ro }}>
-    </div>
-    {% if quote %}
-    <div class="col-md-5 mb-2 mb-md-0">
-      <label class="form-label">Validade</label>
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <input type="number" name="validade" class="form-control form-control-sm" min="1" step="1" value="{{ quote.validade or 3 }}" style="width:70px;" {{ 'disabled' if ro }}>
-        {% set ref = quote.data_renovacao or quote.data_pedido %}
-        <span class="text-muted small">dias => {{ (ref.replace(tzinfo=None) + timedelta(days=quote.validade or 3)).strftime('%d/%m/%Y') }}</span>
-        {% if quote.data_renovacao %}<span class="badge bg-info text-dark">Renovado: {{ quote.data_renovacao.strftime('%d/%m/%Y') }}</span>{% endif %}
-      </div>
-    </div>
-    {% endif %}
-  </div>
+{% set ro = instance and instance.pedido_id %}
 
-  <div class="card mb-3">
-    <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
-      <span>Itens do Orçamento</span>
-    </div>
-    <div class="card-body p-0">
-      <!-- Desktop: items table -->
-      <div class="table-responsive d-none d-md-block">
-        <table class="table mb-0" id="itens-table">
-          <thead>
-            <tr>
-              <th style="min-width:200px">Produto</th>
-              <th class="text-end" style="width:85px">Qtd</th>
-              <th class="text-end" style="width:130px">Preço</th>
-              <th class="text-end" style="width:130px">Valor</th>
-              <th style="min-width:140px">Obs</th>
-              <th style="width:40px"></th>
+{{ fm.render_fields(form, data=instance, ro=ro) }}
+
+{% if instance %}
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+    <span>Itens do Orçamento</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive d-none d-md-block">
+      <table class="table mb-0" id="itens-table">
+        <thead>
+          <tr>
+            <th style="min-width:200px">Produto</th>
+            <th class="text-end" style="width:85px">Qtd</th>
+            <th class="text-end" style="width:130px">Preço</th>
+            <th class="text-end" style="width:130px">Valor</th>
+            <th style="min-width:140px">Obs</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="itens-body">
+          {% if instance and instance.items %}
+            {% for item in instance.items %}
+            <tr class="item-row">
+              <td>
+                <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+                  <option value="">Selecione</option>
+                  {% for p in products %}
+                    <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+              <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+              <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
+              <td><input type="text" name="observacao_item" class="form-control form-control-sm" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
+              <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
             </tr>
-          </thead>
-          <tbody id="itens-body">
-            {% if quote and quote.items %}
-              {% for item in quote.items %}
-              <tr class="item-row">
-                <td>
-                  <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
-                    <option value="">Selecione</option>
-                    {% for p in products %}
-                      <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
-                <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
-                <td class="text-end"><span class="valor-item">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span></td>
-                <td><input type="text" name="observacao_item" class="form-control form-control-sm"  value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}></td>
-                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
-              </tr>
-              {% endfor %}
-            {% else %}
-              <tr class="item-row">
-                <td>
-                  <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
-                    <option value="">Selecione</option>
-                    {% for p in products %}
-                      <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
-                    {% endfor %}
-                </td>
-                <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
-                <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
-                <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
-                <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
-                <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
-              </tr>
-            {% endif %}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th colspan="3" class="text-end">Total</th>
-              <th id="total-geral" class="text-end">R$ {{ (quote.total or 0) | brl if quote else 'R$ 0,00' }}</th>
-              <th colspan="2"></th>
+            {% endfor %}
+          {% else %}
+            <tr class="item-row">
+              <td>
+                <select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+                  <option value="">Selecione</option>
+                  {% for p in products %}
+                    <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+              <td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}></td>
+              <td class="text-end"><span class="valor-item">R$ 0,00</span></td>
+              <td><input type="text" name="observacao_item" class="form-control form-control-sm" {{ 'disabled' if ro }}></td>
+              <td>{% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}</td>
             </tr>
-            <tr><td colspan="6" class="py-2">{% if not ro %}<div class="d-flex gap-2"><button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" onclick="addItem()"><i class="bi bi-plus-lg"></i> Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" onclick="atualizarESalvar()"><i class="bi bi-currency-dollar"></i>Atualizar Preço 0,00</button></div>{% endif %}</td></tr>
-          </tfoot>
-        </table>
-      </div>
-      <!-- Mobile: items card list -->
-      <div class="d-md-none" id="itens-mobile-list">
-        {% if quote and quote.items %}
-          {% for item in quote.items %}
-          <div class="px-3 py-2 border-bottom item-mobile-card">
-            <select name="product_id" class="form-select form-select-sm mb-1 product-select" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
-              <option value="">Selecione</option>
-              {% for p in products %}
-                <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
-              {% endfor %}
-            </select>
-            <div class="row g-1 align-items-center">
-              <div class="col-4">
-                <span class="card-label">Qtd</span>
-                <input type="number" name="quantidade" class="form-control form-control-sm" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}>
-              </div>
-              <div class="col-4">
-                <span class="card-label">Preço</span>
-                <input type="text" name="preco_unitario" class="form-control form-control-sm preco-input" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}>
-              </div>
-              <div class="col-4">
-                <span class="card-label">Valor</span><br>
-                <span class="valor-item fw-bold">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span>
-              </div>
-            </div>
-            <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}>
-            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="px-3 py-2 border-bottom item-mobile-card">
-            <select name="product_id" class="form-select form-select-sm mb-1 product-select" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
-              <option value="">Selecione</option>
-              {% for p in products %}
-                <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
-              {% endfor %}
-            </select>
-            <div class="row g-1 align-items-center">
-              <div class="col-4">
-                <span class="card-label">Qtd</span>
-                <input type="number" name="quantidade" class="form-control form-control-sm" min="1" step="1" oninput="calcValor(this)" {{ 'disabled' if ro }}>
-              </div>
-              <div class="col-4">
-                <span class="card-label">Preço</span>
-                <input type="text" name="preco_unitario" class="form-control form-control-sm preco-input" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}>
-              </div>
-              <div class="col-4">
-                <span class="card-label">Valor</span><br>
-                <span class="valor-item fw-bold">R$ 0,00</span>
-              </div>
-            </div>
-            <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" {{ 'disabled' if ro }}>
-            {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
-          </div>
-        {% endif %}
-        <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
-          <span>Total</span>
-          <span id="total-geral-mobile">R$ {{ (quote.total or 0) | brl if quote else 'R$ 0,00' }}</span>
-        </div>
-        <div class="px-3 py-2">
-          {% if not ro %}
-          <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-success btn-sm flex-fill d-inline-flex align-items-center gap-1" onclick="addItemMobile()"><i class="bi bi-plus-lg"></i> Adicionar</button>
-            <button type="button" class="btn btn-outline-primary btn-sm flex-fill d-inline-flex align-items-center gap-1" onclick="atualizarESalvar()"><i class="bi bi-currency-dollar"></i>Atualizar Preços</button>
-          </div>
           {% endif %}
-        </div>
-      </div>
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="3" class="text-end">Total</th>
+            <th id="total-geral" class="text-end">R$ {{ (instance.total or 0) | brl if instance else 'R$ 0,00' }}</th>
+            <th colspan="2"></th>
+          </tr>
+          <tr><td colspan="6" class="py-2">{% if not ro %}<div class="d-flex gap-2"><button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" onclick="addItem()"><i class="bi bi-plus-lg"></i> Adicionar Item</button><button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" onclick="atualizarESalvar()"><i class="bi bi-currency-dollar"></i>Atualizar Preço 0,00</button></div>{% endif %}</td></tr>
+        </tfoot>
+      </table>
     </div>
-  </div>
-
-  {% if quote %}
-  <div class="row mb-3 align-items-center">
-    <div class="col-auto">
-      <label class="form-label mb-0">Forminhas</label>
-    </div>
-    <div class="col-auto">
-      <select name="forminhas" class="form-select form-select-sm" {{ 'disabled' if ro }}>
-        {% for val, label in FORMINHAS.items() %}
-          <option value="{{ val }}" {{ 'selected' if quote.forminhas == val }}>{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-auto ms-3">
-      <label class="form-label mb-0">Carteira</label>
-    </div>
-    <div class="col-auto">
-      <select name="carteira_id" class="form-select form-select-sm" required {{ 'disabled' if ro }}>
-        <option value="">Selecione...</option>
-        {% for c in carteiras %}
-          <option value="{{ c.id }}" {{ 'selected' if quote.carteira and quote.carteira.id == c.id }}>{{ c.nome }} ({{ {0:'Movimento',1:'Previsão'}[c.gerar] }})</option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
-  {% endif %}
-
-  <div class="card mb-3">
-    <div class="card-header bg-light fw-bold">Evento</div>
-    <div class="card-body">
-      <div class="row mb-2">
-        <div class="col-md-3">
-          <label class="form-label small mb-0">Tipo</label>
-          <select name="evento_tipo" class="form-select" {{ 'disabled' if ro }}>
-            <option value="">—</option>
-            {% for t in tipos_evento %}
-              <option value="{{ t }}" {{ 'selected' if quote and quote.event and quote.event.tipo == t }}>{{ t }}</option>
+    <div class="d-md-none" id="itens-mobile-list">
+      {% if instance and instance.items %}
+        {% for item in instance.items %}
+        <div class="px-3 py-2 border-bottom item-mobile-card">
+          <select name="product_id" class="form-select form-select-sm mb-1 product-select" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+            <option value="">Selecione</option>
+            {% for p in products %}
+              <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}" {{ 'selected' if item.product_id == p.id }}>{{ p.nome }}</option>
             {% endfor %}
           </select>
+          <div class="row g-1 align-items-center">
+            <div class="col-4">
+              <span class="card-label">Qtd</span>
+              <input type="number" name="quantidade" class="form-control form-control-sm" min="1" step="1" value="{{ item.quantidade }}" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Preço</span>
+              <input type="text" name="preco_unitario" class="form-control form-control-sm preco-input" placeholder="0,00" value="{{ '%.2f'|format(item.preco_unitario) | replace('.', ',') if item.preco_unitario is not none else '' }}" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Valor</span><br>
+              <span class="valor-item fw-bold">R$ {{ ((item.preco_unitario or 0) * item.quantidade) | brl }}</span>
+            </div>
+          </div>
+          <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" value="{{ item.observacao or '' }}" {{ 'disabled' if ro }}>
+          {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
         </div>
-        <div class="col-md-3">
-          <label class="form-label small mb-0">Tema</label>
-          <input type="text" name="evento_tema" class="form-control" value="{{ quote.event.tema or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
+        {% endfor %}
+      {% else %}
+        <div class="px-3 py-2 border-bottom item-mobile-card">
+          <select name="product_id" class="form-select form-select-sm mb-1 product-select" onchange="capturarPreco(this)" {{ 'disabled' if ro }}>
+            <option value="">Selecione</option>
+            {% for p in products %}
+              <option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>
+            {% endfor %}
+          </select>
+          <div class="row g-1 align-items-center">
+            <div class="col-4">
+              <span class="card-label">Qtd</span>
+              <input type="number" name="quantidade" class="form-control form-control-sm" min="1" step="1" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Preço</span>
+              <input type="text" name="preco_unitario" class="form-control form-control-sm preco-input" placeholder="0,00" oninput="calcValor(this)" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Valor</span><br>
+              <span class="valor-item fw-bold">R$ 0,00</span>
+            </div>
+          </div>
+          <input type="text" name="observacao_item" class="form-control form-control-sm mt-1" placeholder="Obs" {{ 'disabled' if ro }}>
+          {% if not ro %}<button type="button" class="btn btn-danger btn-sm btn-remove-card" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
         </div>
-        <div class="col-md-2">
-          <label class="form-label small mb-0">Nº Convidados</label>
-          <input type="number" name="evento_convidados" class="form-control" min="1" step="1" value="{{ quote.event.convidados or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label small mb-0">Obs</label>
-          <input type="text" name="evento_complemento" class="form-control" value="{{ quote.event.obs or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
-        </div>
+      {% endif %}
+      <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
+        <span>Total</span>
+        <span id="total-geral-mobile">R$ {{ (instance.total or 0) | brl if instance else 'R$ 0,00' }}</span>
       </div>
-      <div class="row">
-        <div class="col-md-3">
-          <label class="form-label small mb-0">Data</label>
-          <input type="date" name="evento_data" class="form-control" value="{{ quote.event.data.strftime('%Y-%m-%d') if quote and quote.event and quote.event.data else '' }}" {{ 'disabled' if ro }}>
+      <div class="px-3 py-2">
+        {% if not ro %}
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-success btn-sm flex-fill d-inline-flex align-items-center gap-1" onclick="addItemMobile()"><i class="bi bi-plus-lg"></i> Adicionar</button>
+          <button type="button" class="btn btn-outline-primary btn-sm flex-fill d-inline-flex align-items-center gap-1" onclick="atualizarESalvar()"><i class="bi bi-currency-dollar"></i>Atualizar Preços</button>
         </div>
-        <div class="col-md-3">
-          <label class="form-label small mb-0">Hora</label>
-          <input type="time" name="evento_hora" class="form-control" value="{{ quote.event.hora.strftime('%H:%M') if quote and quote.event and quote.event.hora else '' }}" {{ 'disabled' if ro }}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label small mb-0">Local</label>
-          <input type="text" name="evento_local" class="form-control" value="{{ quote.event.local or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
-        </div>
-        <div class="col-md-3">
-          <label class="form-label small mb-0">Cerimonial</label>
-          <input type="text" name="evento_cerimonial" class="form-control" value="{{ quote.event.cerimonial or '' if quote and quote.event else '' }}" {{ 'disabled' if ro }}>
-        </div>
+        {% endif %}
       </div>
     </div>
   </div>
+</div>
+{% endif %}
 
-  <div class="mb-3">
-    <label class="form-label">Observação</label>
-    <textarea name="observacao" class="form-control" rows="2" {{ 'disabled' if ro }}>{{ quote.observacao or '' }}</textarea>
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold">Evento</div>
+  <div class="card-body">
+    <div class="row mb-2">
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Tipo</label>
+        <select name="evento_tipo" class="form-select" {{ 'disabled' if ro }}>
+          <option value="">—</option>
+          {% for t in tipos_evento %}
+            <option value="{{ t }}" {{ 'selected' if instance and instance.event and instance.event.tipo == t }}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Tema</label>
+        <input type="text" name="evento_tema" class="form-control" value="{{ instance.event.tema or '' if instance and instance.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-0">Nº Convidados</label>
+        <input type="number" name="evento_convidados" class="form-control" min="1" step="1" value="{{ instance.event.convidados or '' if instance and instance.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-0">Obs</label>
+        <input type="text" name="evento_complemento" class="form-control" value="{{ instance.event.obs or '' if instance and instance.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Data</label>
+        <input type="date" name="evento_data" class="form-control" value="{{ instance.event.data.strftime('%Y-%m-%d') if instance and instance.event and instance.event.data else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Hora</label>
+        <input type="time" name="evento_hora" class="form-control" value="{{ instance.event.hora.strftime('%H:%M') if instance and instance.event and instance.event.hora else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Local</label>
+        <input type="text" name="evento_local" class="form-control" value="{{ instance.event.local or '' if instance and instance.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-0">Cerimonial</label>
+        <input type="text" name="evento_cerimonial" class="form-control" value="{{ instance.event.cerimonial or '' if instance and instance.event else '' }}" {{ 'disabled' if ro }}>
+      </div>
+    </div>
   </div>
+</div>
 
-  <input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
-  <input type="hidden" name="status" value="{{ quote.status if quote else 0 }}" id="status-field" data-original="{{ quote.status if quote else 0 }}">
+<input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
+<input type="hidden" name="status" value="{{ instance.status if instance else 0 }}" id="status-field" data-original="{{ instance.status if instance else 0 }}">
 
-{% if quote and not quote.pedido_id and quote.status < 7 %}
+{% if instance and not instance.pedido_id and instance.status < 7 %}
 <div class="modal fade" id="converterModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="POST" action="{{ url_for('orcamentos.converter', id=quote.id) }}">
+      <form method="POST" action="{{ url_for('orcamentos.converter', id=instance.id) }}">
         <div class="modal-header">
-          <h5 class="modal-title">Converter Orçamento #{{ quote.id|fmtid }}</h5>
+          <h5 class="modal-title">Converter Orçamento #{{ instance.id|fmtid }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <p>Os itens do orçamento serão convertidos em um pedido.</p>
           <div class="alert alert-info py-2 mb-3">
-            <strong>Cliente do orçamento:</strong> {{ quote.cliente_nome }} — {{ quote.cliente_telefone }}
+            <strong>Cliente do orçamento:</strong> {{ instance.cliente_nome }} — {{ instance.cliente_telefone }}
           </div>
           {% if phone_conflict %}
-          <div class="alert alert-warning py-2 mb-3">⚠ O telefone {{ quote.cliente_telefone }} já está cadastrado para <strong>{{ phone_conflict.nome }}</strong>. Verifique se não há erro de digitação.</div>
+          <div class="alert alert-warning py-2 mb-3">⚠ O telefone {{ instance.cliente_telefone }} já está cadastrado para <strong>{{ phone_conflict.nome }}</strong>. Verifique se não há erro de digitação.</div>
           {% endif %}
           <div class="d-flex gap-3 mb-3 p-3 rounded" style="background:#f8f9fa;">
             <div class="form-check">
@@ -315,8 +247,8 @@
             </select>
           </div>
           <div id="convNovaFields" style="display:none;">
-            <input type="text" name="novo_nome" class="form-control mb-2" placeholder="Nome" value="{{ quote.cliente_nome }}">
-            <input type="text" name="novo_telefone" class="form-control" placeholder="Telefone" value="{{ quote.cliente_telefone }}">
+            <input type="text" name="novo_nome" class="form-control mb-2" placeholder="Nome" value="{{ instance.cliente_nome }}">
+            <input type="text" name="novo_telefone" class="form-control" placeholder="Telefone" value="{{ instance.cliente_telefone }}">
           </div>
           <p class="text-muted small mt-3 mb-0">O status do orçamento será alterado para <strong>Aprovado</strong> e um novo pedido será gerado.</p>
         </div>
@@ -330,20 +262,20 @@
 </div>
 {% endif %}
 
-{% if quote %}
+{% if instance %}
 <div class="modal fade" id="excluirModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Excluir Orçamento #{{ quote.id|fmtid }}</h5>
+        <h5 class="modal-title">Excluir Orçamento #{{ instance.id|fmtid }}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p>Confirmar exclusão do orçamento <strong>#{{ quote.id|fmtid }}</strong>?</p>
+        <p>Confirmar exclusão do orçamento <strong>#{{ instance.id|fmtid }}</strong>?</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <form method="POST" action="{{ url_for('orcamentos.excluir', id=quote.id) }}" class="d-inline">
+        <form method="POST" action="{{ url_for('orcamentos.excluir', id=instance.id) }}" class="d-inline">
           <button type="submit" class="btn btn-danger d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.svg') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
         </form>
       </div>
@@ -368,11 +300,11 @@
 {% endblock %}
 
 {% block form_footer_left %}
-{% if quote %}
+{% if instance %}
 <div class="d-flex align-items-center gap-2">
   <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" style="min-height:0;font-size:0.75rem;" {{ 'disabled' if ro }} data-bs-toggle="modal" data-bs-target="#excluirModal"><i class="bi bi-trash"></i>Excluir</button>
   <div class="form-check mb-0">
-    <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if quote.status == 8 }} onchange="toggleReprovado(this)">
+    <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if instance.status == 8 }} onchange="toggleReprovado(this)">
     <label class="form-check-label small" for="reprovado-check">Reprovado</label>
   </div>
 </div>
@@ -382,6 +314,7 @@
 {% block page_scripts %}
 <script src="{{ url_for('static', filename='js/itens.js') }}"></script>
 <script src="{{ url_for('static', filename='js/phone-mask.js') }}"></script>
+{% set ro = instance and instance.pedido_id %}
 {% if not ro %}
 <script>
 var pendingDeleteEl = null;
@@ -435,7 +368,7 @@ function toggleReprovado(el) {
 document.getElementById('main-form').addEventListener('submit', disableHiddenInputs);
 </script>
 {% endif %}
-{% if quote and not quote.pedido_id and quote.status < 7 %}
+{% if instance and not instance.pedido_id and instance.status < 7 %}
 <script>
 function toggleConvTipo() { var e=document.getElementById('convExistente').checked; document.getElementById('convExistenteFields').style.display=e?'':'none'; document.getElementById('convNovaFields').style.display=e?'none':''; }
 </script>

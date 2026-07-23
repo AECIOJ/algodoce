@@ -3,45 +3,36 @@
 {% set back_url = url_for('categories.list') %}
 {% set new_title = 'Nova Categoria' %}
 {% set entity_label = 'Categoria' %}
-{% set edit_endpoint = 'categories.edit' %}
-{% if category %}{% set entity_id = category.id %}{% endif %}
+{% set edit_endpoint = 'categories.form' %}
+{% if instance %}{% set entity_id = instance.id %}{% endif %}
 
 {% block nav_right %}
-{% if category %}
-{% if not category.ativo %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
-<a href="{{ url_for('categories.toggle', id=category.id) }}" class="btn btn-{{ 'success' if category.ativo else 'outline-secondary' }} btn-sm d-inline-flex align-items-center gap-1" style="min-width:90px">
-  <i class="bi bi-{{ 'toggle-on' if category.ativo else 'toggle-off' }}"></i> {{ 'Desativar' if category.ativo else 'Ativar' }}
+{% if instance %}
+{% if not instance.ativo %}<span class="text-danger fw-bold me-1">Desativado</span>{% endif %}
+<a href="{{ url_for('categories.toggle', id=instance.id) }}" class="btn btn-{{ 'success' if instance.ativo else 'outline-secondary' }} btn-sm d-inline-flex align-items-center gap-1" style="min-width:90px">
+  <i class="bi bi-{{ 'toggle-on' if instance.ativo else 'toggle-off' }}"></i> {{ 'Desativar' if instance.ativo else 'Ativar' }}
 </a>
 {% endif %}
 {% endblock %}
 
 {% block form_body %}
-{% if category and category.ativo is defined and not category.ativo %}
+{% if instance and instance.ativo is defined and not instance.ativo %}
 <div class="alert alert-warning py-2 mb-3">
   <i class="bi bi-exclamation-triangle"></i> Registro desativado
 </div>
 {% endif %}
 
-<div class="row mb-3">
-  <div class="col-md-{{ get_field(fields, 'nome')|field_grid }}">
-    <label class="form-label">{{ get_field(fields, 'nome').label }} *</label>
-    <input type="text" name="nome" class="form-control" required value="{{ category.nome if category else '' }}">
-  </div>
-  <div class="col-md-{{ get_field(fields, 'ordem')|field_grid }}">
-    <label class="form-label">{{ get_field(fields, 'ordem').label }}</label>
-    <input type="number" name="ordem" class="form-control" min="0" max="99" value="{{ category.ordem if category else 0 }}">
-  </div>
-</div>
+{{ fm.render_fields(form, data=instance, ro=ro) }}
 {% endblock %}
 
 {% block form_footer_left %}
-{% if category %}
-<button type="button" class="btn btn-danger btn-sm" data-category-id="{{ category.id }}" data-category-nome="{{ category.nome }}" onclick="confirmarExclusao(this)"><i class="bi bi-trash"></i> Excluir</button>
+{% if instance %}
+<button type="button" class="btn btn-danger btn-sm" data-category-id="{{ instance.id }}" data-category-nome="{{ instance.nome }}" onclick="confirmarExclusao(this)"><i class="bi bi-trash"></i> Excluir</button>
 {% endif %}
 {% endblock %}
 
 {% block page_scripts %}
-{% if category %}
+{% if instance %}
 <div class="modal fade" id="modalExcluir" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">

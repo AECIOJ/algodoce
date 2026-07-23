@@ -60,7 +60,7 @@ def _forminhas_carteira(q):
 
 ORCAMENTO_REPORT = Report(
     label='Orçamento',
-    edit_endpoint='orcamentos.edit',
+    edit_endpoint='orcamentos.form',
     header={
         'layout': 'logo_left',
         'title': 'Orçamento #{id}',
