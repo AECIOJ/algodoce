@@ -13,35 +13,28 @@ from app.models.order import Order
 from app.models.operacao import Operacao
 from app.models.compra_historico import CompraHistorico
 from app.constants import TIPO_RECURSO, TIPO_OPERACAO, PREVISAO_STATUS
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
-from app.table import Field, build_field_context
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
+from app.list import build_field_context, build_filter_config, List
 from decimal import Decimal
 
 bp = Blueprint("movimentos", __name__, url_prefix="/movimentos")
 
 
-MOVIMENTOS_FIELDS = [
-    Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='data', label='Data', width=10, input='date'),
-    Field(name='recurso', label='Recurso', width=15, query='recurso'),
-    Field(name='conta', label='Conta', width=15, query='conta', card_path='conta.nome'),
-    Field(name='previsao', label='Previsão', width=10, filter=False),
-    Field(name='documento', label='Documento', width=10),
-    Field(name='valor', label='Valor', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='operacao', label='Operacao', width=15, query='operacao'),
-    Field(name='historico', label='Histórico', width=30),
-]
-
-MOVIMENTOS_FILTERS = {
-    'id':        MODE_NUMBER,
-    'data':      MODE_DATE,
-    'recurso':   {**MODE_SELECT, 'options': TIPO_RECURSO, 'filter_path': 'recurso_id'},
-    'conta':     {**MODE_SELECT, 'filter_path': 'conta.nome'},
-    'documento': MODE_TEXT,
-    'valor':     MODE_NUMBER,
-    'operacao':  {**MODE_SELECT, 'filter_path': 'operacao.nome'},
-    'historico': MODE_TEXT,
+MOVIMENTOS_FIELDS = {
+        'id': {'label': '#', 'width': 7, 'mask': '999.999'},
+        'data': {'width': 10, 'input': 'date'},
+        'recurso': {'width': 15, 'query': 'recurso'},
+        'conta': {'width': 15, 'query': 'conta', 'card_path': 'conta.nome'},
+        'previsao': {'label': 'Previsão', 'width': 10, 'filter': False},
+        'documento': {'width': 10},
+        'valor': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'operacao': {'width': 15, 'query': 'operacao'},
+        'historico': {'label': 'Histórico', 'width': 30},
 }
+
+movimentos_list = {'fields': MOVIMENTOS_FIELDS, 'edit_endpoint': 'movimentos.recebimentos_edit'}
+
+
 
 
 @bp.before_request
@@ -59,7 +52,8 @@ def _movto_tipo_plural(tipo):
 
 
 def _list(tipo):
-    active = resolve_filters(MOVIMENTOS_FILTERS, request.args)
+    filter_config = build_filter_config(MOVIMENTOS_FIELDS)
+    active = resolve_filters(filter_config, request.args)
     query = Movto.query.filter(Movto.tipo == tipo)
     movtos = query.order_by(Movto.data.desc(), Movto.id.desc()).all()
     linhas = movtos[:]
@@ -72,13 +66,14 @@ def _list(tipo):
     linhas = apply_select_filter(linhas, 'operacao', active.get('operacao'), build_fk_options(Operacao), filter_path='operacao.nome')
     linhas = apply_text_filter(linhas, 'historico', active.get('historico'))
     movtos = linhas
-    ctx = build_field_context(MOVIMENTOS_FIELDS, filters_config=MOVIMENTOS_FILTERS)
+    _list = List(**movimentos_list)
+    ctx = build_field_context(MOVIMENTOS_FIELDS)
     return render_template(
         "sys_movimentos/list.html",
-        movtos=movtos, fields=MOVIMENTOS_FIELDS, ctx=ctx,
+        movtos=movtos, fields=MOVIMENTOS_FIELDS, MOVIMENTOS_LIST=_list, ctx=ctx,
         tipo=tipo, tipo_nome=_movto_tipo(tipo),
         tipo_nome_plural=_movto_tipo_plural(tipo),
-        active_filters=active, FILTERS=MOVIMENTOS_FILTERS,
+        active_filters=active, FILTERS=filter_config,
     )
 
 
@@ -91,7 +86,7 @@ def _new(tipo, prefill=None, from_order=False, compra=None):
         operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
     return render_template(
         "sys_movimentos/form.html",
-        movto=None, recursos=recursos, contas=contas, operacoes=operacoes,
+        instance=None, is_new=True, recursos=recursos, contas=contas, operacoes=operacoes,
         tipo=tipo, tipo_nome=_movto_tipo(tipo),
         tipo_nome_plural=_movto_tipo_plural(tipo),
         TIPO_RECURSO=TIPO_RECURSO, PREVISAO_STATUS=PREVISAO_STATUS,
@@ -304,7 +299,7 @@ def recebimentos_edit(id):
 
     return render_template(
         "sys_movimentos/form.html",
-        movto=movto, recursos=recursos, contas=contas, operacoes=operacoes,
+        instance=movto, is_new=False, recursos=recursos, contas=contas, operacoes=operacoes,
         nav=nav,
         tipo="E", tipo_nome=_movto_tipo("E"),
         tipo_nome_plural=_movto_tipo_plural("E"),
@@ -369,7 +364,7 @@ def pagamentos_edit(id):
 
     return render_template(
         "sys_movimentos/form.html",
-        movto=movto, recursos=recursos, contas=contas, operacoes=operacoes,
+        instance=movto, is_new=False, recursos=recursos, contas=contas, operacoes=operacoes,
         nav=nav,
         tipo="S", tipo_nome=_movto_tipo("S"),
         tipo_nome_plural=_movto_tipo_plural("S"),
@@ -397,7 +392,7 @@ def excluir(id):
     if compra:
         return redirect(url_for("compras.edit", id=compra.id))
     if order:
-        return redirect(url_for("orders.edit", id=order.id))
+        return redirect(url_for("orders.form", id=order.id))
     if tipo == "E":
         return redirect(url_for("movimentos.recebimentos_list"))
     return redirect(url_for("movimentos.pagamentos_list"))

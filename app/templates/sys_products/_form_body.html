@@ -1,0 +1,22 @@
+{{ fm.render_fields(form, data=instance, ro=ro) }}
+
+<div class="mb-3">
+  <label class="form-label">Imagem do Produto</label>
+  <div class="d-flex align-items-center gap-3">
+    {% if instance and instance.imagem %}
+      <img id="foto-preview" src="{{ url_for('uploads.uploaded_file', filename=instance.imagem) }}"
+           class="img-thumbnail" style="max-height: 120px;">
+      <label class="text-muted small">
+        <input type="checkbox" name="remover_imagem" value="1"> Remover imagem
+      </label>
+    {% else %}
+      <div id="foto-placeholder" class="bg-light rounded d-flex align-items-center justify-content-center"
+           style="width:120px;height:120px;color:#ccc;font-size:3rem;">📸</div>
+    {% endif %}
+    <button type="button" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1" onclick="abrirCrop()"><i class="bi bi-pencil-square"></i> Editar Foto</button>
+  </div>
+  <input type="file" id="crop-input" accept="image/*" style="display:none">
+  <input type="hidden" name="temp_imagem" id="temp-imagem" value="">
+</div>
+
+{{ fm.render_sessions(form, data=instance, ro=ro) }}

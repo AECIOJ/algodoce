@@ -1,0 +1,24 @@
+{% extends "components/page_form.html" %}
+{% set entity_label = form.entity_label or entity_label|default(form.model.__name__) %}
+{% set new_title = form.new_title or new_title|default(entity_label ~ ' - ' ~ ('Novo' if is_new else 'Editar')) %}
+{% set back_url = form.back_url or back_url|default(url_for(form.redirect)) %}
+{% set edit_endpoint = form.edit_endpoint or edit_endpoint|default(form.redirect.rsplit('.', 1)[0] + '.form') %}
+{% if instance %}{% set entity_id = instance.id %}{% endif %}
+{% block nav_right %}{{ super() }}{% if form.nav_right_extra %}{% include form.nav_right_extra %}{% endif %}{% endblock %}
+{% block form_body %}
+{% if form.body_template %}
+{% include form.body_template %}
+{% else %}
+{% if instance and instance.ativo is defined and not instance.ativo %}
+<div class="alert alert-warning py-2 mb-3">
+  <i class="bi bi-exclamation-triangle"></i> Registro desativado
+</div>
+{% endif %}
+{{ fm.render_fields(form, data=instance, ro=ro) }}
+{% if form.sessions %}{{ fm.render_sessions(form, data=instance, ro=ro) }}{% endif %}
+{% if form.form_tail %}{% include form.form_tail %}{% endif %}
+{% endif %}
+<div class="form-bottom-spacer"></div>
+{% endblock %}
+{% block form_footer_left %}{% if form.footer_left %}{% include form.footer_left %}{% endif %}{% endblock %}
+{% block page_scripts %}{% if form.page_scripts %}{% include form.page_scripts %}{% endif %}{% endblock %}

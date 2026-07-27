@@ -1,0 +1,130 @@
+{% set items = data|deep_attr(session.attr) if session.attr and data else [] %}
+{% set attr = session.attr or 'item' %}
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold d-flex align-items-center gap-2">
+    <span>{{ session.label }}</span>
+    {% if not ro %}
+    {% if session.buttons %}
+    {% for btn in session.buttons %}
+    <button type="button" class="btn btn-sm {{ 'btn-outline-primary' if not btn.color else 'btn-' ~ btn.color if not btn.outline else 'btn-outline-' ~ btn.color }}" onclick="{{ btn.onclick }}">{% if btn.icon %}<i class="bi {{ btn.icon }}"></i> {% endif %}{{ btn.label }}</button>
+    {% endfor %}
+    {% endif %}
+    <button type="button" class="btn btn-outline-success btn-sm ms-auto" onclick="add{{ attr|capitalize }}Row(this)">
+      <i class="bi bi-plus-lg"></i> Adicionar
+    </button>
+    {% endif %}
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0" id="{{ attr }}-table">
+        <thead>
+          <tr>
+            <th style="width:32px">#</th>
+            {% for f in session.fields %}
+            <th class="{{ 'text-end' if f.align == 'right' }}">{{ f.display_label }}{% if f.required %} <span class="text-danger">*</span>{% endif %}</th>
+            {% endfor %}
+            {% if not ro %}<th style="width:40px"></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody id="{{ attr }}-body">
+          {% for item in items %}
+          <tr class="{{ attr }}-row">
+            <td class="text-center text-muted small row-num">{{ loop.index }}</td>
+            {% for f in session.fields %}
+            <td class="{{ 'text-end' if f.align == 'right' }}">
+              {% set array_name = session.prefix ~ f.name ~ '[]' %}
+              {% set val = item|deep_attr(f.name) %}
+              {% set dis = 'disabled' if (f.disabled or ro) else '' %}
+              {% set attrs = '' %}
+              {% if f.attrs %}
+                {% for k, v in f.attrs.items() %}
+                  {% set attrs = attrs ~ ' ' ~ k ~ '="' ~ v ~ '"' %}
+                {% endfor %}
+              {% endif %}
+              {% if f.disabled %}
+              <input type="text" name="{{ array_name }}" class="form-control form-control-sm bg-light text-end field-{{ f.name }}" value="{{ '%.2f'|format(val) if val is number else (val.strftime('%d/%m/%Y') if val is date else (val or '')) }}" disabled>
+              {% elif f.input == 'number' %}
+              <input type="number" name="{{ array_name }}" class="form-control form-control-sm text-end field-{{ f.name }}" value="{{ val if val is not none else '' }}" step="0.01" {{ 'required' if f.required else '' }} {{ attrs }}>
+              {% elif f.input == 'date' %}
+              <input type="date" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ 'required' if f.required else '' }} {{ attrs }}>
+              {% else %}
+              <input type="text" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" value="{{ val if val is not none else '' }}" {{ 'required' if f.required else '' }} {{ attrs }}>
+              {% endif %}
+            </td>
+            {% endfor %}
+            {% if not ro %}
+            <td class="text-center">
+              <input type="hidden" name="{{ session.prefix }}id[]" value="{{ item.id if item.id else '' }}">
+              <input type="hidden" name="{{ session.prefix }}remover[]" value="0">
+              <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this, '{{ attr }}', '{{ session.prefix }}')"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<template id="{{ attr }}-template">
+  <tr class="{{ attr }}-row">
+    <td class="text-center text-muted small row-num"></td>
+    {% for f in session.fields %}
+    <td class="{{ 'text-end' if f.align == 'right' }}">
+      {% set array_name = session.prefix ~ f.name ~ '[]' %}
+      {% set dis = 'disabled' if (f.disabled or ro) else '' %}
+      {% set attrs = '' %}
+      {% if f.attrs %}
+        {% for k, v in f.attrs.items() %}
+          {% set attrs = attrs ~ ' ' ~ k ~ '="' ~ v ~ '"' %}
+        {% endfor %}
+      {% endif %}
+      {% if f.disabled %}
+      <input type="text" name="{{ array_name }}" class="form-control form-control-sm bg-light text-end field-{{ f.name }}" value="0,00" disabled>
+      {% elif f.input == 'number' %}
+      <input type="number" name="{{ array_name }}" class="form-control form-control-sm text-end field-{{ f.name }}" value="" step="0.01" {{ 'required' if f.required else '' }} {{ attrs }}>
+      {% elif f.input == 'date' %}
+      <input type="date" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" value="" {{ 'required' if f.required else '' }} {{ attrs }}>
+      {% else %}
+      <input type="text" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" value="" {{ 'required' if f.required else '' }} {{ attrs }}>
+      {% endif %}
+    </td>
+    {% endfor %}
+    {% if not ro %}
+    <td class="text-center">
+      <input type="hidden" name="{{ session.prefix }}id[]" value="">
+      <input type="hidden" name="{{ session.prefix }}remover[]" value="0">
+      <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this, '{{ attr }}', '{{ session.prefix }}')"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </td>
+    {% endif %}
+  </tr>
+</template>
+
+<script>
+function add{{ attr|capitalize }}Row(btn) {
+  var tbody = document.getElementById('{{ attr }}-body');
+  var tmpl = document.getElementById('{{ attr }}-template');
+  var clone = tmpl.content.cloneNode(true);
+  var rows = tbody.querySelectorAll('.{{ attr }}-row');
+  var idx = rows.length + 1;
+  var numCell = clone.querySelector('.row-num');
+  if (numCell) numCell.textContent = idx;
+  var doc = clone.querySelector('[name="{{ session.prefix }}documento[]"]');
+  if (doc) doc.value = 'Parcela ' + idx;
+  tbody.appendChild(clone);
+  if (window.marcarFormAlterado) marcarFormAlterado();
+  if (window.recalcularSaldoLancar) recalcularSaldoLancar();
+}
+
+function removeRow(btn, attr, prefix) {
+  var row = btn.closest('.' + attr + '-row');
+  var remover = row.querySelector('[name="' + prefix + 'remover[]"]');
+  if (remover) remover.value = "1";
+  row.style.display = 'none';
+  if (window.marcarFormAlterado) marcarFormAlterado();
+  if (window.recalcularSaldoLancar) {
+    setTimeout(recalcularSaldoLancar, 50);
+  }
+}
+</script>

@@ -1,25 +1,23 @@
 """
-MODE_* — Tipos de filtro (base para herança em XXX_FILTERS).
+FILTER_* — Constantes de configuração de filtro.
 
-Cada MODE_* define type + modes (lista de tuplas [valor, label]).
+Cada FILTER_* define type + modes (lista de tuplas [valor, label]).
+Usado no Motor via build_filter_config() e no front-end JS.
 
-Uso em XXX_FILTERS:
-  from app.filters import MODE_NUMBER, MODE_TEXT, MODE_SELECT
+Uso em definições de Field:
+  from app.filters import FILTER_NUMBER, FILTER_TEXT, FILTER_SELECT
 
-  XXX_FILTERS = {
-      'valor':    MODE_NUMBER,                              # direto
-      'status':   {**MODE_SELECT, 'options': STATUS},       # herda + options
-      'documento': {**MODE_TEXT, 'modes': [('igual', 'Igual a')]},  # override modes
-  }
+  Field(name='valor', input='number', filter=FILTER_NUMBER)
+  Field(name='status', input='select', filter={**FILTER_SELECT, 'options': STATUS})
 """
 from datetime import date, timedelta
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  MODE_* — Tipos de filtro
+#  FILTER_* — Tipos de filtro
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-MODE_TEXT = {
+FILTER_TEXT = {
     'type': 'text',
     'modes': [
         ('igual',    'Igual a'),
@@ -28,7 +26,7 @@ MODE_TEXT = {
     ],
 }
 
-MODE_NUMBER = {
+FILTER_NUMBER = {
     'type': 'number',
     'modes': [
         ('igual',       'Igual a'),
@@ -40,7 +38,7 @@ MODE_NUMBER = {
     ],
 }
 
-MODE_DATE = {
+FILTER_DATE = {
     'type': 'date',
     'modes': [
         ('hoje',           'Hoje'),
@@ -57,7 +55,7 @@ MODE_DATE = {
     ],
 }
 
-MODE_BOOLEAN = {
+FILTER_BOOLEAN = {
     'type': 'boolean',
     'modes': [
         ('',      'Todos'),
@@ -66,9 +64,16 @@ MODE_BOOLEAN = {
     ],
 }
 
-MODE_SELECT = {
+FILTER_SELECT = {
     'type': 'select',
 }
+
+# Backward-compat aliases (old MODE_* → FILTER_*)
+MODE_TEXT = FILTER_TEXT
+MODE_NUMBER = FILTER_NUMBER
+MODE_DATE = FILTER_DATE
+MODE_BOOLEAN = FILTER_BOOLEAN
+MODE_SELECT = FILTER_SELECT
 
 
 def _deep_attr(obj, path):

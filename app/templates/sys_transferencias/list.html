@@ -1,10 +1,10 @@
 {% extends "components/page_sys.html" %}
-{% from "components/macros.html" import action_list, action_table %}
+{% from "components/macros.html" import action_page, action_list %}
 
 {% block page_content %}
-{% call(section) action_list(title='Transferências', new_url=url_for('transferencias.trf_new'), active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
+{% call(section) action_page(title='Transferências', new_url=url_for('transferencias.trf_new'), active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
   {% if section == "dados" %}
-      {{ action_table(trfs, fields=fields, ctx=ctx, edit_endpoint='transferencias.trf_edit') }}
+      {{ action_list(trfs, table=TRANSFERENCIAS_LIST, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

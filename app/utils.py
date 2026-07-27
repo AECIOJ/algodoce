@@ -1,7 +1,7 @@
 import os
 import markdown
 from datetime import datetime
-from app.constants import CONECTORES, TRANSFORMAR_AO_SALVAR
+from app.constants import CONECTORES
 
 
 def render_pagina(nome):
@@ -96,6 +96,13 @@ class LinhaTransacao:
         self.transacao = transacao
         self.previsao = previsao
         self.compra = compra
+    @property
+    def tipo(self):
+        if self.transacao:
+            return self.transacao.tipo
+        if self.compra:
+            return 'C'
+        return None
     @property
     def status(self):
         if self.previsao:
@@ -217,24 +224,6 @@ def _title_case(text):
     return " ".join(result)
 
 
-def aplicar_transformacao(mapper, connection, target):
-    instance = target
-    cls_name = instance.__class__.__name__
-    regras = TRANSFORMAR_AO_SALVAR.get(cls_name, {})
-    if not regras:
-        return
-    for campo, modo in regras.items():
-        valor = getattr(instance, campo, None)
-        if not valor or not isinstance(valor, str) or not valor.strip():
-            continue
-        if modo == 0:
-            setattr(instance, campo, valor.strip().lower())
-        elif modo == 1:
-            setattr(instance, campo, _title_case(valor.strip()))
-        elif modo == 2:
-            setattr(instance, campo, valor.strip().upper())
-
-
 def parse_prazo_recebimento(texto: str, data_pedido, data_entrega, total: float):
     if not texto or not texto.strip():
         return [{"vencimento": data_pedido, "previsto": total}]
@@ -312,15 +301,15 @@ def _save_event(obj, form):
         db.session.add(event)
         db.session.flush()
     event = obj.event
-    event.tipo = _clean(form.get("evento_tipo"))
-    event.tema = _clean(form.get("evento_tema"))
-    event.obs = _clean(form.get("evento_complemento"))
-    data_str = form.get("evento_data")
+    event.tipo = _clean(form.get("event_tipo"))
+    event.tema = _clean(form.get("event_tema"))
+    event.obs = _clean(form.get("event_obs"))
+    data_str = form.get("event_data")
     event.data = datetime.strptime(data_str, "%Y-%m-%d").date() if data_str else None
-    hora_str = form.get("evento_hora")
+    hora_str = form.get("event_hora")
     event.hora = datetime.strptime(hora_str, "%H:%M").time() if hora_str else None
-    event.local = _clean(form.get("evento_local"))
-    conv_str = form.get("evento_convidados")
+    event.local = _clean(form.get("event_local"))
+    conv_str = form.get("event_convidados")
     event.convidados = int(conv_str) if conv_str else None
-    event.cerimonial = _clean(form.get("evento_cerimonial"))
+    event.cerimonial = _clean(form.get("event_cerimonial"))
     return event

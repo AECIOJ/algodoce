@@ -1,0 +1,106 @@
+{% set is_pagar = tipo in ('P','C') %}
+{% if instance and not is_new %}
+<form id="excluir-form" method="POST" action="{{ url_for('transacao.pagar_excluir' if is_pagar else 'transacao.receber_excluir', id=instance.id) }}" style="display:none"></form>
+{% endif %}
+
+<div class="modal fade" id="lancarModal" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Gerar Parcelas</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label small">Nº de parcelas</label>
+          <input type="number" id="lancar-parcelas" class="form-control" value="1" min="1">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Intervalo (dias)</label>
+          <input type="number" id="lancar-intervalo" class="form-control" value="30" min="1">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1" onclick="gerarParcelas()" data-bs-dismiss="modal"><i class="bi bi-check-lg"></i>Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('[name="operacao_id"] option').forEach(function(opt) {
+  if (!opt.value) return;
+  var show = opt.dataset.tipoOperacao == "{{ '2' if is_pagar else '1' }}" && opt.dataset.temPai == "1";
+  opt.style.display = show ? '' : 'none';
+});
+
+var lancarModal = null;
+document.addEventListener('DOMContentLoaded', function() {
+  lancarModal = new bootstrap.Modal(document.getElementById('lancarModal'));
+  recalcularSaldoLancar();
+});
+
+function recalcularSaldoLancar() {
+  var valor = parseFloat(document.querySelector('[name="valor"]').value) || 0;
+  var totalPrevisto = 0;
+  var visivel = 0;
+  document.querySelectorAll('#previsoes-body .previsoes-row:not([style*="display: none"])').forEach(function(row) {
+    var prev = parseFloat(row.querySelector('[name="previsao_previsto[]"]').value) || 0;
+    totalPrevisto += prev;
+    visivel++;
+  });
+  var saldo = valor - totalPrevisto;
+  var input = document.getElementById('lancar-valor');
+  if (input) input.textContent = saldo.toFixed(2).replace('.', ',');
+  var btnExcluir = document.getElementById('btn-excluir-transacao');
+  if (btnExcluir) {
+    btnExcluir.classList.toggle('d-none', visivel > 0);
+  }
+}
+
+function calcSaldo(el) {
+  var row = el.closest('.previsoes-row');
+  if (!row) return;
+  var prev = parseFloat(row.querySelector('.field-previsto').value) || 0;
+  var real = parseFloat(row.querySelector('.field-realizado').value) || 0;
+  var vari = parseFloat(row.querySelector('.field-variacao').value) || 0;
+  var saldoInput = row.querySelector('.field-saldo');
+  if (saldoInput) {
+    saldoInput.value = (prev + vari - real).toFixed(2);
+  }
+  recalcularSaldoLancar();
+}
+
+function gerarParcelas() {
+  var num = parseInt(document.getElementById('lancar-parcelas').value) || 1;
+  var intervalo = parseInt(document.getElementById('lancar-intervalo').value) || 30;
+  var valorTotal = parseFloat(document.getElementById('lancar-valor').textContent.replace(',', '.')) || 0;
+  var dataVal = document.querySelector('[name="data"]').value;
+  if (num < 1 || valorTotal <= 0) return;
+  var base = Math.floor(valorTotal / num * 100) / 100;
+  var resto = +(valorTotal - base * num).toFixed(2);
+  var tbody = document.getElementById('previsoes-body');
+  var tmpl = document.getElementById('previsoes-template');
+  for (var i = 0; i < num; i++) {
+    var clone = tmpl.content.cloneNode(true);
+    var rows = tbody.querySelectorAll('.previsoes-row');
+    var x = rows.length + 1;
+    var numCell = clone.querySelector('.row-num');
+    if (numCell) numCell.textContent = x;
+    var doc = clone.querySelector('[name="previsao_documento[]"]');
+    if (doc) doc.value = 'Parcela ' + x;
+    var prev = clone.querySelector('[name="previsao_previsto[]"]');
+    if (prev) prev.value = (i === num - 1 ? base + resto : base).toFixed(2);
+    if (dataVal) {
+      var dt = new Date(dataVal + 'T12:00:00');
+      dt.setDate(dt.getDate() + (i + 1) * intervalo);
+      var venc = clone.querySelector('[name="previsao_vencimento[]"]');
+      if (venc) venc.value = dt.toISOString().slice(0, 10);
+    }
+    tbody.appendChild(clone);
+  }
+  marcarFormAlterado();
+  recalcularSaldoLancar();
+}
+</script>

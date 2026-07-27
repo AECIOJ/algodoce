@@ -1,10 +1,10 @@
 {% extends "components/page_sys.html" %}
-{% from "components/macros.html" import action_list, action_table %}
+{% from "components/macros.html" import action_page, action_list %}
 
 {% block page_content %}
-{% call(section) action_list(title="Recursos", new_url=url_for('recursos.create'), active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
+{% call(section) action_page(title="Recursos", new_url=url_for('recursos.form'), active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
   {% if section == "dados" %}
-      {{ action_table(recursos, table=RECURSOS_TABLE, ctx=ctx) }}
+      {{ action_list(recursos, table=RECURSOS_LIST, ctx=ctx) }}
   {% elif section == "filtros" %}
   {% endif %}
 {% endcall %}

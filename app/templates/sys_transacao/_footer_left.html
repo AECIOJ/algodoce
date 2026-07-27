@@ -1,0 +1,10 @@
+{% set is_pagar = tipo in ('P','C') %}
+{% if instance and not is_new and not locked %}
+<div class="d-flex align-items-center gap-1">
+  <label class="form-label small mb-0 text-danger">Cancelado</label>
+  <input type="date" name="cancelado" class="form-control form-control-sm border-danger" style="width:140px;" value="{{ instance.cancelado if instance else '' }}">
+</div>
+{% endif %}
+{% if instance and not is_new %}
+<button type="button" class="btn btn-sm btn-outline-danger ms-2 {{ 'd-none' if instance.previsoes else '' }}" id="btn-excluir-transacao" onclick="if(confirm('Excluir transação?'))document.getElementById('excluir-form').submit()">Excluir</button>
+{% endif %}

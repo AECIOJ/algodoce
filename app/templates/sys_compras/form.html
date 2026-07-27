@@ -516,7 +516,7 @@
 </template>
 
 <div class="modal fade" id="removeParcelaModal" tabindex="-1">
-  <div class="modal-dialog modal-sm modal-dialog-centered">
+  <div class="dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-body text-center py-4">
         <p class="mb-3">Remover parcela?</p>
@@ -789,18 +789,15 @@ function gerarClick() {
   form.submit();
 }
 
-// Evento modal
 document.getElementById('eventoModal').addEventListener('show.bs.modal', function() {
   var sel = document.getElementById('modal-evento-acao');
   var existing = new Set();
 
-  // existing events from DB (rendered rows) and pending rows
   document.querySelectorAll('#eventos-container tr').forEach(function(tr) {
     var st = tr.getAttribute('data-status');
     if (st) existing.add(parseInt(st));
   });
 
-  // pending events (hidden inputs)
   document.querySelectorAll('#eventos-pendentes-container input[name="evento_acao[]"]').forEach(function(inp) {
     existing.add(parseInt(inp.value));
   });

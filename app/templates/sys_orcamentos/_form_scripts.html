@@ -1,0 +1,61 @@
+<script src="{{ url_for('static', filename='js/itens.js') }}"></script>
+<script src="{{ url_for('static', filename='js/phone-mask.js') }}"></script>
+{% set ro = instance and instance.pedido_id %}
+{% if not ro %}
+<script>
+var pendingDeleteEl = null;
+function confirmDelete(el) { pendingDeleteEl = el; new bootstrap.Modal(document.getElementById('deleteItemModal')).show(); }
+document.getElementById('confirm-delete-item').addEventListener('click', function() {
+  if (pendingDeleteEl) {
+    markModified();
+    var el = pendingDeleteEl.closest('.item-row') || pendingDeleteEl.closest('.item-mobile-card');
+    if (el) el.remove();
+    pendingDeleteEl = null;
+  }
+  var modal = bootstrap.Modal.getInstance(document.getElementById('deleteItemModal'));
+  if (modal) modal.hide();
+});
+function atualizarESalvar() {
+  atualizarPrecos();
+  document.getElementById('atualizar-precos-field').value = '1';
+  disableHiddenInputs();
+  document.getElementById('main-form').submit();
+}
+function disableHiddenInputs() {
+  if (window.innerWidth < 768) { document.querySelectorAll('#itens-table input, #itens-table select').forEach(function(el) { el.disabled = true; }); }
+  else { document.querySelectorAll('#itens-mobile-list input, #itens-mobile-list select').forEach(function(el) { el.disabled = true; }); }
+}
+function addItem() {
+  markModified();
+  const tbody = document.getElementById('itens-body');
+  const tr = document.createElement('tr'); tr.className = 'item-row';
+  tr.innerHTML = `<td><select name="product_id" class="form-select product-select form-select-sm" onchange="capturarPreco(this)"><option value="">Selecione</option>{% for p in products %}<option value="{{ p.id }}" data-preco="{{ '%.2f'|format(p.preco) }}" data-qtd-minima="{{ p.qtd_minima or 1 }}">{{ p.nome }}</option>{% endfor %}</select></td><td class="text-end"><input type="number" name="quantidade" class="form-control form-control-sm text-end" min="1" step="1" oninput="calcValor(this)"></td><td class="text-end"><input type="text" name="preco_unitario" class="form-control form-control-sm preco-input text-end" placeholder="0,00" oninput="calcValor(this)"></td><td class="text-end"><span class="valor-item">R$ 0,00</span></td><td><input type="text" name="observacao_item" class="form-control form-control-sm"></td><td><button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button></td>`;
+  tbody.appendChild(tr);
+}
+function addItemMobile() {
+  markModified();
+  const list = document.getElementById('itens-mobile-list');
+  const firstItem = list.querySelector('.item-mobile-card');
+  const div = document.createElement('div');
+  div.className = 'px-3 py-2 border-bottom item-mobile-card';
+  div.innerHTML = firstItem ? firstItem.innerHTML : '';
+  if (div.innerHTML) {
+    div.querySelectorAll('input').forEach(function(inp) { inp.value = ''; });
+    div.querySelector('.valor-item').textContent = 'R$ 0,00';
+    list.insertBefore(div, list.querySelector('.d-flex.justify-content-between')?.closest('.px-3') || null);
+  }
+}
+function toggleReprovado(el) {
+  const field = document.getElementById('status-field');
+  if (!el._saved) el._saved = field.dataset.original;
+  field.value = el.checked ? '8' : (el._saved != '8' ? el._saved : '1');
+  if (!el.checked) el._saved = null;
+}
+document.getElementById('main-form').addEventListener('submit', disableHiddenInputs);
+</script>
+{% endif %}
+{% if instance and not instance.pedido_id and instance.status < 7 %}
+<script>
+function toggleConvTipo() { var e=document.getElementById('convExistente').checked; document.getElementById('convExistenteFields').style.display=e?'':'none'; document.getElementById('convNovaFields').style.display=e?'none':''; }
+</script>
+{% endif %}

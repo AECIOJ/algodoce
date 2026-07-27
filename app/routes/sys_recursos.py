@@ -3,27 +3,21 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.recurso import Recurso
 from app.constants import TIPO_RECURSO
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
-from app.table import Field, build_field_context, Table
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter
+from app.list import build_field_context, build_filter_config, List
+from app.form import Form, handle_form
+from app.fields import FIELD_ID, FIELD_NOME, FIELD_TIPO, FIELD_VALOR, FIELD_DATA
 
 
-RECURSOS_FIELDS = [
-    Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='nome', label='Nome', width=20, pos=1),
-    Field(name='tipo', label='Tipo', width=12, options=TIPO_RECURSO, filter_options=TIPO_RECURSO),
-    Field(name='saldo', label='Saldo Inicial', width=12, input='number', align='right', currency='brl'),
-    Field(name='data', label='Balanço', width=12, input='date'),
-]
+RECURSOS_FIELDS = {'model': Recurso, 'fields': {
+    'id':    {**FIELD_ID, 'width': 7},
+    'nome':  {**FIELD_NOME, 'width': 20},
+    'tipo':  {**FIELD_TIPO, 'width': 12, 'options': TIPO_RECURSO, 'required': True},
+    'saldo': {**FIELD_VALOR, 'label': 'Saldo Inicial', 'width': 12},
+    'data':  {**FIELD_DATA, 'label': 'Balanço', 'width': 12},
+}}
 
-RECURSOS_TABLE = Table(fields=RECURSOS_FIELDS, edit_endpoint='recursos.edit')
-
-RECURSOS_FILTERS = {
-    'id':    MODE_NUMBER,
-    'nome':  MODE_TEXT,
-    'tipo':  {**MODE_SELECT, 'options': TIPO_RECURSO},
-    'saldo': MODE_NUMBER,
-    'data':  MODE_DATE,
-}
+recursos_list = {'fields': RECURSOS_FIELDS, 'edit_endpoint': 'recursos.form'}
 
 bp = Blueprint("recursos", __name__, url_prefix="/recursos")
 
@@ -31,7 +25,9 @@ bp = Blueprint("recursos", __name__, url_prefix="/recursos")
 @bp.route("/")
 @login_required
 def list():
-    active = resolve_filters(RECURSOS_FILTERS, request.args)
+    _list = List(**recursos_list)
+    filter_config = build_filter_config(_list.fields)
+    active = resolve_filters(filter_config, request.args)
     query = Recurso.query
     recursos = query.order_by(Recurso.nome).all()
     linhas = recursos[:]
@@ -41,51 +37,18 @@ def list():
     linhas = apply_number_filter(linhas, 'saldo', active.get('saldo'))
     linhas = apply_date_filter(linhas, 'data', active.get('data'))
     recursos = linhas
-    ctx = build_field_context(RECURSOS_FIELDS)
+    ctx = build_field_context(_list.fields)
     return render_template(
-        "sys_recursos/list.html", recursos=recursos, RECURSOS_TABLE=RECURSOS_TABLE, ctx=ctx,
-        TIPO_RECURSO=TIPO_RECURSO, active_filters=active, FILTERS=RECURSOS_FILTERS,
+        "sys_recursos/list.html", recursos=recursos, RECURSOS_LIST=_list, ctx=ctx,
+        TIPO_RECURSO=TIPO_RECURSO, active_filters=active, FILTERS=filter_config,
     )
 
 
-@bp.route("/novo", methods=["GET", "POST"])
-@login_required
-def create():
-    if request.method == "POST":
-        nome = request.form.get("nome", "").strip()
-        tipo = int(request.form.get("tipo", 0))
-        saldo = request.form.get("saldo", 0)
-        data = request.form.get("data") or None
-        recurso = Recurso(nome=nome, tipo=tipo, saldo=saldo, data=data)
-        db.session.add(recurso)
-        db.session.commit()
-        flash("Recurso criado!", "success")
-        return redirect(url_for("recursos.list"))
-    return render_template("sys_recursos/form.html", TIPO_RECURSO=TIPO_RECURSO, recurso=None)
+recursos_form = {'model': Recurso, 'redirect': 'recursos.list', 'fields': RECURSOS_FIELDS}
 
 
+@bp.route("/novo", defaults={"id": None}, methods=["GET", "POST"])
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
 @login_required
-def edit(id):
-    recurso = Recurso.query.get_or_404(id)
-    if request.method == "POST":
-        recurso.nome = request.form.get("nome", "").strip()
-        recurso.tipo = int(request.form.get("tipo", 0))
-        recurso.saldo = request.form.get("saldo", 0)
-        recurso.data = request.form.get("data") or None
-        db.session.commit()
-        flash("Recurso atualizado!", "success")
-        return redirect(url_for("recursos.list"))
-    query = Recurso.query.with_entities(Recurso.id).order_by(Recurso.nome)
-    ids = [r.id for r in query.all()]
-    try:
-        current_idx = ids.index(id)
-        nav = {
-            "first_id": ids[0],
-            "last_id": ids[-1],
-            "prev_id": ids[current_idx - 1] if current_idx > 0 else None,
-            "next_id": ids[current_idx + 1] if current_idx < len(ids) - 1 else None,
-        }
-    except ValueError:
-        nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
-    return render_template("sys_recursos/form.html", TIPO_RECURSO=TIPO_RECURSO, recurso=recurso, nav=nav)
+def form(id):
+    return handle_form(recursos_form, id)

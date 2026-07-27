@@ -14,56 +14,33 @@ from app.models.compra_item import CompraItem
 from app.models.movto import Movto
 from app.constants import PREVISAO_STATUS, COMPRA_STATUS
 from app.models.carteira import Carteira
-from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
+from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter
 from app.utils import LinhaTransacao
-from app.table import Field, build_field_context, Table
+from app.list import build_field_context, build_filter_config, List
 from app.pdf import gerar_pdf_relatorio
 from app.models.compra_historico import CompraHistorico
 
 
-COMPRAS_FIELDS = [
-    Field(name='compra_id', label='Compra', width=8),
-    Field(name='status_compra', label='Status', width=10, options=COMPRA_STATUS, filter_options=COMPRA_STATUS),
-    Field(name='carteira', label='FP', width=12, query='carteira'),
-    Field(name='fornecedor', label='Fornecedor', width=30, query='conta', pos=1),
-    Field(name='fatura', label='Fatura', width=10),
-    Field(name='valor', label='Valor', width=12, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='id', label='Previsão', width=8),
-    Field(name='vencimento', label='Vencimento', width=10, input='date'),
-    Field(name='documento', label='Documento', width=10),
-    Field(name='previsto', label='Previsto', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='realizado', label='Realizado', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='variacao', label='Variação', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='status', label='Pagamento', width=10, options=PREVISAO_STATUS, filter_options=PREVISAO_STATUS),
-]
-
-COMPRAS_TABLE = Table(
-    fields=COMPRAS_FIELDS,
-    fields_master=[1,2,3,4,5,6],
-    fields_detail=[7,8,9,10,11,12,13,14],
-    master_key='compra_id',
-    edit_endpoint='compras.edit',
-    edit_id_field='compra_id',
-    send_endpoint='compras.print_compra',
-)
-
-COMPRAS_FILTERS = {
-    'compra_id':    MODE_NUMBER,
-    'status_compra': {**MODE_SELECT, 'options': COMPRA_STATUS},
-    'carteira':     {**MODE_SELECT, 'filter_path': 'carteira'},
-    'fornecedor':   {**MODE_SELECT, 'filter_path': 'fornecedor'},
-    'fatura':       MODE_TEXT,
-    'valor':        MODE_NUMBER,
-    'id':           MODE_NUMBER,
-    'vencimento':   MODE_DATE,
-    'documento':    MODE_TEXT,
-    'previsto':     MODE_NUMBER,
-    'realizado':    MODE_NUMBER,
-    'variacao':     MODE_NUMBER,
-    'saldo':        MODE_NUMBER,
-    'status':       {**MODE_SELECT, 'options': PREVISAO_STATUS},
+COMPRAS_FIELDS = {
+        'compra_id': {'width': 8},
+        'status_compra': {'label': 'Status', 'width': 10, 'options': COMPRA_STATUS, 'filter_options': COMPRA_STATUS},
+        'carteira': {'label': 'FP', 'width': 12, 'query': 'carteira'},
+        'fornecedor': {'width': 30, 'query': 'conta', 'pos': 1},
+        'fatura': {'width': 10},
+        'valor': {'width': 12, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'id': {'label': 'Previsão', 'width': 8},
+        'vencimento': {'width': 10, 'input': 'date'},
+        'documento': {'width': 10},
+        'previsto': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'realizado': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'variacao': {'label': 'Variação', 'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'saldo': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'status': {'label': 'Pagamento', 'width': 10, 'options': PREVISAO_STATUS, 'filter_options': PREVISAO_STATUS},
 }
+
+compras_list = {'fields': COMPRAS_FIELDS, 'fields_master': [1,2,3,4,5,6], 'fields_detail': [7,8,9,10,11,12,13,14], 'master_key': 'compra_id', 'edit_endpoint': 'compras.edit', 'edit_id_field': 'compra_id', 'send_endpoint': 'compras.print_compra'}
+
+
 
 TIPO = "C"
 
@@ -83,7 +60,8 @@ def protect():
 @bp.route("/")
 def list():
     hoje = date.today()
-    active = resolve_filters(COMPRAS_FILTERS, request.args)
+    filter_config = build_filter_config(COMPRAS_FIELDS)
+    active = resolve_filters(filter_config, request.args)
     compras = Compra.query.options(
         joinedload(Compra.transacao).joinedload(Transacao.previsoes)
     ).order_by(Compra.data.desc(), Compra.id.desc()).all()
@@ -112,12 +90,13 @@ def list():
     linhas = apply_number_filter(linhas, 'saldo', active.get('saldo'))
 
     total_saldo = sum(l.saldo for l in linhas)
-    ctx = build_field_context(COMPRAS_TABLE.master_fields, filters_config=COMPRAS_FILTERS)
+    _list = List(**compras_list)
+    ctx = build_field_context(_list.master_fields)
     return render_template(
         "sys_compras/list.html", linhas=linhas, total_saldo=total_saldo,
-        COMPRAS_TABLE=COMPRAS_TABLE, ctx=ctx,
+        COMPRAS_LIST=_list, ctx=ctx,
         PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
-        active_filters=active, FILTERS=COMPRAS_FILTERS,
+        active_filters=active, FILTERS=filter_config,
     )
 
 

@@ -1,0 +1,268 @@
+{% if instance %}
+<div class="modal fade" id="modalExcluir" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Excluir Produto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modalExcluirBody"></div>
+      <div class="modal-footer" id="modalExcluirFooter"></div>
+    </div>
+  </div>
+</div>
+<form method="POST" id="formExcluir" style="display:none"></form>
+
+<div class="modal fade" id="modalCrop" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Foto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div id="crop-dropzone" class="border-2 border-dashed rounded p-5"
+             style="border-style:dashed;border-color:#ccc;cursor:pointer;min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+          <div style="font-size:3rem;color:#ccc;">📷</div>
+          <p class="text-muted mb-0">Clique para escolher uma imagem</p>
+          <p class="text-muted small mb-0">ou cole uma imagem da área de transferência (Ctrl+V)</p>
+        </div>
+        <img id="crop-image" style="max-width:100%;display:none;">
+        <input type="file" id="crop-input" accept="image/*" style="display:none">
+      </div>
+      <div class="modal-footer">
+        <span id="crop-status" class="text-muted small me-auto"></span>
+        <button type="button" class="btn btn-outline-secondary" id="crop-cancel" onclick="fecharCrop()">Cancelar</button>
+        <button type="button" class="btn btn-primary d-inline-flex align-items-center gap-1" id="crop-confirm" disabled onclick="salvarCrop()"><i class="bi bi-check-lg"></i> Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if instance %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+{% endif %}
+<script>
+function preencherInsumo(select) {
+  var opt = select.options[select.selectedIndex];
+  if (!opt || !opt.value) return;
+  var row = select.closest('.insumo-row');
+  if (!row) return;
+  var und = opt.dataset.unidade || '';
+  var undSelect = row.querySelector('select[name="unidade"]');
+  if (undSelect) undSelect.value = und;
+  var qtdInput = row.querySelector('input[name="quantidade"]');
+  if (qtdInput) qtdInput.value = '';
+  if (und === 'un') {
+    if (qtdInput) {
+      var min = document.getElementById('insumos-list').dataset.qtdMinima;
+      qtdInput.value = min || '1';
+    }
+  }
+}
+
+function addInsumo() {
+  const container = document.getElementById('insumos-list');
+  const row = document.createElement('div');
+  row.className = 'row mb-2 g-1 insumo-row align-items-start';
+  row.innerHTML = `
+    <div class="col-12 col-lg-5 mb-1 mb-lg-0">
+      <span class="card-label d-lg-none">Insumo</span>
+      <select name="ingredient_id" class="form-select form-select-sm" onchange="preencherInsumo(this)">
+        <option value="">Selecione</option>
+        {% for ing in ingredients %}
+          <option value="{{ ing.id }}" data-unidade="{{ ing.unidade_medida }}">{{ ing.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+      <span class="card-label d-lg-none">Qtd</span>
+      <input type="number" name="quantidade" class="form-control form-control-sm" step="0.1" placeholder="Qtd">
+    </div>
+    <div class="col-4 col-lg-1 mb-1 mb-lg-0">
+      <span class="card-label d-lg-none">Und</span>
+      <select name="unidade" class="form-select form-select-sm">
+        {% for un in ['kg', 'g', 'L', 'ml', 'un', 'cx', 'pacote', 'colher', 'colher_sopa', 'xicara', 'pitada', 'litro'] %}
+          <option value="{{ un }}">{{ un }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-4 col-lg-3 mb-1 mb-lg-0">
+      <span class="card-label d-lg-none">Etapa</span>
+      <select name="etapa_id" class="form-select form-select-sm">
+        <option value="">—</option>
+        {% for e in etapas %}
+          <option value="{{ e.id }}">{{ e.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-lg-1">
+      <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="confirmRemove(this, 'Remover insumo?')"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </div>
+  `;
+  container.insertBefore(row, document.getElementById('add-insumo-row'));
+}
+
+{% if instance %}
+function confirmarExclusao(btn) {
+  const id = btn.dataset.produtoId;
+  const nome = btn.dataset.produtoNome;
+  const modal = new bootstrap.Modal(document.getElementById('modalExcluir'));
+  const body = document.getElementById('modalExcluirBody');
+  const footer = document.getElementById('modalExcluirFooter');
+  fetch('/produtos/' + id + '/uso')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.em_uso) {
+        body.innerHTML = '<div class="alert alert-danger mb-0">' +
+          '<strong>' + nome + '</strong> está em <strong>' + data.quantidade + '</strong> pedido(s). ' +
+          'Remova o produto dos pedidos antes de excluí-lo.</div>';
+        footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>';
+      } else {
+        body.innerHTML = 'Tem certeza que deseja excluir <strong>' + nome + '</strong>?';
+        footer.innerHTML =
+          '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>' +
+          '<button type="button" class="btn btn-danger d-inline-flex align-items-center gap-1" onclick="efetuarExclusao(' + id + ')"><img src="{{ url_for('static', filename='icons/trash.svg') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>';
+      }
+      modal.show();
+    });
+}
+function efetuarExclusao(id) {
+  var form = document.getElementById('formExcluir');
+  form.action = '/produtos/' + id + '/excluir';
+  form.submit();
+}
+{% endif %}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<script>
+var cropper = null;
+var cropModal = null;
+var productId = {{ instance.id if instance else 'null' }};
+
+function abrirCrop() {
+  cropModal = new bootstrap.Modal(document.getElementById('modalCrop'));
+  cropModal.show();
+  setTimeout(function() {
+    document.getElementById('crop-dropzone').focus();
+  }, 300);
+}
+
+function carregarImagem(src) {
+  var dropzone = document.getElementById('crop-dropzone');
+  var img = document.getElementById('crop-image');
+  dropzone.style.display = 'none';
+  img.style.display = 'block';
+  img.src = src;
+  if (cropper) cropper.destroy();
+  cropper = new Cropper(img, {
+    aspectRatio: NaN,
+    viewMode: 1,
+    autoCropArea: 1,
+    responsive: true,
+  });
+  document.getElementById('crop-confirm').disabled = false;
+  document.getElementById('crop-status').textContent = 'Arraste para ajustar o corte';
+}
+
+document.getElementById('crop-dropzone').addEventListener('click', function() {
+  document.getElementById('crop-input').click();
+});
+
+document.getElementById('crop-input').addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) { carregarImagem(ev.target.result); };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('modalCrop').addEventListener('shown.bs.modal', function() {
+  document.addEventListener('paste', handlePaste);
+});
+document.getElementById('modalCrop').addEventListener('hidden.bs.modal', function() {
+  document.removeEventListener('paste', handlePaste);
+  limparCrop();
+});
+
+document.getElementById('crop-dropzone').addEventListener('paste', function(e) {
+  handlePaste(e);
+});
+
+function handlePaste(e) {
+  var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+  for (var i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') === 0) {
+      e.preventDefault();
+      var blob = items[i].getAsFile();
+      var reader = new FileReader();
+      reader.onload = function(ev) { carregarImagem(ev.target.result); };
+      reader.readAsDataURL(blob);
+      return;
+    }
+  }
+}
+
+function limparCrop() {
+  if (cropper) { cropper.destroy(); cropper = null; }
+  document.getElementById('crop-image').style.display = 'none';
+  document.getElementById('crop-dropzone').style.display = '';
+  document.getElementById('crop-image').src = '';
+  document.getElementById('crop-input').value = '';
+  document.getElementById('crop-confirm').disabled = true;
+  document.getElementById('crop-status').textContent = '';
+}
+
+function fecharCrop() {
+  if (cropModal) cropModal.hide();
+}
+
+function salvarCrop() {
+  if (!cropper) return;
+  var canvas = cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
+  var btn = document.getElementById('crop-confirm');
+  var status = document.getElementById('crop-status');
+  btn.disabled = true;
+  status.textContent = 'Enviando...';
+  canvas.toBlob(function(blob) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      var url = productId
+        ? '/produtos/' + productId + '/upload-foto'
+        : '/produtos/upload-temp';
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imagem: reader.result })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          if (productId) {
+            var preview = document.getElementById('foto-preview');
+            var placeholder = document.getElementById('foto-placeholder');
+            if (preview) {
+              preview.src = data.url + '?t=' + Date.now();
+            } else if (placeholder) {
+              placeholder.outerHTML = '<img id="foto-preview" src="' + data.url + '?t=' + Date.now() + '" class="img-thumbnail" style="max-height:120px;">';
+            }
+          } else {
+            document.getElementById('temp-imagem').value = data.filename;
+          }
+          if (cropModal) cropModal.hide();
+        } else {
+          status.textContent = 'Erro: ' + (data.error || 'desconhecido');
+          btn.disabled = false;
+        }
+      })
+      .catch(function() {
+        status.textContent = 'Erro de conexão';
+        btn.disabled = false;
+      });
+    };
+    reader.readAsDataURL(blob);
+  }, 'image/jpeg', 0.92);
+}
+</script>

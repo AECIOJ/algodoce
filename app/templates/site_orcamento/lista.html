@@ -93,7 +93,7 @@
   <form method="POST" action="{{ url_for('site_orcamento.enviar') }}" style="padding-bottom: 80px;">
     <div class="evento-grid">
       <label>Tipo</label>
-      <select class="form-select form-select-sm" name="evento_tipo">
+      <select class="form-select form-select-sm" name="event_tipo">
         <option value="">Selecione</option>
         <option value="aniversario">Aniversário</option>
         <option value="casamento">Casamento</option>
@@ -107,23 +107,23 @@
       </select>
 
       <label>Tema</label>
-      <input type="text" class="form-control form-control-sm" name="evento_tema">
+      <input type="text" class="form-control form-control-sm" name="event_tema">
 
       <label class="full-width" style="margin-top: 0.25rem;">Observações</label>
-      <input type="text" class="form-control form-control-sm full-width" name="evento_complemento">
+      <input type="text" class="form-control form-control-sm full-width" name="event_obs">
     </div>
 
     <div class="evento-linha mt-2">
       <label>Data</label>
-      <input type="date" class="form-control form-control-sm" name="evento_data">
+      <input type="date" class="form-control form-control-sm" name="event_data">
       <label>Hora</label>
-      <input type="time" class="form-control form-control-sm" name="evento_hora">
+      <input type="time" class="form-control form-control-sm" name="event_hora">
       <label>Convidados</label>
-      <input type="number" class="form-control form-control-sm" name="evento_convidados" min="1" style="max-width:100px;">
+      <input type="number" class="form-control form-control-sm" name="event_convidados" min="1" style="max-width:100px;">
       <label>Local</label>
-      <input type="text" class="form-control form-control-sm" name="evento_local">
+      <input type="text" class="form-control form-control-sm" name="event_local">
       <label>Cerimonial</label>
-      <input type="text" class="form-control form-control-sm" name="evento_cerimonial">
+      <input type="text" class="form-control form-control-sm" name="event_cerimonial">
     </div>
 
     <button type="submit" class="btn btn-rosa btn-lg w-100 mt-3 d-inline-flex align-items-center justify-content-center gap-1"><i class="bi bi-send"></i> Enviar Orçamento</button>

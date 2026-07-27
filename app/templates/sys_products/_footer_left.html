@@ -1,0 +1,3 @@
+{% if instance %}
+<button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" data-produto-id="{{ instance.id }}" data-produto-nome="{{ instance.nome }}" onclick="confirmarExclusao(this)"><img src="{{ url_for('static', filename='icons/trash.svg') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+{% endif %}

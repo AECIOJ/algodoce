@@ -1,0 +1,47 @@
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold">Usado nos Produtos</div>
+  <div class="card-body p-0">
+    {% if products_using %}
+    <div class="d-none d-md-block">
+      <table class="table mb-0 sortable">
+        <thead>
+          <tr>
+            <th>Produto</th>
+            <th>Quantidade</th>
+            <th>Unidade</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in products_using %}
+            {% for pi in p.ingredients.filter_by(ingredient_id=data.id) %}
+              <tr>
+                <td>{{ p.nome }} ({{ p.id|fmtid }})</td>
+                <td>{{ pi.quantidade }}</td>
+                <td>{{ pi.unidade }}</td>
+                <td><a href="{{ url_for('products.form', id=p.id) }}" class="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"><i class="bi bi-pencil"></i> Editar Produto</a></td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="d-md-none">
+      {% for p in products_using %}
+        {% for pi in p.ingredients.filter_by(ingredient_id=data.id) %}
+          <div class="px-3 py-2 border-bottom">
+            <h6 class="mb-1">{{ p.nome }}</h6>
+            <span class="card-label">Qtd:</span>
+            <span class="card-value">{{ pi.quantidade }} {{ pi.unidade }}</span>
+            <div class="mt-1">
+              <a href="{{ url_for('products.form', id=p.id) }}" class="btn btn-sm btn-outline-primary w-100 d-inline-flex align-items-center gap-1"><i class="bi bi-pencil"></i> Editar Produto</a>
+            </div>
+          </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-3 mb-0">Nenhum produto utiliza este insumo.</p>
+    {% endif %}
+  </div>
+</div>

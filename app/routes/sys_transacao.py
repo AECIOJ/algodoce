@@ -5,6 +5,7 @@ from sqlalchemy.orm import joinedload
 from app.extensions import db
 from app.models.previsao import Previsao
 from app.models.transacao import Transacao
+from app.models.carteira import Carteira
 from app.models.client import Conta
 from app.models.operacao import Operacao
 from app.models.movto import Movto
@@ -13,46 +14,56 @@ from app.models.order import Order
 from app.models.compra_historico import CompraHistorico
 from app.constants import PREVISAO_STATUS
 from app.utils import LinhaTransacao, parse_prazo_recebimento
-from app.table import Field, build_field_context, Table
-from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
+from app.list import build_field_context, build_filter_config, List
+from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter
+from app.form import Form
+from app.fields import FIELD_DATA, FIELD_VENCIMENTO
 
 
-TRANSACAO_FIELDS = [
-    Field(name='transacao_id', label='Transação', width=8, card_path='transacao.id'),
-    Field(name='conta', label='Conta', width=15, query='conta'),
-    Field(name='compra_id', label='Compra', width=6, link='compras.edit'),
-    Field(name='fatura', label='Fatura', width=10),
-    Field(name='valor', label='Valor', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='id', label='Previsão', width=8),
-    Field(name='documento', label='Documento', width=10),
-    Field(name='vencimento', label='Vencimento', width=10, input='date'),
-    Field(name='previsto', label='Previsto', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='realizado', label='Realizado', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='variacao', label='Variação', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='saldo', label='Saldo', width=10, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='status', label='Status', width=10, options=PREVISAO_STATUS, filter_options=PREVISAO_STATUS),
-]
+TRANSACAO_FIELDS = {
+        'transacao_id': {'label': 'Transação', 'width': 8, 'card_path': 'transacao.id'},
+        'conta': {'width': 15, 'query': 'conta'},
+        'compra_id': {'width': 6, 'link': 'compras.edit'},
+        'fatura': {'width': 10},
+        'valor': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'id': {'label': 'Previsão', 'width': 8},
+        'documento': {'width': 10},
+        'vencimento': {'width': 10, 'input': 'date'},
+        'previsto': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'realizado': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'variacao': {'label': 'Variação', 'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'saldo': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'status': {'width': 10, 'options': PREVISAO_STATUS, 'filter_options': PREVISAO_STATUS},
+}
 
 TIPO_PAGAR = ("P", "C")
 TIPO_RECEBER = ("R", "V")
 TIPO_NOME = {"P": "Pagamento", "R": "Recebimento"}
 TIPO_NOME_PLURAL = {"P": "Pagamentos", "R": "Recebimentos"}
 
-TRANSACAO_FILTERS = {
-    'transacao_id': MODE_NUMBER,
-    'conta':        {**MODE_SELECT},
-    'compra_id':    MODE_NUMBER,
-    'fatura':       MODE_TEXT,
-    'valor':        MODE_NUMBER,
-    'id':           MODE_NUMBER,
-    'documento':    MODE_TEXT,
-    'vencimento':   MODE_DATE,
-    'previsto':     MODE_NUMBER,
-    'realizado':    MODE_NUMBER,
-    'variacao':     MODE_NUMBER,
-    'saldo':        MODE_NUMBER,
-    'status':       {**MODE_SELECT, 'options': PREVISAO_STATUS},
-}
+transacao_list = {'fields': TRANSACAO_FIELDS, 'fields_master': [1, 2, 3, 4, 5], 'fields_detail': [6, 7, 8, 9, 10, 11, 12, 13], 'master_key': 'transacao_id', 'edit_id_field': 'transacao.id'}
+
+transacao_form = {'model': Transacao, 'entity_label': 'Transação', 'body_template': 'sys_transacao/_form_body.html', 'nav_right_extra': 'sys_transacao/_nav_right.html', 'footer_left': 'sys_transacao/_footer_left.html', 'page_scripts': 'sys_transacao/_page_scripts.html', 'redirect': 'transacao.pagar_list', 'fields': [
+        {'name': 'data', 'input': 'date', 'width': 3},
+        {'name': 'conta_id', 'input': 'select', 'query': 'conta', 'label': 'Conta', 'required': True, 'width': 6},
+        {'name': 'operacao_id', 'input': 'select', 'query': 'operacao', 'label': 'Operação', 'width': 6},
+        {'name': 'fatura', 'width': 4},
+        {'name': 'valor', 'input': 'number', 'width': 3, 'align': 'right', 'currency': 'brl'},
+        {'name': 'historico', 'input': 'textarea', 'width': 12},
+    ], 'sessions': {
+        'Previsões': {'model': Previsao, 'type': 'editable_table', 'attr': 'previsoes', 'prefix': 'previsao_', 'fields': [
+            {'name': 'documento', 'label': 'Documento'},
+            {'name': 'vencimento', **FIELD_VENCIMENTO},
+            {'name': 'carteira_id', 'input': 'select', 'query': 'carteira', 'label': 'Carteira'},
+            {'name': 'previsto', 'input': 'number', 'align': 'right'},
+            {'name': 'realizado', 'input': 'number', 'align': 'right'},
+            {'name': 'variacao', 'label': 'Variação', 'input': 'number', 'align': 'right'},
+        ], 'buttons': [
+            {'label': 'Gerar', 'color': 'success', 'outline': False, 'icon': 'bi-plus-lg', 'onclick': "document.getElementById('lancarModal') && new bootstrap.Modal(document.getElementById('lancarModal')).show()"},
+        ]},
+    }}
+
+
 
 bp = Blueprint("transacao", __name__, url_prefix="/transacao")
 
@@ -179,7 +190,8 @@ def _list(tipo):
     is_pagar = tipo in ("P", "C")
     tipos = TIPO_PAGAR if is_pagar else TIPO_RECEBER
     hoje = date.today()
-    active = resolve_filters(TRANSACAO_FILTERS, request.args)
+    filter_config = build_filter_config(TRANSACAO_FIELDS)
+    active = resolve_filters(filter_config, request.args)
     transacoes = Transacao.query.options(
         joinedload(Transacao.previsoes)
     ).filter(
@@ -208,19 +220,14 @@ def _list(tipo):
     linhas = apply_number_filter(linhas, 'saldo', active.get('saldo'))
 
     total_saldo = sum(l.saldo for l in linhas)
-    ctx = build_field_context(TRANSACAO_FIELDS, filters_config=TRANSACAO_FILTERS)
-    table = Table(
-        fields=TRANSACAO_FIELDS,
-        fields_master=[1, 2, 3, 4, 5],
-        fields_detail=[6, 7, 8, 9, 10, 11, 12, 13],
-        master_key='transacao_id',
-        edit_endpoint='transacao.pagar_edit' if is_pagar else 'transacao.receber_edit',
-        edit_id_field='transacao.id')
+    ctx = build_field_context(TRANSACAO_FIELDS)
+    edit_ep = 'transacao.pagar_edit' if is_pagar else 'transacao.receber_edit'
+    _transacao_list = List(**{**transacao_list, 'edit_endpoint': edit_ep})
     return render_template(
         "sys_transacao/list.html", previsoes=linhas, total_saldo=total_saldo,
-        TABLE=table, ctx=ctx, tipo=tipo,
+        TRANSACAO_LIST=_transacao_list, ctx=ctx, tipo=tipo,
         tipo_nome=TIPO_NOME[tipo], tipo_nome_plural=TIPO_NOME_PLURAL[tipo],
-        PREVISAO_STATUS=PREVISAO_STATUS, active_filters=active, FILTERS=TRANSACAO_FILTERS)
+        PREVISAO_STATUS=PREVISAO_STATUS, active_filters=active, FILTERS=filter_config)
 
 
 def _detail(id, tipo):
@@ -259,7 +266,7 @@ def _excluir(id, tipo):
     if is_pagar and compra:
         return redirect(url_for("compras.edit", id=compra.id))
     if not is_pagar and order:
-        return redirect(url_for("orders.edit", id=order.id))
+        return redirect(url_for("orders.form", id=order.id))
     return redirect(url_for(list_endpoint))
 
 
@@ -313,14 +320,17 @@ def pagar_new():
                 "valor": str(compra.valor or 0),
                 "historico": compra.historico or "",
             }
-        return render_template(
-            "sys_transacao/pagar/form.html",
-            contas=contas, operacoes=operacoes, hoje=date.today(),
-            submitted_data=submitted_data, submitted_previsoes=None,
-            prazo_inicial=prazo_inicial,
-            locked=False, transacao=None, nav={}, movimentos=[],
-            PREVISAO_STATUS=PREVISAO_STATUS, tipo_nome="Pagamento",
-        )
+    return render_template(
+        "components/form_default.html",
+        form=Form(**transacao_form),
+        contas=contas, operacoes=operacoes, hoje=date.today(),
+        submitted_data=submitted_data, submitted_previsoes=None,
+        prazo_inicial=prazo_inicial,
+        locked=False, instance=None, nav={}, movimentos=[],
+        is_new=True, ro=False, tipo='P',
+        PREVISAO_STATUS=PREVISAO_STATUS, tipo_nome="Pagamento",
+        back_url=url_for('transacao.pagar_list'), edit_endpoint='transacao.pagar_edit',
+    )
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
 
@@ -370,12 +380,15 @@ def pagar_new():
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
             return render_template(
-                "sys_transacao/pagar/form.html",
+                "components/form_default.html",
+                form=Form(**transacao_form),
                 contas=contas, operacoes=operacoes, hoje=date.today(),
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
                 prazo_inicial=prazo_inicial,
-                locked=False, transacao=None, nav={}, movimentos=[],
+                locked=False, instance=None, nav={}, movimentos=[],
+                is_new=True, ro=False, tipo='P',
                 PREVISAO_STATUS=PREVISAO_STATUS, tipo_nome="Pagamento",
+                back_url=url_for('transacao.pagar_list'), edit_endpoint='transacao.pagar_edit',
             )
 
         if compra and abs(float(transacao.valor) - float(compra.valor or 0)) > 0.005:
@@ -384,12 +397,15 @@ def pagar_new():
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
             return render_template(
-                "sys_transacao/pagar/form.html",
+                "components/form_default.html",
+                form=Form(**transacao_form),
                 contas=contas, operacoes=operacoes, hoje=date.today(),
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
                 prazo_inicial=prazo_inicial,
-                locked=False, transacao=None, nav={}, movimentos=[],
+                locked=False, instance=None, nav={}, movimentos=[],
+                is_new=True, ro=False, tipo='P',
                 PREVISAO_STATUS=PREVISAO_STATUS, tipo_nome="Pagamento",
+                back_url=url_for('transacao.pagar_list'), edit_endpoint='transacao.pagar_edit',
             )
 
         if compra and not compra.transacao_id:
@@ -449,12 +465,14 @@ def pagar_edit(id):
             previsao_ids = [p.id for p in transacao.previsoes]
             movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
             return render_template(
-                "sys_transacao/pagar/form.html", transacao=transacao,
+                "components/form_default.html", form=Form(**transacao_form), instance=transacao,
                 contas=contas, operacoes=operacoes,
                 PREVISAO_STATUS=PREVISAO_STATUS,
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes, nav=nav,
                 movimentos=movimentos, tipo_nome="Pagamento", locked=locked,
                 prazo_inicial=prazo_inicial,
+                is_new=False, ro=locked, tipo='P',
+                back_url=url_for('transacao.pagar_list'), edit_endpoint='transacao.pagar_edit',
             )
         else:
             db.session.commit()
@@ -466,12 +484,14 @@ def pagar_edit(id):
     previsao_ids = [p.id for p in transacao.previsoes]
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
-        "sys_transacao/pagar/form.html", transacao=transacao,
+        "components/form_default.html", form=Form(**transacao_form), instance=transacao,
         contas=contas, operacoes=operacoes,
         PREVISAO_STATUS=PREVISAO_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
         movimentos=movimentos, tipo_nome="Pagamento", locked=locked,
         prazo_inicial=prazo_inicial,
+        is_new=False, ro=locked, tipo='P',
+        back_url=url_for('transacao.pagar_list'), edit_endpoint='transacao.pagar_edit',
     )
 
 
@@ -481,7 +501,7 @@ def pagar_edit(id):
 def receber_new():
     order_id = request.args.get("order_id", type=int) or request.form.get("order_id", type=int)
     order = Order.query.get(order_id) if order_id else None
-    back_url = url_for("orders.edit", id=order.id) if order else url_for("transacao.receber_list")
+    back_url = url_for("orders.form", id=order.id) if order else url_for("transacao.receber_list")
     prazo_inicial = request.args.get("prazo", "")
 
     if request.method == "POST":
@@ -538,10 +558,13 @@ def receber_new():
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
             return render_template(
-                "sys_transacao/receber/form.html",
+                "components/form_default.html",
+                form=Form(**transacao_form),
                 contas=contas, operacoes=operacoes, hoje=date.today(),
                 submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
                 back_url=back_url, prazo_inicial=prazo_inicial,
+                is_new=True, ro=False, tipo='R', locked=False, instance=None, nav={},
+                edit_endpoint='transacao.receber_edit',
             )
 
         db.session.commit()
@@ -590,10 +613,13 @@ def receber_new():
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
     return render_template(
-        "sys_transacao/receber/form.html",
+        "components/form_default.html",
+        form=Form(**transacao_form),
         contas=contas, operacoes=operacoes, hoje=date.today(),
         submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
         back_url=back_url, prazo_inicial=prazo_inicial,
+        is_new=True, ro=False, tipo='R', locked=False, instance=None, nav={},
+        edit_endpoint='transacao.receber_edit',
     )
 
 
@@ -640,12 +666,14 @@ def receber_edit(id):
                 previsao_ids = [p.id for p in transacao.previsoes]
                 movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
                 return render_template(
-                    "sys_transacao/receber/form.html", transacao=transacao,
+                    "components/form_default.html", form=Form(**transacao_form), instance=transacao,
                     contas=contas, operacoes=operacoes,
                     PREVISAO_STATUS=PREVISAO_STATUS,
                     submitted_data=submitted_data, submitted_previsoes=submitted_previsoes,
                     nav=nav, movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
                     prazo_inicial=prazo_inicial,
+                    is_new=False, ro=locked, tipo='R',
+                    back_url=url_for('transacao.receber_list'), edit_endpoint='transacao.receber_edit',
                 )
 
         db.session.commit()
@@ -657,10 +685,12 @@ def receber_edit(id):
     previsao_ids = [p.id for p in transacao.previsoes]
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
     return render_template(
-        "sys_transacao/receber/form.html", transacao=transacao,
+        "components/form_default.html", form=Form(**transacao_form), instance=transacao,
         contas=contas, operacoes=operacoes,
         PREVISAO_STATUS=PREVISAO_STATUS,
         submitted_data=None, submitted_previsoes=None, nav=nav,
         movimentos=movimentos, tipo_nome="Recebimento", locked=locked,
         prazo_inicial=prazo_inicial,
+        is_new=False, ro=locked, tipo='R',
+        back_url=url_for('transacao.receber_list'), edit_endpoint='transacao.receber_edit',
     )

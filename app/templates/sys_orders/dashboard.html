@@ -9,7 +9,7 @@
       <option value="/pedidos">Pedidos</option>
       <option value="/relatorios/compras">Compras</option>
     </select>
-    {{ btn(BTN_NOVO, url_for('orders.new'), label='Novo Pedido') }}
+    {{ btn(BTN_NOVO, url_for('orders.form'), label='Novo Pedido') }}
   </div>
   <select class="form-select fw-bold border-0 pe-4 d-none d-md-inline-block" style="font-size:1.5rem;width:auto;color:#e91e63;" onchange="if(this.value) window.location=this.value;">
     <option value="/dashboard" selected>Produção</option>
@@ -39,7 +39,7 @@
       <label class="form-check-label" for="chk-9">Entregues</label>
     </div>
   </div>
-  {{ btn(BTN_NOVO, url_for('orders.new'), label='Novo Pedido', extra_class='d-none d-md-block') }}
+  {{ btn(BTN_NOVO, url_for('orders.form'), label='Novo Pedido', extra_class='d-none d-md-block') }}
 </div>
 
 {% set cores = {
@@ -71,7 +71,7 @@
         </thead>
         <tbody>
           {% for o in lista %}
-          <tr class="clickable-row" data-href="{{ url_for('orders.edit', id=o.id) }}" style="cursor:pointer">
+          <tr class="clickable-row" data-href="{{ url_for('orders.form', id=o.id) }}" style="cursor:pointer">
             <td>{{ o.id|fmtid }}</td>
             <td>{{ o.conta.nome }}</td>
             <td style="white-space:nowrap;">{{ o.data_pedido.strftime('%d/%m/%Y') }}</td>

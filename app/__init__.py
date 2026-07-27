@@ -9,7 +9,7 @@ from app.extensions import db, migrate, login_manager
 from flask_migrate import upgrade
 import sqlalchemy as sa
 
-from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, aplicar_transformacao, deep_attr
+from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, deep_attr
 
 _tunnel_url = None
 _tunnel_url_ts = 0
@@ -98,36 +98,7 @@ def create_app():
         return response
 
     with app.app_context():
-        from app.routes import sys_clients as contas, sys_products, sys_ingredients, sys_orders, sys_compras
-        from app.routes import site, uploads, site_vitrine, site_orcamento
-        from app.routes import sys_categories, sys_producao, sys_operacoes, sys_previsoes, sys_recursos, sys_transacao, sys_movimentos, sys_transferencias, sys_api, sys_orcamentos
-        from app.routes.sys_auth import bp as auth, bp_seguranca as seguranca
-
-        app.register_blueprint(contas.bp)
-        app.register_blueprint(sys_products.bp)
-        app.register_blueprint(sys_ingredients.bp)
-        app.register_blueprint(sys_orders.bp)
-        app.register_blueprint(sys_compras.bp)
-        app.register_blueprint(auth)
-        app.register_blueprint(site.bp)
-        app.register_blueprint(uploads.bp)
-        app.register_blueprint(site_vitrine.bp)
-        app.register_blueprint(site_orcamento.bp)
-        app.register_blueprint(sys_categories.bp)
-        app.register_blueprint(seguranca)
-        app.register_blueprint(sys_producao.bp)
-        app.register_blueprint(sys_operacoes.bp)
-        app.register_blueprint(sys_previsoes.bp)
-        app.register_blueprint(sys_recursos.bp)
-        app.register_blueprint(sys_transacao.bp)
-        app.register_blueprint(sys_movimentos.bp)
-        app.register_blueprint(sys_transferencias.bp)
-        app.register_blueprint(sys_api.bp)
-        app.register_blueprint(sys_orcamentos.bp)
-
-        from app.routes.sys_carteira import bp as carteira_bp
-        app.register_blueprint(carteira_bp)
-
+        # Import all models FIRST so mapper init resolves correctly
         from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, operacao, transacao, previsao  # noqa
         from app.models.event import Event  # noqa
         from app.models.quote_item import QuoteItem  # noqa
@@ -146,14 +117,46 @@ def create_app():
 
         from app.models.category import Category
         from app.models.client import Conta
+        from app.models.operacao import Operacao
         from app.models.product import Product
         from app.models.ingredient import Ingredient
         from app.models.quote import Quote
         from app.models.previsao import Previsao
 
-        from app.table import register_model
+        from app.list import register_model
+
+        from app.routes import sys_contas as contas, sys_produtos, sys_insumos, sys_pedidos, sys_compras
+        from app.routes import site, uploads, site_vitrine, site_orcamento
+        from app.routes import sys_categorias, sys_producao, sys_operacoes, sys_recursos, sys_transacao, sys_movimentos, sys_transferencias, sys_api, sys_orcamentos, sys_relatorios
+        from app.routes.sys_auth import bp as auth, bp_seguranca as seguranca
+
+        app.register_blueprint(contas.bp)
+        app.register_blueprint(sys_produtos.bp)
+        app.register_blueprint(sys_insumos.bp)
+        app.register_blueprint(sys_pedidos.bp)
+        app.register_blueprint(sys_compras.bp)
+        app.register_blueprint(auth)
+        app.register_blueprint(site.bp)
+        app.register_blueprint(uploads.bp)
+        app.register_blueprint(site_vitrine.bp)
+        app.register_blueprint(site_orcamento.bp)
+        app.register_blueprint(sys_categorias.bp)
+        app.register_blueprint(seguranca)
+        app.register_blueprint(sys_producao.bp)
+        app.register_blueprint(sys_operacoes.bp)
+        app.register_blueprint(sys_recursos.bp)
+        app.register_blueprint(sys_transacao.bp)
+        app.register_blueprint(sys_movimentos.bp)
+        app.register_blueprint(sys_transferencias.bp)
+        app.register_blueprint(sys_api.bp)
+        app.register_blueprint(sys_orcamentos.bp)
+        app.register_blueprint(sys_relatorios.bp)
+
+        from app.routes.sys_carteira import bp as carteira_bp
+        app.register_blueprint(carteira_bp)
         register_model('category', Category)
         register_model('conta', Conta)
+        register_model('operacao', Operacao)
         register_model('product', Product)
         register_model('ingredient', Ingredient)
         register_model('quote', Quote)
@@ -163,10 +166,6 @@ def create_app():
         register_model('movto', Movto)
         register_model('recurso_trf', Trf)
         register_model('carteira', Carteira)
-
-        for model_cls in [Category, Conta, Product, Ingredient, Quote, Recurso, Producao, Previsao, Movto, Trf, Carteira]:
-            sa.event.listen(model_cls, 'before_insert', aplicar_transformacao)
-            sa.event.listen(model_cls, 'before_update', aplicar_transformacao)
 
         try:
             upgrade()
@@ -203,7 +202,7 @@ def create_app():
     app.jinja_env.filters['fmtzeroi'] = fmt_zero_int
     app.jinja_env.filters['fmtdate'] = fmt_date
     app.jinja_env.filters['fmtdatetime'] = fmt_datetime
-    from app.table import fields_to_columns, field_filter_options, field_grid, get_field
+    from app.list import fields_to_columns, field_filter_options, field_grid, get_field
     app.jinja_env.filters['fields_to_columns'] = fields_to_columns
     app.jinja_env.filters['field_filter_options'] = field_filter_options
     app.jinja_env.filters['field_grid'] = field_grid

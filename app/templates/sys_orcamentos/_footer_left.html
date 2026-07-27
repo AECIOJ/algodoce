@@ -1,0 +1,10 @@
+{% set ro = instance and instance.pedido_id %}
+{% if instance %}
+<div class="d-flex align-items-center gap-2">
+  <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" style="min-height:0;font-size:0.75rem;" {{ 'disabled' if ro }} data-bs-toggle="modal" data-bs-target="#excluirModal"><i class="bi bi-trash"></i>Excluir</button>
+  <div class="form-check mb-0">
+    <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if instance.status == 8 }} onchange="toggleReprovado(this)">
+    <label class="form-check-label small" for="reprovado-check">Reprovado</label>
+  </div>
+</div>
+{% endif %}

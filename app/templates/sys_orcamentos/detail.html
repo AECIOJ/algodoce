@@ -68,7 +68,7 @@
         </p>
         {% if quote.pedido_id %}
           <p class="mt-1 mb-0">
-            {{ btn(BTN_ENVIAR, url_for('orders.edit', id=quote.pedido_id), label='Ver Pedido #' + (quote.pedido_id|fmtid)) }}
+            {{ btn(BTN_ENVIAR, url_for('orders.form', id=quote.pedido_id), label='Ver Pedido #' + (quote.pedido_id|fmtid)) }}
           </p>
         {% endif %}
       </div>

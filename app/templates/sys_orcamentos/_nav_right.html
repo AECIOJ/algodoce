@@ -1,0 +1,11 @@
+{% if instance and not instance.pedido_id %}
+{% if perfect_match %}
+<form method="POST" action="{{ url_for('orcamentos.converter', id=instance.id) }}" class="d-inline">
+  <input type="hidden" name="converter_tipo" value="auto">
+  <input type="hidden" name="client_id" value="{{ perfect_match.id }}">
+  <button type="submit" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-right-circle"></i>Converter</button>
+</form>
+{% else %}
+<a href="#" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#converterModal"><i class="bi bi-arrow-right-circle"></i>Converter</a>
+{% endif %}
+{% endif %}

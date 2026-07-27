@@ -8,8 +8,8 @@ from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.models.client import Conta
 from app.constants import TIPO_RECURSO
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_date_filter, MODE_NUMBER, MODE_TEXT, MODE_DATE
-from app.table import Field, build_field_context
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_date_filter
+from app.list import build_field_context, build_filter_config, List
 from decimal import Decimal
 
 bp = Blueprint("transferencias", __name__, url_prefix="/transferencias")
@@ -23,19 +23,16 @@ def _trf_status(trf):
     return Markup('<span class="badge bg-success">Fechada</span>')
 
 
-TRF_FIELDS = [
-    Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='data', label='Data', width=10, input='date'),
-    Field(name='historico', label='Histórico', width=30),
-    Field(name='status', label='Status', width=12, function=_trf_status),
-]
-
-TRF_FILTERS = {
-    'id':        MODE_NUMBER,
-    'data':      MODE_DATE,
-    'historico': MODE_TEXT,
-    'status':    MODE_TEXT,
+TRF_FIELDS = {
+        'id': {'label': '#', 'width': 7, 'mask': '999.999'},
+        'data': {'width': 10, 'input': 'date'},
+        'historico': {'label': 'Histórico', 'width': 30},
+        'status': {'width': 12, 'function': _trf_status},
 }
+
+transferencias_list = {'fields': TRF_FIELDS, 'edit_endpoint': 'transferencias.trf_edit'}
+
+
 
 
 @bp.before_request
@@ -45,17 +42,19 @@ def protect():
 
 
 def _list():
-    active = resolve_filters(TRF_FILTERS, request.args)
+    filter_config = build_filter_config(TRF_FIELDS)
+    active = resolve_filters(filter_config, request.args)
     trfs = Trf.query.order_by(Trf.data.desc(), Trf.id.desc()).all()
     linhas = trfs[:]
     linhas = apply_number_filter(linhas, 'id', active.get('id'))
     linhas = apply_date_filter(linhas, 'data', active.get('data'))
     linhas = apply_text_filter(linhas, 'historico', active.get('historico'))
     trfs = linhas
+    _list = List(**transferencias_list)
     ctx = build_field_context(TRF_FIELDS)
     return render_template(
         "sys_transferencias/list.html",
-        trfs=trfs, fields=TRF_FIELDS, ctx=ctx, active_filters=active, FILTERS=TRF_FILTERS,
+        trfs=trfs, fields=TRF_FIELDS, TRANSFERENCIAS_LIST=_list, ctx=ctx, active_filters=active, FILTERS=filter_config,
     )
 
 
@@ -69,7 +68,7 @@ def _new():
     recursos, contas = _load_form_data()
     return render_template(
         "sys_transferencias/form.html",
-        trf=None, recursos=recursos, contas=contas,
+        instance=None, is_new=True, recursos=recursos, contas=contas,
         TIPO_RECURSO=TIPO_RECURSO,
     )
 
@@ -122,7 +121,8 @@ def trf_edit(id):
 
     return render_template(
         "sys_transferencias/form.html",
-        trf=trf, movimentos=movimentos,
+        instance=trf, is_new=False,
+        counter_movtos=movimentos, main_movto=movimentos[0] if movimentos else None,
         recursos=recursos, contas=contas, nav=nav,
         TIPO_RECURSO=TIPO_RECURSO,
     )

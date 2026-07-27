@@ -36,20 +36,7 @@ TIPO_RECURSO = {0: "Caixa", 1: "Banco", 2: "Cartão"}
 CARTEIRA_USO = {0: "Pedido", 1: "Pedido e Compra", 2: "Compra"}
 CARTEIRA_GERAR = {0: "Movimento", 1: "Previsão"}
 
-UNIDADES_RECEITA = ["kg", "g", "L", "ml", "un", "cx", "pacote", "colher", "colher_sopa", "xicara", "pitada", "litro"]
+UND_INSUMO = ["Kg", "G", "L", "Ml", "Un", "Cx", "Pacote", "Colher_cha", "Colher_sopa", "Xicara", "Pitada", "Litro"]
 
 CONECTORES = {"de", "da", "do", "das", "dos", "para", "pra", "com", "sem", "em", "no", "na", "nos", "nas", "por", "ao", "aos", "à", "às", "e", "ou", "a", "o", "as", "os", "um", "uma", "uns", "umas", "num", "numa", "dum", "duma", "pelo", "pela", "pelos", "pelas", "pro", "pra", "pros", "pras"}
 
-TRANSFORMAR_AO_SALVAR = {
-    "Category":    {"nome": 1},
-    "Product":     {"nome": 1},
-    "Ingredient":  {"nome": 1, "unidade_medida": 2},
-    "Conta":       {"nome": 1},
-    "Quote":       {"cliente_nome": 1},
-    "Recurso":     {"nome": 1},
-    "Carteira": {"nome": 1},
-    "Producao":    {"descricao": 1},
-    "Previsao":    {"documento": 2},
-    "Movto":       {"documento": 2, "historico": 1},
-    "Trf":         {"historico": 1},
-}

@@ -3,25 +3,63 @@
 {% set new_title = 'Nova Transferência' %}
 {% set entity_label = 'Transferência' %}
 {% set edit_endpoint = 'transferencias.trf_edit' %}
-{% if trf %}{% set entity_id = trf.id %}{% endif %}
+{% if instance %}{% set entity_id = instance.id %}{% endif %}
 
-{% set movimentos_existentes = movimentos if movimentos is defined else (trf.movtos.all() if trf else []) %}
+{% set movimentos_existentes = counter_movtos if counter_movtos is defined else [] %}
+{% set main = main_movto if main_movto is defined else None %}
 
 {% block nav_right %}{% endblock %}
 
 {% block form_body %}
-<style>
-  .movto-entrada { background-color: #d0e8ff; }
-  .movto-saida { background-color: #fdd; }
-</style>
+
 <div class="row g-2 mb-3">
   <div class="col-6 col-md-3">
     <label class="form-label">Data *</label>
-    <input type="date" name="data" class="form-control" required value="{{ trf.data if trf else hoje }}">
+    <input type="date" name="data" class="form-control" required value="{{ instance.data if instance else hoje }}">
   </div>
   <div class="col-6 col-md-9">
     <label class="form-label">Histórico</label>
-    <input type="text" name="historico" class="form-control" value="{{ trf.historico if trf and trf.historico else '' }}">
+    <input type="text" name="historico" class="form-control" value="{{ instance.historico if instance else '' }}">
+  </div>
+</div>
+<hr>
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-2">
+    <label class="form-label">Tipo Principal *</label>
+    <select name="tipo_master" class="form-select" onchange="onTipoMasterChange(this)" required>
+      <option value="E" {{ 'selected' if main and main.tipo == 'E' }}>Entrada</option>
+      <option value="S" {{ 'selected' if main and main.tipo == 'S' }}>Saída</option>
+    </select>
+  </div>
+  <div class="col-6 col-md-4">
+    <label class="form-label">Recurso Principal *</label>
+    <select name="main_recurso_id" class="form-select" required>
+      <option value="">Selecione</option>
+      {% for r in recursos %}
+        <option value="{{ r.id }}" {{ 'selected' if main and main.recurso_id == r.id }}>{{ r.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label">Conta Principal</label>
+    <select name="main_conta_id" class="form-select">
+      <option value="">Nenhuma</option>
+      {% for c in contas %}
+        <option value="{{ c.id }}" {{ 'selected' if main and main.conta_id == c.id }}>{{ c.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-6 col-md-3">
+    <label class="form-label">Documento Principal</label>
+    <input type="text" name="main_documento" class="form-control" maxlength="50" value="{{ main.documento if main and main.documento else '' }}">
+  </div>
+  <div class="col-6 col-md-2">
+    <label class="form-label">Valor Principal *</label>
+    <input type="number" name="main_valor" class="form-control text-end" required step="0.01" min="0.01" oninput="recalcularTotal()" value="{{ '%.2f'|format(main.valor|float) if main else '' }}">
+  </div>
+  <div class="col-12 col-md-10">
+    <label class="form-label">Histórico Principal</label>
+    <input type="text" name="main_historico" class="form-control" value="{{ main.historico if main and main.historico else '' }}">
   </div>
 </div>
 <hr>
@@ -30,7 +68,7 @@
     <span id="total-badge" class="badge bg-success ms-1 align-middle" style="font-size:0.65rem;">0,00</span>
   </h5>
   <div class="ms-auto">
-    {% if not trf %}
+    {% if is_new %}
     <button type="button" class="btn btn-outline-success btn-sm d-none d-md-inline-block d-inline-flex align-items-center gap-1" onclick="addRow()"><i class="bi bi-plus-lg"></i> Adicionar</button>
     <button type="button" class="btn btn-outline-success btn-sm d-md-none d-inline-flex align-items-center gap-1" onclick="addRowMobile()"><i class="bi bi-plus-lg"></i> Adicionar</button>
     {% endif %}
@@ -42,7 +80,6 @@
     <thead style="position:sticky;top:0;z-index:10;background:#fff;">
       <tr>
         <th style="width:60px;" class="text-center">#</th>
-        <th style="width:80px;">Tipo</th>
         <th style="width:150px;">Recurso</th>
         <th style="width:150px;">Conta</th>
         <th style="width:100px;">Documento</th>
@@ -53,17 +90,11 @@
     </thead>
     <tbody id="movtos-container">
       {% for m in movimentos_existentes %}
-      <tr class="movto-row {{ 'movto-entrada' if m.tipo == 'E' else 'movto-saida' }}">
+      <tr class="movto-row">
         <td class="text-center text-muted small movto-num">#{{ loop.index }}</td>
         <td>
           <input type="hidden" name="trf_movto_id[]" value="{{ m.id }}">
           <input type="hidden" name="trf_remover[]" value="0">
-          <select name="trf_tipo[]" class="form-select form-select-sm" onchange="onTipoChange(this)" required>
-            <option value="E" {{ 'selected' if m.tipo == 'E' }}>Entrada</option>
-            <option value="S" {{ 'selected' if m.tipo == 'S' }}>Saída</option>
-          </select>
-        </td>
-        <td>
           <select name="trf_recurso_id[]" class="form-select form-select-sm" required>
             <option value="">Selecione</option>
             {% for r in recursos %}
@@ -99,7 +130,7 @@
 
 <div class="d-md-none" id="movtos-mobile-container">
   {% for m in movimentos_existentes %}
-  <div class="px-3 py-2 border-bottom movto-mobile-card {{ 'movto-entrada' if m.tipo == 'E' else 'movto-saida' }}">
+  <div class="px-3 py-2 border-bottom movto-mobile-card">
     <div class="d-flex justify-content-between align-items-center mb-1">
       <span class="text-muted small movto-num">#{{ loop.index }}</span>
       <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
@@ -107,13 +138,6 @@
     <input type="hidden" name="trf_movto_id[]" value="{{ m.id }}">
     <input type="hidden" name="trf_remover[]" value="0">
     <div class="row g-1 mb-1">
-      <div class="col-6">
-        <span class="card-label">Tipo</span>
-        <select name="trf_tipo[]" class="form-select form-select-sm" onchange="onTipoChange(this)" required>
-          <option value="E" {{ 'selected' if m.tipo == 'E' }}>Entrada</option>
-          <option value="S" {{ 'selected' if m.tipo == 'S' }}>Saída</option>
-        </select>
-      </div>
       <div class="col-6">
         <span class="card-label">Recurso</span>
         <select name="trf_recurso_id[]" class="form-select form-select-sm" required>
@@ -123,8 +147,6 @@
           {% endfor %}
         </select>
       </div>
-    </div>
-    <div class="row g-1 mb-1">
       <div class="col-6">
         <span class="card-label">Conta</span>
         <select name="trf_conta_id[]" class="form-select form-select-sm">
@@ -134,13 +156,13 @@
           {% endfor %}
         </select>
       </div>
+    </div>
+    <div class="row g-1 mb-1">
       <div class="col-6">
         <span class="card-label">Documento</span>
         <input type="text" name="trf_documento[]" class="form-control form-control-sm" maxlength="50" value="{{ m.documento or '' }}">
       </div>
-    </div>
-    <div class="row g-1 mb-1">
-      <div class="col-12">
+      <div class="col-6">
         <span class="card-label">Valor</span>
         <input type="number" name="trf_valor[]" class="form-control form-control-sm text-end movto-valor" required step="0.01" min="0.01" oninput="recalcularTotal()" value="{{ '%.2f'|format(m.valor|float) }}">
       </div>
@@ -162,28 +184,22 @@
 {% endblock %}
 
 {% block form_footer_left %}
-{% if trf %}
+{% if not is_new %}
 <button type="button" class="btn btn-sm btn-outline-danger ms-2 d-inline-flex align-items-center gap-1" onclick="showConfirm('Excluir transferência e todos os movimentos vinculados?',function(){document.getElementById('excluir-form').submit()})"><i class="bi bi-trash"></i> Excluir</button>
 {% endif %}
 {% endblock %}
 
 {% block page_scripts %}
-{% if trf %}
-<form id="excluir-form" method="POST" action="{{ url_for('transferencias.trf_excluir', id=trf.id) }}" style="display:none"></form>
+{% if not is_new %}
+<form id="excluir-form" method="POST" action="{{ url_for('transferencias.trf_excluir', id=instance.id) }}" style="display:none"></form>
 {% endif %}
 
 <template id="movto-template">
-  <tr class="movto-row movto-entrada">
+  <tr class="movto-row">
     <td class="text-center text-muted small movto-num"></td>
     <td>
       <input type="hidden" name="trf_movto_id[]" value="">
       <input type="hidden" name="trf_remover[]" value="0">
-      <select name="trf_tipo[]" class="form-select form-select-sm" onchange="onTipoChange(this)" required>
-        <option value="E">Entrada</option>
-        <option value="S">Saída</option>
-      </select>
-    </td>
-    <td>
       <select name="trf_recurso_id[]" class="form-select form-select-sm" required>
         <option value="">Selecione</option>
         {% for r in recursos %}
@@ -215,7 +231,7 @@
 </template>
 
 <template id="movto-mobile-template">
-  <div class="px-3 py-2 border-bottom movto-mobile-card movto-entrada">
+  <div class="px-3 py-2 border-bottom movto-mobile-card">
     <div class="d-flex justify-content-between align-items-center mb-1">
       <span class="text-muted small movto-num"></span>
       <button type="button" class="btn btn-danger btn-sm btn-remove-movto"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
@@ -223,13 +239,6 @@
     <input type="hidden" name="trf_movto_id[]" value="">
     <input type="hidden" name="trf_remover[]" value="0">
     <div class="row g-1 mb-1">
-      <div class="col-6">
-        <span class="card-label">Tipo</span>
-        <select name="trf_tipo[]" class="form-select form-select-sm" onchange="onTipoChange(this)" required>
-          <option value="E">Entrada</option>
-          <option value="S">Saída</option>
-        </select>
-      </div>
       <div class="col-6">
         <span class="card-label">Recurso</span>
         <select name="trf_recurso_id[]" class="form-select form-select-sm" required>
@@ -239,8 +248,6 @@
           {% endfor %}
         </select>
       </div>
-    </div>
-    <div class="row g-1 mb-1">
       <div class="col-6">
         <span class="card-label">Conta</span>
         <select name="trf_conta_id[]" class="form-select form-select-sm">
@@ -250,13 +257,13 @@
           {% endfor %}
         </select>
       </div>
+    </div>
+    <div class="row g-1 mb-1">
       <div class="col-6">
         <span class="card-label">Documento</span>
         <input type="text" name="trf_documento[]" class="form-control form-control-sm" maxlength="50">
       </div>
-    </div>
-    <div class="row g-1 mb-1">
-      <div class="col-12">
+      <div class="col-6">
         <span class="card-label">Valor</span>
         <input type="number" name="trf_valor[]" class="form-control form-control-sm text-end movto-valor" required step="0.01" min="0.01" oninput="recalcularTotal()">
       </div>
@@ -281,33 +288,29 @@
 </div>
 
 <script>
-function onTipoChange(sel) {
-  var row = sel.closest('.movto-row, .movto-mobile-card');
-  row.classList.remove('movto-entrada', 'movto-saida');
-  row.classList.add(sel.value === 'E' ? 'movto-entrada' : 'movto-saida');
+function sumCounterValores() {
+  var sum = 0;
+  document.querySelectorAll('.movto-row, .movto-mobile-card').forEach(function(row) {
+    if (row.offsetParent === null || row.style.display === 'none') return;
+    var valor = parseFloat(row.querySelector('[name="trf_valor[]"]').value) || 0;
+    sum += valor;
+  });
+  return sum;
 }
 
 function recalcularTotal() {
-  var total = 0;
-  document.querySelectorAll('#movtos-container .movto-row, #movtos-mobile-container .movto-mobile-card').forEach(function(row) {
-    if (row.offsetParent === null || row.style.display === 'none') return;
-    var tipo = row.querySelector('[name="trf_tipo[]"]').value;
-    var valor = parseFloat(row.querySelector('[name="trf_valor[]"]').value) || 0;
-    if (tipo === 'E') {
-      total += valor;
-    } else {
-      total -= valor;
-    }
-  });
+  var mainValor = parseFloat(document.querySelector('[name="main_valor"]').value) || 0;
+  var sumCounter = sumCounterValores();
+  var diff = mainValor - sumCounter;
   var badge = document.getElementById('total-badge');
   if (badge) {
-    var absTotal = Math.abs(total);
-    var formatted = absTotal.toFixed(2).replace('.', ',');
-    if (total > 0.005) {
+    var absDiff = Math.abs(diff);
+    var formatted = absDiff.toFixed(2).replace('.', ',');
+    if (diff > 0.005) {
       badge.textContent = '+' + formatted;
       badge.className = 'badge ms-1 align-middle';
       badge.style.cssText = 'font-size:0.65rem;background-color:#198754;color:#fff;';
-    } else if (total < -0.005) {
+    } else if (diff < -0.005) {
       badge.textContent = '-' + formatted;
       badge.className = 'badge ms-1 align-middle';
       badge.style.cssText = 'font-size:0.65rem;background-color:#dc3545;color:#fff;';
@@ -317,6 +320,10 @@ function recalcularTotal() {
       badge.style.cssText = 'font-size:0.65rem;';
     }
   }
+}
+
+function onTipoMasterChange(sel) {
+  recalcularTotal();
 }
 
 function addRow() {

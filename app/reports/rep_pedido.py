@@ -56,7 +56,7 @@ def _forminhas_carteira(order):
 
 PEDIDO_REPORT = Report(
     label='Pedido',
-    edit_endpoint='orders.edit',
+    edit_endpoint='orders.form',
     header={
         'layout': 'logo_left',
         'title': 'Pedido #{id}',

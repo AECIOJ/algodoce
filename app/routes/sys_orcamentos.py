@@ -14,12 +14,13 @@ from app.models.quote_item import QuoteItem
 from app.models.event import Event
 from app.models.carteira import Carteira
 from app.constants import QUOTE_STATUS, QUOTE_STATUS_FILTER, FORMINHAS, CARTEIRA_GERAR
-from app.table import Field, build_field_context, Table
+from app.list import build_field_context, build_filter_config, List
 from app.pdf import gerar_pdf_orcamento, gerar_pdf_relatorio
 from app.reports.rep_orcamento import ORCAMENTO_REPORT
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_DATE, MODE_SELECT
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
+from app.fields import FIELD_QUANTIDADE, FIELD_PRECO
 from app.form import Form, handle_form
-from app.buttons import Button
+
 
 
 def quote_validade(item):
@@ -28,30 +29,21 @@ def quote_validade(item):
     return (ref.replace(tzinfo=None) + timedelta(days=dias)).strftime('%d/%m/%Y')
 
 
-QUOTES_FIELDS = [
-    Field(name='id', label='#', width=7, mask='999.999'),
-    Field(name='cliente_nome', label='Cliente', width=20, pos=1),
-    Field(name='cliente_telefone', label='Telefone', width=16),
-    Field(name='data_pedido', label='Data', width=10, input='date'),
-    Field(name='validade', label='Validade', width=14, input='number', function=quote_validade),
-    Field(name='total', label='Total', width=12, input='number', align='right', aggregate='sum', currency='brl'),
-    Field(name='carteira', label='Pagamento', width=15, query='carteira'),
-    Field(name='status', label='Status', width=14, options=QUOTE_STATUS, filter_options=QUOTE_STATUS),
-    Field(name='pedido_id', label='Pedido', width=10, filter=False, link='orders.edit'),
-]
-
-QUOTES_TABLE = Table(fields=QUOTES_FIELDS, edit_endpoint='orcamentos.form', send_endpoint='orcamentos.print_quote')
-
-QUOTES_FILTERS = {
-    'id':              MODE_NUMBER,
-    'cliente_nome':    MODE_TEXT,
-    'cliente_telefone': MODE_TEXT,
-    'data_pedido':     MODE_DATE,
-    'validade':        MODE_NUMBER,
-    'total':           MODE_NUMBER,
-    'carteira':        {**MODE_SELECT, 'filter_path': 'carteira.nome'},
-    'status':          {**MODE_SELECT, 'options': QUOTE_STATUS},
+QUOTES_FIELDS = {
+        'id': {'label': '#', 'width': 7, 'mask': '999.999'},
+        'cliente_nome': {'label': 'Cliente', 'width': 20, 'pos': 1},
+        'cliente_telefone': {'label': 'Telefone', 'width': 16},
+        'data_pedido': {'label': 'Data', 'width': 10, 'input': 'date'},
+        'validade': {'width': 14, 'input': 'number', 'function': quote_validade},
+        'total': {'width': 12, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'carteira': {'label': 'Pagamento', 'width': 15, 'query': 'carteira'},
+        'status': {'width': 14, 'options': QUOTE_STATUS, 'filter_options': QUOTE_STATUS},
+        'pedido_id': {'width': 10, 'filter': False, 'link': 'orders.form'},
 }
+
+quotes_list = {'fields': QUOTES_FIELDS, 'edit_endpoint': 'orcamentos.form', 'send_endpoint': 'orcamentos.print_quote'}
+
+
 
 
 def _replace_quote_items(quote, form):
@@ -93,35 +85,49 @@ def _pre_save_orcamento(instance, request, is_new):
 
 QS_COLORS = {0:'bg-secondary',1:'bg-info',6:'bg-warning',7:'bg-dark',8:'bg-danger',9:'bg-success'}
 
-RENOVAR_BTN = Button('Renovar', endpoint='orcamentos.renovar',
-                     icon='bi-arrow-clockwise', color='info', outline=False,
-                     method='POST', show_if=('status', 7))
-PEDIDO_BTN = Button('Pedido', endpoint='orders.edit',
-                    icon='bi-send', color='success', outline=True,
-                    show_if='pedido_id', url_var='pedido_id')
-ENVIAR_BTN = Button('Enviar', endpoint='orcamentos.print_quote',
-                    icon='bi-send', color='success', outline=True,
-                    show_if=('pedido_id', None))
+renovar_btn = {'label': 'Renovar', 'endpoint': 'orcamentos.renovar',
+               'icon': 'bi-arrow-clockwise', 'color': 'info', 'outline': False,
+               'method': 'POST', 'show_if': ('status', 7)}
+pedido_btn = {'label': 'Pedido', 'endpoint': 'orders.form',
+              'icon': 'bi-send', 'color': 'success', 'outline': True,
+              'show_if': 'pedido_id', 'url_var': 'pedido_id'}
+enviar_btn = {'label': 'Enviar', 'endpoint': 'orcamentos.print_quote',
+              'icon': 'bi-send', 'color': 'success', 'outline': True,
+              'show_if': ('pedido_id', None)}
 
-ORCAMENTOS_FORM = Form(
-    model=Quote,
-    redirect='orcamentos.list',
-    fields=[
-        Field('cliente_nome', label='Cliente', required=True, width=4),
-        Field('cliente_telefone', label='Telefone', required=True, width=4),
-        Field('validade', label='Validade (dias)', input='number', width=2, attrs={'min': 1}),
+tipos_evento_list = [
+    "Aniversário", "Casamento", "Debutante", "Corporativo",
+    "Infantil", "Família", "Confraternização", "Religioso", "Outros"
+]
+tipos_evento = {t: t for t in tipos_evento_list}
+
+orcamentos_form = {'model': Quote, 'redirect': 'orcamentos.list', 'entity_label': 'Orçamento', 'page_scripts': 'sys_orcamentos/_form_scripts.html', 'form_tail': 'sys_orcamentos/_form_tail.html', 'footer_left': 'sys_orcamentos/_footer_left.html', 'nav_right_extra': 'sys_orcamentos/_nav_right.html', 'fields': [
+        {'name': 'cliente_nome', 'label': 'Cliente', 'required': True, 'width': 4},
+        {'name': 'cliente_telefone', 'label': 'Telefone', 'required': True, 'width': 4},
+        {'name': 'validade', 'label': 'Validade (dias)', 'input': 'number', 'width': 2, 'attrs': {'min': 1}},
         {'label': 'Financeiro', 'fields': [
-            Field('forminhas', input='select', options=FORMINHAS, width=3),
-            Field('carteira_id', input='select', query='carteira', width=4, query_filter={'uso': [0, 1]}),
+            {'name': 'forminhas', 'input': 'select', 'options': FORMINHAS, 'width': 3},
+            {'name': 'carteira_id', 'input': 'select', 'query': 'carteira', 'width': 4, 'query_filter': {'uso': [0, 1]}},
         ]},
-        Field('observacao', label='Observação', input='textarea', width=12),
-    ],
-    readonly_when={},
-    pre_save=_pre_save_orcamento,
-    badge=dict(field='status', options=QUOTE_STATUS, colors=QS_COLORS),
-    extra_buttons=[RENOVAR_BTN, PEDIDO_BTN, ENVIAR_BTN],
-    template='sys_orcamentos/form.html',
-)
+        {'name': 'observacao', 'label': 'Observação', 'input': 'textarea', 'width': 12},
+    ], 'sessions': {
+        'Itens do Orçamento': {'model': QuoteItem, 'type': 'table', 'template': 'sys_orcamentos/_itens.html', 'fields': {
+            'product_id':      {'label': 'Produto', 'input': 'select'},
+            'quantidade':      {**FIELD_QUANTIDADE, 'label': 'Qtd'},
+            'preco_unitario':  {**FIELD_PRECO, 'label': 'Preço'},
+            'observacao_item': {'label': 'Obs'},
+        }},
+        'Evento': {'model': Event, 'fields': {
+            'tipo':       {'input': 'select', 'options': tipos_evento},
+            'tema':       {},
+            'convidados': {'label': 'Nº Convidados', 'input': 'number'},
+            'obs':        {'label': 'Observação', 'input': 'textarea'},
+            'data':       {'input': 'date'},
+            'hora':       {'input': 'time'},
+            'local':      {},
+            'cerimonial': {},
+        }},
+    }, 'readonly_when': {'pedido_id': lambda v: v is not None}, 'pre_save': _pre_save_orcamento, 'badge': {'field': 'status', 'options': QUOTE_STATUS, 'colors': QS_COLORS}, 'extra_buttons': [renovar_btn, pedido_btn, enviar_btn]}
 
 bp = Blueprint("orcamentos", __name__)
 
@@ -134,7 +140,9 @@ def protect():
 
 @bp.route("/orcamentos", endpoint="list")
 def orcamento_list():
-    active = resolve_filters(QUOTES_FILTERS, request.args)
+    _list = List(**quotes_list)
+    filter_config = build_filter_config(QUOTES_FIELDS)
+    active = resolve_filters(filter_config, request.args)
     query = Quote.query.order_by(Quote.id.desc())
     quotes = query.all()
     linhas = quotes[:]
@@ -147,12 +155,12 @@ def orcamento_list():
     linhas = apply_number_filter(linhas, 'total', active.get('total'))
     linhas = apply_select_filter(linhas, 'carteira', active.get('carteira'), build_fk_options(Carteira), filter_path='carteira.nome')
     quotes = linhas
-    ctx = build_field_context(QUOTES_FIELDS, filters_config=QUOTES_FILTERS)
+    ctx = build_field_context(QUOTES_FIELDS)
     return render_template(
-        "sys_orcamentos/list.html", orders=quotes, QUOTES_TABLE=QUOTES_TABLE, ctx=ctx,
+        "sys_orcamentos/list.html", orders=quotes, QUOTES_LIST=_list, ctx=ctx,
         filtro=active.get('status', 'todos'),
         QUOTE_STATUS=QUOTE_STATUS, QUOTE_STATUS_FILTER=QUOTE_STATUS_FILTER,
-        active_filters=active, FILTERS=QUOTES_FILTERS,
+        active_filters=active, FILTERS=filter_config,
     )
 
 
@@ -232,13 +240,7 @@ def form(id):
         clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
         extra = dict(products=products, clients=clients, tipos_evento=tipos_evento_list,
                      QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS)
-    return handle_form(ORCAMENTOS_FORM, id, extra_ctx=extra)
-
-
-tipos_evento_list = [
-    "Aniversário", "Casamento", "Debutante", "Corporativo",
-    "Infantil", "Família", "Confraternização", "Religioso", "Outros"
-]
+    return handle_form(orcamentos_form, id, extra_ctx=extra)
 
 
 @bp.route("/orcamentos/<int:id>/converter", methods=["POST"])

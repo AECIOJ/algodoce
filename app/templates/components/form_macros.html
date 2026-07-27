@@ -1,12 +1,18 @@
 {% macro render_field(field, data=none, ro=false, name_prefix='') %}
-{% set val = data|deep_attr(field.name) if data is not none else none %}
-{% set ns = name_prefix + (field.name if not name_prefix.endswith('_') else field.name) %}
+{% set val = data|deep_attr(field.name) if data is not none else field.default %}
+{% set ns = (name_prefix or '') + (field.name if not (name_prefix or '').endswith('_') else field.name) %}
 {% set label = field.display_label %}
 {% set req = 'required' if field.required else '' %}
 {% set dis = 'disabled' if (field.disabled or ro) else '' %}
 {% set ph = field.placeholder or '' %}
+{% set attr_str = '' %}
+{% if field.attrs %}
+  {% for k, v in field.attrs.items() %}
+    {% set attr_str = attr_str ~ ' ' ~ k ~ '="' ~ v ~ '"' %}
+  {% endfor %}
+{% endif %}
 {% if field.input == 'select' %}
-  <select name="{{ ns }}" class="form-select{{ ' form-select-sm' if name_prefix else '' }}" {{ req }} {{ dis }}>
+  <select name="{{ ns }}" class="form-select{{ ' form-select-sm' if name_prefix else '' }}" {{ req }} {{ dis }} {{ attr_str }}>
     <option value="">Selecione...</option>
     {% if field.options %}
       {% for k, v in field.options.items() %}
@@ -28,13 +34,15 @@
     <input type="checkbox" name="{{ ns }}" class="form-check-input" value="1" {{ 'checked' if val }} {{ req }} {{ dis }}>
   </div>
 {% elif field.input == 'number' %}
-  <input type="number" name="{{ ns }}" class="form-control" step="any" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}>
+  <input type="number" name="{{ ns }}" class="form-control" step="any" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ attr_str }}>
 {% elif field.input == 'date' %}
-  <input type="date" name="{{ ns }}" class="form-control" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}>
+  <input type="date" name="{{ ns }}" class="form-control" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ attr_str }}>
+{% elif field.input == 'time' %}
+  <input type="time" name="{{ ns }}" class="form-control" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ attr_str }}>
 {% elif field.input == 'datetime-local' %}
-  <input type="datetime-local" name="{{ ns }}" class="form-control" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}>
+  <input type="datetime-local" name="{{ ns }}" class="form-control" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ attr_str }}>
 {% else %}
-  <input type="{{ field.input }}" name="{{ ns }}" class="form-control" value="{{ val or '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}>
+  <input type="{{ field.input }}" name="{{ ns }}" class="form-control" value="{{ val or '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ attr_str }}>
 {% endif %}
 {% endmacro %}
 
@@ -48,31 +56,51 @@
 {% endmacro %}
 
 {% macro render_fields(form, data=none, ro=false) %}
-{% for item in form.fields %}
-  {% if item is mapping and item.fields is defined %}
-    {% set section_label = item.label or '' %}
-    {% if section_label %}
+<div class="row">
+{% for f in form._resolved_fields if f.form_edit %}
+  {{ render_form_field(f, data=data, ro=ro) }}
+{% endfor %}
+</div>
+{% endmacro %}
+
+{% macro render_sessions(form, data=none, ro=false) %}
+{% for session in form._resolved_sessions %}
+  {% if not session.when or session.when(data) %}
+  {% if session.type == 'template' %}
+    {% include session.template %}
+
+  {% elif session.type == 'table' and session.template %}
+    {% include session.template %}
+
+  {% elif session.type == 'table' and session.attr %}
+    {% include 'components/_readonly_table.html' %}
+
+  {% elif session.type == 'editable_table' and session.attr %}
+    {% include 'components/_editable_table.html' %}
+
+  {% else %}
     <div class="card mb-3">
-      <div class="card-header bg-light fw-bold">{{ section_label }}</div>
+      <div class="card-header bg-light fw-bold">{{ session.label }}</div>
       <div class="card-body">
+        {% if session.fields %}
         <div class="row">
-          {% for f in item.fields %}
-            {{ render_form_field(f, data=data, ro=ro) }}
+          {% for f in session.fields if f.edit %}
+            {% set _data = data|deep_attr(session.attr) if session.attr else data %}
+            {{ render_form_field(f, data=_data, ro=ro, name_prefix=session.prefix) }}
           {% endfor %}
         </div>
+        {% endif %}
+        {% if session.buttons %}
+        <div class="d-flex gap-2 mt-2">
+          {% for btn in session.buttons %}
+            {{ render_extra_button(btn, data) }}
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
-    {% else %}
-    <div class="row">
-      {% for f in item.fields %}
-        {{ render_form_field(f, data=data, ro=ro) }}
-      {% endfor %}
-    </div>
-    {% endif %}
-  {% else %}
-    {% if loop.first %}<div class="row">{% endif %}
-    {{ render_form_field(item, data=data, ro=ro) }}
-    {% if loop.last %}</div>{% endif %}
+
+  {% endif %}
   {% endif %}
 {% endfor %}
 {% endmacro %}
@@ -178,8 +206,8 @@ function add{{ child.name|capitalize }}Row() {
 {% endmacro %}
 
 {% macro render_extra_button(btn, instance) %}
-{% set _show = false %}
-{% if instance and btn.show_if %}
+{% set _show = not btn.get('show_if') %}
+{% if instance and btn.get('show_if') %}
   {% if btn.show_if is mapping %}
     {% set fld = btn.show_if|list|first %}
     {% set val = btn.show_if[fld] %}
@@ -200,12 +228,13 @@ function add{{ child.name|capitalize }}Row() {
   {% endif %}
 {% endif %}
 {% if _show %}
-  {% if btn.method == 'POST' %}
-  <form method="POST" action="{{ url_for(btn.endpoint, id=instance|deep_attr(btn.url_var), **(btn.extra_params or {})) }}" class="d-inline">
-    <button type="submit" class="btn btn-sm {{ btn.btn_cls() }} d-inline-flex align-items-center gap-1"{{ ' onclick="return confirm(\'' + btn.confirm_msg + '\')"' if btn.confirm_msg else '' }}>{% if btn.icon %}<i class="bi {{ btn.icon }}"></i> {% endif %}{{ btn.label }}</button>
+  {% set _btn_cls = ('btn-outline-' if btn.get('outline', True) else 'btn-') ~ btn.get('color', 'secondary') %}
+  {% if btn.get('method') == 'POST' %}
+  <form method="POST" action="{{ url_for(btn.endpoint, id=instance|deep_attr(btn.get('url_var', 'id')), **(btn.get('extra_params', {}) or {})) }}" class="d-inline">
+    <button type="submit" class="btn btn-sm {{ _btn_cls }} d-inline-flex align-items-center gap-1"{{ ' onclick="return confirm(\'' + btn.confirm_msg + '\')"' if btn.get('confirm_msg') else '' }}>{% if btn.get('icon') %}<i class="bi {{ btn.icon }}"></i> {% endif %}{{ btn.label }}</button>
   </form>
   {% else %}
-  <a href="{{ url_for(btn.endpoint, id=instance|deep_attr(btn.url_var), **(btn.extra_params or {})) if btn.endpoint else btn.url }}" class="btn btn-sm {{ btn.btn_cls() }} d-inline-flex align-items-center gap-1">{% if btn.icon %}<i class="bi {{ btn.icon }}"></i> {% endif %}{{ btn.label }}</a>
+  <a href="{{ url_for(btn.endpoint, id=instance|deep_attr(btn.get('url_var', 'id')), **(btn.get('extra_params', {}) or {})) if btn.get('endpoint') else btn.get('url') }}" class="btn btn-sm {{ _btn_cls }} d-inline-flex align-items-center gap-1">{% if btn.get('icon') %}<i class="bi {{ btn.icon }}"></i> {% endif %}{{ btn.label }}</a>
   {% endif %}
 {% endif %}
 {% endmacro %}

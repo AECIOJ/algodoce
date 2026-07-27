@@ -1,0 +1,65 @@
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold">Conversões</div>
+  <div class="card-body">
+    {% if not data %}
+    <p class="text-muted small mb-0">Salve o insumo primeiro para configurar conversões.</p>
+    {% else %}
+    <p class="text-muted small">
+      1 [unidade da receita] = [fator] {{ data.unidade_medida }}
+      (ex: 1 xicara = 0.2 kg)
+    </p>
+    <div id="conversoes-list">
+      {% for cv in data.conversions %}
+        <div class="row mb-2 conversao-row align-items-center">
+          <div class="col-md-4 mb-1 mb-md-0">
+            <select name="conversion_unidade" class="form-select" {{ 'disabled' if session.readonly or ro }}>
+              {% for un in UND_INSUMO %}
+                <option value="{{ un }}" {% if cv.unidade == un %}selected{% endif %}>{{ un }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-1 text-center text-md-end mb-1 mb-md-0">
+            <span class="text-muted">=</span>
+          </div>
+          <div class="col-md-3 mb-1 mb-md-0">
+            <input type="number" name="conversion_fator" class="form-control" step="0.000001" value="{{ cv.fator }}" {{ 'readonly' if session.readonly or ro }}>
+          </div>
+          <div class="col-md-2 mb-1 mb-md-0">
+            <span class="text-muted form-label d-md-inline d-none">{{ data.unidade_medida }}</span>
+            <span class="text-muted d-md-none">em {{ data.unidade_medida }}</span>
+          </div>
+          <div class="col-md-1">
+            {% if not session.readonly and not ro %}
+            <button type="button" class="btn btn-danger btn-sm" onclick="confirmRemove(this, 'Remover conversão?')"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="16" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+            {% endif %}
+          </div>
+        </div>
+      {% else %}
+        <div class="row mb-2 conversao-row align-items-center">
+          <div class="col-md-4 mb-1 mb-md-0">
+            <select name="conversion_unidade" class="form-select" {{ 'disabled' if session.readonly or ro }}>
+              {% for un in UND_INSUMO %}
+                <option value="{{ un }}">{{ un }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-1 text-center text-md-end mb-1 mb-md-0">
+            <span class="text-muted">=</span>
+          </div>
+          <div class="col-md-3 mb-1 mb-md-0">
+            <input type="number" name="conversion_fator" class="form-control" step="0.000001" placeholder="0.000" {{ 'readonly' if session.readonly or ro }}>
+          </div>
+          <div class="col-md-2 mb-1 mb-md-0">
+            <span class="text-muted d-md-inline d-none">{{ data.unidade_medida }}</span>
+            <span class="text-muted d-md-none">em {{ data.unidade_medida }}</span>
+          </div>
+          <div class="col-md-1"></div>
+        </div>
+      {% endfor %}
+    </div>
+    {% if not session.readonly and not ro %}
+    <button type="button" class="btn btn-outline-success btn-sm mt-2 d-inline-flex align-items-center gap-1" onclick="addConversao()"><i class="bi bi-plus-lg"></i> Adicionar Conversão</button>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>

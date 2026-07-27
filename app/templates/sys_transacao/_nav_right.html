@@ -1,0 +1,8 @@
+{% set is_pagar = tipo in ('P','C') %}
+{% if instance and not is_new %}
+{% if is_pagar and instance.compra %}
+<a href="{{ url_for('compras.edit', id=instance.compra.id) }}" class="btn btn-sm btn-warning ms-2 d-inline-flex align-items-center gap-1"><i class="bi bi-cart"></i>Compra #{{ instance.compra.id|fmtid }}</a>
+{% elif not is_pagar and instance.pedido %}
+<a href="{{ url_for('orders.form', id=instance.pedido.id) }}" class="btn btn-sm btn-warning ms-2 d-inline-flex align-items-center gap-1"><i class="bi bi-receipt"></i>Pedido #{{ instance.pedido.id|fmtid }}</a>
+{% endif %}
+{% endif %}

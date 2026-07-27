@@ -1,0 +1,88 @@
+{% set ro = instance and instance.pedido_id %}
+<input type="hidden" name="atualizar_precos" value="" id="atualizar-precos-field">
+<input type="hidden" name="status" value="{{ instance.status if instance else 0 }}" id="status-field" data-original="{{ instance.status if instance else 0 }}">
+{% if instance and not instance.pedido_id and instance.status < 7 %}
+<div class="modal fade" id="converterModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('orcamentos.converter', id=instance.id) }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Converter Orçamento #{{ instance.id|fmtid }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Os itens do orçamento serão convertidos em um pedido.</p>
+          <div class="alert alert-info py-2 mb-3">
+            <strong>Cliente do orçamento:</strong> {{ instance.cliente_nome }} — {{ instance.cliente_telefone }}
+          </div>
+          {% if phone_conflict %}
+          <div class="alert alert-warning py-2 mb-3">⚠ O telefone {{ instance.cliente_telefone }} já está cadastrado para <strong>{{ phone_conflict.nome }}</strong>. Verifique se não há erro de digitação.</div>
+          {% endif %}
+          <div class="d-flex gap-3 mb-3 p-3 rounded" style="background:#f8f9fa;">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="converter_tipo" id="convExistente" value="existente" checked onchange="toggleConvTipo()">
+              <label class="form-check-label fw-medium" for="convExistente">Usar conta existente</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="converter_tipo" id="convNova" value="nova" onchange="toggleConvTipo()">
+              <label class="form-check-label fw-medium" for="convNova">Criar nova conta</label>
+            </div>
+          </div>
+          <div id="convExistenteFields">
+            <select name="client_id" class="form-select">
+              <option value="">— Selecione —</option>
+              {% for c in clients %}
+                <option value="{{ c.id }}" {{ 'selected' if suggested_client and c.id == suggested_client.id }}>{{ c.nome }} — {{ c.telefone }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="convNovaFields" style="display:none;">
+            <input type="text" name="novo_nome" class="form-control mb-2" placeholder="Nome" value="{{ instance.cliente_nome }}">
+            <input type="text" name="novo_telefone" class="form-control" placeholder="Telefone" value="{{ instance.cliente_telefone }}">
+          </div>
+          <p class="text-muted small mt-3 mb-0">O status do orçamento será alterado para <strong>Aprovado</strong> e um novo pedido será gerado.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-right-circle"></i>Confirmar Conversão</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% if instance %}
+<div class="modal fade" id="excluirModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Excluir Orçamento #{{ instance.id|fmtid }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Confirmar exclusão do orçamento <strong>#{{ instance.id|fmtid }}</strong>?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form method="POST" action="{{ url_for('orcamentos.excluir', id=instance.id) }}" class="d-inline">
+          <button type="submit" class="btn btn-danger d-inline-flex align-items-center gap-1"><img src="{{ url_for('static', filename='icons/trash.svg') }}" height="16" alt="" style="filter:brightness(0)invert(1)">Excluir</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="deleteItemModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
+        <p class="mb-3 fw-bold">Remover este item?</p>
+        <div class="d-flex justify-content-center gap-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger btn-sm d-inline-flex align-items-center gap-1" id="confirm-delete-item"><i class="bi bi-trash"></i> Remover</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}

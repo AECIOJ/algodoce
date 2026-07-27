@@ -5,34 +5,39 @@ from flask_login import login_required
 from app.extensions import db
 from app.models.operacao import Operacao
 from app.constants import TIPO_OPERACAO, CONECTORES
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_boolean_filter, build_fk_options, MODE_NUMBER, MODE_TEXT, MODE_BOOLEAN, MODE_SELECT
-from app.table import Field, build_field_context, Table
+from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_boolean_filter, build_fk_options
+from app.list import build_field_context, build_filter_config, List
+from app.form import Form, handle_form
 
 bp = Blueprint("operacoes", __name__, url_prefix="/operacoes")
 
 
-OPERACOES_FIELDS = [
-    Field(name='indice', label='Indice', width=6, filter=False, pos=1),
-    Field(name='id', label='#', width=7, mask='999.999', card_path='operacao.id'),
-    Field(name='nome', label='Nome', width=20, card_path='operacao.nome', pos=1),
-    Field(name='tipo', label='Tipo', width=12, options=TIPO_OPERACAO, filter_options=TIPO_OPERACAO, card_path='operacao.tipo'),
-    Field(name='fator', label='Fator', width=8, card_path='operacao.fator'),
-    Field(name='pai', label='Pai', width=30, query='operacao', card_path='operacao.pai.nome'),
-    Field(name='ativa', label='Ativa', input='boolean', card_path='operacao.ativa'),
-    Field(name='ordem', label='Ordem', width=8, input='number', card_path='operacao.ordem'),
-]
-
-OPERACOES_TABLE = Table(fields=OPERACOES_FIELDS, edit_endpoint='operacoes.edit', edit_id_field='operacao.id')
-
-OPERACOES_FILTERS = {
-    'id':     MODE_NUMBER,
-    'nome':   MODE_TEXT,
-    'tipo':   {**MODE_SELECT, 'options': TIPO_OPERACAO},
-    'fator':  MODE_TEXT,
-    'pai':    {**MODE_SELECT, 'filter_path': 'pai.nome'},
-    'ativa':  MODE_BOOLEAN,
-    'ordem':  MODE_NUMBER,
+OPERACOES_FIELDS = {
+        'indice': {'width': 6, 'filter': False, 'pos': 1},
+        'id': {'label': '#', 'width': 7, 'mask': '999.999', 'card_path': 'operacao.id'},
+        'nome': {'width': 20, 'card_path': 'operacao.nome', 'pos': 1},
+        'tipo': {'width': 12, 'options': TIPO_OPERACAO, 'filter_options': TIPO_OPERACAO, 'card_path': 'operacao.tipo'},
+        'fator': {'width': 8, 'card_path': 'operacao.fator'},
+        'pai_id': {'label': 'Pai', 'width': 30, 'input': 'select', 'query': 'operacao', 'query_filter': {'ativa': True, 'pai_id': None}, 'card_path': 'operacao.pai.nome'},
+        'ativa': {'input': 'checkbox', 'card_path': 'operacao.ativa'},
+        'ordem': {'width': 8, 'input': 'number', 'card_path': 'operacao.ordem'},
 }
+
+operacoes_list = {'fields': OPERACOES_FIELDS, 'edit_endpoint': 'operacoes.form', 'edit_id_field': 'operacao.id'}
+
+
+def _operacao_pre_save(instance, request, is_new):
+    if instance.fator is None:
+        instance.fator = 1
+    pai_id = request.form.get("pai_id", type=int) or None
+    instance.nome = _transformar_nome(request.form.get("nome", ""), pai_id)
+    if is_new or (pai_id is not None and pai_id != instance.pai_id):
+        instance.ordem = _auto_ordem(instance.tipo, pai_id)
+    instance.pai_id = pai_id
+    return True
+
+
+operacoes_form = {'model': Operacao, 'redirect': 'operacoes.list', 'entity_label': 'Operacao', 'fields': OPERACOES_FIELDS, 'pre_save': _operacao_pre_save, 'buttons': [{'label': 'Ativar', 'endpoint': 'operacoes.toggle', 'icon': 'bi-toggle-on', 'color': 'success', 'outline': True, 'position': 'nav_right', 'show_if': {'ativo': False}}, {'label': 'Desativar', 'endpoint': 'operacoes.toggle', 'icon': 'bi-toggle-off', 'color': 'success', 'outline': True, 'position': 'nav_right', 'show_if': {'ativo': True}}]}
 
 
 def _transformar_nome(nome, pai_id):
@@ -74,16 +79,18 @@ def plano():
 
 @bp.route("/")
 def list():
-    active = resolve_filters(OPERACOES_FILTERS, request.args)
+    _list = List(**operacoes_list)
+    filter_config = build_filter_config(OPERACOES_FIELDS)
+    active = resolve_filters(filter_config, request.args)
     query = Operacao.query.order_by(Operacao.tipo, Operacao.nome)
-    operacoes_list = query.all()
-    linhas = operacoes_list[:]
+    _operacoes = query.all()
+    linhas = _operacoes[:]
     linhas = apply_boolean_filter(linhas, 'ativa', active.get('ativa'))
     linhas = apply_select_filter(linhas, 'tipo', active.get('tipo'), TIPO_OPERACAO)
     linhas = apply_number_filter(linhas, 'id', active.get('id'))
     linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
     linhas = apply_text_filter(linhas, 'fator', active.get('fator'))
-    linhas = apply_select_filter(linhas, 'pai', active.get('pai'), build_fk_options(Operacao), filter_path='pai.nome')
+    linhas = apply_select_filter(linhas, 'pai_id', active.get('pai_id'), build_fk_options(Operacao), filter_path='pai.nome')
     linhas = apply_number_filter(linhas, 'ordem', active.get('ordem'))
     operacoes = set(r.id for r in linhas)
 
@@ -94,65 +101,14 @@ def list():
             if item["operacao"].id in operacoes:
                 flat_list.append(item)
 
-    ctx = build_field_context(OPERACOES_FIELDS, filters_config=OPERACOES_FILTERS)
-    return render_template("sys_operacoes/list.html", operacoes=flat_list, OPERACOES_TABLE=OPERACOES_TABLE, ctx=ctx, TIPO_OPERACAO=TIPO_OPERACAO, active_filters=active, FILTERS=OPERACOES_FILTERS)
+    ctx = build_field_context(OPERACOES_FIELDS)
+    return render_template("sys_operacoes/list.html", operacoes=flat_list, OPERACOES_LIST=_list, ctx=ctx, TIPO_OPERACAO=TIPO_OPERACAO, active_filters=active, FILTERS=filter_config)
 
 
-@bp.route("/novo", methods=["GET", "POST"])
-def new():
-    if request.method == "POST":
-        pai_id = request.form.get("pai_id", type=int) or None
-        nome = _transformar_nome(request.form["nome"], pai_id)
-        operacao = Operacao(
-            nome=nome,
-            tipo=request.form["tipo"],
-            pai_id=pai_id,
-            ordem=_auto_ordem(request.form["tipo"], pai_id),
-            fator=request.form.get("fator", 1, type=int),
-            ativa=request.form.get("ativa") in ("on", "1", 1, True),
-        )
-        db.session.add(operacao)
-        db.session.commit()
-        flash("Operacao cadastrada!", "success")
-        return redirect(url_for("operacoes.list"))
-    paises = Operacao.query.filter(Operacao.ativa == True, Operacao.pai_id.is_(None)).order_by(Operacao.tipo, Operacao.nome).all()
-    return render_template("sys_operacoes/form.html", TIPO_OPERACAO=TIPO_OPERACAO, paises=paises)
-
-
+@bp.route("/novo", defaults={"id": None}, methods=["GET", "POST"])
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
-def edit(id):
-    operacao = Operacao.query.get(id)
-    if not operacao:
-        flash("Codigo inexistente", "warning")
-        return redirect(url_for("operacoes.list"))
-    if request.method == "POST":
-        pai_id = request.form.get("pai_id", type=int) or None
-        operacao.nome = _transformar_nome(request.form["nome"], pai_id)
-        operacao.tipo = request.form["tipo"]
-        if operacao.pai_id != pai_id:
-            operacao.pai_id = pai_id
-            operacao.ordem = _auto_ordem(operacao.tipo, pai_id)
-        operacao.fator = request.form.get("fator", 1, type=int)
-        operacao.ativa = request.form.get("ativa") in ("on", "1", 1, True)
-        db.session.commit()
-        flash("Operacao atualizada!", "success")
-        return redirect(url_for("operacoes.list"))
-
-    query = Operacao.query.with_entities(Operacao.id).order_by(Operacao.id)
-    ids = [r.id for r in query.all()]
-    try:
-        current_idx = ids.index(id)
-        nav = {
-            "first_id": ids[0],
-            "last_id": ids[-1],
-            "prev_id": ids[current_idx - 1] if current_idx > 0 else None,
-            "next_id": ids[current_idx + 1] if current_idx < len(ids) - 1 else None,
-        }
-    except ValueError:
-        nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
-
-    paises = Operacao.query.filter(Operacao.ativa == True, Operacao.id != id, Operacao.pai_id.is_(None)).order_by(Operacao.tipo, Operacao.nome).all()
-    return render_template("sys_operacoes/form.html", operacao=operacao, nav=nav, TIPO_OPERACAO=TIPO_OPERACAO, paises=paises)
+def form(id):
+    return handle_form(operacoes_form, id)
 
 
 @bp.route("/<int:id>/uso")
@@ -171,7 +127,7 @@ def delete(id):
             f"Remova os vinculos primeiro.",
             "danger",
         )
-        return redirect(url_for("operacoes.edit", id=id))
+        return redirect(url_for("operacoes.form", id=id))
     db.session.delete(operacao)
     db.session.commit()
     flash("Operacao excluida!", "success")
@@ -184,7 +140,7 @@ def toggle(id):
     operacao.ativa = not operacao.ativa
     db.session.commit()
     flash("Operacao atualizada!", "success")
-    return redirect(url_for("operacoes.edit", id=id))
+    return redirect(url_for("operacoes.form", id=id))
 
 
 @bp.route("/print")

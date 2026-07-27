@@ -173,7 +173,7 @@
 </div>
 {% endmacro %}
 
-{% macro action_list(title, new_url=none, new_label='Novo', extra_actions=none, active_filters=none, filters=none, ctx=none) %}
+{% macro action_page(title, new_url=none, new_label='Novo', extra_actions=none, active_filters=none, filters=none, ctx=none) %}
 <div style="display:flex;flex-direction:column;align-items:center;">
 <div class="page-list-inner">
 <div class="page-list-header d-flex align-items-center px-2 py-1 gap-2" data-active-filters='{{ active_filters|tojson if active_filters else "{}" }}' data-filter-config='{{ filters|tojson if filters else "{}" }}' data-filter-options='{{ ctx.filter_options|tojson if ctx and ctx.filter_options else "{}" }}' style="border-bottom:1px solid #dee2e6;background:#fff;flex-wrap:wrap;width:100%;">
@@ -360,41 +360,40 @@ window.pageListFilter = true;
       group.className = 'filter-group';
 
       if (type === 'text') {
-        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="d-flex gap-1">';
-        var m = document.createElement('select'); m.className='form-select form-select-sm'; m.style.width='auto';
-        m.dataset.field=field; m.dataset.subtype='mode';
+        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="input-group input-group-sm" style="width:280px">';
+        var ms = document.createElement('select'); ms.className='form-select form-select-sm'; ms.style.flex='0 0 auto'; ms.style.width='auto';
+        ms.dataset.field=field; ms.dataset.subtype='mode';
         (cfg.modes||[['igual','Igual a'],['contains','Contém'],['starts','Começa']]).forEach(function(p){
           var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
-          if(filterState[field+'_mode']===p[0]) o.selected=true; m.appendChild(o);
+          if(filterState[field+'_mode']===p[0]) o.selected=true; ms.appendChild(o);
         });
-        group.lastChild.appendChild(m);
+        group.lastChild.appendChild(ms);
         var i=document.createElement('input'); i.type='text'; i.className='form-control form-control-sm';
-        i.style.width='200px';
+        i.style.flex='1 1 auto'; i.style.minWidth='100px';
         i.dataset.field=field; i.dataset.subtype='value';
         if(filterState[field+'_value']) i.value=filterState[field+'_value'];
         group.lastChild.appendChild(i);
 
       } else if (type === 'number') {
-        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="d-flex gap-1 align-items-center flex-wrap">';
-        var ms = document.createElement('select'); ms.className='form-select form-select-sm'; ms.style.width='auto';
+        group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="input-group input-group-sm" style="width:320px">';
+        var ms = document.createElement('select'); ms.className='form-select form-select-sm'; ms.style.flex='0 0 auto'; ms.style.width='auto';
         ms.dataset.field=field; ms.dataset.subtype='mode';
         (cfg.modes||[['igual','Igual a'],['entre','Entre'],['maior_que','Maior que'],['maior_igual','Maior ou igual a'],['menor_que','Menor que'],['menor_igual','Menor ou igual a']]).forEach(function(p){
           var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
           if(filterState[field+'_mode']===p[0]) o.selected=true; ms.appendChild(o);
         });
         group.lastChild.appendChild(ms);
-        var nw = 120;
-        var nd = document.createElement('div'); nd.className='d-inline-flex gap-1 align-items-center number-value-area';
-        var v1 = document.createElement('input'); v1.type='number'; v1.className='form-control form-control-sm'; v1.style.width=nw+'px';
+        var v1 = document.createElement('input'); v1.type='number'; v1.className='form-control form-control-sm';
+        v1.style.flex='1 1 auto'; v1.style.minWidth='100px';
         v1.dataset.field=field; v1.dataset.subtype='val1';
         if(filterState[field+'_val1']) v1.value=filterState[field+'_val1'];
-        nd.appendChild(v1);
-        var v2 = document.createElement('input'); v2.type='number'; v2.className='form-control form-control-sm'; v2.style.width=nw+'px';
+        group.lastChild.appendChild(v1);
+        var v2 = document.createElement('input'); v2.type='number'; v2.className='form-control form-control-sm';
+        v2.style.flex='1 1 auto'; v2.style.minWidth='100px';
         v2.dataset.field=field; v2.dataset.subtype='val2';
         if(filterState[field+'_val2']) v2.value=filterState[field+'_val2'];
         v2.style.display = (ms.value==='entre')?'':'none';
-        nd.appendChild(v2);
-        group.lastChild.appendChild(nd);
+        group.lastChild.appendChild(v2);
         ms.addEventListener('change',function(){
           v2.style.display = (this.value==='entre')?'':'none';
         });
@@ -546,7 +545,7 @@ window.pageListFilter = true;
 </script>
 {% endmacro %}
 
-{% macro action_table(data, columns=none, fields=none, ctx=none, edit_url=none, send_endpoint=none, empty_msg='Nenhum registro encontrado.', card_id_field=none, card_label_field=none, card_status_field=none, edit_endpoint=none, edit_id_field='id', edit_endpoint_map=none, edit_endpoint_key=none, edit_if_field=none, table=none, detail_fields=none, detail_data=none) %}
+{% macro action_list(data, columns=none, fields=none, ctx=none, edit_url=none, send_endpoint=none, empty_msg='Nenhum registro encontrado.', card_id_field=none, card_label_field=none, card_status_field=none, edit_endpoint=none, edit_id_field='id', edit_endpoint_map=none, edit_endpoint_key=none, edit_if_field=none, table=none, detail_fields=none, detail_data=none) %}
 {% if table %}
   {% set fields = table.master_fields %}
   {% set edit_endpoint = table.edit_endpoint %}
@@ -611,7 +610,7 @@ window.pageListFilter = true;
             {{ col.options.get(_raw, _raw) }}
           {%- elif col.currency and _raw is not none %}
             {{ _raw|brl }}
-          {%- elif col.input == 'boolean' and _raw is not none %}
+          {%- elif col.input in ('boolean', 'checkbox') and _raw is not none %}
             {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
           {%- elif col.link and _raw is not none %}
             <a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>
@@ -624,7 +623,8 @@ window.pageListFilter = true;
         {% if edit_url %}
         <td onclick="event.stopPropagation();"><div class="d-flex gap-1">{{ action_edit(edit_url(_master)) }}{% if send_endpoint %}{% set _send_id = _master|deep_attr(edit_id_field) %}{{ action_send(url_for(send_endpoint, id=_send_id)) }}{% endif %}</div></td>
         {% elif edit_endpoint_map %}
-        {% set _ep = edit_endpoint_map.get(edit_endpoint_key) %}
+        {% set _key = _master|deep_attr(edit_endpoint_key) %}
+        {% set _ep = edit_endpoint_map.get(_key) if _key else None %}
         {% if _ep %}
         {% set _item_id = _master|deep_attr(edit_id_field) %}
         {% if _item_id is not none and (not edit_if_field or _master|deep_attr(edit_if_field) is not none) %}
@@ -647,7 +647,7 @@ window.pageListFilter = true;
             {% set _raw = _master|deep_attr(col.card_path or col.field) %}
             <div data-field="{{ col.field }}" class="overflow-field">
               <div class="overflow-label">{{ col.label }}</div>
-              <div class="overflow-value">{% if col.function %}{{ col.function(_master) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input == 'boolean' and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(_master) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
             </div>
             {% endif %}
             {% endfor %}
@@ -699,7 +699,7 @@ window.pageListFilter = true;
                       {{ dcol.options.get(_raw, _raw) }}
                     {% elif dcol.currency and _raw is not none %}
                       {{ _raw|brl }}
-                    {% elif dcol.input == 'boolean' and _raw is not none %}
+                    {% elif dcol.input in ('boolean', 'checkbox') and _raw is not none %}
                       {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
                     {% elif dcol.link and _raw is not none %}
                       <a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>
@@ -742,7 +742,7 @@ window.pageListFilter = true;
             {{ col.options.get(_raw, _raw) }}
           {%- elif col.currency and _raw is not none %}
             {{ _raw|brl }}
-          {%- elif col.input == 'boolean' and _raw is not none %}
+          {%- elif col.input in ('boolean', 'checkbox') and _raw is not none %}
             {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
           {%- elif col.link and _raw is not none %}
             <a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>
@@ -755,7 +755,8 @@ window.pageListFilter = true;
         {% if edit_url %}
         <td onclick="event.stopPropagation();" ><div class="d-flex gap-1">{{ action_edit(edit_url(item)) }}{% if send_endpoint %}{% set _send_id = item|deep_attr(edit_id_field) %}{{ action_send(url_for(send_endpoint, id=_send_id)) }}{% endif %}</div></td>
         {% elif edit_endpoint_map %}
-        {% set _ep = edit_endpoint_map.get(edit_endpoint_key) %}
+        {% set _key = item|deep_attr(edit_endpoint_key) %}
+        {% set _ep = edit_endpoint_map.get(_key) if _key else None %}
         {% if _ep %}
         {% set _item_id = item|deep_attr(edit_id_field) %}
         {% if _item_id is not none and (not edit_if_field or item|deep_attr(edit_if_field) is not none) %}
@@ -779,7 +780,7 @@ window.pageListFilter = true;
             {% set _raw = item|deep_attr(col.card_path or col.field) %}
             <div data-field="{{ col.field }}" class="overflow-field">
               <div class="overflow-label">{{ col.label }}</div>
-              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input == 'boolean' and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
             </div>
             {% endif %}
             {% endfor %}
@@ -806,7 +807,7 @@ window.pageListFilter = true;
                       {{ dcol.options.get(_raw, _raw) }}
                     {% elif dcol.currency and _raw is not none %}
                       {{ _raw|brl }}
-                    {% elif dcol.input == 'boolean' and _raw is not none %}
+                    {% elif dcol.input in ('boolean', 'checkbox') and _raw is not none %}
                       {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
                     {% elif dcol.link and _raw is not none %}
                       <a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>
@@ -852,7 +853,7 @@ window.pageListFilter = true;
             {{ col.options.get(_raw, _raw) }}
           {%- elif col.currency and _raw is not none %}
             {{ _raw|brl }}
-          {%- elif col.input == 'boolean' and _raw is not none %}
+          {%- elif col.input in ('boolean', 'checkbox') and _raw is not none %}
             {% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}
           {%- elif col.link and _raw is not none %}
             <a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>
@@ -865,7 +866,8 @@ window.pageListFilter = true;
         {% if edit_url %}
         <td onclick="event.stopPropagation();"><div class="d-flex gap-1">{{ action_edit(edit_url(item)) }}{% if send_endpoint %}{% set _send_id = item|deep_attr(edit_id_field) %}{{ action_send(url_for(send_endpoint, id=_send_id)) }}{% endif %}</div></td>
         {% elif edit_endpoint_map %}
-        {% set _ep = edit_endpoint_map.get(edit_endpoint_key) %}
+        {% set _key = item|deep_attr(edit_endpoint_key) %}
+        {% set _ep = edit_endpoint_map.get(_key) if _key else None %}
         {% if _ep %}
         {% set _item_id = item|deep_attr(edit_id_field) %}
         {% if _item_id is not none and (not edit_if_field or item|deep_attr(edit_if_field) is not none) %}
@@ -888,7 +890,7 @@ window.pageListFilter = true;
             {% set _raw = item|deep_attr(col.card_path or col.field) %}
             <div data-field="{{ col.field }}" class="overflow-field">
               <div class="overflow-label">{{ col.label }}</div>
-              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input == 'boolean' and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
             </div>
             {% endif %}
             {% endfor %}

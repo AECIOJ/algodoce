@@ -1,0 +1,149 @@
+<div class="card mb-3">
+  <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+    <span>Itens da Compra</span>
+  </div>
+  <div class="card-body p-0">
+    {% set items_total = namespace(valor=0) %}
+    {% if instance and instance.items %}
+      {% for ci in instance.items %}
+        {% set items_total.valor = items_total.valor + (ci.preco|float * ci.quantidade|float) %}
+      {% endfor %}
+    {% endif %}
+
+    <div class="table-responsive d-none d-md-block">
+      <table class="table mb-0" id="itens-table">
+        <thead>
+          <tr>
+            <th style="min-width:200px">Insumo</th>
+            <th class="text-end">Quantidade</th>
+            <th class="text-end">Preço Unit.</th>
+            <th class="text-end">Valor</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody id="itens-container">
+          {% if instance and instance.items %}
+            {% for ci in instance.items %}
+            <tr class="item-row">
+              <td>
+                <select name="insumo_id[]" class="form-select form-select-sm" onchange="calcValor(this)" {{ 'disabled' if ro }}>
+                  <option value="">Selecione...</option>
+                  {% for ins in insumos %}
+                    <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="text-end">
+                <div class="d-flex align-items-center justify-content-end gap-1">
+                  <input type="number" name="quantidade[]" class="form-control form-control-sm text-end" step="0.001" min="0" oninput="calcValor(this)" value="{{ ci.quantidade }}" {{ 'disabled' if ro }}>
+                  <span class="unidade-display text-muted small"></span>
+                </div>
+              </td>
+              <td class="text-end">
+                <input type="number" name="preco[]" class="form-control form-control-sm text-end preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}" {{ 'disabled' if ro }}>
+              </td>
+              <td class="text-end">
+                <span class="valor-item">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
+              </td>
+              <td class="text-center">
+                <input type="hidden" name="item_id[]" value="{{ ci.id }}">
+                <input type="hidden" name="item_remover[]" value="0">
+                {% if not ro %}<button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% endif %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th colspan="3" class="text-end">Total</th>
+            <th id="total-geral" class="text-end">R$ {{ items_total.valor|brl }}</th>
+            <input type="hidden" id="total-display" value="{{ '%.2f'|format(items_total.valor) }}">
+            <th></th>
+          </tr>
+          {% if not ro %}
+          <tr id="add-item-row">
+            <td colspan="5">
+              <button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" onclick="addItem()"><i class="bi bi-plus-lg"></i> Adicionar Item</button>
+            </td>
+          </tr>
+          {% endif %}
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="d-md-none" id="itens-mobile-container">
+      {% if instance and instance.items %}
+        {% for ci in instance.items %}
+        <div class="px-3 py-2 border-bottom item-mobile-card">
+          <select name="insumo_id[]" class="form-select form-select-sm mb-1" onchange="calcValor(this)" {{ 'disabled' if ro }}>
+            <option value="">Selecione...</option>
+            {% for ins in insumos %}
+              <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}" {% if ci.insumo_id == ins.id %}selected{% endif %}>{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+            {% endfor %}
+          </select>
+          <div class="row g-1 align-items-center">
+            <div class="col-4">
+              <span class="card-label">Qtd</span>
+              <div class="d-flex align-items-center gap-1">
+                <input type="number" name="quantidade[]" class="form-control form-control-sm" step="0.001" min="0" oninput="calcValor(this)" value="{{ ci.quantidade }}" {{ 'disabled' if ro }}>
+                <span class="unidade-display text-muted small"></span>
+              </div>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Preço</span>
+              <input type="number" name="preco[]" class="form-control form-control-sm preco-input" step="0.01" min="0" oninput="calcValor(this)" value="{{ ci.preco }}" {{ 'disabled' if ro }}>
+            </div>
+            <div class="col-4">
+              <span class="card-label">Valor</span><br>
+              <span class="valor-item fw-bold">R$ {{ ((ci.preco or 0) * (ci.quantidade or 0))|brl }}</span>
+            </div>
+          </div>
+          <input type="hidden" name="item_id[]" value="{{ ci.id }}">
+          <input type="hidden" name="item_remover[]" value="0">
+          {% if not ro %}<button type="button" class="btn btn-danger btn-sm mt-1" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>{% endif %}
+        </div>
+        {% endfor %}
+      {% endif %}
+      <div class="px-3 py-2 d-flex justify-content-between fw-bold border-bottom">
+        <span>Total</span>
+        <span id="total-geral-mobile">R$ {{ items_total.valor|brl }}</span>
+      </div>
+      {% if not ro %}
+      <div class="px-3 py-2">
+        <button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" onclick="addItemMobile()"><i class="bi bi-plus-lg"></i> Adicionar Item</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<template id="item-template">
+  <tr class="item-row">
+    <td>
+      <select name="insumo_id[]" class="form-select form-select-sm" onchange="calcValor(this)">
+        <option value="">Selecione...</option>
+        {% for ins in insumos %}
+          <option value="{{ ins.id }}" data-unidade="{{ ins.unidade_medida }}">{{ ins.nome }} ({{ ins.unidade_medida }})</option>
+        {% endfor %}
+      </select>
+    </td>
+    <td class="text-end">
+      <div class="d-flex align-items-center justify-content-end gap-1">
+        <input type="number" name="quantidade[]" class="form-control form-control-sm text-end" step="0.001" min="0" oninput="calcValor(this)">
+        <span class="unidade-display text-muted small"></span>
+      </div>
+    </td>
+    <td class="text-end">
+      <input type="number" name="preco[]" class="form-control form-control-sm text-end preco-input" step="0.01" min="0" oninput="calcValor(this)">
+    </td>
+    <td class="text-end">
+      <span class="valor-item">R$ 0,00</span>
+    </td>
+    <td class="text-center">
+      <input type="hidden" name="item_id[]" value="">
+      <input type="hidden" name="item_remover[]" value="0">
+      <button type="button" class="btn btn-danger btn-sm" onclick="removerItem(this)"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+    </td>
+  </tr>
+</template>
