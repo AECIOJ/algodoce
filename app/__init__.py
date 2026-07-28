@@ -125,35 +125,35 @@ def create_app():
 
         from app.list import register_model
 
-        from app.routes import sys_contas as contas, sys_produtos, sys_insumos, sys_pedidos, sys_compras
-        from app.routes import site, uploads, site_vitrine, site_orcamento
-        from app.routes import sys_categorias, sys_producao, sys_operacoes, sys_recursos, sys_transacao, sys_movimentos, sys_transferencias, sys_api, sys_orcamentos, sys_relatorios
+        from app.routes.sys import categorias, produtos, insumos, pedidos, compras, contas
+        from app.routes.sys import producao, operacoes, recursos, transacao, movimentos
+        from app.routes.sys import transferencias, api, orcamentos, relatorios, carteira
+        from app.routes.site import publico as site, vitrine, orcamento
+        from app.routes import uploads
         from app.routes.sys_auth import bp as auth, bp_seguranca as seguranca
 
         app.register_blueprint(contas.bp)
-        app.register_blueprint(sys_produtos.bp)
-        app.register_blueprint(sys_insumos.bp)
-        app.register_blueprint(sys_pedidos.bp)
-        app.register_blueprint(sys_compras.bp)
+        app.register_blueprint(produtos.bp)
+        app.register_blueprint(insumos.bp)
+        app.register_blueprint(pedidos.bp)
+        app.register_blueprint(compras.bp)
+        app.register_blueprint(categorias.bp)
+        app.register_blueprint(producao.bp)
+        app.register_blueprint(operacoes.bp)
+        app.register_blueprint(recursos.bp)
+        app.register_blueprint(transacao.bp)
+        app.register_blueprint(movimentos.bp)
+        app.register_blueprint(transferencias.bp)
+        app.register_blueprint(api.bp)
+        app.register_blueprint(orcamentos.bp)
+        app.register_blueprint(relatorios.bp)
+        app.register_blueprint(carteira.bp)
         app.register_blueprint(auth)
         app.register_blueprint(site.bp)
         app.register_blueprint(uploads.bp)
-        app.register_blueprint(site_vitrine.bp)
-        app.register_blueprint(site_orcamento.bp)
-        app.register_blueprint(sys_categorias.bp)
+        app.register_blueprint(vitrine.bp)
+        app.register_blueprint(orcamento.bp)
         app.register_blueprint(seguranca)
-        app.register_blueprint(sys_producao.bp)
-        app.register_blueprint(sys_operacoes.bp)
-        app.register_blueprint(sys_recursos.bp)
-        app.register_blueprint(sys_transacao.bp)
-        app.register_blueprint(sys_movimentos.bp)
-        app.register_blueprint(sys_transferencias.bp)
-        app.register_blueprint(sys_api.bp)
-        app.register_blueprint(sys_orcamentos.bp)
-        app.register_blueprint(sys_relatorios.bp)
-
-        from app.routes.sys_carteira import bp as carteira_bp
-        app.register_blueprint(carteira_bp)
         register_model('category', Category)
         register_model('conta', Conta)
         register_model('operacao', Operacao)
@@ -233,6 +233,17 @@ def create_app():
         versao = f"v1.{ano}.{mes}-{seq}"
         usuario = (current_user.username if current_user.is_authenticated else "Visitante").upper()
         return dict(versao=versao, usuario=usuario)
+
+    @app.context_processor
+    def inject_app_config():
+        import json
+        from app.routes.app_defs import APP
+        from app.engine.menu import modulo_atual, menus_para_json
+        return {
+            'APP': APP,
+            'modulo': modulo_atual(),
+            'modulo_menus_json': json.dumps(menus_para_json()),
+        }
 
     @app.context_processor
     def inject_site_categories():

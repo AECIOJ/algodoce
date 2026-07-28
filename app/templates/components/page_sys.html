@@ -15,47 +15,25 @@
   <nav class="menu d-none d-lg-flex navbar navbar-expand-lg navbar-dark px-2" style="background-color:var(--cor-menu);">
     <div class="navbar-nav w-100 d-flex align-items-center">
       <div class="d-flex justify-content-center flex-grow-1 gap-1">
-        <a class="nav-link" href="{{ url_for('categories.list') }}">Cadastro</a>
-        <a class="nav-link" href="/orcamentos">Comercial</a>
-        <a class="nav-link" href="/producao">Produção</a>
-        <a class="nav-link" href="{{ url_for('transacao.pagar_list') }}">Financeiro</a>
+        {% for label, item in modulo.menus.items() %}
+        <a class="nav-link"{% if item.submenus %} data-menu="{{ label|lower }}"{% endif %}
+           href="{% if item.submenus %}#{% else %}{{ url_for(item.endpoint) }}{% endif %}">{{ label }}</a>
+        {% endfor %}
       </div>
       <a class="nav-link" href="/logout" style="color:#fff!important;"><img src="/static/icons/log-out.svg" alt="Encerrar" style="height:1.2em;vertical-align:middle;filter:brightness(0)invert(1);"> Sair</a>
     </div>
   </nav>
-  <div class="submenu-section d-none" id="cadastroSection">
+  {% for label, item in modulo.menus.items() if item.submenus %}
+  <div class="submenu-section d-none" id="{{ label|lower }}Section">
     <div class="container">
       <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
-        <a href="{{ url_for('categories.list') }}" class="bar-link-lg text-decoration-none">Categorias</a>
-        <a href="{{ url_for('insumos.list') }}" class="bar-link-lg text-decoration-none">Insumos</a>
-        <a href="{{ url_for('products.list') }}" class="bar-link-lg text-decoration-none">Produtos</a>
-        <a href="{{ url_for('contas.list') }}" class="bar-link-lg text-decoration-none">Contas</a>
-        <a href="{{ url_for('operacoes.list') }}" class="bar-link-lg text-decoration-none">Operações</a>
-        <a href="{{ url_for('carteira.list') }}" class="bar-link-lg text-decoration-none">Carteiras</a>
+        {% for sm_label, sm_item in item.submenus.items() %}
+        <a href="{{ url_for(sm_item.endpoint) }}" class="bar-link-lg text-decoration-none">{{ sm_label }}</a>
+        {% endfor %}
       </div>
     </div>
   </div>
-  <div class="submenu-section d-none" id="comercialSection">
-    <div class="container">
-      <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
-        <a href="/orcamentos" class="bar-link-lg text-decoration-none">Orçamentos</a>
-        <a href="/pedidos" class="bar-link-lg text-decoration-none">Pedidos</a>
-        <a href="/compras/" class="bar-link-lg text-decoration-none">Compras</a>
-      </div>
-    </div>
-  </div>
-  <div class="submenu-section d-none" id="financeiroSection">
-    <div class="container">
-      <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
-        <a href="{{ url_for('recursos.list') }}" class="bar-link-lg text-decoration-none">Recursos</a>
-        <a href="{{ url_for('transacao.receber_list') }}" class="bar-link-lg text-decoration-none">Contas a Receber</a>
-        <a href="{{ url_for('transacao.pagar_list') }}" class="bar-link-lg text-decoration-none">Contas a Pagar</a>
-        <a href="{{ url_for('movimentos.recebimentos_list') }}" class="bar-link-lg text-decoration-none">Recebimentos</a>
-        <a href="{{ url_for('movimentos.pagamentos_list') }}" class="bar-link-lg text-decoration-none">Pagamentos</a>
-        <a href="{{ url_for('transferencias.trf_list') }}" class="bar-link-lg text-decoration-none">Transferências</a>
-      </div>
-    </div>
-  </div>
+  {% endfor %}
 </div>
 {% endblock %}
 
@@ -77,22 +55,19 @@
 
 {% block after_content %}
 <nav class="bottom-nav d-lg-none" id="adminBottomNav">
-  <a href="#" class="bottom-nav-item" data-admin-nav="cadastro">
-    <span class="bottom-nav-icon"><i class="bi bi-journal"></i></span>
-    <span class="bottom-nav-label">Cadastro</span>
-  </a>
-  <a href="#" class="bottom-nav-item" data-admin-nav="comercial">
-    <span class="bottom-nav-icon"><i class="bi bi-cart"></i></span>
-    <span class="bottom-nav-label">Comercial</span>
-  </a>
-  <a href="/producao" class="bottom-nav-item" data-admin-nav="producao">
-    <span class="bottom-nav-icon"><i class="bi bi-gear"></i></span>
-    <span class="bottom-nav-label">Produção</span>
-  </a>
-  <a href="#" class="bottom-nav-item" data-admin-nav="financeiro">
-    <span class="bottom-nav-icon"><i class="bi bi-cash-stack"></i></span>
-    <span class="bottom-nav-label">Financeiro</span>
-  </a>
+  {% for label, item in modulo.menus.items() %}
+    {% if item.submenus %}
+    <a href="#" class="bottom-nav-item" data-admin-nav="{{ label|lower }}">
+      <span class="bottom-nav-icon"><i class="bi {{ item.icon }}"></i></span>
+      <span class="bottom-nav-label">{{ label }}</span>
+    </a>
+    {% else %}
+    <a href="{{ url_for(item.endpoint) }}" class="bottom-nav-item" data-admin-nav="{{ label|lower }}">
+      <span class="bottom-nav-icon"><i class="bi {{ item.icon }}"></i></span>
+      <span class="bottom-nav-label">{{ label }}</span>
+    </a>
+    {% endif %}
+  {% endfor %}
 </nav>
 {% endblock %}
 
@@ -304,38 +279,8 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <script>
-var SUB_NAV_SECTIONS = {
-  cadastro: {
-    title: 'Cadastro',
-    items: [
-      { label: 'Categorias', url: '/categorias/', icon: 'bi-journal' },
-      { label: 'Insumos', url: '/insumos', icon: 'bi-box-seam' },
-      { label: 'Produtos', url: '/produtos', icon: 'bi-gift' },
-      { label: 'Contas', url: '/contas', icon: 'bi-people' },
-      { label: 'Operações', url: '/operacoes/', icon: 'bi-tags' },
-      { label: 'Carteiras', url: '/carteira/', icon: 'bi-wallet2' }
-    ]
-  },
-  comercial: {
-    title: 'Comercial',
-    items: [
-      { label: 'Orçamentos', url: '/orcamentos', icon: 'bi-file-text' },
-      { label: 'Pedidos', url: '/pedidos', icon: 'bi-cart' },
-      { label: 'Compras', url: '/compras/', icon: 'bi-bag' }
-    ]
-  },
-  financeiro: {
-    title: 'Financeiro',
-    items: [
-      { label: 'Recursos', url: '/recursos/', icon: 'bi-piggy-bank' },
-      { label: 'Contas a Receber', url: '/transacao/receber/', icon: 'bi-arrow-down-circle' },
-      { label: 'Contas a Pagar', url: '/transacao/pagar/', icon: 'bi-arrow-up-circle' },
-      { label: 'Recebimentos', url: '/movimentos/recebimentos', icon: 'bi-cash' },
-      { label: 'Pagamentos', url: '/movimentos/pagamentos', icon: 'bi-credit-card' },
-      { label: 'Transferências', url: '/transferencias', icon: 'bi-arrow-left-right' }
-    ]
-  }
-};
+var SUB_NAV_SECTIONS = {{ modulo_menus_json|safe }};
+
 function matchPath(path, prefix) {
   path = path.replace(/\/+$/, '');
   prefix = prefix.replace(/\/+$/, '');
@@ -378,9 +323,12 @@ function setMobileTitle() {
       }
     }
   }
-  var sectionNames = { cadastro: 'Cadastro', comercial: 'Comercial', producao: 'Produção', financeiro: 'Financeiro' };
-  for (var key in sectionNames) {
-    if (matchPath(path, '/' + key)) { titleEl.textContent = sectionNames[key]; return; }
+  var sectionKeys = Object.keys(SUB_NAV_SECTIONS);
+  for (var k = 0; k < sectionKeys.length; k++) {
+    if (matchPath(path, '/' + sectionKeys[k])) {
+      titleEl.textContent = SUB_NAV_SECTIONS[sectionKeys[k]].title;
+      return;
+    }
   }
   titleEl.textContent = '';
 }
@@ -388,7 +336,7 @@ document.addEventListener('click', function(e) {
   var bnItem = e.target.closest('.bottom-nav-item');
   if (bnItem) {
     var navKey = bnItem.getAttribute('data-admin-nav');
-    if (navKey === 'producao') return;
+    if (navKey && !SUB_NAV_SECTIONS[navKey]) return;
     e.preventDefault();
     window.openSubNav(navKey);
     return;
@@ -405,7 +353,6 @@ document.addEventListener('click', function(e) {
 });
 var sectionLinks = document.querySelectorAll('.navbar-nav .d-flex .nav-link');
 var allNavLinks = document.querySelectorAll('.navbar-nav .nav-link');
-var cadastroSection = document.getElementById('cadastroSection');
 function setActive(links, el) { links.forEach(function(l) { l.classList.remove('active'); }); if (el) el.classList.add('active'); }
 function activateSection(section, path) {
   if (section) {
@@ -416,38 +363,35 @@ function activateSection(section, path) {
   }
 }
 var path = window.location.pathname;
-var cadastroPaths = ['/categorias/', '/insumos', '/produtos', '/contas', '/operacoes/', '/carteira/'];
-var comercialPaths = ['/orcamentos', '/pedidos', '/compras/'];
-var financeiroPaths = ['/recursos/', '/movimentos', '/transacao/pagar/', '/transacao/receber/', '/transferencias'];
-var onCadastro = cadastroPaths.some(function(p) { return matchPath(path, p); });
-var onComercial = comercialPaths.some(function(p) { return matchPath(path, p); });
-var onFinanceiro = financeiroPaths.some(function(p) { return matchPath(path, p); });
-var onProducao = matchPath(path, '/producao');
-if (onFinanceiro) {
-  activateSection(document.getElementById('financeiroSection'), path);
-  if (sectionLinks[3]) setActive(allNavLinks, sectionLinks[3]);
-} else if (onComercial) {
-  activateSection(document.getElementById('comercialSection'), path);
-  if (sectionLinks[1]) setActive(allNavLinks, sectionLinks[1]);
-} else if (onProducao) {
-  if (sectionLinks[2]) setActive(allNavLinks, sectionLinks[2]);
-} else if (onCadastro) {
-  activateSection(cadastroSection, path);
-  if (sectionLinks[0]) setActive(allNavLinks, sectionLinks[0]);
-} else {
+var activeFound = false;
+for (var key in SUB_NAV_SECTIONS) {
+  var section = SUB_NAV_SECTIONS[key];
+  var sectionEl = document.getElementById(key + 'Section');
+  var isCurrent = false;
+  for (var i = 0; i < section.items.length; i++) {
+    if (matchPath(path, section.items[i].url)) { isCurrent = true; break; }
+  }
+  if (isCurrent) {
+    var navIdx = Array.from(sectionLinks).findIndex(function(l) { return l.textContent.trim().toLowerCase() === section.title.toLowerCase(); });
+    if (navIdx >= 0) setActive(allNavLinks, sectionLinks[navIdx]);
+    activateSection(sectionEl, path);
+    activeFound = true;
+  }
+}
+if (!activeFound) {
   allNavLinks.forEach(function(l) {
     var href = l.getAttribute('href');
+    if (matchPath(path, '/producao') && l.textContent.trim() === 'Produção') setActive(allNavLinks, l);
     if (href && href !== '#' && matchPath(path, href)) setActive(allNavLinks, l);
   });
 }
-var navMap = {
-  cadastro: cadastroPaths, comercial: comercialPaths,
-  producao: ['/producao'], financeiro: financeiroPaths
-};
 document.querySelectorAll('#adminBottomNav .bottom-nav-item').forEach(function(item) {
   var nav = item.getAttribute('data-admin-nav');
-  if (nav && navMap[nav].some(function(p) { return matchPath(path, p); })) {
-    item.classList.add('active');
+  if (nav && SUB_NAV_SECTIONS[nav]) {
+    var section = SUB_NAV_SECTIONS[nav];
+    for (var i = 0; i < section.items.length; i++) {
+      if (matchPath(path, section.items[i].url)) { item.classList.add('active'); break; }
+    }
   }
 });
 setMobileTitle();
