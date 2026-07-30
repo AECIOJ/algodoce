@@ -44,11 +44,11 @@ def list():
     )
 
 
-recursos_form = {'model': Recurso, 'redirect': 'recursos.list', 'fields': RECURSOS_FIELDS}
+Form = {'model': Recurso, 'redirect': 'recursos.list', 'fields': RECURSOS_FIELDS}
 
 
 @bp.route("/novo", defaults={"id": None}, methods=["GET", "POST"])
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
 @login_required
 def form(id):
-    return handle_form(recursos_form, id)
+    return handle_form(Form, id)

@@ -56,39 +56,10 @@ def create_app():
         db,
         directory=os.path.join(os.path.dirname(__file__), "migrations"),
     )
-    login_manager.init_app(app)
+    from app.engine.auth import init_auth
+    init_auth(app)
 
     from app.models.user import User
-
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
-
-    @login_manager.unauthorized_handler
-    def unauthorized():
-        from flask import redirect, url_for
-        return redirect(url_for('site.index'))
-
-    import time as _time
-
-    @app.before_request
-    def check_session_timeout():
-        from flask import redirect, url_for, session, request as _req, current_app
-        from flask_login import current_user, logout_user
-        if current_app.config.get('SESSION_TIMEOUT', 0) <= 0:
-            return
-        if not current_user.is_authenticated:
-            return
-        if _req.endpoint in ('auth.keepalive',):
-            return
-        now = _time.time()
-        last = session.get('_last_activity')
-        timeout = current_app.config['SESSION_TIMEOUT'] * 60
-        if last and (now - last) > timeout:
-            logout_user()
-            session.clear()
-            return redirect(url_for('site.index'))
-        session['_last_activity'] = now
 
     @app.after_request
     def no_static_cache(response):
@@ -130,7 +101,7 @@ def create_app():
         from app.routes.sys import transferencias, api, orcamentos, relatorios, carteira
         from app.routes.site import publico as site, vitrine, orcamento
         from app.routes import uploads
-        from app.routes.sys_auth import bp as auth, bp_seguranca as seguranca
+        from app.engine.auth_routes import bp as auth, bp_seguranca as seguranca
 
         app.register_blueprint(contas.bp)
         app.register_blueprint(produtos.bp)

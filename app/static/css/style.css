@@ -3,8 +3,12 @@
   top: 0;
   width: 100%;
   z-index: 1010;
-  background: white;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 6px 16px !important;
 }
+
+.min-h-0 { min-height: 0 !important; }
 
 .sistema-header {
   background: #fff;
@@ -73,8 +77,7 @@
   }
 }
 .tab-pane.active {
-  display: flex;
-  flex-direction: column;
+  display: block;
 }
 
 #page-filter-body {
@@ -85,7 +88,6 @@
 
 :root {
   --rosa: #E91E63;
-  --cor-menu: #e91e63;
   --verde-menta: #26A69A;
   --bg-claro: #f5f5f5;
 }
@@ -183,14 +185,23 @@ body {
 }
 .bar-link-lg.active {
   color: #fff !important;
-  font-weight: 700;
   background-color: rgba(233,30,99,0.75) !important;
-  border-radius: 6px;
+  padding: 6px 16px !important;
 }
 
 .table th {
   background-color: #fce4ec;
   user-select: none;
+}
+.table.sortable thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.table.sortable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .table th.asc::after {
   content: " ▲";
@@ -451,6 +462,66 @@ html.panel-tab-active main {
   min-height: 0;
   overflow-y: hidden !important;
 }
+
+/* Card detail-row expand/collapse */
+.collapse-icon { display: inline-block; transition: transform .2s; font-size: .7rem; }
+.collapse-icon.expanded { transform: rotate(90deg); }
+tr.detail-row.collapsed { display: none; }
+tr.detail-row { display: table-row; }
+tr.detail-row > td { padding: 0 !important; }
+.detail-overflow {
+  display: flex; flex-wrap: wrap; gap: 2px 16px;
+  padding: 6px 8px; font-size: .8rem;
+}
+.overflow-field { flex: 0 0 auto; min-width: 80px; }
+.overflow-label { color: #888; font-size: .72rem; font-weight: 600; }
+.overflow-value { color: #333; }
+.detail-carousel { display: flex; flex-direction: column; }
+
+.carousel-body { display: flex; align-items: stretch; }
+.carousel-header {
+  flex: 0 0 88px; max-width: 88px; margin: 8px 0;
+  border-radius: 6px; padding: 6px 6px;
+  background: #eef2f7; font-size: .8rem;
+}
+.carousel-header .carousel-field { padding: 1px 0; border-color: #dce3ec; }
+.carousel-header .carousel-field + .carousel-field { border-top: 1px solid #dce3ec; }
+.carousel-header .carousel-label { color: #445; font-weight: 600; white-space: nowrap; }
+.carousel-track {
+  flex: 1; display: flex; overflow-x: auto; gap: 6px;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; align-items: stretch; padding: 0;
+}
+.carousel-track::-webkit-scrollbar { display: none; }
+.carousel-card {
+  flex: 0 0 70vw; max-width: 260px; scroll-snap-align: start;
+  border: 1px solid #dee2e6; border-radius: 6px; padding: 6px 8px;
+  background: #fff; font-size: .8rem; margin-top: 8px; margin-bottom: 8px;
+}
+.carousel-card:first-child { margin-left: 2px; }
+@media (min-width: 768px) {
+  .carousel-card { flex: 0 0 200px; max-width: none; }
+}
+.carousel-field { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; padding: 1px 0; }
+.carousel-field + .carousel-field { border-top: 1px solid #f0f0f0; }
+.carousel-label { color: #888; white-space: nowrap; font-size: .75rem; }
+.carousel-value { text-align: right; flex-shrink: 0; }
+.carousel-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2px 8px 4px;
+}
+.carousel-arrow {
+  border: none; background: #e9ecef; color: #444; cursor: pointer;
+  font-size: 1.4rem; padding: 4px 12px; line-height: 1;
+  border-radius: 4px; font-weight: 700;
+}
+.carousel-arrow:hover { background: #dee2e6; color: #111; }
+.carousel-dots { display: flex; gap: 6px; align-items: center; }
+.carousel-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #ccc; transition: background .2s;
+}
+.carousel-dot.active { background: #555; }
 
 /* === form_list: layout responsivo + sticky header + card expansion === */
 
@@ -947,6 +1018,25 @@ html.edit-form #page-content {
     gap: 0.35rem;
     margin-top: 0.35rem;
   }
+}
+.area-menu nav a.nav-link-item {
+  position: relative;
+  z-index: 1;
+}
+.area-menu nav a.nav-link-item.active,
+.area-menu nav a.nav-link-item.menu-hover,
+.area-menu nav a.nav-link-item:hover {
+  color: var(--bar-bg-menu) !important;
+}
+.area-menu nav a.nav-link-item.active::before,
+.area-menu nav a.nav-link-item.menu-hover::before,
+.area-menu nav a.nav-link-item:hover::before {
+  content: '';
+  position: absolute;
+  inset: 4px 0;
+  background: var(--bar-txt-menu);
+  border-radius: 4px;
+  z-index: -1;
 }
 
 

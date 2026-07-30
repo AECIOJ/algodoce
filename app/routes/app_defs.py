@@ -57,6 +57,14 @@ APP = {
     'nome': 'AlgoDoce',
     'logo': 'icons/Logo.png',
     'versao': 'v1.25.3-1',
+    'cor': {
+        'fundo': '#e91e63',
+        'texto': '#FFF',
+    },
+    'barras': {
+        'altura': 5,
+ 
+    },
     'site': SITE,
     'system': SYS,
     'admin': ADMIN,

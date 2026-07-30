@@ -31,7 +31,7 @@ def quote_validade(item):
 
 QUOTES_FIELDS = {
         'id': {'label': '#', 'width': 7, 'mask': '999.999'},
-        'cliente_nome': {'label': 'Cliente', 'width': 20, 'pos': 1},
+        'cliente_nome': {'label': 'Cliente', 'width': 20},
         'cliente_telefone': {'label': 'Telefone', 'width': 16},
         'data_pedido': {'label': 'Data', 'width': 10, 'input': 'date'},
         'validade': {'width': 14, 'input': 'number', 'function': quote_validade},
@@ -101,7 +101,7 @@ tipos_evento_list = [
 ]
 tipos_evento = {t: t for t in tipos_evento_list}
 
-orcamentos_form = {'model': Quote, 'redirect': 'orcamentos.list', 'entity_label': 'Orçamento', 'page_scripts': 'sys_orcamentos/_form_scripts.html', 'form_tail': 'sys_orcamentos/_form_tail.html', 'footer_left': 'sys_orcamentos/_footer_left.html', 'nav_right_extra': 'sys_orcamentos/_nav_right.html', 'fields': [
+Form = {'model': Quote, 'redirect': 'orcamentos.list', 'entity_label': 'Orçamento', 'page_scripts': 'sys_orcamentos/_form_scripts.html', 'form_tail': 'sys_orcamentos/_form_tail.html', 'footer_left': 'sys_orcamentos/_footer_left.html', 'nav_right_extra': 'sys_orcamentos/_nav_right.html', 'fields': [
         {'name': 'cliente_nome', 'label': 'Cliente', 'required': True, 'width': 4},
         {'name': 'cliente_telefone', 'label': 'Telefone', 'required': True, 'width': 4},
         {'name': 'validade', 'label': 'Validade (dias)', 'input': 'number', 'width': 2, 'attrs': {'min': 1}},
@@ -240,7 +240,7 @@ def form(id):
         clients = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
         extra = dict(products=products, clients=clients, tipos_evento=tipos_evento_list,
                      QUOTE_STATUS=QUOTE_STATUS, FORMINHAS=FORMINHAS)
-    return handle_form(orcamentos_form, id, extra_ctx=extra)
+    return handle_form(Form, id, extra_ctx=extra)
 
 
 @bp.route("/orcamentos/<int:id>/converter", methods=["POST"])

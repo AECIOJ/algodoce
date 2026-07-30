@@ -25,7 +25,7 @@ COMPRAS_FIELDS = {
         'compra_id': {'width': 8},
         'status_compra': {'label': 'Status', 'width': 10, 'options': COMPRA_STATUS, 'filter_options': COMPRA_STATUS},
         'carteira': {'label': 'FP', 'width': 12, 'query': 'carteira'},
-        'fornecedor': {'width': 30, 'query': 'conta', 'pos': 1},
+        'fornecedor': {'width': 30, 'query': 'conta'},
         'fatura': {'width': 10},
         'valor': {'width': 12, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
         'id': {'label': 'Previsão', 'width': 8},

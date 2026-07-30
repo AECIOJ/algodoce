@@ -10,13 +10,32 @@ A rota unificada:
   def form(id):
       return handle_form(XXX_FORM, id)
 """
+import importlib, inspect
 from dataclasses import dataclass, field
 from typing import Any, Optional, Callable, Union
 from datetime import datetime
-from flask import render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.extensions import db
-from app.list import Field, MODEL_MAP, field_grid, _resolve_fieldset, _apply_transform, _infer_transform
+from app.list import Field, MODEL_MAP, field_grid, build_field_config, _resolve_fieldset, _apply_transform, _infer_transform
 from app.buttons import Button
+
+
+_ENTITY_LABELS = {
+    'Category': 'Categoria',
+    'Ingredient': 'Insumo',
+    'Product': 'Produto',
+    'Conta': 'Conta',
+    'Carteira': 'Carteira',
+    'Operacao': 'Operação',
+}
+
+
+def _detect_module_name():
+    for frame_info in inspect.stack():
+        mod = inspect.getmodule(frame_info.frame)
+        if mod and mod.__name__.startswith('app.routes'):
+            return mod.__name__
+    return ''
 
 
 def _has_references(instance, child_model):
@@ -47,28 +66,6 @@ def can_delete(instance, delete_when):
     return True
 
 
-def _resolve_fields(fields_input):
-    """Converte dict {nome: {cfg}} ou FieldSet {model, fields} ou lista em lista de Field."""
-    if isinstance(fields_input, dict):
-        if 'fields' in fields_input:
-            return _resolve_fieldset(fields_input)
-        return [Field(name=k, **v) for k, v in fields_input.items()]
-    if isinstance(fields_input, list):
-        result = []
-        for item in fields_input:
-            if isinstance(item, Field):
-                result.append(item)
-            elif isinstance(item, dict):
-                name = item.get('name')
-                if name:
-                    rest = {k: v for k, v in item.items() if k != 'name'}
-                    result.append(Field(name=name, **rest))
-            else:
-                result.append(item)
-        return result
-    return []
-
-
 def _resolve_attr(parent_model, child_model):
     """Encontra o nome da relationship entre parent e child.
     Tenta SQLAlchemy mapper primeiro, fallback para convenção.
@@ -95,9 +92,12 @@ def _resolve_attr(parent_model, child_model):
 
 @dataclass
 class Form:
-    model: type
-    redirect: str
-    fields: Union[dict, list]
+    model: Optional[type] = None
+    redirect: Optional[str] = None
+    fields: Union[str, list, dict, None] = None
+    entity_name: Optional[str] = None
+    module_name: Optional[str] = None
+    field_overrides: Optional[dict] = None
     sessions: Optional[dict] = None
     template: Optional[str] = None
     flash_ok: str = 'Salvo!'
@@ -133,8 +133,81 @@ class Form:
             self.tag = self.badge
         if self.extra_buttons and not self.buttons:
             self.buttons = self.extra_buttons
-        self._resolved_fields = _resolve_fields(self.fields)
+
+        if not self.module_name:
+            self.module_name = _detect_module_name()
+
+        mod = importlib.import_module(self.module_name) if self.module_name else None
+
+        if isinstance(self.fields, str):
+            self.entity_name = self.fields
+        elif isinstance(self.fields, list) and not self.entity_name and mod:
+            for ent_name, ent_cfg in getattr(mod, 'Entidade', {}).items():
+                ent_fields = set(ent_cfg.keys())
+                if all(f in ent_fields for f in self.fields):
+                    self.entity_name = ent_name
+                    break
+
+        if not self.model and self.entity_name and mod:
+            self.model = getattr(mod, self.entity_name)
+        if not self.model and isinstance(self.fields, dict) and 'model' in self.fields:
+            self.model = self.fields['model']
+        if not self.entity_name and self.model:
+            self.entity_name = self.model.__name__
+
+        if not self.redirect and mod:
+            bp_name = None
+            for name in dir(mod):
+                obj = getattr(mod, name, None)
+                if isinstance(obj, Blueprint):
+                    bp_name = obj.name
+                    break
+            if bp_name:
+                self.redirect = f"{bp_name}.list"
+
+        if not self.entity_label and self.entity_name:
+            self.entity_label = _ENTITY_LABELS.get(self.entity_name, self.entity_name)
+
+        self._resolved_fields = self._resolve_fields()
         self._resolved_sessions = self._build_sessions()
+
+    def _resolve_fields(self):
+        if isinstance(self.fields, str):
+            mod = importlib.import_module(self.module_name)
+            entidade = getattr(mod, 'Entidade', {}).get(self.fields, {})
+            overrides = self.field_overrides or {}
+            return [Field(**build_field_config(n, {**c, **overrides.get(n, {})}))
+                    for n, c in entidade.items()]
+        if isinstance(self.fields, list):
+            mod = importlib.import_module(self.module_name)
+            entidade = getattr(mod, 'Entidade', {}).get(self.entity_name, {})
+            overrides = self.field_overrides or {}
+            result = []
+            for name in self.fields:
+                cfg = entidade.get(name, {})
+                merged = {**cfg, **overrides.get(name, {})}
+                result.append(Field(**build_field_config(name, merged)))
+            return result
+        if isinstance(self.fields, dict):
+            if 'model' in self.fields and 'fields' in self.fields:
+                return _resolve_fieldset(self.fields)
+            mod = importlib.import_module(self.module_name)
+            entidade = getattr(mod, 'Entidade', {})
+            overrides = self.field_overrides or {}
+            result = []
+            for ent_name, field_names in self.fields.items():
+                for name in field_names:
+                    cfg = entidade.get(ent_name, {}).get(name, {})
+                    merged = {**cfg, **overrides.get(name, {})}
+                    result.append(Field(**build_field_config(name, merged)))
+            return result
+        if self.fields is None and self.entity_name and self.module_name:
+            mod = importlib.import_module(self.module_name)
+            entidade = getattr(mod, 'Entidade', {}).get(self.entity_name, {})
+            overrides = self.field_overrides or {}
+            return [Field(**build_field_config(n, {**c, **overrides.get(n, {})}))
+                    for n, c in entidade.items()]
+        return []
 
     SESSION_PREFIXES = ('*',)
 
@@ -151,6 +224,42 @@ class Form:
                     'type': 'template',
                     'template': session_cfg.get('template'),
                     'when': when,
+                })
+                continue
+
+            if isinstance(session_cfg, dict) and 'table' in session_cfg:
+                mod = importlib.import_module(self.module_name)
+                entidade = getattr(mod, 'Entidade', {})
+                table_fields = session_cfg['table']
+                if isinstance(table_fields, str):
+                    entity_name = table_fields
+                    entity_cfg = entidade.get(entity_name, {})
+                    field_names = list(entity_cfg.keys())
+                else:
+                    first = table_fields[0] if table_fields else None
+                    if first and first in entidade:
+                        entity_name = first
+                        entity_cfg = entidade[entity_name]
+                        field_names = [f for f in entity_cfg if f not in ('id',)]
+                    else:
+                        entity_name = next((n for n, c in entidade.items()
+                                            if all(f in c for f in table_fields)), None)
+                        if not entity_name:
+                            continue
+                        entity_cfg = entidade[entity_name]
+                        field_names = table_fields
+                entity_cfg = entidade[entity_name]
+                child_model = getattr(mod, entity_name)
+                fields_list = [Field(**build_field_config(n, entity_cfg[n])) for n in field_names]
+                attr = session_cfg.get('attr') or _resolve_attr(self.model, child_model)
+                prefix = session_cfg.get('prefix') or (attr + '_' if attr else None)
+                readonly = session_cfg.get('readonly', False)
+                result.append({
+                    'label': label, 'model': child_model, 'attr': attr,
+                    'prefix': prefix, 'fields': fields_list,
+                    'type': 'table' if readonly else 'editable_table',
+                    'template': None, 'readonly': readonly,
+                    'when': when, 'buttons': session_cfg.get('buttons'),
                 })
                 continue
 
@@ -274,7 +383,7 @@ def handle_form(form_spec, id=None, extra_ctx=None, instance=None):
         for f in _flat_fields(form):
             if not f.edit:
                 continue
-            if f.input == 'checkbox':
+            if f.input in ('checkbox', 'boolean'):
                 raw = request.form.get(f.name)
                 val = raw in ('on', '1', 1, True)
             elif f.input == 'number':
@@ -346,6 +455,11 @@ def handle_form(form_spec, id=None, extra_ctx=None, instance=None):
                     else:
                         q = q.filter(getattr(model_cls, k) == v)
             lookup[f.name] = q.order_by(model_cls.nome).all()
+    for session in form._resolved_sessions:
+        for f in session.get('fields', []):
+            if f.query and f.query in MODEL_MAP and f.name not in lookup:
+                model_cls = MODEL_MAP[f.query]
+                lookup[f.name] = model_cls.query.order_by(model_cls.nome).all()
 
     nav = _build_nav(form.model, id) if form.nav and id is not None else None
     _can_delete = can_delete(instance, form.delete_when) if instance else True

@@ -167,10 +167,10 @@ def detail(id):
     seen = set()
     product_ids = [x for x in product_ids if not (x in seen or seen.add(x))]
     ing_etapas = db.session.query(
-        ProductIngredient.product_id, ProductIngredient.etapa_id
+        ProductIngredient.product_id, ProductIngredient.etapa
     ).filter(
         ProductIngredient.product_id.in_(product_ids),
-        ProductIngredient.etapa_id.isnot(None),
+        ProductIngredient.etapa.isnot(None),
     ).distinct().all()
     product_etapas = {}
     for pid, eid in ing_etapas:

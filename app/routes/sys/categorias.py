@@ -1,24 +1,28 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, redirect, url_for, flash
 from flask_login import login_required
 from app.extensions import db
 from app.models.category import Category
 from app.models.product import Product
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_boolean_filter
-from app.list import build_field_context, build_filter_config, List
-from app.form import Form, handle_form, can_delete
-from app.fields import FIELD_ID_SHORT, FIELD_NOME, FIELD_ORDEM, FIELD_ATIVO
+from app.form import handle_form, can_delete
+from app.engine.handle_list import render_list
 
 
-CATEGORIAS_FIELDS = {
-    'id':    {**FIELD_ID_SHORT, 'pos': 1},
-    'nome':  {**FIELD_NOME, 'width': 13, 'pos': 1},
-    'ordem': FIELD_ORDEM,
-    'ativo': {**FIELD_ATIVO, 'width': 5},
+Entidade = {
+    'Category': {
+        'id':    {'type': 'PK', 'width': 6},
+        'nome':  {'type': 'TEXT'},
+        'ordem': {'type': 'INT', 'mask': '999', 'attrs': {'min': 0, 'max': 99}},
+        'ativo': {'type': 'BOOL'},
+    },
 }
 
-categorias_list = {'fields': CATEGORIAS_FIELDS, 'edit_endpoint': 'categories.form'}
-
-bp = Blueprint("categories", __name__, url_prefix="/categorias")
+Lista = {
+    'colunas': ['Category'],
+    'ordering': ['ordem', 'nome'],
+    'title': 'Categorias',
+    'edit_endpoint': 'categories.form',
+    'new_endpoint': 'categories.form',
+}
 
 
 def _pre_save(instance, request, is_new):
@@ -41,7 +45,23 @@ def _post_save(instance, changed, old_vals):
     db.session.commit()
 
 
-categorias_form = {'model': Category, 'redirect': 'categories.list', 'entity_label': 'Categoria', 'fields': CATEGORIAS_FIELDS, 'delete_when': {Product}, 'pre_save': _pre_save, 'post_save': _post_save, 'buttons': [{'label': 'Ativar', 'endpoint': 'categories.toggle', 'icon': 'bi-toggle-on', 'color': 'success', 'outline': True, 'position': 'nav_right', 'show_if': {'ativo': False}}, {'label': 'Desativar', 'endpoint': 'categories.toggle', 'icon': 'bi-toggle-off', 'color': 'success', 'outline': True, 'position': 'nav_right', 'show_if': {'ativo': True}}]}
+Form = {
+    'fields': 'Category',
+    'delete_when': {Product},
+    'pre_save': _pre_save,
+    'post_save': _post_save,
+    'buttons': [
+        {'label': 'Ativar', 'endpoint': 'categories.toggle',
+         'icon': 'bi-toggle-on', 'color': 'success', 'outline': True,
+         'position': 'nav_right', 'show_if': {'ativo': False}},
+        {'label': 'Desativar', 'endpoint': 'categories.toggle',
+         'icon': 'bi-toggle-off', 'color': 'success', 'outline': True,
+         'position': 'nav_right', 'show_if': {'ativo': True}},
+    ],
+}
+
+
+bp = Blueprint("categories", __name__, url_prefix="/categorias")
 
 
 @bp.before_request
@@ -52,27 +72,13 @@ def protect():
 
 @bp.route("/")
 def list():
-    _list = List(**categorias_list)
-    filter_config = build_filter_config(_list.fields)
-    active = resolve_filters(filter_config, request.args)
-    query = Category.query.order_by(Category.ordem, Category.nome)
-    categorias = query.all()
-    linhas = categorias[:]
-    linhas = apply_boolean_filter(linhas, 'ativo', active.get('ativo'))
-    linhas = apply_number_filter(linhas, 'id', active.get('id'))
-    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
-    linhas = apply_number_filter(linhas, 'ordem', active.get('ordem'))
-    categorias = linhas
-    ctx = build_field_context(_list.master_fields)
-    return render_template("sys_categorias/list.html", categorias=categorias,
-                           CATEGORIAS_LIST=_list, ctx=ctx,
-                           active_filters=active, FILTERS=filter_config)
+    return render_list('Category', __name__)
 
 
 @bp.route("/novo", defaults={"id": None}, methods=["GET", "POST"])
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
 def form(id):
-    return handle_form(categorias_form, id)
+    return handle_form(Form, id)
 
 
 @bp.route("/<int:id>/excluir", methods=["POST"])

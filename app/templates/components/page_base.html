@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="pt-br" data-bs-theme="light" class="{% if request.endpoint and (request.endpoint.endswith('.list') or request.endpoint == 'orcamentos.list') %}list-page{% endif %}">
+<html lang="pt-br"
+      data-bs-theme="light"
+      data-theme="algodoce"
+      class="{% if request.endpoint and (request.endpoint.endswith('.list') or request.endpoint == 'orcamentos.list') %}list-page{% endif %}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,12 +11,16 @@
   {% block css %}
   <link href="{{ url_for('static', filename='lib/bootstrap.min.css') }}?v=1" rel="stylesheet">
   <link href="{{ url_for('static', filename='lib/bootstrap-icons.min.css') }}?v=1" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/style.css') }}?v=23" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/tailwind.css') }}?v=1" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}?v=25" rel="stylesheet">
   {% endblock %}
   {% block head_extra %}{% endblock %}
 </head>
-<body>
-  <div class="app-shell d-flex flex-column">
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token() if csrf_token is defined else "" }}"}'
+      x-data="{}"
+      x-init="$el.classList.remove('opacity-0')"
+      class="opacity-0">
+  <div class="app-shell d-flex flex-column min-h-screen">
     {% block page_header %}
     <header class="flex-shrink-0 site-header">
       <div class="container text-center py-2">
@@ -26,12 +33,12 @@
 
     {% block before_content %}{% endblock %}
 
-    <main class="container flex-grow-1 overflow-y-auto">
+    <main class="container flex-grow-1 d-flex flex-column min-h-0">
       {% block messages %}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show">
+            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm flex-shrink-0">
               {{ message }}
               <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
@@ -55,8 +62,8 @@
 
   <script src="{{ url_for('static', filename='lib/bootstrap.bundle.min.js') }}?v=1"></script>
   <script src="{{ url_for('static', filename='lib/qrcode.min.js') }}?v=1"></script>
+  <script src="{{ url_for('static', filename='lib/htmx.min.js') }}?v=1"></script>
+  <script src="{{ url_for('static', filename='lib/alpine.min.js') }}?v=1" defer></script>
   {% block scripts %}{% endblock %}
-
-
 </body>
 </html>

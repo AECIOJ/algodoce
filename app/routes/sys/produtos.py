@@ -14,31 +14,52 @@ from app.constants import PRODUCAO_ETAPAS, UND_INSUMO
 from app.models.category import Category
 from app.models.order_item import OrderItem
 from app.models.quote_item import QuoteItem
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_boolean_filter, apply_select_filter, build_fk_options
-from app.list import build_field_context, build_filter_config, List
-from app.form import Form, handle_form
-from app.fields import FIELD_ID, FIELD_NOME, FIELD_ATIVO, FIELD_DESCRICAO, FIELD_PRECO, FIELD_QUANTIDADE
+from app.form import handle_form
+from app.fields import FIELD_NOME, FIELD_DESCRICAO, FIELD_PRECO, FIELD_QUANTIDADE
+from app.engine.handle_list import render_list
 
 
-PRODUCTS_FIELDS = {
-    'id':         {**FIELD_ID, 'width': 7},
-    'nome':       {**FIELD_NOME, 'width': 20},
-    'imagem':     {'width': 15, 'filter': False},
-    'categoria':  {'query': 'category', 'card_path': 'category.nome', 'filter_path': 'category.nome'},
-    'qtd_minima': {'label': 'Qtd. Mín.', 'width': 8, 'input': 'number'},
-    'preco':      {'label': 'Preço', 'width': 10, 'input': 'number', 'align': 'right', 'currency': 'brl'},
-    'ativo':      {**FIELD_ATIVO},
+Entidade = {
+    'Product': {
+        'id':          {'type': 'PK', 'width': 6},
+        'nome':        {'type': 'TEXT', 'width': 20, 'transform': 'title'},
+        'descricao':   {'type': 'TEXT', 'input': 'textarea'},
+        'preco':       {'type': 'NUMBER', 'width': 10, 'currency': True},
+        'qtd_minima':  {'type': 'INT', 'width': 8},
+        'imagem':      {'type': 'IMAGE', 'width': 15, 'filter': False, 'required': False},
+        'category_id': {'type': 'FK', 'width': 12, 'masterkey': 'category'},
+        'ativo':       {'type': 'BOOL', 'width': 8},
+    },
+    'ProductIngredient': {
+        'ingredient_id': {'type': 'FK', 'masterkey': 'ingredient', 'required': True},
+        'quantidade':    {'type': 'NUMBER', 'required': True},
+        'unidade':       {'type': 'LIST', 'list': {u: u for u in UND_INSUMO}, 'required': True},
+        'etapa':         {'type': 'LIST', 'list': PRODUCAO_ETAPAS},
+    },
 }
 
-products_list = {'fields': PRODUCTS_FIELDS, 'edit_endpoint': 'products.form'}
+Lista = {
+    'colunas': [
+        'Product.id',
+        'Product.nome',
+        'Product.preco',
+        'Product.qtd_minima',
+        'Product.imagem',
+        'Product.category_id',
+        'Product.ativo',
+    ],
+    'ordering': ['nome'],
+    'new_endpoint': 'products.form',
+    'edit_endpoint': 'products.form',
+}
 
 
 def _parse_insumos(request):
     result = []
-    ing_ids = request.form.getlist("ingredient_id")
-    quantities = request.form.getlist("quantidade")
-    unidades = request.form.getlist("unidade")
-    etapas = request.form.getlist("etapa_id")
+    ing_ids = request.form.getlist("ingredients_ingredient_id[]")
+    quantities = request.form.getlist("ingredients_quantidade[]")
+    unidades = request.form.getlist("ingredients_unidade[]")
+    etapas = request.form.getlist("ingredients_etapa[]")
     for ing_id, qtd, un, eta in zip(ing_ids, quantities, unidades, etapas):
         if ing_id and qtd and un:
             result.append((int(ing_id), float(qtd), un, int(eta) if eta else None))
@@ -96,23 +117,18 @@ def _products_pre_save(instance, request, is_new):
     for ing_id, qtd, un, eta in _parse_insumos(request):
         db.session.add(ProductIngredient(
             product_id=instance.id, ingredient_id=ing_id,
-            quantidade=qtd, unidade=un, etapa_id=eta,
+            quantidade=qtd, unidade=un, etapa=eta,
         ))
 
 
-products_form = {'model': Product, 'redirect': 'products.list', 'fields': {'model': Product, 'fields': {
+Form = {'fields': {'model': Product, 'fields': {
         'nome':        {**FIELD_NOME},
         'descricao':   FIELD_DESCRICAO,
         'preco':       {**FIELD_PRECO, 'required': True},
         'qtd_minima':  {'label': 'Qtd. Mínima', 'input': 'number', 'attrs': {'min': 0, 'step': 1}},
         'category_id': {'label': 'Categoria', 'input': 'select', 'query': 'category'},
-    }}, 'sessions': {
-        'Insumos': {'model': ProductIngredient, 'type': 'table', 'template': 'sys_products/_ingredients.html', 'fields': {
-            'ingredient_id': {'label': 'Insumo', 'input': 'select'},
-            'quantidade':    {**FIELD_QUANTIDADE, 'label': 'Qtd'},
-            'unidade':       {'label': 'Und', 'input': 'select', 'options': {u: u for u in UND_INSUMO}},
-            'etapa_id':      { 'input': 'select'},
-        }},
+    }    }, 'sessions': {
+        'Insumos': {'table': ['ProductIngredient'], 'attr': 'ingredients'},
     }, 'entity_label': 'Produto', 'new_title': 'Novo Produto',
     'body_template': 'sys_products/_form_body.html',
     'footer_left': 'sys_products/_footer_left.html',
@@ -133,22 +149,10 @@ def protect():
     pass
 
 
+@bp.route("/produtos/")
 @bp.route("/produtos")
 def list():
-    _list = List(**products_list)
-    filter_config = build_filter_config(PRODUCTS_FIELDS)
-    active = resolve_filters(filter_config, request.args)
-    products = Product.query.order_by(Product.nome).all()
-    linhas = products[:]
-    linhas = apply_number_filter(linhas, 'id', active.get('id'))
-    linhas = apply_text_filter(linhas, 'nome', active.get('nome'))
-    linhas = apply_select_filter(linhas, 'categoria', active.get('categoria'), build_fk_options(Category), filter_path='category.nome')
-    linhas = apply_number_filter(linhas, 'qtd_minima', active.get('qtd_minima'))
-    linhas = apply_number_filter(linhas, 'preco', active.get('preco'))
-    linhas = apply_boolean_filter(linhas, 'ativo', active.get('ativo'))
-    products = linhas
-    ctx = build_field_context(PRODUCTS_FIELDS)
-    return render_template("sys_products/list.html", products=products, PRODUCTS_LIST=_list, ctx=ctx, active_filters=active, FILTERS=filter_config)
+    return render_list('Product', __name__)
 
 
 @bp.route("/produtos/novo", defaults={"id": None}, methods=["GET", "POST"])
@@ -157,7 +161,7 @@ def form(id=None):
     ingredients_list = Ingredient.query.order_by(Ingredient.nome).all()
     categorias = Category.query.order_by(Category.ordem, Category.nome).all()
     etapas = [type('_Etapa', (), {'id': i, 'nome': n})() for i, n in PRODUCAO_ETAPAS.items()]
-    return handle_form(products_form, id, extra_ctx={
+    return handle_form(Form, id, extra_ctx={
         'ingredients': ingredients_list,
         'categorias': categorias,
         'etapas': etapas,

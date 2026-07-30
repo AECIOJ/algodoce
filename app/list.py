@@ -31,10 +31,9 @@ Cada rota sys_*.py declara:
  aggregate_label  str        None      Label do total (ex: 'Total Geral')
  currency         str        None      'brl' p/ formatar como moeda R$
  hide_zero        bool       True      Ocultar valor zero
- card_path        str        None      Acesso aninhado (ex: 'conta.nome')
- pos              int        9         Ordem da coluna (0=ID, 9=último)
- link             str        None      Endpoint p/ gerar link (ex: 'orders.edit')
- function         callable   None      Função para valor computado: f(item) -> valor
+  card_path        str        None      Acesso aninhado (ex: 'conta.nome')
+  link             str        None      Endpoint p/ gerar link (ex: 'orders.edit')
+  function         callable   None      Função para valor computado: f(item) -> valor
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  List — configuração da lista
@@ -74,6 +73,7 @@ from app.constants import CONECTORES
 
 from dataclasses import dataclass, field
 from typing import Any, Optional, Callable, Union
+from app.filters import FILTER_NUMBER, FILTER_DATE, FILTER_BOOLEAN, FILTER_SELECT
 
 
 @dataclass
@@ -178,12 +178,13 @@ class Field:
     query: Optional[Union[str, dict, Query]] = None
     query_filter: Optional[dict] = None
     validate: Optional[list] = None
+    decimals: Optional[int] = None
+    masterkey: Optional[str] = None
     aggregate: Optional[str] = None
     aggregate_label: Optional[str] = None
     currency: Optional[str] = None
     hide_zero: bool = True
     card_path: Optional[str] = None
-    pos: Optional[int] = None
     link: Optional[str] = None
     function: Optional[Callable] = None
     required: bool = False
@@ -207,8 +208,85 @@ class Field:
         return self.label or _auto_label(self.name)
 
     @property
+    def width_ch(self) -> int:
+        if self.width is not None:
+            return self.width
+        if self.mask:
+            w = len(self.mask)
+            if self.input == 'number' and not self.mask.startswith('-'):
+                w += 1
+            return w
+        return {'boolean': 6, 'checkbox': 6, 'number': 12, 'date': 12, 'image': 12}.get(self.input, 18)
+
+    @property
     def form_edit(self) -> bool:
         return self.edit is True
+
+
+FIELD_DEFAULTS = {
+    'PK':     {'input': 'number', 'edit': False, 'filter': FILTER_NUMBER},
+    'TEXT':   {'required': True},
+    'INT':    {'input': 'number', 'align': 'right', 'decimals': 0, 'filter': FILTER_NUMBER},
+    'NUMBER': {'input': 'number', 'align': 'right', 'decimals': 2, 'filter': FILTER_NUMBER},
+    'BOOL':   {'input': 'boolean', 'filter': FILTER_BOOLEAN},
+    'DATA':   {'input': 'date', 'filter': FILTER_DATE},
+    'FK':     {'input': 'select', 'filter': FILTER_SELECT},
+    'LIST':   {'input': 'select', 'filter': FILTER_SELECT},
+    'IMAGE':  {'input': 'image', 'filter': False, 'required': False},
+}
+
+_LABEL_OVERRIDES = {
+    'id': '#',
+    'cpf': 'CPF',
+    'cnpj': 'CNPJ',
+    'insc_estadual': 'Inscrição Estadual',
+    'unidade_medida': 'Und',
+    'qtd_minima': 'Qtd. Mín.',
+    'prazo_recebimento': 'Prazo',
+    'taxa_recebimento': 'Taxa',
+    'indice': 'Índice',
+    'pai_id': 'Pai',
+    'category_id': 'Categoria',
+    'descricao': 'Descrição',
+    'endereco': 'Endereço',
+    'telefone': 'Telefone',
+    'preco': 'Preço',
+}
+
+
+def _auto_label(name: str) -> str:
+    if name in _LABEL_OVERRIDES:
+        return _LABEL_OVERRIDES[name]
+    return ' '.join(w.capitalize() for w in name.split('_'))
+
+
+def build_field_config(name: str, cfg: dict) -> dict:
+    field_type = cfg.get('type', 'TEXT')
+    defaults = FIELD_DEFAULTS.get(field_type, {})
+    props = {**defaults, **cfg, 'name': name}
+    props.pop('type', None)
+
+    if 'label' not in props:
+        props['label'] = _auto_label(name)
+
+    mk = props.pop('masterkey', None)
+    if mk:
+        props.setdefault('query', mk)
+        rel_name = name[:-3] if name.endswith('_id') else name
+        props.setdefault('card_path', f'{rel_name}.nome')
+        props.setdefault('filter_path', f'{rel_name}.nome')
+
+    if 'list' in props:
+        props['options'] = props.pop('list')
+
+    if 'mask' not in props and 'decimals' in props:
+        d = props['decimals']
+        if d == 0:
+            props['mask'] = '9999'
+        else:
+            props['mask'] = f'9999.{"9" * d}'
+
+    return props
 
 
 def _infer_transform(f: Field) -> str:
@@ -309,6 +387,8 @@ def field_to_column(f: Field) -> dict:
         col['filter_options'] = fo
     if f.mask:
         col['mask'] = f.mask
+    if f.decimals is not None:
+        col['decimals'] = f.decimals
     if f.currency:
         col['currency'] = f.currency
     if f.hide_zero:
@@ -317,12 +397,6 @@ def field_to_column(f: Field) -> dict:
         col['card_path'] = f.card_path
     if f.options:
         col['options'] = f.options
-    if f.pos is not None:
-        col['pos'] = f.pos
-    elif f.name == 'id':
-        col['pos'] = 0
-    else:
-        col['pos'] = 9
     if f.link:
         col['link'] = f.link
     if f.function:
@@ -335,8 +409,7 @@ def field_to_column(f: Field) -> dict:
 
 
 def fields_to_columns(fields: list[Field]) -> list[dict]:
-    cols = [field_to_column(f) for f in fields]
-    return [c for _, c in sorted(enumerate(cols), key=lambda x: (x[1]['pos'], x[0]))]
+    return [field_to_column(f) for f in fields]
 
 
 FILTER_MODES = {
@@ -475,6 +548,9 @@ class List:
     send_endpoint: Optional[str] = None
     reports: Optional[list] = None
     extra: Optional[dict] = None
+    template: Optional[str] = None
+    linha: Optional[list[int]] = None
+    card_idx: Optional[list[int]] = None
 
     def __post_init__(self):
         if isinstance(self.fields, dict):
@@ -493,4 +569,16 @@ class List:
     def detail_fields(self):
         if self.fields_detail:
             return [self.fields[i-1] for i in self.fields_detail]
+        return None
+
+    @property
+    def linha_fields(self):
+        if self.linha:
+            return [self.master_fields[i] for i in self.linha]
+        return self.master_fields
+
+    @property
+    def card_fields(self):
+        if self.card_idx:
+            return [self.fields[i-1] for i in self.card_idx]
         return None

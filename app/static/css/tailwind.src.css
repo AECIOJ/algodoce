@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply min-h-full;
+  }
+  body {
+    @apply min-h-screen;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply flex flex-col min-h-screen;
+  }
+  .brand-logo {
+    @apply h-[100px] lg:h-[72px];
+  }
+  .area-menu {
+    @apply flex-shrink-0;
+  }
+  .sistema-header {
+    @apply flex-shrink-0;
+  }
+  .rodape {
+    @apply flex-shrink-0 text-center text-sm py-2 text-base-content/60;
+  }
+}
+
+@layer utilities {
+  .overflow-y-auto {
+    overflow-y: auto;
+  }
+}

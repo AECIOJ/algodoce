@@ -29,18 +29,21 @@
   </select>
 {% elif field.input == 'textarea' %}
   <textarea name="{{ ns }}" class="form-control" rows="3" {{ req }} {{ dis }}>{{ val or '' }}</textarea>
-{% elif field.input == 'checkbox' %}
+{% elif field.input in ('checkbox', 'boolean') %}
   <div class="form-check">
     <input type="checkbox" name="{{ ns }}" class="form-check-input" value="1" {{ 'checked' if val }} {{ req }} {{ dis }}>
   </div>
 {% elif field.input == 'number' %}
-  <input type="number" name="{{ ns }}" class="form-control" step="any" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ attr_str }}>
+  <input type="number" name="{{ ns }}" class="form-control" step="{{ 0.1 ** field.decimals if field.decimals is not none else 'any' }}" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ attr_str }}>
 {% elif field.input == 'date' %}
   <input type="date" name="{{ ns }}" class="form-control" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ attr_str }}>
 {% elif field.input == 'time' %}
   <input type="time" name="{{ ns }}" class="form-control" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ attr_str }}>
 {% elif field.input == 'datetime-local' %}
   <input type="datetime-local" name="{{ ns }}" class="form-control" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ attr_str }}>
+{% elif field.input == 'image' %}
+  {% if val %}<div class="mb-1"><img src="{{ url_for('uploads.uploaded_file', filename=val) }}" class="img-thumbnail" style="max-height:100px;" onclick="previewImagem(this.src)"></div>{% endif %}
+  <input type="file" name="{{ ns }}" class="form-control" accept="image/*" {{ dis }}>
 {% else %}
   <input type="{{ field.input }}" name="{{ ns }}" class="form-control" value="{{ val or '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ attr_str }}>
 {% endif %}
@@ -201,7 +204,7 @@ function add{{ child.name|capitalize }}Row() {
 {% macro render_badge(instance, badge_cfg) %}
 {% if instance and badge_cfg %}
   {% set bval = instance|deep_attr(badge_cfg.field) %}
-<span class="badge {{ badge_cfg.colors.get(bval, 'bg-secondary') }} fs-6">{{ badge_cfg.options.get(bval, bval) }}</span>
+<span class="badge {{ badge_cfg.colors.get(bval, 'bg-secondary') }}">{{ badge_cfg.options.get(bval, bval) }}</span>
 {% endif %}
 {% endmacro %}
 

@@ -1,44 +1,135 @@
 {% extends "components/page_base.html" %}
 {% from "components/macros.html" import btn %}
 
+{% block head_extra %}
+<style>
+  {% set submenu_cor = APP.barras.get('cores', {}).get('submenu', none) %}
+  {% set form_cor    = APP.barras.get('cores', {}).get('form', none) %}
+  {% set rodape_cor  = APP.barras.get('cores', {}).get('rodape', none) %}
+  :root {
+    --bar-h: {{ APP.barras.altura }}vh;
+    --bar-fs: max(0.7rem, calc(var(--bar-h) * 0.32));
+    --bar-gap: max(0.25rem, calc(var(--bar-h) * 0.12));
+    --bar-py: max(0.08rem, calc(var(--bar-h) * 0.1));
+    --bar-px: max(0.3rem, calc(var(--bar-h) * 0.2));
+    --cor-menu:      {{ APP.cor.fundo }};
+    --bar-bg-menu:   {{ APP.cor.fundo }};
+    --bar-txt-menu:  {{ APP.cor.texto }};
+    --bar-bg-submenu: {{ submenu_cor.fundo if submenu_cor else APP.cor.texto }};
+    --bar-txt-submenu: {{ submenu_cor.texto if submenu_cor else APP.cor.fundo }};
+    --bar-bg-form:   {{ form_cor.fundo if form_cor else APP.cor.texto }};
+    --bar-txt-form:  {{ form_cor.texto if form_cor else APP.cor.fundo }};
+    --bar-bg-rodape: {{ rodape_cor.fundo if rodape_cor else APP.cor.texto }};
+    --bar-txt-rodape: {{ rodape_cor.texto if rodape_cor else APP.cor.fundo }};
+  }
+
+  .app-bar {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    min-height: var(--bar-h);
+    gap: var(--bar-gap);
+    padding: 0 var(--bar-px);
+  }
+  .app-bar-left   { flex: 1; display: flex; align-items: center; gap: var(--bar-gap); }
+  .app-bar-center { flex: 2; display: flex; align-items: center; justify-content: center; gap: var(--bar-gap); }
+  .app-bar-right  { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--bar-gap); }
+
+  .app-bar .btn,
+  .app-bar .btn-group .btn,
+  .app-bar .form-control,
+  .app-bar .input-group-text,
+  .app-bar .badge {
+    font-size: var(--bar-fs);
+    padding-top: var(--bar-py);
+    padding-bottom: var(--bar-py);
+    line-height: 1.3;
+    height: auto;
+    min-height: unset;
+  }
+  .app-bar-right {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  .submenu-section .bar-link-lg {
+    position: relative;
+    z-index: 1;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: var(--bar-h);
+    background-color: transparent !important;
+  }
+  .submenu-section .bar-link-lg.active,
+  .submenu-section .bar-link-lg:hover {
+    color: var(--bar-bg-submenu) !important;
+  }
+  .submenu-section .bar-link-lg.active::before,
+  .submenu-section .bar-link-lg:hover::before {
+    content: '';
+    position: absolute;
+    inset: 4px 0;
+    background: var(--bar-txt-submenu);
+    border-radius: 4px;
+    z-index: -1;
+  }
+</style>
+{% endblock %}
+
 {% block before_content %}
 <div class="flex-shrink-0 area-menu">
-  <div class="barra_mobile d-lg-none d-flex align-items-center px-2" style="background-color:var(--cor-menu);min-height:48px;">
-    <div class="flex-grow-1" style="line-height:1.2;">
-      <div id="mobileMenuTitle" class="text-white fw-bold" style="font-size:1rem;"></div>
+  {# Mobile bar #}
+  <div class="app-bar barra_mobile d-lg-none"
+       style="background:var(--bar-bg-menu);color:var(--bar-txt-menu);"
+       x-data="{ menuAberto: false }">
+    <div class="app-bar-left">
+      <div id="mobileMenuTitle" class="fw-bold"></div>
     </div>
-    <a class="text-white text-decoration-none d-flex flex-column align-items-center" href="/logout" style="gap:2px;min-width:70px;padding:6px 14px;border-radius:6px;">
-      <i class="bi bi-box-arrow-right" style="font-size:1.1rem;"></i>
-      <span style="font-size:0.65rem;font-weight:600;line-height:1.2;">Sair</span>
-    </a>
+    <div class="app-bar-right">
+      <a class="text-decoration-none d-flex align-items-center gap-1"
+         href="/logout" style="color:inherit;padding:var(--bar-py) var(--bar-px);border-radius:6px;">
+        <i class="bi bi-box-arrow-right"></i>
+        <span style="font-size:0.6rem;font-weight:600;">Sair</span>
+      </a>
+    </div>
   </div>
-  <nav class="menu d-none d-lg-flex navbar navbar-expand-lg navbar-dark px-2" style="background-color:var(--cor-menu);">
-    <div class="navbar-nav w-100 d-flex align-items-center">
-      <div class="d-flex justify-content-center flex-grow-1 gap-1">
-        {% for label, item in modulo.menus.items() %}
-        <a class="nav-link"{% if item.submenus %} data-menu="{{ label|lower }}"{% endif %}
-           href="{% if item.submenus %}#{% else %}{{ url_for(item.endpoint) }}{% endif %}">{{ label }}</a>
-        {% endfor %}
-      </div>
-      <a class="nav-link" href="/logout" style="color:#fff!important;"><img src="/static/icons/log-out.svg" alt="Encerrar" style="height:1.2em;vertical-align:middle;filter:brightness(0)invert(1);"> Sair</a>
-    </div>
+
+  {# Desktop nav #}
+  <nav class="app-bar d-none d-lg-flex"
+       style="background:var(--bar-bg-menu);color:var(--bar-txt-menu);">
+    <div class="flex-1"></div>
+    {% for label, item in modulo.menus.items() %}
+    <a {% if item.submenus %}data-menu="{{ label|lower }}"{% endif %}
+       href="{% if item.submenus %}#{% else %}{{ url_for(item.endpoint) }}{% endif %}"
+       class="no-underline px-2 nav-link-item"
+       style="color:inherit;line-height:var(--bar-h);">{{ label }}</a>
+    {% endfor %}
+    <div class="flex-1"></div>
+    <a class="btn btn-ghost no-underline px-2"
+       style="color:inherit;padding:var(--bar-py) var(--bar-px);min-height:unset;height:auto;"
+       href="/logout">
+      <img src="/static/icons/log-out.svg" alt="Encerrar"
+           style="height:0.9em;vertical-align:middle;filter:brightness(0)invert(1);">
+      Sair
+    </a>
   </nav>
+
+  {# Submenu sections (outside nav, no height expansion) #}
   {% for label, item in modulo.menus.items() if item.submenus %}
-  <div class="submenu-section d-none" id="{{ label|lower }}Section">
-    <div class="container">
-      <div class="d-none d-lg-flex gap-3 justify-content-center py-1">
+  <div class="submenu-section d-none" id="{{ label|lower }}Section"
+       style="background:var(--bar-bg-submenu);color:var(--bar-txt-submenu);">
+   <div class="app-bar justify-content-center d-none d-lg-flex">
         {% for sm_label, sm_item in item.submenus.items() %}
-        <a href="{{ url_for(sm_item.endpoint) }}" class="bar-link-lg text-decoration-none">{{ sm_label }}</a>
-        {% endfor %}
-      </div>
-    </div>
+        <a href="{{ url_for(sm_item.endpoint) }}"
+       class="bar-link-lg text-decoration-none link link-hover">{{ sm_label }}</a>
+       {% endfor %}
+     </div>
   </div>
   {% endfor %}
 </div>
 {% endblock %}
 
 {% block content %}
-<div id="page-content">
+<div id="page-content" class="flex-grow-1 d-flex flex-column min-h-0 overflow-auto">
   {% block page_content %}{% endblock %}
 </div>
 {% endblock %}
@@ -47,7 +138,8 @@
 <header class="flex-shrink-0 sistema-header" id="sistemaHeader">
   <div class="container text-center py-0">
     <a href="/">
-      <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce" class="brand-logo" id="brandLogo">
+      <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce"
+           class="brand-logo" id="brandLogo">
     </a>
   </div>
 </header>
@@ -72,76 +164,79 @@
 {% endblock %}
 
 {% block page_footer %}
-<footer class="flex-shrink-0 rodape sistema-rodape">
-  <div>{{ versao }} | {{ usuario }}</div>
-  <div>&copy; 2026 AJ Systems</div>
+<footer class="app-bar w-full"
+         style="justify-content:space-between;background:var(--bar-bg-rodape);color:var(--bar-txt-rodape);font-size:0.7rem;text-shadow:0 1px 0 rgba(255,255,255,0.6);">
+  <span>{{ versao }} | {{ usuario }}</span>
+  <span>&copy; 2026 AJ Systems</span>
 </footer>
 {% endblock %}
 
 {% block modals %}
-<div class="modal fade" id="confirmModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="confirmModalTitle">Confirmação</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body" id="confirmModalBody"></div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-danger" id="confirmModalOk"><i class="bi bi-check-lg"></i> OK</button>
-      </div>
+{# Confirm modal #}
+<dialog id="confirmModal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg" id="confirmModalTitle">Confirmação</h3>
+    <p class="py-4" id="confirmModalBody"></p>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn btn-ghost" id="confirmModalCancel">Cancelar</button>
+      </form>
+      <button class="btn btn-error" id="confirmModalOk"><i class="bi bi-check-lg"></i> OK</button>
     </div>
   </div>
-</div>
+</dialog>
+
 {% if qr_enabled %}
-<div class="modal fade" id="qrModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-sm">
-    <div class="modal-content">
-      <div class="modal-body text-center py-4">
-        <div id="qrcode" class="mb-3 d-inline-block"></div>
-        <p id="qrUrl" class="small mb-0" style="word-break:break-all;color:#555;"></p>
-      </div>
+<dialog id="qrModal" class="modal">
+  <div class="modal-box modal-box-sm">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    <div class="p-4 text-center">
+      <div id="qrcode" class="mb-3 d-inline-block"></div>
+      <p id="qrUrl" class="small mb-0" style="word-break:break-all;color:#555;"></p>
     </div>
   </div>
-</div>
+</dialog>
 {% endif %}
-<div id="subNavOverlay" class="subnav-overlay"></div>
-<div id="subNavPanel" class="subnav-panel">
+
+{# Subnav panel (mobile) #}
+<div id="subNavOverlay" class="subnav-overlay" style="display:none;"></div>
+<div id="subNavPanel" class="subnav-panel" style="display:none;">
   <div class="subnav-panel-header">
     <span id="subNavTitle" class="subnav-panel-title"></span>
-    <button class="subnav-close" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+    <button class="subnav-close" aria-label="Fechar" onclick="window.closeSubNav()"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="subnav-panel-body" id="subNavBody"></div>
 </div>
 
-<div class="modal fade" id="imgPreviewModal" tabindex="-1" data-bs-backdrop="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-body text-center p-2" onclick="bootstrap.Modal.getInstance(document.getElementById('imgPreviewModal')).hide()">
-        <img id="imgPreviewSrc" src="" class="img-fluid" style="max-height:80vh;cursor:pointer;">
-      </div>
+{# Image preview #}
+<dialog id="imgPreviewModal" class="modal">
+  <div class="modal-box max-w-3xl">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+    </form>
+    <div class="text-center p-2">
+      <img id="imgPreviewSrc" src="" class="img-fluid" style="max-height:80vh;cursor:pointer;"
+           onclick="document.getElementById('imgPreviewModal').close()">
     </div>
   </div>
-</div>
+</dialog>
 
-<div class="modal fade" id="timeoutModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Sessão expirando</h5>
-      </div>
-      <div class="modal-body text-center">
-        <p>Sua sessão expira em breve por inatividade. Deseja continuar logado?</p>
-        <p class="fs-3 fw-bold my-3" id="timeout-countdown"></p>
-      </div>
-      <div class="modal-footer justify-content-center">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Não</button>
-        <button type="button" class="btn btn-primary" id="keepalive-btn"><i class="bi bi-clock-history"></i> Sim, continuar logado</button>
-      </div>
+{# Session timeout #}
+<dialog id="timeoutModal" class="modal" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">Sessão expirando</h3>
+    <div class="text-center py-4">
+      <p>Sua sessão expira em breve por inatividade. Deseja continuar logado?</p>
+      <p class="fs-3 fw-bold my-3" id="timeout-countdown"></p>
+    </div>
+    <div class="modal-action justify-center">
+      <button class="btn btn-ghost" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Não</button>
+      <button class="btn btn-primary" id="keepalive-btn"><i class="bi bi-clock-history"></i> Sim, continuar logado</button>
     </div>
   </div>
-</div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -149,17 +244,18 @@
 <script>
 var _confirmModal = null;
 function _getConfirmModal() {
-  if (!_confirmModal) _confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+  if (!_confirmModal) _confirmModal = document.getElementById('confirmModal');
   return _confirmModal;
 }
 function showAlert(msg) {
   document.getElementById('confirmModalTitle').textContent = 'Atenção';
   document.getElementById('confirmModalBody').textContent = msg;
-  document.getElementById('confirmModalOk').className = 'btn btn-primary';
-  document.getElementById('confirmModalOk').textContent = 'OK';
-  document.getElementById('confirmModalOk').onclick = function() { _getConfirmModal().hide(); };
+  var okBtn = document.getElementById('confirmModalOk');
+  okBtn.className = 'btn btn-primary';
+  okBtn.textContent = 'OK';
+  okBtn.onclick = function() { _getConfirmModal().close(); };
   document.getElementById('confirmModalCancel').style.display = 'none';
-  _getConfirmModal().show();
+  _getConfirmModal().showModal();
 }
 function confirmFormSubmit(form, msg) {
   showConfirm(msg, function() { form.submit(); });
@@ -174,14 +270,15 @@ function confirmRemoveRow(el, msg) {
 function showConfirm(msg, onConfirm) {
   document.getElementById('confirmModalTitle').textContent = 'Confirmação';
   document.getElementById('confirmModalBody').textContent = msg;
-  document.getElementById('confirmModalOk').className = 'btn btn-danger';
-  document.getElementById('confirmModalOk').textContent = 'Confirmar';
-  document.getElementById('confirmModalOk').onclick = function() {
-    _getConfirmModal().hide();
+  var okBtn = document.getElementById('confirmModalOk');
+  okBtn.className = 'btn btn-error';
+  okBtn.textContent = 'Confirmar';
+  okBtn.onclick = function() {
+    _getConfirmModal().close();
     if (onConfirm) onConfirm();
   };
   document.getElementById('confirmModalCancel').style.display = '';
-  _getConfirmModal().show();
+  _getConfirmModal().showModal();
 }
 </script>
 <script>
@@ -235,9 +332,6 @@ document.addEventListener('DOMContentLoaded', function () {
   const logo = document.querySelector('.brand-logo');
   if (!logo) return;
   {% if qr_enabled %}
-  const modalEl = document.getElementById('qrModal');
-  if (!modalEl) return;
-  const modal = new bootstrap.Modal(modalEl);
   var timer = null;
   logo.addEventListener('click', function(e) {
     if (timer) { clearTimeout(timer); timer = null; window.location.href = '/admin'; }
@@ -260,17 +354,16 @@ document.addEventListener('DOMContentLoaded', function () {
             qr.make();
             container.style.overflow = 'hidden';
             container.innerHTML = qr.createImgTag(5, 20);
-            modal.show();
+            document.getElementById('qrModal').showModal();
           })
           .catch(function() {
             container.innerHTML = '<p style="color:#c00;font-weight:bold;margin:2rem 0;">QR indisponível</p>';
             urlEl.textContent = 'http://localhost:5000';
-            modal.show();
+            document.getElementById('qrModal').showModal();
           });
       }, 300);
     }
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') modal.hide(); });
   {% else %}
   logo.addEventListener('click', function(e) {
     e.preventDefault();
@@ -286,28 +379,37 @@ function matchPath(path, prefix) {
   prefix = prefix.replace(/\/+$/, '');
   return path === prefix || path.indexOf(prefix + '/') === 0;
 }
+var _subnavCloseTimer = null;
 window.openSubNav = function(sectionKey) {
+  if (_subnavCloseTimer) { clearTimeout(_subnavCloseTimer); _subnavCloseTimer = null; }
   var data = SUB_NAV_SECTIONS[sectionKey];
   if (!data) return;
   var titleEl = document.getElementById('subNavTitle');
   if (titleEl) titleEl.textContent = data.title;
   var body = document.getElementById('subNavBody');
   if (!body) return;
+  var path = window.location.pathname;
   body.innerHTML = data.items.map(function(item) {
-    var isActive = matchPath(window.location.pathname, item.url);
-    return '<a href="' + item.url + '" class="subnav-item' + (isActive ? ' active' : '') + '" data-href="' + item.url + '">' +
+    var isActive = matchPath(path, item.url);
+    return '<a href="' + item.url + '" class="subnav-item' + (isActive ? ' active' : '') + '">' +
       '<i class="bi ' + item.icon + '"></i><span>' + item.label + '</span></a>';
   }).join('');
   var overlay = document.getElementById('subNavOverlay');
   var panel = document.getElementById('subNavPanel');
-  if (overlay) overlay.classList.add('open');
-  if (panel) panel.classList.add('open');
+  if (overlay) { overlay.style.display = ''; void overlay.offsetHeight; overlay.classList.add('open'); }
+  if (panel) { panel.style.display = ''; void panel.offsetHeight; panel.classList.add('open'); }
 };
 window.closeSubNav = function() {
+  if (_subnavCloseTimer) clearTimeout(_subnavCloseTimer);
   var overlay = document.getElementById('subNavOverlay');
   var panel = document.getElementById('subNavPanel');
   if (overlay) overlay.classList.remove('open');
   if (panel) panel.classList.remove('open');
+  _subnavCloseTimer = setTimeout(function() {
+    if (overlay) overlay.style.display = 'none';
+    if (panel) panel.style.display = 'none';
+    _subnavCloseTimer = null;
+  }, 250);
 };
 function setMobileTitle() {
   var path = window.location.pathname;
@@ -333,6 +435,7 @@ function setMobileTitle() {
   titleEl.textContent = '';
 }
 document.addEventListener('click', function(e) {
+  if (e.target.id === 'subNavOverlay') { window.closeSubNav(); return; }
   var bnItem = e.target.closest('.bottom-nav-item');
   if (bnItem) {
     var navKey = bnItem.getAttribute('data-admin-nav');
@@ -341,8 +444,6 @@ document.addEventListener('click', function(e) {
     window.openSubNav(navKey);
     return;
   }
-  if (e.target.id === 'subNavOverlay') { window.closeSubNav(); return; }
-  if (e.target.closest('.subnav-close')) { window.closeSubNav(); return; }
   if (e.target.closest('.subnav-item')) {
     e.preventDefault();
     var link = e.target.closest('.subnav-item');
@@ -351,9 +452,9 @@ document.addEventListener('click', function(e) {
     return;
   }
 });
-var sectionLinks = document.querySelectorAll('.navbar-nav .d-flex .nav-link');
-var allNavLinks = document.querySelectorAll('.navbar-nav .nav-link');
-function setActive(links, el) { links.forEach(function(l) { l.classList.remove('active'); }); if (el) el.classList.add('active'); }
+var sectionLinks = document.querySelectorAll('.area-menu nav a');
+var allNavLinks = document.querySelectorAll('.area-menu nav a');
+function setActive(links, el) { links.forEach(function(l) { l.classList.remove('active', 'active'); }); if (el) { el.classList.add('active'); } }
 function activateSection(section, path) {
   if (section) {
     section.classList.remove('d-none');
@@ -396,6 +497,82 @@ document.querySelectorAll('#adminBottomNav .bottom-nav-item').forEach(function(i
 });
 setMobileTitle();
 
+var _currentSectionKey = null;
+var _activeSectionKey = null;
+// Determine current section from URL
+(function() {
+  var p = window.location.pathname;
+  for (var k in SUB_NAV_SECTIONS) {
+    for (var i = 0; i < SUB_NAV_SECTIONS[k].items.length; i++) {
+      if (matchPath(p, SUB_NAV_SECTIONS[k].items[i].url)) {
+        _currentSectionKey = k;
+        _activeSectionKey = k;
+        break;
+      }
+    }
+    if (_currentSectionKey) break;
+  }
+})();
+
+function _showSection(key) {
+  _activeSectionKey = key;
+  document.querySelectorAll('.submenu-section').forEach(function(s) { s.classList.add('d-none'); });
+  var el = document.getElementById(key + 'Section');
+  if (el) el.classList.remove('d-none');
+}
+function _restoreCurrentSection() {
+  document.querySelectorAll('[data-menu]').forEach(function(l) { l.classList.remove('menu-hover'); });
+  if (_currentSectionKey) {
+    var data = SUB_NAV_SECTIONS[_currentSectionKey];
+    if (data) {
+      allNavLinks.forEach(function(l) { l.classList.remove('active'); });
+      for (var i = 0; i < allNavLinks.length; i++) {
+        if (allNavLinks[i].textContent.trim().toLowerCase() === data.title.toLowerCase()) {
+          allNavLinks[i].classList.add('active');
+          break;
+        }
+      }
+    }
+    _showSection(_currentSectionKey);
+  }
+  _restoreSubmenuActive();
+}
+
+var submenuTimer = null;
+document.querySelectorAll('[data-menu]').forEach(function(link) {
+  link.addEventListener('mouseenter', function() {
+    var key = this.getAttribute('data-menu');
+    allNavLinks.forEach(function(l) { l.classList.remove('active'); });
+    document.querySelectorAll('[data-menu]').forEach(function(l) { l.classList.remove('menu-hover'); });
+    this.classList.add('menu-hover');
+    _showSection(key);
+    if (submenuTimer) { clearTimeout(submenuTimer); submenuTimer = null; }
+  });
+});
+var areaMenu = document.querySelector('.area-menu');
+if (areaMenu) {
+  areaMenu.addEventListener('mouseleave', function() {
+    submenuTimer = setTimeout(function() {
+      _restoreCurrentSection();
+    }, 200);
+  });
+  areaMenu.querySelectorAll('.submenu-section').forEach(function(s) {
+    s.addEventListener('mouseenter', function() { if (submenuTimer) { clearTimeout(submenuTimer); submenuTimer = null; } });
+  });
+}
+// Submenu link hover — temporarily remove active, restore on leave
+document.querySelectorAll('.submenu-section .bar-link-lg').forEach(function(link) {
+  link.addEventListener('mouseenter', function() {
+    document.querySelectorAll('.submenu-section .bar-link-lg').forEach(function(l) { l.classList.remove('active'); });
+  });
+});
+function _restoreSubmenuActive() {
+  var p = window.location.pathname;
+  document.querySelectorAll('.submenu-section .bar-link-lg').forEach(function(l) {
+    if (matchPath(p, l.getAttribute('href'))) l.classList.add('active');
+  });
+}
+
 (function(){
   var timeoutMinutes = {{ config.SESSION_TIMEOUT|default(0) }};
   if (timeoutMinutes <= 0) return;
@@ -410,27 +587,17 @@ setMobileTitle();
   var modalEl = document.getElementById('timeoutModal');
   var countdownEl = document.getElementById('timeout-countdown');
   var keepaliveBtn = document.getElementById('keepalive-btn');
-  var timeoutModal = modalEl ? new bootstrap.Modal(modalEl, {backdrop: 'static', keyboard: false}) : null;
-
-  var modalHiddenHandler = function(){
-    if (!warningShown) return;
-    warningShown = false;
-    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-  };
-  if (modalEl) modalEl.addEventListener('hidden.bs.modal', modalHiddenHandler);
-
-  function pad(n){ return n < 10 ? '0' + n : '' + n; }
 
   function showWarning(remaining){
     warningShown = true;
-    if (timeoutModal) timeoutModal.show();
+    modalEl.showModal();
     if (countdownInterval) clearInterval(countdownInterval);
     countdownInterval = setInterval(function(){
       remaining -= 1000;
       if (remaining <= 0){
         clearInterval(countdownInterval);
         countdownInterval = null;
-        if (timeoutModal) timeoutModal.hide();
+        modalEl.close();
         window.location.href = '/';
         return;
       }
@@ -440,14 +607,20 @@ setMobileTitle();
         countdownEl.textContent = pad(mins) + ':' + pad(secs);
       }
     }, 1000);
+    modalEl.addEventListener('close', function onClose(){
+      modalEl.removeEventListener('close', onClose);
+      if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    }, {once: true});
   }
+
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
 
   function resetTimer(){
     if (timeoutTimer) clearTimeout(timeoutTimer);
     if (warningShown){
       warningShown = false;
       if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
-      if (timeoutModal) timeoutModal.hide();
+      modalEl.close();
     }
     timeoutTimer = setTimeout(function(){
       showWarning(warningMs);
@@ -470,8 +643,9 @@ setMobileTitle();
 </script>
 <script>
 function previewImagem(src) {
-  document.getElementById('imgPreviewSrc').src = src;
-  new bootstrap.Modal(document.getElementById('imgPreviewModal')).show();
+  var img = document.getElementById('imgPreviewSrc');
+  img.src = src;
+  img.closest('.modal').showModal();
 }
 </script>
 {% endblock %}

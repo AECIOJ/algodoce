@@ -1,23 +1,24 @@
+{% set _tot = session.fields | sum(attribute='width_ch') %}
 <div class="card mb-3">
   <div class="card-header bg-light fw-bold">{{ session.label }}</div>
   <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-sm mb-0">
-        <thead>
-          <tr>
-            {% for f in session.fields %}
-            <th class="{{ 'text-end' if f.currency or f.input == 'number' }}">{{ f.display_label }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
+    <div style="display:flex;flex-direction:column;align-items:flex-start;">
+      <div style="min-width:{{ _tot }}ch;">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0" style="width:100%;">
+            <thead>
+              <tr>
+                {% for f in session.fields %}
+                <th style="width:{{ f.width_ch }}ch;{{ 'text-align:end;' if f.currency or f.input == 'number' else '' }}">{{ f.display_label }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
         <tbody>
-          {% set _items = data|deep_attr(session.attr) if session.attr else [] %}
-          {% if _items is sequence and _items is not string %}
-            {% set items = _items %}
-          {% elif _items is not none %}
-            {% set items = [_items] %}
-          {% else %}
-            {% set items = [] %}
+          {% set _raw = data|deep_attr(session.attr) if session.attr else [] %}
+          {% if _raw.all is defined %}{% set items = _raw.all() %}
+          {% elif _raw is sequence and _raw is not string %}{% set items = _raw %}
+          {% elif _raw is not none %}{% set items = [_raw] %}
+          {% else %}{% set items = [] %}
           {% endif %}
           {% for item in items %}
           <tr>
@@ -31,7 +32,11 @@
               {% elif f.input == 'date' and val %}
                 {{ val|fmtdate }}
               {% elif f.query %}
-                {{ item|deep_attr(f.name ~ '.' ~ (f.card_path or 'nome')) if f.card_path else item|deep_attr(f.name) }}
+                {{ item|deep_attr(f.card_path) if f.card_path else item|deep_attr(f.name) }}
+              {% elif f.options %}
+                {{ f.options.get(val, val) if val is not none else '-' }}
+              {% elif f.input == 'image' and val %}
+                <img src="{{ url_for('uploads.uploaded_file', filename=val) }}" class="img-thumbnail" style="max-height:60px;cursor:pointer;" onclick="previewImagem(this.src)">
               {% else %}
                 {{ val if val is not none else '-' }}
               {% endif %}
@@ -74,5 +79,7 @@
         {% endif %}
       </table>
     </div>
+    </div>
+  </div>
   </div>
 </div>

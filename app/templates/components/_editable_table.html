@@ -1,31 +1,32 @@
-{% set items = data|deep_attr(session.attr) if session.attr and data else [] %}
+{% set _raw = data|deep_attr(session.attr) if session.attr and data else [] %}
+{% set items = _raw.all() if _raw.all is defined else _raw %}
 {% set attr = session.attr or 'item' %}
+{% set _iw = 4 %}
+{% set _aw = 40 if not ro else 0 %}
+{% set _tot = _iw + (session.fields | sum(attribute='width_ch')) + (5 if not ro else 0) %}
 <div class="card mb-3">
   <div class="card-header bg-light fw-bold d-flex align-items-center gap-2">
     <span>{{ session.label }}</span>
-    {% if not ro %}
-    {% if session.buttons %}
+    {% if not ro and session.buttons %}
     {% for btn in session.buttons %}
     <button type="button" class="btn btn-sm {{ 'btn-outline-primary' if not btn.color else 'btn-' ~ btn.color if not btn.outline else 'btn-outline-' ~ btn.color }}" onclick="{{ btn.onclick }}">{% if btn.icon %}<i class="bi {{ btn.icon }}"></i> {% endif %}{{ btn.label }}</button>
     {% endfor %}
     {% endif %}
-    <button type="button" class="btn btn-outline-success btn-sm ms-auto" onclick="add{{ attr|capitalize }}Row(this)">
-      <i class="bi bi-plus-lg"></i> Adicionar
-    </button>
-    {% endif %}
   </div>
   <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-sm mb-0" id="{{ attr }}-table">
-        <thead>
-          <tr>
-            <th style="width:32px">#</th>
-            {% for f in session.fields %}
-            <th class="{{ 'text-end' if f.align == 'right' }}">{{ f.display_label }}{% if f.required %} <span class="text-danger">*</span>{% endif %}</th>
-            {% endfor %}
-            {% if not ro %}<th style="width:40px"></th>{% endif %}
-          </tr>
-        </thead>
+    <div style="display:flex;flex-direction:column;align-items:flex-start;">
+      <div style="min-width:{{ _tot }}ch;">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0" style="width:100%;" id="{{ attr }}-table">
+            <thead>
+              <tr>
+                <th style="width:{{ _iw }}ch;">#</th>
+                {% for f in session.fields %}
+                <th style="width:{{ f.width_ch }}ch;{{ 'text-align:end;' if f.align == 'right' else '' }}">{{ f.display_label }}{% if f.required %} <span class="text-danger">*</span>{% endif %}</th>
+                {% endfor %}
+                {% if not ro %}<th style="width:{{ _aw }}px;"></th>{% endif %}
+              </tr>
+            </thead>
         <tbody id="{{ attr }}-body">
           {% for item in items %}
           <tr class="{{ attr }}-row">
@@ -43,10 +44,30 @@
               {% endif %}
               {% if f.disabled %}
               <input type="text" name="{{ array_name }}" class="form-control form-control-sm bg-light text-end field-{{ f.name }}" value="{{ '%.2f'|format(val) if val is number else (val.strftime('%d/%m/%Y') if val is date else (val or '')) }}" disabled>
+              {% elif f.input == 'select' %}
+              <select name="{{ array_name }}" class="form-select form-select-sm field-{{ f.name }}" {{ 'required' if f.required else '' }} {{ attrs }}>
+                <option value="">Selecione...</option>
+                {% if f.options %}
+                  {% for k, v in f.options.items() %}
+                  <option value="{{ k }}" {{ 'selected' if val is not none and val|string == k|string }}>{{ v }}</option>
+                  {% endfor %}
+                {% else %}
+                  {% set qlist = _lookup.get(f.name) if _lookup is defined else none %}
+                  {% if qlist %}
+                    {% for item in qlist %}
+                    <option value="{{ item.id }}" {{ 'selected' if val is not none and val|string == item.id|string }}>{{ item.nome }}</option>
+                    {% endfor %}
+                  {% endif %}
+                {% endif %}
+              </select>
+              {% elif f.input in ('checkbox', 'boolean') %}
+              <input type="checkbox" name="{{ array_name }}" class="form-check-input field-{{ f.name }}" value="1" {{ 'checked' if val }} {{ attrs }}>
               {% elif f.input == 'number' %}
-              <input type="number" name="{{ array_name }}" class="form-control form-control-sm text-end field-{{ f.name }}" value="{{ val if val is not none else '' }}" step="0.01" {{ 'required' if f.required else '' }} {{ attrs }}>
+              <input type="number" name="{{ array_name }}" class="form-control form-control-sm text-end field-{{ f.name }}" value="{{ val if val is not none else '' }}" step="{{ 0.1 ** f.decimals if f.decimals is not none else 'any' }}" {{ 'required' if f.required else '' }} {{ attrs }}>
               {% elif f.input == 'date' %}
               <input type="date" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ 'required' if f.required else '' }} {{ attrs }}>
+              {% elif f.input == 'image' %}
+              <input type="file" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" accept="image/*">
               {% else %}
               <input type="text" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" value="{{ val if val is not none else '' }}" {{ 'required' if f.required else '' }} {{ attrs }}>
               {% endif %}
@@ -56,14 +77,27 @@
             <td class="text-center">
               <input type="hidden" name="{{ session.prefix }}id[]" value="{{ item.id if item.id else '' }}">
               <input type="hidden" name="{{ session.prefix }}remover[]" value="0">
-              <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this, '{{ attr }}', '{{ session.prefix }}')"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this, '{{ attr }}', '{{ session.prefix }}')"><i class="bi bi-dash-circle"></i></button>
             </td>
             {% endif %}
           </tr>
           {% endfor %}
         </tbody>
+        {% if not ro %}
+        <tfoot>
+          <tr>
+            <td colspan="{{ session.fields|length + 2 }}" class="py-2">
+              <button type="button" class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1" onclick="add{{ attr|capitalize }}Row(this)">
+                <i class="bi bi-plus-lg"></i> Adicionar
+              </button>
+            </td>
+          </tr>
+        </tfoot>
+        {% endif %}
       </table>
     </div>
+    </div>
+  </div>
   </div>
 </div>
 
@@ -82,10 +116,30 @@
       {% endif %}
       {% if f.disabled %}
       <input type="text" name="{{ array_name }}" class="form-control form-control-sm bg-light text-end field-{{ f.name }}" value="0,00" disabled>
+      {% elif f.input == 'select' %}
+      <select name="{{ array_name }}" class="form-select form-select-sm field-{{ f.name }}" {{ 'required' if f.required else '' }} {{ attrs }}>
+        <option value="">Selecione...</option>
+        {% if f.options %}
+          {% for k, v in f.options.items() %}
+          <option value="{{ k }}">{{ v }}</option>
+          {% endfor %}
+        {% else %}
+          {% set qlist = _lookup.get(f.name) if _lookup is defined else none %}
+          {% if qlist %}
+            {% for item in qlist %}
+            <option value="{{ item.id }}">{{ item.nome }}</option>
+            {% endfor %}
+          {% endif %}
+        {% endif %}
+      </select>
+      {% elif f.input in ('checkbox', 'boolean') %}
+      <input type="checkbox" name="{{ array_name }}" class="form-check-input field-{{ f.name }}" value="1" {{ attrs }}>
       {% elif f.input == 'number' %}
-      <input type="number" name="{{ array_name }}" class="form-control form-control-sm text-end field-{{ f.name }}" value="" step="0.01" {{ 'required' if f.required else '' }} {{ attrs }}>
+      <input type="number" name="{{ array_name }}" class="form-control form-control-sm text-end field-{{ f.name }}" value="" step="{{ 0.1 ** f.decimals if f.decimals is not none else 'any' }}" {{ 'required' if f.required else '' }} {{ attrs }}>
       {% elif f.input == 'date' %}
       <input type="date" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" value="" {{ 'required' if f.required else '' }} {{ attrs }}>
+      {% elif f.input == 'image' %}
+      <input type="file" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" accept="image/*">
       {% else %}
       <input type="text" name="{{ array_name }}" class="form-control form-control-sm field-{{ f.name }}" value="" {{ 'required' if f.required else '' }} {{ attrs }}>
       {% endif %}
@@ -95,7 +149,7 @@
     <td class="text-center">
       <input type="hidden" name="{{ session.prefix }}id[]" value="">
       <input type="hidden" name="{{ session.prefix }}remover[]" value="0">
-      <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this, '{{ attr }}', '{{ session.prefix }}')"><img src="{{ url_for('static', filename='icons/minus-circle.svg') }}" height="14" alt="Remover" style="filter:brightness(0)invert(1)"></button>
+      <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this, '{{ attr }}', '{{ session.prefix }}')"><i class="bi bi-dash-circle"></i></button>
     </td>
     {% endif %}
   </tr>

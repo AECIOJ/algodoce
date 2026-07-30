@@ -23,7 +23,7 @@ FIELD_CPF        = {'label': 'CPF', 'grid': 4}
 FIELD_CNPJ       = {'label': 'CNPJ', 'grid': 4}
 FIELD_EMAIL      = {'grid': 3}
 FIELD_ENDERECO   = {'label': 'Endereço', 'grid': 12, 'input': 'textarea'}
-FIELD_ATIVO      = {'input': 'boolean', 'pos': 1, 'edit': False, 'filter': FILTER_BOOLEAN}
+FIELD_ATIVO      = {'input': 'boolean', 'edit': False, 'filter': FILTER_BOOLEAN}
 
 FIELD_VALOR      = {'input': 'number', 'align': 'right', 'currency': 'brl', 'filter': FILTER_NUMBER}
 FIELD_PRECO      = {'label': 'Preço', 'input': 'number', 'attrs': {'step': '0.01'}, 'filter': FILTER_NUMBER}

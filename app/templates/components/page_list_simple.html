@@ -1,0 +1,328 @@
+{% extends "components/layout_page.html" %}
+
+{% block layout_attrs %}x-data="listPage()"{% endblock %}
+
+{% block page_layout_header %}
+{% set cols = LIST.master_fields | fields_to_columns %}
+{% set edit_endpoint = LIST.edit_endpoint %}
+{% set edit_id_field = LIST.edit_id_field if LIST.edit_id_field is not none else 'id' %}
+{% set act_ch = 14 if edit_endpoint else 0 %}
+{% set has_card = LIST.linha is not none or (card_fields is not none and card_fields) or (detail_fields is not none and detail_data is not none) %}
+{% set exp_ch = 3 if has_card else 0 %}
+{% set tot_ch = (cols | sum(attribute='width')) + act_ch + exp_ch %}
+
+<script>
+function listPage() {
+  return {
+    tab: 'dados',
+    filters: (function() {
+      var defaults = {{ initial_filters | tojson | safe }};
+      var active = {{ active_filters | tojson | safe }};
+      var filters = {};
+      for (var field in defaults) {
+        var v = active[field];
+        filters[field] = (v !== undefined && v !== null) ? (typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : v) : defaults[field];
+      }
+      return filters;
+    })(),
+    submitFilters() {
+      var params = new URLSearchParams();
+      for (var field in this.filters) {
+        var val = this.filters[field];
+        if (val === null || val === undefined || val === '' || (typeof val === 'object' && Object.keys(val).length === 0)) continue;
+        if (typeof val === 'object') {
+          if ('value' in val && val.value) {
+            params.set(field + '_value', val.value);
+            if ('mode' in val && val.mode) {
+              params.set(field + '_mode', val.mode);
+            }
+          }
+          if ('val1' in val && val.val1) {
+            params.set(field + '_val1', val.val1);
+            if ('mode' in val && val.mode) {
+              params.set(field + '_mode', val.mode);
+            }
+          }
+          if ('val2' in val && val.val2 && val.mode === 'entre') {
+            params.set(field + '_val2', val.val2);
+          }
+          if ('preset' in val && val.preset) {
+            params.set(field + '_preset', val.preset);
+            if (val.from) params.set(field + '_from', val.from);
+            if (val.to) params.set(field + '_to', val.to);
+          } else if ('preset' in val) {
+          }
+        } else {
+          params.set(field, val);
+        }
+      }
+      var qs = params.toString();
+      window.location.href = window.location.pathname + (qs ? '?' + qs : '');
+    },
+    clearFilters() {
+      window.location.href = window.location.pathname;
+    }
+  };
+}
+
+{% if has_card %}
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[data-expand-toggle]').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var target = document.getElementById(this.dataset.expandToggle);
+      if (!target) return;
+      target.classList.toggle('collapsed');
+      this.classList.toggle('expanded');
+    });
+  });
+});
+{% endif %}
+</script>
+
+<div style="display:flex;flex-direction:column;align-items:center;background:#fff;border-bottom:1px solid #dee2e6;">
+<div class="page-list-header flex-shrink-0 d-flex align-items-center px-2 py-1 gap-2"
+     style="min-width:{{ tot_ch }}ch;width:100%;flex-wrap:wrap;">
+  <h2 class="mb-0 fs-5 fs-lg-4 flex-shrink-0 d-none d-lg-block">{{ title }}</h2>
+  <ul class="nav nav-underline mb-0 flex-shrink-0">
+    <li class="nav-item"><button class="nav-link" :class="{ active: tab === 'dados' }" @click="tab = 'dados'" type="button" role="tab">Dados</button></li>
+    <li class="nav-item"><button class="nav-link" :class="{ active: tab === 'filtros' }" @click="tab = 'filtros'" type="button" role="tab">Filtros</button></li>
+    <li class="nav-item d-none"><button class="nav-link disabled" type="button" role="tab">Relatórios</button></li>
+  </ul>
+  <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
+    {% if new_url %}
+    <a href="{{ new_url }}" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-plus-lg"></i> Novo</a>
+    {% endif %}
+  </div>
+</div>
+</div>
+{% endblock %}
+
+{% block page_layout_body %}
+{% set cols = LIST.master_fields | fields_to_columns %}
+{% set edit_endpoint = LIST.edit_endpoint %}
+{% set edit_id_field = LIST.edit_id_field if LIST.edit_id_field is not none else 'id' %}
+{% set act_ch = 14 if edit_endpoint else 0 %}
+{% set has_card = LIST.linha is not none or (card_fields is not none and card_fields) or (detail_fields is not none and detail_data is not none) %}
+{% set exp_ch = 3 if has_card else 0 %}
+{% set tot_ch = (cols | sum(attribute='width')) + act_ch + exp_ch %}
+{% set card_cols = (card_fields | fields_to_columns) if card_fields else [] %}
+{% set det_cols = (detail_fields | fields_to_columns) if detail_fields else [] %}
+
+<div style="display:flex;flex-direction:column;align-items:center;">
+<div class="page-list-inner" style="min-width:{{ tot_ch }}ch;width:100%;">
+
+  <div x-show="tab === 'dados'" style="width:100%;">
+    <table class="table table-sm sortable" style="background:#fff;width:100%;">
+      <thead style="position:sticky;top:0;z-index:2;">
+        <tr>
+          {% if has_card %}<th style="width:{{ exp_ch }}ch;"></th>{% endif %}
+          {% for col in cols %}
+          <th style="width:{{ col.width }}ch;">{{ col.label }}</th>
+          {% endfor %}
+          {% if edit_endpoint %}<th style="width:{{ act_ch }}ch;">Ações</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in data %}
+        {% set _item_id = item|deep_attr(edit_id_field) %}
+        {% set _row_id = 'detail-row-' + loop.index|string %}
+        <tr>
+          {% if has_card %}
+          <td class="text-center py-1" style="width:{{ exp_ch }}ch;">
+            <span class="collapse-icon" data-expand-toggle="{{ _row_id }}" style="cursor:pointer;">▶</span>
+          </td>
+          {% endif %}
+          {% for col in cols %}
+          {% if LIST.linha is none or loop.index0 in LIST.linha %}
+          <td>
+            {% set _raw = item|deep_attr(col.card_path or col.field) %}
+            {% if col.options and _raw is not none %}
+              {{ col.options.get(_raw, _raw) }}
+            {% elif col.currency and _raw is not none %}
+              {{ _raw|brl }}
+            {% elif col.input == 'image' and _raw %}
+              <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:60px;cursor:pointer;" onclick="previewImagem(this.src)">
+            {% elif col.input in ('boolean', 'checkbox') and _raw is not none %}
+              {{ 'Sim' if _raw else 'Não' }}
+            {% elif _raw is not none %}
+              {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}
+            {% else %}—
+            {% endif %}
+          </td>
+          {% endif %}
+          {% endfor %}
+          {% if edit_endpoint %}
+          <td>
+            <a href="{{ url_for(edit_endpoint, id=_item_id) }}"
+               class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-edit-link">
+              <img src="{{ url_for('static', filename='icons/pencil.svg') }}" alt="" height="14">
+              <small style="font-size:0.65rem;">Editar</small>
+            </a>
+          </td>
+          {% endif %}
+        </tr>
+        {% if has_card %}
+        <tr class="detail-row collapsed" id="{{ _row_id }}">
+          <td style="width:0;overflow:hidden;padding:0;border-left:none;border-right:none;"></td>
+          <td colspan="{{ cols|length + (1 if edit_endpoint else 0) }}" style="border-left:none;border-right:none;">
+            <div class="detail-overflow">
+              {% if LIST.linha is not none %}
+              {% for col in cols %}
+              {% if loop.index0 not in LIST.linha %}
+              {% set _raw = item|deep_attr(col.card_path or col.field) %}
+              <div data-field="{{ col.field }}" class="overflow-field">
+                <div class="overflow-label">{{ col.label }}</div>
+                <div class="overflow-value">
+                  {% if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
+                </div>
+              </div>
+              {% endif %}
+              {% endfor %}
+              {% endif %}
+              {% for col in card_cols %}
+              {% set _raw = item|deep_attr(col.card_path or col.field) %}
+              <div data-field="{{ col.field }}" class="overflow-field">
+                <div class="overflow-label">{{ col.label }}</div>
+                <div class="overflow-value">
+                  {% if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% if det_cols and detail_data %}
+            {% set _sub_items = item|deep_attr(detail_data) %}
+            {% if _sub_items %}
+            <div class="detail-carousel">
+              <div class="carousel-body">
+                <div class="carousel-header">
+                  {% for dcol in det_cols %}
+                  <div class="carousel-field"><span class="carousel-label">{{ dcol.label }}</span></div>
+                  {% endfor %}
+                </div>
+                <div class="carousel-track">
+                  {% for sub in _sub_items %}
+                  <div class="carousel-card">
+                    {% for dcol in det_cols %}
+                    {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
+                    <div class="carousel-field">
+                      <span class="carousel-value">
+                      {% if dcol.function %}{{ dcol.function(sub) }}{% elif dcol.options and _raw is not none %}{{ dcol.options.get(_raw, _raw) }}{% elif dcol.currency and _raw is not none %}{{ _raw|brl }}{% elif dcol.link and _raw is not none %}<a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
+                      </span>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="carousel-nav">
+                <button type="button" class="carousel-arrow carousel-arrow-left" aria-label="Anterior">‹</button>
+                <div class="carousel-dots"><span class="carousel-dot"></span></div>
+                <button type="button" class="carousel-arrow carousel-arrow-right" aria-label="Próximo">›</button>
+              </div>
+            </div>
+            {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        {% else %}
+        <tr><td colspan="{{ cols|length + (1 if edit_endpoint else 0) + (1 if has_card else 0) }}" class="text-center text-muted py-3">Nenhum registro encontrado.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div x-show="tab === 'filtros'" style="width:100%;">
+    <div class="d-flex flex-column gap-2 p-2">
+      {% for name, cfg in FILTERS.items() %}
+      {% set label = cfg.label or name | capitalize %}
+      {% set ftype = cfg.type %}
+      <div class="filter-group">
+        <label class="form-label small fw-semibold mb-1">{{ label }}</label>
+
+        {% if ftype == 'text' %}
+        <div class="input-group input-group-sm">
+          <select class="form-select" style="flex:0 0 auto;width:auto;"
+                  x-model="filters['{{ name }}'].mode">
+            {% for val, label_mode in cfg.get('modes', [('igual','Igual a'),('contains','Contém'),('starts','Começa')]) %}
+            <option value="{{ val }}">{{ label_mode }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" class="form-control" x-model="filters['{{ name }}'].value" placeholder="Valor">
+        </div>
+
+        {% elif ftype == 'number' %}
+        <div class="input-group input-group-sm" style="flex-wrap:nowrap;">
+          <select class="form-select" style="flex:0 0 auto;width:auto;"
+                  x-model="filters['{{ name }}'].mode"
+                  @change="filters['{{ name }}'].val2 = ''">
+            {% for val, label_mode in cfg.get('modes', [('igual','Igual a'),('entre','Entre'),('maior_que','Maior que'),('maior_igual','Maior ou igual a'),('menor_que','Menor que'),('menor_igual','Menor ou igual a')]) %}
+            <option value="{{ val }}">{{ label_mode }}</option>
+            {% endfor %}
+          </select>
+          <input type="number" class="form-control" x-model="filters['{{ name }}'].val1" placeholder="Valor 1" step="any">
+          <input type="number" class="form-control" x-show="filters['{{ name }}'].mode === 'entre'"
+                 x-model="filters['{{ name }}'].val2" placeholder="Valor 2" step="any">
+        </div>
+
+        {% elif ftype == 'boolean' %}
+        <select class="form-select form-select-sm" x-model="filters['{{ name }}']">
+          {% for val, label_mode in cfg.get('modes', [('','Todos'),('true','Sim'),('false','Não')]) %}
+          <option value="{{ val }}">{{ label_mode }}</option>
+          {% endfor %}
+        </select>
+
+        {% elif ftype == 'select' %}
+        {% set _opts = cfg.get('options', {}) %}
+        <select class="form-select form-select-sm" x-model="filters['{{ name }}']">
+          <option value="">Todos</option>
+          {% if _opts is mapping %}
+          {% for val, opt_label in _opts.items() %}
+          <option value="{{ opt_label }}">{{ opt_label }}</option>
+          {% endfor %}
+          {% else %}
+          {% for opt_label in _opts %}
+          <option value="{{ opt_label }}">{{ opt_label }}</option>
+          {% endfor %}
+          {% endif %}
+        </select>
+
+        {% elif ftype == 'date' %}
+        <div class="d-flex flex-column gap-1">
+          <select class="form-select form-select-sm" x-model="filters['{{ name }}'].preset">
+            {% for val, label_mode in cfg.get('modes', []) %}
+            <option value="{{ val }}">{{ label_mode }}</option>
+            {% endfor %}
+          </select>
+          <div class="d-flex gap-1" x-show="filters['{{ name }}'].preset === 'periodo'">
+            <input type="date" class="form-control form-control-sm" x-model="filters['{{ name }}'].from" placeholder="De">
+            <input type="date" class="form-control form-control-sm" x-model="filters['{{ name }}'].to" placeholder="Até">
+          </div>
+          <input type="date" class="form-control form-control-sm"
+                 x-show="filters['{{ name }}'].preset === 'a_partir_de'"
+                 x-model="filters['{{ name }}'].from" placeholder="A partir de">
+          <input type="date" class="form-control form-control-sm"
+                 x-show="filters['{{ name }}'].preset === 'ate_a_data_de'"
+                 x-model="filters['{{ name }}'].to" placeholder="Até a data de">
+        </div>
+
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="text-muted small p-2">Nenhum filtro disponível.</div>
+      {% endfor %}
+    </div>
+    <div class="d-flex gap-2 mt-3 bg-white p-2 border-top" id="page-filter-actions">
+      <button type="button" class="btn btn-outline-danger flex-fill d-inline-flex align-items-center gap-1" @click="clearFilters()">
+        <i class="bi bi-x-lg"></i> Limpar
+      </button>
+      <button type="button" class="btn btn-primary flex-fill d-inline-flex align-items-center gap-1" @click="submitFilters()">
+        <i class="bi bi-funnel"></i> Aplicar
+      </button>
+    </div>
+  </div>
+
+</div>
+</div>
+{% endblock %}

@@ -553,8 +553,12 @@ window.pageListFilter = true;
   {% set edit_if_field = table.edit_if_field %}
   {% set edit_endpoint_map = table.edit_endpoint_map %}
   {% set edit_endpoint_key = table.edit_endpoint_key %}
+  {% if table.detail_fields is not none %}
   {% set detail_fields = table.detail_fields %}
+  {% endif %}
+  {% if table.detail_data is not none %}
   {% set detail_data = table.detail_data %}
+  {% endif %}
   {% set send_endpoint = table.send_endpoint if table.send_endpoint is not none else send_endpoint %}
 {% endif %}
 {% set cols = columns if columns else (fields|fields_to_columns if fields else []) %}
@@ -604,7 +608,7 @@ window.pageListFilter = true;
           {%- set _raw = _master|deep_attr(col.card_path or col.field) %}
           {%- if col.function %}
             {{- col.function(_master) }}
-          {%- elif 'imagem' in col.field and _raw %}
+          {%- elif col.input == 'image' and _raw %}
             <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:80px;max-width:100%;width:auto;height:auto;cursor:pointer;" onclick="previewImagem(this.src)">
           {%- elif col.options and _raw is not none %}
             {{ col.options.get(_raw, _raw) }}
@@ -647,7 +651,7 @@ window.pageListFilter = true;
             {% set _raw = _master|deep_attr(col.card_path or col.field) %}
             <div data-field="{{ col.field }}" class="overflow-field">
               <div class="overflow-label">{{ col.label }}</div>
-              <div class="overflow-value">{% if col.function %}{{ col.function(_master) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(_master) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
             </div>
             {% endif %}
             {% endfor %}
@@ -736,7 +740,7 @@ window.pageListFilter = true;
           {%- set _raw = item|deep_attr(col.card_path or col.field) %}
           {%- if col.function %}
             {{- col.function(item) }}
-          {%- elif 'imagem' in col.field and _raw %}
+          {%- elif col.input == 'image' and _raw %}
             <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:80px;max-width:100%;width:auto;height:auto;cursor:pointer;" onclick="previewImagem(this.src)">
           {%- elif col.options and _raw is not none %}
             {{ col.options.get(_raw, _raw) }}
@@ -780,7 +784,7 @@ window.pageListFilter = true;
             {% set _raw = item|deep_attr(col.card_path or col.field) %}
             <div data-field="{{ col.field }}" class="overflow-field">
               <div class="overflow-label">{{ col.label }}</div>
-              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
             </div>
             {% endif %}
             {% endfor %}
@@ -847,7 +851,7 @@ window.pageListFilter = true;
           {%- set _raw = item|deep_attr(col.card_path or col.field) %}
           {%- if col.function %}
             {{- col.function(item) }}
-          {%- elif 'imagem' in col.field and _raw %}
+          {%- elif col.input == 'image' and _raw %}
             <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:80px;max-width:100%;width:auto;height:auto;cursor:pointer;" onclick="previewImagem(this.src)">
           {%- elif col.options and _raw is not none %}
             {{ col.options.get(_raw, _raw) }}
@@ -890,7 +894,7 @@ window.pageListFilter = true;
             {% set _raw = item|deep_attr(col.card_path or col.field) %}
             <div data-field="{{ col.field }}" class="overflow-field">
               <div class="overflow-label">{{ col.label }}</div>
-              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif 'imagem' in col.field and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
+              <div class="overflow-value">{% if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{% if _raw %}<span class="badge bg-success">Sim</span>{% else %}<span class="badge bg-light text-muted border">Não</span>{% endif %}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}</div>
             </div>
             {% endif %}
             {% endfor %}

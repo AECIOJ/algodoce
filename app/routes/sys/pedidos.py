@@ -155,7 +155,7 @@ gerar_btn = {'label': 'Gerar Financeiro', 'endpoint': 'orders.gerar_financeiro',
              'icon': 'bi-cash-coin', 'color': 'success', 'outline': False,
              'url_var': 'id', 'show_if': ('transacao_id', None)}
 
-orders_form = {'model': Order, 'redirect': 'orders.list', 'fields': ORDERS_FIELDS, 'sessions': {
+Form = {'model': Order, 'redirect': 'orders.list', 'fields': ORDERS_FIELDS, 'sessions': {
         'Itens do Pedido': ITENS_FIELDS,
         'Evento':           EVENT_FIELDS,
         '*Financeiro': {
@@ -241,7 +241,7 @@ def form(id=None):
                 db.session.commit()
     products = Product.query.filter_by(ativo=True).order_by(Product.nome).all()
     carteiras = Carteira.query.filter(Carteira.uso.in_([0, 1])).order_by(Carteira.nome).all()
-    return handle_form(orders_form, id, extra_ctx={
+    return handle_form(Form, id, extra_ctx={
         'products': products,
         'carteiras': carteiras,
         'tipos_evento': tipos_evento_list,
