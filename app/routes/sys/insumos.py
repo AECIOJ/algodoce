@@ -3,30 +3,26 @@ from app.models.product_ingredient import ProductIngredient
 from app.models.producao_insumo import ProducaoInsumo
 from app.models.compra_item import CompraItem
 from app.models.unit_conversion import UnitConversion
-from app.constants import TIPO_INGREDIENTE, UND_INSUMO, PRODUCAO_ETAPAS
-from app.ajsystem.utils import opcoes
-
-
-UND_MAP = opcoes(UND_INSUMO)
+from app.constants import TIPO_INGREDIENTE, UND_LIST, PRODUCAO_ETAPAS
 
 Entidade = {
     'Ingredient': {
         'id':              {'type': 'ID', 'width': 6},
         'nome':            {'type': 'TEXT', 'width': 18, 'transform': 'title'},
         'tipo':            {'type': 'LIST', 'width': 12, 'list': TIPO_INGREDIENTE},
-        'unidade_medida':  {'type': 'LIST', 'width': 8, 'list': UND_MAP, 'required': True},
+        'unidade_medida':  {'type': 'LIST', 'width': 8, 'list': UND_LIST, 'required': True},
     },
     'UnitConversion': {
         'id':            {'type': 'ID'},
         'ingredient_id': {'type': 'ID'},
-        'unidade':       {'type': 'LIST', 'list': UND_MAP, 'required': True},
+        'unidade':       {'type': 'LIST', 'list': UND_LIST, 'required': True},
         'fator':         {'type': 'NUM', 'required': True, 'decimals': 6},
     },
     'ProductIngredient': {
         'ingredient_id': {'type': 'ID'},
         'product_id':    {'type': 'FK', 'label': 'Produto', 'required': True, 'masterkey': 'product'},
         'quantidade':    {'type': 'NUM'},
-        'unidade':       {'type': 'LIST', 'list': UND_MAP},
+        'unidade':       {'type': 'LIST', 'list': UND_LIST},
         'etapa':         {'type': 'LIST', 'list': PRODUCAO_ETAPAS},
     },
 }

@@ -6,7 +6,7 @@ Não dependem de modelos nem da aplicação host.
 from app.ajsystem.constants import CONECTORES
 
 
-def opcoes(items):
+def as_options(items):
     """Converte um iterável em dict de opções {valor: rótulo} idênticos
     para fields `LIST` (ex.: ['Kg', 'G'] -> {'Kg': 'Kg', 'G': 'G'})."""
     return {i: i for i in items}

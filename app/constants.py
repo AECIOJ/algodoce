@@ -1,3 +1,7 @@
+from app.ajsystem.constants import CONECTORES
+from app.ajsystem.utils import as_options
+
+
 TIPO_CONTA = {0: "Cliente", 1: "Cliente/Fornecedor", 2: "Fornecedor"}
 
 TIPO_INGREDIENTE = {0: "Ingrediente", 1: "Forminha", 2: "Embalagem"}
@@ -37,6 +41,5 @@ CARTEIRA_USO = {0: "Pedido", 1: "Pedido e Compra", 2: "Compra"}
 CARTEIRA_GERAR = {0: "Movimento", 1: "Previsão"}
 
 UND_INSUMO = ["Kg", "G", "L", "Ml", "Un", "Cx", "Pacote", "Colher_cha", "Colher_sopa", "Xicara", "Pitada", "Litro"]
-
-CONECTORES = {"de", "da", "do", "das", "dos", "para", "pra", "com", "sem", "em", "no", "na", "nos", "nas", "por", "ao", "aos", "à", "às", "e", "ou", "a", "o", "as", "os", "um", "uma", "uns", "umas", "num", "numa", "dum", "duma", "pelo", "pela", "pelos", "pelas", "pro", "pra", "pros", "pras"}
+UND_LIST = as_options(UND_INSUMO)
 
