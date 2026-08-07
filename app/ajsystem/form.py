@@ -11,7 +11,7 @@ from app.ajsystem.list import (
     _apply_transform, _infer_transform, _entidade_fields, _fk_query_for, _auto_label,
     _infer_field_from_model,
 )
-from app.ajsystem.buttons import Button, DEFAULT_ACTIONS
+from app.ajsystem.buttons import Button, ACTIONS
 from app.ajsystem.fields import VALIDATORS
 from app.ajsystem.utils import item_ref
 
@@ -358,21 +358,21 @@ class Form:
             name = None
             if isinstance(spec, str):
                 name = spec
-                base = DEFAULT_ACTIONS.get(name)
+                base = ACTIONS.get(name)
                 if base is None:
                     raise KeyError(
-                        f"Botão padrão '{name}' não existe em app.ajsystem.buttons.DEFAULT_ACTIONS. "
-                        f"Disponíveis: {', '.join(DEFAULT_ACTIONS)}"
+                        f"Botão padrão '{name}' não existe em app.ajsystem.buttons.ACTIONS. "
+                        f"Disponíveis: {', '.join(ACTIONS)}"
                     )
                 btn = replace(base)
                 field_name = None
             elif isinstance(spec, dict) and 'label' not in spec and len(spec) == 1:
                 name, overrides = next(iter(spec.items()))
-                base = DEFAULT_ACTIONS.get(name)
+                base = ACTIONS.get(name)
                 if base is None:
                     raise KeyError(
-                        f"Botão padrão '{name}' não existe em app.ajsystem.buttons.DEFAULT_ACTIONS. "
-                        f"Disponíveis: {', '.join(DEFAULT_ACTIONS)}"
+                        f"Botão padrão '{name}' não existe em app.ajsystem.buttons.ACTIONS. "
+                        f"Disponíveis: {', '.join(ACTIONS)}"
                     )
                 overrides = dict(overrides or {})
                 field_name = overrides.pop('field', None)
