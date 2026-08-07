@@ -248,7 +248,7 @@ def _rel_for_model(parent_model, child_model):
 
 
 def _entity_containing_all(entidade, names):
-    """Retorna a entrada da Entidade que contém todos os nomes (ou None)."""
+    """Retorna a entrada da Entity que contém todos os nomes (ou None)."""
     str_names = [n for n in names if isinstance(n, str)]
     if not str_names:
         return None
@@ -259,7 +259,7 @@ def _entity_containing_all(entidade, names):
 
 
 def _entity_for_name(entidade, name):
-    """Retorna a entrada da Entidade que contém o campo (ou None)."""
+    """Retorna a entrada da Entity que contém o campo (ou None)."""
     for ent_cfg in entidade.values():
         if isinstance(ent_cfg, dict) and name in ent_cfg:
             return ent_cfg
@@ -318,7 +318,7 @@ class Form:
             self.entity_name = self.fields
         elif isinstance(self.fields, list) and not self.entity_name and mod:
             names = [f['name'] if isinstance(f, dict) else f for f in self.fields]
-            for ent_name, ent_cfg in getattr(mod, 'Entidade', {}).items():
+            for ent_name, ent_cfg in getattr(mod, 'Entity', {}).items():
                 ent_fields = set(ent_cfg.keys())
                 if names and all(n in ent_fields for n in names):
                     self.entity_name = ent_name
@@ -396,7 +396,7 @@ class Form:
     def _resolve_fields(self):
         if isinstance(self.fields, str):
             mod = importlib.import_module(self.module_name)
-            entidade = getattr(mod, 'Entidade', {}).get(self.fields, {})
+            entidade = getattr(mod, 'Entity', {}).get(self.fields, {})
             overrides = self.field_overrides or {}
             return [Field(**build_field_config(n, {**c, **overrides.get(n, {})}))
                     for n, c in _entidade_fields(entidade).items()]
@@ -408,7 +408,7 @@ class Form:
                 return _resolve_fieldset(cfg, self.field_overrides)
             entity = cfg.get('entity') or self.entity_name
             mod = importlib.import_module(self.module_name)
-            entidade = getattr(mod, 'Entidade', {}).get(entity, {})
+            entidade = getattr(mod, 'Entity', {}).get(entity, {})
             allowed = cfg.get('only', [])
             overrides = cfg.get('overrides', {})
             result = []
@@ -422,7 +422,7 @@ class Form:
 
     def _resolve_fields_list(self, names):
         mod = importlib.import_module(self.module_name) if self.module_name else None
-        entidade = getattr(mod, 'Entidade', {}) if mod else {}
+        entidade = getattr(mod, 'Entity', {}) if mod else {}
         overrides = self.field_overrides or {}
         if self.entity_name and self.entity_name in entidade:
             primary = entidade[self.entity_name]
@@ -485,7 +485,7 @@ class Form:
             meta = {}
             if table_entities and not fields_raw:
                 mod = importlib.import_module(self.module_name) if self.module_name else None
-                entidade = getattr(mod, 'Entidade', {}) if mod else {}
+                entidade = getattr(mod, 'Entity', {}) if mod else {}
                 for ent_name in table_entities:
                     ent_cfg = entidade.get(ent_name, {}) or {}
                     if child_model is None:
@@ -530,17 +530,17 @@ class Form:
         return result
 
     def _auto_sessions(self):
-        """Sessões derivadas dos relacionamentos do modelo + `Entidade`.
+        """Sessões derivadas dos relacionamentos do modelo + `Entity`.
 
         Roda quando `sessions` não é declarado. Cada relação filha (ONETOMANY/
         ONETOONE) cujo modelo alvo tenha uma entrada correspondente em
-        `Entidade` vira uma sessão. FK para o pai e PKs são marcados
+        `Entity` vira uma sessão. FK para o pai e PKs são marcados
         `edit=False`; FKs para outros modelos têm o `query` derivado da relação.
         """
         if not self.model:
             return []
         mod = importlib.import_module(self.module_name) if self.module_name else None
-        entidade = getattr(mod, 'Entidade', {}) if mod else {}
+        entidade = getattr(mod, 'Entity', {}) if mod else {}
         mapper = getattr(self.model, '__mapper__', None)
         if mapper is None:
             return []
@@ -624,7 +624,7 @@ class Form:
         return managed
 
     def _resolve_entity_model(self, ent_name, mod=None):
-        """Resolve uma Entidade-key para o model (MODEL_MAP > attr do módulo > app.models)."""
+        """Resolve uma Entity-key para o model (MODEL_MAP > attr do módulo > app.models)."""
         key = re.sub(r'(?<!^)(?=[A-Z])', '_', ent_name).lower()
         if key in MODEL_MAP:
             return MODEL_MAP[key]
@@ -904,7 +904,7 @@ def _expr_names(expr):
 
 
 def _aggregate_specs(form):
-    """Campos do pai com `aggregate` dict (dos campos do form e da Entidade)."""
+    """Campos do pai com `aggregate` dict (dos campos do form e da Entity)."""
     specs = []
     seen = set()
     for f in form._resolved_fields:
@@ -917,7 +917,7 @@ def _aggregate_specs(form):
         except ImportError:
             mod = None
         if mod:
-            entidade = getattr(mod, 'Entidade', {}) or {}
+            entidade = getattr(mod, 'Entity', {}) or {}
             key = form._child_entity_key(form.model, entidade) if form.model else None
             ent_cfg = entidade.get(key, {}) if key else {}
             if isinstance(ent_cfg, dict):

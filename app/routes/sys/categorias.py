@@ -4,7 +4,7 @@ from app.models.product import Product
 from app.form import handle_form
 
 
-Entidade = {
+Entity = {
     'Category': {
         'id':    {'type': 'ID', 'width': 6},
         'nome':  {'type': 'TEXT'},
@@ -13,8 +13,8 @@ Entidade = {
     },
 }
 
-Lista = {
-    'colunas': ['Category'],
+List = {
+    'columns': ['Category'],
     'ordering': ['ordem', 'nome'],
     'title': 'Categorias',
 }

@@ -82,7 +82,7 @@ from app.ajsystem.fields import FIELD_TYPES
 class Query:
     model: str
     field: str = 'nome'
-    colunas: Optional[list[str]] = None
+    columns: Optional[list[str]] = None
     when: Optional[str] = None
     order: Optional[str] = None
 
@@ -100,7 +100,7 @@ def _resolve_query(q: Any) -> Optional[Query]:
 
 
 def _entidade_fields(ent_cfg) -> dict:
-    """Campos de uma entrada de `Entidade`, ignorando chaves reservadas `__*`
+    """Campos de uma entrada de `Entity`, ignorando chaves reservadas `__*`
 
     (ex.: `__meta__` — rótulo/readonly de sessões derivadas).
     """

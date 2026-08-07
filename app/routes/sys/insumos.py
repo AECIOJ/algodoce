@@ -3,9 +3,9 @@ from app.models.product_ingredient import ProductIngredient
 from app.models.producao_insumo import ProducaoInsumo
 from app.models.compra_item import CompraItem
 from app.models.unit_conversion import UnitConversion
-from app.constants import TIPO_INGREDIENTE, UND_LIST, PRODUCAO_ETAPAS
+from app.constantes import TIPO_INGREDIENTE, UND_LIST, PRODUCAO_ETAPAS
 
-Entidade = {
+Entity = {
     'Ingredient': {
         'id':              {'type': 'ID', 'width': 6},
         'nome':            {'type': 'TEXT', 'width': 18, 'transform': 'title'},
@@ -27,8 +27,8 @@ Entidade = {
     },
 }
 
-Lista = {
-    'colunas': ['Ingredient'],
+List = {
+    'columns': ['Ingredient'],
     'ordering': ['nome'],
 }
 

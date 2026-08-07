@@ -4,12 +4,12 @@ from app.models.product import Product
 from app.models.product_ingredient import ProductIngredient
 from app.models.order_item import OrderItem
 from app.models.quote_item import QuoteItem
-from app.constants import PRODUCAO_ETAPAS, UND_LIST
+from app.constantes import PRODUCAO_ETAPAS, UND_LIST
 from app.ajsystem.form import _delete_uploaded
 from app.ajsystem.engine import auto
 
 
-Entidade = {
+Entity = {
     'Product': {
         'id':          {'type': 'ID', 'width': 6},
         'nome':        {'type': 'TEXT', 'width': 20, 'transform': 'title'},
@@ -30,8 +30,8 @@ Entidade = {
     },
 }
 
-Lista = {
-    'colunas': [
+List = {
+    'columns': [
         'Product.id',
         'Product.nome',
         'Product.preco',

@@ -27,9 +27,9 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | `min` (Field) | ✓ | Categorias — `ordem` |
 | `max` (Field) | ✓ | Categorias — `ordem` |
 | `step` (Field) | ✓ | Categorias — `ordem` (INT → `1`) |
-| `colunas` (Lista) | ✓ | Categorias — `['Category']` |
-| `ordering` (Lista) | ✓ | Categorias — `['ordem', 'nome']` |
-| `title` (Lista) | ✓ | Categorias |
+| `columns` (List) | ✓ | Categorias — `['Category']` |
+| `ordering` (List) | ✓ | Categorias — `['ordem', 'nome']` |
+| `title` (List) | ✓ | Categorias |
 | `fields` (Form) | ✓ | Categorias — `'Category'` |
 | `delete` (Form) | ✓ | Categorias — `when`, `msg_ok`, `msg_no` |
 | `pre_save` (Form) | ✓ | Categorias — auto-ordenação `ordem` |
@@ -44,8 +44,8 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 2. [Criando um novo app do zero](#2-criando-um-novo-app-do-zero)
 3. [Definições do App — APP, SITE, SYS, ADMIN e Temas](#3-definições-do-app)
 4. [Módulos (rotas declarativas)](#4-módulos-rotas-declarativas)
-5. [Entidade — definição de campos](#5-entidade--definição-de-campos)
-6. [Lista — configuração](#6-lista--configuração)
+5. [Entity — definição de campos](#5-entity--definição-de-campos)
+6. [List — configuração](#6-list--configuração)
 7. [Form — configuração](#7-form--configuração)
 8. [Exemplo completo do zero](#8-exemplo-completo-do-zero)
 
@@ -59,8 +59,8 @@ A partir de três dicionários declarativos por módulo:
 
 | Declaração | Para que serve |
 |---|---|
-| `Entidade` | Define os **campos** (nome, tipo, máscara, referências, validação) |
-| `Lista` | Define a **listagem** (colunas, ordenação, cards, detalhes, filtros) |
+| `Entity` | Define os **campos** (nome, tipo, máscara, referências, validação) |
+| `List` | Define a **listagem** (colunas, ordenação, cards, detalhes, filtros) |
 | `Form` | Define o **formulário** (campos, tabelas filhas, exclusão, hooks, botões) |
 
 O framework cuida de todo o resto:
@@ -81,7 +81,7 @@ O framework não conhece sua aplicação. Ele recebe tudo através de um **adapt
 1. **O app Flask** criado (`create_app`) — o framework apenas faz `init_app(app)`.
 2. **Um adaptador** `app_config.py` expondo `db`, `login_manager`, `User`, `Setting`, `APP`, `SYS` e o endpoint de uploads.
 3. **Models SQLAlchemy** em `app/models/` (um por entidade).
-4. **Módulos declarativos** em `app/routes/sys/` (Entidade + Lista + Form).
+4. **Módulos declarativos** em `app/routes/sys/` (Entity + List + Form).
 5. **`app/routes/app_defs.py`** com `Temas`, `APP`, `SITE`, `SYS`, `ADMIN`.
 
 ### 1.3 Estrutura de pastas do framework
@@ -393,11 +393,11 @@ Propriedades de um item de menu:
 ### 4.1 O que é um módulo
 
 Um módulo é um arquivo Python em `app/routes/sys/` que declara os dicionários
-`Entidade`, `Lista` e (opcionalmente) `Form`:
+`Entity`, `List` e (opcionalmente) `Form`:
 
 ```python
 # app/routes/sys/categorias.py
-Entidade = {
+Entity = {
     'Category': {
         'id':    {'type': 'ID'},
         'nome':  {'type': 'TEXT'},
@@ -405,8 +405,8 @@ Entidade = {
     },
 }
 
-Lista = {
-    'colunas': ['Category'],
+List = {
+    'columns': ['Category'],
     'ordering': ['nome'],
 }
 
@@ -430,7 +430,7 @@ cria, protegidas por `login_required`:
 
 | Modo | Como | Quando usar |
 |---|---|---|
-| Declarativo | Apenas `Entidade`/`Lista`/`Form` (+ `@auto.rota` para rotas extras) | módulos novos — recomendado |
+| Declarativo | Apenas `Entity`/`List`/`Form` (+ `@auto.rota` para rotas extras) | módulos novos — recomendado |
 | Legado | Definir `bp = Blueprint('x', __name__)` e rotas próprias | integrar módulos existentes; o menu continua apontando para `x.list` |
 
 Se você definir `bp`, o framework **respeita o blueprint e não sobrescreve** as
@@ -438,10 +438,10 @@ suas rotas.
 
 ### 4.3 As três declarações
 
-- **`Entidade`** — mapa `nome_da_entidade → campos`. Cada campo é um dict de
-  propriedades ([§5](#5-entidade--definição-de-campos)). Pode ter **várias
+- **`Entity`** — mapa `nome_da_entidade → campos`. Cada campo é um dict de
+  propriedades ([§5](#5-entity--definição-de-campos)). Pode ter **várias
   entidades** no mesmo módulo (ex.: `Product` e `ProductIngredient`).
-- **`Lista`** — dict com `colunas`, `ordering`, `title`, etc. ([§6](#6-lista--configuração)).
+- **`List`** — dict com `columns`, `ordering`, `title`, etc. ([§6](#6-list--configuração)).
 - **`Form`** — dict com `fields`, `sessions`, `delete`, `buttons` e hooks
   ([§7](#7-form--configuração)). Também pode ser `Form(...)` da dataclass
   (`app.ajsystem.form`); `handle_form` aceita ambos.
@@ -457,7 +457,7 @@ cada item sem `url` fixa:
    `url_prefix = SYS['url_prefix'] + slug`.
 
 > O menu e o blueprint usam o mesmo slug, então a ordem das seções **3.3 → 4.4**
-> é consistente: `label`/`endpoint` no menu, `Entidade`/`Lista`/`Form` no módulo.
+> é consistente: `label`/`endpoint` no menu, `Entity`/`List`/`Form` no módulo.
 
 ### 4.5 Rotas custom — `@auto.rota`
 
@@ -493,7 +493,7 @@ O framework resolve a model de uma entidade em duas etapas:
 
 ---
 
-## 5. Entidade — definição de campos
+## 5. Entity — definição de campos
 
 ### 5.1 Tipos de campo (`FIELD_TYPES`)
 
@@ -577,7 +577,7 @@ automaticamente. O rótulo de cada filtro na aba **Filtros** segue o
 
 ### 5.4 Chave reservada `__meta__`, referências derivadas e `aggregate`
 
-**`__meta__`** — toda entrada da `Entidade` é um dict de campos; chaves que
+**`__meta__`** — toda entrada da `Entity` é um dict de campos; chaves que
 começam com `__` são **reservadas** e não viram campos. Hoje existe apenas
 `__meta__`:
 
@@ -610,15 +610,15 @@ filho) e atribui ao campo do pai após persistir as sessões.
 
 ---
 
-## 6. Lista — configuração
+## 6. List — configuração
 
-A `Lista` define como a listagem é renderizada.
+A `List` define como a listagem é renderizada.
 
 ### 6.1 Exemplo
 
 ```python
-Lista = {
-    'colunas': ['Product'],
+List = {
+    'columns': ['Product'],
     'ordering': ['nome'],
     'title': 'Produtos cadastrados',
     'new_endpoint': None,     # esconde o botão "Novo" (sem criação)
@@ -629,10 +629,10 @@ Lista = {
 
 | Propriedade | Tipo | O que configura | Padrão |
 |---|---|---|---|
-| `colunas` | list[str] | Colunas da tabela. Formato `'Entidade'` (todos os campos) ou `'Entidade.campo'` (campo específico) | `[entidade]` |
+| `columns` | list[str] | Colunas da tabela. Formato `'Entity'` (todos os campos) ou `'Entity.campo'` (campo específico) | `[entidade]` |
 | `card` | list[str] | Campos do card de destaque (primeira coluna, com id + imagem) | — |
 | `linha` | list[str] | Campos destacados nas linhas (utilizado com filtros) | — |
-| `detalhe` | list[str] | Campos de detalhe expandível; o framework busca itens na relação `<entidade>_items` (viewonly) do model | — |
+| `detail` | list[str] | Campos de detalhe expandível; o framework busca itens na relação `<entity>_items` (viewonly) do model | — |
 | `ordering` | list[str] | Nomes de **atributos** da model p/ `ORDER BY` (ex.: `['ordem', 'nome']`) | — |
 | `title` | str | Título da página | nome da entidade |
 | `template` | str | Template alternativo da página | `pages/list.html` |
@@ -646,8 +646,8 @@ O padrão "ausente → default" permite comportamento por omissão, e o `None`
 explícito **esconde** o botão/link:
 
 ```python
-Lista = {
-    'colunas': ['Category'],
+List = {
+    'columns': ['Category'],
     'edit_endpoint': None,   # listagem somente-leitura
 }
 ```
@@ -738,7 +738,7 @@ Form = {
 Regras da derivação (`Form._auto_sessions`):
 
 - cada relação **ONETOMANY/ONETOONE** cujo model alvo tenha uma entrada em
-  `Entidade` vira uma sessão (`attr` = nome da relação);
+  `Entity` vira uma sessão (`attr` = nome da relação);
 - relações `MANYTOONE`, auto-referências e `secondary`/`viewonly` são ignoradas;
 - o **rótulo** vem de `__meta__['label']` (ou do nome da relação) e `readonly`
   de `__meta__['readonly']` — veja §5.4;
@@ -764,7 +764,7 @@ Propriedades de cada sessão:
 
 | Propriedade | Tipo | O que configura |
 |---|---|---|
-| `table` | list | Entidades da `Entidade` do módulo (ex.: `['ProductIngredient']`) — monta colunas automaticamente |
+| `table` | list | Entidades da `Entity` do módulo (ex.: `['ProductIngredient']`) — monta colunas automaticamente |
 | `model` | Model/str | Model dos itens (ou nome da entidade do módulo) |
 | `fields` | dict/list | Campos explícitos (mesmo formato de `Form.fields`) |
 | `attr` | str | Atributo/relação no model pai (usado p/ ler/salvar itens) |
@@ -924,7 +924,7 @@ def _pre_save(instance, request, is_new):
         instance.ordem = last + 1
 
 
-Entidade = {
+Entity = {
     'Category': {
         'id':    {'type': 'ID'},
         'nome':  {'type': 'TEXT'},
@@ -933,8 +933,8 @@ Entidade = {
     },
 }
 
-Lista = {
-    'colunas': ['Category'],
+List = {
+    'columns': ['Category'],
     'ordering': ['ordem', 'nome'],
     'title': 'Categorias',
 }
@@ -1011,11 +1011,11 @@ sessão `ingredients` **derivada automaticamente** dos relacionamentos e
 - **Referências** usam `masterkey: '<chave do MODEL_MAP>'` (FK) ou são derivadas
   da relação do model no form; opções fixas com `list`/`options` (LIST).
 - **Sessões** derivadas dos relacionamentos quando `Form['sessions']` ausente
-  (§7.3); chaves `__*` na `Entidade` são reservadas (`__meta__`).
+  (§7.3); chaves `__*` na `Entity` são reservadas (`__meta__`).
 - **Slug do menu** = slug do módulo (`label`/`endpoint` → módulo em
   `app.routes.sys.<slug>`).
 - **Endpoints gerados**: `<slug>.list`, `<slug>.form`, `<slug>.delete`,
   `<slug>.toggle`.
 - **`None` desliga** (`new_endpoint`, `edit_endpoint`, `delete`, `toggle`).
-- **`ordering` usa atributos da model**, não `'Entidade.campo'`.
+- **`ordering` usa atributos da model**, não `'Entity.campo'`.
 - **`login_required`** em todas as rotas CRUD geradas.
