@@ -1,0 +1,294 @@
+{% macro render_field(field, data=none, ro=false, name_prefix='', show_label=true) %}
+{% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
+{% set ns = (name_prefix or '') + (field.name if not (name_prefix or '').endswith('_') else field.name) %}
+{% set label = field.display_label %}
+{% set req = 'required' if field.required else '' %}
+{% set dis = 'disabled' if (field.disabled or ro) else '' %}
+{% set ph = field.placeholder or '' %}
+{% set attr_str = '' %}
+{% if field.attrs %}
+  {% for k, v in field.attrs.items() %}
+    {% set attr_str = attr_str ~ ' ' ~ k ~ '="' ~ v ~ '"' %}
+  {% endfor %}
+{% endif %}
+{% set num_str = '' %}
+{% if field.min is not none %}{% set num_str = num_str ~ ' min="' ~ field.min ~ '"' %}{% endif %}
+{% if field.max is not none %}{% set num_str = num_str ~ ' max="' ~ field.max ~ '"' %}{% endif %}
+{% set step_val = field.step if field.step is not none else (0.1 ** field.decimals if field.decimals is not none else 'any') %}
+{% if field.input == 'select' %}
+  <select name="{{ ns }}" class="select select-bordered select-sm" {{ req }} {{ dis }} {{ attr_str|safe }}{% if field.query is string and field.query %} data-model="{{ field.query }}"{% endif %}{% if field.on_set %} data-onset-ent="{{ field.on_set_ent }}" data-onset-fk="{{ field.name }}"{% if field.on_set_mod %} data-onset-mod="{{ field.on_set_mod }}"{% endif %}{% endif %}>
+    <option value="">Selecione...</option>
+    {% if field.options %}
+      {% for k, v in field.options.items() %}
+      <option value="{{ k }}" {{ 'selected' if val is not none and val|string == k|string }}>{{ v }}</option>
+      {% endfor %}
+    {% else %}
+      {% set qlist = _lookup.get(field.name) if _lookup is defined else none %}
+      {% if qlist %}
+        {% for item in qlist %}
+        <option value="{{ item.id }}" {{ 'selected' if val is not none and val|string == item.id|string }}>{{ item.nome }}</option>
+        {% endfor %}
+      {% endif %}
+    {% endif %}
+  </select>
+{% elif field.input == 'textarea' %}
+  <textarea name="{{ ns }}" class="textarea textarea-bordered w-full" rows="{{ field.rows }}" style="min-height:calc({{ field.rows }} * 1.25rem + 0.75rem);{% if field.rows == 1 %}resize:none;overflow-y:hidden;{% endif %}" {% if field.rows == 1 %}wrap="off"{% endif %} {{ req }} {{ dis }}>{{ val or '' }}</textarea>
+{% elif field.input in ('checkbox', 'boolean') %}
+  <label class="flex items-center gap-2 cursor-pointer pt-1">
+    <input type="checkbox" name="{{ ns }}" class="checkbox checkbox-sm" value="1" {{ 'checked' if val }} {{ req }} {{ dis }}>
+    {% if show_label %}<span class="text-sm font-semibold">{{ field.display_label }}</span>{% endif %}
+  </label>
+{% elif field.input == 'number' %}
+  <input type="number" name="{{ ns }}" class="input input-bordered input-sm" step="{{ step_val }}" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str }}>
+{% elif field.input == 'date' %}
+  <input type="date" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+{% elif field.input == 'time' %}
+  <input type="time" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+{% elif field.input == 'datetime-local' %}
+  <input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+{% elif field.input == 'image' %}
+{% set _img_has = val %}
+<div class="image-widget" data-ns="{{ ns }}" data-tem-imagem="{{ '1' if _img_has else '0' }}" data-upload-path="{{ field.upload_path or '' }}">
+  <div class="flex flex-col items-start gap-2" style="width:144px;">
+    {% if _img_has %}
+    <img id="foto-preview-{{ ns }}" src="{{ url_for(aj_uploads_endpoint(), filename=val) }}"
+         class="rounded border object-cover cursor-pointer" style="width:144px;height:144px;"
+         onclick="previewImagem(this.src)" title="Clique para ampliar">
+    {% else %}
+    <div id="foto-placeholder-{{ ns }}" class="bg-base-200 rounded border flex items-center justify-center"
+         style="width:144px;height:144px;color:#ccc;font-size:3rem;">📸</div>
+    {% endif %}
+    {% if not dis %}
+    <button type="button" class="btn btn-outline btn-sm w-full inline-flex items-center justify-center gap-1"
+            onclick="abrirCrop('{{ ns }}')">
+      <svg class="w-4 h-4" aria-hidden="true"><use href="#i-pencil-square"/></svg> {{ 'Incluir imagem' if not _img_has else 'Editar' }}
+    </button>
+    {% endif %}
+  </div>
+  <input type="file" id="crop-input-{{ ns }}" accept="image/*" style="display:none">
+  <input type="hidden" name="temp_imagem_{{ ns }}" id="temp-imagem-{{ ns }}" value="">
+  <input type="hidden" name="remover_imagem_{{ ns }}" id="remover-imagem-{{ ns }}" value="">
+</div>
+{% else %}
+  <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val|mask(field.mask) if field.mask and field.digits_only and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask %}data-mask="{{ field.mask }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{{ attr_str|safe }}>
+{% endif %}
+{% endmacro %}
+
+{% macro render_label(field, data=none, ro=false) %}
+{% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
+{% if field.input == 'image' and val %}
+<img src="{{ url_for(aj_uploads_endpoint(), filename=val) }}" style="max-height:60px;" class="border rounded" onclick="previewImagem(this.src)">
+{% elif field.input in ('boolean', 'checkbox') %}
+{{ 'Sim' if val else 'Não' }}
+{% elif field.input == 'select' and val is not none %}
+  {% if field.options %}
+    {% set _ns = namespace(label=none) %}
+    {% for _k, _v in field.options.items() %}
+      {% if _k|string == val|string %}{% set _ns.label = _v %}{% endif %}
+    {% endfor %}
+    {{ _ns.label if _ns.label else val }}
+  {% else %}
+    {% set _ns = namespace(nome=none) %}
+    {% set _q = _lookup.get(field.name) if _lookup is defined else none %}
+    {% if _q %}
+      {% for _it in _q %}
+        {% if _it.id|string == val|string %}{% set _ns.nome = _it.nome %}{% endif %}
+      {% endfor %}
+    {% endif %}
+    {{ _ns.nome if _ns.nome else val }}
+  {% endif %}
+{% elif val is not none %}
+  {% if val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
+{% else %}—
+{% endif %}
+{% endmacro %}
+
+{% macro render_checkbox(field, data=none, ro=false) %}
+{% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
+<div class="flex items-center gap-2">
+  <input type="checkbox" name="{{ field.name }}" class="checkbox checkbox-sm" value="1" {{ 'checked' if val }} {{ 'disabled' if ro }}>
+  <label class="text-sm">{{ field.display_label }}</label>
+</div>
+{% endmacro %}
+
+{% macro render_badge(instance, tag) %}
+{% if tag.type == 'success' %}
+<span class="badge badge-success badge-sm">{{ tag.text }}</span>
+{% elif tag.type == 'warning' %}
+<span class="badge badge-warning badge-sm">{{ tag.text }}</span>
+{% elif tag.type == 'danger' %}
+<span class="badge badge-error badge-sm">{{ tag.text }}</span>
+{% elif tag.type == 'info' %}
+<span class="badge badge-info badge-sm">{{ tag.text }}</span>
+{% elif tag.type == 'primary' %}
+<span class="badge badge-primary badge-sm">{{ tag.text }}</span>
+{% else %}
+<span class="badge badge-ghost badge-sm">{{ tag.text }}</span>
+{% endif %}
+{% endmacro %}
+
+{% macro render_extra_button(btn, instance) %}
+<button type="button"
+        onclick="window.location.href='{{ btn.url(instance) if btn.url else '#' }}'"
+        class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1">
+  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+  {{ btn.label }}
+</button>
+{% endmacro %}
+
+{% macro render_button(btn, instance) %}
+{% set show = true %}
+{% if btn.on_off %}
+  {% if not instance %}{% set show = false %}{% endif %}
+{% else %}
+  {% if not instance and btn.endpoint %}{% set show = false %}{% endif %}
+  {% if btn.show_if %}{% set show = show and instance|attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
+  {% if btn.hide_if %}{% set show = show and instance|attr(btn.hide_if[0]) != btn.hide_if[1] %}{% endif %}
+{% endif %}
+{% if show %}
+  {% if btn.endpoint %}
+  {% set _params = {btn.url_var: instance|attr(btn.url_var) if instance else none} %}
+  {% if btn.extra_params %}{% set _ = _params.update(btn.extra_params) %}{% endif %}
+  {% set url = url_for(btn.endpoint, **(_params if instance else {})) %}
+  {% elif btn.url %}
+  {% set url = btn.url(instance) %}
+  {% else %}
+  {% set url = '#' %}
+  {% endif %}
+  {% if btn.on_off %}
+    {% set _val = instance|attr(btn.field or 'ativo') %}
+    <span class="inline-flex items-center gap-1 mr-2">
+      {% if not _val %}<span class="badge badge-warning badge-sm">Inativo</span>{% endif %}
+      <input type="checkbox" class="toggle toggle-success" {% if _val %}checked{% endif %}
+             title="Ativar/Desativar" aria-label="Ativar/Desativar"
+             onclick="window.location.href='{{ url }}'">
+    </span>
+  {% elif btn.confirm_msg %}
+  <a href="{{ url }}" class="btn btn-sm mr-2 btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
+     onclick="event.preventDefault();showConfirm('{{ btn.confirm_msg }}', function(){ window.location.href='{{ url }}'; });">
+    {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+    {{ btn.label }}
+  </a>
+  {% else %}
+  <a href="{{ url }}" class="btn btn-sm mr-2 btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1">
+    {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+    {{ btn.label }}
+  </a>
+  {% endif %}
+{% endif %}
+{% endmacro %}
+
+{% macro render_child_table(instance, child, ro=false) %}
+{% import "components/item_table.html" as itb with context %}
+{{ itb.item_table_edit(instance, child, ro) }}
+{% endmacro %}
+
+{% macro render_action_buttons(actions, instance) %}
+<div class="flex gap-1">
+  {% for btn in actions %}
+  {% set show = true %}
+  {% if btn.show_if %}{% set show = instance|deep_attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
+  {% if btn.hide_if %}{% set show = instance|deep_attr(btn.hide_if[0]) != btn.hide_if[1] %}{% endif %}
+  {% if show %}
+  {% set url = btn.url(instance) if btn.url else '#' %}
+  <button type="button"
+          onclick="window.location.href='{{ url }}'"
+          class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1">
+    {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+    {{ btn.label }}
+  </button>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro render_fields(fields, data=none, ro=false, spacing=none, name_prefix='') %}
+{% if fields._resolved_fields is defined %}
+{% set _fields = fields._resolved_fields %}
+{% if spacing is none %}{% set spacing = fields.spacing %}{% endif %}
+{% else %}
+{% set _fields = fields %}
+{% endif %}
+{% if spacing is none %}{% set spacing = 2 %}{% endif %}
+{% set _visible = _fields | selectattr('edit') | list %}
+<div class="flex flex-wrap items-start" style="gap:{{ spacing }}ch; padding-left:{{ spacing }}ch;">
+{% set _widths = [] %}
+{% for _f in _visible %}
+{% set _dw = 100 if _f.input == 'textarea' else 12 %}
+{% if _widths.append((_f.width or _dw) + 4) %}{% endif %}
+{% endfor %}
+{% for field in _visible %}
+{% set _is_check = field.input in ('checkbox', 'boolean') %}
+{% set _def_w = 100 if field.input == 'textarea' else (20 if field.input == 'image' else 12) %}
+{% set _cwidth = (field.width or _def_w) + 4 %}
+{% if field.input == 'image' and not loop.first %}
+<div style="flex-basis:100%;height:0;"></div>
+{% endif %}
+{% if field.input == 'textarea' %}
+{% set _idx = loop.index0 %}
+{% set _prev = (_widths[: _idx] | sum) + spacing * _idx %}
+{% set _next = _widths[_idx + 1] + spacing if _idx + 1 < _visible | length else 0 %}
+{% set _reserve = _prev + _next %}
+{% endif %}
+<div {% if field.input == 'textarea' %}style="flex-basis:max({{ _cwidth }}ch,calc(100% - {{ _reserve }}ch));flex-grow:1;flex-shrink:1;min-width:0;"{% else %}style="min-width:{{ _cwidth }}ch;flex:none;"{% endif %}>
+  {% if _is_check %}
+  <div class="pt-[1.35rem]">{{ render_field(field, data, ro, name_prefix=name_prefix) }}</div>
+  {% else %}
+  <label class="text-sm font-semibold mb-0.5 block">{{ field.display_label }}{% if field.required %} <span class="text-error">*</span>{% endif %}</label>
+  {{ render_field(field, data, ro, name_prefix=name_prefix) }}
+  {% if field.help %}<p class="text-xs text-gray-500 mt-0.5">{{ field.help }}</p>{% endif %}
+  {% endif %}
+</div>
+{% endfor %}
+</div>
+{% endmacro %}
+
+{% macro render_sessions(sessions, data=none, ro=false) %}
+{% set _sessions = sessions._resolved_sessions if sessions._resolved_sessions is defined else sessions %}
+{% for session in _sessions %}
+{% set _ro = ro or session.readonly %}
+{% if session.template %}
+{% include session.template %}
+{% elif session.single %}
+{% set _child = data|deep_attr(session.attr) if data is not none else none %}
+<div class="mt-3">
+  <h6 class="font-bold mb-1">{{ session.label }}</h6>
+  {{ render_fields(session.fields, data=_child, ro=_ro, name_prefix='child_' + session.attr + '_') }}
+</div>
+{% else %}
+{{ render_child_table(data, session, _ro) }}
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% macro render_card_list(items, fields, actions=none, instance=none) %}
+<div class="flex flex-col gap-2">
+  {% for item in items %}
+  <div class="border rounded p-2">
+    <div class="grid grid-cols-2 gap-1 text-sm">
+      {% for f in fields %}
+      <div>
+        <span class="font-semibold text-xs text-gray-500">{{ f.display_label }}:</span>
+        <span>{{ render_label(f, item) }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% if actions %}
+    <div class="mt-1 flex gap-1 justify-end">
+      {% for btn in actions %}
+      {% set show = true %}
+      {% if btn.show_if %}{% set show = item|deep_attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
+      {% if show %}
+      {% set url = btn.url(item) if btn.url else '#' %}
+      <a href="{{ url }}" class="btn btn-ghost btn-xs inline-flex items-center gap-1">
+        {% if btn.icon %}<svg class="w-3 h-3" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+        <span class="text-xs">{{ btn.label }}</span>
+      </a>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

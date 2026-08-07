@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br"
-      data-theme="{{ TEMA.base if TEMA is defined and TEMA else '' }}"
+<html lang="pt-br" data-theme="{{ TEMA.base if TEMA is defined and TEMA else '' }}"
       class="{% if request.endpoint and (request.endpoint.endswith('.list') or request.endpoint == 'orcamentos.list') %}list-page{% endif %}">
 <head>
   <meta charset="UTF-8">
@@ -21,15 +20,7 @@
       class="opacity-0">
   {% include 'components/heroicons.svg' %}
   <div class="flex flex-col h-screen overflow-hidden">
-    {% block page_header %}
-    <header class="shrink-0 site-header">
-      <div class="container mx-auto px-4 text-center py-2">
-        <a href="/">
-          <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce" class="brand-logo">
-        </a>
-      </div>
-    </header>
-    {% endblock %}
+    {% block page_header %}{% endblock %}
 
     {% block before_content %}{% endblock %}
 
@@ -60,11 +51,7 @@
 
     {% block modals %}{% endblock %}
 
-    {% block page_footer %}
-    <footer class="shrink-0 rodape text-center py-4">
-      <div>{{ versao }} | &copy; 2026 AJ Systems</div>
-    </footer>
-    {% endblock %}
+    {% block page_footer %}{% endblock %}
   </div>
 
   <script src="{{ url_for('static', filename='lib/qrcode.min.js') }}?v=1"></script>
