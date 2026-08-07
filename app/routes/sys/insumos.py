@@ -4,9 +4,10 @@ from app.models.producao_insumo import ProducaoInsumo
 from app.models.compra_item import CompraItem
 from app.models.unit_conversion import UnitConversion
 from app.constants import TIPO_INGREDIENTE, UND_INSUMO, PRODUCAO_ETAPAS
+from app.ajsystem.utils import opcoes
 
 
-UND_MAP = {u: u for u in UND_INSUMO}
+UND_MAP = opcoes(UND_INSUMO)
 
 Entidade = {
     'Ingredient': {
