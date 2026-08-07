@@ -52,6 +52,22 @@ def _singular(label):
     return s
 
 
+def _default_dk_masterkey(cfg, entidade):
+    """Campos `DK` (ligação filho→pai) usam a 1ª tabela da `Entity` como
+    `masterkey` padrão, quando não foi especificado `masterkey`/`query`."""
+    if cfg.get('type') != 'DK':
+        return {}
+    if 'masterkey' in cfg or 'query' in cfg:
+        return {}
+    if not entidade:
+        return {}
+    first_key = next(iter(entidade))
+    key = re.sub(r'(?<!^)(?=[A-Z])', '_', first_key).lower()
+    if key in MODEL_MAP:
+        return {'masterkey': key}
+    return {}
+
+
 def _resolve_label(mod, entity_name=None):
     """Rótulo singular de uma entidade.
 
@@ -495,7 +511,8 @@ class Form:
                     managed = self._managed_field_names(child_model)
                     for n, c in _entidade_fields(ent_cfg).items():
                         cfg_extra = {'disabled': True} if cfg.get('readonly') else {}
-                        fld = Field(**build_field_config(n, {**c, **cfg_extra}))
+                        dk = _default_dk_masterkey(c, entidade)
+                        fld = Field(**build_field_config(n, {**c, **dk, **cfg_extra}))
                         if n in managed:
                             fld.edit = False
                         elif fld.query is None and fld.input == 'select' and not fld.options:
@@ -568,7 +585,8 @@ class Form:
             managed |= self._parent_fk_names(child_model)
             fields = []
             for n, c in _entidade_fields(ent_cfg).items():
-                fld = Field(**build_field_config(n, dict(c)))
+                dk = _default_dk_masterkey(c, entidade)
+                fld = Field(**build_field_config(n, {**dict(c), **dk}))
                 if n in managed:
                     fld.edit = False
                 elif fld.query is None and fld.input == 'select' and not fld.options:
@@ -731,6 +749,13 @@ def _build_nav(model, current_id):
     }
 
 
+def _field_raw(form_data, prefix, f):
+    """Valor bruto de um campo; para `multi`, concatena os checkboxes marcados."""
+    if f.input == 'multi':
+        return ''.join(sorted(form_data.getlist(prefix + f.name)))
+    return form_data.get(prefix + f.name)
+
+
 def _coerce_field_value(f, raw):
     """Converte o valor bruto de um input para o tipo do campo (linhas filhas).
 
@@ -835,7 +860,7 @@ def _save_session_children(form, instance, form_data):
             has_val = False
             missing_required = False
             for f in fields:
-                val = _coerce_field_value(f, form_data.get(prefix + f.name))
+                val = _coerce_field_value(f, _field_raw(form_data, prefix, f))
                 row[f.name] = val
                 if val not in (None, '', False):
                     has_val = True
@@ -874,7 +899,7 @@ def _save_session_children(form, instance, form_data):
             has_val = False
             missing_required = False
             for f in fields:
-                val = _coerce_field_value(f, form_data.get(f'{prefix}{rid}_{f.name}'))
+                val = _coerce_field_value(f, _field_raw(form_data, f'{prefix}{rid}_', f))
                 row[f.name] = val
                 if val not in (None, '', False):
                     has_val = True
@@ -1008,6 +1033,8 @@ def handle_form(form_spec, id=None, extra_ctx=None, instance=None):
             elif f.input in ('datetime-local',):
                 raw = request.form.get(f.name, '').strip()
                 val = datetime.fromisoformat(raw) if raw else None
+            elif f.input == 'multi':
+                val = ''.join(sorted(request.form.getlist(f.name))) or None
             else:
                 val = request.form.get(f.name, '').strip() or None
                 if val and f.digits_only:

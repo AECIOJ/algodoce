@@ -13,9 +13,9 @@ from app.models.producao import Producao
 from app.models.producao_insumo import ProducaoInsumo
 from app.models.producao_produto import ProducaoProduto
 
-from app.constants import ORDER_STATUS, PRODUCAO_STATUS, PRODUCAO_ETAPAS
+from app.constantes import ORDER_STATUS, PRODUCAO_STATUS, PRODUCAO_ETAPAS
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter
-from app.list import build_field_context, build_filter_config, List
+from app.ajsystem.list import build_field_context, build_filter_config, List
 
 
 PRODUCAO_FIELDS = {
@@ -56,7 +56,7 @@ def list():
     producoes = linhas
     _list = List(**producao_list)
     ctx = build_field_context(PRODUCAO_FIELDS)
-    return render_template("sys_producao/list.html", producoes=producoes, PRODUCAO_LIST=_list, ctx=ctx, active_filters=active, FILTERS=filter_config)
+    return render_template("index.html")
 
 
 def _calcular_qtd_produzir(produto, quantidade):
@@ -152,7 +152,7 @@ def nova():
         db.session.commit()
         flash(f"Produção {producao.id} criada com {len(pedidos)} pedido(s)!", "success")
         return redirect(url_for("producao.detail", id=producao.id))
-    return render_template("sys_producao/form.html")
+    return render_template("index.html")
 
 
 @bp.route("/<int:id>")
@@ -167,10 +167,10 @@ def detail(id):
     seen = set()
     product_ids = [x for x in product_ids if not (x in seen or seen.add(x))]
     ing_etapas = db.session.query(
-        ProductIngredient.product_id, ProductIngredient.etapa
+        ProductIngredient.product_id, ProductIngredient.etapas
     ).filter(
         ProductIngredient.product_id.in_(product_ids),
-        ProductIngredient.etapa.isnot(None),
+        ProductIngredient.etapas.isnot(None),
     ).distinct().all()
     product_etapas = {}
     for pid, eid in ing_etapas:
@@ -189,16 +189,7 @@ def detail(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    return render_template(
-        "sys_producao/detail.html",
-        producao=producao,
-        product_etapas=product_etapas,
-        pedidos_disponiveis=pedidos_disponiveis,
-        ORDER_STATUS=ORDER_STATUS,
-        PRODUCAO_STATUS=PRODUCAO_STATUS,
-        PRODUCAO_ETAPAS=PRODUCAO_ETAPAS,
-        nav=nav,
-    )
+    return render_template("index.html")
 
 
 @bp.route("/<int:id>/add-pedido", methods=["POST"])
@@ -381,8 +372,4 @@ def editar(id):
 @bp.route("/<int:id>/relatorio")
 def relatorio(id):
     producao = Producao.query.get_or_404(id)
-    return render_template(
-        "sys_producao/relatorio.html",
-        producao=producao,
-        PRODUCAO_ETAPAS=PRODUCAO_ETAPAS,
-    )
+    return render_template("index.html")

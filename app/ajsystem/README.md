@@ -506,7 +506,8 @@ disponíveis (`app/ajsystem/fields.py`):
 | `MEMO` | `textarea` | `rows` p/ altura |
 | `INT` | `number` | `align: right`, `width: 5`, `decimals: 0` |
 | `NUM` | `number` | `align: right`, `width: 10`, `decimals: 2` |
-| `ID` | `number` | `edit: False`, `label: '#'`, `filter` numérico |
+| `ID` | `number` | PK da tabela; `edit: False`, `label: '#'`, `filter` numérico |
+| `DK` | `number` | Ligação filho→pai (sessão); `edit: False`, preenchido pelo motor |
 | `DATA` | `date` | `filter` por data |
 | `DATA_HORA` | `datetime-local` | `filter` por data |
 | `HORA` | `time` | — |
@@ -516,6 +517,7 @@ disponíveis (`app/ajsystem/fields.py`):
 | `CNPJ` | `text` | `mask: '99.999.999/9999-99'`, `digits_only`, `validate: 'cnpj'` |
 | `FK` | `select` | `filter` select; referência a outra entidade — `masterkey` opcional, veja §5.2 |
 | `LIST` | `select` | `filter` select; opções fixas via `list`/`options` |
+| `MULTI` | `multi` | Checkboxes de opções fixas via `list`/`options`; persiste códigos concatenados |
 | `IMAGE` | `image` | `filter: False`, widget de preview/upload |
 
 > As props base do tipo são **mescladas** com as da entidade e do form — você
@@ -543,8 +545,8 @@ disponíveis (`app/ajsystem/fields.py`):
 | `decimals` | int | Casas decimais (gera máscara se `mask` ausente) |
 | `currency` | bool | Formata como moeda (`brl`) |
 | `hide_zero` | bool | Ocultar valores zero na listagem (padrão `True`) |
-| `masterkey` | str | **FK (opcional)**: chave do `MODEL_MAP` (ex.: `'category'`) — popula o select, e `card_path`/`filter_path` viram `<chave>.nome`. Sem ele, a referência é derivada da relação do model no form (§5.4) |
-| `list` | dict | **LIST**: opções fixas `{valor: rótulo}` (alias de `options`) |
+| `masterkey` | str | **FK (opcional)**: chave do `MODEL_MAP` (ex.: `'category'`) — popula o select, e `card_path`/`filter_path` viram `<chave>.nome`. Sem ele, a referência é derivada da relação do model no form (§5.4). Em campos `DK` o padrão é a **primeira tabela da `Entity`** |
+| `list` | dict | **LIST/MULTI**: opções fixas `{valor: rótulo}` (alias de `options`) |
 | `options` | dict | Opções do select (ou `{'model': ..., 'order': ...}`) |
 | `query` | str | Chave do `MODEL_MAP` p/ popular opções do banco |
 | `query_filter` | dict | Filtro aplicado na query de opções |
@@ -596,6 +598,26 @@ começam com `__` são **reservadas** e não viram campos. Hoje existe apenas
 o `query` resolvido automaticamente pelo motor a partir da relação do model do
 filho (ex.: `product_id` em `quote_item` → `query='product'`). O alvo precisa
 estar em `MODEL_MAP` (§4.6).
+
+**Campo `DK` (detail key)** — marca a coluna que liga a linha filha à **tabela
+principal da `Entity`** (a primeira chave da `Entity`, ex.: `ingredient_id` na
+sessão "Conversões" de um Insumo). É `edit: False`, não participa de validação
+e é preenchido automaticamente pelo motor ao salvar (FK para o pai). Se
+`masterkey`/`query` não forem dados, o padrão é a chave `MODEL_MAP` da primeira
+tabela da `Entity`:
+
+```python
+'UnitConversion': {
+    'id':            {'type': 'ID'},   # PK
+    'ingredient_id': {'type': 'DK'},   # ligação com o Insumo (pai)
+    ...
+}
+```
+
+**Campo `MULTI`** — checkboxes de opções fixas (`list`/`options`); o valor
+persistido é a concatenação dos códigos marcados, sem separador (ex.: `"01"` =
+etapas 0 e 1). Na exibição, os códigos são traduzidos para os rótulos
+(ex.: `"01"` → "Preparação, Montagem").
 
 **`aggregate` dict no form** — além do `'sum'` de rodapé na listagem, `aggregate`
 aceita um dict para o motor **recalcular o campo do pai ao salvar** os filhos:

@@ -14,16 +14,16 @@ Entity = {
     },
     'UnitConversion': {
         'id':            {'type': 'ID'},
-        'ingredient_id': {'type': 'ID'},
+        'ingredient_id': {'type': 'DK'},
         'unidade':       {'type': 'LIST', 'list': UND_LIST, 'required': True},
         'fator':         {'type': 'NUM', 'required': True, 'decimals': 6},
     },
     'ProductIngredient': {
-        'ingredient_id': {'type': 'ID'},
+        'ingredient_id': {'type': 'DK'},
         'product_id':    {'type': 'FK', 'label': 'Produto', 'required': True, 'masterkey': 'product'},
         'quantidade':    {'type': 'NUM'},
         'unidade':       {'type': 'LIST', 'list': UND_LIST},
-        'etapa':         {'type': 'LIST', 'list': PRODUCAO_ETAPAS},
+        'etapas':        {'type': 'MULTI', 'list': PRODUCAO_ETAPAS},
     },
 }
 

@@ -1,0 +1,300 @@
+{#
+  Componente: tabela de itens (child tables do form + detalhe read-only da lista).
+  Uso:
+    {% import "components/item_table.html" as itb with context %}
+    {{ itb.item_table_edit(instance, child, ro) }}     // sessões do form
+    {{ itb.item_table_display(items, cols, cell_macro, title) }}  // detalhe da lista
+    {{ itb.item_table_styles() }}                        // head_extra
+
+  Layouts:
+    - Desktop do form (>=992px): tabela inline-edit — células mostram o valor
+      como texto e o editor só aparece ao entrar na célula (focus-within).
+    - Mobile do form e detalhe da lista: tabela transposta — coluna de labels
+      fixa à esquerda (sticky), cada coluna seguinte é um item com inputs em
+      paralelo, sem rótulos.
+  O JS de sincronização (addChildRow/removeRow/syncChildInputs/itSyncValue)
+  vive em pages/sys.html.
+#}
+{% import "components/form_macros.html" as fm with context %}
+
+{% macro item_table_edit(instance, child, ro=false) %}
+{% set _rel = child.attr or child.name %}
+{% set _raw = instance|deep_attr(_rel) %}
+{% if child.single %}
+{% set items = [_raw] if _raw is not none else [none] %}
+{% set _single = true %}
+{% elif _raw is none %}
+{% set items = [] %}
+{% set _single = false %}
+{% elif _raw.all is defined and _raw.all is callable %}
+{% set items = _raw.all() %}
+{% set _single = false %}
+{% elif _raw is sequence and _raw is not string %}
+{% set items = _raw %}
+{% set _single = false %}
+{% else %}
+{% set items = [_raw] %}
+{% set _single = true %}
+{% endif %}
+{% set _can_edit = not ro and not _single %}
+{% set _edit_fields = child.fields|selectattr('edit')|list %}
+{% set _calc_fields = child.fields|selectattr('calc')|list %}
+{% set _prefix = 'child_' + _rel + '_' %}
+{% set _totals = _session_totals.get(_rel) if _session_totals is defined else none %}
+<div class="mb-3 child-table-wrap" {% if _totals and not _calc_fields %}data-total-expr="{{ _totals.expr }}" data-total-currency="{{ _totals.currency or '' }}"{% endif %}>
+  <h6 class="font-bold mb-1">{{ child.label }}</h6>
+
+  {# ── Desktop: tabela inline-edit ── #}
+  <div class="it-desktop">
+    <table class="table table-sm w-full it-table">
+      <thead>
+        <tr>
+          {% for f in _edit_fields %}
+          <th class="text-sm">{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
+          {% endfor %}
+          {% for f in _calc_fields %}
+          <th class="text-sm text-right">{{ f.display_label }}</th>
+          {% endfor %}
+          {% if _can_edit %}<th class="text-sm" style="width:52px;"></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody id="{{ _rel }}TableBody" data-rel="{{ _rel }}" data-temp="0">
+        {% for item in items %}
+        {% set _ref = item|item_ref(items) %}
+        {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
+        <tr data-crow="{{ _rid }}">
+          {% for f in _edit_fields %}
+          <td>
+            {% if ro %}
+            {{ fm.render_label(f, item) }}
+            {% elif f.input in ('checkbox', 'boolean', 'image', 'multi') %}
+            {{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}
+            {% else %}
+            <div class="it-cell">
+              <span class="it-val">{{ fm.render_label(f, item) }}</span>
+              {{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}
+            </div>
+            {% endif %}
+          </td>
+          {% endfor %}
+          {% for f in _calc_fields %}
+          <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+          {% endfor %}
+          {% if _can_edit %}
+          <td class="text-center">
+            <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover linha">
+              <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
+            </button>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if _can_edit or _calc_fields %}
+      <tfoot>
+        {% if _can_edit %}
+        <tr id="{{ _rel }}RowTemplate" style="display:none" data-crow="__IDX__">
+          {% for f in _edit_fields %}
+          <td>
+            {% if f.input in ('checkbox', 'boolean', 'image', 'multi') %}
+            {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
+            {% else %}
+            <div class="it-cell">
+              <span class="it-val">—</span>
+              {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
+            </div>
+            {% endif %}
+          </td>
+          {% endfor %}
+          {% for f in _calc_fields %}
+          <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+          {% endfor %}
+          <td class="text-center">
+            <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover linha">
+              <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
+            </button>
+          </td>
+        </tr>
+        {% endif %}
+        {% if _calc_fields %}
+        <tr class="it-total-row">
+          <th class="itm-label" colspan="{{ _edit_fields|length + (1 if _can_edit else 0) }}">Total</th>
+          {% for f in _calc_fields %}
+          <td class="it-calc-total text-right font-semibold" data-calc-total="{{ f.name }}" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</td>
+          {% endfor %}
+        </tr>
+        {% endif %}
+        {% if _can_edit %}
+        <tr>
+          <td colspan="{{ _edit_fields|length + _calc_fields|length + 1 }}" class="py-2">
+            <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
+              <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
+            </button>
+          </td>
+        </tr>
+        {% endif %}
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  {# ── Mobile: tabela transposta (labels fixas + colunas de itens) ── #}
+  <div class="it-mobile">
+    <div class="itm-scroll">
+      <table class="table table-sm itm-table">
+        <tbody>
+          <tr class="itm-head">
+            <th class="itm-label itm-corner">#</th>
+            {% for item in items %}
+            {% set _ref = item|item_ref(items) %}
+            {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
+            <th class="itm-item" data-crow="{{ _rid }}">
+              <div class="itm-item-head">
+                <span class="itm-item-num">{{ ('# ' ~ _ref) if _ref is not none else '# novo' }}</span>
+                {% if _can_edit %}
+                <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover">
+                  <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
+                </button>
+                {% endif %}
+              </div>
+            </th>
+            {% endfor %}
+          </tr>
+          {% for f in _edit_fields %}
+          <tr>
+            <th class="itm-label">{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
+            {% for item in items %}
+            {% set _ref = item|item_ref(items) %}
+            {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
+            <td class="itm-cell" data-crow="{{ _rid }}">{% if ro %}{{ fm.render_label(f, item) }}{% else %}{{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}{% endif %}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+          {% for f in _calc_fields %}
+          <tr>
+            <th class="itm-label">{{ f.display_label }}</th>
+            {% for item in items %}
+            {% set _ref = item|item_ref(items) %}
+            {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
+            <td class="itm-cell" data-crow="{{ _rid }}"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if _can_edit %}
+    <div class="mt-1 flex items-center gap-2 flex-wrap">
+      <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
+      </button>
+      <span class="itm-pager"></span>
+    </div>
+    <div id="{{ _rel }}ColumnTemplate" style="display:none">
+      <th class="itm-item" data-crow="__IDX__">
+        <div class="itm-item-head">
+          <span class="itm-item-num"># novo</span>
+          <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover">
+            <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
+          </button>
+        </div>
+      </th>
+      {% for f in _edit_fields %}
+      <td class="itm-cell" data-crow="__IDX__">{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}</td>
+      {% endfor %}
+      {% for f in _calc_fields %}
+      <td class="itm-cell" data-crow="__IDX__"><span class="it-calc" data-crow="__IDX__" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{% macro item_table_display(items, cols, cell_macro=none, title='') %}
+<div class="it-display">
+  {% if title %}<div class="text-sm font-bold mb-1">{{ title }}</div>{% endif %}
+  <div class="itm-scroll">
+    <table class="table table-sm itm-table">
+      <tbody>
+        <tr class="itm-head">
+          <th class="itm-label itm-corner">#</th>
+        {% for item in items %}
+        {% set _ref = item|item_ref(items) %}
+        <th class="itm-item" data-crow="{{ loop.index0 }}"><span class="itm-item-num">{{ ('# ' ~ _ref) if _ref is not none else '#' }}</span></th>
+        {% endfor %}
+        </tr>
+        {% for col in cols %}
+        <tr>
+          <th class="itm-label">{{ col.display_label if col.display_label is defined else col.label }}</th>
+          {% for item in items %}
+          <td class="itm-cell" data-crow="{{ loop.index0 }}">
+            {% if cell_macro %}{{ cell_macro(item, loop.index0, col) }}{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if items|length > 1 %}<div class="mt-1 flex justify-center"><span class="itm-pager"></span></div>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro item_table_styles() %}
+<style>
+  .it-desktop { display: block; }
+  .it-table { width: fit-content; }
+  .it-table :where(th, td) { padding: 0.3rem 0.45rem; }
+  .it-table td { min-width: 10ch; vertical-align: middle; }
+  .it-cell { position: relative; min-height: 1.5rem; }
+  .it-cell .it-val {
+    display: inline-block; padding: 0.25rem 0.4rem; border: 1px solid transparent;
+    border-radius: 0.375rem; min-height: 1.75rem; line-height: 1.25rem;
+    cursor: text;
+  }
+  .it-table td:hover .it-cell .it-val { border-color: var(--fallback-b3, oklch(var(--b3))); background: var(--fallback-b1, oklch(var(--b1))); }
+  .it-cell .input, .it-cell .select, .it-cell .textarea {
+    position: absolute; top: 0; left: 0; width: 100%; opacity: 0; margin: 0;
+  }
+  .it-cell:focus-within .it-val { display: none; }
+  .it-cell:focus-within .input,
+  .it-cell:focus-within .select,
+  .it-cell:focus-within .textarea { position: static; opacity: 1; }
+
+  .it-mobile { display: none; }
+  .itm-scroll { overflow-x: auto; }
+  .itm-table { width: max-content; min-width: 100%; border-collapse: separate; }
+  .itm-table th.itm-label {
+    position: sticky; left: 0; z-index: 2; background: var(--fallback-b2, oklch(var(--b2)));
+    text-align: left; white-space: nowrap; box-shadow: 1px 0 0 var(--fallback-b3, oklch(var(--b3)));
+  }
+  .itm-table .itm-head th { background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; }
+  .itm-table th.itm-label.itm-corner { z-index: 3; }
+  .itm-item-head { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; white-space: nowrap; }
+  .itm-item-num { font-weight: 600; }
+  .itm-new { animation: itmFlash 1.2s ease-out; }
+  @keyframes itmFlash { from { background-color: oklch(var(--su) / 0.35); } to { background-color: transparent; } }
+  .itm-table .itm-hide { display: none; }
+  .itm-pager { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; flex: 1; padding: 0.4rem 0; }
+  .itm-page-dot { width: 0.7rem; height: 0.7rem; border-radius: 9999px; background: var(--fallback-b3, oklch(var(--b3))); padding: 0; border: 0; cursor: pointer; }
+  .itm-page-dot.itm-active { background: oklch(var(--p)); }
+  .itm-pager-arrow {
+    border: 0; background: none; cursor: pointer;
+    padding: 0.5rem 0.8rem; border-radius: 0.6rem;
+    font-size: 1.6rem; font-weight: 700; line-height: 1;
+    color: oklch(var(--p));
+  }
+  .itm-pager-arrow:not([disabled]):hover { background: oklch(var(--p) / 0.12); }
+  .itm-pager-arrow[disabled] { color: var(--fallback-bc, oklch(var(--bc))) / 0.4; cursor: default; }
+  .itm-table td.itm-cell { white-space: nowrap; padding: 3px 4px; }
+  .itm-table td.itm-cell .input, .itm-table td.itm-cell .select, .itm-table td.itm-cell .textarea { width: 100%; }
+  .itm-table td.itm-cell input[type="number"] { width: 11ch; }
+  .itm-table td.itm-cell input[type="date"], .itm-table td.itm-cell input[type="time"] { width: 13ch; }
+
+  @media (max-width: 991.98px) {
+    .it-desktop { display: none; }
+    .it-mobile { display: block; }
+  }
+</style>
+{% endmacro %}

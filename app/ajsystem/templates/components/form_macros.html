@@ -69,6 +69,16 @@
   <input type="hidden" name="temp_imagem_{{ ns }}" id="temp-imagem-{{ ns }}" value="">
   <input type="hidden" name="remover_imagem_{{ ns }}" id="remover-imagem-{{ ns }}" value="">
 </div>
+{% elif field.input == 'multi' %}
+  <div class="flex flex-wrap gap-x-4 gap-y-1">
+    {% for k, v in field.options.items() %}
+    <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+      <input type="checkbox" name="{{ ns }}" value="{{ k }}" class="checkbox checkbox-sm"
+        {{ 'checked' if val is not none and k|string in (val|string) }} {{ req }} {{ dis }}>
+      {{ v }}
+    </label>
+    {% endfor %}
+  </div>
 {% else %}
   <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val|mask(field.mask) if field.mask and field.digits_only and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask %}data-mask="{{ field.mask }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{{ attr_str|safe }}>
 {% endif %}
@@ -80,6 +90,14 @@
 <img src="{{ url_for(aj_uploads_endpoint(), filename=val) }}" style="max-height:60px;" class="border rounded" onclick="previewImagem(this.src)">
 {% elif field.input in ('boolean', 'checkbox') %}
 {{ 'Sim' if val else 'Não' }}
+{% elif field.input == 'multi' and val is not none %}
+  {% set _mns = namespace(parts=[]) %}
+  {% for _ch in (val|string) %}
+    {% for _mk, _mv in field.options.items() %}
+      {% if _mk|string == _ch %}{% set _mns.parts = _mns.parts + [_mv] %}{% endif %}
+    {% endfor %}
+  {% endfor %}
+  {{ _mns.parts|join(', ') if _mns.parts else val }}
 {% elif field.input == 'select' and val is not none %}
   {% if field.options %}
     {% set _ns = namespace(label=none) %}

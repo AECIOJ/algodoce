@@ -22,11 +22,11 @@ Entity = {
     },
     'ProductIngredient': {
         '__meta__':        {'label': 'Insumos'},
-        'product_id':      {'type': 'ID'},
+        'product_id':      {'type': 'DK'},
         'ingredient_id':   {'type': 'FK', 'label': 'Insumo', 'required': True},
         'quantidade':      {'type': 'NUM', 'required': True},
         'unidade':         {'type': 'LIST', 'list': UND_LIST, 'required': True},
-        'etapa':           {'type': 'LIST', 'list': PRODUCAO_ETAPAS},
+        'etapas':          {'type': 'MULTI', 'list': PRODUCAO_ETAPAS},
     },
 }
 
