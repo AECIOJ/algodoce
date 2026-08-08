@@ -12,6 +12,7 @@ from app.ajsystem.list import (
     _infer_field_from_model,
 )
 from app.ajsystem.buttons import Button, ACTIONS
+from app.ajsystem.edits import editor_assets
 from app.ajsystem.fields import VALIDATORS
 from app.ajsystem.utils import item_ref
 
@@ -1154,6 +1155,13 @@ def handle_form(form_spec, id=None, extra_ctx=None, instance=None):
         can_delete=_can_delete,
         _session_totals=session_totals,
     )
+    _editor_inputs = {f.input for f in _flat_fields(form)}
+    for _s in form._resolved_sessions:
+        for _f in _s.get('fields', []):
+            _editor_inputs.add(_f.input)
+    _editor_js, _editor_css = editor_assets(_editor_inputs)
+    ctx['_editor_js'] = [url_for('ajsystem.static', filename=_f) + '?v=1' for _f in _editor_js]
+    ctx['_editor_css'] = [url_for('ajsystem.static', filename=_f) + '?v=1' for _f in _editor_css]
     if extra_ctx:
         for k, v in extra_ctx.items():
             if k == '_lookup' and isinstance(v, dict):
