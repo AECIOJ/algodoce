@@ -25,7 +25,7 @@ Entity = {
         'ingredient_id':   {'type': 'FK', 'label': 'Insumo', 'required': True, 'on_set': 'insumo'},
         'quantidade':      {'type': 'NUM', 'required': True},
         'unidade':         {'type': 'LIST', 'list': UND_LIST, 'required': True},
-        'etapas':          {'type': 'MULTI', 'list': PRODUCAO_ETAPAS},
+        'etapas':          {'type': 'MULTI', 'list': PRODUCAO_ETAPAS, 'align': 'center'},
     },
 }
 

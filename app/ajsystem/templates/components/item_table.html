@@ -50,7 +50,7 @@
       <thead>
         <tr>
           {% for f in _edit_fields %}
-          <th class="text-sm">{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
+          <th class="text-sm"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
           {% endfor %}
           {% for f in _calc_fields %}
           <th class="text-sm text-right">{{ f.display_label }}</th>
@@ -64,7 +64,7 @@
         {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
         <tr data-crow="{{ _rid }}">
           {% for f in _edit_fields %}
-          <td>
+          <td{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>
             {% if ro %}
             {{ fm.render_label(f, item) }}
             {% elif f.input == 'multi' %}
@@ -166,11 +166,11 @@
           </tr>
           {% for f in _edit_fields %}
           <tr>
-            <th class="itm-label">{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
+            <th class="itm-label"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
             {% for item in items %}
             {% set _ref = item|item_ref(items) %}
             {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
-            <td class="itm-cell" data-crow="{{ _rid }}">{% if ro %}{{ fm.render_label(f, item) }}{% elif f.input == 'multi' %}{{ fm.render_multi_ctl(f, item, name_prefix=_prefix + _rid + '_') }}{% else %}{{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}{% endif %}</td>
+            <td class="itm-cell"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %} data-crow="{{ _rid }}">{% if ro %}{{ fm.render_label(f, item) }}{% elif f.input == 'multi' %}{{ fm.render_multi_ctl(f, item, name_prefix=_prefix + _rid + '_') }}{% else %}{{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}{% endif %}</td>
             {% endfor %}
           </tr>
           {% endfor %}
@@ -204,7 +204,7 @@
         </div>
       </th>
       {% for f in _edit_fields %}
-      <td class="itm-cell" data-crow="__IDX__">{% if f.input == 'multi' %}{{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}{% else %}{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}{% endif %}</td>
+      <td class="itm-cell"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %} data-crow="__IDX__">{% if f.input == 'multi' %}{{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}{% else %}{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}{% endif %}</td>
       {% endfor %}
       {% for f in _calc_fields %}
       <td class="itm-cell" data-crow="__IDX__"><span class="it-calc" data-crow="__IDX__" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
@@ -230,9 +230,9 @@
         </tr>
         {% for col in cols %}
         <tr>
-          <th class="itm-label">{{ col.display_label if col.display_label is defined else col.label }}</th>
+          <th class="itm-label"{% if col.align is defined and col.align and col.align != 'left' %} style="text-align:{{ col.align }}"{% endif %}>{{ col.display_label if col.display_label is defined else col.label }}</th>
           {% for item in items %}
-          <td class="itm-cell" data-crow="{{ loop.index0 }}">
+          <td class="itm-cell"{% if col.align is defined and col.align and col.align != 'left' %} style="text-align:{{ col.align }}"{% endif %} data-crow="{{ loop.index0 }}">
             {% if cell_macro %}{{ cell_macro(item, loop.index0, col) }}{% endif %}
           </td>
           {% endfor %}
