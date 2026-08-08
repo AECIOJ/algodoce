@@ -157,8 +157,14 @@
 
 <dialog id="multiModal" class="modal">
   <div class="modal-box">
-    <h3 class="font-bold text-lg" id="multiModalTitle">Opções</h3>
+    <h3 class="font-bold text-lg text-center" id="multiModalTitle">Opções</h3>
+    <hr style="border:0;border-top:1px solid var(--fallback-b3, oklch(var(--b3)));margin:0.5rem 0;">
+    <label class="flex items-center gap-2 cursor-pointer py-1 px-2 select-none" for="multiCheckAll">
+      <input type="checkbox" class="checkbox checkbox-sm" id="multiCheckAll">
+      <span class="text-sm font-medium">Marcar todos</span>
+    </label>
     <div id="multiModalOptions" class="py-3 flex flex-col gap-1.5" style="max-height:65vh;overflow:auto;"></div>
+    <hr style="border:0;border-top:1px solid var(--fallback-b3, oklch(var(--b3)));margin:0.5rem 0;">
     <div class="modal-action justify-between">
       <button type="button" class="btn btn-ghost" id="multiModalCancel">Cancelar</button>
       <button type="button" class="btn btn-success" id="multiModalOk">
@@ -556,6 +562,23 @@ function openMultiCtl(btn) {
     box.appendChild(label);
   }
   document.getElementById('multiModalTitle').textContent = title;
+  var checkAll = document.getElementById('multiCheckAll');
+  if (checkAll) {
+    checkAll.checked = false;
+    checkAll.indeterminate = false;
+    checkAll.onchange = function() {
+      var all = box.querySelectorAll('input[type=checkbox]');
+      for (var i = 0; i < all.length; i++) all[i].checked = checkAll.checked;
+    };
+    box.onclick = function() {
+      var all = box.querySelectorAll('input[type=checkbox]');
+      var n = all.length, c = 0;
+      for (var i = 0; i < n; i++) if (all[i].checked) c++;
+      checkAll.checked = (n > 0 && c === n);
+      checkAll.indeterminate = (c > 0 && c < n);
+    };
+    box.onclick();
+  }
   var ns = hidden ? hidden.name : '';
   window._multiState = { ns: ns, options: options, hidden: hidden };
   document.getElementById('multiModal').showModal();
