@@ -20,7 +20,7 @@ Entity = {
     },
     'ProductIngredient': {
         'ingredient_id': {'type': 'DK'},
-        'product_id':    {'type': 'FK', 'label': 'Produto', 'required': True, 'masterkey': 'product'},
+        'product_id':    {'type': 'FK', 'label': 'Produto', 'required': True},
         'quantidade':    {'type': 'NUM'},
         'unidade':       {'type': 'LIST', 'list': UND_LIST},
         'etapas':        {'type': 'MULTI', 'list': PRODUCAO_ETAPAS},
