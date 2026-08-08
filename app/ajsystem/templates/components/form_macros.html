@@ -122,7 +122,7 @@
   <input type="hidden" name="{{ ns }}" value="{{ val or '' }}" {{ req }} {{ dis }}>
   <button type="button" class="it-multi-val"{% if dis %} disabled{% endif %}>
     <span class="it-multi-label">{{ render_label(field, data) }}</span>
-    <svg class="w-3.5 h-3.5 it-multi-pen" aria-hidden="true"><use href="#i-pencil-square"/></svg>
+    <svg class="it-multi-pen" aria-hidden="true"><use href="#i-pencil-square"/></svg>
   </button>
 </div>
 {% endmacro %}
