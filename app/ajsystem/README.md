@@ -36,7 +36,7 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | `post_save` (Form) | ✓ | Categorias — reordenação |
 | `buttons` (Form) | ✓ | Categorias — `on_off` |
 | `DK` (Field) | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `edit=False`) |
-| `MULTI` (Field) | ✓ | Insumos — `etapas` (checkboxes; armazena códigos concatenados) |
+| `MULTI` (Field) | ✓ | Insumos — `etapas` (armazena códigos concatenados; editor genérico abre em modal) |
 | `masterkey` (Field·FK) | ✓ | Insumos — opcional: `product_id` sem `masterkey` (query derivado da relação) |
 | `label` (Field) | ✓ | Insumos — `product_id` → 'Produto' |
 | `required` (Field) | ✓ | Insumos — `product_id`, `unidade_medida`, `fator`, `unidade` |
@@ -530,7 +530,7 @@ disponíveis (`app/ajsystem/fields.py`):
 | `CNPJ` | `text` | `mask: '99.999.999/9999-99'`, `digits_only`, `validate: 'cnpj'` |
 | `FK` | `select` | `filter` select; referência a outra entidade — `masterkey` opcional, veja §5.2 |
 | `LIST` | `select` | `filter` select; opções fixas via `list`/`options` |
-| `MULTI` | `multi` | Checkboxes de opções fixas via `list`/`options`; persiste códigos concatenados |
+| `MULTI` | `multi` | Opções fixas via `list`/`options`; editor genérico em modal; persiste códigos concatenados |
 | `IMAGE` | `image` | `filter: False`, widget de preview/upload |
 
 > As props base do tipo são **mescladas** com as da entidade e do form — você
@@ -609,8 +609,14 @@ começam com `__` são **reservadas** e não viram campos. Hoje existe apenas
 
 **Referência derivada da relação** — um campo `*_id` sem `masterkey`/`query` tem
 o `query` resolvido automaticamente pelo motor a partir da relação do model do
-filho (ex.: `product_id` em `quote_item` → `query='product'`). O alvo precisa
-estar em `MODEL_MAP` (§4.6).
+filho (ex.: `product_id` em `quote_item` → `query='product'`). Vale para campos
+de sessões **e** do form principal (ex.: `category_id` em `Product` →
+`query='category'`). O alvo precisa estar em `MODEL_MAP` (§4.6).
+
+**Selects `LIST` com valor fora do padrão** — o select e o rótulo aceitam o
+valor salvo mesmo que a caixa/maiúscula não bata com a chave da `list`
+(ex.: `'kg'` salvo → mostra a opção `'Kg'` selecionada). Ao salvar o registro,
+o valor é normalizado para a chave padrão.
 
 **Campo `DK` (detail key)** — marca a coluna que liga a linha filha à **tabela
 principal da `Entity`** (a primeira chave da `Entity`, ex.: `ingredient_id` na
@@ -627,10 +633,17 @@ tabela da `Entity`:
 }
 ```
 
-**Campo `MULTI`** — checkboxes de opções fixas (`list`/`options`); o valor
+**Campo `MULTI`** — múltiplas opções fixas (`list`/`options`); o valor
 persistido é a concatenação dos códigos marcados, sem separador (ex.: `"01"` =
 etapas 0 e 1). Na exibição, os códigos são traduzidos para os rótulos
 (ex.: `"01"` → "Preparação, Montagem").
+
+O editor é **genérico e incluso no framework**: em campos do form e em células
+de sessões editáveis, o `MULTI` é um controle `multi-ctl` (rótulo + lápis que
+aparece no hover); o clique abre o modal `multiModal` com as opções verticais
+e botões Cancelar/OK. O modal grava o valor concatenado (ordenado) num hidden
+único — o servidor recebe o mesmo contrato de antes (códigos concatenados).
+Em sessões `readonly`, o campo é renderizado apenas como texto, sem editor.
 
 **`aggregate` dict no form** — além do `'sum'` de rodapé na listagem, `aggregate`
 aceita um dict para o motor **recalcular o campo do pai ao salvar** os filhos:

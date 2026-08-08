@@ -20,7 +20,7 @@
     <option value="">Selecione...</option>
     {% if field.options %}
       {% for k, v in field.options.items() %}
-      <option value="{{ k }}" {{ 'selected' if val is not none and val|string == k|string }}>{{ v }}</option>
+      <option value="{{ k }}" {{ 'selected' if val is not none and (val|string == k|string or val|string|lower == k|string|lower) }}>{{ v }}</option>
       {% endfor %}
     {% else %}
       {% set qlist = _lookup.get(field.name) if _lookup is defined else none %}
@@ -70,15 +70,7 @@
   <input type="hidden" name="remover_imagem_{{ ns }}" id="remover-imagem-{{ ns }}" value="">
 </div>
 {% elif field.input == 'multi' %}
-  <div class="flex flex-wrap gap-x-4 gap-y-1">
-    {% for k, v in field.options.items() %}
-    <label class="flex items-center gap-1.5 text-sm cursor-pointer">
-      <input type="checkbox" name="{{ ns }}" value="{{ k }}" class="checkbox checkbox-sm"
-        {{ 'checked' if val is not none and k|string in (val|string) }} {{ req }} {{ dis }}>
-      {{ v }}
-    </label>
-    {% endfor %}
-  </div>
+{{ render_multi_ctl(field, data, name_prefix, ro) }}
 {% else %}
   <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val|mask(field.mask) if field.mask and field.digits_only and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask %}data-mask="{{ field.mask }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{{ attr_str|safe }}>
 {% endif %}
@@ -102,7 +94,7 @@
   {% if field.options %}
     {% set _ns = namespace(label=none) %}
     {% for _k, _v in field.options.items() %}
-      {% if _k|string == val|string %}{% set _ns.label = _v %}{% endif %}
+      {% if _ns.label is none and (_k|string == val|string or _k|string|lower == val|string|lower) %}{% set _ns.label = _v %}{% endif %}
     {% endfor %}
     {{ _ns.label if _ns.label else val }}
   {% else %}
@@ -119,6 +111,20 @@
   {% if val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
 {% else %}—
 {% endif %}
+{% endmacro %}
+
+{% macro render_multi_ctl(field, data=none, name_prefix='', ro=false) %}
+{% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
+{% set ns = (name_prefix or '') + (field.name if not (name_prefix or '').endswith('_') else field.name) %}
+{% set dis = 'disabled' if (field.disabled or ro) else '' %}
+{% set req = 'required' if field.required else '' %}
+<div class="multi-ctl" data-multi-options='{{ field.options|tojson }}' data-multi-title="{{ field.display_label }}"{% if dis %} data-multi-disabled="1"{% endif %}>
+  <input type="hidden" name="{{ ns }}" value="{{ val or '' }}" {{ req }} {{ dis }}>
+  <button type="button" class="it-multi-val"{% if dis %} disabled{% endif %}>
+    <span class="it-multi-label">{{ render_label(field, data) }}</span>
+    <svg class="w-3.5 h-3.5 it-multi-pen" aria-hidden="true"><use href="#i-pencil-square"/></svg>
+  </button>
+</div>
 {% endmacro %}
 
 {% macro render_checkbox(field, data=none, ro=false) %}

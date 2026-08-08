@@ -363,8 +363,19 @@ class Form:
         if not self.flash_update:
             self.flash_update = f'{self.label} atualizado!'
         self._resolved_fields = self._resolve_fields()
+        self._derive_field_queries()
         self._resolved_sessions = self._build_sessions()
         self._resolved_buttons = self._resolve_buttons()
+
+    def _derive_field_queries(self):
+        """Deriva `query` de FKs do form principal sem `masterkey`/`query` (§5.4)."""
+        if self.model is None:
+            return
+        for f in self._resolved_fields:
+            if f.input == 'select' and f.query is None and f.options is None:
+                query = _fk_query_for(self.model, f.name)
+                if query:
+                    f.query = query
 
     def _resolve_buttons(self):
         if not self.buttons:

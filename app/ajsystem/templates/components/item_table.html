@@ -67,7 +67,9 @@
           <td>
             {% if ro %}
             {{ fm.render_label(f, item) }}
-            {% elif f.input in ('checkbox', 'boolean', 'image', 'multi') %}
+            {% elif f.input == 'multi' %}
+            {{ fm.render_multi_ctl(f, item, name_prefix=_prefix + _rid + '_') }}
+            {% elif f.input in ('checkbox', 'boolean', 'image') %}
             {{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}
             {% else %}
             <div class="it-cell">
@@ -96,7 +98,9 @@
         <tr id="{{ _rel }}RowTemplate" style="display:none" data-crow="__IDX__">
           {% for f in _edit_fields %}
           <td>
-            {% if f.input in ('checkbox', 'boolean', 'image', 'multi') %}
+            {% if f.input == 'multi' %}
+            {{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}
+            {% elif f.input in ('checkbox', 'boolean', 'image') %}
             {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
             {% else %}
             <div class="it-cell">
@@ -166,7 +170,7 @@
             {% for item in items %}
             {% set _ref = item|item_ref(items) %}
             {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
-            <td class="itm-cell" data-crow="{{ _rid }}">{% if ro %}{{ fm.render_label(f, item) }}{% else %}{{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}{% endif %}</td>
+            <td class="itm-cell" data-crow="{{ _rid }}">{% if ro %}{{ fm.render_label(f, item) }}{% elif f.input == 'multi' %}{{ fm.render_multi_ctl(f, item, name_prefix=_prefix + _rid + '_') }}{% else %}{{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}{% endif %}</td>
             {% endfor %}
           </tr>
           {% endfor %}
@@ -200,7 +204,7 @@
         </div>
       </th>
       {% for f in _edit_fields %}
-      <td class="itm-cell" data-crow="__IDX__">{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}</td>
+      <td class="itm-cell" data-crow="__IDX__">{% if f.input == 'multi' %}{{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}{% else %}{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}{% endif %}</td>
       {% endfor %}
       {% for f in _calc_fields %}
       <td class="itm-cell" data-crow="__IDX__"><span class="it-calc" data-crow="__IDX__" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
@@ -278,6 +282,21 @@
   .itm-table .itm-hide { display: none; }
   .itm-pager { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; flex: 1; padding: 0.4rem 0; }
   .itm-page-dot { width: 0.7rem; height: 0.7rem; border-radius: 9999px; background: var(--fallback-b3, oklch(var(--b3))); padding: 0; border: 0; cursor: pointer; }
+  .multi-ctl { display: inline-flex; vertical-align: middle; }
+  .multi-ctl .it-multi-val {
+    display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.4rem;
+    border: 1px solid transparent; border-radius: 0.375rem; min-height: 1.75rem;
+    line-height: 1.25rem; font-size: 0.875rem; text-align: left; cursor: pointer;
+    background: transparent; font-family: inherit;
+  }
+  .multi-ctl .it-multi-val:hover { border-color: var(--fallback-b3, oklch(var(--b3))); background: var(--fallback-b1, oklch(var(--b1))); }
+  .multi-ctl .it-multi-pen { flex: none; opacity: 0.45; }
+  .multi-ctl .it-multi-val:hover .it-multi-pen { opacity: 1; }
+  .multi-ctl .it-multi-val:disabled { cursor: default; opacity: 1; }
+  .multi-ctl .it-multi-val:disabled:hover { border-color: transparent; background: transparent; }
+  .multi-ctl .it-multi-val:disabled .it-multi-pen { display: none; }
+  .itm-table td.itm-cell .multi-ctl { max-width: 100%; }
+  .itm-table td.itm-cell .multi-ctl .it-multi-val { max-width: 100%; }
   .itm-page-dot.itm-active { background: oklch(var(--p)); }
   .itm-pager-arrow {
     border: 0; background: none; cursor: pointer;

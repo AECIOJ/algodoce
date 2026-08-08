@@ -5,7 +5,7 @@ from app.models.product_ingredient import ProductIngredient
 from app.models.order_item import OrderItem
 from app.models.quote_item import QuoteItem
 from app.constantes import PRODUCAO_ETAPAS, UND_LIST
-from app.ajsystem.form import _delete_uploaded
+from app.ajsystem.form import _delete_uploaded, pesquise
 from app.ajsystem.engine import auto
 
 
@@ -22,7 +22,7 @@ Entity = {
     },
     'ProductIngredient': {
         'product_id':      {'type': 'DK'},
-        'ingredient_id':   {'type': 'FK', 'label': 'Insumo', 'required': True},
+        'ingredient_id':   {'type': 'FK', 'label': 'Insumo', 'required': True, 'on_set': 'insumo'},
         'quantidade':      {'type': 'NUM', 'required': True},
         'unidade':         {'type': 'LIST', 'list': UND_LIST, 'required': True},
         'etapas':          {'type': 'MULTI', 'list': PRODUCAO_ETAPAS},
@@ -41,6 +41,21 @@ List = {
     ],
     'ordering': ['nome'],
 }
+
+
+def insumo_on_set(row):
+    """`on_set` do Insumo: quantidade=1 e unidade conforme o insumo."""
+    row['quantidade'] = 1
+    try:
+        iid = int(row.get('ingredient_id'))
+    except (TypeError, ValueError):
+        return
+    und = pesquise('ingredient', iid, 'unidade_medida')
+    if und:
+        row['unidade'] = und
+
+
+ON_SET = {'insumo': insumo_on_set}
 
 
 Form = {
