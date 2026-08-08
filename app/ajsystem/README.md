@@ -35,6 +35,19 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | `pre_save` (Form) | ✓ | Categorias — auto-ordenação `ordem` |
 | `post_save` (Form) | ✓ | Categorias — reordenação |
 | `buttons` (Form) | ✓ | Categorias — `on_off` |
+| `DK` (Field) | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `edit=False`) |
+| `MULTI` (Field) | ✓ | Insumos — `etapas` (checkboxes; armazena códigos concatenados) |
+| `masterkey` (Field·FK) | ✓ | Insumos — opcional: `product_id` sem `masterkey` (query derivado da relação) |
+| `label` (Field) | ✓ | Insumos — `product_id` → 'Produto' |
+| `required` (Field) | ✓ | Insumos — `product_id`, `unidade_medida`, `fator`, `unidade` |
+| `decimals` (Field) | ✓ | Insumos — `fator` |
+| `transform` (Field) | ✓ | Insumos — `nome` ('title') |
+| `list` (Field) | ✓ | Insumos — `tipo`/`unidade_medida` (LIST) e `etapas` (MULTI) |
+| `sessions` (Form) | ✓ | Insumos — `Conversões` e `Produtos` (explícitas) |
+| `table` (Form·sessions) | ✓ | Insumos — `['UnitConversion']`, `['ProductIngredient']` |
+| `readonly` (Form·sessions) | ✓ | Insumos — sessão `Produtos` renderizada como texto |
+| `ID` em coluna FK (Field) | ✗ | Insumos — `ingredient_id`/`product_id` eram `ID`; usar `DK` (linha-pai) ou `FK` |
+| `LIST` em campo multivalorado (Field) | ✗ | Insumos — `etapa` (valor único) → `MULTI` (`etapas`) |
 
 ---
 
