@@ -1040,11 +1040,20 @@ html.edit-form #page-content {
 }
 
 
-.checkbox {
-  border-width: 2px;
+.checkbox,
+input[type="checkbox"] {
+  border-style: solid;
+  border-width: 1px;
   border-color: #111827;
   background-color: #ffffff;
 }
-.checkbox:hover {
+.checkbox:hover,
+input[type="checkbox"]:hover {
   border-color: #000000;
+}
+input[type="radio"] {
+  border-style: solid;
+  border-width: 1px;
+  border-color: #111827;
+  background-color: #ffffff;
 }
