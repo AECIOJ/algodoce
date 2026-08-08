@@ -292,6 +292,9 @@ function addChildRow(btn) {
     clone.id = '';
     clone.style.display = '';
     clone.innerHTML = clone.innerHTML.split('__IDX__').join(key);
+    clone.querySelectorAll('input,select,textarea').forEach(function(el) {
+      el.removeAttribute('disabled');
+    });
     clone.setAttribute('data-crow', key);
     tbody.appendChild(clone);
   }
@@ -303,6 +306,9 @@ function addChildRow(btn) {
     box.id = '';
     box.style.display = '';
     box.innerHTML = box.innerHTML.split('__IDX__').join(key);
+    box.querySelectorAll('input,select,textarea').forEach(function(el) {
+      el.removeAttribute('disabled');
+    });
     var cells = Array.prototype.slice.call(box.children);
     box.remove();
     var cellIdx = 0;
@@ -368,6 +374,7 @@ function syncChildInputs() {
   function setDisabled(root, disabled) {
     if (!root) return;
     root.querySelectorAll('input, select, textarea, button').forEach(function(el) {
+      if (el.closest('[id$="RowTemplate"], [id$="ColumnTemplate"]')) return;
       el.disabled = disabled;
     });
   }
@@ -821,6 +828,11 @@ function _validateEl(el) {
   return ok;
 }
 document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('[id$="RowTemplate"], [id$="ColumnTemplate"]').forEach(function(tpl) {
+    tpl.querySelectorAll('input,select,textarea').forEach(function(el) {
+      el.setAttribute('disabled', 'disabled');
+    });
+  });
   document.querySelectorAll('input[data-mask]').forEach(function(el) {
     _maskEl(el);
     el.addEventListener('input', function() {
