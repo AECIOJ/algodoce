@@ -1,6 +1,7 @@
-/* Editor MULTI (app.ajsystem) — self-contained.
+/* Editor MULT10 (app.ajsystem) — self-contained.
  * Contrato: elemento .multi-ctl com:
- *   data-multi-options  JSON {code: label} (chaves de um único caractere)
+ *   data-multi-options  JSON {code: label} — chaves de 1 caractere (0-9),
+ *                        no máximo 10 opções (tipo MULT10)
  *   data-multi-title    título do modal
  *   input[type=hidden]  valor (códigos concatenados e ordenados)
  *   .it-multi-val       botão de abertura (chip com rótulo)

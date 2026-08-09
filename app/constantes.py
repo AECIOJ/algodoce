@@ -40,6 +40,6 @@ TIPO_RECURSO = {0: "Caixa", 1: "Banco", 2: "Cartão"}
 CARTEIRA_USO = {0: "Pedido", 1: "Pedido e Compra", 2: "Compra"}
 CARTEIRA_GERAR = {0: "Movimento", 1: "Previsão"}
 
-UND_INSUMO = ["Kg", "G", "L", "Ml", "Un", "Cx", "Pacote", "Colher_cha", "Colher_sopa", "Xicara", "Pitada", "Litro"]
+UND_INSUMO = ["Kg", "G", "L", "Ml", "Un", "Colher_cha", "Colher_sopa", "Xicara", "Pitada"]
 UND_LIST = as_options(UND_INSUMO)
 

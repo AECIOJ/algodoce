@@ -1,9 +1,11 @@
 {% extends "components/page_sys.html" %}
 
 {% block page_content %}
-<div class="flex-grow-1 d-flex flex-column min-h-0" {% block layout_attrs %}{% endblock %}>
+<div class="grow flex flex-col min-h-0{% block page_container_class %}{% endblock %}"
+     style="{% block page_container_style %}{% endblock %}"
+     {% block layout_attrs %}{% endblock %}>
   {% block page_layout_header %}{% endblock %}
-  <div class="flex-grow-1 overflow-auto min-h-0" style="position:relative;">
+  <div class="grow overflow-auto min-h-0" style="position:relative;">
     {% block page_layout_body %}{% endblock %}
   </div>
   {% block page_layout_footer %}{% endblock %}

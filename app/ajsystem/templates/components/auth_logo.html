@@ -1,0 +1,87 @@
+{# auth_logo.html — Padrão do motor: auth no logo.
+   Modo "auth" (padrão, site público):
+     1 click no logo  = auth SISTEMA (SYS)
+     2 clicks no logo = auth ADMIN
+   Modo "qr" (sistema logado, ativado com `auth_logo_modo='qr'`):
+     1 click no logo  = QR code de acesso via mobile (se qr_enabled)
+   Usa os endpoints do motor (/api/login-sistema, /api/login-admin,
+   /api/check-chave, /api/admin-config) e tokens do tema.
+   Qualquer base pode incluir; o handler liga ao .brand-logo. #}
+<style>
+  .auth-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1050; }
+  .auth-card { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1051; width: 320px; box-sizing: border-box; }
+  .auth-card-inner { background: var(--fallback-b1, oklch(var(--b1))); border-radius: 16px; padding: 2rem; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .auth-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+  .auth-card h4, .auth-card h5 { margin-bottom: 1.25rem; color: var(--fallback-s, oklch(var(--s))); }
+  .auth-card input { box-sizing: border-box; width: 100%; padding: 0.6rem 1rem; border: 2px solid var(--fallback-b3, oklch(var(--b3))); border-radius: 8px; font-size: 1rem; margin-bottom: 0.75rem; color: var(--fallback-bc, oklch(var(--bc))); }
+  .auth-card input:focus { border-color: var(--fallback-s, oklch(var(--s))); outline: none; }
+  .auth-btn { box-sizing: border-box; width: 100%; padding: 0.6rem; border: none; border-radius: 8px; background: var(--fallback-s, oklch(var(--s))); color: var(--fallback-sc, oklch(var(--sc))); font-size: 1rem; font-weight: 600; cursor: pointer; }
+  .auth-btn:hover { background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 80%, #000); }
+  .auth-error { color: var(--fallback-er, oklch(var(--er))); font-size: 0.85rem; margin-bottom: 0.5rem; min-height: 1.2rem; }
+  .auth-close { position: absolute; top: 8px; right: 16px; font-size: 1.5rem; cursor: pointer; color: var(--fallback-b3, oklch(var(--b3))); }
+  .auth-close:hover { color: var(--fallback-bc, oklch(var(--bc))); }
+</style>
+<script>
+(function(){
+  var _popup = null;
+  function _fecharPopup(){ if(_popup){ _popup.remove(); _popup = null; } }
+  window._fecharPopup = _fecharPopup;
+  function _criarPopup(h){
+    _fecharPopup();
+    _popup = document.createElement('div');
+    _popup.innerHTML = h;
+    document.body.appendChild(_popup);
+    setTimeout(function(){ var i = _popup.querySelector('input'); if(i) i.focus(); }, 100);
+    _popup.querySelectorAll('input').forEach(function(e){
+      e.addEventListener('keydown', function(ev){ if(ev.key === 'Enter'){ var b = _popup.querySelector('.auth-btn'); if(b) b.click(); } });
+    });
+  }
+  function _xhrGet(u, cb){ var x = new XMLHttpRequest(); x.open('GET', u, true); x.onreadystatechange = function(){ if(x.readyState === 4){ try{ cb(JSON.parse(x.responseText)); }catch(e){ cb(null); } } }; x.send(); }
+  function _xhrPost(u, d, cb){ var x = new XMLHttpRequest(); x.open('POST', u, true); x.setRequestHeader('Content-Type','application/json'); x.onreadystatechange = function(){ if(x.readyState === 4){ try{ cb(x.status, JSON.parse(x.responseText)); }catch(e){ cb(x.status, null); } } }; x.send(JSON.stringify(d)); }
+
+  window.showSistemaPopup = function(){
+    _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">&#128272;</div><h4>Acesso ao Sistema</h4><input type="text" id="popup-user" placeholder="Usu\u00e1rio" autofocus><input type="password" id="popup-pass" placeholder="Senha"><input type="password" id="popup-chave" placeholder="Chave" style="display:none"><div id="popup-error" class="auth-error"></div><button onclick="submitSistema()" class="auth-btn">Entrar</button></div></div>');
+    _xhrGet('/api/check-chave', function(d){ if(d && d.tem) document.getElementById('popup-chave').style.display = ''; });
+  };
+  window.submitSistema = function(){
+    var u = document.getElementById('popup-user').value, p = document.getElementById('popup-pass').value, c = document.getElementById('popup-chave').value, e = document.getElementById('popup-error');
+    e.textContent = '';
+    _xhrPost('/api/login-sistema', {username: u, password: p, chave: c}, function(s, b){
+      if(s === 200) window.location.href = b.redirect;
+      else e.textContent = (b && b.error) || 'Erro';
+    });
+  };
+  window.showAdminPopup = function(){
+    _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">&#128273;</div><h4>Administrador</h4><input type="text" id="admin-user" placeholder="Usu\u00e1rio" autofocus><input type="password" id="admin-pass" placeholder="Senha" style="display:none"><input type="password" id="admin-chave" placeholder="Chave"><div id="admin-error" class="auth-error"></div><button onclick="submitAdmin()" class="auth-btn">Entrar</button></div></div>');
+    _xhrGet('/api/admin-config', function(d){ if(d && d.tem_usuario) document.getElementById('admin-user').style.display = ''; if(d && d.tem_senha) document.getElementById('admin-pass').style.display = ''; });
+  };
+  window.submitAdmin = function(){
+    var u = document.getElementById('admin-user').value, p = document.getElementById('admin-pass').value, c = document.getElementById('admin-chave').value, e = document.getElementById('admin-error');
+    e.textContent = '';
+    _xhrPost('/api/login-admin', {username: u, password: p, chave: c}, function(s, b){
+      if(s === 200) window.location.href = b.redirect;
+      else e.textContent = (b && b.error) || 'Erro';
+    });
+  };
+
+  function _bindLogo(){
+    var logo = document.querySelector('.brand-logo');
+    if (!logo) return;
+    var timer = null;
+    {% if auth_logo_modo == 'qr' %}
+    logo.addEventListener('click', function(e){
+      e.preventDefault();
+      if (typeof window.abrirQR === 'function') window.abrirQR();
+    });
+    {% else %}
+    logo.addEventListener('click', function(e){
+      e.preventDefault();
+      if (timer) { clearTimeout(timer); timer = null; window.showAdminPopup(); }
+      else { timer = setTimeout(function(){ timer = null; window.showSistemaPopup(); }, 300); }
+    });
+    {% endif %}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _bindLogo);
+  else _bindLogo();
+})();
+</script>

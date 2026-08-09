@@ -2,9 +2,9 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
 from app.extensions import db
 from app.models.recurso import Recurso
-from app.constants import TIPO_RECURSO
+from app.constantes import TIPO_RECURSO
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter
-from app.list import build_field_context, build_filter_config, List
+from app.ajsystem.list import build_field_context, build_filter_config, List
 from app.form import Form, handle_form
 from app.fields import FIELD_ID, FIELD_NOME, FIELD_TIPO, FIELD_VALOR, FIELD_DATA
 
@@ -38,10 +38,7 @@ def list():
     linhas = apply_date_filter(linhas, 'data', active.get('data'))
     recursos = linhas
     ctx = build_field_context(_list.fields)
-    return render_template(
-        "sys_recursos/list.html", recursos=recursos, RECURSOS_LIST=_list, ctx=ctx,
-        TIPO_RECURSO=TIPO_RECURSO, active_filters=active, FILTERS=filter_config,
-    )
+    return render_template("index.html")
 
 
 Form = {'model': Recurso, 'redirect': 'recursos.list', 'fields': RECURSOS_FIELDS}

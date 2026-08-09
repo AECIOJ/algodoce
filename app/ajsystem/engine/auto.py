@@ -75,7 +75,10 @@ def _entidade_principal(mod):
             return fields
     lista = getattr(mod, 'List', None)
     if isinstance(lista, dict):
-        columns = lista.get('columns') or [next(iter(getattr(mod, 'Entity', {})), '')]
+        fields = lista.get('fields')
+        if isinstance(fields, str):
+            return fields if fields in getattr(mod, 'Entity', {}) else None
+        columns = fields or [next(iter(getattr(mod, 'Entity', {})), '')]
         if columns:
             primeira = columns[0]
             entidade = primeira.split('.', 1)[0] if isinstance(primeira, str) else ''

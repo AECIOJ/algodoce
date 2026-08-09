@@ -1,0 +1,42 @@
+{% if TEMA is defined and TEMA %}
+{% set _barras = TEMA.barras or {} %}
+{% set _menu = _barras.menu or {} %}
+{% set _sub = _barras.submenu or {} %}
+{% set _form = _barras.form or {} %}
+{% set _rod = _barras.rodape or {} %}
+{% set _menu_bg = _menu.fundo %}
+{% set _menu_tx = _menu.texto %}
+<style>
+  :root {
+    /* As cores de marca/neutras/feedback/apoio (--p, --b1, --su, etc.) são
+       definidas pelo tema DaisyUI compilado ({data-theme}={TEMA.base}) em oklch.
+       NÃO as sobrescreva aqui com hex: o DaisyUI usa oklch(var(--su)) e hex quebra
+       o button (fundo/borda inválidos -> botão transparente). */
+    /* Barras (chrome do app) */
+    --bar-h: {{ _barras.altura }}vh;
+    --bar-fs: max(0.7rem, calc(var(--bar-h) * 0.32));
+    --bar-gap: max(0.25rem, calc(var(--bar-h) * 0.12));
+    --bar-py: max(0.08rem, calc(var(--bar-h) * 0.1));
+    --bar-px: max(0.3rem, calc(var(--bar-h) * 0.2));
+    --cor-menu: {{ _menu_bg }};
+    --bar-bg-menu: {{ _menu_bg }};
+    --bar-txt-menu: {{ _menu_tx }};
+    --bar-bg-submenu: {{ _sub.fundo }};
+    --bar-txt-submenu: {{ _sub.texto }};
+    --bar-bg-form: {{ _form.fundo }};
+    --bar-txt-form: {{ _form.texto }};
+    --bar-bg-rodape: {{ _rod.fundo }};
+    --bar-txt-rodape: {{ _rod.texto }};
+  }
+  .toggle {
+    background-color: oklch(var(--n)/0.25);
+    border: 2px solid oklch(var(--n)/0.4);
+  }
+  .toggle-success:checked,
+  .toggle-success[aria-checked="true"] {
+    background-color: oklch(var(--su)/1);
+    border-color: oklch(var(--su)/1);
+    color: oklch(var(--suc)/1);
+  }
+</style>
+{% endif %}

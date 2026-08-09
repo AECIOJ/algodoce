@@ -15,13 +15,13 @@ Tipos:
   DATA      data
   DATA_HORA data + hora
   HORA      hora
-  LOGICO    boolean (checkbox)
+  BOOL      boolean (checkbox)
   FONE      telefone com máscara
   CPF       CPF com máscara e validação
   CNPJ      CNPJ com máscara e validação
   FK        select de referência (options do banco via query)
   LIST      select com opções fixas
-  MULTI     checkboxes de opções fixas (persiste códigos concatenados)
+  MULT10    multi-seleção de opções fixas (máx. 10, códigos 0-9 de 1 caractere; persiste códigos concatenados)
   IMAGE     imagem (preview + crop via widget)
 
 `required` é sempre opt-in: declarado na entidade/form via `'required': True`.
@@ -36,18 +36,18 @@ FIELD_TYPES = {
     'MEMO':      {'input': 'textarea'},
     'INT':       {'input': 'number', 'align': 'right', 'width': 5, 'decimals': 0},
     'NUM':       {'input': 'number', 'align': 'right', 'width': 10, 'decimals': 2},
-    'ID':        {'input': 'number', 'edit': False, 'label': '#', 'filter': FILTER_NUMBER},
-    'DK':        {'input': 'number', 'edit': False, 'filter': False},
+    'ID':        {'input': 'number', 'in_form': False, 'label': '#', 'filter': FILTER_NUMBER},
+    'DK':        {'input': 'number', 'in_form': False, 'filter': False},
     'DATA':      {'input': 'date', 'filter': FILTER_DATE},
     'DATA_HORA': {'input': 'datetime-local', 'filter': FILTER_DATE},
     'HORA':      {'input': 'time'},
-    'LOGICO':    {'input': 'boolean', 'filter': FILTER_BOOLEAN},
+    'BOOL':      {'input': 'boolean', 'filter': FILTER_BOOLEAN},
     'FONE':      {'input': 'text', 'mask': '(99) 99999-9999', 'digits_only': True},
     'CPF':       {'input': 'text', 'mask': '999.999.999-99', 'digits_only': True, 'validate': 'cpf'},
     'CNPJ':      {'input': 'text', 'mask': '99.999.999/9999-99', 'digits_only': True, 'validate': 'cnpj'},
     'FK':        {'input': 'select', 'filter': FILTER_SELECT},
     'LIST':      {'input': 'select', 'filter': FILTER_SELECT},
-    'MULTI':     {'input': 'multi', 'filter': False},
+    'MULT10':    {'input': 'multi', 'filter': False},
     'IMAGE':     {'input': 'image', 'filter': False, 'required': False, 'upload_path': ''},
 }
 

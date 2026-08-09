@@ -526,7 +526,7 @@ class Form:
                         dk = _default_dk_masterkey(c, entidade)
                         fld = Field(**build_field_config(n, {**c, **dk, **cfg_extra}))
                         if n in managed:
-                            fld.edit = False
+                            fld.in_form = False
                         elif fld.query is None and fld.input == 'select' and not fld.options:
                             query = _fk_query_for(child_model, fld.name)
                             if query:
@@ -600,7 +600,7 @@ class Form:
                 dk = _default_dk_masterkey(c, entidade)
                 fld = Field(**build_field_config(n, {**dict(c), **dk}))
                 if n in managed:
-                    fld.edit = False
+                    fld.in_form = False
                 elif fld.query is None and fld.input == 'select' and not fld.options:
                     query = _fk_query_for(child_model, fld.name)
                     if query:
@@ -702,7 +702,7 @@ def _process_image_fields(form, instance):
     """Aplica uploads temporarios e exclusoes de campos image (somente no salvar)."""
     changed = set()
     for f in form._resolved_fields:
-        if f.input != 'image' or not f.edit:
+        if f.input != 'image' or not f.in_form:
             continue
         name = f.name
         old = getattr(instance, name, None)
@@ -856,7 +856,7 @@ def _save_session_children(form, instance, form_data):
         child_model = session.get('model')
         if child_model is None:
             continue
-        fields = [f for f in session.get('fields', []) if f.edit]
+        fields = [f for f in session.get('fields', []) if f.in_form]
         if not fields:
             continue
         prefix = 'child_' + rel_name + '_'
@@ -1015,7 +1015,7 @@ def handle_form(form_spec, id=None, extra_ctx=None, instance=None):
         old_vals = {}
         fields_ok = True
         for f in _flat_fields(form):
-            if not f.edit:
+            if not f.in_form:
                 continue
             if f.input == 'image':
                 continue
@@ -1092,7 +1092,7 @@ def handle_form(form_spec, id=None, extra_ctx=None, instance=None):
                 return redirect(url_for(form.redirect))
 
         for f in form._resolved_fields:
-            if not f.edit or not hasattr(instance, f.name):
+            if not f.in_form or not hasattr(instance, f.name):
                 continue
             val = getattr(instance, f.name, None)
             if val is None or not isinstance(val, str):

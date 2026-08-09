@@ -1,0 +1,185 @@
+{% extends "pages/sys.html" %}
+{% import "components/form_macros.html" as fm with context %}
+{% import "components/item_table.html" as itb with context %}
+
+{% set entity_label = form.new_label or entity_label|default(form.model.__name__) %}
+{% set new_title = form.new_title or new_title|default(('Novo' if is_new else 'Editar') ~ ' ' ~ entity_label) %}
+{% set back_url = form.back_url or back_url|default(url_for(form.redirect)) %}
+{% set edit_endpoint = form.edit_endpoint or edit_endpoint|default(form.redirect.rsplit('.', 1)[0] + '.form') %}
+{% if instance %}{% set entity_id = instance.id %}{% endif %}
+
+{% block head_extra %}
+{{ super() }}
+{{ itb.item_table_styles() }}
+{% endblock %}
+
+{% block page_content %}
+<style>
+  .form-container {
+    margin-inline: auto;
+    max-width: 160ch;
+    width: 100%;
+  }
+  @media (max-width: 767px) {
+    .form-container {
+      max-width: none;
+      margin-inline: 0;
+    }
+  }
+</style>
+<div class="grow flex flex-col min-h-0">
+  {# Form header bar #}
+  <div class="app-bar shrink-0"
+       style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));background:var(--bar-bg-form);color:var(--bar-txt-form);">
+    <div class="app-bar-left">
+      {% from "pages/macros.html" import btn %}
+      {{ btn(BTN_LISTA, back_url|default('#')) }}
+    </div>
+    {% if entity_id is defined and entity_id %}
+    <div class="app-bar-center">
+      <div class="flex gap-0 items-center">
+        <a href="{{ url_for(edit_endpoint, id=nav.first_id) if nav is defined and nav else '#' }}" class="btn btn-ghost btn-sm" title="Primeiro">
+          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-bar-left"/></svg>
+        </a>
+        {% if nav is defined and nav and nav.prev_id %}
+        <a href="{{ url_for(edit_endpoint, id=nav.prev_id) }}" class="btn btn-ghost btn-sm" title="Anterior">
+          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+        </a>
+        {% else %}
+        <span class="btn btn-ghost btn-sm btn-disabled">
+          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+        </span>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-1 mx-2">
+        <span class="text-sm">{{ entity_label|default('Registro') }}</span>
+        <input type="number" class="input input-bordered input-sm w-20" min="1" value="{{ entity_id }}"
+               onchange="if(this.value)window.location=window.location.pathname.replace(/\/\d+/, '/'+this.value)">
+      </div>
+      <div class="flex gap-0 items-center">
+        {% if nav is defined and nav and nav.next_id %}
+        <a href="{{ url_for(edit_endpoint, id=nav.next_id) }}" class="btn btn-ghost btn-sm" title="Próximo">
+          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+        </a>
+        {% else %}
+        <span class="btn btn-ghost btn-sm btn-disabled">
+          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+        </span>
+        {% endif %}
+        <a href="{{ url_for(edit_endpoint, id=nav.last_id) if nav is defined and nav else '#' }}" class="btn btn-ghost btn-sm" title="Último">
+          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-bar-right"/></svg>
+        </a>
+      </div>
+    </div>
+    {% else %}
+    <div class="app-bar-center">
+      <span class="font-bold">{{ new_title }}</span>
+    </div>
+    {% endif %}
+    <div class="app-bar-right">
+      {% if form.tag %}
+      <span class="badge badge-{{ form.tag.type or 'ghost' }} badge-sm">{{ form.tag.text }}</span>
+      {% endif %}
+      {% for btn in form._resolved_buttons if btn.position == 'nav_right' %}
+      {{ fm.render_button(btn, instance) }}
+      {% endfor %}
+      {% if form.nav_right_extra %}{% include form.nav_right_extra %}{% endif %}
+    </div>
+  </div>
+
+  {# Form body #}
+  <div class="flex-1 min-h-0 overflow-auto">
+    <div class="form-container">
+    <form method="POST" id="main-form" class="p-2 pb-3 w-full">
+      {% if instance %}{% endif %}
+
+      {% if form.body_template %}
+      {% include form.body_template %}
+      {% else %}
+      {{ fm.render_fields(form._resolved_fields, data=instance, ro=ro, spacing=form.spacing) }}
+      {% if form._resolved_sessions %}{{ fm.render_sessions(form._resolved_sessions, data=instance, ro=ro) }}{% endif %}
+      {% if form.form_tail %}{% include form.form_tail %}{% endif %}
+      {% endif %}
+    </form>
+    </div>
+  </div>
+
+  {# Form footer bar #}
+  <div class="app-bar form-footer shrink-0"
+       style="background:var(--bar-bg-form);color:var(--bar-txt-form);">
+    <div class="app-bar-left">
+      {% if form.delete and can_delete and instance and instance.id %}
+      <form method="POST" action="{{ url_for(edit_endpoint.rsplit('.', 1)[0] + '.delete', id=instance.id) }}" class="inline">
+        <button type="submit" class="btn btn-danger inline-flex items-center gap-1" onclick="return confirm('Excluir este registro?')">
+          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-trash"/></svg> Excluir
+        </button>
+      </form>
+      {% endif %}
+      {% if form.footer_left %}{% include form.footer_left %}{% endif %}
+      {% for btn in form._resolved_buttons if btn.position == 'footer_left' %}
+      {{ fm.render_button(btn, instance) }}
+      {% endfor %}
+    </div>
+    <div class="app-bar-right">
+      {% for btn in form._resolved_buttons if btn.position == 'footer_right' %}
+      {{ fm.render_button(btn, instance) }}
+      {% endfor %}
+      <button type="submit" form="main-form" id="btn-salvar" class="btn btn-success inline-flex items-center gap-1" {% if not is_new %}disabled{% endif %}>
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-check"/></svg> Salvar
+      </button>
+      <button type="button" class="btn btn-outline btn-secondary inline-flex items-center gap-1" onclick="confirmSair()">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-arrow-left"/></svg> Voltar
+      </button>
+    </div>
+  </div>
+</div>
+
+<dialog id="sairModal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">Descartar alterações?</h3>
+    <div class="text-center py-3">
+      <p class="mb-0">Há alterações não salvas. Deseja sair mesmo assim?</p>
+    </div>
+    <div class="modal-action justify-center">
+      <form method="dialog">
+        <button class="btn btn-ghost btn-sm">Cancelar</button>
+      </form>
+      <button type="button" class="btn btn-danger btn-sm inline-flex items-center gap-1" id="sairConfirmBtn">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-logout"/></svg> Sair
+      </button>
+    </div>
+  </div>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'components/image_widget.html' %}
+{% if form.page_scripts %}{% include form.page_scripts %}{% endif %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  document.documentElement.classList.add('edit-form');
+  var f = document.getElementById('main-form');
+  if (f) {
+    var btn = document.getElementById('btn-salvar');
+    function markModified() {
+      window._formModified = true;
+      if (btn) btn.disabled = false;
+    }
+    f.addEventListener('input', markModified);
+    f.addEventListener('change', markModified);
+    window.marcarFormAlterado = markModified;
+  }
+});
+function confirmSair() {
+  var modal = document.getElementById('sairModal');
+  var btn = document.getElementById('sairConfirmBtn');
+  if (btn) btn.onclick = function() { if (modal) modal.close(); window.history.back(); };
+  if (window._formModified || window.modified) {
+    if (modal) modal.showModal();
+  } else {
+    window.history.back();
+  }
+}
+</script>
+{% endblock %}

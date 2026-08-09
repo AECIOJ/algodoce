@@ -68,9 +68,4 @@ def compras():
                 .all()
             )
 
-    return render_template(
-        "sys_relatorios/compras.html",
-        resultado=resultado,
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-    )
+    return render_template("index.html")

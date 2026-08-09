@@ -1,112 +1,164 @@
-function container(el) {
-  return el.closest('tr') || el.closest('.item-mobile-card');
-}
+/* Itens do Orçamento sobre o renderizador padrão (item_table):
+   - preço unitário auto-preenchido a partir do catálogo via consulta();
+   - total por linha (desktop) / por coluna (mobile) + total geral.
+   A sincronização desktop/mobile e o add/remove de linhas ficam no engine. */
+(function() {
+  'use strict';
+  var REL = 'items';
+  var PREFIX = 'child_items_';
+  var _precosPendentes = 0;
+  var _subPendente = false;
 
-function capturarPreco(select) {
-  const opt = select.options[select.selectedIndex];
-  const precoTotal = opt && parseFloat(opt.dataset.preco);
-  if (opt && !isNaN(precoTotal)) {
-    const c = container(select);
-    const precoInput = c.querySelector('.preco-input');
-    const qtdMinima = parseInt(opt.dataset.qtdMinima) || 1;
-    precoInput.value = fmt_brl(preco_unit(precoTotal, qtdMinima));
-    calcValor(precoInput);
+  function wrap() {
+    return document.querySelector('.child-table-wrap');
   }
-}
+  function crowOf(el) {
+    var host = el.closest('[data-crow]');
+    return host ? host.getAttribute('data-crow') : null;
+  }
+  function rowInput(root, crow, field) {
+    if (!root || !crow) return null;
+    return root.querySelector('[name="' + PREFIX + crow + '_' + field + '"]');
+  }
+  function parseNum(v) {
+    var n = parseFloat(String(v == null ? '' : v));
+    return isNaN(n) ? 0 : n;
+  }
+  function fmtBrl(v) {
+    return v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+  function lineTotal(crow) {
+    var w = wrap();
+    var q = parseNum(rowInput(w, crow, 'quantidade') && rowInput(w, crow, 'quantidade').value);
+    var p = parseNum(rowInput(w, crow, 'preco_unitario') && rowInput(w, crow, 'preco_unitario').value);
+    return q * p;
+  }
+  function crows() {
+    var w = wrap();
+    if (!w) return [];
+    var body = w.querySelector('.it-desktop tbody[data-rel="' + REL + '"]');
+    if (!body) return [];
+    var out = [];
+    body.querySelectorAll('tr[data-crow]').forEach(function(tr) {
+      var c = tr.getAttribute('data-crow');
+      if (c && out.indexOf(c) === -1) out.push(c);
+    });
+    return out;
+  }
+  function setupTotals() {
+    var w = wrap();
+    if (!w) return;
+    var body = w.querySelector('.it-desktop tbody[data-rel="' + REL + '"]');
+    if (!body) return;
 
-function fmt_brl(valor) {
-  return valor.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-}
+    w.querySelectorAll('.it-total-cell, .it-total-row, .it-grand-total').forEach(function(el) { el.remove(); });
 
-function preco_unit(valor, qtd) {
-  if (!valor) return 0;
-  if (!qtd) return parseFloat(valor);
-  return parseFloat(valor) / parseFloat(qtd);
-}
+    var list = crows();
+    body.querySelectorAll('tr[data-crow]').forEach(function(tr) {
+      var c = tr.getAttribute('data-crow');
+      var td = document.createElement('td');
+      td.className = 'it-total-cell text-right';
+      td.setAttribute('data-crow', c);
+      td.textContent = 'R$ ' + fmtBrl(lineTotal(c));
+      tr.appendChild(td);
+    });
 
-function atualizarPrecos() {
-  markModified();
-  document.querySelectorAll('.product-select').forEach(function(select) {
-    const c = container(select);
-    if (!c) return;
-    const precoInput = c.querySelector('.preco-input');
-    if (!precoInput.value || parseFloat(precoInput.value.replace(/\./g, '').replace(',', '.')) === 0) {
-      const opt = select.options[select.selectedIndex];
-      if (opt && opt.dataset.preco) {
-        const precoTotal = parseFloat(opt.dataset.preco);
-        const qtdMinima = parseInt(opt.dataset.qtdMinima) || 1;
-        precoInput.value = fmt_brl(preco_unit(precoTotal, qtdMinima));
-        calcValor(precoInput);
+    var mtable = w.querySelector('.it-mobile table.itm-table');
+    if (mtable) {
+      var trTotal = document.createElement('tr');
+      trTotal.className = 'it-total-row';
+      var th = document.createElement('th');
+      th.className = 'itm-label';
+      th.textContent = 'Total';
+      trTotal.appendChild(th);
+      list.forEach(function(c) {
+        var td = document.createElement('td');
+        td.className = 'itm-cell it-total-cell text-right';
+        td.setAttribute('data-crow', c);
+        td.textContent = 'R$ ' + fmtBrl(lineTotal(c));
+        trTotal.appendChild(td);
+      });
+      mtable.querySelector('tbody').appendChild(trTotal);
+    }
+
+    var total = list.reduce(function(acc, c) { return acc + lineTotal(c); }, 0);
+    var gt = document.createElement('div');
+    gt.className = 'it-grand-total text-right text-sm font-bold mt-1';
+    gt.textContent = 'Total geral: R$ ' + fmtBrl(total);
+    w.appendChild(gt);
+
+    if (window.itmPagerInit) itmPagerInit();
+  }
+  function capturarPreco(select) {
+    var crow = crowOf(select);
+    if (!crow || !select.value) return;
+    _precosPendentes++;
+    consulta('product', select.value, 'preco,qtd_minima', function(d) {
+      _precosPendentes = Math.max(0, _precosPendentes - 1);
+      var w = wrap();
+      var precoInput = rowInput(w, crow, 'preco_unitario');
+      if (d && precoInput) {
+        var precoTotal = parseNum(d.preco);
+        var qtdMin = parseInt(d.qtd_minima, 10) || 0;
+        var unit = qtdMin > 0 ? precoTotal / qtdMin : precoTotal;
+        precoInput.value = unit.toFixed(2);
+        precoInput.dispatchEvent(new Event('input', {bubbles: true}));
       }
+      _trySubmit();
+    });
+  }
+  function atualizarPrecos() {
+    var w = wrap();
+    if (!w) return;
+    w.querySelectorAll('.it-desktop tbody[data-rel="' + REL + '"] select[name^="' + PREFIX + '"]').forEach(function(select) {
+      var crow = crowOf(select);
+      if (!crow || !select.value) return;
+      var precoInput = rowInput(w, crow, 'preco_unitario');
+      if (precoInput && parseNum(precoInput.value) === 0) capturarPreco(select);
+    });
+  }
+  function _trySubmit() {
+    if (_subPendente && _precosPendentes === 0) {
+      _subPendente = false;
+      var form = document.getElementById('main-form');
+      if (form) form.submit();
+    }
+  }
+  function atualizarESalvar() {
+    _subPendente = true;
+    atualizarPrecos();
+    var f = document.getElementById('atualizar-precos-field');
+    if (f) f.value = '1';
+    if (window.marcarFormAlterado) marcarFormAlterado();
+    _trySubmit();
+  }
+
+  window.atualizarPrecos = atualizarPrecos;
+  window.atualizarESalvar = atualizarESalvar;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var form = document.getElementById('main-form');
+    if (!form) return;
+    var w = wrap();
+    if (!w) return;
+
+    form.addEventListener('change', function(e) {
+      var t = e.target;
+      if (!t || t.name.indexOf(PREFIX) !== 0 || !/_product_id$/.test(t.name)) return;
+      capturarPreco(t);
+      setupTotals();
+    });
+    form.addEventListener('input', function(e) {
+      var t = e.target;
+      if (!t || t.name.indexOf(PREFIX) !== 0) return;
+      if (/_quantidade$/.test(t.name) || /_preco_unitario$/.test(t.name)) setupTotals();
+    });
+
+    setupTotals();
+
+    var body = w.querySelector('.it-desktop tbody[data-rel="' + REL + '"]');
+    if (body && 'MutationObserver' in window) {
+      new MutationObserver(setupTotals).observe(body, {childList: true});
     }
   });
-}
-
-function calcValor(el) {
-  const c = container(el);
-  if (!c) return;
-  const qtd = parseFloat(c.querySelector('[name="quantidade"]').value) || 0;
-  const precoInput = c.querySelector('.preco-input');
-  const preco = parseFloat((precoInput.value || '').replace(/\./g, '').replace(',', '.')) || 0;
-  precoInput.classList.toggle('bg-warning', preco === 0);
-  const valor = qtd * preco;
-  c.querySelector('.valor-item').textContent = 'R$ ' + fmt_brl(valor);
-  calcTotal();
-}
-
-let modified = false;
-
-function markModified() {
-  if (modified) return;
-  modified = true;
-  const btn = document.querySelector('button[type="submit"].btn-primary');
-  if (btn) btn.disabled = false;
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  const form = document.querySelector('form[data-editing]');
-  if (form) {
-    const btn = form.querySelector('button[type="submit"].btn-primary');
-    if (btn) btn.disabled = true;
-    form.addEventListener('input', markModified);
-    form.addEventListener('change', markModified);
-    form.addEventListener('submit', function() {
-      if (btn) btn.disabled = false;
-    });
-  }
-
-  document.querySelectorAll('.preco-input').forEach(function(input) {
-    const val = parseFloat((input.value || '').replace(/\./g, '').replace(',', '.')) || 0;
-    input.classList.toggle('bg-warning', val === 0);
-  });
-
-  const telInput = document.querySelector('input[name="cliente_telefone"]');
-  if (telInput && !telInput.readOnly) {
-    telInput.addEventListener('input', function() {
-      let v = this.value.replace(/\D/g, '');
-      if (v.length > 11) v = v.slice(0, 11);
-      if (v.length > 6) {
-        v = '(' + v.slice(0, 2) + ') ' + v.slice(2, 7) + '-' + v.slice(7);
-      } else if (v.length > 2) {
-        v = '(' + v.slice(0, 2) + ') ' + v.slice(2);
-      } else if (v.length > 0) {
-        v = '(' + v;
-      }
-      this.value = v;
-    });
-  }
-});
-
-function calcTotal() {
-  const spans = document.querySelectorAll('.valor-item');
-  let total = 0;
-  spans.forEach(function(s) {
-    const txt = s.textContent.replace('R$ ', '').trim();
-    const v = parseFloat(txt.replace(/\./g, '').replace(',', '.')) || 0;
-    total += v;
-  });
-  const fmt = 'R$ ' + fmt_brl(total);
-  document.getElementById('total-geral').textContent = fmt;
-  const mobileTotal = document.getElementById('total-geral-mobile');
-  if (mobileTotal) mobileTotal.textContent = fmt;
-}
+})();

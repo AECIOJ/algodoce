@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from flask_login import current_user
 from fpdf import FPDF
-from app.constants import FORMINHAS
+from app.constantes import FORMINHAS
 from app.report import (
     Report, ReportField, ReportColumn, ReportColumns, ReportGroup,
     ReportText, parse_header_field, _ReportHeader, _ReportTable, _ReportFooter,

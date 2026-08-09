@@ -1,9 +1,29 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.h-screen {
+  height: 100vh;
+}
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh;
+  }
+}
+
 #top-fixed {
   position: fixed;
   top: 0;
   width: 100%;
   z-index: 1010;
-  background: #fff;
+  background: var(--fallback-b1, oklch(var(--b1)));
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   padding: 6px 16px !important;
 }
@@ -11,19 +31,19 @@
 .min-h-0 { min-height: 0 !important; }
 
 .sistema-header {
-  background: #fff;
-  border-bottom: 1px solid #dee2e6;
+  background: var(--fallback-b1, oklch(var(--b1)));
+  border-bottom: 1px solid var(--fallback-b3, oklch(var(--b3)));
 }
 .brand-logo {
   height: 100px;
 }
 
 #page-content {
-  background: #fff;
+  background: var(--fallback-b1, oklch(var(--b1)));
   min-height: 200px;
 }
 .submenu-section {
-  background: var(--bg-claro);
+  background: var(--fallback-b1, oklch(var(--b1)));
 }
 .submenu-section .container > div {
   padding-top: 12px;
@@ -62,8 +82,8 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: #e9a6b9;
-  color: #880e4f;
+  background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 25%, var(--fallback-b1, oklch(var(--b1))));
+  color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 60%, var(--fallback-bc, oklch(var(--bc))));
 }
 .page-list-inner {
   width: 100%;
@@ -86,14 +106,8 @@
   gap: 0.75rem;
 }
 
-:root {
-  --rosa: #E91E63;
-  --verde-menta: #26A69A;
-  --bg-claro: #f5f5f5;
-}
-
 body {
-  background-color: #fdf2f5;
+  background-color: var(--fallback-b1, oklch(var(--b1)));
   min-height: 100vh;
 }
 
@@ -167,30 +181,30 @@ body {
   font-weight: 700;
 }
 .navbar .nav-link.active {
-  color: #e91e63 !important;
+  color: var(--fallback-s, oklch(var(--s))) !important;
   font-weight: 700;
-  background-color: #fff;
+  background-color: var(--fallback-b1, oklch(var(--b1)));
   border-radius: 6px;
   padding: 6px 14px;
 }
 .bar-link-lg {
-  color: #e91e63;
+  color: var(--fallback-s, oklch(var(--s)));
   font-weight: 500;
   padding: 6px 14px;
   border-radius: 6px;
   border-bottom: none;
 }
 .bar-link-lg:hover {
-  background-color: rgba(233,30,99,0.08);
+  background-color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 8%, transparent);
 }
 .bar-link-lg.active {
-  color: #fff !important;
-  background-color: rgba(233,30,99,0.75) !important;
+  color: var(--fallback-b1, oklch(var(--b1))) !important;
+  background-color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 75%, transparent) !important;
   padding: 6px 16px !important;
 }
 
 .table th {
-  background-color: #fce4ec;
+  background-color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 12%, var(--fallback-b1, oklch(var(--b1))));
   user-select: none;
 }
 .table.sortable thead {
@@ -223,15 +237,15 @@ body {
 }
 
 .submenu-section {
-  background: #fff;
-  border-bottom: 1px solid #dee2e6;
+  background: var(--fallback-b1, oklch(var(--b1)));
+  border-bottom: 1px solid var(--fallback-b3, oklch(var(--b3)));
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
   z-index: 10;
 }
 
 .form-nav-wrap {
   justify-content: center;
-  background: #fdf2f5;
+  background: var(--fallback-b1, oklch(var(--b1)));
   z-index: 20;
 }
 .form-nav-wrap .nav-side {
@@ -242,7 +256,7 @@ body {
   .form-nav-wrap {
     flex-wrap: wrap;
     row-gap: 0.2rem;
-    background: #fff;
+    background: var(--fallback-b1, oklch(var(--b1)));
     border-radius: 8px;
     padding: 0.3rem 0.5rem;
     margin-left: 0;
@@ -297,9 +311,14 @@ html.list-page main.container {
   padding-right: 0 !important;
 }
 html.list-page .page-list-inner {
-  width: fit-content !important;
+  width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
+}
+@media (min-width: 992px) {
+  html.list-page .page-list-inner {
+    width: fit-content !important;
+  }
 }
 html.list-page .table-list-wrap table {
   min-width: 0 !important;
@@ -330,10 +349,10 @@ html.list-page .table-scroll {
     height: 26px !important;
     padding: 0 12px !important;
     border: none !important;
-    background: #fff !important;
+    background: var(--fallback-b1, oklch(var(--b1))) !important;
     box-shadow: none !important;
     font-size: 0.6rem !important;
-    color: #555 !important;
+    color: var(--fallback-b3, oklch(var(--b3))) !important;
     display: flex !important;
     align-items: center !important;
     text-shadow: 0 -1px 0 rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.6);
@@ -376,7 +395,7 @@ html.list-page .table-scroll {
 .subnav-panel {
   position: fixed; top: 0; left: -280px; bottom: 0;
   width: 280px; z-index: 1041;
-  background: #fff;
+  background: var(--fallback-b1, oklch(var(--b1)));
   transition: left 0.25s ease;
   box-shadow: 2px 0 12px rgba(0,0,0,0.15);
   display: flex; flex-direction: column;
@@ -388,16 +407,16 @@ html.list-page .table-scroll {
 .subnav-panel-header {
   display: flex; align-items: center;
   justify-content: space-between;
-  padding: 16px; border-bottom: 1px solid #eee;
+  padding: 16px; border-bottom: 1px solid var(--fallback-b2, oklch(var(--b2)));
 }
 .subnav-panel-title {
-  font-size: 1.1rem; font-weight: 700; color: var(--rosa);
+  font-size: 1.1rem; font-weight: 700; color: var(--fallback-s, oklch(var(--s)));
 }
 .subnav-close {
   width: 44px; height: 44px;
   display: flex; align-items: center; justify-content: center;
   background: none; border: none;
-  font-size: 1.3rem; color: #555; cursor: pointer;
+  font-size: 1.3rem; color: var(--fallback-b3, oklch(var(--b3))); cursor: pointer;
   border-radius: 8px;
   -webkit-tap-highlight-color: transparent;
 }
@@ -413,34 +432,34 @@ html.list-page .table-scroll {
 .subnav-item {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 18px;
-  text-decoration: none; color: #333;
+  text-decoration: none; color: var(--fallback-bc, oklch(var(--bc)));
   font-size: 1rem; font-weight: 500;
   min-height: 48px;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  background: var(--fallback-b1, oklch(var(--b1)));
+  border-bottom: 1px solid var(--fallback-b2, oklch(var(--b2)));
 }
 .subnav-item:active {
-  background: #fce4ec;
+  background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 12%, var(--fallback-b1, oklch(var(--b1))));
 }
 .subnav-item.active {
-  color: var(--rosa); font-weight: 700;
+  color: var(--fallback-s, oklch(var(--s))); font-weight: 700;
 }
 
 /* Card list item */
 .card-list-item {
-  border-left: 4px solid #e91e63;
+  border-left: 4px solid var(--fallback-s, oklch(var(--s)));
 }
 .card-list-item .card-label {
   font-size: 0.75rem;
-  color: #6c757d;
+  color: var(--fallback-b3, oklch(var(--b3)));
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 .card-list-item .card-value {
   font-size: 0.95rem;
-  color: #212529;
+  color: var(--fallback-bc, oklch(var(--bc)));
 }
 .card-list-item .btn {
   padding: 0.4rem 0.75rem;
@@ -473,9 +492,11 @@ tr.detail-row > td { padding: 0 !important; }
   display: flex; flex-wrap: wrap; gap: 2px 16px;
   padding: 6px 8px; font-size: .8rem;
 }
-.overflow-field { flex: 0 0 auto; min-width: 80px; }
+.overflow-field { flex: 0 0 auto; min-width: 80px; max-width: 100%; }
 .overflow-label { color: #888; font-size: .72rem; font-weight: 600; }
-.overflow-value { color: #333; }
+.overflow-value { color: #333; overflow-wrap: break-word; word-break: break-word; }
+.overflow-field.memo { flex: 1 1 100%; min-width: 0; padding-right: 6px; }
+.overflow-field.memo .overflow-value { white-space: pre-wrap; }
 .detail-carousel { display: flex; flex-direction: column; }
 
 .carousel-body { display: flex; align-items: stretch; }
@@ -523,6 +544,25 @@ tr.detail-row > td { padding: 0 !important; }
 }
 .carousel-dot.active { background: #555; }
 
+/* Tabs com cantos arredondados (lista) — ativo segue estilo do submenu */
+.tab.rounded-t-lg {
+  border-radius: 8px 8px 0 0;
+}
+.tab.rounded-t-lg.tab-active {
+  color: var(--bar-bg-submenu);
+  background: var(--bar-txt-submenu);
+  border-bottom-color: transparent;
+}
+.page-list-header {
+  width: 100%;
+}
+@media (min-width: 1024px) {
+  .page-list-header {
+    width: auto;
+    min-width: var(--list-tot-ch);
+  }
+}
+
 /* === form_list: layout responsivo + sticky header + card expansion === */
 
 /* Desktop: sempre tabela, cards ocultos */
@@ -549,13 +589,13 @@ html.list-page .form-list-table-wrap {
   overflow-y: auto;
 }
 
-/* Sticky header com cor de destaque (distinto do rosa do menu) */
+/* Sticky header com cor de destaque (distinto do menu) */
 .form-list-table-wrap thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #c2185b;
-  color: #fff;
+  background: var(--fallback-s, oklch(var(--s)));
+  color: var(--fallback-sc, oklch(var(--sc)));
 }
 
 /* Card summary interativo */
@@ -698,7 +738,7 @@ html.edit-form #page-content {
   position: sticky;
   bottom: 0;
   z-index: 1030;
-  background: white;
+  background: var(--fallback-b1, oklch(var(--b1)));
   border-top: 2px solid var(--cor-menu);
   padding: 8px 16px;
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
@@ -720,13 +760,13 @@ html.edit-form #page-content {
   position: sticky;
   top: 0;
   z-index: 1025;
-  background: white;
-  border-bottom: 1px solid #dee2e6;
+  background: var(--fallback-b1, oklch(var(--b1)));
+  border-bottom: 1px solid var(--fallback-b3, oklch(var(--b3)));
 }
 .edit-top .nav-title {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--rosa);
+  color: var(--fallback-s, oklch(var(--s)));
 }
 @media (max-width: 991.98px) {
   .edit-top {
@@ -754,7 +794,7 @@ html.edit-form #page-content {
   left: 0;
   right: 0;
   z-index: 1020;
-  background: #fff;
+  background: var(--fallback-b1, oklch(var(--b1)));
   border-top: 2px solid var(--cor-menu);
   padding: 8px 16px;
   padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
@@ -771,12 +811,12 @@ html.edit-form #page-content {
 }
 .form-footer {
   flex-shrink: 0;
-  background: #f5f5f5;
-  border-top: 1px solid #dee2e6;
+  background: var(--fallback-b2, oklch(var(--b2)));
+  border-top: 1px solid var(--fallback-b3, oklch(var(--b3)));
 }
 .rodape {
   height: 26px;
-  background: #fff;
+  background: var(--fallback-b1, oklch(var(--b1)));
   display: flex;
   align-items: center;
   padding: 0 12px;
@@ -784,17 +824,17 @@ html.edit-form #page-content {
   z-index: 1000;
   justify-content: space-between;
   font-size: 0.8rem;
-  color: #555;
+  color: var(--fallback-b3, oklch(var(--b3)));
 }
 .sistema-rodape {
   height: 26px;
   padding: 0 12px;
-  background: rgba(233,30,99,0.08);
+  background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 8%, var(--fallback-b1, oklch(var(--b1))));
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 0.75rem;
-  color: #555;
+  color: var(--fallback-b3, oklch(var(--b3)));
 }
 
 .form-bottom-bar.barra-edicao {
@@ -910,9 +950,8 @@ html.edit-form #page-content {
   flex-shrink: 0;
   margin: 4px 8px;
   z-index: 1035;
-  background: #fff;
-  border: 2px solid var(--rosa);
-  display: flex;
+  background: var(--fallback-b1, oklch(var(--b1)));
+  border: 2px solid var(--fallback-s, oklch(var(--s)));
   align-items: center;
   justify-content: space-around;
   padding: 3px 0;
@@ -928,15 +967,15 @@ html.edit-form #page-content {
   min-height: 44px;
   min-width: 60px;
   text-decoration: none;
-  color: #555;
+  color: var(--fallback-b3, oklch(var(--b3)));
   border-radius: 6px;
   transition: color 0.15s;
 }
 .bottom-nav-item:active {
-  background: rgba(233,30,99,0.08);
+  background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 8%, transparent);
 }
 .bottom-nav-item.active {
-  color: var(--rosa);
+  color: var(--fallback-s, oklch(var(--s)));
 }
 .bottom-nav-item.active .bottom-nav-icon {
   transform: scale(1.1);
@@ -954,7 +993,7 @@ html.edit-form #page-content {
 }
 .bn-badge {
   position: absolute; top: -4px; right: -10px;
-  background: var(--rosa); color: #fff;
+  background: var(--fallback-s, oklch(var(--s))); color: var(--fallback-sc, oklch(var(--sc)));
   font-size: 0.6rem; font-weight: 700;
   min-width: 16px; height: 16px;
   border-radius: 8px;
@@ -963,12 +1002,12 @@ html.edit-form #page-content {
 }
 .bn-badge.show { display: flex; }
 .bottom-nav-item.bn-ativo {
-  background: var(--verde-menta) !important;
-  color: #fff !important;
+  background: var(--fallback-p, oklch(var(--p))) !important;
+  color: var(--fallback-pc, oklch(var(--pc))) !important;
   animation: bn-pulse 0.4s ease-in-out;
 }
-.bottom-nav-item.bn-ativo .bottom-nav-label { color: #fff !important; }
-.bottom-nav-item.bn-ativo .bn-badge { background: #fff; color: var(--verde-menta); }
+.bottom-nav-item.bn-ativo .bottom-nav-label { color: var(--fallback-pc, oklch(var(--pc))) !important; }
+.bottom-nav-item.bn-ativo .bn-badge { background: var(--fallback-pc, oklch(var(--pc))); color: var(--fallback-p, oklch(var(--p))); }
 @keyframes bn-pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.08); }
@@ -1004,7 +1043,7 @@ html.edit-form #page-content {
     font-size: 1.15rem !important;
     flex: 1;
     border-radius: 8px !important;
-    background: var(--rosa) !important;
+    background: var(--fallback-s, oklch(var(--s))) !important;
     color: #fff !important;
     display: flex;
     align-items: center;
@@ -1039,6 +1078,12 @@ html.edit-form #page-content {
   z-index: -1;
 }
 
+.modal-box {
+  background-color: var(--fallback-b1, oklch(var(--b1)));
+}
+.modal::backdrop {
+  background-color: rgba(0, 0, 0, 0.7);
+}
 
 .checkbox,
 input[type="checkbox"] {
@@ -1057,3 +1102,5 @@ input[type="radio"] {
   border-color: #111827;
   background-color: #ffffff;
 }
+
+

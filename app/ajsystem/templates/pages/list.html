@@ -1,0 +1,441 @@
+{% extends "pages/sys.html" %}
+{% from "pages/macros.html" import heroicon, btn %}
+{% import "components/item_table.html" as itb with context %}
+
+{% macro _det_cell(item, idx, col) %}
+  {% set _raw = item|deep_attr(col.card_path or col.field) %}
+    {% if col.function %}{{ col.function(item) }}
+    {% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">
+    {% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}
+    {% elif col.currency and _raw is not none %}{{ _raw|brl }}
+    {% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>
+    {% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—
+    {% endif %}
+{% endmacro %}
+
+{% set cols = LIST.master_fields | fields_to_columns %}
+{% set edit_endpoint = LIST.edit_endpoint %}
+{% set edit_id_field = LIST.edit_id_field if LIST.edit_id_field is not none else 'id' %}
+{% set act_ch = 16 if edit_endpoint else 0 %}
+{% set has_card = LIST.linha is not none or (card_fields is not none and card_fields) or (detail_fields is not none and detail_data is not none) %}
+{% set default_adaptive = not has_card %}
+{% set exp_ch = 3 %}
+{% set tot_ch = (cols | sum(attribute='width')) + act_ch + exp_ch %}
+{% set card_cols = (card_fields | fields_to_columns) if card_fields else [] %}
+{% set cardonly_cols = (cardonly_fields | fields_to_columns) if cardonly_fields else [] %}
+{% set det_cols = (detail_fields | fields_to_columns) if detail_fields else [] %}
+
+{% block head_extra %}
+{{ super() }}
+<style>
+.list-page .area-menu nav a { line-height:var(--bar-h); }
+
+.list-table-wrap { width: fit-content; }
+.list-filter-wrap { width: fit-content; }
+.list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
+@media (max-width: 991.98px) {
+  .list-table-wrap { width: 100% !important; min-width: 0 !important; max-width: 100%; }
+  .list-filter-wrap { width: 100% !important; min-width: 0 !important; max-width: 100%; }
+}
+.list-table th.col-hide, .list-table td.col-hide { display: none; }
+@media (max-width: 991.98px) {
+  .list-table .col-actions {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    min-width: 15ch;
+    white-space: nowrap;
+    background: var(--fallback-b1, oklch(var(--b1)));
+    border-left: 1px solid var(--fallback-bc, oklch(var(--bc)/0.4));
+  }
+  .list-table thead th.col-actions { z-index: 3; }
+}
+@media (min-width: 992px) {
+  .list-table-wrap.adaptive:not(.has-cardonly) .row-expand-col { display: none; }
+  .list-table-wrap.adaptive:not(.has-cardonly) tr.detail-row { display: none !important; }
+}
+.detail-overflow .of-dyn { display: none; }
+</style>
+{{ itb.item_table_styles() }}
+{% endblock %}
+
+{% block page_content %}
+<div class="grow flex flex-col min-h-0" x-data="listPage()">
+<div x-data="{ tab: 'dados' }" class="flex flex-col min-h-0">
+  <div class="bg-white border-b border-gray-200 flex lg:justify-center app-bar"
+       style="--list-tot-ch: {{ tot_ch }}ch;min-height:var(--bar-h);">
+    <div class="page-list-header gap-2 flex-wrap flex items-center">
+      <div role="tablist" class="tabs tabs-bordered">
+        <button role="tab" class="tab rounded-t-lg"
+                :class="{ 'tab-active font-semibold': tab === 'dados' }"
+                @click="tab = 'dados'" type="button">Dados</button>
+        <button role="tab" class="tab rounded-t-lg"
+                :class="{ 'tab-active font-semibold': tab === 'filtros' }"
+                @click="tab = 'filtros'" type="button">Filtros</button>
+      </div>
+      <div class="flex items-center gap-1 flex-wrap justify-end ml-auto">
+        {% block page_list_header_extra %}{% endblock %}
+        {% if new_url %}
+        <a href="{{ new_url }}" class="btn btn-success btn-sm inline-flex items-center gap-1 shrink-0" title="{{ new_label|default('Novo') }}">
+          {{ heroicon('plus', 'w-4 h-4') }} Novo
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div x-show="tab === 'dados'" class="flex-1 min-h-0 overflow-auto">
+    <div class="flex flex-col items-center">
+    <div class="page-list-inner">
+      <div class="list-table-wrap{% if default_adaptive %} adaptive{% endif %}{% if cardonly_cols %} has-cardonly{% endif %}" style="min-width:{{ tot_ch }}ch;width:fit-content;">
+        <table class="table table-sm table-pin-rows sortable list-table" style="background:var(--fallback-b1, oklch(var(--b1)));">
+          <thead>
+            <tr>
+              <th class="row-expand-col" style="width:{{ exp_ch }}ch;"></th>
+              {% for col in cols %}
+              <th style="width:{{ col.width }}ch;{% if col.align is defined and col.align != 'left' %}text-align:{{ col.align }};{% endif %}" data-field="{{ col.field }}">{{ col.label }}</th>
+              {% endfor %}
+              {% if edit_endpoint %}<th class="col-actions" style="width:{{ act_ch }}ch;">Ações</th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in data %}
+            {% set _item_id = item|deep_attr(edit_id_field) %}
+            {% set _row_id = 'detail-row-' + loop.index|string %}
+            <tr class="row-data">
+              <td class="text-center py-1 row-expand-col" style="width:{{ exp_ch }}ch;">
+                <span class="collapse-icon" data-expand-toggle="{{ _row_id }}" style="cursor:pointer;">▶</span>
+              </td>
+              {% for col in cols %}
+              {% if LIST.linha is none or loop.index0 in LIST.linha %}
+              <td{% if col.align is defined and col.align != 'left' %} style="text-align:{{ col.align }}"{% endif %} data-field="{{ col.field }}">
+                {% set _raw = item|deep_attr(col.card_path or col.field) %}
+                {% if col.options and _raw is not none %}
+                  {{ col.options.get(_raw, _raw) }}
+                {% elif col.currency and _raw is not none %}
+                  {{ _raw|brl }}
+                {% elif col.input == 'image' and _raw %}
+                  <img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:60px;cursor:pointer;" onclick="previewImagem(this.src)">
+                {% elif col.input in ('boolean', 'checkbox') and _raw is not none %}
+                  {{ 'Sim' if _raw else 'Não' }}
+                {% elif _raw is not none %}
+                  {% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}
+                {% else %}—
+                {% endif %}
+              </td>
+              {% endif %}
+              {% endfor %}
+              {% if edit_endpoint %}
+              <td class="col-actions">
+                <a href="{{ url_for(edit_endpoint, id=_item_id) }}"
+                   class="no-underline inline-flex items-center gap-1 text-nowrap action-edit-link">
+                  {{ heroicon('pencil-square', 'w-4 h-4') }}
+                  <span class="text-xs">Editar</span>
+                </a>
+              </td>
+              {% endif %}
+            </tr>
+            <tr class="detail-row collapsed" id="{{ _row_id }}">
+              <td class="row-expand-col" style="width:0;overflow:hidden;padding:0;border-left:none;border-right:none;"></td>
+              <td colspan="{{ cols|length + (1 if edit_endpoint else 0) }}" style="border-left:none;border-right:none;">
+                <div class="detail-overflow">
+                  {% for col in cols %}
+                  {% if LIST.linha is none or loop.index0 not in LIST.linha %}
+                  {% set _raw = item|deep_attr(col.card_path or col.field) %}
+                  <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
+                    <div class="overflow-label">{{ col.label }}</div>
+                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    </div>
+                  </div>
+                  {% endif %}
+                  {% endfor %}
+                  {% for col in cardonly_cols %}
+                  {% set _raw = item|deep_attr(col.card_path or col.field) %}
+                  <div data-field="{{ col.field }}" class="overflow-field card-only{% if col.input == 'textarea' %} memo{% endif %}">
+                    <div class="overflow-label">{{ col.label }}</div>
+                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    </div>
+                  </div>
+                  {% endfor %}
+                  {% for col in card_cols %}
+                  {% set _raw = item|deep_attr(col.card_path or col.field) %}
+                  <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
+                    <div class="overflow-label">{{ col.label }}</div>
+                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% if det_cols and detail_data %}
+                {% set _sub_items = item|deep_attr(detail_data) %}
+                {% if _sub_items %}
+                <div class="mt-2">
+                {{ itb.item_table_display(_sub_items, det_cols, cell_macro=_det_cell) }}
+                </div>
+                {% endif %}
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="{{ cols|length + (1 if edit_endpoint else 0) + 1 }}" class="text-center text-gray-500 py-3">Nenhum registro encontrado.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <div x-show="tab === 'filtros'" class="flex-1 min-h-0 overflow-auto">
+    <div class="flex flex-col items-center">
+    <div class="page-list-inner">
+      <div class="list-filter-wrap" style="min-width:{{ tot_ch }}ch;width:fit-content;">
+        <div class="flex flex-col gap-2 p-2">
+          {% for name, cfg in FILTERS.items() %}
+          {% set label = cfg.label or name | capitalize %}
+          {% set ftype = cfg.type %}
+          <div class="filter-group">
+            <label class="text-sm font-semibold mb-1 block">
+              {%- if name in active_filters -%}
+              <span class="inline-flex items-center gap-1 text-nowrap">{{ heroicon('funnel', 'w-4 h-4') }}{{ label }}</span>
+              {%- else -%}
+              {{ label }}
+              {%- endif -%}
+            </label>
+            {% if ftype == 'text' %}
+            <div class="flex gap-1">
+              <select class="select select-bordered select-sm flex-none w-auto" x-model="filters['{{ name }}'].mode">
+                {% for val, label_mode in cfg.get('modes', [('igual','Igual a'),('contains','Contém'),('starts','Começa')]) %}
+                <option value="{{ val }}">{{ label_mode }}</option>
+                {% endfor %}
+              </select>
+              <input type="text" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].value" placeholder="Valor">
+            </div>
+            {% elif ftype == 'number' %}
+            <div class="flex gap-1 flex-nowrap">
+              <select class="select select-bordered select-sm flex-none w-auto" x-model="filters['{{ name }}'].mode"
+                      @change="filters['{{ name }}'].val2 = ''">
+                {% for val, label_mode in cfg.get('modes', [('igual','Igual a'),('entre','Entre'),('maior_que','Maior que'),('maior_igual','Maior ou igual a'),('menor_que','Menor que'),('menor_igual','Menor ou igual a')]) %}
+                <option value="{{ val }}">{{ label_mode }}</option>
+                {% endfor %}
+              </select>
+              <input type="number" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].val1" placeholder="Valor 1" step="any">
+              <input type="number" class="input input-bordered input-sm flex-1" x-show="filters['{{ name }}'].mode === 'entre'"
+                     x-model="filters['{{ name }}'].val2" placeholder="Valor 2" step="any">
+            </div>
+            {% elif ftype == 'boolean' %}
+            <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}']">
+              {% for val, label_mode in cfg.get('modes', [('','Todos'),('true','Sim'),('false','Não')]) %}
+              <option value="{{ val }}">{{ label_mode }}</option>
+              {% endfor %}
+            </select>
+            {% elif ftype == 'select' %}
+            {% set _opts = cfg.get('options', {}) %}
+            <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}']">
+              <option value="">Todos</option>
+              {% if _opts is mapping %}
+              {% for val, opt_label in _opts.items() %}
+              <option value="{{ opt_label }}">{{ opt_label }}</option>
+              {% endfor %}
+              {% else %}
+              {% for opt_label in _opts %}
+              <option value="{{ opt_label }}">{{ opt_label }}</option>
+              {% endfor %}
+              {% endif %}
+            </select>
+            {% elif ftype == 'date' %}
+            <div class="flex flex-col gap-1">
+              <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}'].preset">
+                {% for val, label_mode in cfg.get('modes', []) %}
+                <option value="{{ val }}">{{ label_mode }}</option>
+                {% endfor %}
+              </select>
+              <div class="flex gap-1" x-show="filters['{{ name }}'].preset === 'periodo'">
+                <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].from" placeholder="De">
+                <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].to" placeholder="Até">
+              </div>
+              <input type="date" class="input input-bordered input-sm w-full"
+                     x-show="filters['{{ name }}'].preset === 'a_partir_de'"
+                     x-model="filters['{{ name }}'].from" placeholder="A partir de">
+              <input type="date" class="input input-bordered input-sm w-full"
+                     x-show="filters['{{ name }}'].preset === 'ate_a_data_de'"
+                     x-model="filters['{{ name }}'].to" placeholder="Até a data de">
+            </div>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="text-gray-500 text-sm p-2">Nenhum filtro disponível.</div>
+          {% endfor %}
+        </div>
+        <div class="flex gap-2 mt-3 bg-white p-2 border-t" id="page-filter-actions">
+          <button type="button" class="btn btn-outline btn-danger flex-1 inline-flex items-center gap-1" @click="clearFilters()">
+            {{ heroicon('xmark', 'w-4 h-4') }} Limpar
+          </button>
+          <button type="button" class="btn btn-primary flex-1 inline-flex items-center gap-1" @click="submitFilters()">
+            {{ heroicon('funnel', 'w-4 h-4') }} Aplicar
+          </button>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function listPage() {
+  return {
+    tab: 'dados',
+    filters: (function() {
+      var defaults = {{ initial_filters | tojson | safe }};
+      var active = {{ active_filters | tojson | safe }};
+      var filters = {};
+      for (var field in defaults) {
+        var v = active[field];
+        filters[field] = (v !== undefined && v !== null) ? (typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : v) : defaults[field];
+      }
+      return filters;
+    })(),
+    submitFilters() {
+      var params = new URLSearchParams();
+      for (var field in this.filters) {
+        var val = this.filters[field];
+        if (val === null || val === undefined || val === '' || (typeof val === 'object' && Object.keys(val).length === 0)) continue;
+        if (typeof val === 'object') {
+          if ('value' in val && val.value) {
+            params.set(field + '_value', val.value);
+            if ('mode' in val && val.mode) params.set(field + '_mode', val.mode);
+          }
+          if ('val1' in val && val.val1) {
+            params.set(field + '_val1', val.val1);
+            if ('mode' in val && val.mode) params.set(field + '_mode', val.mode);
+          }
+          if ('val2' in val && val.val2 && val.mode === 'entre') params.set(field + '_val2', val.val2);
+          if ('preset' in val && val.preset) {
+            params.set(field + '_preset', val.preset);
+            if (val.from) params.set(field + '_from', val.from);
+            if (val.to) params.set(field + '_to', val.to);
+          }
+        } else {
+          params.set(field, val);
+        }
+      }
+      var qs = params.toString();
+      window.location.href = window.location.pathname + (qs ? '?' + qs : '');
+    },
+    clearFilters() {
+      window.location.href = window.location.pathname;
+    }
+  };
+}
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-expand-toggle]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var target = document.getElementById(this.dataset.expandToggle);
+      if (!target) return;
+      target.classList.toggle('collapsed');
+      this.classList.toggle('expanded');
+      if (window.itmPagerInit) itmPagerInit();
+    });
+  });
+
+  document.querySelectorAll('table.list-table tbody tr.row-data').forEach(function (tr) {
+    tr.addEventListener('click', function (e) {
+      if (e.target.closest('a, button, input, select, textarea, img, .col-actions')) return;
+      var tg = tr.querySelector('[data-expand-toggle]');
+      if (tg) tg.click();
+    });
+  });
+});
+
+{% if default_adaptive %}
+function fitListColumns() {
+  var isMobile = window.innerWidth <= 991.98;
+  document.querySelectorAll('table.list-table').forEach(function (table) {
+    var wrap = table.closest('.list-table-wrap');
+    if (!wrap || !wrap.classList.contains('adaptive')) return;
+    var ths = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+    if (ths.length < 2) return;
+    var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr.row-data'));
+    if (rows.length === 0) return;
+
+    var hasActions = ths[ths.length - 1].textContent.trim() === 'Ações';
+    var actionIdx = hasActions ? ths.length - 1 : -1;
+    var expandIdx = 0;
+    var idIdx = null;
+    for (var i = 1; i < ths.length; i++) {
+      if (i === actionIdx) continue;
+      idIdx = i;
+      break;
+    }
+
+    function applyKeep(keepIdx) {
+      var hiddenFields = [];
+      ths.forEach(function (th, idx) {
+        var keep = keepIdx.indexOf(idx) !== -1;
+        th.classList.toggle('col-hide', !keep);
+        if (!keep) hiddenFields.push(th.getAttribute('data-field'));
+      });
+      rows.forEach(function (tr) {
+        Array.prototype.slice.call(tr.cells).forEach(function (td, idx) {
+          td.classList.toggle('col-hide', keepIdx.indexOf(idx) === -1);
+        });
+        var card = tr.nextElementSibling;
+        if (!card || !card.classList.contains('detail-row')) return;
+        var fields = card.querySelectorAll('.detail-overflow [data-field]');
+        fields.forEach(function (f) {
+          if (f.classList.contains('card-only')) return;
+          var show = hiddenFields.indexOf(f.getAttribute('data-field')) !== -1;
+          f.classList.toggle('of-dyn', !show);
+        });
+      });
+    }
+
+    if (!isMobile) {
+      var allIdx = ths.map(function (_, i) { return i; });
+      applyKeep(allIdx);
+      return;
+    }
+
+    var avail = wrap.clientWidth - 8;
+    var widths = ths.map(function (th) { return th.offsetWidth; });
+    var keepIdx = [expandIdx];
+    var used = (widths[expandIdx] || 0);
+    if (actionIdx >= 0) { keepIdx.push(actionIdx); used += widths[actionIdx] || 0; }
+    if (idIdx !== null) { keepIdx.push(idIdx); used += widths[idIdx] || 0; }
+
+    for (var k = expandIdx + 1; k < ths.length; k++) {
+      if (k === actionIdx || k === idIdx) continue;
+      if (used + (widths[k] || 0) <= avail) {
+        keepIdx.push(k);
+        used += widths[k] || 0;
+      }
+    }
+
+    applyKeep(keepIdx);
+
+    var guard = 0;
+    while (table.scrollWidth > wrap.clientWidth + 1 && guard < ths.length) {
+      guard++;
+      var drop = -1;
+      for (var j = keepIdx.length - 1; j >= 0; j--) {
+        var idx = keepIdx[j];
+        if (idx !== expandIdx && idx !== actionIdx && idx !== idIdx) { drop = j; break; }
+      }
+      if (drop === -1) break;
+      keepIdx.splice(drop, 1);
+      applyKeep(keepIdx);
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded', function () {
+  fitListColumns();
+  window.addEventListener('resize', function () { clearTimeout(window._fitListT); window._fitListT = setTimeout(fitListColumns, 150); });
+});
+{% endif %}
+</script>
+{% endblock %}

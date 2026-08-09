@@ -9,40 +9,6 @@ from app.ajsystem.form import _delete_uploaded, pesquise
 from app.ajsystem.engine import auto
 
 
-Entity = {
-    'Product': {
-        'id':          {'type': 'ID', 'width': 6},
-        'nome':        {'type': 'TEXT', 'width': 20, 'transform': 'title'},
-        'preco':       {'type': 'NUM', 'required': True, 'currency': True},
-        'qtd_minima':  {'type': 'INT', 'label': 'Qtd. Mínima', 'min': 0, 'step': 1},
-        'category_id': {'type': 'FK', 'width': 12},
-        'ativo':       {'type': 'LOGICO', 'edit': False},
-        'imagem':      {'type': 'IMAGE'},
-        'descricao':   {'type': 'MEMO', 'rows': 4},
-    },
-    'ProductIngredient': {
-        'product_id':      {'type': 'DK'},
-        'ingredient_id':   {'type': 'FK', 'label': 'Insumo', 'required': True, 'on_set': 'insumo'},
-        'quantidade':      {'type': 'NUM', 'required': True},
-        'unidade':         {'type': 'LIST', 'list': UND_LIST, 'required': True},
-        'etapas':          {'type': 'MULTI', 'list': PRODUCAO_ETAPAS, 'align': 'center'},
-    },
-}
-
-List = {
-    'columns': [
-        'Product.id',
-        'Product.nome',
-        'Product.preco',
-        'Product.qtd_minima',
-        'Product.imagem',
-        'Product.category_id',
-        'Product.ativo',
-    ],
-    'ordering': ['nome'],
-}
-
-
 def insumo_on_set(row):
     """`on_set` do Insumo: quantidade=1 e unidade conforme o insumo."""
     row['quantidade'] = 1
@@ -55,7 +21,30 @@ def insumo_on_set(row):
         row['unidade'] = und
 
 
-ON_SET = {'insumo': insumo_on_set}
+Entity = {
+    'Product': {
+        'id':          {'type': 'ID', 'width': 6},
+        'nome':        {'type': 'TEXT', 'width': 20, 'transform': 'title'},
+        'preco':       {'type': 'NUM', 'required': True, 'currency': True},
+        'qtd_minima':  {'type': 'INT', 'label': 'Qtd. Mínima', 'min': 0, 'step': 1},
+        'category_id': {'type': 'FK', 'width': 12},
+        'ativo': {'type': 'BOOL', 'in_form': False},
+        'imagem':      {'type': 'IMAGE'},
+        'descricao':   {'type': 'MEMO', 'rows': 4, 'in_list': 2},
+    },
+    'ProductIngredient': {
+        'product_id':      {'type': 'DK'},
+        'ingredient_id':   {'type': 'FK', 'label': 'Insumo', 'required': True, 'on_set': insumo_on_set},
+        'quantidade':      {'type': 'NUM', 'required': True},
+        'unidade':         {'type': 'LIST', 'list': UND_LIST, 'required': True},
+        'etapas':          {'type': 'MULT10', 'list': PRODUCAO_ETAPAS, 'align': 'center'},
+    },
+}
+
+List = {
+    'fields': 'Product',
+    'ordering': ['nome'],
+}
 
 
 Form = {

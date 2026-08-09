@@ -29,7 +29,7 @@
       {% if is_pagar and instance.compra %}
       <a href="{{ url_for('compras.edit', id=instance.compra.id) }}" class="form-control form-control-sm text-decoration-none">#C{{ instance.compra.id|fmtid }}</a>
       {% elif not is_pagar and instance.pedido %}
-      <a href="{{ url_for('orders.form', id=instance.pedido.id) }}" class="form-control form-control-sm text-decoration-none">#P{{ instance.pedido.id|fmtid }}</a>
+      <a href="{{ url_for('pedidos.form', id=instance.pedido.id) }}" class="form-control form-control-sm text-decoration-none">#P{{ instance.pedido.id|fmtid }}</a>
       {% endif %}
     {% else %}
     <input type="text" name="fatura" class="form-control" value="{{ instance.fatura if instance and instance.fatura else '' }}">

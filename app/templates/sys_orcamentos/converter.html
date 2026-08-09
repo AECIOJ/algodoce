@@ -1,0 +1,117 @@
+{% extends "pages/sys.html" %}
+{% import "components/item_table.html" as itb with context %}
+
+{% block head_extra %}
+{{ super() }}
+{{ itb.item_table_styles() }}
+{% endblock %}
+
+{% block page_content %}
+<style>
+  .form-container { margin-inline: auto; max-width: 120ch; width: 100%; }
+  @media (max-width: 767px) { .form-container { max-width: none; margin-inline: 0; } }
+</style>
+<div class="grow flex flex-col min-h-0">
+  <div class="app-bar shrink-0"
+       style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));background:var(--bar-bg-form);color:var(--bar-txt-form);">
+    <div class="app-bar-left">
+      <a href="{{ url_for('orcamentos.form', id=quote.id) }}" class="btn btn-ghost btn-sm inline-flex items-center gap-1">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-arrow-left"/></svg> Voltar
+      </a>
+    </div>
+    <div class="app-bar-center"><span class="font-bold">Converter Orçamento #{{ quote.id|fmtid }}</span></div>
+    <div class="app-bar-right"></div>
+  </div>
+
+  <div class="flex-1 min-h-0 overflow-auto">
+    <div class="form-container p-2 pb-3">
+      <div class="alert alert-info flex items-center gap-2 py-2 mb-3 text-sm">
+        <svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#i-information-circle"/></svg>
+        <span>Os itens do orçamento serão convertidos em um pedido.</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+        <div class="card bg-base-200 p-2"><div class="text-xs opacity-60">Cliente</div><div class="text-sm font-semibold">{{ quote.cliente_nome }}</div></div>
+        <div class="card bg-base-200 p-2"><div class="text-xs opacity-60">Telefone</div><div class="text-sm font-semibold">{{ quote.cliente_telefone }}</div></div>
+        <div class="card bg-base-200 p-2"><div class="text-xs opacity-60">Itens</div><div class="text-sm font-semibold">{{ quote.items|length }}</div></div>
+        <div class="card bg-base-200 p-2"><div class="text-xs opacity-60">Total</div><div class="text-sm font-semibold">{{ total|brl if total is not none else '—' }}</div></div>
+      </div>
+
+      {% if clientes.phone_conflict %}
+      <div class="alert alert-warning flex items-center gap-2 py-2 mb-3 text-sm">
+        <svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#i-exclamation-triangle"/></svg>
+        <span>O telefone {{ quote.cliente_telefone }} já está cadastrado para <strong>{{ clientes.phone_conflict.nome }}</strong>. Verifique se não há erro de digitação.</span>
+      </div>
+      {% endif %}
+
+      {% if clientes.perfect_match %}
+      <div class="alert alert-success flex items-center gap-2 py-2 mb-3 text-sm">
+        <svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#i-check-circle"/></svg>
+        <span>Cliente já cadastrado com o mesmo nome e telefone: <strong>{{ clientes.perfect_match.nome }}</strong>.</span>
+      </div>
+      {% endif %}
+
+      <form method="POST" class="card bg-base-100 border border-base-300 p-4">
+        <div class="flex flex-wrap gap-4 mb-3">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="converter_tipo" class="radio radio-sm" value="existente"
+                   {{ 'checked' if clientes.perfect_match or not clientes.suggested_client }} onchange="toggleConvTipo()">
+            <span class="text-sm font-medium">Usar conta existente</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="converter_tipo" class="radio radio-sm" value="nova" onchange="toggleConvTipo()">
+            <span class="text-sm font-medium">Criar nova conta</span>
+          </label>
+        </div>
+        <div id="convExistenteFields">
+          {% if clientes.perfect_match %}
+          <div class="form-control mb-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="client_id" class="radio radio-sm" value="{{ clientes.perfect_match.id }}" checked>
+              <span class="text-sm">{{ clientes.perfect_match.nome }} — {{ clientes.perfect_match.telefone }} <span class="badge badge-success badge-sm">Combinação exata</span></span>
+            </label>
+          </div>
+          {% endif %}
+          <select name="client_id" class="select select-bordered select-sm w-full">
+            <option value="">— Selecione —</option>
+            {% for c in clientes.clients %}
+            <option value="{{ c.id }}"
+                    {{ 'selected' if not clientes.perfect_match and clientes.suggested_client and c.id == clientes.suggested_client.id }}>{{ c.nome }} — {{ c.telefone }}</option>
+            {% endfor %}
+          </select>
+          {% if clientes.suggested_client and not clientes.perfect_match %}
+          <p class="text-xs opacity-60 mt-1">Sugerido: {{ clientes.suggested_client.nome }}</p>
+          {% endif %}
+        </div>
+        <div id="convNovaFields" style="display:none;">
+          <input type="text" name="novo_nome" class="input input-bordered input-sm w-full mb-2" placeholder="Nome" value="{{ quote.cliente_nome }}">
+          <input type="text" name="novo_telefone" class="input input-bordered input-sm w-full" placeholder="Telefone" value="{{ quote.cliente_telefone }}" data-mask="(99) 99999-9999">
+        </div>
+        <p class="text-sm opacity-60 mt-3 mb-0">O status do orçamento será alterado para <strong>Aprovado</strong> e um novo pedido será gerado.</p>
+        <div class="flex justify-end gap-2 mt-3">
+          <a href="{{ url_for('orcamentos.form', id=quote.id) }}" class="btn btn-ghost btn-sm">Cancelar</a>
+          <button type="submit" class="btn btn-success btn-sm inline-flex items-center gap-1">
+            <svg class="w-4 h-4" aria-hidden="true"><use href="#i-arrow-right"/></svg> Confirmar Conversão
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function toggleConvTipo() {
+  var nova = document.querySelector('input[name="converter_tipo"][value="nova"]');
+  var existente = document.querySelector('input[name="converter_tipo"][value="existente"]');
+  var ef = document.getElementById('convExistenteFields');
+  var nf = document.getElementById('convNovaFields');
+  if (ef) ef.style.display = (nova && nova.checked) ? 'none' : '';
+  if (nf) nf.style.display = (nova && nova.checked) ? '' : 'none';
+}
+document.addEventListener('DOMContentLoaded', function () {
+  toggleConvTipo();
+});
+</script>
+{% endblock %}

@@ -19,9 +19,9 @@ from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.models.producao import Producao  # noqa: needed for Order mapper resolution
 from app.models.operacao import Operacao  # noqa: needed for Transacao mapper resolution
-from app.constants import ORDER_STATUS, QUOTE_STATUS, FORMINHAS, PREVISAO_STATUS
+from app.constantes import ORDER_STATUS, QUOTE_STATUS, FORMINHAS, PREVISAO_STATUS
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
-from app.list import build_field_context, build_filter_config, List
+from app.ajsystem.list import build_field_context, build_filter_config, List
 from app.form import Form, handle_form
 
 from app.fields import FIELD_ID, FIELD_DATA_HORA, FIELD_TOTAL, FIELD_STATUS, FIELD_OBS, FIELD_TIPO, FIELD_HORA, FIELD_QUANTIDADE, FIELD_PRECO, FIELD_DATA, FIELD_DOCUMENTO, FIELD_VENCIMENTO, FIELD_PREVISTO, FIELD_REALIZADO, FIELD_VARIACAO, FIELD_SALDO, FIELD_VALOR, FIELD_HISTORICO
@@ -34,26 +34,26 @@ tipos_evento_list = [
 tipos_evento = {t: t for t in tipos_evento_list}
 
 
-ORDERS_FIELDS = {'model': Order, 'fields': {
+PEDIDOS_FIELDS = {'model': Order, 'fields': {
     'id':                    FIELD_ID,
-    'cliente':               {'label': 'Cliente', 'width': 20, 'query': 'conta', 'card_path': 'conta.nome', 'edit': False, 'filter_path': 'conta.nome'},
+    'cliente':               {'label': 'Cliente', 'width': 20, 'query': 'conta', 'card_path': 'conta.nome', 'in_form': False, 'filter_path': 'conta.nome'},
     'client_id':             {'label': 'Cliente', 'width': 8, 'input': 'select', 'query': 'conta',
                                'required': True, 'query_filter': {'ativo': True, 'tipo': [0, 1]}},
     'data_pedido':           {**FIELD_DATA_HORA, 'width': 10},
     'data_previsao_entrega': {**FIELD_DATA_HORA, 'width': 10, 'label': 'Prev. Entrega'},
     'data_entrega':          {**FIELD_DATA_HORA, 'width': 10},
-    'carteira':              {'label': 'Pagamento', 'width': 15, 'query': 'carteira', 'edit': False, 'filter_path': 'carteira.nome'},
+    'carteira':              {'label': 'Pagamento', 'width': 15, 'query': 'carteira', 'in_form': False, 'filter_path': 'carteira.nome'},
     'carteira_id':           {'width': 12, 'input': 'select', 'query': 'carteira',
-                               'query_filter': {'uso': [0, 1]}, 'edit': '*',
+                               'query_filter': {'uso': [0, 1]},
                                'attrs': {'id': 'carteira-select'}},
     'forminhas':             {'width': 12, 'input': 'select', 'options': FORMINHAS},
     'total':                 {**FIELD_TOTAL, 'width': 10},
     'status':                {**FIELD_STATUS, 'width': 10, 'options': ORDER_STATUS},
-    'transacao':             {'label': 'Faturado', 'width': 10, 'filter': False, 'edit': False},
-    'quote_id':              {'label': 'Orçamento', 'width': 9, 'filter': False, 'link': 'orcamentos.form', 'edit': False},
+    'transacao':             {'label': 'Faturado', 'width': 10, 'filter': False, 'in_form': False},
+    'quote_id':              {'label': 'Orçamento', 'width': 9, 'filter': False, 'link': 'orcamentos.form', 'in_form': False},
 }}
 
-orders_list = {'fields': ORDERS_FIELDS, 'edit_endpoint': 'orders.form', 'send_endpoint': 'orders.print_order'}
+pedidos_list = {'fields': PEDIDOS_FIELDS, 'edit_endpoint': 'pedidos.form', 'send_endpoint': 'pedidos.print_order'}
 
 
 def _replace_order_items(order, form):
@@ -151,11 +151,11 @@ MOVTO_FIELDS = {'model': Movto, 'fields': {
     'historico': FIELD_HISTORICO,
 }}
 
-gerar_btn = {'label': 'Gerar Financeiro', 'endpoint': 'orders.gerar_financeiro',
+gerar_btn = {'label': 'Gerar Financeiro', 'endpoint': 'pedidos.gerar_financeiro',
              'icon': 'bi-cash-coin', 'color': 'success', 'outline': False,
              'url_var': 'id', 'show_if': ('transacao_id', None)}
 
-Form = {'model': Order, 'redirect': 'orders.list', 'fields': ORDERS_FIELDS, 'sessions': {
+Form = {'model': Order, 'redirect': 'pedidos.list', 'fields': PEDIDOS_FIELDS, 'sessions': {
         'Itens do Pedido': ITENS_FIELDS,
         'Evento':           EVENT_FIELDS,
         '*Financeiro': {
@@ -172,7 +172,7 @@ Form = {'model': Order, 'redirect': 'orders.list', 'fields': ORDERS_FIELDS, 'ses
             'when': lambda i: i is not None and i.movto is not None,
         },
     }, 'readonly_when': {'status': [9]}, 'pre_save': _orders_pre_save, 'flash_ok': 'Pedido criado!', 'flash_update': 'Pedido atualizado!',
-    'entity_label': 'Pedido', 'new_title': 'Novo Pedido',
+    'new_label': 'Pedido', 'new_title': 'Novo Pedido',
     'body_template': 'sys_orders/_form_body.html',
     'nav_right_extra': 'sys_orders/_nav_right.html',
     'footer_left': 'sys_orders/_footer_left.html',
@@ -180,7 +180,7 @@ Form = {'model': Order, 'redirect': 'orders.list', 'fields': ORDERS_FIELDS, 'ses
 }
 
 
-bp = Blueprint("orders", __name__)
+bp = Blueprint("pedidos", __name__)
 
 
 @bp.before_request
@@ -198,14 +198,13 @@ def dashboard():
         grupos.setdefault(o.status, []).append(o)
     ordem_status = [0, 1, 2, 9]
     grupos_ordenados = {s: grupos.get(s, []) for s in ordem_status}
-    return render_template("sys_orders/dashboard.html", grupos=grupos_ordenados, hoje=hoje,
-                           ORDER_STATUS=ORDER_STATUS, QUOTE_STATUS=QUOTE_STATUS)
+    return render_template("index.html")
 
 
 @bp.route("/pedidos", endpoint="list")
 def order_list():
-    _list = List(**orders_list)
-    filter_config = build_filter_config(ORDERS_FIELDS)
+    _list = List(**pedidos_list)
+    filter_config = build_filter_config(PEDIDOS_FIELDS)
     active = resolve_filters(filter_config, request.args)
     q = Order.query.options(
         db.joinedload(Order.conta), db.joinedload(Order.carteira),
@@ -222,8 +221,8 @@ def order_list():
     linhas = apply_select_filter(linhas, 'carteira', active.get('carteira'), build_fk_options(Carteira), filter_path='carteira.nome')
     linhas = apply_number_filter(linhas, 'total', active.get('total'))
     orders = linhas
-    ctx = build_field_context(ORDERS_FIELDS)
-    return render_template("sys_orders/list.html", orders=orders, ORDERS_LIST=_list, ctx=ctx, ORDER_STATUS=ORDER_STATUS, FORMINHAS=FORMINHAS, active_filters=active, FILTERS=filter_config)
+    ctx = build_field_context(PEDIDOS_FIELDS)
+    return render_template("index.html")
 
 
 @bp.route("/pedidos/novo", defaults={"id": None}, methods=["GET", "POST"])
@@ -233,7 +232,7 @@ def form(id=None):
         order = Order.query.get(id)
         if not order:
             flash("Código inexistente", "warning")
-            return redirect(url_for("orders.list"))
+            return redirect(url_for("pedidos.list"))
         if not order.quote_id:
             q = Quote.query.filter_by(pedido_id=order.id).first()
             if q:
@@ -256,16 +255,16 @@ def status(id):
     order = Order.query.get_or_404(id)
     if order.status == 9:
         flash("Pedido entregue não pode ter status alterado.", "warning")
-        return redirect(url_for("orders.form", id=id))
+        return redirect(url_for("pedidos.form", id=id))
     novo_status = request.form["status"]
     if novo_status == "9" and not order.data_entrega:
         flash("Status Entregue só pode ser definido preenchendo a data de entrega.", "warning")
-        return redirect(url_for("orders.form", id=id))
+        return redirect(url_for("pedidos.form", id=id))
     if novo_status in ("0", "1", "2", "8", "9"):
         order.status = int(novo_status)
         db.session.commit()
         flash("Status atualizado!", "success")
-    return redirect(url_for("orders.form", id=id))
+    return redirect(url_for("pedidos.form", id=id))
 
 
 @bp.route("/pedidos/<int:id>/cancelar", methods=["POST"])
@@ -273,13 +272,13 @@ def cancel(id):
     order = Order.query.get_or_404(id)
     if order.status == 9:
         flash("Pedido entregue não pode ser cancelado.", "warning")
-        return redirect(url_for("orders.form", id=id))
+        return redirect(url_for("pedidos.form", id=id))
     order.status = 3
     if order.transacao:
         order.transacao.cancelado = date.today()
     db.session.commit()
     flash("Pedido cancelado!", "success")
-    return redirect(url_for("orders.form", id=id))
+    return redirect(url_for("pedidos.form", id=id))
 
 
 @bp.route("/pedidos/<int:id>/print")
@@ -289,7 +288,7 @@ def print_order(id):
     return render_template(
         PEDIDO_REPORT.print_template,
         fallback_url=url_for(PEDIDO_REPORT.edit_endpoint, id=order.id),
-        pdf_url=url_for('orders.pdf_order', id=order.id),
+        pdf_url=url_for('pedidos.pdf_order', id=order.id),
     )
 
 
@@ -310,12 +309,12 @@ def gerar_financeiro(id):
     order = Order.query.get_or_404(id)
     if order.transacao_id or order.movto_id:
         flash("Financeiro já gerado para este pedido.", "warning")
-        return redirect(url_for("orders.form", id=id))
+        return redirect(url_for("pedidos.form", id=id))
 
     fp = order.carteira
     if not fp:
         flash("Selecione uma forma de pagamento antes de gerar o financeiro.", "warning")
-        return redirect(url_for("orders.form", id=id))
+        return redirect(url_for("pedidos.form", id=id))
 
     total = float(order.total or 0)
     taxa = float(fp.taxa_recebimento or 0)
@@ -326,7 +325,7 @@ def gerar_financeiro(id):
             recurso_id = request.form.get("recurso_id", type=int)
             if not recurso_id:
                 flash("Selecione um recurso.", "warning")
-                return redirect(url_for("orders.gerar_financeiro", id=id))
+                return redirect(url_for("pedidos.gerar_financeiro", id=id))
             movto = Movto(
                 data=request.form.get("data", order.data_pedido.date()),
                 recurso_id=recurso_id,
@@ -372,7 +371,7 @@ def gerar_financeiro(id):
 
         db.session.commit()
         flash("Financeiro gerado com sucesso!", "success")
-        return redirect(url_for("orders.form", id=id))
+        return redirect(url_for("pedidos.form", id=id))
 
     recursos = Recurso.query.order_by(Recurso.nome).all()
     parcelas = []
@@ -384,9 +383,4 @@ def gerar_financeiro(id):
             total,
         )
 
-    return render_template(
-        "sys_orders/gerar_financeiro.html",
-        order=order, fp=fp, recursos=recursos,
-        total=total, taxa=taxa, valor_liquido=valor_liquido,
-        parcelas=parcelas,
-    )
+    return render_template("index.html")

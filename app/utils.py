@@ -1,7 +1,25 @@
+"""Helpers da aplicação.
+
+Os helpers genéricos foram movidos para o framework (app.ajsystem.utils);
+este módulo re-exporta os usados pelas rotas e mantém os específicos do app.
+"""
 import os
 import markdown
 from datetime import datetime
-from app.constants import CONECTORES
+
+from app.ajsystem.utils import (  # noqa: F401
+    parse_brl,
+    fmt_id,
+    fmt_brl,
+    fmt_zero,
+    fmt_zero_int,
+    fmt_date,
+    fmt_datetime,
+    deep_attr,
+    item_ref,
+    preco_unit,
+    _title_case,
+)
 
 
 def render_pagina(nome):
@@ -15,78 +33,6 @@ def render_pagina(nome):
         return markdown.markdown(content, extensions=["extra"])
     except FileNotFoundError:
         return None
-
-
-def parse_brl(value):
-    if not value:
-        return None
-    if ',' in value:
-        return float(value.replace('.', '').replace(',', '.'))
-    return float(value)
-
-
-def fmt_id(value):
-    if value is None:
-        return '0'
-    formatted = f'{value:,}'.replace(',', '.')
-    return ('%7s' % formatted).replace(' ', '\u00A0')
-
-
-def fmt_brl(value):
-    if value is None:
-        return '0,00'
-    return f'{value:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-
-
-def deep_attr(obj, path):
-    if obj is None:
-        return None
-    for part in path.split('.'):
-        if obj is None:
-            return None
-        try:
-            obj = getattr(obj, part)
-        except AttributeError:
-            try:
-                obj = obj[part]
-            except (TypeError, KeyError, IndexError):
-                return None
-    return obj
-
-
-def preco_unit(valor, qtd):
-    if not valor:
-        return 0
-    if not qtd:
-        return float(valor)
-    return float(valor) / float(qtd)
-
-
-def fmt_zero(value):
-    if not value:
-        return ''
-    return "%.1f" % value
-
-
-def fmt_date(value):
-    if not value:
-        return ""
-    return value.strftime("%d/%m/%Y")
-
-
-def fmt_zero_int(value):
-    if not value:
-        return ''
-    return "%.0f" % value
-
-
-def fmt_datetime(value):
-    if not value:
-        return ''
-    try:
-        return value.strftime('%d/%m/%Y %H:%M')
-    except AttributeError:
-        return str(value)
 
 
 class LinhaTransacao:
@@ -203,25 +149,6 @@ class LinhaTransacao:
             if hasattr(self.transacao, 'compra') and self.transacao.compra:
                 return self.transacao.compra.status
         return None
-    @property
-    def carteira(self):
-        if self.compra and self.compra.carteira:
-            return self.compra.carteira.nome
-        return None
-
-
-
-
-
-def _title_case(text):
-    words = text.strip().split()
-    result = []
-    for i, w in enumerate(words):
-        if i > 0 and w.lower() in CONECTORES:
-            result.append(w.lower())
-        else:
-            result.append(w[0].upper() + w[1:].lower() if w else w)
-    return " ".join(result)
 
 
 def parse_prazo_recebimento(texto: str, data_pedido, data_entrega, total: float):

@@ -5,6 +5,12 @@ from app.models.compra_item import CompraItem
 from app.models.unit_conversion import UnitConversion
 from app.constantes import TIPO_INGREDIENTE, UND_LIST, PRODUCAO_ETAPAS
 
+
+def unidade_on_set(row):
+    """`on_set` da Unidade de Conversão: fator=1 ao trocar a unidade."""
+    row['fator'] = 1
+
+
 Entity = {
     'Ingredient': {
         'id':              {'type': 'ID', 'width': 6},
@@ -15,7 +21,7 @@ Entity = {
     'UnitConversion': {
         'id':            {'type': 'ID'},
         'ingredient_id': {'type': 'DK'},
-        'unidade':       {'type': 'LIST', 'list': UND_LIST, 'required': True},
+        'unidade':       {'type': 'LIST', 'list': UND_LIST, 'required': True, 'on_set': unidade_on_set},
         'fator':         {'type': 'NUM', 'required': True, 'decimals': 6},
     },
     'ProductIngredient': {
@@ -23,12 +29,12 @@ Entity = {
         'product_id':    {'type': 'FK', 'label': 'Produto', 'required': True},
         'quantidade':    {'type': 'NUM'},
         'unidade':       {'type': 'LIST', 'list': UND_LIST},
-        'etapas':        {'type': 'MULTI', 'list': PRODUCAO_ETAPAS},
+        'etapas':        {'type': 'MULT10', 'list': PRODUCAO_ETAPAS},
     },
 }
 
 List = {
-    'columns': ['Ingredient'],
+    'fields': 'Ingredient',
     'ordering': ['nome'],
 }
 

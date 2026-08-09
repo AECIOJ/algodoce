@@ -34,7 +34,10 @@ Cada rota sys_*.py declara:
   card_path        str        None      Acesso aninhado (ex: 'conta.nome')
   link             str        None      Endpoint p/ gerar link (ex: 'orders.edit')
   function         callable   None      Função para valor computado: f(item) -> valor
- rows             int        1         Altura do textarea no form (nº de linhas)
+  rows             int        1         Altura do textarea no form (nº de linhas)
+  in_form          bool       True      `False` exclui o campo do form (nem exibe nem submete)
+  in_list          int(0|1|2) 1        `0` exclui da listagem/card/filtro; `1` coluna na linha (vai p/ o card quando não couber); `2` sempre no card. `True`→1, `False`→0
+  transform        str|callable  auto   Transformação ao salvar: 'title' (padrão em textos editáveis), 'cap', 'upper', 'lower', 'none' ou callable(val, field)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  List — configuração da lista
@@ -152,6 +155,9 @@ def _apply_transform(val, transform, field=None):
         return val.strip().upper()
     if transform == 'lower':
         return val.strip().lower()
+    if transform == 'cap':
+        s = val.strip()
+        return s[:1].upper() + s[1:] if s else s
     if transform == 'title':
         return _title_case(val.strip())
     if callable(transform):
@@ -159,12 +165,13 @@ def _apply_transform(val, transform, field=None):
     return val
 
 
-# transform: None | 'none' | 'title' | 'upper' | 'lower' | callable(val, field)
+# transform: None | 'none' | 'title' | 'upper' | 'lower' | 'cap' | callable(val, field)
 #   None     → auto-inferido por _infer_transform()
-#   'none'   → sem transformação (padrão p/ number, boolean, options, edit=False)
+#   'none'   → sem transformação (padrão p/ number, boolean, options, edit=False, readonly, hidden)
 #   'title'  → primeira letra de cada palavra maiúscula (respeita CONECTORES)
 #   'upper'  → tudo maiúsculo
 #   'lower'  → tudo minúsculo
+#   'cap'    → apenas o 1º caractere em maiúsculo (resto inalterado)
 #   callable → função customizada (val, field) -> transformed_val
 @dataclass
 class Field:
@@ -198,18 +205,25 @@ class Field:
     placeholder: Optional[str] = None
     transform: Any = None
     disabled: bool = False
+    readonly: bool = False
+    hidden: bool = False
     upload_path: str = ''
     digits_only: bool = False
     attrs: Optional[dict] = None
-    edit: bool = True
+    in_form: bool = True
+    in_list: int = 1
     default: Any = None
     rows: int = 1
-    on_set: Optional[Union[str, Callable]] = None
+    on_set: Optional[Callable] = None
     on_set_ent: Optional[str] = None
     on_set_mod: Optional[str] = None
     calc: Optional[str] = None
 
     def __post_init__(self):
+        if self.in_list is True:
+            self.in_list = 1
+        elif self.in_list is False:
+            self.in_list = 0
         if self.width is None and self.mask:
             self.width = len(self.mask)
             if self.input == 'number' and not self.mask.startswith('-'):
@@ -231,10 +245,6 @@ class Field:
                 w += 1
             return w
         return {'boolean': 6, 'checkbox': 6, 'number': 12, 'date': 12, 'image': 12}.get(self.input, 18)
-
-    @property
-    def form_edit(self) -> bool:
-        return self.edit is True
 
 
 FIELD_DEFAULTS = FIELD_TYPES
@@ -296,7 +306,7 @@ def _infer_field_from_model(model, name: str) -> dict:
         return cfg
     tname = col.type.__class__.__name__
     if 'Boolean' in tname:
-        cfg['type'] = 'LOGICO'
+        cfg['type'] = 'BOOL'
     elif 'DateTime' in tname:
         cfg['type'] = 'DATA_HORA'
     elif 'Date' in tname:
@@ -373,6 +383,15 @@ def build_field_config(name: str, cfg: dict) -> dict:
     if 'list' in props:
         props['options'] = props.pop('list')
 
+    if props.get('input') == 'multi' and props.get('options'):
+        for k in props['options']:
+            if len(str(k)) != 1:
+                raise ValueError(
+                    f"MULT10: opção '{k}' de '{name}' deve ter código de 1 caractere (0-9)"
+                )
+        if len(props['options']) > 10:
+            raise ValueError(f"MULT10: campo '{name}' suporta no máximo 10 opções (0-9)")
+
     if 'mask' not in props and 'decimals' in props:
         d = props['decimals']
         if d == 0:
@@ -386,7 +405,7 @@ def build_field_config(name: str, cfg: dict) -> dict:
 def _infer_transform(f: Field) -> str:
     if f.transform is not None:
         return f.transform
-    if not f.edit:
+    if not f.in_form or f.readonly or f.hidden:
         return 'none'
     if f.input in ('number', 'boolean', 'checkbox', 'date', 'time', 'image'):
         return 'none'
@@ -691,7 +710,7 @@ class List:
 
     @property
     def master_fields(self):
-        if self.fields_master:
+        if self.fields_master is not None:
             return [self.fields[i-1] for i in self.fields_master]
         return self.fields
 

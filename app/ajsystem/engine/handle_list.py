@@ -29,18 +29,48 @@ def _resolve_model(entity_name: str):
     return model
 
 
-def _resolve_cols(items: list, entidades: dict) -> list:
+def _resolve_cols(fields, entidades, principal=None) -> list:
+    """Resolve `List.fields` para configs de campo, espelhando o `Form.fields`:
+    - str 'Entidade' → expande todos os campos da entity;
+    - 'Entidade.campo' → campo específico;
+    - nome simples → campo da entity principal;
+    - dict {'name': ..., **cfg} → campo com override.
+    """
+    if isinstance(fields, str):
+        items = [fields]
+    else:
+        items = fields
     cols = []
     for item in items:
+        if isinstance(item, dict):
+            name = item.get('name')
+            if not name:
+                continue
+            rest = {k: v for k, v in item.items() if k != 'name'}
+            if '.' in name:
+                entity, field_name = name.split('.', 1)
+                config = entidades.get(entity, {})
+            else:
+                field_name = name
+                config = principal or {}
+            base = config.get(field_name, {}) if isinstance(config, dict) else {}
+            base = base if isinstance(base, dict) else {}
+            cols.append(build_field_config(field_name, {**base, **rest}))
+            continue
         if '.' in item:
             entity, field_name = item.split('.', 1)
         else:
             entity = item
             field_name = None
-        config = entidades[entity]
         if field_name:
-            cols.append(build_field_config(field_name, config[field_name]))
+            if entity in entidades:
+                config = entidades[entity]
+                cols.append(build_field_config(field_name, config[field_name]))
+            elif principal:
+                config = principal
+                cols.append(build_field_config(entity, config[entity]))
         else:
+            config = entidades[entity] if entity in entidades else principal
             for name, cfg in _entidade_fields(config).items():
                 cols.append(build_field_config(name, cfg))
     return cols
@@ -82,9 +112,15 @@ def render_list(entity_name: str, module_name: str, data=None, **extra):
 
     model = _resolve_model(entity_name)
 
-    field_configs = _resolve_cols(lista.get('columns', [entity_name]), entidades)
+    field_configs = _resolve_cols(lista.get('fields', entity_name), entidades, principal=entidades.get(entity_name))
     fields = [Field(**cfg) for cfg in field_configs]
     fields = [_derive_fk_ref(f, model) for f in fields]
+    fields = [f for f in fields if f.in_list != 0]
+
+    line_fields = [f for f in fields if f.in_list == 1]
+    cardonly_fields = [f for f in fields if f.in_list == 2]
+    if not line_fields:
+        line_fields, cardonly_fields = fields, []
 
     card_fields = None
     card_configs = _resolve_cols(lista.get('card', []), entidades)
@@ -92,11 +128,11 @@ def render_list(entity_name: str, module_name: str, data=None, **extra):
     if card_fields:
         card_fields = [_derive_fk_ref(f, model) for f in card_fields]
 
-    all_fields = fields + (card_fields or [])
-    fields_master = list(range(1, len(fields) + 1)) if fields else None
+    all_fields = line_fields + cardonly_fields + (card_fields or [])
+    fields_master = list(range(1, len(line_fields) + 1))
 
     linha_names = _resolve_field_names(lista.get('linha', []))
-    linha_indices = [i for i, f in enumerate(fields) if f.name in linha_names] if linha_names else None
+    linha_indices = [i for i, f in enumerate(line_fields) if f.name in linha_names] if linha_names else None
 
     edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
 
@@ -107,7 +143,7 @@ def render_list(entity_name: str, module_name: str, data=None, **extra):
         edit_id_field=lista.get('edit_id_field', 'id'),
         template=lista.get('template'),
         linha=linha_indices,
-        card_idx=(list(range(len(fields) + 1, len(all_fields) + 1)) if card_fields else None),
+        card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1)) if len(all_fields) > len(line_fields) else None),
     )
 
     detail_fields = None
@@ -183,5 +219,6 @@ def render_list(entity_name: str, module_name: str, data=None, **extra):
         detail_fields=detail_fields,
         detail_data=detail_data,
         card_fields=card_fields,
+        cardonly_fields=cardonly_fields,
         **extra,
     )

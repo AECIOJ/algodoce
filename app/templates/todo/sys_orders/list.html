@@ -1,0 +1,11 @@
+{% extends "components/page_sys.html" %}
+{% from "components/macros.html" import action_page, action_list %}
+
+{% block page_content %}
+{% call(section) action_page(title="Pedidos", new_url=url_for('pedidos.form'), active_filters=active_filters, filters=FILTERS, ctx=ctx) %}
+  {% if section == "dados" %}
+      {{ action_list(orders, table=ORDERS_LIST, ctx=ctx) }}
+  {% elif section == "filtros" %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

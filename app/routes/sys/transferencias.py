@@ -7,9 +7,9 @@ from app.models.trf import Trf
 from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.models.client import Conta
-from app.constants import TIPO_RECURSO
+from app.constantes import TIPO_RECURSO
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_date_filter
-from app.list import build_field_context, build_filter_config, List
+from app.ajsystem.list import build_field_context, build_filter_config, List
 from decimal import Decimal
 
 bp = Blueprint("transferencias", __name__, url_prefix="/transferencias")
@@ -52,10 +52,7 @@ def _list():
     trfs = linhas
     _list = List(**transferencias_list)
     ctx = build_field_context(TRF_FIELDS)
-    return render_template(
-        "sys_transferencias/list.html",
-        trfs=trfs, fields=TRF_FIELDS, TRANSFERENCIAS_LIST=_list, ctx=ctx, active_filters=active, FILTERS=filter_config,
-    )
+    return render_template("index.html")
 
 
 def _load_form_data():
@@ -66,11 +63,7 @@ def _load_form_data():
 
 def _new():
     recursos, contas = _load_form_data()
-    return render_template(
-        "sys_transferencias/form.html",
-        instance=None, is_new=True, recursos=recursos, contas=contas,
-        TIPO_RECURSO=TIPO_RECURSO,
-    )
+    return render_template("index.html")
 
 
 def _edit(id):
@@ -119,13 +112,7 @@ def trf_edit(id):
 
     movimentos = Movto.query.filter_by(trf_id=id).order_by(Movto.id).all()
 
-    return render_template(
-        "sys_transferencias/form.html",
-        instance=trf, is_new=False,
-        counter_movtos=movimentos, main_movto=movimentos[0] if movimentos else None,
-        recursos=recursos, contas=contas, nav=nav,
-        TIPO_RECURSO=TIPO_RECURSO,
-    )
+    return render_template("index.html")
 
 
 def _save(trf):

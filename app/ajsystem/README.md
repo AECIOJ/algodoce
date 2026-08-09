@@ -21,13 +21,13 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | Propriedade | Estado | Onde validada |
 |---|---|---|
 | `attrs` (Field) | ✗ | Categorias — substituída por `min`/`max`/`step`; reavaliar se necessário |
-| `type` (Field) | ✓ | Categorias — `ID`, `TEXT`, `INT`, `LOGICO` |
+| `type` (Field) | ✓ | Categorias — `ID`, `TEXT`, `INT`, `BOOL` |
 | `width` (Field) | ✓ | Categorias — `id` |
 | `mask` (Field) | ✓ | Categorias — `ordem` (`'999'`) |
 | `min` (Field) | ✓ | Categorias — `ordem` |
 | `max` (Field) | ✓ | Categorias — `ordem` |
 | `step` (Field) | ✓ | Categorias — `ordem` (INT → `1`) |
-| `columns` (List) | ✓ | Categorias — `['Category']` |
+| `fields` (List) | ✓ | Categorias — `['Category']` (renomeada de `columns`) |
 | `ordering` (List) | ✓ | Categorias — `['ordem', 'nome']` |
 | `title` (List) | ✓ | Categorias |
 | `fields` (Form) | ✓ | Categorias — `'Category'` |
@@ -35,19 +35,24 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | `pre_save` (Form) | ✓ | Categorias — auto-ordenação `ordem` |
 | `post_save` (Form) | ✓ | Categorias — reordenação |
 | `buttons` (Form) | ✓ | Categorias — `on_off` |
-| `DK` (Field) | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `edit=False`) |
-| `MULTI` (Field) | ✓ | Insumos — `etapas` (armazena códigos concatenados; editor genérico abre em modal) |
+| `DK` (Field) | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `in_form=False`) |
+| `MULT10` (Field) | ✓ | Insumos — `etapas` (códigos concatenados, máx. 10 opções 0-9; editor genérico abre em modal) |
 | `masterkey` (Field·FK) | ✓ | Insumos — opcional: `product_id` sem `masterkey` (query derivado da relação) |
 | `label` (Field) | ✓ | Insumos — `product_id` → 'Produto' |
 | `required` (Field) | ✓ | Insumos — `product_id`, `unidade_medida`, `fator`, `unidade` |
 | `decimals` (Field) | ✓ | Insumos — `fator` |
+| `on_set` (Field) | ✓ | Produtos — `ingredient_id` (qtd/unidade); Orçamentos — `product_id` (preço); Insumos — `unidade` (fator=1) |
+| `in_form` (Field) | ✓ | Gate do form (renomeada de `edit`): `False` exclui do form sem submeter — Operações `indice`; Orçamentos `valor`/`order_id`; Pedidos `cliente`/`carteira`/`transacao`/`quote_id`; Produtos `ativo`; defaults `ID`/`DK` |
+| `in_list` (Field) | ✓ | Coluna na tabela e/ou card: `0` exclui da listagem/card/filtro; `1` coluna na linha (vai p/ o card quando não couber, padrão); `2` sempre no card — Produtos `descricao` (`in_list: 2`; `True`→`1`, `False`→`0`) |
+| `readonly` (Field) |  | a validar — exibe valor sem edição no form, submete via hidden |
+| `hidden` (Field) |  | a validar — campo invisível que submete via `<input type="hidden">` |
 | `transform` (Field) | ✓ | Insumos — `nome` ('title') |
-| `list` (Field) | ✓ | Insumos — `tipo`/`unidade_medida` (LIST) e `etapas` (MULTI) |
+| `list` (Field) | ✓ | Insumos — `tipo`/`unidade_medida` (LIST) e `etapas` (MULT10) |
 | `sessions` (Form) | ✓ | Insumos — `Conversões` e `Produtos` (explícitas) |
 | `table` (Form·sessions) | ✓ | Insumos — `['UnitConversion']`, `['ProductIngredient']` |
 | `readonly` (Form·sessions) | ✓ | Insumos — sessão `Produtos` renderizada como texto |
 | `ID` em coluna FK (Field) | ✗ | Insumos — `ingredient_id`/`product_id` eram `ID`; usar `DK` (linha-pai) ou `FK` |
-| `LIST` em campo multivalorado (Field) | ✗ | Insumos — `etapa` (valor único) → `MULTI` (`etapas`) |
+| `LIST` em campo multivalorado (Field) | ✗ | Insumos — `etapa` (valor único) → `MULT10` (`etapas`) |
 
 ---
 
@@ -414,12 +419,12 @@ Entity = {
     'Category': {
         'id':    {'type': 'ID'},
         'nome':  {'type': 'TEXT'},
-        'ativo': {'type': 'LOGICO'},
+        'ativo': {'type': 'BOOL'},
     },
 }
 
 List = {
-    'columns': ['Category'],
+    'fields': ['Category'],
     'ordering': ['nome'],
 }
 
@@ -454,7 +459,7 @@ suas rotas.
 - **`Entity`** — mapa `nome_da_entidade → campos`. Cada campo é um dict de
   propriedades ([§5](#5-entity--definição-de-campos)). Pode ter **várias
   entidades** no mesmo módulo (ex.: `Product` e `ProductIngredient`).
-- **`List`** — dict com `columns`, `ordering`, `title`, etc. ([§6](#6-list--configuração)).
+- **`List`** — dict com `fields`, `ordering`, `title`, etc. ([§6](#6-list--configuração)).
 - **`Form`** — dict com `fields`, `sessions`, `delete`, `buttons` e hooks
   ([§7](#7-form--configuração)). Também pode ser `Form(...)` da dataclass
   (`app.ajsystem.form`); `handle_form` aceita ambos.
@@ -519,22 +524,22 @@ disponíveis (`app/ajsystem/fields.py`):
 | `MEMO` | `textarea` | `rows` p/ altura |
 | `INT` | `number` | `align: right`, `width: 5`, `decimals: 0` |
 | `NUM` | `number` | `align: right`, `width: 10`, `decimals: 2` |
-| `ID` | `number` | PK da tabela; `edit: False`, `label: '#'`, `filter` numérico |
-| `DK` | `number` | Ligação filho→pai (sessão); `edit: False`, preenchido pelo motor |
+| `ID` | `number` | PK da tabela; `in_form: False`, `label: '#'`, `filter` numérico |
+| `DK` | `number` | Ligação filho→pai (sessão); `in_form: False`, preenchido pelo motor |
 | `DATA` | `date` | `filter` por data |
 | `DATA_HORA` | `datetime-local` | `filter` por data |
 | `HORA` | `time` | — |
-| `LOGICO` | `boolean` | `filter` Sim/Não (checkbox) |
+| `BOOL` | `boolean` | `filter` Sim/Não (checkbox) |
 | `FONE` | `text` | `mask: '(99) 99999-9999'`, `digits_only: True` |
 | `CPF` | `text` | `mask: '999.999.999-99'`, `digits_only`, `validate: 'cpf'` |
 | `CNPJ` | `text` | `mask: '99.999.999/9999-99'`, `digits_only`, `validate: 'cnpj'` |
 | `FK` | `select` | `filter` select; referência a outra entidade — `masterkey` opcional, veja §5.2 |
 | `LIST` | `select` | `filter` select; opções fixas via `list`/`options` |
-| `MULTI` | `multi` | Opções fixas via `list`/`options`; editor genérico em modal; persiste códigos concatenados |
+| `MULT10` | `multi` | Opções fixas via `list`/`options` (máx. 10, códigos 0-9); editor genérico em modal; persiste códigos concatenados |
 | `IMAGE` | `image` | `filter: False`, widget de preview/upload |
 
 > As props base do tipo são **mescladas** com as da entidade e do form — você
-> pode sobrescrever/estender qualquer uma (ex.: `{'type': 'LOGICO', 'edit': False}`).
+> pode sobrescrever/estender qualquer uma (ex.: `{'type': 'BOOL', 'in_form': False}`).
 > `required` é sempre **opt-in** (`'required': True`), nunca herdado do tipo.
 > No formulário, a referência de um campo `*_id` pode ser **derivada da relação**
 > do model (em vez de `masterkey`) — veja §5.4.
@@ -549,8 +554,10 @@ disponíveis (`app/ajsystem/fields.py`):
 | `align` | str | `'left'` (padrão) \| `'right'` \| `'center'` |
 | `input` | str | Sobrescreve o widget (`text`, `textarea`, `number`, `date`, `boolean`, `select`, `image`, ...) |
 | `required` | bool | Obrigatório (validação de presença) |
-| `edit` | bool | `False` exibe mas não edita |
-| `readonly` | bool | Leitura no form |
+| `in_form` | bool | `False` não renderiza o campo no form (nem exibe nem submete) |
+| `in_list` | int | `0` exclui o campo da listagem, do card e do filtro; `1` coluna na linha (vai p/ o card quando não couber); `2` sempre no card; padrão `1`. `True`→`1`, `False`→`0` |
+| `readonly` | bool | Exibe o valor como texto estático no form (sem edição); o valor é submetido via `<input type="hidden">` (preserva valores preenchidos por `on_set`) |
+| `hidden` | bool | Invisível no form; submete o valor via `<input type="hidden">` (controle interno) |
 | `default` | any | Valor inicial de novos registros |
 | `attrs` | dict | Atributos HTML do input (ex.: `{'min': 0, 'step': 1}`) |
 | `mask` | str | Máscara de formatação (ex.: `'999.999'`) |
@@ -559,7 +566,7 @@ disponíveis (`app/ajsystem/fields.py`):
 | `currency` | bool | Formata como moeda (`brl`) |
 | `hide_zero` | bool | Ocultar valores zero na listagem (padrão `True`) |
 | `masterkey` | str | **FK (opcional)**: chave do `MODEL_MAP` (ex.: `'category'`) — popula o select, e `card_path`/`filter_path` viram `<chave>.nome`. Sem ele, a referência é derivada da relação do model no form (§5.4). Em campos `DK` o padrão é a **primeira tabela da `Entity`** |
-| `list` | dict | **LIST/MULTI**: opções fixas `{valor: rótulo}` (alias de `options`) |
+| `list` | dict | **LIST/MULT10**: opções fixas `{valor: rótulo}` (alias de `options`) |
 | `options` | dict | Opções do select (ou `{'model': ..., 'order': ...}`) |
 | `query` | str | Chave do `MODEL_MAP` p/ popular opções do banco |
 | `query_filter` | dict | Filtro aplicado na query de opções |
@@ -568,7 +575,7 @@ disponíveis (`app/ajsystem/fields.py`):
 | `filter_path` | str | Atributo usado no filtro de referência (padrão `'<chave>.nome'` via masterkey) |
 | `card_path` | str | Acesso aninhado de exibição (padrão `'<chave>.nome'` via masterkey) |
 | `validate` | str/callable | `'cpf'`/`'cnpj'` ou função `(valor) -> bool` |
-| `transform` | str | Transformação ao salvar: `'title'` (padrão em textos editáveis), `'none'` |
+| `transform` | str/callable | Transformação ao salvar: `'title'` (padrão em textos editáveis), `'cap'` (só o 1º caractere maiúsculo), `'upper'`, `'lower'`, `'none'` ou callable `(val, field)` |
 | `rows` | int | Altura do textarea (MEMO) |
 | `upload_path` | str | Pasta relativa dos uploads de IMAGE |
 | `link` | str | Endpoint p/ link da célula (ex.: `'produtos.list'`) |
@@ -620,7 +627,7 @@ o valor é normalizado para a chave padrão.
 
 **Campo `DK` (detail key)** — marca a coluna que liga a linha filha à **tabela
 principal da `Entity`** (a primeira chave da `Entity`, ex.: `ingredient_id` na
-sessão "Conversões" de um Insumo). É `edit: False`, não participa de validação
+sessão "Conversões" de um Insumo). É `in_form: False`, não participa de validação
 e é preenchido automaticamente pelo motor ao salvar (FK para o pai). Se
 `masterkey`/`query` não forem dados, o padrão é a chave `MODEL_MAP` da primeira
 tabela da `Entity`:
@@ -633,13 +640,15 @@ tabela da `Entity`:
 }
 ```
 
-**Campo `MULTI`** — múltiplas opções fixas (`list`/`options`); o valor
-persistido é a concatenação dos códigos marcados, sem separador (ex.: `"01"` =
-etapas 0 e 1). Na exibição, os códigos são traduzidos para os rótulos
-(ex.: `"01"` → "Preparação, Montagem").
+**Campo `MULT10`** — múltiplas opções fixas (`list`/`options`), limitadas a
+**10 opções com códigos de 1 caractere (0-9)**; o valor persistido é a
+concatenação dos códigos marcados, sem separador (ex.: `"01"` = etapas 0 e 1).
+Na exibição, os códigos são traduzidos para os rótulos
+(ex.: `"01"` → "Preparação, Montagem"). O limite é validado em runtime
+(`build_field_config`): mais de 10 opções ou código multichar lança `ValueError`.
 
 O editor é **genérico e incluso no framework**: em campos do form e em células
-de sessões editáveis, o `MULTI` é um controle `multi-ctl` (rótulo + lápis que
+de sessões editáveis, o `MULT10` é um controle `multi-ctl` (rótulo + lápis que
 aparece no hover); o clique abre o modal `multiModal` com as opções verticais
 e botões Cancelar/OK. O modal grava o valor concatenado (ordenado) num hidden
 único — o servidor recebe o mesmo contrato de antes (códigos concatenados).
@@ -666,7 +675,7 @@ A `List` define como a listagem é renderizada.
 
 ```python
 List = {
-    'columns': ['Product'],
+    'fields': ['Product'],
     'ordering': ['nome'],
     'title': 'Produtos cadastrados',
     'new_endpoint': None,     # esconde o botão "Novo" (sem criação)
@@ -677,7 +686,7 @@ List = {
 
 | Propriedade | Tipo | O que configura | Padrão |
 |---|---|---|---|
-| `columns` | list[str] | Colunas da tabela. Formato `'Entity'` (todos os campos) ou `'Entity.campo'` (campo específico) | `[entidade]` |
+| `fields` | list[str]/dict | Colunas da tabela. Formato `'Entity'` (todos os campos), `'Entity.campo'` (campo específico), nome simples (resolvido via entity principal) ou `{'name': ..., 'label': ...}` (override); campos com `in_list: 0` são omitidos e com `in_list: 2` vão direto para o card | `[entidade]` |
 | `card` | list[str] | Campos do card de destaque (primeira coluna, com id + imagem) | — |
 | `linha` | list[str] | Campos destacados nas linhas (utilizado com filtros) | — |
 | `detail` | list[str] | Campos de detalhe expandível; o framework busca itens na relação `<entity>_items` (viewonly) do model | — |
@@ -695,7 +704,7 @@ explícito **esconde** o botão/link:
 
 ```python
 List = {
-    'columns': ['Category'],
+    'fields': ['Category'],
     'edit_endpoint': None,   # listagem somente-leitura
 }
 ```
@@ -790,7 +799,7 @@ Regras da derivação (`Form._auto_sessions`):
 - relações `MANYTOONE`, auto-referências e `secondary`/`viewonly` são ignoradas;
 - o **rótulo** vem de `__meta__['label']` (ou do nome da relação) e `readonly`
   de `__meta__['readonly']` — veja §5.4;
-- **campos gerenciados ficam ocultos** (`edit: False`): PKs simples (`id`) e FKs
+- **campos gerenciados ficam ocultos** (`in_form: False`): PKs simples (`id`) e FKs
   que apontam ao model pai (ex.: `quote_id`). O motor os preenche pela relação;
 - FKs para outros models têm o `query` derivado da relação (§5.4);
 - sessão `single: True` quando a relação é 1:1 (ex.: o `event` de um orçamento).
@@ -977,12 +986,12 @@ Entity = {
         'id':    {'type': 'ID'},
         'nome':  {'type': 'TEXT'},
         'ordem': {'type': 'INT', 'attrs': {'min': 0, 'max': 99}},
-        'ativo': {'type': 'LOGICO'},
+        'ativo': {'type': 'BOOL'},
     },
 }
 
 List = {
-    'columns': ['Category'],
+    'fields': ['Category'],
     'ordering': ['ordem', 'nome'],
     'title': 'Categorias',
 }

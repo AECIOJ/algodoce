@@ -7,14 +7,14 @@ from app.form import handle_form
 Entity = {
     'Category': {
         'id':    {'type': 'ID', 'width': 6},
-        'nome':  {'type': 'TEXT'},
+        'nome':  {'type': 'TEXT', },
         'ordem': {'type': 'INT', 'mask': '999', 'min': 0, 'max': 99},
-        'ativo': {'type': 'LOGICO'},
+        'ativo': {'type': 'BOOL'},
     },
 }
 
 List = {
-    'columns': ['Category'],
+    'fields': 'Category',
     'ordering': ['ordem', 'nome'],
     'title': 'Categorias',
 }

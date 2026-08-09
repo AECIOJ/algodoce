@@ -12,9 +12,9 @@ from app.models.compra import Compra
 from app.models.order import Order
 from app.models.operacao import Operacao
 from app.models.compra_historico import CompraHistorico
-from app.constants import TIPO_RECURSO, TIPO_OPERACAO, PREVISAO_STATUS
+from app.constantes import TIPO_RECURSO, TIPO_OPERACAO, PREVISAO_STATUS
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
-from app.list import build_field_context, build_filter_config, List
+from app.ajsystem.list import build_field_context, build_filter_config, List
 from decimal import Decimal
 
 bp = Blueprint("movimentos", __name__, url_prefix="/movimentos")
@@ -68,13 +68,7 @@ def _list(tipo):
     movtos = linhas
     _list = List(**movimentos_list)
     ctx = build_field_context(MOVIMENTOS_FIELDS)
-    return render_template(
-        "sys_movimentos/list.html",
-        movtos=movtos, fields=MOVIMENTOS_FIELDS, MOVIMENTOS_LIST=_list, ctx=ctx,
-        tipo=tipo, tipo_nome=_movto_tipo(tipo),
-        tipo_nome_plural=_movto_tipo_plural(tipo),
-        active_filters=active, FILTERS=filter_config,
-    )
+    return render_template("index.html")
 
 
 def _new(tipo, prefill=None, from_order=False, compra=None):
@@ -84,14 +78,7 @@ def _new(tipo, prefill=None, from_order=False, compra=None):
         operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
     else:
         operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
-    return render_template(
-        "sys_movimentos/form.html",
-        instance=None, is_new=True, recursos=recursos, contas=contas, operacoes=operacoes,
-        tipo=tipo, tipo_nome=_movto_tipo(tipo),
-        tipo_nome_plural=_movto_tipo_plural(tipo),
-        TIPO_RECURSO=TIPO_RECURSO, PREVISAO_STATUS=PREVISAO_STATUS,
-        prefill=prefill, from_order=from_order, compra=compra,
-    )
+    return render_template("index.html")
 
 
 def _edit(id):
@@ -297,14 +284,7 @@ def recebimentos_edit(id):
             flash("Recebimento atualizado!", "success")
             return redirect(url_for("movimentos.recebimentos_list"))
 
-    return render_template(
-        "sys_movimentos/form.html",
-        instance=movto, is_new=False, recursos=recursos, contas=contas, operacoes=operacoes,
-        nav=nav,
-        tipo="E", tipo_nome=_movto_tipo("E"),
-        tipo_nome_plural=_movto_tipo_plural("E"),
-        TIPO_RECURSO=TIPO_RECURSO, PREVISAO_STATUS=PREVISAO_STATUS,
-    )
+    return render_template("index.html")
 
 
 @bp.route("/pagamentos")
@@ -362,14 +342,7 @@ def pagamentos_edit(id):
             flash("Pagamento atualizado!", "success")
             return redirect(url_for("movimentos.pagamentos_list"))
 
-    return render_template(
-        "sys_movimentos/form.html",
-        instance=movto, is_new=False, recursos=recursos, contas=contas, operacoes=operacoes,
-        nav=nav,
-        tipo="S", tipo_nome=_movto_tipo("S"),
-        tipo_nome_plural=_movto_tipo_plural("S"),
-        TIPO_RECURSO=TIPO_RECURSO, PREVISAO_STATUS=PREVISAO_STATUS,
-    )
+    return render_template("index.html")
 
 
 @bp.route("/<int:id>/excluir", methods=["POST"])
@@ -392,7 +365,7 @@ def excluir(id):
     if compra:
         return redirect(url_for("compras.edit", id=compra.id))
     if order:
-        return redirect(url_for("orders.form", id=order.id))
+        return redirect(url_for("pedidos.form", id=order.id))
     if tipo == "E":
         return redirect(url_for("movimentos.recebimentos_list"))
     return redirect(url_for("movimentos.pagamentos_list"))

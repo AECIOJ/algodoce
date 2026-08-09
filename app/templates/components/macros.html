@@ -3,15 +3,14 @@
   {% set _outline = 'outline-' if button.outline else '' %}
   {% set _size = ' btn-' + button.size if button.size else '' %}
   {% set _dir = 'flex-column' if button.label_pos == 'bottom' else '' %}
-  {% set _cls = 'btn btn-' + _outline + button.color + _size + ' d-inline-flex align-items-center gap-1 btn-lbl ' + _dir + ' ' + button.cls + ' ' + extra_class %}
+  {% set _cls = 'btn btn-' + _outline + button.color + _size + ' inline-flex items-center gap-1 btn-lbl ' + _dir + ' ' + button.cls + ' ' + extra_class %}
   {% set _onclick = onclick or (button.confirm_msg and 'return confirm(\'' + button.confirm_msg + '\')') %}
   {% set _href = '#' if modal_id else url %}
   <a href="{{ _href }}" class="{{ _cls }}"
      {% if target %}target="{{ target }}"{% endif %}
      {% if _onclick %}onclick="{{ _onclick }}"{% endif %}
-     {% if modal_id %}data-bs-toggle="modal" data-bs-target="#{{ modal_id }}"{% endif %}
      style="{% if button.extra %}{{ button.extra }}{% endif %}">
-    {% if button.icon %}<img src="{{ url_for('static', filename='icons/' + button.icon) }}" alt="" height="14">{% endif %}
+    {% if button.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ button.icon }}"/></svg>{% endif %}
     {{ lbl }}
   </a>
 {% endmacro %}
@@ -20,45 +19,42 @@
   {% set _outline = 'outline-' if button.outline else '' %}
   {% set _size = ' btn-' + button.size if button.size else '' %}
   {% set _dir = 'flex-column' if button.label_pos == 'bottom' else '' %}
-  {% set _cls = 'btn btn-' + _outline + button.color + _size + ' d-inline-flex align-items-center gap-1 btn-lbl ' + _dir + ' ' + button.cls + ' ' + extra_class %}
+  {% set _cls = 'btn btn-' + _outline + button.color + _size + ' inline-flex items-center gap-1 btn-lbl ' + _dir + ' ' + button.cls + ' ' + extra_class %}
   {% set _onclick = onclick or (button.confirm_msg and 'return confirm(\'' + button.confirm_msg + '\')') %}
   <button type="submit" class="{{ _cls }}"
      {% if _onclick %}onclick="{{ _onclick }}"{% endif %}
      {% if disabled %}disabled{% endif %}
      style="{% if button.extra %}{{ button.extra }}{% endif %}">
-    {% if button.icon %}<img src="{{ url_for('static', filename='icons/' + button.icon) }}" alt="" height="14">{% endif %}
+    {% if button.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ button.icon }}"/></svg>{% endif %}
     {{ button.label }}
   </button>
 {% endmacro %}
 
 {% macro modal_confirm(modal, modal_id, form_action=none, body_extra='') %}
-<div class="modal fade" id="{{ modal_id }}" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered modal-sm">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">{{ modal.title }}</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body text-center py-4">
-        {% if modal.icon %}
-        <img src="{{ url_for('static', filename='icons/' + modal.icon) }}" height="36" alt="" style="opacity:0.6;margin-bottom:12px;">
+<dialog id="{{ modal_id }}" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">{{ modal.title }}</h3>
+    <div class="py-4 text-center">
+      {% if modal.icon %}
+      <svg class="w-8 h-8 mx-auto mb-3 opacity-60" aria-hidden="true"><use href="#i-{{ modal.icon }}"/></svg>
+      {% endif %}
+      <p class="mb-3 font-bold">{{ modal.message }}</p>
+      {{ body_extra }}
+      <div class="flex justify-center gap-2">
+        <form method="dialog">
+          <button type="button" class="btn btn-ghost btn-sm">{{ modal.cancel_label }}</button>
+        </form>
+        {% if form_action %}
+        <form method="POST" action="{{ form_action }}" class="inline">
+          <button type="submit" class="btn btn-{{ modal.confirm_color }} btn-sm">{{ modal.confirm_label }}</button>
+        </form>
+        {% else %}
+        <button type="button" class="btn btn-{{ modal.confirm_color }} btn-sm" id="{{ modal_id }}-confirm">{{ modal.confirm_label }}</button>
         {% endif %}
-        <p class="mb-3 fw-bold">{{ modal.message }}</p>
-        {{ body_extra }}
-        <div class="d-flex justify-content-center gap-2">
-          <button type="button" class="btn btn-outline-{{ modal.cancel_label|lower }} btn-sm" data-bs-dismiss="modal">{{ modal.cancel_label }}</button>
-          {% if form_action %}
-          <form method="POST" action="{{ form_action }}" class="d-inline">
-            <button type="submit" class="btn btn-{{ modal.confirm_color }} btn-sm">{{ modal.confirm_label }}</button>
-          </form>
-          {% else %}
-          <button type="button" class="btn btn-{{ modal.confirm_color }} btn-sm" id="{{ modal_id }}-confirm">{{ modal.confirm_label }}</button>
-          {% endif %}
-        </div>
       </div>
     </div>
   </div>
-</div>
+</dialog>
 {% endmacro %}
 
 {% macro paginator(endpoint, nav, center='') %}
@@ -97,14 +93,14 @@
 {% endmacro %}
 
 {% macro action_edit(url, label='Editar') %}
-<a href="{{ url }}" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-edit-link">
+<a href="{{ url }}" class="no-underline inline-flex items-center gap-1 text-nowrap action-edit-link">
   <img src="{{ url_for('static', filename='icons/pencil.svg') }}" alt="" height="14">
   <small style="font-size:0.65rem;">{{ label }}</small>
 </a>
 {% endmacro %}
 
 {% macro action_send(url, label='Enviar') %}
-<a href="{{ url }}" class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-send-link">
+<a href="{{ url }}" class="no-underline inline-flex items-center gap-1 text-nowrap action-send-link">
   <img src="{{ url_for('static', filename='icons/send.svg') }}" alt="" height="14">
   <small style="font-size:0.65rem;">{{ label }}</small>
 </a>
@@ -114,9 +110,9 @@
 <div class="painel-filtros" style="max-height:calc(100vh - 300px);overflow-y:auto;">
   <div class="px-2">
     <div id="page-filter-body"></div>
-    <div class="d-flex gap-2 mt-3 bg-white p-2 border-top" id="page-filter-actions" style="display:none!important;">
-      <button type="button" class="btn btn-outline-danger flex-fill d-inline-flex align-items-center gap-1" id="page-filter-clear"><i class="bi bi-x-lg"></i> Limpar</button>
-      <button type="button" class="btn btn-primary flex-fill d-inline-flex align-items-center gap-1" id="page-filter-apply"><i class="bi bi-funnel"></i> Aplicar</button>
+    <div class="flex gap-2 mt-3 bg-white p-2 border-t hidden" id="page-filter-actions">
+      <button type="button" class="btn btn-outline btn-danger flex-1 inline-flex items-center gap-1" id="page-filter-clear"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-xmark"/></svg> Limpar</button>
+      <button type="button" class="btn btn-primary flex-1 inline-flex items-center gap-1" id="page-filter-apply"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-funnel"/></svg> Aplicar</button>
     </div>
     {{ caller_content }}
   </div>
@@ -176,25 +172,29 @@
 {% macro action_page(title, new_url=none, new_label='Novo', extra_actions=none, active_filters=none, filters=none, ctx=none) %}
 <div style="display:flex;flex-direction:column;align-items:center;">
 <div class="page-list-inner">
-<div class="page-list-header d-flex align-items-center px-2 py-1 gap-2" data-active-filters='{{ active_filters|tojson if active_filters else "{}" }}' data-filter-config='{{ filters|tojson if filters else "{}" }}' data-filter-options='{{ ctx.filter_options|tojson if ctx and ctx.filter_options else "{}" }}' style="border-bottom:1px solid #dee2e6;background:#fff;flex-wrap:wrap;width:100%;">
-  {% if title %}
-  <h2 class="mb-0 fs-5 fs-lg-4 flex-shrink-0 d-none d-lg-block">{{ title }}</h2>
-  {% endif %}
-  <ul class="nav nav-underline mb-0 flex-shrink-0" role="tablist">
-    <li class="nav-item"><button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#panel_dados" type="button" role="tab">Dados</button></li>
-    <li class="nav-item"><button class="nav-link" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-tab-pane" type="button" role="tab">Filtros <span id="filtro-count-badge" class="badge bg-danger d-none">0</span></button></li>
-    <li class="nav-item d-none"><button class="nav-link disabled" type="button" role="tab">Relatórios</button></li>
-  </ul>
-  <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
-    {% if extra_actions %}{{ extra_actions }}{% endif %}
-    {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-plus-lg"></i> {{ new_label }}</a>{% endif %}
+<div x-data="{ tab: 'dados' }" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+  <div class="page-list-header flex items-center px-2 py-1 gap-2" data-active-filters='{{ active_filters|tojson if active_filters else "{}" }}' data-filter-config='{{ filters|tojson if filters else "{}" }}' data-filter-options='{{ ctx.filter_options|tojson if ctx and ctx.filter_options else "{}" }}' style="border-bottom:1px solid #dee2e6;background:#fff;flex-wrap:wrap;width:100%;">
+    {% if title %}
+    <h2 class="mb-0 text-lg shrink-0 hidden lg:block">{{ title }}</h2>
+    {% endif %}
+    <div role="tablist" class="tabs tabs-bordered shrink-0">
+      <button role="tab" class="tab"
+              :class="{ 'tab-active font-semibold': tab === 'dados' }"
+              @click="tab = 'dados'" type="button">Dados</button>
+      <button role="tab" class="tab"
+              :class="{ 'tab-active font-semibold': tab === 'filtros' }"
+              @click="tab = 'filtros'" type="button">Filtros <span id="filtro-count-badge" class="badge badge-error hidden">0</span></button>
+    </div>
+    <div class="ml-auto flex items-center gap-1 shrink-0">
+      {% if extra_actions %}{{ extra_actions }}{% endif %}
+      {% if new_url %}<a href="{{ new_url }}" class="btn btn-success btn-sm inline-flex items-center gap-1">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> {{ new_label }}</a>{% endif %}
+    </div>
   </div>
-</div>
-<div class="tab-content" style="flex:1;min-height:0;">
-  <div class="tab-pane fade show active" id="panel_dados" role="tabpanel">
+  <div x-show="tab === 'dados'" style="flex:1;min-height:0;">
     {{ caller("dados") }}
   </div>
-  <div class="tab-pane fade" id="filtros-tab-pane" role="tabpanel">
+  <div x-show="tab === 'filtros'" style="flex:1;min-height:0;">
     {{ action_filter(caller_content=caller("filtros")) }}
   </div>
 </div>
@@ -279,8 +279,8 @@ window.pageListFilter = true;
   function buildDateValueArea(area, preset, field) {
     area.innerHTML = '';
     if (preset === 'período' || preset === 'periodo') {
-      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center flex-wrap';
-      var f = document.createElement('input'); f.type='date'; f.className='form-control form-control-sm'; f.style.width='auto';
+      var d = document.createElement('div'); d.className = 'inline-flex gap-1 items-center flex-wrap';
+      var f = document.createElement('input'); f.type='date'; f.className='input input-bordered input-sm'; f.style.width='auto';
       f.dataset.field=field; f.dataset.subtype='from';
       var t = document.createElement('input'); t.type='date'; t.className='form-control form-control-sm'; t.style.width='auto';
       t.dataset.field=field; t.dataset.subtype='to';
@@ -305,8 +305,8 @@ window.pageListFilter = true;
     } else if (preset === 'ano atual') {
       area.appendChild(document.createTextNode(''+(new Date()).getFullYear()));
     } else if (preset === 'mês') {
-      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
-      var i = document.createElement('input'); i.type='month'; i.className='form-control form-control-sm'; i.style.width='auto';
+      var d = document.createElement('div'); d.className = 'inline-flex gap-1 items-center';
+      var i = document.createElement('input'); i.type='month'; i.className='input input-bordered input-sm'; i.style.width='auto';
       i.dataset.field=field; i.dataset.subtype='mes';
       if (filterState[field+'_mes']) i.value=filterState[field+'_mes'];
       d.appendChild(i);
@@ -315,23 +315,23 @@ window.pageListFilter = true;
       var now = new Date();
       area.appendChild(document.createTextNode(_fmtDate(new Date(_monthStart(now))) + ' até ' + _fmtDate(new Date(_monthEnd(now)))));
     } else if (preset === 'ano') {
-      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
+      var d = document.createElement('div'); d.className = 'inline-flex gap-1 items-center';
       var i = document.createElement('input'); i.type='number'; i.min=2000;
-      i.className='form-control form-control-sm'; i.style.width='100px';
+      i.className='input input-bordered input-sm'; i.style.width='100px';
       i.placeholder='Ano'; i.dataset.field=field; i.dataset.subtype='ano';
       if (filterState[field+'_ano']) i.value=filterState[field+'_ano'];
       d.appendChild(i);
       area.appendChild(d);
     } else if (preset === 'a partir de') {
-      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
-      var i = document.createElement('input'); i.type='date'; i.className='form-control form-control-sm'; i.style.width='auto';
+      var d = document.createElement('div'); d.className = 'inline-flex gap-1 items-center';
+      var i = document.createElement('input'); i.type='date'; i.className='input input-bordered input-sm'; i.style.width='auto';
       i.dataset.field=field; i.dataset.subtype='from';
       if (filterState[field+'_from']) i.value=filterState[field+'_from'];
       d.appendChild(i);
       area.appendChild(d);
     } else if (preset === 'até a data de') {
-      var d = document.createElement('div'); d.className = 'd-inline-flex gap-1 align-items-center';
-      var i = document.createElement('input'); i.type='date'; i.className='form-control form-control-sm'; i.style.width='auto';
+      var d = document.createElement('div'); d.className = 'inline-flex gap-1 items-center';
+      var i = document.createElement('input'); i.type='date'; i.className='input input-bordered input-sm'; i.style.width='auto';
       i.dataset.field=field; i.dataset.subtype='to';
       if (filterState[field+'_to']) i.value=filterState[field+'_to'];
       d.appendChild(i);
@@ -361,14 +361,14 @@ window.pageListFilter = true;
 
       if (type === 'text') {
         group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="input-group input-group-sm" style="width:280px">';
-        var ms = document.createElement('select'); ms.className='form-select form-select-sm'; ms.style.flex='0 0 auto'; ms.style.width='auto';
+        var ms = document.createElement('select'); ms.className='select select-bordered select-sm'; ms.style.flex='0 0 auto'; ms.style.width='auto';
         ms.dataset.field=field; ms.dataset.subtype='mode';
         (cfg.modes||[['igual','Igual a'],['contains','Contém'],['starts','Começa']]).forEach(function(p){
           var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
           if(filterState[field+'_mode']===p[0]) o.selected=true; ms.appendChild(o);
         });
         group.lastChild.appendChild(ms);
-        var i=document.createElement('input'); i.type='text'; i.className='form-control form-control-sm';
+        var i=document.createElement('input'); i.type='text'; i.className='input input-bordered input-sm';
         i.style.flex='1 1 auto'; i.style.minWidth='100px';
         i.dataset.field=field; i.dataset.subtype='value';
         if(filterState[field+'_value']) i.value=filterState[field+'_value'];
@@ -376,7 +376,7 @@ window.pageListFilter = true;
 
       } else if (type === 'number') {
         group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="input-group input-group-sm" style="width:320px">';
-        var ms = document.createElement('select'); ms.className='form-select form-select-sm'; ms.style.flex='0 0 auto'; ms.style.width='auto';
+        var ms = document.createElement('select'); ms.className='select select-bordered select-sm'; ms.style.flex='0 0 auto'; ms.style.width='auto';
         ms.dataset.field=field; ms.dataset.subtype='mode';
         (cfg.modes||[['igual','Igual a'],['entre','Entre'],['maior_que','Maior que'],['maior_igual','Maior ou igual a'],['menor_que','Menor que'],['menor_igual','Menor ou igual a']]).forEach(function(p){
           var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];
@@ -413,7 +413,7 @@ window.pageListFilter = true;
             group.lastChild.appendChild(l);
           });
         }else{
-          var sel=document.createElement('select'); sel.className='form-select form-select-sm'; sel.style.width='auto';
+          var sel=document.createElement('select'); sel.className='select select-bordered select-sm'; sel.style.width='auto';
           sel.dataset.field=field;
           var bo=document.createElement('option'); bo.value=''; bo.textContent='';
           sel.appendChild(bo);
@@ -440,7 +440,7 @@ window.pageListFilter = true;
 
       } else if (type === 'date') {
         group.innerHTML = '<label class="form-label small fw-semibold mb-1">'+label+'</label><div class="d-flex gap-2 align-items-center flex-wrap">';
-        var ps=document.createElement('select'); ps.className='form-select form-select-sm'; ps.style.width='auto'; ps.style.flexShrink='0';
+        var ps=document.createElement('select'); ps.className='select select-bordered select-sm'; ps.style.width='auto'; ps.style.flexShrink='0';
         ps.dataset.field=field; ps.dataset.subtype='preset';
         (cfg.modes||[['hoje','Hoje'],['periodo','Período'],['ontem','Ontem'],['ultimos_7_dias','Últimos 7 dias'],['mes','Mês'],['mes_atual','Mês Atual'],['mes_anterior','Mês Anterior'],['ano','Ano'],['ano_atual','Ano Atual'],['a_partir_de','A partir de'],['ate_a_data_de','Até a data de']]).forEach(function(p){
           var o=document.createElement('option'); o.value=p[0]; o.textContent=p[1];

@@ -1,5 +1,5 @@
 from app.report import Report
-from app.constants import FORMINHAS
+from app.constantes import FORMINHAS
 
 
 def _valor_item(item):
@@ -56,7 +56,7 @@ def _forminhas_carteira(order):
 
 PEDIDO_REPORT = Report(
     label='Pedido',
-    edit_endpoint='orders.form',
+    edit_endpoint='pedidos.form',
     header={
         'layout': 'logo_left',
         'title': 'Pedido #{id}',

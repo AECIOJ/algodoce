@@ -9,8 +9,6 @@ from app.extensions import db, migrate, login_manager
 from flask_migrate import upgrade
 import sqlalchemy as sa
 
-from app.utils import fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, deep_attr
-
 _tunnel_url = None
 _tunnel_url_ts = 0
 TUNNEL_TTL = 3300
@@ -46,6 +44,7 @@ def _bg_fetch_tunnel():
 
 def create_app():
     app = Flask(__name__)
+
     app.config.from_object(Config)
 
     threading.Thread(target=_bg_fetch_tunnel, daemon=True).start()
@@ -56,8 +55,6 @@ def create_app():
         db,
         directory=os.path.join(os.path.dirname(__file__), "migrations"),
     )
-    from app.engine.auth import init_auth
-    init_auth(app)
 
     from app.models.user import User
 
@@ -93,38 +90,34 @@ def create_app():
         from app.models.ingredient import Ingredient
         from app.models.quote import Quote
         from app.models.previsao import Previsao
+        from app.models.product_ingredient import ProductIngredient
+        from app.models.unit_conversion import UnitConversion
 
-        from app.list import register_model
+        from app.ajsystem.list import register_model
 
         from app.routes.sys import categorias, produtos, insumos, pedidos, compras, contas
         from app.routes.sys import producao, operacoes, recursos, transacao, movimentos
-        from app.routes.sys import transferencias, api, orcamentos, relatorios, carteira
+        from app.routes.sys import transferencias, api, orcamentos, relatorios, carteiras
         from app.routes.site import publico as site, vitrine, orcamento
         from app.routes import uploads
-        from app.engine.auth_routes import bp as auth, bp_seguranca as seguranca
 
-        app.register_blueprint(contas.bp)
-        app.register_blueprint(produtos.bp)
-        app.register_blueprint(insumos.bp)
         app.register_blueprint(pedidos.bp)
         app.register_blueprint(compras.bp)
-        app.register_blueprint(categorias.bp)
         app.register_blueprint(producao.bp)
-        app.register_blueprint(operacoes.bp)
         app.register_blueprint(recursos.bp)
         app.register_blueprint(transacao.bp)
         app.register_blueprint(movimentos.bp)
         app.register_blueprint(transferencias.bp)
         app.register_blueprint(api.bp)
-        app.register_blueprint(orcamentos.bp)
         app.register_blueprint(relatorios.bp)
-        app.register_blueprint(carteira.bp)
-        app.register_blueprint(auth)
         app.register_blueprint(site.bp)
         app.register_blueprint(uploads.bp)
         app.register_blueprint(vitrine.bp)
         app.register_blueprint(orcamento.bp)
-        app.register_blueprint(seguranca)
+
+        from app.ajsystem import init_app
+        init_app(app)
+
         register_model('category', Category)
         register_model('conta', Conta)
         register_model('operacao', Operacao)
@@ -137,6 +130,10 @@ def create_app():
         register_model('movto', Movto)
         register_model('recurso_trf', Trf)
         register_model('carteira', Carteira)
+        register_model('quote_item', QuoteItem)
+        register_model('event', Event)
+        register_model('product_ingredient', ProductIngredient)
+        register_model('unit_conversion', UnitConversion)
 
         try:
             upgrade()
@@ -166,19 +163,6 @@ def create_app():
     app.jinja_env.policies['json.dumps_kwargs'] = {'sort_keys': False}
     app.jinja_env.finalize = lambda x: 'Sim' if x is True else 'Não' if x is False else '' if x is None else x
 
-    app.jinja_env.filters['deep_attr'] = deep_attr
-    app.jinja_env.filters['brl'] = fmt_brl
-    app.jinja_env.filters['fmtid'] = fmt_id
-    app.jinja_env.filters['fmtzero'] = fmt_zero
-    app.jinja_env.filters['fmtzeroi'] = fmt_zero_int
-    app.jinja_env.filters['fmtdate'] = fmt_date
-    app.jinja_env.filters['fmtdatetime'] = fmt_datetime
-    from app.list import fields_to_columns, field_filter_options, field_grid, get_field
-    app.jinja_env.filters['fields_to_columns'] = fields_to_columns
-    app.jinja_env.filters['field_filter_options'] = field_filter_options
-    app.jinja_env.filters['field_grid'] = field_grid
-    app.jinja_env.globals['get_field'] = get_field
-
     @app.context_processor
     def inject_globals():
         from datetime import date
@@ -205,13 +189,26 @@ def create_app():
         usuario = (current_user.username if current_user.is_authenticated else "Visitante").upper()
         return dict(versao=versao, usuario=usuario)
 
+    def tema_atual():
+        from app.routes.app_defs import Temas, APP as _APP
+        nome = _APP.get('tema') or next(iter(Temas))
+        if nome not in Temas:
+            nome = next(iter(Temas))
+        return nome
+
     @app.context_processor
     def inject_app_config():
         import json
-        from app.routes.app_defs import APP
-        from app.engine.menu import modulo_atual, menus_para_json
+        from app.routes.app_defs import APP, Temas
+        from app.ajsystem.engine.menu import modulo_atual, menus_para_json
+        tema_nome = tema_atual()
+        tema = dict(Temas[tema_nome])
+        tema.setdefault('base', tema_nome)
         return {
             'APP': APP,
+            'TEMA': tema,
+            'TEMAS': Temas,
+            'TEMA_NOME': tema_nome,
             'modulo': modulo_atual(),
             'modulo_menus_json': json.dumps(menus_para_json()),
         }
@@ -224,7 +221,7 @@ def create_app():
 
     @app.context_processor
     def inject_buttons():
-        from app.buttons import (
+        from app.ajsystem.buttons import (
             BTN_SALVAR, BTN_ENVIAR, BTN_EXCLUIR, BTN_NOVO, BTN_VOLTAR,
             BTN_EDITAR, BTN_CANCELAR, BTN_CONVERTER, BTN_LISTA,
             BTN_IMPRIMIR, BTN_DETALHES, BTN_ADICIONAR, BTN_ADICIONAR_ITEM,

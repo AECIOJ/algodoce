@@ -1,0 +1,28 @@
+{% macro heroicon(name, class="w-5 h-5") %}
+<svg class="{{ class }}" aria-hidden="true">
+  <use href="#i-{{ name }}"/>
+</svg>
+{% endmacro %}
+
+{% macro btn(button, url, extra_class='') %}
+{% set btn_cls = button.cls if button.cls else 'btn-' + button.color + ' btn-' + button.size + (' btn-outline' if button.outline else '') %}
+<a href="{{ url }}" class="btn {{ btn_cls }} {{ extra_class }} inline-flex items-center gap-1">
+  {% if button.icon %}{{ heroicon(button.icon, 'w-4 h-4') }}{% endif %}
+  {{ button.label }}
+</a>
+{% endmacro %}
+
+{% macro confirm_modal(modal) %}
+<dialog id="confirm-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="text-lg font-bold">{{ modal.title }}</h3>
+    <p class="py-4">{{ modal.message }}</p>
+    <div class="modal-action">
+      <form method="dialog">
+        <button class="btn btn-ghost btn-sm">{{ modal.cancel_label }}</button>
+      </form>
+      <button id="confirm-btn" class="btn btn-{{ modal.confirm_color }} btn-sm">{{ modal.confirm_label }}</button>
+    </div>
+  </div>
+</dialog>
+{% endmacro %}

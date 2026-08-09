@@ -14,13 +14,13 @@ def index():
 @bp.route("/sistema")
 @login_required
 def sistema():
-    return render_template("components/page_sys.html")
+    return render_template("index.html")
 
 
 @bp.route("/admin")
 @login_required
 def admin():
-    return render_template("admin/page_admin.html")
+    return render_template("index.html")
 
 
 @bp.route("/sobre")
@@ -28,9 +28,9 @@ def sobre():
     content = render_pagina("sobre")
     if content is None:
         abort(404)
-    return render_template("site/sobre.html", content=content)
+    return render_template("index.html")
 
 
 @bp.route("/contato")
 def contato():
-    return render_template("site/contato.html")
+    return render_template("index.html")

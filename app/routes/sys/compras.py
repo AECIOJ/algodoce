@@ -12,11 +12,11 @@ from app.models.client import Conta
 from app.models.ingredient import Ingredient
 from app.models.compra_item import CompraItem
 from app.models.movto import Movto
-from app.constants import PREVISAO_STATUS, COMPRA_STATUS
+from app.constantes import PREVISAO_STATUS, COMPRA_STATUS
 from app.models.carteira import Carteira
 from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter
 from app.utils import LinhaTransacao
-from app.list import build_field_context, build_filter_config, List
+from app.ajsystem.list import build_field_context, build_filter_config, List
 from app.pdf import gerar_pdf_relatorio
 from app.models.compra_historico import CompraHistorico
 
@@ -92,12 +92,7 @@ def list():
     total_saldo = sum(l.saldo for l in linhas)
     _list = List(**compras_list)
     ctx = build_field_context(_list.master_fields)
-    return render_template(
-        "sys_compras/list.html", linhas=linhas, total_saldo=total_saldo,
-        COMPRAS_LIST=_list, ctx=ctx,
-        PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
-        active_filters=active, FILTERS=filter_config,
-    )
+    return render_template("index.html")
 
 
 @bp.route("/novo", methods=["GET", "POST"])
@@ -175,13 +170,7 @@ def new():
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     carteiras = Carteira.query.filter(Carteira.uso.in_([1, 2])).order_by(Carteira.nome).all()
-    return render_template(
-        "sys_compras/form.html", contas=contas,
-        insumos=insumos, carteiras=carteiras,
-        hoje=date.today(), COMPRA_STATUS=COMPRA_STATUS,
-        submitted_data=None, submitted_previsoes=None,
-        compra=None,
-    )
+    return render_template("index.html")
 
 
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
@@ -371,25 +360,14 @@ def edit(id):
     carteiras = Carteira.query.filter(Carteira.uso.in_([1, 2])).order_by(Carteira.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes] if transacao else []
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
-    return render_template(
-        "sys_compras/form.html", transacao=transacao, compra=compra,
-        contas=contas, insumos=insumos,
-        carteiras=carteiras,
-        PREVISAO_STATUS=PREVISAO_STATUS, COMPRA_STATUS=COMPRA_STATUS,
-        submitted_data=None, submitted_previsoes=None, nav=nav,
-        movimentos=movimentos, tipo_nome="Pagamento",
-    )
+    return render_template("index.html")
 
 
 @bp.route("/<int:id>/print")
 def print_compra(id):
     compra = Compra.query.get_or_404(id)
     from app.reports.rep_compra import COMPRA_REPORT
-    return render_template(
-        COMPRA_REPORT.print_template,
-        fallback_url=url_for(COMPRA_REPORT.edit_endpoint, id=compra.id),
-        pdf_url=url_for('compras.pdf_compra', id=compra.id),
-    )
+    return render_template("index.html")
 
 
 @bp.route("/<int:id>/pdf")

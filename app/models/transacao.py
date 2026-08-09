@@ -30,7 +30,7 @@ class Transacao(db.Model):
 
     @property
     def status_label(self):
-        from app.constants import PREVISAO_STATUS
+        from app.constantes import PREVISAO_STATUS
         return PREVISAO_STATUS.get(self.status, "")
 
     @property

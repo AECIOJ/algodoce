@@ -69,7 +69,7 @@ Cada rota sys_*.py declara:
 """
 from sqlalchemy import text
 
-from app.constants import CONECTORES
+from app.constantes import CONECTORES
 
 from dataclasses import dataclass, field
 from typing import Any, Optional, Callable, Union
@@ -217,10 +217,6 @@ class Field:
                 w += 1
             return w
         return {'boolean': 6, 'checkbox': 6, 'number': 12, 'date': 12, 'image': 12}.get(self.input, 18)
-
-    @property
-    def form_edit(self) -> bool:
-        return self.edit is True
 
 
 FIELD_DEFAULTS = {

@@ -15,7 +15,12 @@
 {% if field.min is not none %}{% set num_str = num_str ~ ' min="' ~ field.min ~ '"' %}{% endif %}
 {% if field.max is not none %}{% set num_str = num_str ~ ' max="' ~ field.max ~ '"' %}{% endif %}
 {% set step_val = field.step if field.step is not none else (0.1 ** field.decimals if field.decimals is not none else 'any') %}
-{% if field.input == 'select' %}
+{% if field.hidden %}
+<input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
+{% elif field.readonly %}
+{{ render_label(field, data) }}
+<input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
+{% elif field.input == 'select' %}
   <select name="{{ ns }}" class="select select-bordered select-sm" {{ req }} {{ dis }} {{ attr_str|safe }}{% if field.query is string and field.query %} data-model="{{ field.query }}"{% endif %}{% if field.on_set %} data-onset-ent="{{ field.on_set_ent }}" data-onset-fk="{{ field.name }}"{% if field.on_set_mod %} data-onset-mod="{{ field.on_set_mod }}"{% endif %}{% endif %}>
     <option value="">Selecione...</option>
     {% if field.options %}
@@ -234,7 +239,7 @@
 {% set _fields = fields %}
 {% endif %}
 {% if spacing is none %}{% set spacing = 2 %}{% endif %}
-{% set _visible = _fields | selectattr('edit') | list %}
+{% set _visible = _fields | selectattr('in_form') | list %}
 <div class="flex flex-wrap items-start" style="gap:{{ spacing }}ch; padding-left:{{ spacing }}ch;">
 {% set _widths = [] %}
 {% for _f in _visible %}
@@ -254,6 +259,9 @@
 {% set _next = _widths[_idx + 1] + spacing if _idx + 1 < _visible | length else 0 %}
 {% set _reserve = _prev + _next %}
 {% endif %}
+{% if field.hidden %}
+{{ render_field(field, data, ro, name_prefix=name_prefix) }}
+{% else %}
 <div {% if field.input == 'textarea' %}style="flex-basis:max({{ _cwidth }}ch,calc(100% - {{ _reserve }}ch));flex-grow:1;flex-shrink:1;min-width:0;"{% else %}style="min-width:{{ _cwidth }}ch;flex:none;"{% endif %}>
   {% if _is_check %}
   <div class="pt-[1.35rem]">{{ render_field(field, data, ro, name_prefix=name_prefix) }}</div>
@@ -263,6 +271,7 @@
   {% if field.help %}<p class="text-xs text-gray-500 mt-0.5">{{ field.help }}</p>{% endif %}
   {% endif %}
 </div>
+{% endif %}
 {% endfor %}
 </div>
 {% endmacro %}

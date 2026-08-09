@@ -1,8 +1,5 @@
 {% extends "components/layout_page.html" %}
 
-{% block layout_attrs %}x-data="listPage()"{% endblock %}
-
-{% block page_layout_header %}
 {% set cols = LIST.master_fields | fields_to_columns %}
 {% set edit_endpoint = LIST.edit_endpoint %}
 {% set edit_id_field = LIST.edit_id_field if LIST.edit_id_field is not none else 'id' %}
@@ -10,6 +7,15 @@
 {% set has_card = LIST.linha is not none or (card_fields is not none and card_fields) or (detail_fields is not none and detail_data is not none) %}
 {% set exp_ch = 3 if has_card else 0 %}
 {% set tot_ch = (cols | sum(attribute='width')) + act_ch + exp_ch %}
+{% set card_cols = (card_fields | fields_to_columns) if card_fields else [] %}
+{% set det_cols = (detail_fields | fields_to_columns) if detail_fields else [] %}
+
+{% block layout_attrs %}x-data="listPage()"{% endblock %}
+
+{% block page_container_class %} w-full{% endblock %}
+{% block page_container_style %}{% endblock %}
+
+{% block page_layout_header %}
 
 <script>
 function listPage() {
@@ -80,41 +86,35 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endif %}
 </script>
 
-<div style="display:flex;flex-direction:column;align-items:center;background:#fff;border-bottom:1px solid #dee2e6;">
-<div class="page-list-header flex-shrink-0 d-flex align-items-center px-2 py-1 gap-2"
-     style="min-width:{{ tot_ch }}ch;width:100%;flex-wrap:wrap;">
-  <h2 class="mb-0 fs-5 fs-lg-4 flex-shrink-0 d-none d-lg-block">{{ title }}</h2>
-  <ul class="nav nav-underline mb-0 flex-shrink-0">
-    <li class="nav-item"><button class="nav-link" :class="{ active: tab === 'dados' }" @click="tab = 'dados'" type="button" role="tab">Dados</button></li>
-    <li class="nav-item"><button class="nav-link" :class="{ active: tab === 'filtros' }" @click="tab = 'filtros'" type="button" role="tab">Filtros</button></li>
-    <li class="nav-item d-none"><button class="nav-link disabled" type="button" role="tab">Relatórios</button></li>
-  </ul>
-  <div class="ms-auto d-flex align-items-center gap-1 flex-shrink-0">
-    {% if new_url %}
-    <a href="{{ new_url }}" class="btn btn-success btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-plus-lg"></i> Novo</a>
-    {% endif %}
+<div class="bg-white border-b border-gray-200 flex lg:justify-center app-bar"
+     style="--list-tot-ch: {{ tot_ch }}ch;min-height:var(--bar-h);">
+  <div class="page-list-header gap-2 flex-wrap flex items-center">
+    <div role="tablist" class="tabs tabs-bordered">
+      <button role="tab" class="tab rounded-t-lg"
+              :class="{ 'tab-active font-semibold': tab === 'dados' }"
+              @click="tab = 'dados'" type="button">Dados</button>
+      <button role="tab" class="tab rounded-t-lg"
+              :class="{ 'tab-active font-semibold': tab === 'filtros' }"
+              @click="tab = 'filtros'" type="button">Filtros</button>
+    </div>
+    <div class="flex items-center gap-1 flex-wrap justify-end ml-auto">
+      {% block page_list_header_extra %}{% endblock %}
+      {% if new_url %}
+      <a href="{{ new_url }}" class="btn btn-success btn-sm inline-flex items-center gap-1 shrink-0">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Novo
+      </a>
+      {% endif %}
+    </div>
   </div>
-</div>
 </div>
 {% endblock %}
 
 {% block page_layout_body %}
-{% set cols = LIST.master_fields | fields_to_columns %}
-{% set edit_endpoint = LIST.edit_endpoint %}
-{% set edit_id_field = LIST.edit_id_field if LIST.edit_id_field is not none else 'id' %}
-{% set act_ch = 14 if edit_endpoint else 0 %}
-{% set has_card = LIST.linha is not none or (card_fields is not none and card_fields) or (detail_fields is not none and detail_data is not none) %}
-{% set exp_ch = 3 if has_card else 0 %}
-{% set tot_ch = (cols | sum(attribute='width')) + act_ch + exp_ch %}
-{% set card_cols = (card_fields | fields_to_columns) if card_fields else [] %}
-{% set det_cols = (detail_fields | fields_to_columns) if detail_fields else [] %}
-
-<div style="display:flex;flex-direction:column;align-items:center;">
-<div class="page-list-inner" style="min-width:{{ tot_ch }}ch;width:100%;">
-
-  <div x-show="tab === 'dados'" style="width:100%;">
-    <table class="table table-sm sortable" style="background:#fff;width:100%;">
-      <thead style="position:sticky;top:0;z-index:2;">
+<div class="flex flex-col items-center">
+<div class="page-list-inner">
+  <div x-show="tab === 'dados'" style="min-width:{{ tot_ch }}ch;width:fit-content;">
+    <table class="table table-sm table-pin-rows sortable" style="background:#fff;">
+      <thead>
         <tr>
           {% if has_card %}<th style="width:{{ exp_ch }}ch;"></th>{% endif %}
           {% for col in cols %}
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
             {% elif col.currency and _raw is not none %}
               {{ _raw|brl }}
             {% elif col.input == 'image' and _raw %}
-              <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:60px;cursor:pointer;" onclick="previewImagem(this.src)">
+              <img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="border rounded" style="max-height:60px;cursor:pointer;" onclick="previewImagem(this.src)">
             {% elif col.input in ('boolean', 'checkbox') and _raw is not none %}
               {{ 'Sim' if _raw else 'Não' }}
             {% elif _raw is not none %}
@@ -155,9 +155,9 @@ document.addEventListener('DOMContentLoaded', function() {
           {% if edit_endpoint %}
           <td>
             <a href="{{ url_for(edit_endpoint, id=_item_id) }}"
-               class="text-decoration-none d-inline-flex align-items-center gap-1 text-nowrap action-edit-link">
-              <img src="{{ url_for('static', filename='icons/pencil.svg') }}" alt="" height="14">
-              <small style="font-size:0.65rem;">Editar</small>
+               class="no-underline inline-flex items-center gap-1 text-nowrap action-edit-link">
+              <svg class="w-4 h-4" aria-hidden="true"><use href="#i-pencil-square"/></svg>
+              <span class="text-xs">Editar</span>
             </a>
           </td>
           {% endif %}
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
               <div data-field="{{ col.field }}" class="overflow-field">
                 <div class="overflow-label">{{ col.label }}</div>
                 <div class="overflow-value">
-                  {% if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
+                  {% if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
                 </div>
               </div>
               {% endif %}
@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
               <div data-field="{{ col.field }}" class="overflow-field">
                 <div class="overflow-label">{{ col.label }}</div>
                 <div class="overflow-value">
-                  {% if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="img-thumbnail" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
+                  {% if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for('uploads.uploaded_file', filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
                 </div>
               </div>
               {% endfor %}
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     {% set _raw = sub|deep_attr(dcol.card_path or dcol.field) %}
                     <div class="carousel-field">
                       <span class="carousel-value">
-                      {% if dcol.function %}{{ dcol.function(sub) }}{% elif dcol.options and _raw is not none %}{{ dcol.options.get(_raw, _raw) }}{% elif dcol.currency and _raw is not none %}{{ _raw|brl }}{% elif dcol.link and _raw is not none %}<a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
+                      {% if dcol.function %}{{ dcol.function(sub) }}{% elif dcol.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif dcol.currency and _raw is not none %}{{ _raw|brl }}{% elif dcol.link and _raw is not none %}<a href="{{ url_for(dcol.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif %}
                       </span>
                     </div>
                     {% endfor %}
@@ -227,47 +227,47 @@ document.addEventListener('DOMContentLoaded', function() {
         </tr>
         {% endif %}
         {% else %}
-        <tr><td colspan="{{ cols|length + (1 if edit_endpoint else 0) + (1 if has_card else 0) }}" class="text-center text-muted py-3">Nenhum registro encontrado.</td></tr>
+        <tr><td colspan="{{ cols|length + (1 if edit_endpoint else 0) + (1 if has_card else 0) }}" class="text-center text-gray-500 py-3">Nenhum registro encontrado.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-  <div x-show="tab === 'filtros'" style="width:100%;">
-    <div class="d-flex flex-column gap-2 p-2">
+  <div x-show="tab === 'filtros'" style="min-width:{{ tot_ch }}ch;width:fit-content;">
+    <div class="flex flex-col gap-2 p-2">
       {% for name, cfg in FILTERS.items() %}
       {% set label = cfg.label or name | capitalize %}
       {% set ftype = cfg.type %}
       <div class="filter-group">
-        <label class="form-label small fw-semibold mb-1">{{ label }}</label>
+        <label class="text-sm font-semibold mb-1 block">{{ label }}</label>
 
         {% if ftype == 'text' %}
-        <div class="input-group input-group-sm">
-          <select class="form-select" style="flex:0 0 auto;width:auto;"
+        <div class="flex gap-1">
+          <select class="select select-bordered select-sm flex-none w-auto"
                   x-model="filters['{{ name }}'].mode">
             {% for val, label_mode in cfg.get('modes', [('igual','Igual a'),('contains','Contém'),('starts','Começa')]) %}
             <option value="{{ val }}">{{ label_mode }}</option>
             {% endfor %}
           </select>
-          <input type="text" class="form-control" x-model="filters['{{ name }}'].value" placeholder="Valor">
+          <input type="text" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].value" placeholder="Valor">
         </div>
 
         {% elif ftype == 'number' %}
-        <div class="input-group input-group-sm" style="flex-wrap:nowrap;">
-          <select class="form-select" style="flex:0 0 auto;width:auto;"
+        <div class="flex gap-1 flex-nowrap">
+          <select class="select select-bordered select-sm flex-none w-auto"
                   x-model="filters['{{ name }}'].mode"
                   @change="filters['{{ name }}'].val2 = ''">
             {% for val, label_mode in cfg.get('modes', [('igual','Igual a'),('entre','Entre'),('maior_que','Maior que'),('maior_igual','Maior ou igual a'),('menor_que','Menor que'),('menor_igual','Menor ou igual a')]) %}
             <option value="{{ val }}">{{ label_mode }}</option>
             {% endfor %}
           </select>
-          <input type="number" class="form-control" x-model="filters['{{ name }}'].val1" placeholder="Valor 1" step="any">
-          <input type="number" class="form-control" x-show="filters['{{ name }}'].mode === 'entre'"
+          <input type="number" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].val1" placeholder="Valor 1" step="any">
+          <input type="number" class="input input-bordered input-sm flex-1" x-show="filters['{{ name }}'].mode === 'entre'"
                  x-model="filters['{{ name }}'].val2" placeholder="Valor 2" step="any">
         </div>
 
         {% elif ftype == 'boolean' %}
-        <select class="form-select form-select-sm" x-model="filters['{{ name }}']">
+        <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}']">
           {% for val, label_mode in cfg.get('modes', [('','Todos'),('true','Sim'),('false','Não')]) %}
           <option value="{{ val }}">{{ label_mode }}</option>
           {% endfor %}
@@ -275,7 +275,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         {% elif ftype == 'select' %}
         {% set _opts = cfg.get('options', {}) %}
-        <select class="form-select form-select-sm" x-model="filters['{{ name }}']">
+        <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}']">
           <option value="">Todos</option>
           {% if _opts is mapping %}
           {% for val, opt_label in _opts.items() %}
@@ -289,20 +289,20 @@ document.addEventListener('DOMContentLoaded', function() {
         </select>
 
         {% elif ftype == 'date' %}
-        <div class="d-flex flex-column gap-1">
-          <select class="form-select form-select-sm" x-model="filters['{{ name }}'].preset">
+        <div class="flex flex-col gap-1">
+          <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}'].preset">
             {% for val, label_mode in cfg.get('modes', []) %}
             <option value="{{ val }}">{{ label_mode }}</option>
             {% endfor %}
           </select>
-          <div class="d-flex gap-1" x-show="filters['{{ name }}'].preset === 'periodo'">
-            <input type="date" class="form-control form-control-sm" x-model="filters['{{ name }}'].from" placeholder="De">
-            <input type="date" class="form-control form-control-sm" x-model="filters['{{ name }}'].to" placeholder="Até">
+          <div class="flex gap-1" x-show="filters['{{ name }}'].preset === 'periodo'">
+            <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].from" placeholder="De">
+            <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].to" placeholder="Até">
           </div>
-          <input type="date" class="form-control form-control-sm"
+          <input type="date" class="input input-bordered input-sm w-full"
                  x-show="filters['{{ name }}'].preset === 'a_partir_de'"
                  x-model="filters['{{ name }}'].from" placeholder="A partir de">
-          <input type="date" class="form-control form-control-sm"
+          <input type="date" class="input input-bordered input-sm w-full"
                  x-show="filters['{{ name }}'].preset === 'ate_a_data_de'"
                  x-model="filters['{{ name }}'].to" placeholder="Até a data de">
         </div>
@@ -310,19 +310,18 @@ document.addEventListener('DOMContentLoaded', function() {
         {% endif %}
       </div>
       {% else %}
-      <div class="text-muted small p-2">Nenhum filtro disponível.</div>
+      <div class="text-gray-500 text-sm p-2">Nenhum filtro disponível.</div>
       {% endfor %}
     </div>
-    <div class="d-flex gap-2 mt-3 bg-white p-2 border-top" id="page-filter-actions">
-      <button type="button" class="btn btn-outline-danger flex-fill d-inline-flex align-items-center gap-1" @click="clearFilters()">
-        <i class="bi bi-x-lg"></i> Limpar
+    <div class="flex gap-2 mt-3 bg-white p-2 border-t" id="page-filter-actions">
+      <button type="button" class="btn btn-outline btn-danger flex-1 inline-flex items-center gap-1" @click="clearFilters()">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-xmark"/></svg> Limpar
       </button>
-      <button type="button" class="btn btn-primary flex-fill d-inline-flex align-items-center gap-1" @click="submitFilters()">
-        <i class="bi bi-funnel"></i> Aplicar
+      <button type="button" class="btn btn-primary flex-1 inline-flex items-center gap-1" @click="submitFilters()">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-funnel"/></svg> Aplicar
       </button>
     </div>
   </div>
 
-</div>
 </div>
 {% endblock %}

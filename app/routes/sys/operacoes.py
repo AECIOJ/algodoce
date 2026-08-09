@@ -1,18 +1,16 @@
 import os
 from io import BytesIO
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, Response, current_app
-from flask_login import login_required
+from flask import render_template, request, redirect, url_for, flash, jsonify, Response, current_app
 from app.extensions import db
 from app.models.operacao import Operacao
-from app.constants import TIPO_OPERACAO, CONECTORES
-from app.form import handle_form
-from app.engine.handle_list import render_list
+from app.constantes import TIPO_OPERACAO, CONECTORES
+from app.ajsystem.engine import auto
 
 
-Entidade = {
+Entity = {
     'Operacao': {
-        'id':     {'type': 'PK', 'width': 6},
-        'indice': {'width': 6, 'filter': False, 'edit': False},
+        'id':     {'type': 'ID', 'width': 6},
+        'indice': {'width': 6, 'filter': False, 'in_form': False},
         'nome':   {'type': 'TEXT', 'width': 20, 'transform': 'title'},
         'tipo':   {'type': 'LIST', 'width': 12, 'list': TIPO_OPERACAO},
         'fator':  {'type': 'INT', 'width': 8},
@@ -20,14 +18,12 @@ Entidade = {
                    'query_filter': {'ativa': True, 'pai_id': None}, 'width': 30,
                    'card_path': 'pai.nome', 'filter_path': 'pai.nome'},
         'ordem':  {'type': 'INT', 'width': 8},
-        'ativa':  {'type': 'BOOL', 'width': 8},
+        'ativa':          {'type': 'BOOL', 'width': 8},
     },
 }
 
-Lista = {
-    'colunas': ['Operacao'],
-    'new_endpoint': 'operacoes.form',
-    'edit_endpoint': 'operacoes.form',
+List = {
+    'fields': 'Operacao',
 }
 
 
@@ -66,33 +62,17 @@ def _operacao_pre_save(instance, request, is_new):
 
 Form = {
     'fields': 'Operacao',
+    'delete': {
+        'when': {Operacao},
+        'msg_ok': 'Operação excluída!',
+        'msg_no': 'Não é possível excluir — existem operações vinculadas.',
+    },
     'pre_save': _operacao_pre_save,
-    'buttons': [
-        {'label': 'Ativar', 'endpoint': 'operacoes.toggle', 'icon': 'bi-toggle-on', 'color': 'success', 'outline': True, 'position': 'nav_right', 'show_if': {'ativa': False}},
-        {'label': 'Desativar', 'endpoint': 'operacoes.toggle', 'icon': 'bi-toggle-off', 'color': 'success', 'outline': True, 'position': 'nav_right', 'show_if': {'ativa': True}},
-    ],
+    'buttons': [{'on_off': {'field': 'ativa'}}],
 }
 
 
-bp = Blueprint("operacoes", __name__, url_prefix="/operacoes")
-
-
-from app.reports.rep_operacao import _build_tree
-
-
-@bp.before_request
-@login_required
-def protect():
-    pass
-
-
-@bp.route("/plano")
-def plano():
-    secoes = _build_tree()
-    return render_template("sys_operacoes/plano.html", secoes=secoes, TIPO_OPERACAO=TIPO_OPERACAO)
-
-
-@bp.route("/")
+@auto.rota("/", endpoint='list')
 def list():
     from app.reports.rep_operacao import _build_tree
     secoes = _build_tree()
@@ -102,58 +82,29 @@ def list():
             op = item["operacao"]
             op.indice = item["indice"]
             op_data.append(op)
+    from app.ajsystem.engine.handle_list import render_list
     return render_list('Operacao', __name__, data=op_data)
 
 
-@bp.route("/novo", defaults={"id": None}, methods=["GET", "POST"])
-@bp.route("/<int:id>/editar", methods=["GET", "POST"])
-def form(id):
-    return handle_form(Form, id)
+@auto.rota("/plano")
+def plano():
+    secoes = _build_tree()
+    return render_template("index.html")
 
 
-@bp.route("/<int:id>/uso")
+@auto.rota("/<int:id>/uso")
 def usage(id):
     qtd = Operacao.query.filter_by(pai_id=id).count()
     return jsonify({"em_uso": qtd > 0, "quantidade": qtd})
 
 
-@bp.route("/<int:id>/excluir", methods=["POST"])
-def delete(id):
-    operacao = Operacao.query.get_or_404(id)
-    usage = Operacao.query.filter_by(pai_id=id).count()
-    if usage > 0:
-        flash(
-            f"Nao e possivel excluir '{operacao.nome}' — {usage} operacao(es) estao vinculadas. "
-            f"Remova os vinculos primeiro.",
-            "danger",
-        )
-        return redirect(url_for("operacoes.form", id=id))
-    db.session.delete(operacao)
-    db.session.commit()
-    flash("Operacao excluida!", "success")
-    return redirect(url_for("operacoes.list"))
-
-
-@bp.route("/<int:id>/toggle")
-def toggle(id):
-    operacao = Operacao.query.get_or_404(id)
-    operacao.ativa = not operacao.ativa
-    db.session.commit()
-    flash("Operacao atualizada!", "success")
-    return redirect(url_for("operacoes.form", id=id))
-
-
-@bp.route("/print")
+@auto.rota("/print")
 def print_operacoes():
     from app.reports.rep_operacao import OPERACAO_REPORT
-    return render_template(
-        OPERACAO_REPORT.print_template,
-        fallback_url=url_for("operacoes.list"),
-        pdf_url=url_for("operacoes.pdf_operacoes"),
-    )
+    return render_template("index.html")
 
 
-@bp.route("/pdf")
+@auto.rota("/pdf")
 def pdf_operacoes():
     from app.reports.rep_operacao import OPERACAO_REPORT
     from app.pdf import gerar_pdf_relatorio

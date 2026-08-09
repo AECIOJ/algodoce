@@ -1,0 +1,14 @@
+{% extends "pages/sys.html" %}
+{% block title %}Página em Construção{% endblock %}
+
+{% block page_content %}
+<div class="flex flex-col items-center justify-center text-center py-20 gap-4">
+  <div class="text-6xl" aria-hidden="true">🚧</div>
+  <h1 class="text-2xl font-bold" style="color:var(--fallback-bc, oklch(var(--bc)));">Página em Construção</h1>
+  <p class="text-sm" style="color:var(--fallback-b3, oklch(var(--b3)));">
+    A página <strong>{{ pagina }}</strong> ainda não foi criada.
+  </p>
+  <a href="{{ url_for('ajsystem.construcao', pagina=pagina) }}"
+     class="btn btn-sm" onclick="return false;" style="display:none;"></a>
+</div>
+{% endblock %}

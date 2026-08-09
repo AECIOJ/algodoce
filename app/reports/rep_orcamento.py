@@ -1,6 +1,6 @@
 from datetime import timedelta
 from app.report import Report
-from app.constants import FORMINHAS
+from app.constantes import FORMINHAS
 
 
 def _valor_item(item):

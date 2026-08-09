@@ -1,3 +1,10 @@
+"""
+DEPRECADO — shim temporário para as rotas que ainda não migraram para o padrão Entity.
+
+As definições base de tipos vivem agora no engine em `app/ajsystem/fields.py`
+(`FIELD_TYPES`, usados via `'type': 'X'` na Entity). As constantes abaixo
+serão removidas quando pedidos/orcamentos/recursos/transacao forem migrados.
+"""
 from app.filters import FILTER_NUMBER, FILTER_DATE, FILTER_BOOLEAN, FILTER_SELECT
 
 INPUT_NUMBER   = {'input': 'number', 'align': 'right'}

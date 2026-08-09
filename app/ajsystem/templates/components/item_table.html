@@ -37,7 +37,8 @@
 {% set _single = true %}
 {% endif %}
 {% set _can_edit = not ro and not _single %}
-{% set _edit_fields = child.fields|selectattr('edit')|list %}
+{% set _edit_fields = child.fields|selectattr('in_form')|rejectattr('hidden')|list %}
+{% set _hidden_fields = child.fields|selectattr('hidden')|list %}
 {% set _calc_fields = child.fields|selectattr('calc')|list %}
 {% set _prefix = 'child_' + _rel + '_' %}
 {% set _totals = _session_totals.get(_rel) if _session_totals is defined else none %}
@@ -67,6 +68,8 @@
           <td{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>
             {% if ro %}
             {{ fm.render_label(f, item) }}
+            {% elif f.readonly %}
+            {{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}
             {% elif f.input == 'multi' %}
             {{ fm.render_multi_ctl(f, item, name_prefix=_prefix + _rid + '_') }}
             {% elif f.input in ('checkbox', 'boolean', 'image') %}
@@ -81,6 +84,9 @@
           {% endfor %}
           {% for f in _calc_fields %}
           <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+          {% endfor %}
+          {% for f in _hidden_fields %}
+          {{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}
           {% endfor %}
           {% if _can_edit %}
           <td class="text-center">
@@ -98,7 +104,9 @@
         <tr id="{{ _rel }}RowTemplate" style="display:none" data-crow="__IDX__">
           {% for f in _edit_fields %}
           <td>
-            {% if f.input == 'multi' %}
+            {% if f.readonly %}
+            {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
+            {% elif f.input == 'multi' %}
             {{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}
             {% elif f.input in ('checkbox', 'boolean', 'image') %}
             {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
@@ -112,6 +120,9 @@
           {% endfor %}
           {% for f in _calc_fields %}
           <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+          {% endfor %}
+          {% for f in _hidden_fields %}
+          {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
           {% endfor %}
           <td class="text-center">
             <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover linha">
@@ -184,6 +195,16 @@
             {% endfor %}
           </tr>
           {% endfor %}
+          {% if _hidden_fields %}
+          <tr style="display:none">
+            <th></th>
+            {% for item in items %}
+            {% set _ref = item|item_ref(items) %}
+            {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
+            <td>{% for f in _hidden_fields %}{{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}{% endfor %}</td>
+            {% endfor %}
+          </tr>
+          {% endif %}
         </tbody>
       </table>
     </div>
@@ -208,6 +229,9 @@
       {% endfor %}
       {% for f in _calc_fields %}
       <td class="itm-cell" data-crow="__IDX__"><span class="it-calc" data-crow="__IDX__" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+      {% endfor %}
+      {% for f in _hidden_fields %}
+      <td style="display:none">{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}</td>
       {% endfor %}
     </div>
     {% endif %}
