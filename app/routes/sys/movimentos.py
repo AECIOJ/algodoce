@@ -14,7 +14,7 @@ from app.models.operacao import Operacao
 from app.models.compra_historico import CompraHistorico
 from app.constantes import TIPO_RECURSO, TIPO_OPERACAO, PREVISAO_STATUS
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
-from app.ajsystem.list import build_field_context, build_filter_config, List
+from app.ajsystem.core.list import build_field_context, build_filter_config, List
 from decimal import Decimal
 
 bp = Blueprint("movimentos", __name__, url_prefix="/movimentos")

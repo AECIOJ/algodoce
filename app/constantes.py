@@ -1,5 +1,5 @@
-from app.ajsystem.constants import CONECTORES
-from app.ajsystem.utils import as_options
+from app.ajsystem.defs.constants import CONECTORES
+from app.ajsystem.core.utils import as_options
 
 
 TIPO_CONTA = {0: "Cliente", 1: "Cliente/Fornecedor", 2: "Fornecedor"}

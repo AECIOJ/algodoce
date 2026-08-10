@@ -1,10 +1,33 @@
+"""Auth — wiring do login manager + rotas de autenticação e painel de segurança.
+
+Agrupa a inicialização (`init_auth`: user_loader, unauthorized_handler e
+timeout de sessão) e os blueprints `auth` (login/logout/keepalive/chave
+diária) e `seguranca` (painel de configurações do sistema).
+
+Contratos consumidos pelo front-end (app/static/js/{auth,login,seguranca}.js):
+  POST /api/login             {username, password}        -> {redirect} | 401 {error}
+  POST /api/login-sistema     {username, password, chave} -> {redirect} | 401 {error}
+  POST /api/login-admin       {username, password, chave} -> {redirect} | 401 {error}
+  GET  /api/admin-config      -> {tem_usuario, tem_senha}
+  POST /api/check-chave       -> {tem: bool}
+  GET  /api/chave-diaria      -> {tem, chave, ordem, label}
+  GET  /api/diaria-opcoes     -> {opcoes: [{valor, label}]}
+  POST /api/keepalive         -> {ok: true}
+  GET  /logout                -> redirect /
+"""
 import os
 import time
 from datetime import datetime
-from flask import Blueprint, request, jsonify, session, redirect, current_app, render_template, flash, url_for
-from flask_login import login_user, logout_user, login_required
-from app.ajsystem.app_config import db, User, Setting, APP
-from app.ajsystem.engine.menu import pagina_home
+from flask import (
+    Blueprint, request, jsonify, session, redirect, current_app,
+    render_template, flash, url_for,
+)
+from flask import request as _req
+from flask_login import (
+    current_user, login_user, logout_user, login_required,
+)
+from app.ajsystem.core.app_config import db, User, Setting, APP, login_manager
+from app.ajsystem.core.menu import pagina_home
 
 bp = Blueprint("auth", __name__)
 bp_seguranca = Blueprint("seguranca", __name__, url_prefix="/seguranca")
@@ -15,6 +38,37 @@ THRESHOLD = 3
 MAX_DELAY = 60
 
 PERMUTACOES = ["AMH", "AHM", "MAH", "MHA", "HAM", "HMA"]
+
+_ROTULOS_CHAVE = {"A": "Ano", "M": "Mês", "H": "Hora"}
+
+
+def init_auth(app):
+    login_manager.init_app(app)
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        return redirect(url_for('site.index'))
+
+    @app.before_request
+    def check_session_timeout():
+        if current_app.config.get('SESSION_TIMEOUT', 0) <= 0:
+            return
+        if not current_user.is_authenticated:
+            return
+        if _req.endpoint in ('auth.keepalive',):
+            return
+        now = time.time()
+        last = session.get('_last_activity')
+        timeout = current_app.config['SESSION_TIMEOUT'] * 60
+        if last and (now - last) > timeout:
+            logout_user()
+            session.clear()
+            return redirect(url_for('site.index'))
+        session['_last_activity'] = now
 
 
 def _gerar_chave(ordem=None):
@@ -61,11 +115,10 @@ def _clear_attempts():
     FAILED_ATTEMPTS.pop(ip, None)
 
 
-@bp.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "GET":
-        return redirect("/")
+# ─── Blueprint auth ────────────────────────────────────────────────────────
 
+@bp.route("/api/login", methods=["POST"])
+def login():
     data = request.get_json(silent=True) or {}
     username = data.get("username", "")
     password = data.get("password", "")
@@ -78,7 +131,7 @@ def login():
         login_user(user, remember=True)
         session['_last_activity'] = time.time()
         _clear_attempts()
-        return jsonify(success=True, redirect=pagina_home(APP['system']))
+        return jsonify(redirect=pagina_home(APP['system']))
 
     _record_failure()
     count, _ = FAILED_ATTEMPTS.get(_get_ip(), (0, 0))
@@ -87,7 +140,7 @@ def login():
         error += f". Tentativa {count}, aguarde {delay}s."
     elif count == THRESHOLD + 1:
         error += ". Próximas tentativas terão atraso progressivo."
-    return jsonify(success=False, error=error), 401
+    return jsonify(error=error), 401
 
 
 @bp.route("/api/login-sistema", methods=["POST"])
@@ -102,20 +155,19 @@ def login_sistema():
     expected_chave_code = Setting.get("painel_chave")
 
     if u != expected_u or p != expected_p:
-        return jsonify(success=False, error="Credenciais inválidas"), 401
+        return jsonify(error="Credenciais inválidas"), 401
 
     if expected_chave_code in PERMUTACOES:
-        esperado = _gerar_chave(expected_chave_code)
-        if c != esperado:
-            return jsonify(success=False, error="Chave inválida"), 401
+        if c != _gerar_chave(expected_chave_code):
+            return jsonify(error="Chave inválida"), 401
 
     user = User.query.filter_by(username=u).first()
     if not user:
-        return jsonify(success=False, error="Usuário não encontrado"), 401
+        return jsonify(error="Usuário não encontrado"), 401
     session.permanent = True
     login_user(user, remember=True)
     _clear_attempts()
-    return jsonify(success=True, redirect=pagina_home(APP['system']))
+    return jsonify(redirect=pagina_home(APP['system']))
 
 
 @bp.route("/api/login-admin", methods=["POST"])
@@ -130,29 +182,24 @@ def login_admin():
     expected_chave_code = os.getenv("ADMIN_KEY", "HMA")
 
     if not u:
-        return jsonify(success=False, error="Usuário obrigatório"), 401
-
+        return jsonify(error="Usuário obrigatório"), 401
     if u != expected_u:
-        return jsonify(success=False, error="Credenciais inválidas"), 401
-
+        return jsonify(error="Credenciais inválidas"), 401
     if expected_p and p != expected_p:
-        return jsonify(success=False, error="Credenciais inválidas"), 401
-
+        return jsonify(error="Credenciais inválidas"), 401
     if expected_chave_code not in PERMUTACOES:
         expected_chave_code = "HMA"
-
-    esperado = _gerar_chave(expected_chave_code)
-    if c != esperado:
-        return jsonify(success=False, error="Chave inválida"), 401
+    if c != _gerar_chave(expected_chave_code):
+        return jsonify(error="Chave inválida"), 401
 
     admin = User.query.first()
     if admin:
         login_user(admin, remember=True)
     session["seguranca_autenticado"] = True
-    return jsonify(success=True, redirect=pagina_home(APP['admin']))
+    return jsonify(redirect=pagina_home(APP['admin']))
 
 
-@bp.route("/api/admin-config", methods=["GET"])
+@bp.route("/api/admin-config")
 def admin_config():
     return jsonify(
         tem_usuario=bool(os.getenv("ADMIN_USERNAME", "")),
@@ -160,10 +207,31 @@ def admin_config():
     )
 
 
-@bp.route("/api/check-chave", methods=["GET"])
+@bp.route("/api/check-chave", methods=["POST"])
 def check_chave():
     ordem = Setting.get("painel_chave")
     return jsonify(tem=ordem in PERMUTACOES)
+
+
+@bp.route("/api/chave-diaria")
+def chave_diaria():
+    ordem = Setting.get("painel_chave")
+    if ordem not in PERMUTACOES:
+        return jsonify(tem=False)
+    now = datetime.now()
+    valores = {"A": str(now.year), "M": f"{now.month:02d}", "H": f"{now.hour:02d}"}
+    chave = "".join(valores[c] for c in ordem)
+    label = "Hoje: " + " ".join(_ROTULOS_CHAVE[c] for c in ordem)
+    label += " → " + " ".join(valores[c] for c in ordem)
+    return jsonify(tem=True, chave=chave, ordem=ordem, label=label)
+
+
+@bp.route("/api/diaria-opcoes")
+def diaria_opcoes():
+    return jsonify(opcoes=[
+        {"valor": p, "label": " ".join(_ROTULOS_CHAVE[c] for c in p)}
+        for p in PERMUTACOES
+    ])
 
 
 @bp.route("/api/keepalive", methods=["POST"])
@@ -179,10 +247,12 @@ def logout():
     logout_user()
     session.clear()
     resp = redirect("/")
-    for name in ["remember_token", current_app.config.get("SESSION_COOKIE_NAME", "session")]:
+    for name in [current_app.config.get("SESSION_COOKIE_NAME", "session"), "remember_token"]:
         resp.set_cookie(name, "", max_age=0, path="/")
     return resp
 
+
+# ─── Blueprint seguranca ───────────────────────────────────────────────────
 
 @bp_seguranca.before_request
 @login_required
@@ -192,7 +262,8 @@ def protect():
 
 @bp_seguranca.route("/", methods=["GET", "POST"])
 def painel():
-    if not session.get("seguranca_autenticado"):
+    autenticado = bool(session.get("seguranca_autenticado"))
+    if not autenticado:
         if request.method == "POST":
             u = request.form.get("username", "")
             p = request.form.get("password", "")
@@ -203,10 +274,15 @@ def painel():
                 flash("Acesso autorizado.", "success")
                 return redirect(url_for("seguranca.painel"))
             flash("Credenciais inválidas.", "danger")
-        return render_template("index.html")
+        return render_template("sys_auth/login.html")
 
     settings = Setting.query.order_by(Setting.key).all()
-    return render_template("index.html")
+    return render_template(
+        "sys_auth/settings.html",
+        settings=settings,
+        permutacoes=PERMUTACOES,
+        codigo_atual=Setting.get("painel_chave"),
+    )
 
 
 @bp_seguranca.route("/salvar", methods=["POST"])
@@ -228,12 +304,3 @@ def sair():
     session.pop("seguranca_autenticado", None)
     flash("Sessão encerrada.", "info")
     return redirect(url_for("seguranca.painel"))
-
-
-@bp_seguranca.route("/api/chave", methods=["POST"])
-def verificar_chave():
-    data = request.get_json(silent=True) or {}
-    chave = data.get("chave", "")
-    if chave and chave == _gerar_chave():
-        return jsonify(ok=True)
-    return jsonify(ok=False), 401

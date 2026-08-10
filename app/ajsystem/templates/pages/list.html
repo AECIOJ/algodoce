@@ -69,9 +69,14 @@
         <button role="tab" class="tab rounded-t-lg"
                 :class="{ 'tab-active font-semibold': tab === 'dados' }"
                 @click="tab = 'dados'" type="button">Dados</button>
-        <button role="tab" class="tab rounded-t-lg"
+        <button role="tab" class="tab rounded-t-lg inline-flex items-center gap-1"
                 :class="{ 'tab-active font-semibold': tab === 'filtros' }"
-                @click="tab = 'filtros'" type="button">Filtros</button>
+                @click="tab = 'filtros'" type="button">
+          {%- if active_filters -%}
+          {{ heroicon('funnel', 'w-4 h-4') }}
+          {%- endif -%}
+          Filtros
+        </button>
       </div>
       <div class="flex items-center gap-1 flex-wrap justify-end ml-auto">
         {% block page_list_header_extra %}{% endblock %}
@@ -195,13 +200,7 @@
           {% set label = cfg.label or name | capitalize %}
           {% set ftype = cfg.type %}
           <div class="filter-group">
-            <label class="text-sm font-semibold mb-1 block">
-              {%- if name in active_filters -%}
-              <span class="inline-flex items-center gap-1 text-nowrap">{{ heroicon('funnel', 'w-4 h-4') }}{{ label }}</span>
-              {%- else -%}
-              {{ label }}
-              {%- endif -%}
-            </label>
+            <label class="text-sm font-semibold mb-1 block">{{ label }}</label>
             {% if ftype == 'text' %}
             <div class="flex gap-1">
               <select class="select select-bordered select-sm flex-none w-auto" x-model="filters['{{ name }}'].mode">

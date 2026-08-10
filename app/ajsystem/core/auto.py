@@ -18,9 +18,9 @@ import unicodedata
 from flask import Blueprint, redirect, url_for, flash
 from flask_login import login_required
 
-from app.ajsystem.app_config import db
-from app.ajsystem.engine.handle_list import render_list
-from app.ajsystem.form import handle_form, _resolve_delete, _when_allows, _resolve_label
+from app.ajsystem.core.app_config import db
+from app.ajsystem.handles.render_list import render_list
+from app.ajsystem.core.form import handle_form, _resolve_delete, _when_allows, _resolve_label
 
 # registro de rotas custom declaradas com @auto.rota, indexado por nome de módulo
 _ROTAS = {}

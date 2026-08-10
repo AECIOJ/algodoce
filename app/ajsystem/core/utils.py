@@ -3,7 +3,7 @@
 Reutilizados por templates (filtros Jinja) e pelo motor de listagem/formulário.
 Não dependem de modelos nem da aplicação host.
 """
-from app.ajsystem.constants import CONECTORES
+from app.ajsystem.defs.constants import CONECTORES
 
 
 def as_options(items):
@@ -49,11 +49,55 @@ def deep_attr(obj, path):
     return obj
 
 
+def _iter_path_leaves(obj, path):
+    """Gera os valores nas folhas de `path` (ex.: 'items.quantidade'),
+    percorrendo coleções encontradas pelo caminho."""
+    if obj is None or not path:
+        return
+    parts = path.split('.')
+
+    def walk(node, i):
+        if node is None:
+            return
+        if i == len(parts):
+            yield node
+            return
+        if isinstance(node, (list, tuple, set)):
+            for child in node:
+                yield from walk(child, i)
+            return
+        if isinstance(node, dict):
+            val = node.get(parts[i])
+        else:
+            val = getattr(node, parts[i], None)
+        yield from walk(val, i + 1)
+
+    yield from walk(obj, 0)
+
+
+def field_value(field, item):
+    """Valor de um campo para `item`: resolve campos derivados
+    (`{'sum': 'caminho'}` = soma das folhas) senão acesso aninhado."""
+    derived = getattr(field, 'derived', None)
+    if derived:
+        path = derived.get('sum')
+        if not path:
+            return None
+        total = None
+        for v in _iter_path_leaves(item, path):
+            if v is None:
+                continue
+            total = (v if total is None else total + v)
+        return total
+    return deep_attr(item, getattr(field, 'name', '') or '')
+
+
 def item_ref(item, siblings):
     """Identificador curto do registro para cabeçalhos de coluna (tabela
     transposta): usa a(s) coluna(s) da chave primária que variam entre os
-    itens irmãos. Ex.: ProductIngredient -> ingredient_id; OrderItem -> id.
-    Retorna None quando não há como identificar (item novo/sem pk)."""
+    itens irmãos. Ex.: linha filha usa a FK para o pai; item de linha usa o
+    próprio `id`. Retorna None quando não há como identificar (item novo/sem
+    pk)."""
     if item is None:
         return None
     if isinstance(item, dict):

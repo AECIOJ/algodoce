@@ -15,7 +15,7 @@ from app.models.producao_produto import ProducaoProduto
 
 from app.constantes import ORDER_STATUS, PRODUCAO_STATUS, PRODUCAO_ETAPAS
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter
-from app.ajsystem.list import build_field_context, build_filter_config, List
+from app.ajsystem.core.list import build_field_context, build_filter_config, List
 
 
 PRODUCAO_FIELDS = {

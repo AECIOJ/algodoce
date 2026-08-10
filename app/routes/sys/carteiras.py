@@ -1,6 +1,6 @@
 from flask import flash
 
-from app.ajsystem.form import em_uso
+from app.ajsystem.core.form import em_uso
 from app.models.carteira import Carteira
 from app.models.compra import Compra
 from app.models.order import Order
@@ -13,8 +13,8 @@ Entity = {
         'nome':               {'type': 'TEXT', 'width': 50, 'transform': 'title'},
         'uso':                {'type': 'LIST', 'width': 10, 'list': {0: 'Pedido', 1: 'Ambos', 2: 'Compra'}},
         'gerar':              {'type': 'LIST', 'width': 10, 'list': {0: 'Movimento', 1: 'Previsão'}},
-        'prazo_recebimento':  {'type': 'INT', 'width': 5},
-        'taxa_recebimento':   {'type': 'NUM', 'width': 8},
+        'prazo_recebimento':  {'type': 'INT', 'label': 'Prazo', 'width': 5},
+        'taxa_recebimento':   {'type': 'NUM', 'label': 'Taxa', 'width': 8},
     },
 }
 

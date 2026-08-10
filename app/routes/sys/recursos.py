@@ -4,8 +4,8 @@ from app.extensions import db
 from app.models.recurso import Recurso
 from app.constantes import TIPO_RECURSO
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter
-from app.ajsystem.list import build_field_context, build_filter_config, List
-from app.form import Form, handle_form
+from app.ajsystem.core.list import build_field_context, build_filter_config, List
+from app.ajsystem.core.form import Form, handle_form
 from app.fields import FIELD_ID, FIELD_NOME, FIELD_TIPO, FIELD_VALOR, FIELD_DATA
 
 

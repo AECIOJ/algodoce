@@ -1,5 +1,9 @@
-"""Shim de compatibilidade: filtros do framework agora vivem em app.ajsystem.filters."""
-from app.ajsystem.filters import (  # noqa: F401
+"""Shim de compatibilidade: filtros do framework agora vivem em app.ajsystem.
+
+Constantes FILTER_* em `app.ajsystem.defs.filters`; comportamento em
+`app.ajsystem.core.filters`.
+"""
+from app.ajsystem.defs.filters import (  # noqa: F401
     FILTER_TEXT,
     FILTER_NUMBER,
     FILTER_DATE,
@@ -10,6 +14,8 @@ from app.ajsystem.filters import (  # noqa: F401
     MODE_DATE,
     MODE_BOOLEAN,
     MODE_SELECT,
+)
+from app.ajsystem.core.filters import (  # noqa: F401
     build_fk_options,
     resolve_filters,
     filtrar_vencimento,

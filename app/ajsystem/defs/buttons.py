@@ -88,7 +88,7 @@ BTN_ACESSAR = Button(label='Acessar', color='danger', outline=False, cls='btn-da
 
 
 # ── Registro nomeado de ações (Form.buttons / List) ──
-# Resolução em app.ajsystem.form: um nome resolve para o default abaixo.
+# Resolução em app.ajsystem.core.form: um nome resolve para o default abaixo.
 # Endpoint e campo booleano são derivados por convenção
 # (endpoint = '<blueprint>.toggle', campo default 'ativo').
 ACTIONS = {

@@ -82,7 +82,7 @@
 {% endmacro %}
 
 {% macro render_label(field, data=none, ro=false) %}
-{% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
+{% set val = (field_value(field, data) if (field.derived is defined and field.derived) else (data|deep_attr(field.name))) if data is not none else (field.default() if field.default is callable else field.default) %}
 {% if field.input == 'image' and val %}
 <img src="{{ url_for(aj_uploads_endpoint(), filename=val) }}" style="max-height:60px;" class="border rounded" onclick="previewImagem(this.src)">
 {% elif field.input in ('boolean', 'checkbox') %}
@@ -113,7 +113,7 @@
     {{ _ns.nome if _ns.nome else val }}
   {% endif %}
 {% elif val is not none %}
-  {% if val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
+  {% if field.currency %}{{ val|brl }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
 {% else %}—
 {% endif %}
 {% endmacro %}
@@ -209,7 +209,11 @@
 
 {% macro render_child_table(instance, child, ro=false) %}
 {% import "components/item_table.html" as itb with context %}
+{% if child.query and child.groups is defined and child.groups is not none %}
+{{ itb.item_table_grouped(instance, child, ro) }}
+{% else %}
 {{ itb.item_table_edit(instance, child, ro) }}
+{% endif %}
 {% endmacro %}
 
 {% macro render_action_buttons(actions, instance) %}

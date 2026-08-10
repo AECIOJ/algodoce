@@ -3,7 +3,7 @@ import unicodedata
 from flask import Blueprint, url_for, request, current_app
 from flask_login import current_user
 
-from app.ajsystem.app_config import APP
+from app.ajsystem.core.app_config import APP
 
 
 def _normalizar_slug(label: str) -> str:

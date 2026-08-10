@@ -1,13 +1,13 @@
 """Helpers da aplicação.
 
-Os helpers genéricos foram movidos para o framework (app.ajsystem.utils);
+Os helpers genéricos foram movidos para o framework (app.ajsystem.core.utils);
 este módulo re-exporta os usados pelas rotas e mantém os específicos do app.
 """
 import os
 import markdown
 from datetime import datetime
 
-from app.ajsystem.utils import (  # noqa: F401
+from app.ajsystem.core.utils import (  # noqa: F401
     parse_brl,
     fmt_id,
     fmt_brl,

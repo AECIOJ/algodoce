@@ -5,8 +5,8 @@ from app.models.product_ingredient import ProductIngredient
 from app.models.order_item import OrderItem
 from app.models.quote_item import QuoteItem
 from app.constantes import PRODUCAO_ETAPAS, UND_LIST
-from app.ajsystem.form import _delete_uploaded, pesquise
-from app.ajsystem.engine import auto
+from app.ajsystem.core.form import _delete_uploaded, pesquise
+from app.ajsystem.core import auto
 
 
 def insumo_on_set(row):
@@ -25,12 +25,12 @@ Entity = {
     'Product': {
         'id':          {'type': 'ID', 'width': 6},
         'nome':        {'type': 'TEXT', 'width': 20, 'transform': 'title'},
-        'preco':       {'type': 'NUM', 'required': True, 'currency': True},
+        'preco':       {'type': 'NUM', 'label': 'Preço', 'required': True, 'currency': True},
         'qtd_minima':  {'type': 'INT', 'label': 'Qtd. Mínima', 'min': 0, 'step': 1},
-        'category_id': {'type': 'FK', 'width': 12},
-        'ativo': {'type': 'BOOL', 'in_form': False},
+        'category_id': {'type': 'FK', 'label': 'Categoria', 'width': 12},
+        'ativo':       {'type': 'BOOL', },
         'imagem':      {'type': 'IMAGE'},
-        'descricao':   {'type': 'MEMO', 'rows': 4, 'in_list': 2},
+        'descricao':   {'type': 'MEMO', 'label': 'Descrição', 'rows': 4, 'in_list': 2},
     },
     'ProductIngredient': {
         'product_id':      {'type': 'DK'},
@@ -87,7 +87,7 @@ def usage(id):
 
 @auto.rota("/<int:id>/excluir", methods=["POST"], endpoint='delete')
 def delete(id):
-    from app.ajsystem.form import can_delete
+    from app.ajsystem.core.form import can_delete
     product = Product.query.get_or_404(id)
     if not can_delete(product, [OrderItem, QuoteItem]):
         flash(

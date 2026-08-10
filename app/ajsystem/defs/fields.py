@@ -28,7 +28,7 @@ Tipos:
 """
 import re
 
-from app.ajsystem.filters import FILTER_NUMBER, FILTER_DATE, FILTER_BOOLEAN, FILTER_SELECT
+from app.ajsystem.defs.filters import FILTER_NUMBER, FILTER_DATE, FILTER_BOOLEAN, FILTER_SELECT
 
 
 FIELD_TYPES = {

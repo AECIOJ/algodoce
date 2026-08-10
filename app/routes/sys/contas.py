@@ -3,7 +3,7 @@ from app.extensions import db
 from app.models.client import Conta
 from app.models.order import Order
 from app.constantes import ORDER_STATUS, TIPO_CONTA
-from app.ajsystem.engine import auto
+from app.ajsystem.core import auto
 
 
 Entity = {
@@ -13,22 +13,40 @@ Entity = {
         'tipo':           {'type': 'LIST', 'width': 12, 'list': TIPO_CONTA},
         'telefone':       {'type': 'FONE', 'required': True},
         'email':          {'type': 'TEXT', 'input': 'email', 'required': True},
-        'cpf':            {'type': 'CPF'},
-        'cnpj':           {'type': 'CNPJ'},
-        'insc_estadual':  {'type': 'TEXT', 'required': False},
-        'endereco':       {'type': 'TEXT', 'input': 'textarea', 'required': True},
+        'cpf':            {'type': 'CPF', 'label': 'CPF'},
+        'cnpj':           {'type': 'CNPJ', 'label': 'CNPJ'},
+        'insc_estadual':  {'type': 'TEXT', 'label': 'Inscrição Estadual', 'required': False},
+        'endereco':       {'type': 'TEXT', 'label': 'Endereço', 'input': 'textarea', 'required': True, 'in_list': 2},
         'ativo':          {'type': 'BOOL'},
+    },
+    'Order': {
+        'id':           {'type': 'ID', 'width': 6},
+        'client_id':    {'type': 'DK', 'label': 'Cliente'},
+        'data_pedido':  {'type': 'DATA_HORA', 'label': 'Data Pedido', 'width': 12},
+        'data_entrega': {'type': 'DATA', 'label': 'Data Entrega', 'width': 11},
+        'total':        {'type': 'NUM', 'currency': True},
+        'status':       {'type': 'LIST', 'list': ORDER_STATUS, 'width': 11},
+        'qtd':          {'type': 'INT', 'derived': {'sum': 'items.quantidade'}},
+    },
+}
+
+Query = {
+    'pedidos': {
+        'fields': ['Order'],
+        'group_by': 'status',
+        'order_by': 'data_pedido desc',
+        'totals': {
+            'Qtd':          {'sum': 'qtd'},
+            'Valor':        {'sum': 'total', 'currency': True},
+            'Média/Pedido': {'avg': 'total', 'currency': True},
+            'Média/Item':   {'avg': 'total', 'by': 'qtd', 'currency': True},
+        },
     },
 }
 
 List = {
-    'fields': [
-        'Conta.id',
-        'Conta.nome',
-        'Conta.tipo',
-        'Conta.telefone',
-        'Conta.ativo',
-    ],
+    'fields': 'Conta',
+    'ordering': ['nome'],
 }
 
 
@@ -41,20 +59,10 @@ def contas_pre_save(instance, request, is_new):
     instance.insc_estadual = (request.form.get("insc_estadual", "").strip() or None) if cnpj else None
 
 
-def _pre_get(mod, id):
-    ctx = {'ORDER_STATUS': ORDER_STATUS}
-    if id is not None:
-        conta = Conta.query.get(id)
-        if conta:
-            ctx['orders'] = conta.orders.order_by(Order.data_pedido.desc()).all()
-    return ctx
-
-
 Form = {
     'fields': 'Conta',
-    'sessions': {'Pedidos': {'type': 'template', 'template': 'sys_contas/_orders.html'}},
+    'sessions': {'Pedidos': {'query': 'pedidos'}},
     'pre_save': contas_pre_save,
-    'pre_get': _pre_get,
     'buttons': ['on_off'],
 }
 

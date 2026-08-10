@@ -4,15 +4,16 @@ import os
 import jinja2
 
 from app.ajsystem import ajsystem, heroicon_filter
-from app.ajsystem.app_config import SYS, get_uploads_endpoint
-from app.ajsystem.engine.auth import init_auth
-from app.ajsystem.engine.auth_routes import bp as auth, bp_seguranca as seguranca
-from app.ajsystem.engine.auto import registrar_modulos
-from app.ajsystem.engine.menu import url_do_item
-from app.ajsystem.fields import fmt_mask
-from app.ajsystem.list import fields_to_columns, field_filter_options, field_grid, get_field
-from app.ajsystem.utils import (
+from app.ajsystem.core.app_config import SYS, get_uploads_endpoint
+from app.ajsystem.handles.auth import init_auth, bp as auth, bp_seguranca as seguranca
+from app.ajsystem.core.auto import registrar_modulos
+from app.ajsystem.core.menu import url_do_item
+from app.ajsystem.defs.fields import fmt_mask
+from app.ajsystem.defs.entities import get_field
+from app.ajsystem.core.list import fields_to_columns, field_filter_options, field_grid
+from app.ajsystem.core.utils import (
     deep_attr, fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, item_ref,
+    field_value,
 )
 
 
@@ -49,6 +50,7 @@ def init_app(app):
     app.jinja_env.globals['get_field'] = get_field
     app.jinja_env.globals['menu_url'] = url_do_item
     app.jinja_env.globals['aj_uploads_endpoint'] = lambda: get_uploads_endpoint(app)
+    app.jinja_env.globals['field_value'] = field_value
 
     # 5. registra módulos CRUD a partir dos menus
     registrar_modulos(app, SYS.get('menus', {}))

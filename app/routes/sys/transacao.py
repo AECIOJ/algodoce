@@ -14,9 +14,9 @@ from app.models.order import Order
 from app.models.compra_historico import CompraHistorico
 from app.constantes import PREVISAO_STATUS
 from app.utils import LinhaTransacao, parse_prazo_recebimento
-from app.ajsystem.list import build_field_context, build_filter_config, List
+from app.ajsystem.core.list import build_field_context, build_filter_config, List
 from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter
-from app.form import Form
+from app.ajsystem.core.form import Form
 from app.fields import FIELD_DATA, FIELD_VENCIMENTO
 
 

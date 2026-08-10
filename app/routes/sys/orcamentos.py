@@ -8,9 +8,9 @@ from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.quote import Quote
 from app.constantes import QUOTE_STATUS, FORMINHAS
-from app.ajsystem.engine import auto
-from app.ajsystem.engine.handle_list import render_list
-from app.ajsystem.form import pesquise
+from app.ajsystem.core import auto
+from app.ajsystem.handles.render_list import render_list
+from app.ajsystem.core.form import pesquise
 from app.pdf import gerar_pdf_relatorio
 from app.reports.rep_orcamento import ORCAMENTO_REPORT
 

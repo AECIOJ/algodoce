@@ -21,8 +21,8 @@ from app.models.producao import Producao  # noqa: needed for Order mapper resolu
 from app.models.operacao import Operacao  # noqa: needed for Transacao mapper resolution
 from app.constantes import ORDER_STATUS, QUOTE_STATUS, FORMINHAS, PREVISAO_STATUS
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
-from app.ajsystem.list import build_field_context, build_filter_config, List
-from app.form import Form, handle_form
+from app.ajsystem.core.list import build_field_context, build_filter_config, List
+from app.ajsystem.core.form import Form, handle_form
 
 from app.fields import FIELD_ID, FIELD_DATA_HORA, FIELD_TOTAL, FIELD_STATUS, FIELD_OBS, FIELD_TIPO, FIELD_HORA, FIELD_QUANTIDADE, FIELD_PRECO, FIELD_DATA, FIELD_DOCUMENTO, FIELD_VENCIMENTO, FIELD_PREVISTO, FIELD_REALIZADO, FIELD_VARIACAO, FIELD_SALDO, FIELD_VALOR, FIELD_HISTORICO
 

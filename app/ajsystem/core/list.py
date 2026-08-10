@@ -5,6 +5,10 @@ Cada rota sys_*.py declara:
   XXX_FIELDS = [Field(...), ...]          # lista de campos
   XXX_LIST   = List(fields=XXX_FIELDS, ...)  # config da lista
 
+O dataclass `Field` e a construção/resolução de campos vivem em
+`app.ajsystem.defs.entities` (camada de dados); este módulo trata apenas da
+renderização de listas (`List`, colunas, filtros).
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  Field — configuração de uma coluna
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -31,9 +35,13 @@ Cada rota sys_*.py declara:
  aggregate_label  str        None      Label do total (ex: 'Total Geral')
  currency         str        None      'brl' p/ formatar como moeda R$
  hide_zero        bool       True      Ocultar valor zero
-  card_path        str        None      Acesso aninhado (ex: 'conta.nome')
-  link             str        None      Endpoint p/ gerar link (ex: 'orders.edit')
-  function         callable   None      Função para valor computado: f(item) -> valor
+ card_path        str        None      Acesso aninhado (ex: 'conta.nome')
+ link             str        None      Endpoint p/ gerar link (ex: 'orders.edit')
+ function         callable   None      Função para valor computado: f(item) -> valor
+ rows             int        1         Altura do textarea no form (nº de linhas)
+ in_form          bool       True      `False` exclui o campo do form (nem exibe nem submete)
+ in_list          int(0|1|2) 1        `0` exclui da listagem/card/filtro; `1` coluna na linha (vai p/ o card quando não couber); `2` sempre no card. `True`→1, `False`→0
+ transform        str|callable  auto   Transformação ao salvar: 'title' (padrão em textos editáveis), 'cap', 'upper', 'lower', 'none' ou callable(val, field)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  List — configuração da lista
@@ -65,255 +73,16 @@ Cada rota sys_*.py declara:
 
  Master-detail:
    List(fields=FIELDS, fields_master=[1,2,3], fields_detail=[4,5,6],
-        master_key='compra_id', edit_endpoint='compras.edit')
+        master_key='pai_id', edit_endpoint='filhos.edit')
 """
 from sqlalchemy import text
 
-from app.constantes import CONECTORES
+from dataclasses import dataclass
+from typing import Optional, Union
 
-from dataclasses import dataclass, field
-from typing import Any, Optional, Callable, Union
-from app.filters import FILTER_NUMBER, FILTER_DATE, FILTER_BOOLEAN, FILTER_SELECT
-
-
-@dataclass
-class Query:
-    model: str
-    field: str = 'nome'
-    colunas: Optional[list[str]] = None
-    when: Optional[str] = None
-    order: Optional[str] = None
-
-
-def _resolve_query(q: Any) -> Optional[Query]:
-    if q is None:
-        return None
-    if isinstance(q, Query):
-        return q
-    if isinstance(q, str):
-        return Query(model=q)
-    if isinstance(q, dict):
-        return Query(**q)
-    return None
-
-
-def _resolve_fieldset(fieldset, extra=None):
-    """Converte dict FieldSet em lista de Field objects.
-
-    fieldset = {'model': Model, 'fields': {name: {cfg}, ...}}  ou
-               {'model': Model, 'fields': [{name: ..., ...}, ...]}
-    extra = {name: {override_cfg}, ...}  (overrides contextuais)
-    """
-    raw = fieldset.get('fields', {})
-    extra = extra or {}
-    result = []
-    if isinstance(raw, list):
-        for item in raw:
-            if isinstance(item, Field):
-                result.append(item)
-            elif isinstance(item, dict):
-                name = item.get('name')
-                if name:
-                    rest = {k: v for k, v in item.items() if k != 'name'}
-                    merged = {**rest, **extra.get(name, {})}
-                    result.append(Field(name=name, **merged))
-    else:
-        for name, cfg in raw.items():
-            merged = {**cfg, **extra.get(name, {})}
-            result.append(Field(name=name, **merged))
-    return result
-
-
-def _auto_label(name: str) -> str:
-    s = name[:-3] if name.endswith('_id') else name
-    s = s.replace('_', ' ')
-    return _title_case(s) if s else name
-
-
-def _title_case(text: str) -> str:
-    words = text.strip().split()
-    result = []
-    for i, w in enumerate(words):
-        if i > 0 and w.lower() in CONECTORES:
-            result.append(w.lower())
-        else:
-            result.append(w[0].upper() + w[1:].lower() if w else w)
-    return " ".join(result)
-
-
-def _apply_transform(val, transform, field=None):
-    if not val or not isinstance(val, str):
-        return val
-    if transform == 'upper':
-        return val.strip().upper()
-    if transform == 'lower':
-        return val.strip().lower()
-    if transform == 'title':
-        return _title_case(val.strip())
-    if callable(transform):
-        return transform(val, field)
-    return val
-
-
-# transform: None | 'none' | 'title' | 'upper' | 'lower' | callable(val, field)
-#   None     → auto-inferido por _infer_transform()
-#   'none'   → sem transformação (padrão p/ number, boolean, options, edit=False)
-#   'title'  → primeira letra de cada palavra maiúscula (respeita CONECTORES)
-#   'upper'  → tudo maiúsculo
-#   'lower'  → tudo minúsculo
-#   callable → função customizada (val, field) -> transformed_val
-@dataclass
-class Field:
-    name: str
-    label: Optional[str] = None
-    width: Optional[int] = None
-    grid: Optional[int] = None
-    align: str = 'left'
-    input: str = 'text'
-    options: Optional[dict] = None
-    filter: Any = None
-    filter_options: Any = field(default=None)
-    filter_path: Optional[str] = None
-    mask: Optional[str] = None
-    query: Optional[Union[str, dict, Query]] = None
-    query_filter: Optional[dict] = None
-    validate: Optional[list] = None
-    decimals: Optional[int] = None
-    masterkey: Optional[str] = None
-    aggregate: Optional[str] = None
-    aggregate_label: Optional[str] = None
-    currency: Optional[str] = None
-    hide_zero: bool = True
-    card_path: Optional[str] = None
-    link: Optional[str] = None
-    function: Optional[Callable] = None
-    required: bool = False
-    placeholder: Optional[str] = None
-    transform: Any = None
-    disabled: bool = False
-    attrs: Optional[dict] = None
-    edit: bool = True
-    default: Any = None
-
-    def __post_init__(self):
-        if self.width is None and self.mask:
-            self.width = len(self.mask)
-            if self.input == 'number' and not self.mask.startswith('-'):
-                self.width += 1
-        if self.input == 'number' and self.align == 'left':
-            self.align = 'right'
-
-    @property
-    def display_label(self) -> str:
-        return self.label or _auto_label(self.name)
-
-    @property
-    def width_ch(self) -> int:
-        if self.width is not None:
-            return self.width
-        if self.mask:
-            w = len(self.mask)
-            if self.input == 'number' and not self.mask.startswith('-'):
-                w += 1
-            return w
-        return {'boolean': 6, 'checkbox': 6, 'number': 12, 'date': 12, 'image': 12}.get(self.input, 18)
-
-
-FIELD_DEFAULTS = {
-    'PK':     {'input': 'number', 'edit': False, 'filter': FILTER_NUMBER},
-    'TEXT':   {'required': True},
-    'INT':    {'input': 'number', 'align': 'right', 'decimals': 0, 'filter': FILTER_NUMBER},
-    'NUMBER': {'input': 'number', 'align': 'right', 'decimals': 2, 'filter': FILTER_NUMBER},
-    'BOOL':   {'input': 'boolean', 'filter': FILTER_BOOLEAN},
-    'DATA':   {'input': 'date', 'filter': FILTER_DATE},
-    'FK':     {'input': 'select', 'filter': FILTER_SELECT},
-    'LIST':   {'input': 'select', 'filter': FILTER_SELECT},
-    'IMAGE':  {'input': 'image', 'filter': False, 'required': False},
-}
-
-_LABEL_OVERRIDES = {
-    'id': '#',
-    'cpf': 'CPF',
-    'cnpj': 'CNPJ',
-    'insc_estadual': 'Inscrição Estadual',
-    'unidade_medida': 'Und',
-    'qtd_minima': 'Qtd. Mín.',
-    'prazo_recebimento': 'Prazo',
-    'taxa_recebimento': 'Taxa',
-    'indice': 'Índice',
-    'pai_id': 'Pai',
-    'category_id': 'Categoria',
-    'descricao': 'Descrição',
-    'endereco': 'Endereço',
-    'telefone': 'Telefone',
-    'preco': 'Preço',
-}
-
-
-def _auto_label(name: str) -> str:
-    if name in _LABEL_OVERRIDES:
-        return _LABEL_OVERRIDES[name]
-    return ' '.join(w.capitalize() for w in name.split('_'))
-
-
-def build_field_config(name: str, cfg: dict) -> dict:
-    field_type = cfg.get('type', 'TEXT')
-    defaults = FIELD_DEFAULTS.get(field_type, {})
-    props = {**defaults, **cfg, 'name': name}
-    props.pop('type', None)
-
-    if 'label' not in props:
-        props['label'] = _auto_label(name)
-
-    mk = props.pop('masterkey', None)
-    if mk:
-        props.setdefault('query', mk)
-        rel_name = name[:-3] if name.endswith('_id') else name
-        props.setdefault('card_path', f'{rel_name}.nome')
-        props.setdefault('filter_path', f'{rel_name}.nome')
-
-    if 'list' in props:
-        props['options'] = props.pop('list')
-
-    if 'mask' not in props and 'decimals' in props:
-        d = props['decimals']
-        if d == 0:
-            props['mask'] = '9999'
-        else:
-            props['mask'] = f'9999.{"9" * d}'
-
-    return props
-
-
-def _infer_transform(f: Field) -> str:
-    if f.transform is not None:
-        return f.transform
-    if not f.edit:
-        return 'none'
-    if f.input in ('number', 'boolean', 'checkbox', 'date', 'time'):
-        return 'none'
-    if f.options:
-        return 'none'
-    return 'title'
-
-
-def apply_field_transforms(instance, fields):
-    field_list = fields
-    if isinstance(fields, dict):
-        if 'fields' in fields:
-            field_list = _resolve_fieldset(fields)
-        else:
-            field_list = [Field(name=k, **v) for k, v in fields.items()]
-    for f in field_list:
-        if not hasattr(instance, f.name):
-            continue
-        val = getattr(instance, f.name, None)
-        if val is None or not isinstance(val, str):
-            continue
-        tr = _infer_transform(f)
-        if tr == 'none':
-            continue
-        setattr(instance, f.name, _apply_transform(val, tr, f))
+from app.ajsystem.defs.entities import (
+    Field, _resolve_query, _resolve_fieldset, _entidade_fields, MODEL_MAP,
+)
 
 
 def field_filter_type(f: Field) -> Optional[str]:
@@ -383,6 +152,8 @@ def field_to_column(f: Field) -> dict:
         col['filter_options'] = fo
     if f.mask:
         col['mask'] = f.mask
+    if f.digits_only:
+        col['digits_only'] = True
     if f.decimals is not None:
         col['decimals'] = f.decimals
     if f.currency:
@@ -428,7 +199,7 @@ def build_filter_config(fields):
         if 'fields' in fields:
             field_list = _resolve_fieldset(fields)
         else:
-            field_list = [Field(name=k, **v) for k, v in fields.items()]
+            field_list = [Field(name=k, **v) for k, v in _entidade_fields(fields).items()]
     else:
         field_list = fields
 
@@ -445,6 +216,7 @@ def build_filter_config(fields):
                     cfg['options'] = opts
             if f.filter_path:
                 cfg['filter_path'] = f.filter_path
+            cfg.setdefault('label', f.display_label)
             config[f.name] = cfg
             continue
 
@@ -453,6 +225,7 @@ def build_filter_config(fields):
             continue
 
         cfg = {'type': ftype, 'modes': FILTER_MODES.get(ftype, [])}
+        cfg['label'] = f.display_label
         if ftype == 'select':
             opts = field_filter_options(f)
             if opts:
@@ -464,13 +237,6 @@ def build_filter_config(fields):
     return config
 
 
-MODEL_MAP: dict[str, type] = {}
-
-
-def register_model(name: str, model_class: type) -> None:
-    MODEL_MAP[name] = model_class
-
-
 def build_field_context(fields: list[Field] | dict) -> dict:
     from flask import current_app
 
@@ -478,7 +244,7 @@ def build_field_context(fields: list[Field] | dict) -> dict:
         if 'fields' in fields:
             fields = _resolve_fieldset(fields)
         else:
-            fields = [Field(name=k, **v) for k, v in fields.items()]
+            fields = [Field(name=k, **v) for k, v in _entidade_fields(fields).items()]
     ctx = {'filter_options': {}}
     with current_app.app_context():
         for f in fields:
@@ -522,13 +288,6 @@ def field_grid(f: Field) -> int:
     return 8
 
 
-def get_field(fields: list[Field], name: str) -> Optional[Field]:
-    for f in fields:
-        if f.name == name:
-            return f
-    return None
-
-
 @dataclass
 class List:
     fields: Union[list, dict]
@@ -557,7 +316,7 @@ class List:
 
     @property
     def master_fields(self):
-        if self.fields_master:
+        if self.fields_master is not None:
             return [self.fields[i-1] for i in self.fields_master]
         return self.fields
 

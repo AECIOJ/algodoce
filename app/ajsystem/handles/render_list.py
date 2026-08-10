@@ -1,9 +1,10 @@
 import importlib
 import re
 from flask import Blueprint, render_template, request, url_for
-from app.ajsystem.form import _resolve_label
-from app.ajsystem.list import List, Field, build_field_config, build_filter_config, build_field_context, get_field, _entidade_fields, _derive_fk_ref
-from app.ajsystem.filters import (
+from app.ajsystem.core.form import _resolve_label
+from app.ajsystem.defs.entities import Field, build_field_config, get_field, _entidade_fields, _derive_fk_ref
+from app.ajsystem.core.list import List, build_filter_config, build_field_context
+from app.ajsystem.core.filters import (
     resolve_filters,
     apply_text_filter,
     apply_number_filter,
@@ -14,7 +15,7 @@ from app.ajsystem.filters import (
 
 
 def _resolve_model(entity_name: str):
-    from app.ajsystem.list import MODEL_MAP
+    from app.ajsystem.defs.entities import MODEL_MAP
     key = re.sub(r'(?<!^)(?=[A-Z])', '_', entity_name).lower()
     if key in MODEL_MAP:
         return MODEL_MAP[key]

@@ -5,26 +5,18 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from sqlalchemy import text
 from sqlalchemy.orm import MANYTOONE
-from app.ajsystem.app_config import db
-from app.ajsystem.list import (
-    Field, MODEL_MAP, field_grid, build_field_config, _resolve_fieldset,
+from app.ajsystem.core.app_config import db
+from app.ajsystem.defs.entities import (
+    Field, MODEL_MAP, build_field_config, _resolve_fieldset,
     _apply_transform, _infer_transform, _entidade_fields, _fk_query_for, _auto_label,
     _infer_field_from_model,
 )
-from app.ajsystem.buttons import Button, ACTIONS
-from app.ajsystem.edits import editor_assets
-from app.ajsystem.fields import VALIDATORS
-from app.ajsystem.utils import item_ref
-
-
-_ENTITY_LABELS = {
-    'Category': 'Categoria',
-    'Ingredient': 'Insumo',
-    'Product': 'Produto',
-    'Conta': 'Conta',
-    'Carteira': 'Carteira',
-    'Operacao': 'Operação',
-}
+from app.ajsystem.core.list import field_grid
+from app.ajsystem.defs.buttons import Button, ACTIONS
+from app.ajsystem.core.edits import editor_assets
+from app.ajsystem.defs.fields import VALIDATORS
+from app.ajsystem.core.utils import item_ref, deep_attr
+from app.ajsystem.core.report import aggregate_rows, group_items, order_items, query_label
 
 
 def _detect_module_name():
@@ -72,13 +64,13 @@ def _default_dk_masterkey(cfg, entidade):
 def _resolve_label(mod, entity_name=None):
     """Rótulo singular de uma entidade.
 
-    Ordem: `mod._label` (rótulo do menu) singularizado → `_ENTITY_LABELS` →
-    nome da entidade. Usado para derivar `label`/`new_label` e as mensagens
-    genéricas (`flash_ok`, `flash_update`, exclusão).
+    Ordem: `mod._label` (rótulo do menu) singularizado → nome da entidade.
+    Usado para derivar `label`/`new_label` e as mensagens genéricas
+    (`flash_ok`, `flash_update`, exclusão).
     """
     menu_label = getattr(mod, '_label', None) if mod else None
     singular = _singular(menu_label) if menu_label else None
-    return singular or _ENTITY_LABELS.get(entity_name or '', entity_name or '')
+    return singular or (entity_name or '')
 
 
 def _to_pair(cond):
@@ -150,12 +142,12 @@ def pesquise(campo, valor, retorno, destino=None, por=None):
     `pesquise(Campo a pesquisar, Valor pesquisado, Campo a ser retornado,
     variavel a ser modificada)` -> True/False.
 
-    Ex.: ok = pesquise('product', 5, 'preco', item)   # item.preco = preço
-         preco = pesquise('product', 5, 'preco')      # devolve o valor
-         ok = pesquise(Product, 'Limão', 'id', item, 'nome')  # por outro campo
+    Ex.: ok = pesquise('cliente', 5, 'nome', item)  # item.nome = nome
+         nome = pesquise('cliente', 5, 'nome')      # devolve o valor
+         ok = pesquise(Cliente, 'Ana', 'id', item, 'nome')  # por outro campo
 
-    `campo` aceita o model, o nome da entidade ('Product'/'product') ou a
-    tabela ('products'). `por` é o campo de busca (default: chave primária).
+    `campo` aceita o model, o nome da entidade ('Cliente'/'cliente') ou a
+    tabela ('clientes'). `por` é o campo de busca (default: chave primária).
     Com `destino` (objeto com atributo `retorno` ou dict), grava e retorna
     True quando encontra, False caso contrário. Sem `destino`, devolve o valor
     encontrado (ou None).
@@ -389,7 +381,7 @@ class Form:
                 base = ACTIONS.get(name)
                 if base is None:
                     raise KeyError(
-                        f"Botão padrão '{name}' não existe em app.ajsystem.buttons.ACTIONS. "
+                        f"Botão padrão '{name}' não existe em app.ajsystem.defs.buttons.ACTIONS. "
                         f"Disponíveis: {', '.join(ACTIONS)}"
                     )
                 btn = replace(base)
@@ -399,7 +391,7 @@ class Form:
                 base = ACTIONS.get(name)
                 if base is None:
                     raise KeyError(
-                        f"Botão padrão '{name}' não existe em app.ajsystem.buttons.ACTIONS. "
+                        f"Botão padrão '{name}' não existe em app.ajsystem.defs.buttons.ACTIONS. "
                         f"Disponíveis: {', '.join(ACTIONS)}"
                     )
                 overrides = dict(overrides or {})
@@ -496,6 +488,19 @@ class Form:
                 if mod:
                     child_model = getattr(mod, model, None)
             fields_raw = cfg.get('fields', [])
+            query_raw = cfg.get('query')
+            query_cfg = None
+            if isinstance(query_raw, str):
+                _mod = importlib.import_module(self.module_name) if self.module_name else None
+                _queries = getattr(_mod, 'Query', {}) if _mod else {}
+                query_cfg = _queries.get(query_raw)
+                if query_cfg is None:
+                    raise KeyError(
+                        f"Query '{query_raw}' não definida em {self.module_name}. "
+                        f"Disponíveis: {', '.join(_queries) or 'nenhuma'}"
+                    )
+            elif isinstance(query_raw, dict):
+                query_cfg = query_raw
             fields = []
             if isinstance(fields_raw, dict):
                 if 'fields' in fields_raw:
@@ -509,9 +514,18 @@ class Form:
                         fields.append(Field(**build_field_config(f, {})))
                     elif isinstance(f, dict):
                         fields.append(Field(**build_field_config(f.get('name', ''), f)))
-            table_entities = cfg.get('table', [])
+            query_entities = None
+            if query_cfg is not None:
+                for f in (query_cfg.get('fields') or []):
+                    if isinstance(f, str):
+                        query_entities = (query_entities or []) + [f]
+                    else:
+                        fields.append(Field(**build_field_config(f.get('name', ''), f)))
+            else:
+                query_entities = cfg.get('query') if isinstance(cfg.get('query'), (list, tuple)) else None
+            table_entities = query_entities if query_entities is not None else cfg.get('table', [])
             meta = {}
-            if table_entities and not fields_raw:
+            if table_entities and (query_cfg is not None or not fields_raw):
                 mod = importlib.import_module(self.module_name) if self.module_name else None
                 entidade = getattr(mod, 'Entity', {}) if mod else {}
                 for ent_name in table_entities:
@@ -522,7 +536,7 @@ class Form:
                     meta = meta if isinstance(meta, dict) else {}
                     managed = self._managed_field_names(child_model)
                     for n, c in _entidade_fields(ent_cfg).items():
-                        cfg_extra = {'disabled': True} if cfg.get('readonly') else {}
+                        cfg_extra = {'disabled': True} if (cfg.get('readonly') or query_entities is not None) else {}
                         dk = _default_dk_masterkey(c, entidade)
                         fld = Field(**build_field_config(n, {**c, **dk, **cfg_extra}))
                         if n in managed:
@@ -544,17 +558,37 @@ class Form:
             if single is None and child_model is not None:
                 rel_pair = _rel_for_model(self.model, child_model)
                 single = rel_pair is not None and not rel_pair[0].uselist
+            is_report = query_entities is not None or query_cfg is not None
+            group_by = None
+            group_totals = None
+            order_by = cfg.get('order_by')
+            if is_report:
+                if query_cfg is not None:
+                    group_by = query_cfg.get('group_by')
+                    group_totals = query_cfg.get('totals')
+                    if query_cfg.get('order_by'):
+                        order_by = query_cfg.get('order_by')
+                else:
+                    group_by = cfg.get('group_by')
+                    group_totals = cfg.get('group_totals')
+            if is_report and group_by:
+                for f in fields:
+                    if f.name == group_by:
+                        f.in_form = False
             result.append({
                 'attr': rel,
-                'label': cfg.get('label', key),
+                'label': query_label(query_cfg, key) if query_cfg is not None else cfg.get('label', key),
                 'prefix': cfg.get('prefix', rel + '_'),
                 'fields': fields,
-                'order_by': cfg.get('order_by'),
+                'order_by': order_by,
                 'template': cfg.get('template'),
                 'buttons': cfg.get('buttons'),
-                'readonly': cfg.get('readonly', False) or bool(meta.get('readonly', False)),
-                'single': bool(single) if single is not None else False,
+                'readonly': True if is_report else (cfg.get('readonly', False) or bool(meta.get('readonly', False))),
+                'single': False if is_report else (bool(single) if single is not None else False),
                 'model': child_model,
+                'query': is_report,
+                'group_by': group_by,
+                'group_totals': group_totals,
             })
         return result
 
@@ -995,6 +1029,21 @@ def _apply_aggregates(form, instance):
         setattr(instance, name, round(total, 2))
 
 
+def _session_items(instance, attr):
+    """Materializa os itens de uma sessão a partir da relação/atributo."""
+    raw = deep_attr(instance, attr) if instance is not None else None
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple)):
+        return list(raw)
+    if isinstance(raw, dict):
+        return list(raw.values())
+    all_ = getattr(raw, 'all', None)
+    if callable(all_):
+        return all_()
+    return [raw]
+
+
 def handle_form(form_spec, id=None, extra_ctx=None, instance=None):
     form = form_spec if isinstance(form_spec, Form) else Form(**form_spec)
     instance = instance or (form.model.query.get(id) if id is not None else None)
@@ -1145,6 +1194,21 @@ def handle_form(form_spec, id=None, extra_ctx=None, instance=None):
             'expr': _sagg['sum'],
             'currency': _sagg.get('currency'),
         }
+    for _s in form._resolved_sessions:
+        if not _s.get('query'):
+            continue
+        if _s.get('group_by'):
+            _items = order_items(
+                _session_items(instance, _s.get('attr')),
+                _s.get('order_by'),
+                _s.get('fields'),
+            )
+            _gf = next((f for f in _s.get('fields', []) if f.name == _s['group_by']), None)
+            _spec = _s.get('group_totals') or {}
+            _s['groups'] = group_items(_items, _gf, _spec, _s.get('fields'))
+            _s['totals'] = aggregate_rows(_items, _spec, _s.get('fields'))
+        else:
+            _s['groups'] = None
     ctx = dict(
         instance=instance,
         form=form,

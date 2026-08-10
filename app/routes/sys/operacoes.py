@@ -4,17 +4,17 @@ from flask import render_template, request, redirect, url_for, flash, jsonify, R
 from app.extensions import db
 from app.models.operacao import Operacao
 from app.constantes import TIPO_OPERACAO, CONECTORES
-from app.ajsystem.engine import auto
+from app.ajsystem.core import auto
 
 
 Entity = {
     'Operacao': {
         'id':     {'type': 'ID', 'width': 6},
-        'indice': {'width': 6, 'filter': False, 'in_form': False},
+        'indice': {'label': 'Índice', 'width': 6, 'filter': False, 'in_form': False},
         'nome':   {'type': 'TEXT', 'width': 20, 'transform': 'title'},
         'tipo':   {'type': 'LIST', 'width': 12, 'list': TIPO_OPERACAO},
         'fator':  {'type': 'INT', 'width': 8},
-        'pai_id': {'type': 'FK', 'query': 'operacao',
+        'pai_id': {'type': 'FK', 'label': 'Superior', 'query': 'operacao',
                    'query_filter': {'ativa': True, 'pai_id': None}, 'width': 30,
                    'card_path': 'pai.nome', 'filter_path': 'pai.nome'},
         'ordem':  {'type': 'INT', 'width': 8},
@@ -82,7 +82,7 @@ def list():
             op = item["operacao"]
             op.indice = item["indice"]
             op_data.append(op)
-    from app.ajsystem.engine.handle_list import render_list
+    from app.ajsystem.handles.render_list import render_list
     return render_list('Operacao', __name__, data=op_data)
 
 

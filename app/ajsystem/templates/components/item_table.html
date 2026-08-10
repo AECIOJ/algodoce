@@ -239,6 +239,109 @@
 </div>
 {% endmacro %}
 
+{# Rende o valor de um agregado de grupo/total (count, soma ou média, com currency). #}
+{% macro render_agg_total(total) %}
+{% if total is none or total.value is none %}—{% elif total.type in ('sum', 'avg') and total.currency %}{{ total.value|brl }}{% else %}{{ total.value }}{% endif %}
+{% endmacro %}
+
+{#
+  Tabela de sessão tipo 'query' agrupada: cabeçalho do grupo + linhas de
+  detalhe + subtotal por grupo + total geral (ver Form.sessions 'query').
+  Somente-leitura; agrupamento ordenado pelas options do campo.
+#}
+{% macro item_table_grouped(instance, child, ro=false) %}
+{% set _groups = child.groups %}
+{% set _edit_fields = child.fields|selectattr('in_form')|rejectattr('hidden')|list %}
+{% set _totals = child.totals %}
+{% set _totals_spec = child.group_totals or {} %}
+{% set _ncols = _edit_fields|length + _totals_spec|length %}
+<div class="mb-3 child-table-wrap it-grouped">
+  <h6 class="font-bold mb-1">{{ child.label }}</h6>
+
+  {# ── Desktop: tabela agrupada ── #}
+  <div class="it-desktop">
+    <table class="table table-sm w-full it-table">
+      <thead>
+        <tr>
+          {% for f in _edit_fields %}
+          <th class="text-sm"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
+          {% endfor %}
+          {% for _tlabel in _totals_spec.keys() %}
+          <th class="text-sm text-right">{{ _tlabel }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for _g in _groups %}
+        <tr class="it-group-row">
+          <td class="it-group-label" colspan="{{ _ncols }}">{{ _g['label'] }}</td>
+        </tr>
+        {% for item in _g['items'] %}
+        <tr>
+          {% for f in _edit_fields %}
+          <td{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>{{ fm.render_label(f, item) }}</td>
+          {% endfor %}
+          {% for _tlabel in _totals_spec.keys() %}
+          <td class="text-right"></td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        <tr class="it-subtotal-row">
+          <td class="itm-label" colspan="{{ _edit_fields|length }}">Subtotal</td>
+          {% for _tlabel in _totals_spec.keys() %}
+          <td class="text-right font-semibold">{{ render_agg_total(_g['totals'].get(_tlabel)) }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if _totals %}
+      <tfoot>
+        <tr class="it-total-row">
+          <td class="itm-label" colspan="{{ _edit_fields|length }}">Total</td>
+          {% for _tlabel in _totals_spec.keys() %}
+          <td class="text-right font-semibold">{{ render_agg_total(_totals.get(_tlabel)) }}</td>
+          {% endfor %}
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+  {# ── Mobile: blocos empilhados por grupo ── #}
+  <div class="it-mobile it-grouped-mobile">
+    {% for _g in _groups %}
+    <div class="it-group-block">
+      <div class="it-group-head">{{ _g['label'] }}</div>
+      {% for item in _g['items'] %}
+      <div class="it-group-item">
+        {% for f in _edit_fields %}
+        <div class="it-group-field">
+          <span class="it-group-field-label">{{ f.display_label }}</span>
+          <span class="it-group-field-val">{{ fm.render_label(f, item) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+      <div class="it-group-sub">
+        <span>Subtotal</span>
+        {% for _tlabel in _totals_spec.keys() %}
+        <span class="it-group-sub-val">{{ _tlabel }}: {{ render_agg_total(_g['totals'].get(_tlabel)) }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+    {% if _totals %}
+    <div class="it-group-total-line">
+      <span>Total</span>
+      {% for _tlabel in _totals_spec.keys() %}
+      <span>{{ _tlabel }}: {{ render_agg_total(_totals.get(_tlabel)) }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
 {% macro item_table_display(items, cols, cell_macro=none, title='') %}
 <div class="it-display">
   {% if title %}<div class="text-sm font-bold mb-1">{{ title }}</div>{% endif %}
@@ -334,6 +437,17 @@
   .itm-table td.itm-cell .input, .itm-table td.itm-cell .select, .itm-table td.itm-cell .textarea { width: 100%; }
   .itm-table td.itm-cell input[type="number"] { width: 11ch; }
   .itm-table td.itm-cell input[type="date"], .itm-table td.itm-cell input[type="time"] { width: 13ch; }
+
+  .it-group-row td.it-group-label { background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; }
+  .it-total-row td { background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; }
+  .it-group-block { margin-bottom: 0.75rem; border: 1px solid var(--fallback-b3, oklch(var(--b3))); border-radius: 0.5rem; overflow: hidden; }
+  .it-group-head { font-weight: 600; padding: 0.4rem 0.6rem; background: var(--fallback-b2, oklch(var(--b2))); }
+  .it-group-item { padding: 0.4rem 0.6rem; border-top: 1px dashed var(--fallback-b3, oklch(var(--b3))); }
+  .it-group-field { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.875rem; padding: 0.1rem 0; }
+  .it-group-field-label { color: var(--fallback-bc, oklch(var(--bc))) / 0.7; }
+  .it-group-field-val { font-weight: 500; text-align: right; }
+  .it-group-sub, .it-group-total-line { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; padding: 0.4rem 0.6rem; background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; font-size: 0.875rem; }
+  .it-group-total-line { background: var(--fallback-b3, oklch(var(--b3))); }
 
   @media (max-width: 991.98px) {
     .it-desktop { display: none; }

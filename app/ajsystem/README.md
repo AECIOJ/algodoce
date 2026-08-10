@@ -107,31 +107,38 @@ O framework não conhece sua aplicação. Ele recebe tudo através de um **adapt
 O framework é a pasta `app/ajsystem/`:
 
 ```
-ajsystem/
-├── __init__.py           # exports (init_app; blueprint ajsystem; filtro heroicon)
-├── app_config.py         # ADAPTADOR — único ponto de acoplamento com o app
-├── constants.py          # CONECTORES (conectivos de títulos)
-├── fields.py             # FIELD_TYPES — tipos de campo base
-├── list.py               # Field/List; build_field_config; register_model; MODEL_MAP
-├── form.py               # Form; sessions; hooks; handle_form
-├── buttons.py            # Button/ConfirmModal; presets BTN_*
-├── utils.py              # helpers (item_ref, deep_get, ...)
-├── filters.py            # filtros Jinja (fmtdate, brl, mask, FILTER_*, ...)
-├── init.py               # init_app(app): wiring de tudo
-├── engine/
-│   ├── auto.py           # auto.rota, montar_blueprint, registrar_modulos
-│   ├── auth.py           # init_auth: login_manager + User loader
-│   ├── auth_routes.py    # blueprints auth e seguranca (login/logout)
-│   ├── menu.py           # url_do_item: resolve menus → endpoints
-│   └── handle_list.py    # render_list + resolvers de colunas/ordenação
-├── templates/
-│   ├── pages/            # base.html, sys.html, list.html, form.html, macros.html
-│   └── components/       # form_macros.html, item_table.html, image_widget.html, ...
-```
+ ajsystem/
+ ├── __init__.py           # exports (init_app; blueprint ajsystem; filtro heroicon)
+ ├── init.py               # init_app(app): wiring de tudo
+ ├── core/                 # motor/runtime do framework
+ │   ├── app_config.py     # ADAPTADOR — único ponto de acoplamento com o app
+ │   ├── auto.py           # auto.rota, montar_blueprint, registrar_modulos
+ │   ├── menu.py           # url_do_item: resolve menus → endpoints
+ │   ├── utils.py          # helpers (item_ref, deep_get, ...)
+ │   ├── filters.py        # comportamento de filtros (resolve/apply_*)
+ │   ├── form.py           # Form; sessions; hooks; handle_form
+ │   ├── list.py           # listagem/colunas; usa defs.entities
+ │   ├── report.py         # agregação/ordenação de relatórios
+ │   └── edits.py          # assets de editores (rich text)
+ ├── defs/                 # definições declarativas (sem lógica de request)
+ │   ├── constants.py      # CONECTORES (conectivos de títulos)
+ │   ├── fields.py         # FIELD_TYPES — tipos de campo base; VALIDATORS; fmt_mask
+ │   ├── buttons.py        # Button/ConfirmModal; presets BTN_*
+ │   ├── filters.py        # constantes FILTER_*/MODE_*
+ │   └── entities.py       # Field/List; build_field_config; register_model; MODEL_MAP
+ ├── handles/              # ações de request (handlers)
+ │   ├── render_list.py    # render_list + resolvers de colunas/ordenação
+ │   └── auth.py           # init_auth + blueprints auth e seguranca (login/logout/chave)
+ ├── templates/
+ │   ├── pages/            # base.html, sys.html, list.html, form.html, macros.html
+ │   └── components/       # form_macros.html, item_table.html, image_widget.html, ...
+ ```
 
-O bloco `engine/` contém os blueprints e a lógica de infraestrutura; ele **não**
-deve ser importado pelo seu código de módulo — use apenas os exports de alto nível
-descritos aqui.
+ O bloco `defs/` contém as definições declarativas (estrutura de entidades,
+ tipos, filtros e botões); `handles/` concentra os pontos de entrada de request
+ (render_list, auth); `core/` reúne o motor/runtime. **Nenhum** deles deve ser
+ importado diretamente pelo seu código de módulo — use apenas os exports de
+ alto nível descritos aqui (em geral via `core`).
 
 ---
 
@@ -222,7 +229,7 @@ def create_app():
     init_ajsystem(app)
 
     from app import models  # noqa: garante registro dos models
-    from app.ajsystem.list import register_model
+    from app.ajsystem.core.list import register_model
     from app.models.user import User
     from app.models.category import Category
     register_model('user', User)
@@ -462,7 +469,7 @@ suas rotas.
 - **`List`** — dict com `fields`, `ordering`, `title`, etc. ([§6](#6-list--configuração)).
 - **`Form`** — dict com `fields`, `sessions`, `delete`, `buttons` e hooks
   ([§7](#7-form--configuração)). Também pode ser `Form(...)` da dataclass
-  (`app.ajsystem.form`); `handle_form` aceita ambos.
+  (`app.ajsystem.core.form`); `handle_form` aceita ambos.
 
 ### 4.4 Registro do módulo (menu → blueprint)
 
@@ -480,7 +487,7 @@ cada item sem `url` fixa:
 ### 4.5 Rotas custom — `@auto.rota`
 
 ```python
-from app.ajsystem.auto import auto
+from app.ajsystem.core.auto import auto
 from flask import jsonify
 
 @auto.rota("/search")
@@ -516,7 +523,7 @@ O framework resolve a model de uma entidade em duas etapas:
 ### 5.1 Tipos de campo (`FIELD_TYPES`)
 
 Cada campo é `{'type': '<TIPO>', ...}` — **sempre em maiúsculas**. Tipos
-disponíveis (`app/ajsystem/fields.py`):
+disponíveis (`app/ajsystem/defs/fields.py`):
 
 | Tipo | input | Props base aplicadas |
 |---|---|---|
@@ -564,6 +571,7 @@ disponíveis (`app/ajsystem/fields.py`):
 | `digits_only` | bool | Remove não-dígitos antes de aplicar a máscara |
 | `decimals` | int | Casas decimais (gera máscara se `mask` ausente) |
 | `currency` | bool | Formata como moeda (`brl`) |
+| `derived` | dict | Campo **virtual** (sem coluna no banco): `{'sum': '<caminho>'}` soma as folhas do caminho, atravessando coleções (ex.: `'items.quantidade'`). Calculado na renderização (células, colunas e agregados) |
 | `hide_zero` | bool | Ocultar valores zero na listagem (padrão `True`) |
 | `masterkey` | str | **FK (opcional)**: chave do `MODEL_MAP` (ex.: `'category'`) — popula o select, e `card_path`/`filter_path` viram `<chave>.nome`. Sem ele, a referência é derivada da relação do model no form (§5.4). Em campos `DK` o padrão é a **primeira tabela da `Entity`** |
 | `list` | dict | **LIST/MULT10**: opções fixas `{valor: rótulo}` (alias de `options`) |
@@ -731,7 +739,7 @@ Form = {
 }
 ```
 
-> Equivalente à dataclass `Form(...)` de `app.ajsystem.form` — `handle_form`
+> Equivalente à dataclass `Form(...)` de `app.ajsystem.core.form` — `handle_form`
 > aceita ambos. Os módulos do projeto usam o dict.
 
 ### 7.1 Formato de `fields`
@@ -834,6 +842,38 @@ Propriedades de cada sessão:
 
 Uma sessão com apenas string equivale a `{'attr': <nome>, 'template': <string>}`.
 
+**Sessões `query`** — tabela **somente-leitura** (sem adicionar/remover) para
+apresentação, com agrupamento e subtotais — um "mini-relatório" na tela:
+
+```python
+Form = {
+    'fields': 'Conta',
+    'sessions': {
+        'Pedidos': {
+            'query': ['Order'],                   # entidades p/ colunas (como 'table')
+            'group_by': 'status',                 # agrupa por este campo
+            'group_totals': {                     # rótulo -> agregado
+                'Qtd':   'count',                 # conta linhas
+                'Valor': {'sum': 'total', 'currency': True},  # soma (currency => BRL)
+            },
+        },
+    },
+}
+```
+
+- `query` aceita **lista** de entidades no formato legado (string = chave de
+  `Query` nomeada — ver §12); a sessão vira `readonly` (não persistida pelo
+  motor);
+- `group_by` (opcional): campo de agrupamento. Grupos ordenados pelas `options`
+  do campo (ex. `ORDER_STATUS`), senão por valor; só aparecem grupos com itens.
+  A coluna do campo agrupado some das linhas de detalhe;
+- `group_totals` (opcional): agregados por grupo **e** total geral. `'count'`
+  conta linhas; `{'sum': '<campo>', 'currency': bool}` soma o campo (ignora
+  `None`); com `currency: True` formata como moeda (`fmt_brl`).
+
+> Hoje o formato inline acima (lista/string de entidades) é um caminho
+> **legado**: o formato recomendado é uma `Query` nomeada — ver §12.
+
 **Persistência genérica** — as sessões derivadas (e as de `table` com entidade
 resolvida) são persistidas pelo motor no `pre_save` (inputs
 `child_<rel>_<rid>_<campo>`, ver `Form._save_session_children`):
@@ -873,7 +913,7 @@ resolvida) são persistidas pelo motor no `pre_save` (inputs
 
 ### 7.5 Botões (`buttons`)
 
-Os botões vêm de `app/ajsystem/buttons.py` (presets `BTN_*`) ou `Button(...)`.
+Os botões vêm de `app/ajsystem/defs/buttons.py` (presets `BTN_*`) ou `Button(...)`.
 Três formas no `Form`:
 
 ```python
@@ -1076,3 +1116,85 @@ sessão `ingredients` **derivada automaticamente** dos relacionamentos e
 - **`None` desliga** (`new_endpoint`, `edit_endpoint`, `delete`, `toggle`).
 - **`ordering` usa atributos da model**, não `'Entity.campo'`.
 - **`login_required`** em todas as rotas CRUD geradas.
+
+---
+
+## 12. Consultas nomeadas (`Query`), campos derivados e agregados
+
+### `Query` — consultas em um só lugar
+
+Uma `Query` é um **dict nomeado** (mesmo estilo de `Entity`/`List`/`Form`), sem
+função de definição, que descreve uma consulta agrupada reutilizável. O rótulo
+padrão vem do nome da chave (`label` opcional para sobrescrever).
+
+```python
+Query = {
+    'pedidos': {
+        'fields': ['Order'],              # strings = entidades; dicts = campos explícitos
+        'group_by': 'status',
+        'order_by': 'data_pedido desc',
+        'totals': {
+            'Qtd':          {'sum': 'qtd'},
+            'Valor':        {'sum': 'total', 'currency': True},
+            'Média/Pedido': {'avg': 'total', 'currency': True},
+            'Média/Item':   {'avg': 'total', 'by': 'qtd', 'currency': True},
+        },
+        # fonte SQL global (fase 2): join / where / raw ('with x as (...) select ...')
+    },
+}
+
+Form = {
+    'fields': 'Conta',
+    'sessions': {'Pedidos': {'query': 'pedidos'}},
+}
+```
+
+- `query` aceita **string = chave da `Query`** (dict nomeado do mesmo módulo, ver
+  §12) ou **lista/string de entidades** (formato legado, §7.3). O valor string
+  é resolvido no registro `Query` do módulo — `KeyError` se a chave não existir.
+- `fields`: **strings = nomes de Entity** (campos vêm da Entity, sem redefinição);
+  **dicts = campos explícitos** (`{'name': 'conta.nome', 'label': 'Cliente'}` —
+  caminhos dotted funcionam via `deep_attr`).
+- `group_by`: campo de agrupamento (ordem das `options` quando houver).
+- `order_by`: ordem das linhas (`'campo'`, `'campo desc'` ou lista).
+- `totals`: agregados por grupo/geral (ver spec abaixo).
+- O motor (`app/ajsystem/core/report.py`) é consumido por sessões de Form; na fase 2
+  também por List/PDF. Sessões de form buscam os itens por **relacionamento**; a
+  fonte SQL global (`join`/`where`/`raw`) é extensão futura.
+- O formato inline legado (§7.3, `'query': ['Order']` + `group_by`/`group_totals`)
+  continua suportado pelo motor.
+
+### Campo derivado (`Field.derived`)
+
+Campo **virtual** (sem coluna no banco) calculado por item pelo motor:
+
+```python
+'qtd': {'type': 'INT', 'derived': {'sum': 'items.quantidade'}},
+```
+
+- `{'sum': '<caminho>'}` — soma das folhas do caminho, percorrendo coleções
+  (`items.quantidade` = soma das quantidades dos itens do registro).
+- Resolvido por `field_value` (global Jinja e helper Python) em renderização e
+  em agregados.
+
+### Spec de agregados (`totals` / `group_totals`)
+
+| Spec | Resultado |
+|---|---|
+| `'count'` | número de itens (linhas) |
+| `{'sum': 'campo'}` | soma (resolve derivados e dotted) |
+| `{'avg': 'campo'}` | média sobre itens com valor (soma ÷ nº de itens com valor) |
+| `{'avg': 'campo', 'by': 'divisor'}` | soma(campo) ÷ soma(divisor) — média ponderada (ex.: Valor ÷ Qtd) |
+
+- `'currency': True` — formata como BRL na renderização.
+- Divisor zero ou valor ausente → renderiza `—`.
+
+### Summary
+
+- Definir campos **uma vez** na Entity (incl. derivados) e referenciá-los na
+  `Query` — sem redefinição.
+- `Query` nomeada = mesma definição para Form hoje, List/PDF depois.
+- Agregação/agrupamento rodam **em Python** sobre as linhas buscadas (preserva
+  derivados, média ponderada e formatação da Entity).
+- A sessão referenciada por `query` (dict `Query` ou lista/string de entidades)
+  vira `readonly` e não é persistida pelo motor.

@@ -93,7 +93,7 @@ def create_app():
         from app.models.product_ingredient import ProductIngredient
         from app.models.unit_conversion import UnitConversion
 
-        from app.ajsystem.list import register_model
+        from app.ajsystem.defs.entities import register_model
 
         from app.routes.sys import categorias, produtos, insumos, pedidos, compras, contas
         from app.routes.sys import producao, operacoes, recursos, transacao, movimentos
@@ -200,7 +200,7 @@ def create_app():
     def inject_app_config():
         import json
         from app.routes.app_defs import APP, Temas
-        from app.ajsystem.engine.menu import modulo_atual, menus_para_json
+        from app.ajsystem.core.menu import modulo_atual, menus_para_json
         tema_nome = tema_atual()
         tema = dict(Temas[tema_nome])
         tema.setdefault('base', tema_nome)
@@ -221,7 +221,7 @@ def create_app():
 
     @app.context_processor
     def inject_buttons():
-        from app.ajsystem.buttons import (
+        from app.ajsystem.defs.buttons import (
             BTN_SALVAR, BTN_ENVIAR, BTN_EXCLUIR, BTN_NOVO, BTN_VOLTAR,
             BTN_EDITAR, BTN_CANCELAR, BTN_CONVERTER, BTN_LISTA,
             BTN_IMPRIMIR, BTN_DETALHES, BTN_ADICIONAR, BTN_ADICIONAR_ITEM,

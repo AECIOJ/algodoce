@@ -9,7 +9,7 @@ from app.models.recurso import Recurso
 from app.models.client import Conta
 from app.constantes import TIPO_RECURSO
 from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_date_filter
-from app.ajsystem.list import build_field_context, build_filter_config, List
+from app.ajsystem.core.list import build_field_context, build_filter_config, List
 from decimal import Decimal
 
 bp = Blueprint("transferencias", __name__, url_prefix="/transferencias")
