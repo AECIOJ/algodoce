@@ -16,7 +16,7 @@ from app.ajsystem.defs.buttons import Button, ACTIONS
 from app.ajsystem.core.edits import editor_assets
 from app.ajsystem.defs.fields import VALIDATORS
 from app.ajsystem.core.utils import item_ref, deep_attr
-from app.ajsystem.core.report import aggregate_rows, group_items, order_items, query_label
+from app.ajsystem.core.query import aggregate_rows, group_items, order_items, query_label
 
 
 def _detect_module_name():

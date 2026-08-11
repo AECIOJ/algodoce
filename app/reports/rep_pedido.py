@@ -1,4 +1,4 @@
-from app.report import Report
+from app.ajsystem.defs.report import Report
 from app.constantes import FORMINHAS
 
 

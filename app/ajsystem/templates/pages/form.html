@@ -3,7 +3,7 @@
 {% import "components/item_table.html" as itb with context %}
 
 {% set entity_label = form.new_label or entity_label|default(form.model.__name__) %}
-{% set new_title = form.new_title or new_title|default(('Novo' if is_new else 'Editar') ~ ' ' ~ entity_label) %}
+{% set new_title = form.new_title or new_title|default(('Incluir' if is_new else 'Editar') ~ ' ' ~ entity_label) %}
 {% set back_url = form.back_url or back_url|default(url_for(form.redirect)) %}
 {% set edit_endpoint = form.edit_endpoint or edit_endpoint|default(form.redirect.rsplit('.', 1)[0] + '.form') %}
 {% if instance %}{% set entity_id = instance.id %}{% endif %}

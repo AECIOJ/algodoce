@@ -2,7 +2,7 @@ from datetime import datetime, timezone, timedelta
 from io import BytesIO
 import os
 from flask import request, redirect, url_for, flash, Response, render_template, current_app
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.client import Conta
 from app.models.order import Order
 from app.models.order_item import OrderItem
@@ -11,7 +11,7 @@ from app.constantes import QUOTE_STATUS, FORMINHAS
 from app.ajsystem.core import auto
 from app.ajsystem.handles.render_list import render_list
 from app.ajsystem.core.form import pesquise
-from app.pdf import gerar_pdf_relatorio
+from app.ajsystem.core.pdf import gerar_pdf_relatorio
 from app.reports.rep_orcamento import ORCAMENTO_REPORT
 
 

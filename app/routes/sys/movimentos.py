@@ -2,7 +2,7 @@ from datetime import date, datetime
 from types import SimpleNamespace
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.models.client import Conta
@@ -13,7 +13,7 @@ from app.models.order import Order
 from app.models.operacao import Operacao
 from app.models.compra_historico import CompraHistorico
 from app.constantes import TIPO_RECURSO, TIPO_OPERACAO, PREVISAO_STATUS
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
+from app.ajsystem.core.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
 from app.ajsystem.core.list import build_field_context, build_filter_config, List
 from decimal import Decimal
 

@@ -3,7 +3,7 @@ from decimal import Decimal
 import importlib
 from flask import Blueprint, request, jsonify, session
 from flask_login import login_required
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.utils import _title_case
 from app.ajsystem.defs.entities import MODEL_MAP as AJSYSTEM_MODEL_MAP
 from app.ajsystem.defs.entities import Field, build_field_config, _entidade_fields

@@ -2,13 +2,13 @@ from datetime import date
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from markupsafe import Markup
 from flask_login import login_required
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.trf import Trf
 from app.models.movto import Movto
 from app.models.recurso import Recurso
 from app.models.client import Conta
 from app.constantes import TIPO_RECURSO
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_date_filter
+from app.ajsystem.core.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_date_filter
 from app.ajsystem.core.list import build_field_context, build_filter_config, List
 from decimal import Decimal
 

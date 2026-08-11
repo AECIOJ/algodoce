@@ -7,7 +7,7 @@ projeto, basta substituir/implementar as funções deste arquivo.
 """
 from flask import current_app
 
-from app.extensions import db, login_manager
+from app.ajsystem.core.extensions import db, login_manager
 from app.models.user import User
 from app.models.setting import Setting
 from app.routes.app_defs import APP, SYS

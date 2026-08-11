@@ -4,7 +4,7 @@ import os
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.previsao import Previsao
 from app.models.transacao import Transacao
 from app.models.compra import Compra
@@ -14,10 +14,10 @@ from app.models.compra_item import CompraItem
 from app.models.movto import Movto
 from app.constantes import PREVISAO_STATUS, COMPRA_STATUS
 from app.models.carteira import Carteira
-from app.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter
+from app.ajsystem.core.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter
 from app.utils import LinhaTransacao
 from app.ajsystem.core.list import build_field_context, build_filter_config, List
-from app.pdf import gerar_pdf_relatorio
+from app.ajsystem.core.pdf import gerar_pdf_relatorio
 from app.models.compra_historico import CompraHistorico
 
 

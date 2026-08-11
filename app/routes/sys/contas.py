@@ -1,5 +1,5 @@
 from flask import request, jsonify, flash
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.client import Conta
 from app.models.order import Order
 from app.constantes import ORDER_STATUS, TIPO_CONTA

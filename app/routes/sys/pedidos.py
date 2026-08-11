@@ -4,14 +4,14 @@ from app.utils import parse_brl, parse_prazo_recebimento, _save_event, _clean
 from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
 from flask_login import login_required
 import os
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.client import Conta
 from app.models.product import Product
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.event import Event
 from app.models.quote import Quote
-from app.pdf import gerar_pdf_relatorio
+from app.ajsystem.core.pdf import gerar_pdf_relatorio
 from app.models.carteira import Carteira
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
@@ -20,7 +20,7 @@ from app.models.recurso import Recurso
 from app.models.producao import Producao  # noqa: needed for Order mapper resolution
 from app.models.operacao import Operacao  # noqa: needed for Transacao mapper resolution
 from app.constantes import ORDER_STATUS, QUOTE_STATUS, FORMINHAS, PREVISAO_STATUS
-from app.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
+from app.ajsystem.core.filters import resolve_filters, apply_text_filter, apply_number_filter, apply_select_filter, apply_date_filter, build_fk_options
 from app.ajsystem.core.list import build_field_context, build_filter_config, List
 from app.ajsystem.core.form import Form, handle_form
 
@@ -172,7 +172,7 @@ Form = {'model': Order, 'redirect': 'pedidos.list', 'fields': PEDIDOS_FIELDS, 's
             'when': lambda i: i is not None and i.movto is not None,
         },
     }, 'readonly_when': {'status': [9]}, 'pre_save': _orders_pre_save, 'flash_ok': 'Pedido criado!', 'flash_update': 'Pedido atualizado!',
-    'new_label': 'Pedido', 'new_title': 'Novo Pedido',
+    'new_label': 'Pedido', 'new_title': 'Incluir Pedido',
     'body_template': 'sys_orders/_form_body.html',
     'nav_right_extra': 'sys_orders/_nav_right.html',
     'footer_left': 'sys_orders/_footer_left.html',

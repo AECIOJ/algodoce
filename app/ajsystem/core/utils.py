@@ -163,3 +163,14 @@ def _title_case(text):
         else:
             result.append(w[0].upper() + w[1:].lower() if w else w)
     return " ".join(result)
+
+
+def list_table(valores: dict):
+    """Cria uma CTE SQL (colunas `codigo`/`descricao`) a partir de um dict
+    de valores, para uso em joins de listas de referência."""
+    from sqlalchemy import select, union_all, literal
+    ctes = [
+        select(literal(k).label('codigo'), literal(v).label('descricao'))
+        for k, v in valores.items()
+    ]
+    return union_all(*ctes).cte('list_table')

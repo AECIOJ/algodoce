@@ -4,8 +4,8 @@ import time
 from datetime import timedelta
 import requests
 from flask import Flask
-from app.config import Config
-from app.extensions import db, migrate, login_manager
+from app.ajsystem.core.config import Config
+from app.ajsystem.core.extensions import db, migrate, login_manager
 from flask_migrate import upgrade
 import sqlalchemy as sa
 

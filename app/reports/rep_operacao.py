@@ -1,9 +1,9 @@
 from types import SimpleNamespace
-from app.report import Report
+from app.ajsystem.defs.report import Report
 from app.constantes import TIPO_OPERACAO
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.operacao import Operacao
-from app.tools import list_table
+from app.ajsystem.core.utils import list_table
 from sqlalchemy import select
 
 

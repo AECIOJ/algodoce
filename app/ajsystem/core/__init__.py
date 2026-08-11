@@ -1,10 +1,14 @@
 """Núcleo/motor do framework ajsystem.
 
-`core/` agrupa os módulos de runtime do framework: comportamento de filtros
-(`filters`), engines de formulário e listagem (`form`, `list`), helpers
-(`utils`), edição (`edits`), relatórios (`report`), o motor de blueprints
-(`auto`/`menu`) e o adaptador de acoplamento com o app host (`app_config`).
+`core/` agrupa o MOTOR do framework (executado, não importado pelo app para
+estrutura):
 
-Definições puras (tipos, botões, entidades, constantes) ficam em `defs/`;
-pontos de entrada de request em `handles/`.
+- Orquestradores `do_*` — request → response (do_form, do_list, do_report,
+  do_auth); consomem specs puros de `defs/`.
+- Capacidades — lógica reutilizável sem request: `form`, `list`, `query`,
+  `pdf`, `filters`, `edits`, `crypto`, `ntfy`, `utils`, `auto`/`menu`
+  (blueprints) e `app_config` (adaptador de acoplamento com o app host).
+
+Estrutura declarativa pura fica em `defs/`; `handles/` está DEPRECADO e será
+fundido em `core/do_*`. Modelo completo em `app/ajsystem/ARCHITECTURE.md`.
 """

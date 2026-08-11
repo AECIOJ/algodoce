@@ -1,16 +1,50 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.client import Conta
 from app.models.product import Product
 from app.models.quote import Quote
 from app.models.quote_item import QuoteItem
 from app.models.event import Event
-from app.ntfy import notificar as ntfy_notificar
+from app.ajsystem.core.ntfy import notificar as aj_notificar
+from app.models.setting import Setting
 from datetime import datetime, timezone, date, time
 from app.utils import _clean, _save_event
 
 
 bp = Blueprint("site_orcamento", __name__)
+
+
+def _notificar_orcamento(quote):
+    topic = Setting.get("ntfy_topic")
+    if not topic:
+        return
+
+    cliente = quote.cliente_nome or "?"
+    telefone = quote.cliente_telefone or "?"
+
+    items = []
+    for item in quote.items:
+        nome = item.product.nome if item.product else "?"
+        items.append(f"- {item.quantidade}x {nome}")
+
+    event = quote.event
+    extra = ""
+    if event:
+        if event.tipo:
+            extra += f" | {event.tipo}"
+        if event.data:
+            extra += f" | {event.data.strftime('%d/%m')}"
+
+    title = "Algodoce recebeu um novo orçamento"
+    message = f"Cliente: {cliente}\nFone: {telefone}{extra}\n" + "\n".join(items)
+
+    aj_notificar(
+        topic=topic,
+        title=title,
+        message=message,
+        tags=["envelope"],
+        token=Setting.get("ntfy_token"),
+    )
 
 
 def _load_session_items():
@@ -120,7 +154,7 @@ def enviar():
     _save_event(quote, request.form)
 
     db.session.commit()
-    ntfy_notificar(quote)
+    _notificar_orcamento(quote)
     session.pop("orcamento_items", None)
     session.pop("cliente_id", None)
     return render_template("site_orcamento/confirmacao.html")

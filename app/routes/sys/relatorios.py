@@ -2,7 +2,7 @@ from datetime import date, datetime
 from flask import Blueprint, render_template, request
 from flask_login import login_required
 from sqlalchemy import func
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.product_ingredient import ProductIngredient

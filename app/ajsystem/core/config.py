@@ -1,3 +1,16 @@
+"""Configuração do Flask (lê variáveis de ambiente).
+
+A leitura de configuração é responsabilidade do framework; o app host não
+constrói mais config (substituiu o antigo `app.config`). Variáveis lidas de
+.env, com nomes documentados:
+
+- POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB
+  → montam SQLALCHEMY_DATABASE_URI
+- SECRET_KEY
+- SESSION_TIMEOUT (0 = sem timeout explícito)
+
+Demais chaves (WTF/SESSION/upload) usam defaults seguros.
+"""
 import os
 from datetime import timedelta
 

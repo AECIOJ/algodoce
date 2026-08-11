@@ -1,4 +1,4 @@
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 
 class Recurso(db.Model):
     __tablename__ = "recurso"

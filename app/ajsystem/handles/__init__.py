@@ -1,9 +1,8 @@
-"""Ações de request (handlers) do framework ajsystem.
+"""DEPRECADO — pontos de entrada de request do framework ajsystem.
 
-`handles/` agrupa os pontos de entrada que tratam uma requisição específica:
-- `render_list` → renderização da página de listagem (`render_list`);
-- `auth` → wiring do login manager + rotas de autenticação e painel de segurança.
+`handles/` está sendo ELIMINADO: será fundido nos orquestradores `core/do_*`
+(do_form, do_list, do_report, do_auth). Não criar novos módulos aqui.
 
-Aqui não ficam definições de estrutura (essas vivem em `defs/`) nem o motor
-(`core/auto`, `core/menu`).
+Estrutura declarativa vive em `defs/`; motor em `core/`. Modelo completo em
+`app/ajsystem/ARCHITECTURE.md`.
 """

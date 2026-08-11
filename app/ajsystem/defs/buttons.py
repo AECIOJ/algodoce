@@ -59,7 +59,7 @@ CONFIRM_REMOVER_ITEM = ConfirmModal(
 BTN_SALVAR = Button(label='Salvar', icon='check', color='success', outline=False, cls='btn-success btn-sm')
 BTN_ENVIAR = Button(label='Enviar', icon='paper-airplane', color='success', outline=True, cls='btn-outline btn-success btn-sm')
 BTN_EXCLUIR = Button(label='Excluir', icon='trash', color='danger', outline=False, cls='btn-danger btn-sm', confirm_msg='Confirmar exclusão?')
-BTN_NOVO = Button(label='+ Novo', color='success', outline=False, cls='btn-success btn-sm')
+BTN_NOVO = Button(label='+ Incluir', color='success', outline=False, cls='btn-success btn-sm')
 BTN_VOLTAR = Button(label='Voltar', color='secondary', outline=True, cls='btn-outline btn-secondary btn-sm')
 BTN_EDITAR = Button(label='Editar', icon='pencil-square', color='primary', outline=True, cls='btn-outline btn-primary btn-sm')
 BTN_CANCELAR = Button(label='Cancelar', color='secondary', outline=True, cls='btn-outline btn-secondary btn-sm')

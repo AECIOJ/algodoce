@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 
 
 class Quote(db.Model):

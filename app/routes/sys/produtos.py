@@ -1,5 +1,5 @@
 from flask import request, redirect, url_for, flash, jsonify
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.product import Product
 from app.models.product_ingredient import ProductIngredient
 from app.models.order_item import OrderItem

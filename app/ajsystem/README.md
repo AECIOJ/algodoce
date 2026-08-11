@@ -118,13 +118,14 @@ O framework é a pasta `app/ajsystem/`:
  │   ├── filters.py        # comportamento de filtros (resolve/apply_*)
  │   ├── form.py           # Form; sessions; hooks; handle_form
  │   ├── list.py           # listagem/colunas; usa defs.entities
- │   ├── report.py         # agregação/ordenação de relatórios
+  │   ├── query.py          # consultas (Query): agregação/ordenação/grupos
  │   └── edits.py          # assets de editores (rich text)
  ├── defs/                 # definições declarativas (sem lógica de request)
  │   ├── constants.py      # CONECTORES (conectivos de títulos)
  │   ├── fields.py         # FIELD_TYPES — tipos de campo base; VALIDATORS; fmt_mask
  │   ├── buttons.py        # Button/ConfirmModal; presets BTN_*
- │   ├── filters.py        # constantes FILTER_*/MODE_*
+  │   ├── filters.py        # constantes FILTER_*/MODE_*
+  │   ├── report.py         # config de relatórios PDF (Report/ReportColumn)
  │   └── entities.py       # Field/List; build_field_config; register_model; MODEL_MAP
  ├── handles/              # ações de request (handlers)
  │   ├── render_list.py    # render_list + resolvers de colunas/ordenação
@@ -1158,7 +1159,7 @@ Form = {
 - `group_by`: campo de agrupamento (ordem das `options` quando houver).
 - `order_by`: ordem das linhas (`'campo'`, `'campo desc'` ou lista).
 - `totals`: agregados por grupo/geral (ver spec abaixo).
-- O motor (`app/ajsystem/core/report.py`) é consumido por sessões de Form; na fase 2
+- O motor (`app/ajsystem/core/query.py`) é consumido por sessões de Form; na fase 2
   também por List/PDF. Sessões de form buscam os itens por **relacionamento**; a
   fonte SQL global (`join`/`where`/`raw`) é extensão futura.
 - O formato inline legado (§7.3, `'query': ['Order']` + `group_by`/`group_totals`)

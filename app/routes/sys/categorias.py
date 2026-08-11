@@ -1,4 +1,4 @@
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.category import Category
 from app.models.product import Product
 from app.ajsystem.core.form import handle_form

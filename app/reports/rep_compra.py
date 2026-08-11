@@ -1,4 +1,4 @@
-from app.report import Report
+from app.ajsystem.defs.report import Report
 
 
 def _fornecedor_nome(compra):

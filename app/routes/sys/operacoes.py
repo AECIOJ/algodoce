@@ -1,7 +1,7 @@
 import os
 from io import BytesIO
 from flask import render_template, request, redirect, url_for, flash, jsonify, Response, current_app
-from app.extensions import db
+from app.ajsystem.core.extensions import db
 from app.models.operacao import Operacao
 from app.constantes import TIPO_OPERACAO, CONECTORES
 from app.ajsystem.core import auto
@@ -107,7 +107,7 @@ def print_operacoes():
 @auto.rota("/pdf")
 def pdf_operacoes():
     from app.reports.rep_operacao import OPERACAO_REPORT
-    from app.pdf import gerar_pdf_relatorio
+    from app.ajsystem.core.pdf import gerar_pdf_relatorio
     logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
     pdf = gerar_pdf_relatorio(OPERACAO_REPORT, logo_path=logo_path)
     buf = BytesIO()

@@ -188,7 +188,7 @@ def render_list(entity_name: str, module_name: str, data=None, **extra):
     title = lista.get('title', entity_name)
     new_endpoint = _resolve_endpoint(lista, 'new_endpoint', bp_name)
     new_url = url_for(new_endpoint) if new_endpoint else None
-    new_label = 'Novo ' + _resolve_label(mod, entity_name)
+    new_label = 'Incluir ' + _resolve_label(mod, entity_name)
 
     init_filters = {}
     for fname, fcfg in filter_config.items():

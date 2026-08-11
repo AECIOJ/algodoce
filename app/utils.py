@@ -220,7 +220,7 @@ def _clean(val):
 
 
 def _save_event(obj, form):
-    from app.extensions import db
+    from app.ajsystem.core.extensions import db
     from app.models.event import Event
     if not obj.event:
         event = Event()

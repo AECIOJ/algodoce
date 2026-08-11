@@ -1,6 +1,16 @@
 from datetime import datetime, timezone
-from app.extensions import db
-from app.crypto import encrypt, decrypt
+from app.ajsystem.core.extensions import db
+
+
+def _encrypt(raw):
+    from app.ajsystem.core.crypto import encrypt
+    return encrypt(raw)
+
+
+def _decrypt(cipher):
+    from app.ajsystem.core.crypto import decrypt
+    return decrypt(cipher)
+
 
 class Setting(db.Model):
     KEYS = {
@@ -23,11 +33,11 @@ class Setting(db.Model):
 
     @property
     def value(self) -> str:
-        return decrypt(self.encrypted_value) if self.encrypted_value else ""
+        return _decrypt(self.encrypted_value) if self.encrypted_value else ""
 
     @value.setter
     def value(self, raw: str):
-        self.encrypted_value = encrypt(raw) if raw else ""
+        self.encrypted_value = _encrypt(raw) if raw else ""
 
     @property
     def label(self) -> str:
@@ -57,5 +67,5 @@ class Setting(db.Model):
             existing = cls.query.filter_by(key=k).first()
             if not existing:
                 val = DEFAULTS.get(k, "")
-                db.session.add(cls(key=k, encrypted_value=encrypt(val) if val else ""))
+                db.session.add(cls(key=k, encrypted_value=_encrypt(val) if val else ""))
         db.session.commit()
