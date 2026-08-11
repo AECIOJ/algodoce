@@ -75,14 +75,18 @@ renderização de listas (`List`, colunas, filtros).
    List(fields=FIELDS, fields_master=[1,2,3], fields_detail=[4,5,6],
         master_key='pai_id', edit_endpoint='filhos.edit')
 """
+import importlib
+import re
+
 from sqlalchemy import text
 
-from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional
 
 from app.ajsystem.defs.entities import (
     Field, _resolve_query, _resolve_fieldset, _entidade_fields, MODEL_MAP,
+    build_field_config,
 )
+from app.ajsystem.defs.list import List  # noqa: F401
 
 
 def field_filter_type(f: Field) -> Optional[str]:
@@ -288,52 +292,76 @@ def field_grid(f: Field) -> int:
     return 8
 
 
-@dataclass
-class List:
-    fields: Union[list, dict]
-    fields_master: Optional[list[int]] = None
-    fields_detail: Optional[list[int]] = None
-    master_key: Optional[str] = None
-    edit_endpoint: Optional[str] = None
-    edit_id_field: str = 'id'
-    edit_if_field: Optional[str] = None
-    edit_endpoint_map: Optional[dict] = None
-    edit_endpoint_key: Optional[str] = None
-    detail_data: Optional[str] = None
-    send_endpoint: Optional[str] = None
-    reports: Optional[list] = None
-    extra: Optional[dict] = None
-    template: Optional[str] = None
-    linha: Optional[list[int]] = None
-    card_idx: Optional[list[int]] = None
 
-    def __post_init__(self):
-        if isinstance(self.fields, dict):
-            if 'fields' in self.fields:
-                self.fields = _resolve_fieldset(self.fields, self.extra)
+
+def _resolve_model(entity_name: str):
+    key = re.sub(r'(?<!^)(?=[A-Z])', '_', entity_name).lower()
+    if key in MODEL_MAP:
+        return MODEL_MAP[key]
+    module_path = f'app.models.{key}'
+    try:
+        mod = importlib.import_module(module_path)
+    except ImportError:
+        raise ImportError(f"Modelo não encontrado: {module_path}")
+    model = getattr(mod, entity_name, None)
+    if model is None:
+        raise AttributeError(f"Classe {entity_name} não encontrada em {module_path}")
+    return model
+
+
+def _resolve_cols(fields, entidades, principal=None) -> list:
+    """Resolve `List.fields` para configs de campo, espelhando o `Form.fields`:
+    - str 'Entidade' → expande todos os campos da entity;
+    - 'Entidade.campo' → campo específico;
+    - nome simples → campo da entity principal;
+    - dict {'name': ..., **cfg} → campo com override.
+    """
+    if isinstance(fields, str):
+        items = [fields]
+    else:
+        items = fields
+    cols = []
+    for item in items:
+        if isinstance(item, dict):
+            name = item.get('name')
+            if not name:
+                continue
+            rest = {k: v for k, v in item.items() if k != 'name'}
+            if '.' in name:
+                entity, field_name = name.split('.', 1)
+                config = entidades.get(entity, {})
             else:
-                self.fields = [Field(name=k, **v) for k, v in self.fields.items()]
+                field_name = name
+                config = principal or {}
+            base = config.get(field_name, {}) if isinstance(config, dict) else {}
+            base = base if isinstance(base, dict) else {}
+            cols.append(build_field_config(field_name, {**base, **rest}))
+            continue
+        if '.' in item:
+            entity, field_name = item.split('.', 1)
+        else:
+            entity = item
+            field_name = None
+        if field_name:
+            if entity in entidades:
+                config = entidades[entity]
+                cols.append(build_field_config(field_name, config[field_name]))
+            elif principal:
+                config = principal
+                cols.append(build_field_config(entity, config[entity]))
+        else:
+            config = entidades[entity] if entity in entidades else principal
+            for name, cfg in _entidade_fields(config).items():
+                cols.append(build_field_config(name, cfg))
+    return cols
 
-    @property
-    def master_fields(self):
-        if self.fields_master is not None:
-            return [self.fields[i-1] for i in self.fields_master]
-        return self.fields
 
-    @property
-    def detail_fields(self):
-        if self.fields_detail:
-            return [self.fields[i-1] for i in self.fields_detail]
-        return None
-
-    @property
-    def linha_fields(self):
-        if self.linha:
-            return [self.master_fields[i] for i in self.linha]
-        return self.master_fields
-
-    @property
-    def card_fields(self):
-        if self.card_idx:
-            return [self.fields[i-1] for i in self.card_idx]
-        return None
+def _resolve_field_names(items: list) -> list[str]:
+    names = []
+    for item in items:
+        if '.' in item:
+            _, field_name = item.split('.', 1)
+            names.append(field_name)
+        else:
+            names.append(item)
+    return names

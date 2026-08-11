@@ -1,4 +1,5 @@
-"""Auth — wiring do login manager + rotas de autenticação e painel de segurança.
+"""Orquestrador `do_auth` — wiring do login manager + rotas de autenticação
+e painel de segurança.
 
 Agrupa a inicialização (`init_auth`: user_loader, unauthorized_handler e
 timeout de sessão) e os blueprints `auth` (login/logout/keepalive/chave

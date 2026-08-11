@@ -19,7 +19,7 @@ from flask import Blueprint, redirect, url_for, flash
 from flask_login import login_required
 
 from app.ajsystem.core.app_config import db
-from app.ajsystem.handles.render_list import render_list
+from app.ajsystem.core.do_list import do_list
 from app.ajsystem.core.form import handle_form, _resolve_delete, _when_allows, _resolve_label
 
 # registro de rotas custom declaradas com @auto.rota, indexado por nome de módulo
@@ -131,7 +131,7 @@ def _generated_crud(mod, slug):
     routes = []
 
     def _list():
-        return render_list(entidade, mod.__name__)
+        return do_list(entidade, mod.__name__)
     routes.append(('/', 'list', _list))
 
     def _form(id=None):

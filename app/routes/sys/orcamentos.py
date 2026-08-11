@@ -9,7 +9,7 @@ from app.models.order_item import OrderItem
 from app.models.quote import Quote
 from app.constantes import QUOTE_STATUS, FORMINHAS
 from app.ajsystem.core import auto
-from app.ajsystem.handles.render_list import render_list
+from app.ajsystem.core.do_list import do_list
 from app.ajsystem.core.form import pesquise
 from app.ajsystem.core.pdf import gerar_pdf_relatorio
 from app.reports.rep_orcamento import ORCAMENTO_REPORT
@@ -149,7 +149,7 @@ def list_orcamentos():
     quotes = Quote.query.order_by(Quote.id.desc()).all()
     for q in quotes:
         q.validade_data = quote_validade(q)
-    return render_list('Quote', __name__, data=quotes)
+    return do_list('Quote', __name__, data=quotes)
 
 
 @auto.rota('/<int:id>/converter', methods=['GET', 'POST'], endpoint='converter')

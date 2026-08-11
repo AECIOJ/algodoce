@@ -27,17 +27,7 @@ Agregações:
 """
 import functools
 
-from app.ajsystem.core.utils import _title_case, field_value
-
-
-def query_label(cfg, key):
-    """Rótulo padrão de uma Query: `label` explícito ou nome da chave."""
-    if cfg is None:
-        return _title_case(key) if key else ''
-    label = cfg.get('label')
-    if label:
-        return label
-    return _title_case(key) if key else ''
+from app.ajsystem.core.utils import _title_case, field_value, query_label  # noqa: F401
 
 
 def _option_label(field, key):

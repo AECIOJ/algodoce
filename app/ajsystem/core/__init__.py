@@ -9,6 +9,6 @@ estrutura):
   `pdf`, `filters`, `edits`, `crypto`, `ntfy`, `utils`, `auto`/`menu`
   (blueprints) e `app_config` (adaptador de acoplamento com o app host).
 
-Estrutura declarativa pura fica em `defs/`; `handles/` está DEPRECADO e será
+Estrutura declarativa pura fica em `defs/`; `handles/` foi eliminado e
 fundido em `core/do_*`. Modelo completo em `app/ajsystem/ARCHITECTURE.md`.
 """

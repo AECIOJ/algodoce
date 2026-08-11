@@ -4,14 +4,149 @@ O sistema host declara `Report` (ver `ajsystem.defs.report`) e chama
 `gerar_pdf_relatorio(report, data, instance=...)`. Formatação BRL/data são
 embutidas; sem dependência de modelos da aplicação.
 """
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 from flask_login import current_user
 from fpdf import FPDF
 
 from app.ajsystem.defs.report import (
     Report, ReportField, ReportColumn, ReportColumns, ReportGroup,
-    ReportText, parse_header_field, _ReportHeader, _ReportTable, _ReportFooter,
+    ReportText, parse_header_field,
 )
+
+
+_HEADER_DEFAULTS = {
+    'logo': {'position': 'N', 'lines': 2},
+    'titulo': {'label': None, 'align': 'C', 'font_style': 'B', 'font_size': 16},
+    'subtitle': None,
+    'fields': None,
+    'field_columns': 2,
+    'on_each_page': True,
+    'layout': 'centered',
+}
+
+
+@dataclass
+class _ReportHeader:
+    """Cabeçalho do relatório (interno de renderização)."""
+    show_logo: bool = True
+    logo_path: Optional[str] = None
+    logo_width: Optional[float] = None
+    logo_height: float = 24
+    logo_align: str = 'C'
+    title: Optional[str] = None
+    title_font_size: int = 16
+    title_font_style: str = 'B'
+    title_align: str = 'C'
+    subtitle: Optional[str] = None
+    subtitle_font_size: int = 10
+    subtitle_align: str = 'C'
+    fields: Optional[list] = None
+    field_columns: int = 2
+    on_each_page: bool = True
+    layout: str = 'centered'
+
+
+@dataclass
+class _ReportTable:
+    """Tabela do relatório (interno de renderização)."""
+    columns: ReportColumns = None
+    footer: bool = False
+    footer_label: str = 'Total'
+    after: Optional[object] = None
+    lines_before: int = 0
+    lines_after: int = 0
+
+
+@dataclass
+class _ReportFooter:
+    """Rodapé de página (interno de renderização)."""
+    text: Optional[object] = None
+    show_user: bool = False
+    show_datetime: bool = False
+    show_company: bool = False
+    show_page_number: bool = False
+    separator: str = ' | '
+    align: str = 'C'
+    font_size: int = 8
+
+
+def _build_header(report: Report) -> '_ReportHeader':
+    h = {**_HEADER_DEFAULTS, **(report.header or {})}
+
+    # Logo: nested (deep merge) ou flat
+    logo_cfg = {**_HEADER_DEFAULTS.get('logo', {}), **(h.get('logo') or {})}
+    pos = logo_cfg.get('position', h.get('logo_align', 'N'))
+    show_logo = pos != 'N'
+    logo_lines = logo_cfg.get('lines', 4)
+    logo_align = 'C' if pos == 'N' else pos
+
+    # Título: nested (deep merge) ou flat
+    titulo_cfg = {**_HEADER_DEFAULTS.get('titulo', {}), **(h.get('titulo') or {})}
+    title = titulo_cfg.get('label') or h.get('title') or report.label
+    title_font_size = titulo_cfg.get('font_size', h.get('title_font_size', 16))
+    title_font_style = titulo_cfg.get('font_style', h.get('title_font_style', 'B'))
+    title_align = titulo_cfg.get('align', h.get('title_align', 'C'))
+
+    # Subtítulo: dict, str ou None
+    sub_cfg = h.get('subtitle')
+    if isinstance(sub_cfg, dict):
+        subtitle = sub_cfg.get('label')
+        subtitle_font_size = sub_cfg.get('font_size', h.get('subtitle_font_size', 10))
+        subtitle_align = sub_cfg.get('align', h.get('subtitle_align', 'C'))
+    else:
+        subtitle = sub_cfg
+        subtitle_font_size = h.get('subtitle_font_size', 10)
+        subtitle_align = h.get('subtitle_align', 'C')
+
+    return _ReportHeader(
+        show_logo=show_logo,
+        logo_path=h.get('logo_path'),
+        logo_width=h.get('logo_width'),
+        logo_height=logo_lines * 6 if show_logo else 0,
+        logo_align=logo_align,
+        title=title,
+        title_font_size=title_font_size,
+        title_font_style=title_font_style,
+        title_align=title_align,
+        subtitle=subtitle,
+        subtitle_font_size=subtitle_font_size,
+        subtitle_align=subtitle_align,
+        fields=h.get('fields'),
+        field_columns=h.get('field_columns', 2),
+        on_each_page=h.get('on_each_page', True),
+        layout=h.get('layout', 'centered'),
+    )
+
+
+def _build_table(report: Report) -> '_ReportTable':
+    t = report.table or {}
+    columns = t.get('columns')
+    if isinstance(columns, dict):
+        columns = ReportColumns(columns)
+    return _ReportTable(
+        columns=columns,
+        footer=t.get('footer', False),
+        footer_label=t.get('footer_label', 'Total'),
+        after=t.get('after'),
+        lines_before=t.get('lines_before', 0),
+        lines_after=t.get('lines_after', 0),
+    )
+
+
+def _build_footer(report: Report) -> '_ReportFooter':
+    f = report.footer or {}
+    return _ReportFooter(
+        text=f.get('text'),
+        show_user=f.get('show_user', False),
+        show_datetime=f.get('show_datetime', False),
+        show_company=f.get('show_company', False),
+        show_page_number=f.get('show_page_number', False),
+        separator=f.get('separator', ' | '),
+        align=f.get('align', 'C'),
+        font_size=f.get('font_size', 8),
+    )
 
 
 def _deep_attr(obj, path):
@@ -59,8 +194,8 @@ class DocPDFReport(FPDF):
         orientation = report.orientation
         super().__init__(orientation=orientation, format=page_size, **kwargs)
         self._report = report
-        self._header = report._build_header()
-        self._footer_cfg = report._build_footer()
+        self._header = _build_header(report)
+        self._footer_cfg = _build_footer(report)
         self._is_first_page = True
         self._instance = None
         self.alias_nb_pages()
@@ -523,7 +658,7 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
         _render_table_lines(pdf, _before, instance)
 
     # Tabela
-    tbl = report._build_table()
+    tbl = _build_table(report)
     if tbl.columns:
         _render_table(pdf, tbl.columns, data, tbl.footer, tbl.footer_label,
                       instance, report=report)

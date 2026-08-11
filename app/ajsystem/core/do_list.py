@@ -1,9 +1,19 @@
+"""Orquestrador `do_list` — request → response para listagens.
+
+Consome specs puros (`defs.list.List`) e delega a resolução de campos/engine
+para `core/list.py`. É o único ponto (além de `core.do_form`) que as
+rotas/`core.auto` usam para montar a página de listagem.
+"""
 import importlib
-import re
+
 from flask import Blueprint, render_template, request, url_for
-from app.ajsystem.core.form import _resolve_label
-from app.ajsystem.defs.entities import Field, build_field_config, get_field, _entidade_fields, _derive_fk_ref
-from app.ajsystem.core.list import List, build_filter_config, build_field_context
+
+from app.ajsystem.defs.form import _resolve_label
+from app.ajsystem.defs.entities import Field, get_field, _derive_fk_ref
+from app.ajsystem.core.list import (
+    List, build_filter_config, build_field_context,
+    _resolve_cols, _resolve_field_names, _resolve_model,
+)
 from app.ajsystem.core.filters import (
     resolve_filters,
     apply_text_filter,
@@ -12,80 +22,6 @@ from app.ajsystem.core.filters import (
     apply_select_filter,
     apply_date_filter,
 )
-
-
-def _resolve_model(entity_name: str):
-    from app.ajsystem.defs.entities import MODEL_MAP
-    key = re.sub(r'(?<!^)(?=[A-Z])', '_', entity_name).lower()
-    if key in MODEL_MAP:
-        return MODEL_MAP[key]
-    module_path = f'app.models.{key}'
-    try:
-        mod = importlib.import_module(module_path)
-    except ImportError:
-        raise ImportError(f"Modelo não encontrado: {module_path}")
-    model = getattr(mod, entity_name, None)
-    if model is None:
-        raise AttributeError(f"Classe {entity_name} não encontrada em {module_path}")
-    return model
-
-
-def _resolve_cols(fields, entidades, principal=None) -> list:
-    """Resolve `List.fields` para configs de campo, espelhando o `Form.fields`:
-    - str 'Entidade' → expande todos os campos da entity;
-    - 'Entidade.campo' → campo específico;
-    - nome simples → campo da entity principal;
-    - dict {'name': ..., **cfg} → campo com override.
-    """
-    if isinstance(fields, str):
-        items = [fields]
-    else:
-        items = fields
-    cols = []
-    for item in items:
-        if isinstance(item, dict):
-            name = item.get('name')
-            if not name:
-                continue
-            rest = {k: v for k, v in item.items() if k != 'name'}
-            if '.' in name:
-                entity, field_name = name.split('.', 1)
-                config = entidades.get(entity, {})
-            else:
-                field_name = name
-                config = principal or {}
-            base = config.get(field_name, {}) if isinstance(config, dict) else {}
-            base = base if isinstance(base, dict) else {}
-            cols.append(build_field_config(field_name, {**base, **rest}))
-            continue
-        if '.' in item:
-            entity, field_name = item.split('.', 1)
-        else:
-            entity = item
-            field_name = None
-        if field_name:
-            if entity in entidades:
-                config = entidades[entity]
-                cols.append(build_field_config(field_name, config[field_name]))
-            elif principal:
-                config = principal
-                cols.append(build_field_config(entity, config[entity]))
-        else:
-            config = entidades[entity] if entity in entidades else principal
-            for name, cfg in _entidade_fields(config).items():
-                cols.append(build_field_config(name, cfg))
-    return cols
-
-
-def _resolve_field_names(items: list) -> list[str]:
-    names = []
-    for item in items:
-        if '.' in item:
-            _, field_name = item.split('.', 1)
-            names.append(field_name)
-        else:
-            names.append(item)
-    return names
 
 
 def _module_blueprint(mod):
@@ -102,7 +38,7 @@ def _resolve_endpoint(lista, key, bp_name):
     return f"{bp_name}.form" if bp_name else None
 
 
-def render_list(entity_name: str, module_name: str, data=None, **extra):
+def do_list(entity_name: str, module_name: str, data=None, **extra):
     mod = importlib.import_module(module_name)
     entidades = mod.Entity
     lista = mod.List

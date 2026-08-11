@@ -5,7 +5,7 @@ import jinja2
 
 from app.ajsystem import ajsystem, heroicon_filter
 from app.ajsystem.core.app_config import SYS, get_uploads_endpoint
-from app.ajsystem.handles.auth import init_auth, bp as auth, bp_seguranca as seguranca
+from app.ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguranca
 from app.ajsystem.core.auto import registrar_modulos
 from app.ajsystem.core.menu import url_do_item
 from app.ajsystem.defs.fields import fmt_mask

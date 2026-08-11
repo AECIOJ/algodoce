@@ -1,6 +1,6 @@
 import os
 from io import BytesIO
-from flask import render_template, request, redirect, url_for, flash, jsonify, Response, current_app
+from flask import request, jsonify, Response, current_app
 from app.ajsystem.core.extensions import db
 from app.models.operacao import Operacao
 from app.constantes import TIPO_OPERACAO, CONECTORES
@@ -82,26 +82,14 @@ def list():
             op = item["operacao"]
             op.indice = item["indice"]
             op_data.append(op)
-    from app.ajsystem.handles.render_list import render_list
-    return render_list('Operacao', __name__, data=op_data)
-
-
-@auto.rota("/plano")
-def plano():
-    secoes = _build_tree()
-    return render_template("index.html")
+    from app.ajsystem.core.do_list import do_list
+    return do_list('Operacao', __name__, data=op_data)
 
 
 @auto.rota("/<int:id>/uso")
 def usage(id):
     qtd = Operacao.query.filter_by(pai_id=id).count()
     return jsonify({"em_uso": qtd > 0, "quantidade": qtd})
-
-
-@auto.rota("/print")
-def print_operacoes():
-    from app.reports.rep_operacao import OPERACAO_REPORT
-    return render_template("index.html")
 
 
 @auto.rota("/pdf")

@@ -165,6 +165,16 @@ def _title_case(text):
     return " ".join(result)
 
 
+def query_label(cfg, key):
+    """Rótulo padrão de uma Query: `label` explícito ou nome da chave."""
+    if cfg is None:
+        return _title_case(key) if key else ''
+    label = cfg.get('label')
+    if label:
+        return label
+    return _title_case(key) if key else ''
+
+
 def list_table(valores: dict):
     """Cria uma CTE SQL (colunas `codigo`/`descricao`) a partir de um dict
     de valores, para uso em joins de listas de referência."""

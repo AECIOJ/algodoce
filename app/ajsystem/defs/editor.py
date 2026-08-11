@@ -1,5 +1,4 @@
-"""
-EDITORS — Registro de tipos de editor (widgets de campo) do framework.
+"""Spec `Editor` — registro de tipos de editor (widgets de campo).
 
 Um editor é um widget de campo que vai além do `<input>` simples
 (ex.: multiseleção em modal). Cada Editor declara:
@@ -18,23 +17,29 @@ Para criar um novo editor:
   3. Implemente a macro em form_macros.html e o asset JS/CSS em
      app/ajsystem/static/.
 
-O motor (core.edits.editor_assets) coleta os `field.input` usados na página e
-injeta via editor_assets() os assets dos editores presentes.
+O motor (`core.edits.editor_assets`) coleta os `field.input` usados na página
+e injeta os assets dos editores presentes.
 """
-from app.ajsystem.defs.editor import Editor, EDITOR_MULTI, EDITORS  # noqa: F401
+from dataclasses import dataclass, field
 
 
-def editor_assets(inputs):
-    """Retorna (js, css) — assets dos editores cujos inputs estão em `inputs`."""
-    js, css = [], []
-    for name in inputs:
-        ed = EDITORS.get(name)
-        if not ed:
-            continue
-        for f in ed.js:
-            if f not in js:
-                js.append(f)
-        for f in ed.css:
-            if f not in css:
-                css.append(f)
-    return js, css
+@dataclass
+class Editor:
+    name: str
+    macro: str
+    js: list = field(default_factory=list)
+    css: list = field(default_factory=list)
+    modal: bool = False
+
+
+EDITOR_MULTI = Editor(
+    name='multi',
+    macro='render_multi_ctl',
+    js=['js/multi-ctl.js'],
+    css=['css/multi-ctl.css'],
+    modal=True,
+)
+
+EDITORS = {
+    'multi': EDITOR_MULTI,
+}
