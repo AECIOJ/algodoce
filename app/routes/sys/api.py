@@ -6,7 +6,8 @@ from flask_login import login_required
 from app.ajsystem.core.extensions import db
 from app.utils import _title_case
 from app.ajsystem.defs.entities import MODEL_MAP as AJSYSTEM_MODEL_MAP
-from app.ajsystem.defs.entities import Field, build_field_config, _entidade_fields
+from app.ajsystem.defs.fields import Field
+from app.ajsystem.defs.entities import build_field_config, _entidade_fields
 from app.models.category import Category
 from app.models.product import Product
 from app.models.ingredient import Ingredient

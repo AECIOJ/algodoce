@@ -82,9 +82,10 @@ from sqlalchemy import text
 
 from typing import Optional
 
+from app.ajsystem.defs.fields import Field
+from app.ajsystem.defs.query import _resolve_query
 from app.ajsystem.defs.entities import (
-    Field, _resolve_query, _resolve_fieldset, _entidade_fields, MODEL_MAP,
-    build_field_config,
+    _resolve_fieldset, _entidade_fields, MODEL_MAP, build_field_config,
 )
 from app.ajsystem.defs.list import List  # noqa: F401
 

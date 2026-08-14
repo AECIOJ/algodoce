@@ -27,7 +27,7 @@ from flask import request as _req
 from flask_login import (
     current_user, login_user, logout_user, login_required,
 )
-from app.ajsystem.core.app_config import db, User, Setting, APP, login_manager
+from app.ajsystem.core.adapter import db, User, Setting, APP, login_manager
 from app.ajsystem.core.menu import pagina_home
 
 bp = Blueprint("auth", __name__)
@@ -132,7 +132,7 @@ def login():
         login_user(user, remember=True)
         session['_last_activity'] = time.time()
         _clear_attempts()
-        return jsonify(redirect=pagina_home(APP['system']))
+        return jsonify(redirect=pagina_home(APP.module('system')))
 
     _record_failure()
     count, _ = FAILED_ATTEMPTS.get(_get_ip(), (0, 0))
@@ -168,7 +168,7 @@ def login_sistema():
     session.permanent = True
     login_user(user, remember=True)
     _clear_attempts()
-    return jsonify(redirect=pagina_home(APP['system']))
+    return jsonify(redirect=pagina_home(APP.module('system')))
 
 
 @bp.route("/api/login-admin", methods=["POST"])
@@ -197,7 +197,7 @@ def login_admin():
     if admin:
         login_user(admin, remember=True)
     session["seguranca_autenticado"] = True
-    return jsonify(redirect=pagina_home(APP['admin']))
+    return jsonify(redirect=pagina_home(APP.module('admin')))
 
 
 @bp.route("/api/admin-config")

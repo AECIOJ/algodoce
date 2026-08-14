@@ -66,8 +66,8 @@ def _ativa_text(row):
     return 'Sim' if row.ativa else 'Nao'
 
 
-OPERACAO_REPORT = Report(
-    label='Operações',
+PLANO = Report(
+    label='Plano de Contas',
     ordem='indice',
     data_fn=_operacao_data,
     groups=[
@@ -82,7 +82,7 @@ OPERACAO_REPORT = Report(
     ],
     header={
         'logo': {'position': 'C'},
-        'titulo': {'label': 'Operações'},
+        'titulo': {'label': 'Plano de Contas'},
     },
     table={
         'lines_after': 1,

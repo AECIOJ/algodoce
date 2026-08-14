@@ -9,7 +9,8 @@ import importlib
 from flask import Blueprint, render_template, request, url_for
 
 from app.ajsystem.defs.form import _resolve_label
-from app.ajsystem.defs.entities import Field, get_field, _derive_fk_ref
+from app.ajsystem.defs.fields import Field
+from app.ajsystem.defs.entities import get_field, _derive_fk_ref
 from app.ajsystem.core.list import (
     List, build_filter_config, build_field_context,
     _resolve_cols, _resolve_field_names, _resolve_model,
@@ -81,7 +82,9 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
         template=lista.get('template'),
         linha=linha_indices,
         card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1)) if len(all_fields) > len(line_fields) else None),
+        buttons=lista.get('buttons'),
     )
+    buttons = list_obj.resolve_buttons(bp_name)
 
     detail_fields = None
     detail_data = None
@@ -157,5 +160,6 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
         detail_data=detail_data,
         card_fields=card_fields,
         cardonly_fields=cardonly_fields,
+        buttons=buttons,
         **extra,
     )

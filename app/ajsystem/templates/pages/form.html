@@ -11,6 +11,16 @@
 {% block head_extra %}
 {{ super() }}
 {{ itb.item_table_styles() }}
+<style>
+  .field-help-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: none; width: 1.5rem; height: 1.5rem; padding: 0; border: 0;
+    background: transparent; color: inherit; opacity: .55; cursor: pointer;
+    border-radius: .375rem;
+  }
+  .field-help-btn:hover { opacity: 1; background: var(--fallback-b2, oklch(var(--b2))); }
+  .field-help-btn svg { width: 1rem; height: 1rem; }
+</style>
 {% endblock %}
 
 {% block page_content %}
@@ -96,8 +106,8 @@
       {% if form.body_template %}
       {% include form.body_template %}
       {% else %}
-      {{ fm.render_fields(form._resolved_fields, data=instance, ro=ro, spacing=form.spacing) }}
-      {% if form._resolved_sessions %}{{ fm.render_sessions(form._resolved_sessions, data=instance, ro=ro) }}{% endif %}
+      {{ fm.render_fields(form._resolved_fields, data=instance, ro=ro, spacing=form.spacing, ro_fields=ro_fields|default(none)) }}
+      {% if form._resolved_sessions %}{{ fm.render_sessions(form._resolved_sessions, data=instance, ro=ro, ro_fields=ro_fields|default(none)) }}{% endif %}
       {% if form.form_tail %}{% include form.form_tail %}{% endif %}
       {% endif %}
     </form>
@@ -150,6 +160,18 @@
     </div>
   </div>
 </dialog>
+
+<dialog id="helpModal" class="modal">
+  <div class="modal-box">
+    <form method="dialog">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-xmark"/></svg>
+      </button>
+    </form>
+    <h3 class="font-bold text-lg" id="helpModalTitle"></h3>
+    <div class="pt-2" id="helpModalBody"></div>
+  </div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -180,6 +202,48 @@ function confirmSair() {
   } else {
     window.history.back();
   }
+}
+function showFieldHelp(btn) {
+  var modal = document.getElementById('helpModal');
+  if (!modal) return;
+  document.getElementById('helpModalTitle').textContent = btn.getAttribute('data-help-title') || '';
+  var body = document.getElementById('helpModalBody');
+  body.innerHTML = '';
+  var items = btn.getAttribute('data-help-items');
+  if (items) {
+    var obj = JSON.parse(items);
+    var table = document.createElement('table');
+    table.className = 'table table-sm w-full';
+    var thead = document.createElement('thead');
+    var trh = document.createElement('tr');
+    ['Entrada', 'Descrição'].forEach(function(h) {
+      var th = document.createElement('th');
+      th.textContent = h;
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+    var tbody = document.createElement('tbody');
+    Object.keys(obj).forEach(function(k) {
+      var tr = document.createElement('tr');
+      var td1 = document.createElement('td');
+      td1.className = 'font-mono text-xs whitespace-nowrap';
+      td1.textContent = k;
+      var td2 = document.createElement('td');
+      td2.textContent = obj[k];
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    body.appendChild(table);
+  } else {
+    var p = document.createElement('p');
+    p.className = 'text-sm whitespace-pre-line';
+    p.textContent = btn.getAttribute('data-help-text') || '';
+    body.appendChild(p);
+  }
+  modal.showModal();
 }
 </script>
 {% endblock %}

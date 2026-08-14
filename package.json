@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "gen:theme": "python3 scripts/gen_theme.py",
+    "prebuild:css": "npm run gen:theme",
     "build:css": "postcss app/static/css/tailwind.src.css -o app/static/css/tailwind.css",
+    "prewatch:css": "npm run gen:theme",
     "watch:css": "postcss app/static/css/tailwind.src.css -o app/static/css/tailwind.css --watch"
   },
   "devDependencies": {

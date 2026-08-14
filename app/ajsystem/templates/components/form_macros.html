@@ -1,10 +1,11 @@
-{% macro render_field(field, data=none, ro=false, name_prefix='', show_label=true) %}
+{% macro render_field(field, data=none, ro=false, name_prefix='', show_label=true, ro_fields=none) %}
 {% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
 {% set ns = (name_prefix or '') + (field.name if not (name_prefix or '').endswith('_') else field.name) %}
 {% set label = field.display_label %}
 {% set req = 'required' if field.required else '' %}
 {% set dis = 'disabled' if (field.disabled or ro) else '' %}
 {% set ph = field.placeholder or '' %}
+{% set _ro_msg = ro_fields.get(field.name) if ro_fields else none %}
 {% set attr_str = '' %}
 {% if field.attrs %}
   {% for k, v in field.attrs.items() %}
@@ -17,9 +18,22 @@
 {% set step_val = field.step if field.step is not none else (0.1 ** field.decimals if field.decimals is not none else 'any') %}
 {% if field.hidden %}
 <input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
-{% elif field.readonly %}
-{{ render_label(field, data) }}
+{% elif field.readonly or _ro_msg %}
 <input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
+{% if _ro_msg %}
+{% if field.input == 'image' %}
+{{ render_label(field, data) }}
+{% else %}
+{% set _ro_txt = render_label(field, data)|trim %}
+<input type="text" class="input input-bordered input-sm w-full" value="{{ _ro_txt if _ro_txt and _ro_txt != '—' else '' }}" disabled tabindex="-1">
+{% endif %}
+<div class="mt-1 flex items-start gap-1 text-xs font-medium" style="color:color-mix(in srgb,var(--wa) 55%,#212121);max-width:100%;">
+  <svg class="w-3.5 h-3.5 mt-px flex-none" style="color:var(--wa);" aria-hidden="true"><use href="#i-exclamation-triangle"/></svg>
+  <span>{{ _ro_msg }}</span>
+</div>
+{% else %}
+{{ render_label(field, data) }}
+{% endif %}
 {% elif field.input == 'select' %}
   <select name="{{ ns }}" class="select select-bordered select-sm" {{ req }} {{ dis }} {{ attr_str|safe }}{% if field.query is string and field.query %} data-model="{{ field.query }}"{% endif %}{% if field.on_set %} data-onset-ent="{{ field.on_set_ent }}" data-onset-fk="{{ field.name }}"{% if field.on_set_mod %} data-onset-mod="{{ field.on_set_mod }}"{% endif %}{% endif %}>
     <option value="">Selecione...</option>
@@ -207,6 +221,22 @@
 {% endif %}
 {% endmacro %}
 
+{% macro render_list_button(btn) %}
+{# Botão de cabeçalho de listagem (sem instância). `on_off` é botão de linha e não renderiza. #}
+{% if not btn.on_off %}
+{% set url = btn.url(None) if btn.url else (url_for(btn.endpoint) if btn.endpoint else '#') %}
+{% if btn.confirm_msg %}
+<a href="{{ url }}" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1"
+   onclick="event.preventDefault();showConfirm('{{ btn.confirm_msg }}', function(){ window.location.href='{{ url }}'; });">
+{% else %}
+<a href="{{ url }}" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1">
+{% endif %}
+  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+  {{ btn.label }}
+</a>
+{% endif %}
+{% endmacro %}
+
 {% macro render_child_table(instance, child, ro=false) %}
 {% import "components/item_table.html" as itb with context %}
 {% if child.query and child.groups is defined and child.groups is not none %}
@@ -235,7 +265,7 @@
 </div>
 {% endmacro %}
 
-{% macro render_fields(fields, data=none, ro=false, spacing=none, name_prefix='') %}
+{% macro render_fields(fields, data=none, ro=false, spacing=none, name_prefix='', ro_fields=none) %}
 {% if fields._resolved_fields is defined %}
 {% set _fields = fields._resolved_fields %}
 {% if spacing is none %}{% set spacing = fields.spacing %}{% endif %}
@@ -264,15 +294,15 @@
 {% set _reserve = _prev + _next %}
 {% endif %}
 {% if field.hidden %}
-{{ render_field(field, data, ro, name_prefix=name_prefix) }}
+{{ render_field(field, data, ro, name_prefix=name_prefix, ro_fields=ro_fields) }}
 {% else %}
-<div {% if field.input == 'textarea' %}style="flex-basis:max({{ _cwidth }}ch,calc(100% - {{ _reserve }}ch));flex-grow:1;flex-shrink:1;min-width:0;"{% else %}style="min-width:{{ _cwidth }}ch;flex:none;"{% endif %}>
+<div {% if field.input == 'textarea' %}style="flex-basis:max({{ _cwidth }}ch,calc(100% - {{ _reserve }}ch));flex-grow:1;flex-shrink:1;min-width:0;max-width:100%;"{% else %}style="flex:0 1 auto;min-width:min({{ _cwidth }}ch,100%);max-width:100%;"{% endif %}>
   {% if _is_check %}
-  <div class="pt-[1.35rem]">{{ render_field(field, data, ro, name_prefix=name_prefix) }}</div>
+  <div class="pt-[1.35rem]">{{ render_field(field, data, ro, name_prefix=name_prefix, ro_fields=ro_fields) }}</div>
   {% else %}
   <label class="text-sm font-semibold mb-0.5 block">{{ field.display_label }}{% if field.required %} <span class="text-error">*</span>{% endif %}</label>
-  {{ render_field(field, data, ro, name_prefix=name_prefix) }}
-  {% if field.help %}<p class="text-xs text-gray-500 mt-0.5">{{ field.help }}</p>{% endif %}
+  {% if field.help %}<div class="flex items-center gap-1">{{ render_field(field, data, ro, name_prefix=name_prefix, ro_fields=ro_fields) }}<button type="button" class="field-help-btn" title="Ajuda" onclick="showFieldHelp(this)" data-help-title="{{ field.display_label }}"{% if field.help is string %} data-help-text="{{ field.help }}"{% else %} data-help-items='{{ field.help|tojson }}'{% endif %}><svg aria-hidden="true"><use href="#i-information-circle"/></svg></button></div>
+  {% else %}{{ render_field(field, data, ro, name_prefix=name_prefix, ro_fields=ro_fields) }}{% endif %}
   {% endif %}
 </div>
 {% endif %}
@@ -280,7 +310,7 @@
 </div>
 {% endmacro %}
 
-{% macro render_sessions(sessions, data=none, ro=false) %}
+{% macro render_sessions(sessions, data=none, ro=false, ro_fields=none) %}
 {% set _sessions = sessions._resolved_sessions if sessions._resolved_sessions is defined else sessions %}
 {% for session in _sessions %}
 {% set _ro = ro or session.readonly %}
@@ -290,7 +320,7 @@
 {% set _child = data|deep_attr(session.attr) if data is not none else none %}
 <div class="mt-3">
   <h6 class="font-bold mb-1">{{ session.label }}</h6>
-  {{ render_fields(session.fields, data=_child, ro=_ro, name_prefix='child_' + session.attr + '_') }}
+  {{ render_fields(session.fields, data=_child, ro=_ro, name_prefix='child_' + session.attr + '_', ro_fields=ro_fields) }}
 </div>
 {% else %}
 {{ render_child_table(data, session, _ro) }}

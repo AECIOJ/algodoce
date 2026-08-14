@@ -24,6 +24,10 @@ Entity = {
 
 List = {
     'fields': 'Operacao',
+    'buttons': [
+        {'label': 'Plano', 'icon': 'printer', 'color': 'info',
+         'endpoint': 'operacoes.pdf_operacoes'},
+    ],
 }
 
 
@@ -74,7 +78,7 @@ Form = {
 
 @auto.rota("/", endpoint='list')
 def list():
-    from app.reports.rep_operacao import _build_tree
+    from app.reports.operacoes import _build_tree
     secoes = _build_tree()
     op_data = []
     for secao in secoes:
@@ -94,14 +98,14 @@ def usage(id):
 
 @auto.rota("/pdf")
 def pdf_operacoes():
-    from app.reports.rep_operacao import OPERACAO_REPORT
+    from app.reports import PLANO
     from app.ajsystem.core.pdf import gerar_pdf_relatorio
     logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
-    pdf = gerar_pdf_relatorio(OPERACAO_REPORT, logo_path=logo_path)
+    pdf = gerar_pdf_relatorio(PLANO, logo_path=logo_path)
     buf = BytesIO()
     pdf.output(buf)
     return Response(
         buf.getvalue(),
         mimetype="application/pdf",
-        headers={"Content-Disposition": "inline; filename=operacoes.pdf"},
+        headers={"Content-Disposition": "inline; filename=plano_de_contas.pdf"},
     )

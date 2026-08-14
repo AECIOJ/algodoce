@@ -1,6 +1,7 @@
 {% extends "pages/sys.html" %}
 {% from "pages/macros.html" import heroicon, btn %}
 {% import "components/item_table.html" as itb with context %}
+{% import "components/form_macros.html" as fm with context %}
 
 {% macro _det_cell(item, idx, col) %}
   {% set _raw = item|deep_attr(col.card_path or col.field) %}
@@ -80,6 +81,7 @@
       </div>
       <div class="flex items-center gap-1 flex-wrap justify-end ml-auto">
         {% block page_list_header_extra %}{% endblock %}
+        {% for btn in buttons %}{{ fm.render_list_button(btn) }}{% endfor %}
         {% if new_url %}
         <a href="{{ new_url }}" class="btn btn-success btn-sm inline-flex items-center gap-1 shrink-0" title="{{ new_label|default('Incluir') }}">
           {{ heroicon('plus', 'w-4 h-4') }} Incluir

@@ -1,4 +1,8 @@
 /** @type {import('tailwindcss').Config} */
+// As cores do tema (cores de marca/neutras/feedback/apoio) vêm de
+// `app/config.py` → `scripts/gen_theme.py` → `tailwind.daisyui.json`.
+// Não edite este arquivo para trocar cores; altere `Temas` em app/config.py
+// e rode `npm run build:css`.
 module.exports = {
   content: [
     './app/templates/**/*.html',
@@ -9,29 +13,7 @@ module.exports = {
     preflight: false,
   },
   daisyui: {
-    themes: [
-      {
-        algodoce: {
-          "primary": "#26A69A",
-          "primary-content": "#ffffff",
-          "secondary": "#E91E63",
-          "secondary-content": "#ffffff",
-          "accent": "#FFB300",
-          "neutral": "#37474F",
-          "base-100": "#f5f5f5",
-          "base-200": "#e0e0e0",
-          "base-300": "#bdbdbd",
-          "--fallback-bc": "#1f2937",
-          "info": "#0288D1",
-          "success": "#43A047",
-          "success-content": "#FFFFFF",
-          "warning": "#FB8C00",
-          "error": "#E53935",
-        },
-      },
-      "light",
-      "dark",
-    ],
+    themes: require('./tailwind.daisyui.json'),
   },
   plugins: [require('daisyui')],
 }

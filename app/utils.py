@@ -152,6 +152,16 @@ class LinhaTransacao:
 
 
 def parse_prazo_recebimento(texto: str, data_pedido, data_entrega, total: float):
+    """Interpreta o prazo de uma carteira e gera os vencimentos.
+
+    Formatos aceitos (case-insensitive):
+        vazio      -> à vista, vencimento no pedido.
+        "N"        -> único vencimento em N dias (ex.: "30").
+        "Nx"       -> N parcelas iguais a cada 30 dias (ex.: "3x" -> 30/60/90).
+        "P/E"      -> metade no pedido e metade na entrega.
+        "A/B"      -> vencimentos em A e B dias (ex.: "0/15").
+        outro      -> fallback: à vista no pedido.
+    """
     if not texto or not texto.strip():
         return [{"vencimento": data_pedido, "previsto": total}]
     texto = texto.strip().upper()

@@ -284,7 +284,7 @@ def cancel(id):
 @bp.route("/pedidos/<int:id>/print")
 def print_order(id):
     order = Order.query.get_or_404(id)
-    from app.reports.rep_pedido import PEDIDO_REPORT
+    from app.reports import PEDIDO_REPORT
     return render_template(
         PEDIDO_REPORT.print_template,
         fallback_url=url_for(PEDIDO_REPORT.edit_endpoint, id=order.id),
@@ -295,7 +295,7 @@ def print_order(id):
 @bp.route("/pedidos/<int:id>/pdf")
 def pdf_order(id):
     order = Order.query.get_or_404(id)
-    from app.reports.rep_pedido import PEDIDO_REPORT
+    from app.reports import PEDIDO_REPORT
     logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
     pdf = gerar_pdf_relatorio(PEDIDO_REPORT, order.items, logo_path, instance=order)
     buf = BytesIO()

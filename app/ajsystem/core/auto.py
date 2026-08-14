@@ -18,7 +18,7 @@ import unicodedata
 from flask import Blueprint, redirect, url_for, flash
 from flask_login import login_required
 
-from app.ajsystem.core.app_config import db
+from app.ajsystem.core.adapter import db
 from app.ajsystem.core.do_list import do_list
 from app.ajsystem.core.form import handle_form, _resolve_delete, _when_allows, _resolve_label
 
@@ -235,10 +235,8 @@ def montar_blueprint(mod, slug=None, url_prefix=None, login=True, label=None):
 def _iterar_itens_menus(modulo_menu):
     """Percorre a árvore de menus produzindo pares (label, item)."""
     for label, item in modulo_menu.items():
-        if not isinstance(item, dict):
-            continue
-        if item.get('submenus'):
-            yield from _iterar_itens_menus(item['submenus'])
+        if item.submenus:
+            yield from _iterar_itens_menus(item.submenus)
         yield label, item
 
 
@@ -253,12 +251,9 @@ def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys'):
     registrados = []
     vistos = set()
     for label, item in _iterar_itens_menus(modulo_menu):
-        if 'url' in item:
+        if item.url:
             continue
-        if item.get('endpoint'):
-            slug = _normalizar_slug(item['endpoint'].split('.')[0])
-        else:
-            slug = _normalizar_slug(label)
+        slug = _normalizar_slug(item.page or label)
         if slug in vistos:
             continue
         try:

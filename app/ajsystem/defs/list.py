@@ -7,7 +7,9 @@ dependência: stdlib + `app.ajsystem.core.utils` (helpers genéricos).
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from app.ajsystem.defs.entities import Field, _resolve_fieldset
+from app.ajsystem.defs.fields import Field
+from app.ajsystem.defs.entities import _resolve_fieldset
+from app.ajsystem.defs.buttons import resolve_buttons
 
 
 @dataclass
@@ -24,7 +26,7 @@ class List:
     detail_data: Optional[str] = None
     send_endpoint: Optional[str] = None
     reports: Optional[list] = None
-    extra: Optional[dict] = None
+    buttons: Optional[list] = None
     template: Optional[str] = None
     linha: Optional[list[int]] = None
     card_idx: Optional[list[int]] = None
@@ -32,9 +34,15 @@ class List:
     def __post_init__(self):
         if isinstance(self.fields, dict):
             if 'fields' in self.fields:
-                self.fields = _resolve_fieldset(self.fields, self.extra)
+                self.fields = _resolve_fieldset(self.fields)
             else:
                 self.fields = [Field(name=k, **v) for k, v in self.fields.items()]
+
+    def resolve_buttons(self, bp_name=None):
+        """Resolve `buttons` para `Button` objects (mesma semântica do Form)."""
+        if getattr(self, '_resolved_buttons', None) is None:
+            self._resolved_buttons = resolve_buttons(self.buttons, bp_name)
+        return self._resolved_buttons
 
     @property
     def master_fields(self):

@@ -11,7 +11,7 @@
   Orquestradores `do_*`: `do_form`, `do_list`, `do_report`, `do_auth`
   (request → response; specs puros importados de `defs`).
   Capacidades: `form`, `list`, `query`, `pdf`, `filters`, `edits`,
-  `crypto`, `ntfy`, `utils`, `auto`, `menu`, `app_config` (lógica
+  `crypto`, `ntfy`, `utils`, `auto`, `menu`, `adapter` (lógica
   reutilizável).
 - `handles/` — ELIMINADO (fundido em `core/do_*`).
 

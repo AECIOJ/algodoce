@@ -9,16 +9,17 @@ e `app.ajsystem.core.utils` (helpers genéricos).
 import importlib
 import inspect
 import re
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import Any, Optional, Callable, Union
 
 from flask import Blueprint
 from sqlalchemy.orm import MANYTOONE
 
-from app.ajsystem.defs.buttons import Button, ACTIONS
+from app.ajsystem.defs.buttons import resolve_buttons
+from app.ajsystem.defs.fields import Field, _auto_label
 from app.ajsystem.defs.entities import (
-    Field, MODEL_MAP, build_field_config, _resolve_fieldset,
-    _entidade_fields, _fk_query_for, _auto_label, _infer_field_from_model,
+    MODEL_MAP, build_field_config, _resolve_fieldset,
+    _entidade_fields, _fk_query_for, _infer_field_from_model,
 )
 from app.ajsystem.core.utils import query_label
 
@@ -115,14 +116,6 @@ def _resolve_attr(parent_model, child_model):
     if hasattr(parent_model, plural):
         return plural
     return None
-
-
-def _to_pair(cond):
-    if not cond:
-        return None
-    if isinstance(cond, dict):
-        return next(iter(cond.items()))
-    return tuple(cond)
 
 
 def _rel_for_model(parent_model, child_model):
@@ -237,47 +230,7 @@ class Form:
                     f.query = query
 
     def _resolve_buttons(self):
-        if not self.buttons:
-            return []
-        resolved = []
-        for spec in self.buttons:
-            name = None
-            if isinstance(spec, str):
-                name = spec
-                base = ACTIONS.get(name)
-                if base is None:
-                    raise KeyError(
-                        f"Botão padrão '{name}' não existe em app.ajsystem.defs.buttons.ACTIONS. "
-                        f"Disponíveis: {', '.join(ACTIONS)}"
-                    )
-                btn = replace(base)
-                field_name = None
-            elif isinstance(spec, dict) and 'label' not in spec and len(spec) == 1:
-                name, overrides = next(iter(spec.items()))
-                base = ACTIONS.get(name)
-                if base is None:
-                    raise KeyError(
-                        f"Botão padrão '{name}' não existe em app.ajsystem.defs.buttons.ACTIONS. "
-                        f"Disponíveis: {', '.join(ACTIONS)}"
-                    )
-                overrides = dict(overrides or {})
-                field_name = overrides.pop('field', None)
-                btn = replace(base, **overrides)
-            else:
-                cfg = dict(spec)
-                btn = Button(**{
-                    k: v for k, v in cfg.items()
-                    if k in Button.__dataclass_fields__
-                })
-                field_name = cfg.get('field')
-            if btn.endpoint is None and self._bp_name:
-                btn.endpoint = f"{self._bp_name}.toggle"
-            if btn.on_off:
-                btn.field = field_name or 'ativo'
-            btn.show_if = _to_pair(btn.show_if)
-            btn.hide_if = _to_pair(btn.hide_if)
-            resolved.append(btn)
-        return resolved
+        return resolve_buttons(self.buttons, self._bp_name)
 
     def _resolve_fields(self):
         if isinstance(self.fields, str):

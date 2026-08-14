@@ -366,14 +366,14 @@ def edit(id):
 @bp.route("/<int:id>/print")
 def print_compra(id):
     compra = Compra.query.get_or_404(id)
-    from app.reports.rep_compra import COMPRA_REPORT
+    from app.reports import COMPRA_REPORT
     return render_template("index.html")
 
 
 @bp.route("/<int:id>/pdf")
 def pdf_compra(id):
     compra = Compra.query.get_or_404(id)
-    from app.reports.rep_compra import COMPRA_REPORT
+    from app.reports import COMPRA_REPORT
     logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
     pdf = gerar_pdf_relatorio(COMPRA_REPORT, compra.items, logo_path, instance=compra)
     buf = BytesIO()

@@ -12,7 +12,7 @@ from app.ajsystem.core import auto
 from app.ajsystem.core.do_list import do_list
 from app.ajsystem.core.form import pesquise
 from app.ajsystem.core.pdf import gerar_pdf_relatorio
-from app.reports.rep_orcamento import ORCAMENTO_REPORT
+from app.reports import ORCAMENTO_REPORT
 
 
 def quote_validade(item):

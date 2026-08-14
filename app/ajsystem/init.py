@@ -4,7 +4,7 @@ import os
 import jinja2
 
 from app.ajsystem import ajsystem, heroicon_filter
-from app.ajsystem.core.app_config import SYS, get_uploads_endpoint
+from app.ajsystem.core.adapter import APP, get_uploads_endpoint
 from app.ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguranca
 from app.ajsystem.core.auto import registrar_modulos
 from app.ajsystem.core.menu import url_do_item
@@ -52,5 +52,7 @@ def init_app(app):
     app.jinja_env.globals['aj_uploads_endpoint'] = lambda: get_uploads_endpoint(app)
     app.jinja_env.globals['field_value'] = field_value
 
-    # 5. registra módulos CRUD a partir dos menus
-    registrar_modulos(app, SYS.get('menus', {}))
+    # 5. registra módulos CRUD a partir dos menus do módulo 'system'
+    system = APP.module('system')
+    if system:
+        registrar_modulos(app, system.menus)

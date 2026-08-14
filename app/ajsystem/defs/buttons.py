@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 
@@ -98,4 +98,64 @@ ACTIONS = {
         color='success', outline=True, position='nav_right', on_off=True,
     ),
 }
+
+
+def _to_pair(cond):
+    if not cond:
+        return None
+    if isinstance(cond, dict):
+        return next(iter(cond.items()))
+    return tuple(cond)
+
+
+def resolve_buttons(specs, bp_name=None):
+    """Resolve specs de botão para `Button` (Form.buttons / List.buttons).
+
+    Cada spec aceita: nome de preset em `ACTIONS` (ex.: `'on_off'`),
+    `{nome: {overrides}}` (preset com ajustes) ou dict custom
+    (`label`, `endpoint`, `icon`, ...). Sem `endpoint` e com `bp_name`,
+    assume `'<bp_name>.toggle'`; `on_off` fixa `field` em `'ativo'`
+    (ou o override `field`).
+    """
+    if not specs:
+        return []
+    resolved = []
+    for spec in specs:
+        name = None
+        if isinstance(spec, str):
+            name = spec
+            base = ACTIONS.get(name)
+            if base is None:
+                raise KeyError(
+                    f"Botão padrão '{name}' não existe em app.ajsystem.defs.buttons.ACTIONS. "
+                    f"Disponíveis: {', '.join(ACTIONS)}"
+                )
+            btn = replace(base)
+            field_name = None
+        elif isinstance(spec, dict) and 'label' not in spec and len(spec) == 1:
+            name, overrides = next(iter(spec.items()))
+            base = ACTIONS.get(name)
+            if base is None:
+                raise KeyError(
+                    f"Botão padrão '{name}' não existe em app.ajsystem.defs.buttons.ACTIONS. "
+                    f"Disponíveis: {', '.join(ACTIONS)}"
+                )
+            overrides = dict(overrides or {})
+            field_name = overrides.pop('field', None)
+            btn = replace(base, **overrides)
+        else:
+            cfg = dict(spec)
+            btn = Button(**{
+                k: v for k, v in cfg.items()
+                if k in Button.__dataclass_fields__
+            })
+            field_name = cfg.get('field')
+        if btn.endpoint is None and bp_name:
+            btn.endpoint = f"{bp_name}.toggle"
+        if btn.on_off:
+            btn.field = field_name or 'ativo'
+        btn.show_if = _to_pair(btn.show_if)
+        btn.hide_if = _to_pair(btn.hide_if)
+        resolved.append(btn)
+    return resolved
 

@@ -18,41 +18,56 @@ referência (§5–§7) passam a refletir somente o contrato aprovado.
 
 Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corrigir) · `vazio` pendente.
 
+### Field — propriedades de campo (§5)
+
 | Propriedade | Estado | Onde validada |
 |---|---|---|
-| `attrs` (Field) | ✗ | Categorias — substituída por `min`/`max`/`step`; reavaliar se necessário |
-| `type` (Field) | ✓ | Categorias — `ID`, `TEXT`, `INT`, `BOOL` |
-| `width` (Field) | ✓ | Categorias — `id` |
-| `mask` (Field) | ✓ | Categorias — `ordem` (`'999'`) |
-| `min` (Field) | ✓ | Categorias — `ordem` |
-| `max` (Field) | ✓ | Categorias — `ordem` |
-| `step` (Field) | ✓ | Categorias — `ordem` (INT → `1`) |
-| `fields` (List) | ✓ | Categorias — `['Category']` (renomeada de `columns`) |
-| `ordering` (List) | ✓ | Categorias — `['ordem', 'nome']` |
-| `title` (List) | ✓ | Categorias |
-| `fields` (Form) | ✓ | Categorias — `'Category'` |
-| `delete` (Form) | ✓ | Categorias — `when`, `msg_ok`, `msg_no` |
-| `pre_save` (Form) | ✓ | Categorias — auto-ordenação `ordem` |
-| `post_save` (Form) | ✓ | Categorias — reordenação |
-| `buttons` (Form) | ✓ | Categorias — `on_off` |
-| `DK` (Field) | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `in_form=False`) |
-| `MULT10` (Field) | ✓ | Insumos — `etapas` (códigos concatenados, máx. 10 opções 0-9; editor genérico abre em modal) |
-| `masterkey` (Field·FK) | ✓ | Insumos — opcional: `product_id` sem `masterkey` (query derivado da relação) |
-| `label` (Field) | ✓ | Insumos — `product_id` → 'Produto' |
-| `required` (Field) | ✓ | Insumos — `product_id`, `unidade_medida`, `fator`, `unidade` |
-| `decimals` (Field) | ✓ | Insumos — `fator` |
-| `on_set` (Field) | ✓ | Produtos — `ingredient_id` (qtd/unidade); Orçamentos — `product_id` (preço); Insumos — `unidade` (fator=1) |
-| `in_form` (Field) | ✓ | Gate do form (renomeada de `edit`): `False` exclui do form sem submeter — Operações `indice`; Orçamentos `valor`/`order_id`; Pedidos `cliente`/`carteira`/`transacao`/`quote_id`; Produtos `ativo`; defaults `ID`/`DK` |
-| `in_list` (Field) | ✓ | Coluna na tabela e/ou card: `0` exclui da listagem/card/filtro; `1` coluna na linha (vai p/ o card quando não couber, padrão); `2` sempre no card — Produtos `descricao` (`in_list: 2`; `True`→`1`, `False`→`0`) |
-| `readonly` (Field) |  | a validar — exibe valor sem edição no form, submete via hidden |
-| `hidden` (Field) |  | a validar — campo invisível que submete via `<input type="hidden">` |
-| `transform` (Field) | ✓ | Insumos — `nome` ('title') |
-| `list` (Field) | ✓ | Insumos — `tipo`/`unidade_medida` (LIST) e `etapas` (MULT10) |
-| `sessions` (Form) | ✓ | Insumos — `Conversões` e `Produtos` (explícitas) |
-| `table` (Form·sessions) | ✓ | Insumos — `['UnitConversion']`, `['ProductIngredient']` |
-| `readonly` (Form·sessions) | ✓ | Insumos — sessão `Produtos` renderizada como texto |
-| `ID` em coluna FK (Field) | ✗ | Insumos — `ingredient_id`/`product_id` eram `ID`; usar `DK` (linha-pai) ou `FK` |
-| `LIST` em campo multivalorado (Field) | ✗ | Insumos — `etapa` (valor único) → `MULT10` (`etapas`) |
+| `attrs` | ✗ | Categorias — substituída por `min`/`max`/`step`; reavaliar se necessário |
+| `decimals` | ✓ | Insumos — `fator`; Carteiras — `taxa_recebimento` (NUM) |
+| `DK` | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `in_form=False`) |
+| `hidden` |  | a validar — campo invisível que submete via `<input type="hidden">` |
+| `ID` em coluna FK | ✗ | Insumos — `ingredient_id`/`product_id` eram `ID`; usar `DK` (linha-pai) ou `FK` |
+| `in_form` | ✓ | Gate do form (renomeada de `edit`): `False` exclui do form sem submeter — Operações `indice`; Orçamentos `valor`/`order_id`; Pedidos `cliente`/`carteira`/`transacao`/`quote_id`; Produtos `ativo`; defaults `ID`/`DK` |
+| `in_list` | ✓ | Coluna na tabela e/ou card: `0` exclui da listagem/card/filtro; `1` coluna na linha (vai p/ o card quando não couber, padrão); `2` sempre no card — Produtos `descricao` (`in_list: 2`; `True`→`1`, `False`→`0`) |
+| `label` | ✓ | Insumos — `product_id` → 'Produto'; Carteiras — `prazo_recebimento` → 'Prazo', `taxa_recebimento` → 'Taxa' |
+| `list` | ✓ | Insumos — `tipo`/`unidade_medida` (LIST) e `etapas` (MULT10); Carteiras — `uso`/`gerar` (LIST) |
+| `LIST` em campo multivalorado | ✗ | Insumos — `etapa` (valor único) → `MULT10` (`etapas`) |
+| `mask` | ✓ | Categorias — `ordem` (`'999'`) |
+| `masterkey` | ✓ | Insumos — opcional: `product_id` sem `masterkey` (query derivado da relação) |
+| `max` | ✓ | Categorias — `ordem` |
+| `min` | ✓ | Categorias — `ordem` |
+| `MULT10` | ✓ | Insumos — `etapas` (códigos concatenados, máx. 10 opções 0-9; editor genérico abre em modal) |
+| `on_set` | ✓ | Produtos — `ingredient_id` (qtd/unidade); Orçamentos — `product_id` (preço); Insumos — `unidade` (fator=1) |
+| `readonly` | ✓ | Pedidos/Recursos — `id`/`total`/`status` (FIELD_* de `app/fields`) |
+| `required` | ✓ | Insumos — `product_id`, `unidade_medida`, `fator`, `unidade` |
+| `step` | ✓ | Categorias — `ordem` (INT → `1`) |
+| `transform` | ✓ | Insumos — `nome` ('title'); Carteiras — `nome` ('title') |
+| `type` | ✓ | Categorias — `ID`, `TEXT`, `INT`, `BOOL`; Carteiras — `LIST`, `INT`, `NUM` |
+| `width` | ✓ | Categorias — `id`; Carteiras — `id` |
+
+### List — configuração da listagem (§6)
+
+| Propriedade | Estado | Onde validada |
+|---|---|---|
+| `fields` | ✓ | Categorias — `['Category']` (renomeada de `columns`); Carteiras |
+| `ordering` | ✓ | Categorias — `['ordem', 'nome']`; Carteiras — `['nome']` |
+| `title` | ✓ | Categorias |
+
+### Form — configuração do formulário (§7)
+
+| Propriedade | Estado | Onde validada |
+|---|---|---|
+| `buttons` | ✓ | Categorias — `on_off` |
+| `delete` | ✓ | Categorias — `when`, `msg_ok`, `msg_no`; Carteiras — `when` multi-model `[Compra, Order, Quote, Previsao]`, `msg_ok`/`msg_no` |
+| `fields` | ✓ | Categorias — `'Category'` |
+| `form_tail` | ✗ | Desaprovada — sem consumidores ativos (mantida só p/ compat) |
+| `page_scripts` | ✗ | Desaprovada — ainda usada por Transacao/Pedidos (`_page_scripts.html`), mas sem novos usos |
+| `post_save` | ✓ | Categorias — reordenação |
+| `pre_get` | ✓ | Carteiras — `em_uso`/`ro_fields` no editar: quando em uso, só `nome` fica readonly com hint |
+| `pre_save` | ✓ | Categorias — auto-ordenação `ordem`; Carteiras — guarda de `nome` quando em uso (com `no_autoflush`)
+| `sessions` | ✓ | Insumos — `Conversões` e `Produtos` (explícitas) |
+| `sessions.readonly` | ✓ | Insumos — sessão `Produtos` renderizada como texto |
+| `sessions.table` | ✓ | Insumos — `['UnitConversion']`, `['ProductIngredient']` |
 
 ---
 
@@ -60,7 +75,7 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 
 1. [Visão geral do framework](#1-visão-geral-do-framework)
 2. [Criando um novo app do zero](#2-criando-um-novo-app-do-zero)
-3. [Definições do App — APP, SITE, SYS, ADMIN e Temas](#3-definições-do-app)
+3. [Definições do App — APP, modules e Temas](#3-definições-do-app)
 4. [Módulos (rotas declarativas)](#4-módulos-rotas-declarativas)
 5. [Entity — definição de campos](#5-entity--definição-de-campos)
 6. [List — configuração](#6-list--configuração)
@@ -94,13 +109,13 @@ O framework cuida de todo o resto:
 ### 1.2 O que você precisa fornecer (o "contrato")
 
 O framework não conhece sua aplicação. Ele recebe tudo através de um **adaptador**
-(`app_config.py`) e da declaração `APP`/`SYS`/`SITE`/`ADMIN`. Você deve entregar:
+(`adapter.py`) e da declaração `APP` (com `modules`). Você deve entregar:
 
 1. **O app Flask** criado (`create_app`) — o framework apenas faz `init_app(app)`.
-2. **Um adaptador** `app_config.py` expondo `db`, `login_manager`, `User`, `Setting`, `APP`, `SYS` e o endpoint de uploads.
+2. **Um adaptador** `adapter.py` expondo `db`, `login_manager`, `User`, `Setting`, `APP` e o endpoint de uploads.
 3. **Models SQLAlchemy** em `app/models/` (um por entidade).
 4. **Módulos declarativos** em `app/routes/sys/` (Entity + List + Form).
-5. **`app/routes/app_defs.py`** com `Temas`, `APP`, `SITE`, `SYS`, `ADMIN`.
+5. **`app/config.py`** com `Temas` e `APP` (incluindo `modules`).
 
 ### 1.3 Estrutura de pastas do framework
 
@@ -111,7 +126,7 @@ O framework é a pasta `app/ajsystem/`:
  ├── __init__.py           # exports (init_app; blueprint ajsystem; filtro heroicon)
  ├── init.py               # init_app(app): wiring de tudo
  ├── core/                 # motor/runtime do framework
- │   ├── app_config.py     # ADAPTADOR — único ponto de acoplamento com o app
+ │   ├── adapter.py         # ADAPTADOR — único ponto de acoplamento com o app
  │   ├── auto.py           # auto.rota, montar_blueprint, registrar_modulos
  │   ├── menu.py           # url_do_item: resolve menus → endpoints
  │   ├── utils.py          # helpers (item_ref, deep_get, ...)
@@ -122,11 +137,12 @@ O framework é a pasta `app/ajsystem/`:
  │   └── edits.py          # assets de editores (rich text)
  ├── defs/                 # definições declarativas (sem lógica de request)
  │   ├── constants.py      # CONECTORES (conectivos de títulos)
- │   ├── fields.py         # FIELD_TYPES — tipos de campo base; VALIDATORS; fmt_mask
- │   ├── buttons.py        # Button/ConfirmModal; presets BTN_*
+  │   ├── fields.py         # dataclass Field; FIELD_TYPES; VALIDATORS; fmt_mask
+  │   ├── query.py          # dataclass Query (referência); _resolve_query
+  │   ├── buttons.py        # Button/ConfirmModal; presets BTN_*
   │   ├── filters.py        # constantes FILTER_*/MODE_*
   │   ├── report.py         # config de relatórios PDF (Report/ReportColumn)
- │   └── entities.py       # Field/List; build_field_config; register_model; MODEL_MAP
+   │   └── entities.py       # Entity; build_field_config; register_model; MODEL_MAP
  ├── handles/              # ações de request (handlers)
  │   ├── render_list.py    # render_list + resolvers de colunas/ordenação
  │   └── auth.py           # init_auth + blueprints auth e seguranca (login/logout/chave)
@@ -175,8 +191,8 @@ meu_app/
 │   ├── extensions.py        # db = SQLAlchemy(); login_manager; migrate
 │   ├── config.py            # Config: SQLALCHEMY_DATABASE_URI, SECRET_KEY, ...
 │   ├── ajsystem/            # o framework (esta pasta)
-│   ├── app_config.py        # ADAPTADOR (dentro de ajsystem/ — edite)
-│   ├── app_defs.py          # Temas, APP, SITE, SYS, ADMIN  ← comece aqui
+│   ├── adapter.py           # ADAPTADOR (dentro de ajsystem/ — edite)
+│   ├── config.py            # Temas + APP (com modules)  ← comece aqui
 │   ├── models/              # SQLAlchemy models (1 arquivo por entidade)
 │   │   ├── __init__.py      # importa todos os models
 │   │   ├── user.py          # User (obrigatório p/ autenticação)
@@ -201,9 +217,9 @@ meu_app/
 └── run.py                   # app = create_app(); app.run()
 ```
 
-> **Ordem recomendada de implementação:** (1) `app_defs.py` → (2) `models/` →
+> **Ordem recomendada de implementação:** (1) `config.py` → (2) `models/` →
 > (3) `app/routes/sys/` com os 3 dicionários → (4) `app/__init__.py` →
-> (5) `app_config.py`. As seções 3 a 7 explicam cada passo em detalhe.
+> (5) `adapter.py`. As seções 3 a 7 explicam cada passo em detalhe.
 
 ### 2.3 Bootstrap — `app/__init__.py`
 
@@ -248,7 +264,7 @@ módulos a partir de `SYS['menus']` e configura os endpoints de upload.
 > Se você **não** registrar, o framework tenta importar automaticamente
 > `app.models.<chave>` (§4.6).
 
-### 2.4 Adaptador — `app_config.py`
+### 2.4 Adaptador — `adapter.py`
 
 Este é o **único ponto de acoplamento** entre o framework e a sua app. O
 framework importa tudo daqui, nunca diretamente de `app.models` etc.:
@@ -257,7 +273,7 @@ framework importa tudo daqui, nunca diretamente de `app.models` etc.:
 from app.extensions import db, login_manager
 from app.models.user import User
 from app.models.setting import Setting
-from app.app_defs import APP, SYS, Temas   # que você define (seção 3)
+from app.config import APP, SYS, Temas   # que você define (seção 3)
 from flask import url_for
 
 
@@ -274,8 +290,7 @@ O que o adaptador deve expor:
 | `login_manager` | `LoginManager` | autenticação |
 | `User` | Model | login (deve ter `username`, `check_password`, `set_password`) |
 | `Setting` | Model | armazenamento de `Setting.get('chave')` (painel, sessão) |
-| `APP` | dict | definições do app (tema, nome, menus) |
-| `SYS` | dict | alias de `APP['system']` (menus do sistema) |
+| `APP` | dict | definições do app (name, logo, version, tema, modules) |
 | `get_uploads_endpoint(app)` | callable | endpoint das imagens |
 
 O `get_uploads_endpoint` retorna `'uploads.uploaded_file'` por padrão. Você pode
@@ -317,37 +332,69 @@ de `components/heroicons.svg` (sprite inline, ícones por nome — ex.: `trash`,
 
 ## 3. Definições do App
 
-Todo o app é descrito em `app/app_defs.py`, começando pelos **temas** e depois
-pelos dicionários `APP`, `SITE`, `SYS` e `ADMIN`.
+Todo o app é descrito em `app/config.py`, começando pelos **temas** e depois
+pelo dicionário `APP` (com a lista `modules`). A estrutura desses dicts é
+tipada pelo framework em `defs/config.py` (`App`, `Module`, `MenuItem`, `Tema`)
+e coage via `build_*` no adaptador (`core/adapter.py`); consumidores do
+framework acessam por atributo (`APP.module('system').menus`, `TEMAS['algodoce'].base`).
 
 ### 3.1 Temas (tokens de cor)
 
+`app/config.py` é a **fonte única de cores** do app:
+
 ```python
 Temas = {
-    'doceira': {
-        'marca':   {'cor': '#e06f98', 'suave': '#fbe5ed'},
-        'neutras': {'topo': '#f7f5f3', 'corpo': '#fff', 'texto': '#333',
-                    'texto_inv': '#fff', 'card': '#fff', 'borda': '#eee',
-                    'topbar': '#fff', 'card_header': '#faf7f6', 'tabela_alt': '#faf7f6'},
-        'feedback': {'ok': '#3e9e6c', 'erro': '#d9534f', 'aviso': '#e0a800',
-                     'info': '#4096b5'},
-        'apoio':   {'novo': '#6c4f9e', 'excluir': '#d9534f', 'salvar': '#3e9e6c'},
-        'barras':  {'vermelha': '#c0392b', 'laranja': '#e67e22', 'amarela': '#f1c40f',
-                    'verde': '#27ae60', 'azul': '#2980b9', 'azul_escuro': '#1f3a5f',
-                    'cinza': '#95a5a6'},
+    'algodoce': {
+        'base': 'algodoce',            # nome do tema DaisyUI compilado (data-theme)
+        'rotulo': 'AlgoDoce',
+        'marca': {                     # primary / secondary (CTAs, links, destaque)
+            'primary': '#26A69A', 'primary-content': '#FFFFFF',
+            'secondary': '#E91E63', 'secondary-content': '#FFFFFF',
+        },
+        'neutras': {                   # superfícies, bordas, textos
+            'base-100': '#f5f5f5', 'base-200': '#e0e0e0', 'base-300': '#bdbdbd',
+            'base-content': '#212121', 'neutral': '#37474F', 'neutral-content': '#FFFFFF',
+        },
+        'feedback': {                  # estado semântico (mensagens, botões, badges)
+            'success': '#43A047', 'success-content': '#FFFFFF',
+            'warning': '#FB8C00', 'warning-content': '#000000',
+            'error': '#E53935', 'error-content': '#FFFFFF',
+            'info': '#0288D1', 'info-content': '#FFFFFF',
+        },
+        'apoio': {                     # accent (destaque, sem erro/sucesso)
+            'accent': '#FFB300', 'accent-content': '#000000',
+        },
+        'barras': {                    # chrome do app (runtime — vars --bar-*)
+            'altura': 5,
+            'menu':    {'fundo': '#e91e63', 'texto': '#FFFFFF'},
+            'submenu': {'fundo': '#FFFFFF', 'texto': '#e91e63'},
+            'form':    {'fundo': '#FFFFFF', 'texto': '#e91e63'},
+            'rodape':  {'fundo': '#FFFFFF', 'texto': '#e91e63'},
+        },
     },
 }
 ```
 
-Cada grupo alimenta classes CSS no template base:
-
 | Grupo | Uso |
 |---|---|
-| `marca.cor` / `marca.suave` | cor da marca e variação suave |
-| `neutras` | topo/corpo/texto/cards/bordas/tabelas |
-| `feedback` | mensagens ok/erro/aviso/info |
-| `apoio` | botões padrão (novo, excluir, salvar) |
-| `barras` | cores de badges/barras (ex.: botões `color='azul'`) |
+| `marca` | `primary`/`secondary` (+`-content`) — CTAs, links, botões principais |
+| `neutras` | `base-100/200/300`, `base-content`, `neutral` — fundos, cards, bordas, textos |
+| `feedback` | `success`/`warning`/`error`/`info` (+`-content`) — flash, botões, badges, hints |
+| `apoio` | `accent` (+`-content`) — destaque |
+| `barras` | Chrome do app (runtime): `menu`, `submenu`, `form`, `rodape` → vars `--bar-*` via `components/theme.html` |
+
+**Como as cores chegam ao CSS** — duas vias:
+
+- `marca`/`neutras`/`feedback`/`apoio` alimentam o **tema DaisyUI compilado**:
+  `scripts/gen_theme.py` lê `Temas` de `app/config.py` e gera `tailwind.daisyui.json`
+  (consumido por `tailwind.config.js`). A compilação gera `app/static/css/tailwind.css`
+  (`npm run build:css`). **Mudou uma cor? Altere em `app/config.py` e rode
+  `npm run build:css`** — propaga para o app inteiro.
+- `barras` é lido em runtime por `components/theme.html` e **propaga sem rebuild**.
+
+> **Não edite `tailwind.daisyui.json` à mão** — ele é gerado (`npm run gen:theme`,
+> executado automaticamente como `prebuild:css`/`prewatch:css`). A chave `APP.tema`
+> (abaixo) seleciona qual tema de `Temas` está ativo (`data-theme`).
 
 ### 3.2 `APP` — as propriedades e o que pode ser inserido
 
@@ -356,45 +403,51 @@ pode ser inserido e a referência para a definição completa:
 
 ```python
 APP = {
-    'nome': 'Algodocê',          # nome exibido no topo/menu
+    'name': 'Algodocê',          # nome exibido no topo/menu
     'logo': 'logo.png',          # arquivo em app/static/
-    'versao': '1.0.0',           # versão exibida no rodapé
+    'version': '1.0.0',          # versão exibida no rodapé
     'tema': 'doceira',           # chave do dicionário Temas  →  §3.1
-    'site':  {...},              # menus públicos            →  §3.3 (SITE)
-    'system': {...},             # menus do sistema (CRUD)   →  §3.3 (SYS)
-    'admin': {...},              # menus administrativos     →  §3.3 (ADMIN)
+    'modules': [                 # módulos (áreas) do app     →  §3.3
+        {'type': 'public', 'default_path': 'produtos', 'menus': {...}},
+        {'type': 'system', 'default_path': 'cadastro/categorias', 'menus': {...}},
+        {'type': 'admin',  'default_path': 'seguranca.painel',   'menus': {}},
+    ],
 }
 ```
 
 | Propriedade | Tipo | O que pode ser inserido | Ver § |
 |---|---|---|---|
-| `nome` | str | Nome do app exibido no cabeçalho e nos títulos | — |
+| `name` | str | Nome do app exibido no cabeçalho e nos títulos | — |
 | `logo` | str | Nome do arquivo em `app/static/` (ex.: `'logo.png'`). Vazio para não exibir | — |
-| `versao` | str | Versão mostrada no rodapé (ex.: `'1.0.0'`) | — |
+| `version` | str | Versão mostrada no rodapé (ex.: `'1.0.0'`). Se omitida, lê o arquivo `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE` → `'v1.YY.MM-SEQ'`) | — |
 | `tema` | str | Chave do dicionário `Temas`; define todas as cores | [§3.1](#31-temas-tokens-de-cor) |
-| `site` | dict | Menu público (home, vitrine). Mesma estrutura de menu de `SYS` | [§3.3](#33-menus-site-sys-admin) |
-| `system` | dict | Menu do sistema — cada item vira um módulo CRUD | [§3.3](#33-menus-site-sys-admin) |
-| `admin` | dict | Menu administrativo (sessão, configurações) | [§3.3](#33-menus-site-sys-admin) |
+| `modules` | list | Módulos do app. Cada um tem `type` (único), `default_path` e `menus` | [§3.3](#33-menus-modules) |
 
-> As propriedades `site`, `system` e `admin` são acessadas pelos blueprints para
-> o redirect após login e para a construção do menu (sidebar + topbar). O acesso
-> de `system` também está disponível como `SYS` (adaptador).
+> Cada módulo tem um `type` que o identifica (`'public'` por padrão) e deve ser
+> único. O framework seleciona por tipo: `APP.module('system')` (área após
+> login), `APP.module('public')` (visitante) e `APP.module('admin')`
+> (painel de segurança). Tipos além de `public`/`system`/`admin` são permitidos.
+> Se o tipo pedido não existir, `APP.module()` retorna o **primeiro módulo da
+> lista** (módulo padrão); retorna `None` apenas se a lista estiver vazia.
 
-### 3.3 Menus (SITE, SYS, ADMIN)
+### 3.3 Menus (modules)
 
-A estrutura de cada menu é um dict:
+A estrutura de cada módulo é um dict com `type`, `default_path` e `menus`:
 
 ```python
-'system': {
-    'url_prefix': '/',            # prefixo das rotas CRUD
-    'home': 'pagina_inicial',     # endpoint da home após login
-    'menus': [
-        {'endpoint': 'categorias.list', 'icon': 'tag'},        # sem submenu
-        {'label': 'Estoque', 'icon': 'archive-box', 'submenus': [  # com submenu
-            {'endpoint': 'insumos.list', 'label': 'Insumos'},
-            {'endpoint': 'produtos.list', 'label': 'Produtos'},
-        ]},
-    ],
+# dentro de APP['modules'] — ex.: módulo 'system'
+{'type': 'system',
+ 'default_path': 'cadastro/categorias',   # destino após login (caminho de menu)
+ 'menus': {
+     'Categorias': {'icon': 'bi-journal'},        # sem submenu → módulo 'categorias'
+     'Estoque': {'icon': 'bi-box', 'submenus': {  # com submenu
+         'Insumos':   {'icon': 'bi-box-seam'},
+         'Produtos':  {'icon': 'bi-gift'},
+         'Operações': {'icon': 'bi-tags', 'page': 'opr'},  # rótulo ≠ arquivo
+     }},
+     'Sobre': {'url': 'site.sobre', 'icon': 'bi-info-circle'},   # endpoint nomeado
+     'Manual': {'url': '/manual', 'icon': 'bi-book'},            # caminho literal
+ },
 }
 ```
 
@@ -402,15 +455,18 @@ Propriedades de um item de menu:
 
 | Propriedade | Obrigatória | O que é |
 |---|---|---|
-| `endpoint` | uma das duas | Nome do endpoint do módulo (ex.: `'produtos.list'`). Se ausente, usa o `label` |
-| `label` | sim* | Rótulo exibido; usado para derivar o slug do módulo quando `endpoint` ausente |
-| `icon` | não | Nome do ícone Heroicon (ex.: `'tag'`, `'archive-box'`, `'users'`) |
-| `submenus` | não | Lista de itens-filhos com `endpoint`/`label`/`icon` |
-| `url` | não | URL fixa (se não for módulo do framework) |
+| `label` | sim* | Rótulo exibido; usado para derivar o slug do módulo |
+| `icon` | não | Nome do ícone Bootstrap (ex.: `'bi-tag'`, `'bi-box'`) |
+| `submenus` | não | Dict de itens-filhos com `label`/`icon`/`page`/`url` |
+| `page` | não | Arquivo do módulo quando o rótulo ≠ arquivo (ex.: menu `'Operações'` → `app.routes.sys.opr`). Ainda monta o módulo |
+| `url` | não | **Escape de navegação** (não monta módulo): endpoint nomeado (`'orcamentos.list'`) ou caminho literal (`'/manual'`, `'https://...'`) |
 
-> O **slug** do item (derivado do `endpoint` — ou do `label`, normalizado sem
-> acentos) define o módulo Python em `app.routes.sys.<slug>` — veja §4.4. Por
-> isso itens com `submenus` ou sem `endpoint` precisam de `label`.
+> **Regra de ouro:** itens sem `url` viram módulos. O **slug** (derivado do
+> `page` — ou do `label`, normalizado sem acentos) define o módulo Python em
+> `app.routes.sys.<slug>` — veja §4.4. Por isso itens com `submenus` ou sem
+> `page` precisam de `label`. Use `url` apenas para endpoints registrados fora
+> do menu (blueprints com `bp` próprio, páginas custom) ou caminhos literais —
+> nunca para um módulo automático sem `bp`, pois ele não seria montado.
 
 ---
 
@@ -475,15 +531,15 @@ suas rotas.
 ### 4.4 Registro do módulo (menu → blueprint)
 
 O framework percorre `SYS['menus']` (via `registrar_modulos(app, menus)`) e, para
-cada item sem `url` fixa:
+cada item sem `url`:
 
-1. Deriva o slug (do `endpoint`, ou do `label` normalizado);
+1. Deriva o slug (do `page`, ou do `label` normalizado);
 2. Importa o módulo `app.routes.sys.<slug>`;
 3. Se o módulo **não** tem `bp`, monta o blueprint declarativo e o registra com
-   `url_prefix = SYS['url_prefix'] + slug`.
+   `url_prefix = '/' + slug`.
 
 > O menu e o blueprint usam o mesmo slug, então a ordem das seções **3.3 → 4.4**
-> é consistente: `label`/`endpoint` no menu, `Entity`/`List`/`Form` no módulo.
+> é consistente: `label`/`page` no menu, `Entity`/`List`/`Form` no módulo.
 
 ### 4.5 Rotas custom — `@auto.rota`
 
@@ -562,6 +618,7 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `align` | str | `'left'` (padrão) \| `'right'` \| `'center'` |
 | `input` | str | Sobrescreve o widget (`text`, `textarea`, `number`, `date`, `boolean`, `select`, `image`, ...) |
 | `required` | bool | Obrigatório (validação de presença) |
+| `help` | str/dict | Ajuda do campo: `str` → texto no modal (quebras com `\n`); `dict` `{entrada: descrição}` → tabela "Entrada \| Descrição" no modal. Aparece um botão-ícone ao lado do label que abre o modal (Carteiras — `prazo_recebimento` com formatos de prazo) |
 | `in_form` | bool | `False` não renderiza o campo no form (nem exibe nem submete) |
 | `in_list` | int | `0` exclui o campo da listagem, do card e do filtro; `1` coluna na linha (vai p/ o card quando não couber); `2` sempre no card; padrão `1`. `True`→`1`, `False`→`0` |
 | `readonly` | bool | Exibe o valor como texto estático no form (sem edição); o valor é submetido via `<input type="hidden">` (preserva valores preenchidos por `on_set`) |
@@ -705,6 +762,7 @@ List = {
 | `new_endpoint` | str/None | Endpoint do botão "Novo". Ausente → `'<blueprint>.form'`; `None` → esconde; string → usa esse endpoint | — |
 | `edit_endpoint` | str/None | Endpoint do link de edição da linha. Ausente → `'<blueprint>.form'`; `None` → esconde | — |
 | `edit_id_field` | str | Campo usado no `id=` do link de edição | `'id'` |
+| `buttons` | list | Botões no cabeçalho, à esquerda de "Incluir" (quebram para a próxima linha se não couber). Mesma sintaxe de `Form['buttons']` (§7.5): preset `ACTIONS` (ex.: `['on_off']`), `{nome: {overrides}}` ou dict `{label, endpoint, icon, color, ...}`. `on_off` é botão de linha (precisa de instância) e **não** é renderizado no cabeçalho | — |
 
 ### 6.3 Semântica de endpoints (importante)
 
@@ -973,6 +1031,20 @@ def _post_save(instance, changed, old_vals):
 > `changed` é o conjunto de nomes de campos cujo valor mudou (inclui imagens).
 > `old_vals` é o mapa `campo → valor_anterior`.
 
+`pre_get` também pode devolver **`ro_fields`**: um dict `{campo: mensagem}` —
+campos listados renderizam como readonly (texto + `<input type="hidden">`) e
+mostram `mensagem` como hint discreto. Ex. (Carteiras): quando em uso, só o
+`nome` fica travado:
+
+```python
+def _carteira_pre_get(mod, id):
+    carteira = Carteira.query.get(id)
+    if carteira and em_uso(carteira, [Compra, Order, Quote, Previsao]):
+        return {'em_uso': True,
+                'ro_fields': {'nome': 'Carteira já utilizada — o nome não pode ser alterado.'}}
+    return {'em_uso': False}
+```
+
 ### 7.7 Templates custom
 
 Você pode sobrescrever partes sem recriar a página inteira:
@@ -1055,14 +1127,14 @@ Form = {
 ### Passo 3 — registrar o módulo no menu
 
 ```python
-# app/app_defs.py
-'system': {
-    'url_prefix': '/',
-    'home': 'categorias.list',
-    'menus': [
-        {'endpoint': 'categorias.list', 'label': 'Categorias', 'icon': 'tag'},
-    ],
-},
+# app/config.py
+'modules': [
+    {'type': 'system',
+     'default_path': 'cadastro/categorias',
+     'menus': {
+         'Cadastro': {'submenus': {'Categorias': {'icon': 'bi-journal'}}},
+     }},
+],
 ```
 
 ### Passo 4 — rodar
@@ -1110,7 +1182,7 @@ sessão `ingredients` **derivada automaticamente** dos relacionamentos e
   da relação do model no form; opções fixas com `list`/`options` (LIST).
 - **Sessões** derivadas dos relacionamentos quando `Form['sessions']` ausente
   (§7.3); chaves `__*` na `Entity` são reservadas (`__meta__`).
-- **Slug do menu** = slug do módulo (`label`/`endpoint` → módulo em
+- **Slug do menu** = slug do módulo (`label`/`page` → módulo em
   `app.routes.sys.<slug>`).
 - **Endpoints gerados**: `<slug>.list`, `<slug>.form`, `<slug>.delete`,
   `<slug>.toggle`.

@@ -25,10 +25,16 @@ Tipos:
   IMAGE     imagem (preview + crop via widget)
 
 `required` é sempre opt-in: declarado na entidade/form via `'required': True`.
+
+Também define a dataclass `Field` (objeto runtime resolvido a partir dos tipos)
+e `_auto_label` (rótulo padrão derivado do nome).
 """
 import re
+from dataclasses import dataclass, field
+from typing import Any, Callable, Optional, Union
 
 from app.ajsystem.defs.filters import FILTER_NUMBER, FILTER_DATE, FILTER_BOOLEAN, FILTER_SELECT
+from app.ajsystem.defs.query import Query
 
 
 FIELD_TYPES = {
@@ -105,3 +111,85 @@ def fmt_mask(value, mask):
         else:
             out.append(ch)
     return ''.join(out)
+
+
+def _auto_label(name: str) -> str:
+    if name.endswith('_id'):
+        return name[:-3].capitalize()
+    return ' '.join(w.capitalize() for w in name.split('_'))
+
+
+@dataclass
+class Field:
+    name: str
+    label: Optional[str] = None
+    width: Optional[int] = None
+    grid: Optional[int] = None
+    align: str = 'left'
+    input: str = 'text'
+    options: Optional[dict] = None
+    filter: Any = None
+    filter_options: Any = field(default=None)
+    filter_path: Optional[str] = None
+    mask: Optional[str] = None
+    query: Optional[Union[str, dict, Query]] = None
+    query_filter: Optional[dict] = None
+    validate: Optional[Union[str, list, Callable]] = None
+    decimals: Optional[int] = None
+    min: Optional[Union[int, float]] = None
+    max: Optional[Union[int, float]] = None
+    step: Optional[Union[int, float]] = None
+    masterkey: Optional[str] = None
+    aggregate: Optional[str] = None
+    aggregate_label: Optional[str] = None
+    derived: Optional[dict] = None
+    currency: Optional[str] = None
+    hide_zero: bool = True
+    card_path: Optional[str] = None
+    link: Optional[str] = None
+    function: Optional[Callable] = None
+    required: bool = False
+    placeholder: Optional[str] = None
+    help: Any = None
+    transform: Any = None
+    disabled: bool = False
+    readonly: bool = False
+    hidden: bool = False
+    upload_path: str = ''
+    digits_only: bool = False
+    attrs: Optional[dict] = None
+    in_form: bool = True
+    in_list: int = 1
+    default: Any = None
+    rows: int = 1
+    on_set: Optional[Callable] = None
+    on_set_ent: Optional[str] = None
+    on_set_mod: Optional[str] = None
+    calc: Optional[str] = None
+
+    def __post_init__(self):
+        if self.in_list is True:
+            self.in_list = 1
+        elif self.in_list is False:
+            self.in_list = 0
+        if self.width is None and self.mask:
+            self.width = len(self.mask)
+            if self.input == 'number' and not self.mask.startswith('-'):
+                self.width += 1
+        if self.input == 'number' and self.align == 'left':
+            self.align = 'right'
+
+    @property
+    def display_label(self) -> str:
+        return self.label or _auto_label(self.name)
+
+    @property
+    def width_ch(self) -> int:
+        if self.width is not None:
+            return self.width
+        if self.mask:
+            w = len(self.mask)
+            if self.input == 'number' and not self.mask.startswith('-'):
+                w += 1
+            return w
+        return {'boolean': 6, 'checkbox': 6, 'number': 12, 'date': 12, 'image': 12}.get(self.input, 18)

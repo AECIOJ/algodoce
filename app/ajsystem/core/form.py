@@ -2,7 +2,7 @@ import importlib, os, re
 from datetime import datetime
 from flask import request, current_app
 from sqlalchemy import text
-from app.ajsystem.core.app_config import db
+from app.ajsystem.core.adapter import db
 from app.ajsystem.defs.form import Form, _resolve_label  # noqa: F401
 from app.ajsystem.defs.entities import MODEL_MAP, _entidade_fields
 from app.ajsystem.core.utils import item_ref, deep_attr

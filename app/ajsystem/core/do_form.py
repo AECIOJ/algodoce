@@ -9,7 +9,7 @@ from datetime import datetime
 
 from flask import flash, redirect, render_template, request, url_for
 
-from app.ajsystem.core.app_config import db
+from app.ajsystem.core.adapter import db
 from app.ajsystem.defs.form import Form
 from app.ajsystem.defs.fields import VALIDATORS
 from app.ajsystem.defs.entities import (

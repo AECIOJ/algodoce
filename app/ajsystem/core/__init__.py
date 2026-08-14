@@ -7,7 +7,7 @@ estrutura):
   do_auth); consomem specs puros de `defs/`.
 - Capacidades — lógica reutilizável sem request: `form`, `list`, `query`,
   `pdf`, `filters`, `edits`, `crypto`, `ntfy`, `utils`, `auto`/`menu`
-  (blueprints) e `app_config` (adaptador de acoplamento com o app host).
+  (blueprints) e `adapter` (adaptador de acoplamento com o app host).
 
 Estrutura declarativa pura fica em `defs/`; `handles/` foi eliminado e
 fundido em `core/do_*`. Modelo completo em `app/ajsystem/ARCHITECTURE.md`.

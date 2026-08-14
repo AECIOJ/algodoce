@@ -174,40 +174,27 @@ def create_app():
     @app.context_processor
     def inject_versao():
         from flask_login import current_user
-        import importlib.util
-        import os
-        import sys
-        versao_path = os.path.join(app.root_path, "versao.py")
-        spec = importlib.util.spec_from_file_location("__versao__", versao_path)
-        vmod = importlib.util.module_from_spec(spec)
-        sys.modules["__versao__"] = vmod
-        spec.loader.exec_module(vmod)
-        ano = vmod.YEAR[-2:]
-        mes = vmod.MONTH
-        seq = vmod.SEQUENCE
-        versao = f"v1.{ano}.{mes}-{seq}"
+        from app.ajsystem.core.adapter import APP
         usuario = (current_user.username if current_user.is_authenticated else "Visitante").upper()
-        return dict(versao=versao, usuario=usuario)
+        return dict(versao=APP.version or '', usuario=usuario)
 
     def tema_atual():
-        from app.routes.app_defs import Temas, APP as _APP
-        nome = _APP.get('tema') or next(iter(Temas))
-        if nome not in Temas:
-            nome = next(iter(Temas))
+        from app.ajsystem.core.adapter import APP, TEMAS
+        nome = APP.tema or next(iter(TEMAS))
+        if nome not in TEMAS:
+            nome = next(iter(TEMAS))
         return nome
 
     @app.context_processor
     def inject_app_config():
         import json
-        from app.routes.app_defs import APP, Temas
+        from app.ajsystem.core.adapter import APP, TEMAS
         from app.ajsystem.core.menu import modulo_atual, menus_para_json
         tema_nome = tema_atual()
-        tema = dict(Temas[tema_nome])
-        tema.setdefault('base', tema_nome)
         return {
             'APP': APP,
-            'TEMA': tema,
-            'TEMAS': Temas,
+            'TEMA': TEMAS[tema_nome],
+            'TEMAS': TEMAS,
             'TEMA_NOME': tema_nome,
             'modulo': modulo_atual(),
             'modulo_menus_json': json.dumps(menus_para_json()),
