@@ -1,52 +1,62 @@
 # ── Tema ── Fonte ÚNICA de cores do app (design tokens → tema DaisyUI + vars CSS)
-# 1. marca:   Cores de Marca (primary/secondary) — CTAs, links, destaque da marca
-# 2. neutras: Superfícies/Backgrounds/Textos — fundos, cards, bordas, textos
-# 3. feedback: Estado semântico — success/warning/error/info (mensagens, botões, badges)
-# 4. apoio:   Destaque/Accent — complementa a marca
-# 5. barras:  Chrome do app — consumido em runtime por components/theme.html (vars --bar-*)
+# 1. PALETA: constantes de cor — fonte única dos valores hex (sem repetição).
+# 2. marca:   Cores de Marca (primary/secondary) — CTAs, links, destaque da marca
+# 3. neutras: Superfícies/Backgrounds/Textos — fundos, cards, bordas, textos
+# 4. feedback: Estado semântico — success/warning/error/info (set fixo, não derivado)
+# 5. apoio:   Destaque/Accent — complementa a marca
+# 6. barras:  Chrome do app — consumido em runtime por components/theme.html (vars --bar-*)
 #
 # Os grupos marca/neutras/feedback/apoio alimentam o tema DaisyUI COMPILADO:
-#   scripts/gen_theme.py gera tailwind.daisyui.json (usado por tailwind.config.js)
-#   → `npm run build:css`. Alterou uma cor? Mude AQUI e rode `npm run build:css`.
-#   barras propaga sem rebuild (runtime).
+#   app/ajsystem/core/do_themes.py (do framework) gera tailwind.daisyui.json
+#   (usado por tailwind.config.js) → `npm run build:css`. Alterou uma cor?
+#   Mude AQUI e rode `npm run build:css`. barras propaga sem rebuild (runtime).
+#
+# Tokens derivados automaticamente (do_themes.py, quando ausentes):
+#   base-200/base-300/neutral e todos os *-content (contraste). Declare apenas
+#   o que quiser fixar/sobrescrever — o resto do tema se completa sozinho.
+
+# ═══ PALETA — fonte única de cores ═══
+_VERDE   = '#26A69A'   # primary       (verde-menta)
+_ROSA    = '#E91E63'   # secondary     (rosa)
+_FUNDO   = '#f5f5f5'   # base-100      (superfície do app)
+_CREME   = '#F5EEE1'   # chrome/barras (submenu/form/lista)
+_TEXTO   = '#212121'   # base-content  (texto principal)
+_AMARELO = '#FFB300'   # accent        (destaque)
+_OK      = '#43A047'   # success       (semântica — fixa)
+_AVISO   = '#FB8C00'   # warning
+_ERRO    = '#E53935'   # error
+_INFO    = '#0288D1'   # info
+_BRANCO  = '#FFFFFF'
+_PRETO   = '#000000'
+
 Temas = {
     'algodoce': {
         'base': 'algodoce',
         'rotulo': 'AlgoDoce',
         'marca': {
-            'primary': '#26A69A',
-            'primary-content': '#FFFFFF',
-            'secondary': '#E91E63',
-            'secondary-content': '#FFFFFF',
+            'primary': _VERDE,
+            'secondary': _ROSA,
         },
         'neutras': {
-            'base-100': '#f5f5f5',
-            'base-200': '#e0e0e0',
-            'base-300': '#bdbdbd',
-            'base-content': '#212121',
-            'neutral': '#37474F',
-            'neutral-content': '#FFFFFF',
+            'base-100': _FUNDO,
+            'base-content': _TEXTO,
         },
         'feedback': {
-            'success': '#43A047',
-            'success-content': '#FFFFFF',
-            'warning': '#FB8C00',
-            'warning-content': '#000000',
-            'error': '#E53935',
-            'error-content': '#FFFFFF',
-            'info': '#0288D1',
-            'info-content': '#FFFFFF',
+            'success': _OK,
+            'warning': _AVISO,
+            'error': _ERRO,
+            'info': _INFO,
         },
         'apoio': {
-            'accent': '#FFB300',
-            'accent-content': '#000000',
+            'accent': _AMARELO,
         },
         'barras': {
             'altura': 5,
-            'menu':    {'fundo': '#e91e63', 'texto': '#FFFFFF'},
-            'submenu': {'fundo': '#FFFFFF', 'texto': '#e91e63'},
-            'form':    {'fundo': '#FFFFFF', 'texto': '#e91e63'},
-            'rodape':  {'fundo': '#FFFFFF', 'texto': '#e91e63'},
+            'menu':    {'fundo': _ROSA,   'texto': _BRANCO},
+            'submenu': {'fundo': _CREME,  'texto': _ROSA},
+            'form':    {'fundo': _CREME,  'texto': _ROSA},
+            'lista':   {'fundo': _CREME,  'texto': _ROSA},
+            'rodape':  {'fundo': _FUNDO,  'texto': _ROSA},
         },
     },
 }

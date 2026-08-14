@@ -3,6 +3,7 @@
 {% set _menu = _barras.menu or {} %}
 {% set _sub = _barras.submenu or {} %}
 {% set _form = _barras.form or {} %}
+{% set _lista = _barras.lista or {} %}
 {% set _rod = _barras.rodape or {} %}
 {% set _menu_bg = _menu.fundo %}
 {% set _menu_tx = _menu.texto %}
@@ -25,6 +26,8 @@
     --bar-txt-submenu: {{ _sub.texto }};
     --bar-bg-form: {{ _form.fundo }};
     --bar-txt-form: {{ _form.texto }};
+    --bar-bg-list: {{ _lista.fundo }};
+    --bar-txt-list: {{ _lista.texto }};
     --bar-bg-rodape: {{ _rod.fundo }};
     --bar-txt-rodape: {{ _rod.texto }};
   }

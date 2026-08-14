@@ -33,6 +33,13 @@ def fmt_brl(value):
     return f'{value:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
+def fmt_percent(value):
+    """Formata percentual com 1 decimal e sufixo '%' (ex.: 12.5 → '12,5%')."""
+    if value is None:
+        return '—'
+    return f'{value:,.1f}'.replace(',', 'X').replace('.', ',').replace('X', '.') + '%'
+
+
 def deep_attr(obj, path):
     if obj is None:
         return None

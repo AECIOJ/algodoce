@@ -30,7 +30,7 @@ Entity = {
         'uso':                {'type': 'LIST', 'width': 10, 'list': _USO},
         'gerar':              {'type': 'LIST', 'width': 10, 'list': _GERAR},
         'prazo_recebimento':  {'type': 'TEXT', 'label': 'Prazo', 'width': 12, 'help': _PRAZO_HELP},
-        'taxa_recebimento':   {'type': 'NUM', 'label': 'Taxa', 'width': 8},
+        'taxa_recebimento':   {'type': 'PERCENT', 'label': 'Taxa', 'width': 8},
     },
 }
 

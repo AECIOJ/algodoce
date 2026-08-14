@@ -10,6 +10,7 @@ Tipos:
   MEMO      textarea
   INT       número inteiro (align right, width 5, decimals 0)
   NUM       número flutuante (align right, width 10, decimals 2)
+  PERCENT   percentual 0-100 com 1 decimal (align right, width 6; exibe '%')
   ID        PK da tabela (número, não editável, label '#')
   DK        ligação filho→pai (não editável, preenchido pelo motor)
   DATA      data
@@ -42,6 +43,7 @@ FIELD_TYPES = {
     'MEMO':      {'input': 'textarea'},
     'INT':       {'input': 'number', 'align': 'right', 'width': 5, 'decimals': 0},
     'NUM':       {'input': 'number', 'align': 'right', 'width': 10, 'decimals': 2},
+    'PERCENT':   {'input': 'number', 'align': 'right', 'width': 6, 'decimals': 1, 'min': 0, 'max': 100, 'percent': True},
     'ID':        {'input': 'number', 'in_form': False, 'label': '#', 'filter': FILTER_NUMBER},
     'DK':        {'input': 'number', 'in_form': False, 'filter': False},
     'DATA':      {'input': 'date', 'filter': FILTER_DATE},
@@ -144,6 +146,7 @@ class Field:
     aggregate_label: Optional[str] = None
     derived: Optional[dict] = None
     currency: Optional[str] = None
+    percent: bool = False
     hide_zero: bool = True
     card_path: Optional[str] = None
     link: Optional[str] = None

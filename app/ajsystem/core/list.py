@@ -163,6 +163,8 @@ def field_to_column(f: Field) -> dict:
         col['decimals'] = f.decimals
     if f.currency:
         col['currency'] = f.currency
+    if f.percent:
+        col['percent'] = True
     if f.hide_zero:
         col['hide_zero'] = True
     if f.card_path:

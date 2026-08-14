@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "gen:theme": "python3 scripts/gen_theme.py",
+    "gen:theme": "python3 -m app.ajsystem.core.do_themes",
     "prebuild:css": "npm run gen:theme",
     "build:css": "postcss app/static/css/tailwind.src.css -o app/static/css/tailwind.css",
     "prewatch:css": "npm run gen:theme",
-    "watch:css": "postcss app/static/css/tailwind.src.css -o app/static/css/tailwind.css --watch"
+    "watch:css": "postcss app/static/css/tailwind.src.css -o app/static/css/tailwind.css --watch",
+    "gen:theme:framework": "python3 -m app.ajsystem.core.do_themes --framework",
+    "build:css:framework": "npm run gen:theme:framework && DAISYUI_THEMES=./app/ajsystem/tailwind.daisyui.framework.json postcss app/static/css/tailwind.src.css -o app/ajsystem/static/css/tailwind.css"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

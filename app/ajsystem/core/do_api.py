@@ -1,92 +1,33 @@
+"""Blueprints de API genéricos do framework (url_prefix `/api`).
+
+Endpoints reutilizáveis por qualquer app construído sobre o ajsystem:
+- `consulta`          — consulta genérica de um registro e retorno de campo(s);
+- `on_set`            — executa o `on_set` declarado na FK de uma Entity;
+- `transformar-texto` — transformação em massa (lower/upper/title) de coluna;
+- `tunnel-url`        — URL pública p/ QR de acesso (implementação do host via
+  `adapter.set_tunnel_url_provider`, padrão: `request.host_url`).
+"""
+import importlib
 from datetime import date, time, datetime
 from decimal import Decimal
-import importlib
-from flask import Blueprint, request, jsonify, session
+
+from flask import Blueprint, jsonify, request
 from flask_login import login_required
-from app.ajsystem.core.extensions import db
-from app.utils import _title_case
-from app.ajsystem.defs.entities import MODEL_MAP as AJSYSTEM_MODEL_MAP
+
+from app.ajsystem.core import adapter
+from app.ajsystem.core.utils import _title_case
+from app.ajsystem.defs.entities import MODEL_MAP, _entidade_fields, build_field_config
 from app.ajsystem.defs.fields import Field
-from app.ajsystem.defs.entities import build_field_config, _entidade_fields
-from app.models.category import Category
-from app.models.product import Product
-from app.models.ingredient import Ingredient
-from app.models.client import Conta
-from app.models.quote import Quote
-from app.models.quote_item import QuoteItem
-from app.models.recurso import Recurso
-from app.models.producao import Producao
-from app.models.movto import Movto
-from app.models.previsao import Previsao
-from app.models.compra import Compra
 
-bp = Blueprint("api", __name__, url_prefix="/api")
-
-MODEL_MAP = {
-    "Category": Category,
-    "Product": Product,
-    "Ingredient": Ingredient,
-    "Conta": Conta,
-    "Quote": Quote,
-    "Recurso": Recurso,
-    "Producao": Producao,
-    "Movto": Movto,
-    "Previsao": Previsao,
-    "Compra": Compra,
-}
-
-
-@bp.route("/transformar-texto", methods=["POST"])
-@login_required
-def transformar_texto():
-    data = request.get_json(force=True)
-    model_name = data.get("model")
-    field_name = data.get("field")
-    mode = data.get("mode")
-
-    erro = None
-    if model_name not in MODEL_MAP:
-        erro = f"Modelo inválido: {model_name}"
-    elif mode not in ("lower", "upper", "title"):
-        erro = f"Modo inválido: {mode}"
-    if erro:
-        return jsonify({"success": False, "error": erro}), 400
-
-    model_class = MODEL_MAP[model_name]
-    field = getattr(model_class, field_name, None)
-    if field is None:
-        return jsonify({"success": False, "error": f"Campo inválido: {field_name}"}), 400
-
-    records = model_class.query.all()
-    count = 0
-    for record in records:
-        value = getattr(record, field_name)
-        if not value or not isinstance(value, str) or not value.strip():
-            continue
-        if mode == "lower":
-            new_value = value.lower()
-        elif mode == "upper":
-            new_value = value.upper()
-        elif mode == "title":
-            new_value = _title_case(value)
-        if new_value != value:
-            setattr(record, field_name, new_value)
-            count += 1
-
-    db.session.commit()
-    return jsonify({"success": True, "count": count})
+api = Blueprint('api', __name__, url_prefix='/api')
 
 
 def _consulta_model(campo):
-    """Resolve o model pelo nome informado (classe, slug do ajsystem ou label)."""
+    """Resolve o model pelo nome informado (chave registrada no MODEL_MAP)."""
     if not campo:
         return None
     key = str(campo).strip()
-    model = MODEL_MAP.get(key)
-    if model is None:
-        model = AJSYSTEM_MODEL_MAP.get(key)
-    if model is None:
-        model = AJSYSTEM_MODEL_MAP.get(key.lower())
+    model = MODEL_MAP.get(key) or MODEL_MAP.get(key.lower())
     if model is None:
         for k, m in MODEL_MAP.items():
             if k.lower() == key.lower():
@@ -105,7 +46,7 @@ def _jsonable(value):
     return str(value)
 
 
-@bp.route("/consulta")
+@api.route('/consulta')
 @login_required
 def consulta():
     """Consulta genérica de um registro e retorno de campo(s).
@@ -157,7 +98,7 @@ def consulta():
     })
 
 
-@bp.route("/on_set")
+@api.route('/on_set')
 @login_required
 def on_set():
     """Executa o `on_set` declarado na FK (intervenção do operador).
@@ -203,11 +144,51 @@ def on_set():
     })
 
 
-@bp.route("/tunnel-url")
-def tunnel_url():
-    from app import get_tunnel_url
+@api.route('/transformar-texto', methods=["POST"])
+@login_required
+def transformar_texto():
+    data = request.get_json(force=True)
+    model_name = data.get("model")
+    field_name = data.get("field")
+    mode = data.get("mode")
 
-    url = get_tunnel_url(force=True)
+    erro = None
+    if model_name is None or _consulta_model(model_name) is None:
+        erro = f"Modelo inválido: {model_name}"
+    elif mode not in ("lower", "upper", "title"):
+        erro = f"Modo inválido: {mode}"
+    if erro:
+        return jsonify({"success": False, "error": erro}), 400
+
+    model_class = _consulta_model(model_name)
+    field = getattr(model_class, field_name, None)
+    if field is None:
+        return jsonify({"success": False, "error": f"Campo inválido: {field_name}"}), 400
+
+    records = model_class.query.all()
+    count = 0
+    for record in records:
+        value = getattr(record, field_name)
+        if not value or not isinstance(value, str) or not value.strip():
+            continue
+        if mode == "lower":
+            new_value = value.lower()
+        elif mode == "upper":
+            new_value = value.upper()
+        elif mode == "title":
+            new_value = _title_case(value)
+        if new_value != value:
+            setattr(record, field_name, new_value)
+            count += 1
+
+    from app.ajsystem.core.extensions import db
+    db.session.commit()
+    return jsonify({"success": True, "count": count})
+
+
+@api.route('/tunnel-url')
+def tunnel_url():
+    url = adapter.get_tunnel_url()
     if not url:
         url = request.host_url.rstrip("/")
     return jsonify({"url": url})

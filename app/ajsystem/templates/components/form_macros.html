@@ -15,7 +15,7 @@
 {% set num_str = '' %}
 {% if field.min is not none %}{% set num_str = num_str ~ ' min="' ~ field.min ~ '"' %}{% endif %}
 {% if field.max is not none %}{% set num_str = num_str ~ ' max="' ~ field.max ~ '"' %}{% endif %}
-{% set step_val = field.step if field.step is not none else (0.1 ** field.decimals if field.decimals is not none else 'any') %}
+{% set step_val = field.step if field.step is not none else 'any' %}
 {% if field.hidden %}
 <input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
 {% elif field.readonly or _ro_msg %}
@@ -27,7 +27,7 @@
 {% set _ro_txt = render_label(field, data)|trim %}
 <input type="text" class="input input-bordered input-sm w-full" value="{{ _ro_txt if _ro_txt and _ro_txt != '—' else '' }}" disabled tabindex="-1">
 {% endif %}
-<div class="mt-1 flex items-start gap-1 text-xs font-medium" style="color:color-mix(in srgb,var(--wa) 55%,#212121);max-width:100%;">
+<div class="mt-1 flex items-start gap-1 text-xs font-medium" style="color:color-mix(in srgb,var(--wa) 55%,var(--bc));max-width:100%;">
   <svg class="w-3.5 h-3.5 mt-px flex-none" style="color:var(--wa);" aria-hidden="true"><use href="#i-exclamation-triangle"/></svg>
   <span>{{ _ro_msg }}</span>
 </div>
@@ -35,7 +35,7 @@
 {{ render_label(field, data) }}
 {% endif %}
 {% elif field.input == 'select' %}
-  <select name="{{ ns }}" class="select select-bordered select-sm" {{ req }} {{ dis }} {{ attr_str|safe }}{% if field.query is string and field.query %} data-model="{{ field.query }}"{% endif %}{% if field.on_set %} data-onset-ent="{{ field.on_set_ent }}" data-onset-fk="{{ field.name }}"{% if field.on_set_mod %} data-onset-mod="{{ field.on_set_mod }}"{% endif %}{% endif %}>
+  <select name="{{ ns }}" class="select select-bordered select-sm w-full" {{ req }} {{ dis }} {{ attr_str|safe }}{% if field.query is string and field.query %} data-model="{{ field.query }}"{% endif %}{% if field.on_set %} data-onset-ent="{{ field.on_set_ent }}" data-onset-fk="{{ field.name }}"{% if field.on_set_mod %} data-onset-mod="{{ field.on_set_mod }}"{% endif %}{% endif %}>
     <option value="">Selecione...</option>
     {% if field.options %}
       {% for k, v in field.options.items() %}
@@ -58,13 +58,15 @@
     {% if show_label %}<span class="text-sm font-semibold">{{ field.display_label }}</span>{% endif %}
   </label>
 {% elif field.input == 'number' %}
-  <input type="number" name="{{ ns }}" class="input input-bordered input-sm" step="{{ step_val }}" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str }}>
+  {% if field.percent %}<div class="relative inline-flex items-center w-full">{% endif %}
+  <input type="number" name="{{ ns }}" class="input input-bordered input-sm w-full{% if field.percent %} input-percent{% endif %}{% if field.step is none and (not field.attrs or 'step' not in field.attrs) %} no-spinner{% endif %}" step="{{ step_val }}" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str }}>
+  {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
-  <input type="date" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+  <input type="date" name="{{ ns }}" class="input input-bordered input-sm w-full" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
 {% elif field.input == 'time' %}
-  <input type="time" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+  <input type="time" name="{{ ns }}" class="input input-bordered input-sm w-full" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
 {% elif field.input == 'datetime-local' %}
-  <input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+  <input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm w-full" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
 {% elif field.input == 'image' %}
 {% set _img_has = val %}
 <div class="image-widget" data-ns="{{ ns }}" data-tem-imagem="{{ '1' if _img_has else '0' }}" data-upload-path="{{ field.upload_path or '' }}">
@@ -75,7 +77,7 @@
          onclick="previewImagem(this.src)" title="Clique para ampliar">
     {% else %}
     <div id="foto-placeholder-{{ ns }}" class="bg-base-200 rounded border flex items-center justify-center"
-         style="width:144px;height:144px;color:#ccc;font-size:3rem;">📸</div>
+         style="width:144px;height:144px;color:var(--fallback-b3, oklch(var(--b3)));font-size:3rem;">📸</div>
     {% endif %}
     {% if not dis %}
     <button type="button" class="btn btn-outline btn-sm w-full inline-flex items-center justify-center gap-1"
@@ -91,7 +93,7 @@
 {% elif field.input == 'multi' %}
 {{ render_multi_ctl(field, data, name_prefix, ro) }}
 {% else %}
-  <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm" value="{{ val|mask(field.mask) if field.mask and field.digits_only and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask %}data-mask="{{ field.mask }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{{ attr_str|safe }}>
+  <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm w-full" value="{{ val|mask(field.mask) if field.mask and field.digits_only and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask %}data-mask="{{ field.mask }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{{ attr_str|safe }}>
 {% endif %}
 {% endmacro %}
 
@@ -127,7 +129,7 @@
     {{ _ns.nome if _ns.nome else val }}
   {% endif %}
 {% elif val is not none %}
-  {% if field.currency %}{{ val|brl }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
+  {% if field.currency %}{{ val|brl }}{% elif field.percent %}{{ val|percent }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
 {% else %}—
 {% endif %}
 {% endmacro %}

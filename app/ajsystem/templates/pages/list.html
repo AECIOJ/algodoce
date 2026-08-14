@@ -32,7 +32,7 @@
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
 .list-table-wrap { width: fit-content; }
-.list-filter-wrap { width: fit-content; }
+.list-filter-wrap { width: fit-content; max-width: 120ch; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
 @media (max-width: 991.98px) {
   .list-table-wrap { width: 100% !important; min-width: 0 !important; max-width: 100%; }
@@ -63,8 +63,8 @@
 {% block page_content %}
 <div class="grow flex flex-col min-h-0" x-data="listPage()">
 <div x-data="{ tab: 'dados' }" class="flex flex-col min-h-0">
-  <div class="bg-white border-b border-gray-200 flex lg:justify-center app-bar"
-       style="--list-tot-ch: {{ tot_ch }}ch;min-height:var(--bar-h);">
+  <div class="border-b flex lg:justify-center app-bar"
+       style="--list-tot-ch: {{ tot_ch }}ch;min-height:var(--bar-h);background:var(--bar-bg-list);color:var(--bar-txt-list);border-color:var(--fallback-b3, oklch(var(--b3)));">
     <div class="page-list-header gap-2 flex-wrap flex items-center">
       <div role="tablist" class="tabs tabs-bordered">
         <button role="tab" class="tab rounded-t-lg"
@@ -91,7 +91,7 @@
     </div>
   </div>
 
-  <div x-show="tab === 'dados'" class="flex-1 min-h-0 overflow-auto">
+  <div x-show="tab === 'dados'" class="flex-1 min-h-0 overflow-auto px-4">
     <div class="flex flex-col items-center">
     <div class="page-list-inner">
       <div class="list-table-wrap{% if default_adaptive %} adaptive{% endif %}{% if cardonly_cols %} has-cardonly{% endif %}" style="min-width:{{ tot_ch }}ch;width:fit-content;">
@@ -121,6 +121,8 @@
                   {{ col.options.get(_raw, _raw) }}
                 {% elif col.currency and _raw is not none %}
                   {{ _raw|brl }}
+                {% elif col.percent and _raw is not none %}
+                  {{ _raw|percent }}
                 {% elif col.input == 'image' and _raw %}
                   <img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:60px;cursor:pointer;" onclick="previewImagem(this.src)">
                 {% elif col.input in ('boolean', 'checkbox') and _raw is not none %}
@@ -151,7 +153,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endif %}
@@ -160,7 +162,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field card-only{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endfor %}
@@ -168,7 +170,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endfor %}
@@ -193,10 +195,10 @@
     </div>
   </div>
 
-  <div x-show="tab === 'filtros'" class="flex-1 min-h-0 overflow-auto">
+  <div x-show="tab === 'filtros'" class="flex-1 min-h-0 overflow-auto px-4">
     <div class="flex flex-col items-center">
     <div class="page-list-inner">
-      <div class="list-filter-wrap" style="min-width:{{ tot_ch }}ch;width:fit-content;">
+      <div class="list-filter-wrap" style="min-width:min({{ tot_ch }}ch,120ch);width:fit-content;">
         <div class="flex flex-col gap-2 p-2">
           {% for name, cfg in FILTERS.items() %}
           {% set label = cfg.label or name | capitalize %}

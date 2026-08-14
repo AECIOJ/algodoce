@@ -2,6 +2,22 @@
    - preço unitário auto-preenchido a partir do catálogo via consulta();
    - total por linha (desktop) / por coluna (mobile) + total geral.
    A sincronização desktop/mobile e o add/remove de linhas ficam no engine. */
+
+/* Helper global de consulta genérica (GET /api/consulta).
+   cb recebe o valor único (1 campo) ou {campo: valor} (vários campos),
+   ou null se a consulta falhar. */
+window.consulta = function(campo, valor, retorno, cb) {
+  var url = '/api/consulta?campo=' + encodeURIComponent(campo) +
+            '&valor=' + encodeURIComponent(valor) +
+            '&retorno=' + encodeURIComponent(retorno);
+  fetch(url, {credentials: 'same-origin'})
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(j) {
+      cb(j && j.ok ? (j.valor !== undefined ? j.valor : j.valores) : null);
+    })
+    .catch(function() { cb(null); });
+};
+
 (function() {
   'use strict';
   var REL = 'items';

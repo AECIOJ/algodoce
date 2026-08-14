@@ -12,7 +12,7 @@ from app.ajsystem.defs.fields import fmt_mask
 from app.ajsystem.defs.entities import get_field
 from app.ajsystem.core.list import fields_to_columns, field_filter_options, field_grid
 from app.ajsystem.core.utils import (
-    deep_attr, fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, item_ref,
+    deep_attr, fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, item_ref,
     field_value,
 )
 
@@ -30,6 +30,9 @@ def init_app(app):
     app.register_blueprint(auth)
     app.register_blueprint(seguranca)
 
+    from app.ajsystem.core.do_api import api
+    app.register_blueprint(api)
+
     # 3. auth (login manager, session timeout, unauthorized handler)
     init_auth(app)
 
@@ -37,6 +40,7 @@ def init_app(app):
     app.jinja_env.filters['deep_attr'] = deep_attr
     app.jinja_env.filters['item_ref'] = item_ref
     app.jinja_env.filters['brl'] = fmt_brl
+    app.jinja_env.filters['percent'] = fmt_percent
     app.jinja_env.filters['fmtid'] = fmt_id
     app.jinja_env.filters['fmtzero'] = fmt_zero
     app.jinja_env.filters['fmtzeroi'] = fmt_zero_int

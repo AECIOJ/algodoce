@@ -12,10 +12,10 @@
     <h3 class="font-bold text-lg mb-2">Editar Foto</h3>
     <div class="text-center">
       <div id="crop-dropzone" class="border-2 border-dashed rounded p-5" tabindex="0"
-           style="border-color:#ccc;cursor:pointer;min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
-        <div style="font-size:3rem;color:#ccc;">📷</div>
+           style="border-color:var(--fallback-b3, oklch(var(--b3)));cursor:pointer;min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+        <div style="font-size:3rem;color:var(--fallback-b3, oklch(var(--b3)));">📷</div>
         <p class="mb-0">Clique para escolher uma imagem</p>
-        <p class="text-sm mb-0" style="color:#666;">ou cole uma imagem da área de transferência (Ctrl+V)</p>
+        <p class="text-sm mb-0" style="color:color-mix(in srgb, var(--fallback-bc, oklch(var(--bc))) 50%, transparent);">ou cole uma imagem da área de transferência (Ctrl+V)</p>
       </div>
       <img id="crop-image" style="max-width:100%;display:none;">
       <input type="file" id="crop-input" accept="image/*" style="display:none">
@@ -25,7 +25,7 @@
         <button type="button" class="btn btn-error btn-outline btn-sm inline-flex items-center gap-1" id="crop-excluir" style="display:none" onclick="excluirImagem(_iw.ns)">
           <i class="bi bi-trash"></i> Excluir
         </button>
-        <span id="crop-status" class="text-sm" style="color:#666;"></span>
+        <span id="crop-status" class="text-sm" style="color:color-mix(in srgb, var(--fallback-bc, oklch(var(--bc))) 50%, transparent);"></span>
       </div>
       <div class="flex gap-2">
         <button type="button" class="btn btn-ghost" onclick="fecharCrop()">Cancelar</button>
@@ -200,7 +200,7 @@ function _iwMostrarPlaceholder(ns) {
     var ph = document.createElement('div');
     ph.id = 'foto-placeholder-' + ns;
     ph.className = 'bg-base-200 rounded border flex items-center justify-center';
-    ph.style.cssText = 'width:144px;height:144px;color:#ccc;font-size:3rem;';
+    ph.style.cssText = 'width:144px;height:144px;color:var(--fallback-b3, oklch(var(--b3)));font-size:3rem;';
     ph.textContent = '📸';
     img.parentNode.replaceChild(ph, img);
   }

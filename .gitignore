@@ -29,6 +29,9 @@ app/static/uploads/*
 # Dados (user data)
 dados/
 
+# Build intermediário do CSS pré-compilado do framework (regenerado por npm run build:css:framework)
+app/ajsystem/tailwind.daisyui.framework.json
+
 # Migrations cache
 app/migrations/versions/*.pyc
 

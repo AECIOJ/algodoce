@@ -22,8 +22,9 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 
 | Propriedade | Estado | Onde validada |
 |---|---|---|
+| `align` | ✓ | Tipos numéricos (`INT`/`NUM`/`PERCENT`) — células da lista à direita; inputs `number` alinham à direita globalmente (CSS `input[type="number"]`) |
 | `attrs` | ✗ | Categorias — substituída por `min`/`max`/`step`; reavaliar se necessário |
-| `decimals` | ✓ | Insumos — `fator`; Carteiras — `taxa_recebimento` (NUM) |
+| `decimals` | ✓ | Insumos — `fator`; Carteiras — `taxa_recebimento` (PERCENT) |
 | `DK` | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `in_form=False`) |
 | `hidden` |  | a validar — campo invisível que submete via `<input type="hidden">` |
 | `ID` em coluna FK | ✗ | Insumos — `ingredient_id`/`product_id` eram `ID`; usar `DK` (linha-pai) ou `FK` |
@@ -38,12 +39,16 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | `min` | ✓ | Categorias — `ordem` |
 | `MULT10` | ✓ | Insumos — `etapas` (códigos concatenados, máx. 10 opções 0-9; editor genérico abre em modal) |
 | `on_set` | ✓ | Produtos — `ingredient_id` (qtd/unidade); Orçamentos — `product_id` (preço); Insumos — `unidade` (fator=1) |
+| `percent` | ✓ | Carteiras — `taxa_recebimento` (tipo `PERCENT`); formata `12,5%` na lista e sufixo `%` no input do form |
 | `readonly` | ✓ | Pedidos/Recursos — `id`/`total`/`status` (FIELD_* de `app/fields`) |
 | `required` | ✓ | Insumos — `product_id`, `unidade_medida`, `fator`, `unidade` |
-| `step` | ✓ | Categorias — `ordem` (INT → `1`) |
+| `step` | ✓ | Passo do input quando definido na Entidade (ex.: `0.1`; mostra as setinhas do spinner); sem `step` o input emite `step="any"` e não exibe as setinhas |
 | `transform` | ✓ | Insumos — `nome` ('title'); Carteiras — `nome` ('title') |
-| `type` | ✓ | Categorias — `ID`, `TEXT`, `INT`, `BOOL`; Carteiras — `LIST`, `INT`, `NUM` |
+| `type` | ✓ | Categorias — `ID`, `TEXT`, `INT`, `BOOL`; Carteiras — `LIST`, `INT`, `NUM`, `PERCENT` |
 | `width` | ✓ | Categorias — `id`; Carteiras — `id` |
+
+> Padrão dos inputs numéricos: alinhados à direita (CSS global), conteúdo selecionado
+> ao focar (digitar sobrescreve) e sem spinner, a menos que a Entidade defina `step`.
 
 ### List — configuração da listagem (§6)
 
@@ -292,13 +297,41 @@ O que o adaptador deve expor:
 | `Setting` | Model | armazenamento de `Setting.get('chave')` (painel, sessão) |
 | `APP` | dict | definições do app (name, logo, version, tema, modules) |
 | `get_uploads_endpoint(app)` | callable | endpoint das imagens |
+| `set_tunnel_url_provider(fn)` | callable | registra o provedor da URL pública (QR de acesso) |
 
 O `get_uploads_endpoint` retorna `'uploads.uploaded_file'` por padrão. Você pode
 mudar para um endpoint seu (ex.: `'media.serve'`) ou usar a config
 `AJ_UPLOADS_ENDPOINT`. Os templates usam o global `aj_uploads_endpoint()` para
 montar as URLs das imagens.
 
-### 2.5 Variáveis de ambiente (`.env`)
+O hook `set_tunnel_url_provider(fn)` recebe um callable que devolve a URL pública
+do app (usada no QR de acesso pelo endpoint `GET /api/tunnel-url`). Se nenhum
+provedor for registrado, o endpoint usa `request.host_url` como fallback.
+Registre-o no bootstrap do seu app, ex.:
+
+```python
+from app.ajsystem.core import adapter
+adapter.set_tunnel_url_provider(lambda: get_tunnel_url(force=True))
+```
+
+### 2.5 API genérica do framework (`/api/*`)
+
+O framework expõe blueprints de API reutilizáveis em `app/ajsystem/core/do_api.py`
+(`Blueprint api`, prefixo `/api`), já registrados pelo `init_app`:
+
+| Endpoint | Métodos | Auth | Uso |
+|---|---|---|---|
+| `/api/consulta` | GET | login | consulta genérica: `?campo=product&valor=5&retorno=preco,qtd_minima` |
+| `/api/on_set` | GET | login | executa o `on_set` da FK de uma Entity (`?ent=&fk=&valor=&mod=`) |
+| `/api/transformar-texto` | POST | login | normalização em massa `lower`/`upper`/`title` de uma coluna |
+| `/api/tunnel-url` | GET | público | URL pública do app para QR de acesso (via adapter) |
+
+`consulta` resolve o modelo pelo nome no `MODEL_MAP` do framework (case-insensitive);
+com um único campo de retorno devolve `{ok, valor}`, com vários devolve
+`{ok, valores: {campo: valor}}` — é o que o helper `window.consulta(campo, valor,
+retorno, cb)` de `app/static/js/itens.js` usa para auto-preenchimento de preços.
+
+### 2.6 Variáveis de ambiente (`.env`)
 
 ```
 SECRET_KEY=...
@@ -314,19 +347,41 @@ UPLOAD_PATH=dados/uploads     # pasta das imagens (upload_path)
 
 > Variáveis de leitura adicional: `FLASK_APP=app`, `FLASK_DEBUG=1`.
 
-### 2.6 Estáticos e CSS
+### 2.7 Estáticos e CSS
 
-Os templates usam **Tailwind CSS** e **DaisyUI**. Classes novas de tema podem
-exigir rebuild:
+Os templates usam **Tailwind CSS** e **DaisyUI**. Há dois caminhos:
+
+**A. Com build (tema próprio)** — as cores vêm de `Temas` no `app/config.py`:
+classes novas ou cores alteradas exigem rebuild:
 
 ```
 npm install
-npm run build:css
+npm run build:css          # prebuild:css roda core/do_themes.py automaticamente
 ```
 
-Se a sua app não tem build, use o CSS pré-compilado de `static/`. Os ícones vêm
-de `components/heroicons.svg` (sprite inline, ícones por nome — ex.: `trash`,
-`pencil-square`, `arrow-path`, `paper-airplane`, `check`, `xmark`, ...).
+**B. Sem build (CSS pré-compilado)** — o `app/ajsystem/static/` é a fonte
+canônica dos estáticos prontos. Copie para o `app/static/` da sua app:
+
+```bash
+cp app/ajsystem/static/css/tailwind.css    app/static/css/tailwind.css     # tema padrão do framework
+cp app/ajsystem/static/css/style.css       app/static/css/style.css
+cp app/ajsystem/static/css/multi-ctl.css   app/static/css/multi-ctl.css
+cp app/ajsystem/static/js/multi-ctl.js     app/static/js/multi-ctl.js
+cp -r app/ajsystem/static/lib/             app/static/lib/                 # htmx, alpine, bootstrap-icons, qrcode
+```
+
+O `tailwind.css` pré-compilado usa o **tema padrão do framework** (`ajsystem`),
+neutro. Para um tema próprio, use o caminho A (rebuild gera
+`app/static/css/tailwind.css` do próprio app). Para regenerar o CSS do framework:
+
+```
+npm run build:css:framework   # core/do_themes.py --framework → tailwind.css do framework
+```
+
+Os ícones (logo/favicon) são específicos de cada app e vêm do próprio
+`app/static/icons/`. Os ícones de interface vêm de `components/heroicons.svg`
+(sprite inline, ícones por nome — ex.: `trash`, `pencil-square`, `arrow-path`,
+`paper-airplane`, `check`, `xmark`, ...).
 
 ---
 
@@ -386,8 +441,9 @@ Temas = {
 **Como as cores chegam ao CSS** — duas vias:
 
 - `marca`/`neutras`/`feedback`/`apoio` alimentam o **tema DaisyUI compilado**:
-  `scripts/gen_theme.py` lê `Temas` de `app/config.py` e gera `tailwind.daisyui.json`
-  (consumido por `tailwind.config.js`). A compilação gera `app/static/css/tailwind.css`
+  `app/ajsystem/core/do_themes.py` (tooling do framework) lê `Temas` de
+  `app/config.py` e gera `tailwind.daisyui.json` (consumido por
+  `tailwind.config.js`). A compilação gera `app/static/css/tailwind.css`
   (`npm run build:css`). **Mudou uma cor? Altere em `app/config.py` e rode
   `npm run build:css`** — propaga para o app inteiro.
 - `barras` é lido em runtime por `components/theme.html` e **propaga sem rebuild**.
@@ -588,6 +644,7 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `MEMO` | `textarea` | `rows` p/ altura |
 | `INT` | `number` | `align: right`, `width: 5`, `decimals: 0` |
 | `NUM` | `number` | `align: right`, `width: 10`, `decimals: 2` |
+| `PERCENT` | `number` | Percentual 0–100, `decimals: 1`, `min: 0`, `max: 100`; exibe com `%` (ex.: `12,5%`) |
 | `ID` | `number` | PK da tabela; `in_form: False`, `label: '#'`, `filter` numérico |
 | `DK` | `number` | Ligação filho→pai (sessão); `in_form: False`, preenchido pelo motor |
 | `DATA` | `date` | `filter` por data |
@@ -615,7 +672,7 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `type` | str | O tipo, da tabela §5.1, em maiúsculas. **Obrigatória** |
 | `label` | str | Rótulo exibido (auto-derivado do nome se ausente) |
 | `width` | int | Largura em caracteres (colunas/listagem) |
-| `align` | str | `'left'` (padrão) \| `'right'` \| `'center'` |
+| `align` | str | `'left'` (padrão) \| `'right'` \| `'center'` (células da lista; inputs numéricos já alinham à direita por padrão) |
 | `input` | str | Sobrescreve o widget (`text`, `textarea`, `number`, `date`, `boolean`, `select`, `image`, ...) |
 | `required` | bool | Obrigatório (validação de presença) |
 | `help` | str/dict | Ajuda do campo: `str` → texto no modal (quebras com `\n`); `dict` `{entrada: descrição}` → tabela "Entrada \| Descrição" no modal. Aparece um botão-ícone ao lado do label que abre o modal (Carteiras — `prazo_recebimento` com formatos de prazo) |
@@ -629,6 +686,7 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `digits_only` | bool | Remove não-dígitos antes de aplicar a máscara |
 | `decimals` | int | Casas decimais (gera máscara se `mask` ausente) |
 | `currency` | bool | Formata como moeda (`brl`) |
+| `percent` | bool | Formata como percentual (`percent` — ex.: `12,5%`); setado pelo tipo `PERCENT` |
 | `derived` | dict | Campo **virtual** (sem coluna no banco): `{'sum': '<caminho>'}` soma as folhas do caminho, atravessando coleções (ex.: `'items.quantidade'`). Calculado na renderização (células, colunas e agregados) |
 | `hide_zero` | bool | Ocultar valores zero na listagem (padrão `True`) |
 | `masterkey` | str | **FK (opcional)**: chave do `MODEL_MAP` (ex.: `'category'`) — popula o select, e `card_path`/`filter_path` viram `<chave>.nome`. Sem ele, a referência é derivada da relação do model no form (§5.4). Em campos `DK` o padrão é a **primeira tabela da `Entity`** |

@@ -27,3 +27,19 @@ def get_uploads_endpoint(app=None):
     Pode ser sobrescrito via config `AJ_UPLOADS_ENDPOINT`.
     """
     return (app or current_app).config.get('AJ_UPLOADS_ENDPOINT', 'uploads.uploaded_file')
+
+
+# ─── URL pública (QR de acesso) ─────────────────────────────────────────────
+
+_tunnel_url_provider = None
+
+
+def set_tunnel_url_provider(fn):
+    """Registra a implementação de URL pública do host (ex.: túnel)."""
+    global _tunnel_url_provider
+    _tunnel_url_provider = fn
+
+
+def get_tunnel_url():
+    """URL pública do app p/ QR de acesso; padrão: `None` (fallback no endpoint)."""
+    return _tunnel_url_provider() if _tunnel_url_provider else None
