@@ -64,17 +64,46 @@ Temas = {
 SITE = {
     'type': 'public',
     'default_path': 'produtos',
+    'triggers': {
+        'click':     {'target': 'logo', 'action': 'system'},
+        'click_dbl': {'target': 'logo', 'action': 'admin'},
+    },
+    'layout': {
+        'header': {
+            'logo': {'rows': 4, 'align': 'center'},
+            'title': {
+                'text': 'O doce sabor do seu evento!',
+                'align': 'center',
+                'color': 'var(--rosa)',
+            },
+        },
+        'footer': {'user': False},
+    },
     'menus': {
-        'Sobre':     {'url': 'site.sobre',           'icon': 'bi-info-circle'},
-        'Produtos':  {'url': 'site_vitrine.listar',  'icon': 'bi-gift'},
-        'Orçamento': {'url': 'site_orcamento.lista', 'icon': 'bi-file-text'},
-        'Contato':   {'url': 'site.contato',         'icon': 'bi-whatsapp'},
+        'Sobre':     {'icon': 'bi-info-circle'},
+        'Produtos':  {'icon': 'bi-gift'},
+        'Orçamento': {'icon': 'bi-file-text'},
+        'Contato':   {'icon': 'bi-whatsapp'},
     },
 }
 
 SYS = {
     'type': 'system',
     'default_path': 'cadastro/categorias',
+    'triggers': {
+        'click':     {'target': 'logo', 'action': 'qr'},
+        'click_dbl': {'target': 'logo', 'action': 'admin'},
+    },
+    'layout': {
+        'header': {
+            'logo': {'rows': 4, 'align': 'center'},
+            'title': {
+                'text': 'app_title',
+                'align': 'center',
+            },
+        },
+        'footer': {'user': True},
+    },
     'menus': {
         'Cadastro': {
             'icon': 'bi-journal',
@@ -116,11 +145,15 @@ SYS = {
 ADMIN = {
     'type': 'admin',
     'default_path': 'seguranca.painel',
+    'triggers': {
+        'click': {'target': 'logo', 'action': 'system'},
+    },
     'menus': {},
 }
 
 APP = {
     'name': 'AlgoDoce',
+    'title': 'Sistema Gerenciador de Doceria',
     'logo': 'icons/Logo.png',
     'version': 'v1.25.3-1',
     'tema': 'algodoce',

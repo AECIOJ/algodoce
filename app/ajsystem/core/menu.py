@@ -13,10 +13,21 @@ def _normalizar_slug(label: str) -> str:
     return s.lower().strip()
 
 
-def _modulo_pagina(slug: str):
-    """Retorna o módulo app.routes.sys.<slug> ou None se não existir."""
+def _modulo_ini_do_contexto():
+    """Pacote de rotas do módulo atual: site (`public`) vs sistema (`sys`)."""
+    mod = modulo_atual()
+    return 'app.routes.site' if mod and mod.type == 'public' else 'app.routes.sys'
+
+
+def _modulo_pagina(slug: str, modulo_ini=None):
+    """Retorna o módulo `<pacote>.<slug>` ou None se não existir.
+
+    `modulo_ini` default é derivado do módulo ativo (público → `app.routes.site`).
+    """
+    if not modulo_ini:
+        modulo_ini = _modulo_ini_do_contexto()
     try:
-        return importlib.import_module(f'app.routes.sys.{slug}')
+        return importlib.import_module(f'{modulo_ini}.{slug}')
     except ImportError:
         return None
 
@@ -53,8 +64,8 @@ def url_do_item(item, label=None):
     - item com `url` → rota registrada (nome de endpoint → url_for) ou caminho
       literal ('/pagina', 'https://...').
     - caso contrário → arquivo do módulo (`page` ou rótulo normalizado) →
-      módulo app.routes.sys.<slug> → URL do blueprint.list. Módulo inexistente
-      → página 'Em construção'.
+      módulo `<pacote do módulo ativo>.<slug>` → URL do blueprint.list.
+      Módulo inexistente → página 'Em construção'.
     """
     if item.url:
         if item.url.startswith('/') or '://' in item.url:

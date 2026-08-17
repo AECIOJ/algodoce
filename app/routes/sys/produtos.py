@@ -41,22 +41,29 @@ Entity = {
     },
 }
 
-List = {
-    'fields': 'Product',
-    'ordering': ['nome'],
-}
-
-
-Form = {
-    'fields': 'Product',
-    'buttons': ['on_off'],
-    'delete': {
-        'when': [OrderItem, QuoteItem],
-        'msg_ok': 'Produto excluído!',
-        'msg_no': 'Não é possível excluir — está em uso.',
-    },
-    'sessions': {
-        'Insumos': {'table': ['ProductIngredient']},
+Page = {
+    'type': 'crud',
+    'props': {
+        'tabs': {
+            'Dados': {'type': 'List'},
+            'Filtros': {'type': 'Filter'},
+        },
+        'list': {
+            'fields': 'Product',
+            'ordering': ['nome'],
+        },
+        'form': {
+            'fields': 'Product',
+            'buttons': ['on_off'],
+            'delete': {
+                'when': [OrderItem, QuoteItem],
+                'msg_ok': 'Produto excluído!',
+                'msg_no': 'Não é possível excluir — está em uso.',
+            },
+            'sessions': {
+                'Insumos': {'table': ['ProductIngredient']},
+            },
+        },
     },
 }
 

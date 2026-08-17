@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-br"
       data-theme="{{ TEMA.base if TEMA is defined and TEMA else '' }}"
-      class="{% if request.endpoint and (request.endpoint.endswith('.list') or request.endpoint == 'orcamentos.list') %}list-page{% endif %}">
+      class="{% if request.endpoint and ((request.endpoint.endswith('.list') and not request.endpoint.startswith('site_')) or request.endpoint == 'orcamentos.list') %}list-page{% endif %}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,6 +13,17 @@
   <link href="{{ url_for('static', filename='css/style.css') }}?v=29" rel="stylesheet">
   {% endblock %}
   {% include 'components/theme.html' %}
+  {% if modulo and modulo.layout %}
+    {% set _fonts = [] %}
+    {% if modulo.layout.header.title.font %}{% set _fonts = _fonts + [modulo.layout.header.title.font] %}{% endif %}
+    {% if modulo.layout.footer.font %}{% set _fonts = _fonts + [modulo.layout.footer.font] %}{% endif %}
+    {% if _fonts %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family={{ _fonts|join('&family=') }}&display=swap" rel="stylesheet">
+    {% endif %}
+  <style>:root{--logo-rows:{{ modulo.layout.header.logo.rows }}}@media(max-width:575.98px){.brand-logo{height:calc(var(--logo-rows)*.8em) !important}}</style>
+  {% endif %}
   {% block head_extra %}{% endblock %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token() if csrf_token is defined else "" }}"}'
@@ -22,10 +33,12 @@
   {% include 'components/heroicons.svg' %}
   <div class="flex flex-col h-screen overflow-hidden">
     {% block page_header %}
+    {% set _logo = modulo.layout.header.logo if modulo and modulo.layout else None %}
     <header class="shrink-0 site-header">
       <div class="container mx-auto px-4 text-center py-2">
         <a href="/">
-          <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce" class="brand-logo">
+          <img src="{{ url_for('static', filename=APP.logo) }}" alt="{{ APP.name }}" class="brand-logo"
+               style="{% if _logo %}height:{{ _logo.rows }}em;{% endif %}">
         </a>
       </div>
     </header>
@@ -61,8 +74,10 @@
     {% block modals %}{% endblock %}
 
     {% block page_footer %}
-    <footer class="shrink-0 rodape text-center py-4">
-      <div>{{ versao }} | &copy; 2026 AJ Systems</div>
+    {% set _footer = modulo.layout.footer if modulo and modulo.layout else None %}
+    <footer class="shrink-0 rodape text-center py-4"
+      style="{% if _footer and _footer.font %}font-family:'{{ _footer.font }}',sans-serif;{% endif %}{% if _footer and _footer.color %}color:{{ _footer.color }};{% endif %}">
+      <div>{{ versao }} | &copy; 2026 {{ APP.name }}</div>
     </footer>
     {% endblock %}
   </div>

@@ -1,0 +1,23 @@
+{% from "pages/macros.html" import heroicon %}
+
+{% macro render_tabs(active='') %}
+<div x-data='{ tab: {{ (active or '')|tojson }} }' class="flex flex-col min-h-0">
+  {{ caller() }}
+</div>
+{% endmacro %}
+
+{% macro render_tab_button(tab, icon=none) %}
+<button type="button" role="tab" class="tab rounded-t-lg{% if icon or tab.icon %} inline-flex items-center gap-1{% endif %}"
+        :class='{ "tab-active font-semibold": tab === {{ tab.id|tojson }} }'
+        @click='tab = {{ tab.id|tojson }}'>
+  {% if icon or tab.icon %}{{ heroicon(icon or tab.icon, 'w-4 h-4') }}{% endif %}
+  {{ tab.id }}
+</button>
+{% endmacro %}
+
+{% macro render_tab_panel(tab) %}
+<div x-show='tab === {{ tab.id|tojson }}' class="h-full"
+     {% if tab.max_width %}style="max-width:{{ tab.max_width }}ch;margin-inline:auto;width:100%;"{% endif %}>
+  {{ caller() }}
+</div>
+{% endmacro %}

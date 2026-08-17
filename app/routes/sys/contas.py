@@ -44,11 +44,6 @@ Query = {
     },
 }
 
-List = {
-    'fields': 'Conta',
-    'ordering': ['nome'],
-}
-
 
 def contas_pre_save(instance, request, is_new):
     cpf = request.form.get("cpf", "").strip() or None
@@ -59,11 +54,24 @@ def contas_pre_save(instance, request, is_new):
     instance.insc_estadual = (request.form.get("insc_estadual", "").strip() or None) if cnpj else None
 
 
-Form = {
-    'fields': 'Conta',
-    'sessions': {'Pedidos': {'query': 'pedidos'}},
-    'pre_save': contas_pre_save,
-    'buttons': ['on_off'],
+Page = {
+    'type': 'crud',
+    'props': {
+        'tabs': {
+            'Dados': {'type': 'List'},
+            'Filtros': {'type': 'Filter'},
+        },
+        'list': {
+            'fields': 'Conta',
+            'ordering': ['nome'],
+        },
+        'form': {
+            'fields': 'Conta',
+            'sessions': {'Pedidos': {'query': 'pedidos'}},
+            'pre_save': contas_pre_save,
+            'buttons': ['on_off'],
+        },
+    },
 }
 
 

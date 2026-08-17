@@ -110,12 +110,24 @@
 {% endblock %}
 
 {% block page_header %}
+{% set _logo = modulo.layout.header.logo if modulo and modulo.layout else None %}
+{% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
 <header class="shrink-0 sistema-header" id="sistemaHeader">
   <div class="container mx-auto px-4 text-center py-0">
     <a href="/">
-      <img src="{{ url_for('static', filename='icons/Logo.png') }}" alt="AlgoDoce"
-           class="brand-logo" id="brandLogo">
+      <img src="{{ url_for('static', filename=APP.logo) }}" alt="{{ APP.name }}"
+           class="brand-logo" id="brandLogo"
+           style="{% if _logo %}height:{{ _logo.rows }}em;{% endif %}">
     </a>
+    {% set _title_text = APP.title if (_title and _title.text == 'app_title') else (_title.text if _title and _title.text else None) %}
+    {% if _title_text %}
+    <div style="font-size:0.85rem;font-weight:600;
+      text-align:{{ _title.align }};
+      {% if _title.font %}font-family:'{{ _title.font }}',sans-serif;{% endif %}
+      {% if _title.color %}color:{{ _title.color }};{% endif %}">
+      {{ _title_text }}
+    </div>
+    {% endif %}
   </div>
 </header>
 {% endblock %}
@@ -139,10 +151,11 @@
 {% endblock %}
 
 {% block page_footer %}
+{% set _footer = modulo.layout.footer if modulo and modulo.layout else None %}
 <footer class="app-bar w-full"
-         style="justify-content:space-between;background:var(--bar-bg-rodape);color:var(--bar-txt-rodape);font-size:0.7rem;text-shadow:0 1px 0 rgba(255,255,255,0.6);">
-  <span>{{ versao }} | {{ usuario }}</span>
-  <span>&copy; 2026 AJ Systems</span>
+         style="justify-content:space-between;background:var(--bar-bg-rodape);color:var(--bar-txt-rodape);font-size:0.7rem;text-shadow:0 1px 0 rgba(255,255,255,0.6);{% if _footer and _footer.font %}font-family:'{{ _footer.font }}',sans-serif;{% endif %}{% if _footer and _footer.color %}color:{{ _footer.color }};{% endif %}">
+  <span>{{ versao }}{% if not _footer or _footer.user %} | {{ usuario }}{% endif %}</span>
+  <span>&copy; 2026 {{ APP.name }}</span>
 </footer>
 {% endblock %}
 
@@ -228,8 +241,7 @@
 
 {% block scripts %}
 {{ super() }}
-{% set auth_logo_modo = 'qr' if current_user.is_authenticated else 'auth' %}
-{% include 'components/auth_logo.html' %}
+{% include 'components/auth_triggers.html' %}
 <script>
 var _confirmModal = null;
 function _getConfirmModal() {

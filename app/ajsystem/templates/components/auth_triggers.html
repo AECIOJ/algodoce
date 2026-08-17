@@ -1,12 +1,19 @@
-{# auth_logo.html — Padrão do motor: auth no logo.
-   Modo "auth" (padrão, site público):
-     1 click no logo  = auth SISTEMA (SYS)
-     2 clicks no logo = auth ADMIN
-   Modo "qr" (sistema logado, ativado com `auth_logo_modo='qr'`):
-     1 click no logo  = QR code de acesso via mobile (se qr_enabled)
-   Usa os endpoints do motor (/api/login-sistema, /api/login-admin,
-   /api/check-chave, /api/admin-config) e tokens do tema.
-   Qualquer base pode incluir; o handler liga ao .brand-logo. #}
+{# auth_triggers.html — Motor de triggers de autenticação.
+   Lê `modulo.triggers` (declarado no config do módulo) e gera handlers
+   de popup condicionais.
+
+   Triggers suportados:
+     'click'     → 1 clique no target
+     'click_dbl' → 2 cliques (dblclick) no target
+
+   Actions suportados:
+     'system' → popup de login do sistema
+     'admin'  → popup de login do admin
+     'qr'     → QR code de acesso mobile
+     'none'   → desabilitado
+
+   Targets suportados:
+     'logo' → elemento .brand-logo #}
 <style>
   .auth-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1050; }
   .auth-card { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 1051; width: 320px; box-sizing: border-box; }
@@ -39,11 +46,12 @@
   function _xhrGet(u, cb){ var x = new XMLHttpRequest(); x.open('GET', u, true); x.onreadystatechange = function(){ if(x.readyState === 4){ try{ cb(JSON.parse(x.responseText)); }catch(e){ cb(null); } } }; x.send(); }
   function _xhrPost(u, d, cb){ var x = new XMLHttpRequest(); x.open('POST', u, true); x.setRequestHeader('Content-Type','application/json'); x.onreadystatechange = function(){ if(x.readyState === 4){ try{ cb(x.status, JSON.parse(x.responseText)); }catch(e){ cb(x.status, null); } } }; x.send(JSON.stringify(d)); }
 
-  window.showSistemaPopup = function(){
-    _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">&#128272;</div><h4>Acesso ao Sistema</h4><input type="text" id="popup-user" placeholder="Usu\u00e1rio" autofocus><input type="password" id="popup-pass" placeholder="Senha"><input type="password" id="popup-chave" placeholder="Chave" style="display:none"><div id="popup-error" class="auth-error"></div><button onclick="submitSistema()" class="auth-btn">Entrar</button></div></div>');
+  {# ── Popup functions (sempre geradas; uso condicional via triggers) ── #}
+  window.showSystemPopup = function(){
+    _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">&#128272;</div><h4>Acesso ao Sistema</h4><input type="text" id="popup-user" placeholder="Usu\u00e1rio" autofocus><input type="password" id="popup-pass" placeholder="Senha"><input type="password" id="popup-chave" placeholder="Chave" style="display:none"><div id="popup-error" class="auth-error"></div><button onclick="submitSystem()" class="auth-btn">Entrar</button></div></div>');
     _xhrGet('/api/check-chave', function(d){ if(d && d.tem) document.getElementById('popup-chave').style.display = ''; });
   };
-  window.submitSistema = function(){
+  window.submitSystem = function(){
     var u = document.getElementById('popup-user').value, p = document.getElementById('popup-pass').value, c = document.getElementById('popup-chave').value, e = document.getElementById('popup-error');
     e.textContent = '';
     _xhrPost('/api/login-sistema', {username: u, password: p, chave: c}, function(s, b){
@@ -64,24 +72,42 @@
     });
   };
 
-  function _bindLogo(){
-    var logo = document.querySelector('.brand-logo');
-    if (!logo) return;
+  {# ── Bind do target baseado nos triggers ── #}
+  {% set _click = (modulo.triggers or {}).get('click', {}) %}
+  {% set _dbl = (modulo.triggers or {}).get('click_dbl', {}) %}
+  {% set _selector = '.brand-logo' if (_click.target or _dbl.target) == 'logo' else '.brand-logo' %}
+
+  function _bindTarget(){
+    var el = document.querySelector('{{ _selector }}');
+    if (!el) return;
     var timer = null;
-    {% if auth_logo_modo == 'qr' %}
-    logo.addEventListener('click', function(e){
+    el.addEventListener('click', function(e){
       e.preventDefault();
-      if (typeof window.abrirQR === 'function') window.abrirQR();
+      {% if _dbl.action %}
+        if (timer) {
+          clearTimeout(timer); timer = null;
+          {% if _dbl.action == 'admin' %}if(typeof showAdminPopup==='function') showAdminPopup();
+          {% elif _dbl.action == 'system' %}if(typeof showSystemPopup==='function') showSystemPopup();
+          {% elif _dbl.action == 'qr' %}if(typeof abrirQR==='function') abrirQR();
+          {% endif %}
+        } else {
+          timer = setTimeout(function(){
+            timer = null;
+            {% if _click.action == 'system' %}if(typeof showSystemPopup==='function') showSystemPopup();
+            {% elif _click.action == 'admin' %}if(typeof showAdminPopup==='function') showAdminPopup();
+            {% elif _click.action == 'qr' %}if(typeof abrirQR==='function') abrirQR();
+            {% endif %}
+          }, 300);
+        }
+      {% elif _click.action %}
+        {% if _click.action == 'system' %}if(typeof showSystemPopup==='function') showSystemPopup();
+        {% elif _click.action == 'admin' %}if(typeof showAdminPopup==='function') showAdminPopup();
+        {% elif _click.action == 'qr' %}if(typeof abrirQR==='function') abrirQR();
+        {% endif %}
+      {% endif %}
     });
-    {% else %}
-    logo.addEventListener('click', function(e){
-      e.preventDefault();
-      if (timer) { clearTimeout(timer); timer = null; window.showAdminPopup(); }
-      else { timer = setTimeout(function(){ timer = null; window.showSistemaPopup(); }, 300); }
-    });
-    {% endif %}
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _bindLogo);
-  else _bindLogo();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _bindTarget);
+  else _bindTarget();
 })();
 </script>

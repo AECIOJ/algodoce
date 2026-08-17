@@ -1,0 +1,25 @@
+{% extends "components/page_site.html" %}
+
+{% block css %}
+{{ super() }}
+<style>
+  .conteudo-sobre { color: var(--fallback-bc, oklch(var(--bc))); }
+  .conteudo-sobre h1, .conteudo-sobre h2, .conteudo-sobre h3 {
+    color: var(--rosa); margin: 1.75rem 0 0.75rem; font-weight: 700;
+  }
+  .conteudo-sobre h2 { font-size: 1.4rem; border-bottom: 2px solid var(--fallback-b2, oklch(var(--b2))); padding-bottom: 0.35rem; }
+  .conteudo-sobre p { line-height: 1.75; margin-bottom: 1rem; }
+  .conteudo-sobre img {
+    max-width: 100%; height: auto; border-radius: 12px;
+    box-shadow: var(--bs-box-shadow-sm, 0 0.125rem 0.25rem rgba(0,0,0,0.075));
+    margin: 1rem auto; display: block;
+  }
+  .conteudo-sobre strong { color: var(--rosa); }
+</style>
+{% endblock %}
+
+{% block content %}
+<article class="mx-auto py-4" style="max-width: 720px;">
+  <div class="conteudo-sobre">{{ content | safe }}</div>
+</article>
+{% endblock %}

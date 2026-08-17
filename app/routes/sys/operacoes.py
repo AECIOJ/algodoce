@@ -22,14 +22,6 @@ Entity = {
     },
 }
 
-List = {
-    'fields': 'Operacao',
-    'buttons': [
-        {'label': 'Plano', 'icon': 'printer', 'color': 'info',
-         'endpoint': 'operacoes.pdf_operacoes'},
-    ],
-}
-
 
 def _transformar_nome(nome, pai_id):
     if not pai_id:
@@ -64,15 +56,31 @@ def _operacao_pre_save(instance, request, is_new):
     return True
 
 
-Form = {
-    'fields': 'Operacao',
-    'delete': {
-        'when': {Operacao},
-        'msg_ok': 'Operação excluída!',
-        'msg_no': 'Não é possível excluir — existem operações vinculadas.',
+Page = {
+    'type': 'crud',
+    'props': {
+        'tabs': {
+            'Dados': {'type': 'List'},
+            'Filtros': {'type': 'Filter'},
+        },
+        'list': {
+            'fields': 'Operacao',
+            'buttons': [
+                {'label': 'Plano', 'icon': 'printer', 'color': 'info',
+                 'endpoint': 'operacoes.pdf_operacoes'},
+            ],
+        },
+        'form': {
+            'fields': 'Operacao',
+            'delete': {
+                'when': {Operacao},
+                'msg_ok': 'Operação excluída!',
+                'msg_no': 'Não é possível excluir — existem operações vinculadas.',
+            },
+            'pre_save': _operacao_pre_save,
+            'buttons': [{'on_off': {'field': 'ativa'}}],
+        },
     },
-    'pre_save': _operacao_pre_save,
-    'buttons': [{'on_off': {'field': 'ativa'}}],
 }
 
 

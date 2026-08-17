@@ -8,6 +8,9 @@ atributo. Não depende de request nem do motor.
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+# Valor especial para `LayoutTitle.text`: resolve para `APP.title` no render.
+TEXTO_APP = 'app_title'
+
 
 @dataclass
 class Tema:
@@ -19,6 +22,44 @@ class Tema:
     feedback: dict = field(default_factory=dict)
     apoio: dict = field(default_factory=dict)
     barras: dict = field(default_factory=dict)
+
+
+@dataclass
+class LayoutLogo:
+    """Configuração do logo no header."""
+    rows: float = 5
+    align: str = 'center'
+
+
+@dataclass
+class LayoutTitle:
+    """Configuração do título no header."""
+    text: Optional[str] = None
+    align: str = 'center'
+    font: Optional[str] = None
+    color: Optional[str] = None
+
+
+@dataclass
+class LayoutHeader:
+    """Configuração do header (container com logo + título)."""
+    logo: LayoutLogo = field(default_factory=LayoutLogo)
+    title: LayoutTitle = field(default_factory=LayoutTitle)
+
+
+@dataclass
+class LayoutFooter:
+    """Configuração do footer."""
+    font: Optional[str] = None
+    color: Optional[str] = None
+    user: bool = True
+
+
+@dataclass
+class Layout:
+    """Layout visual do módulo (header + footer)."""
+    header: LayoutHeader = field(default_factory=LayoutHeader)
+    footer: LayoutFooter = field(default_factory=LayoutFooter)
 
 
 @dataclass
@@ -46,10 +87,14 @@ class Module:
       Padrão: 'public'. Devem ser únicos no app.
     - `default_path`: destino padrão do módulo (endpoint nomeado, caminho literal
       ou caminho de menu 'secao/item' — veja §3.3 do README).
+    - `triggers`: dict de triggers de UI (ex.: click no logo → popup de login).
+      Chave = evento ('click', 'click_dbl'), valor = dict com 'target' e 'action'.
     """
     type: str = 'public'
     default_path: Optional[str] = None
     menus: Dict[str, MenuItem] = field(default_factory=dict)
+    triggers: Optional[Dict] = None
+    layout: Optional[Layout] = None
 
 
 @dataclass
@@ -63,9 +108,9 @@ class App:
     name: str
     logo: str
     tema: str
+    title: Optional[str] = None
     version: Optional[str] = None
     modules: List[Module] = field(default_factory=list)
-
     def module(self, type):
         """Retorna o módulo com o `type` dado; se ausente, o primeiro da lista
         (módulo padrão). `None` apenas se a lista estiver vazia."""
@@ -88,10 +133,28 @@ def build_item(cfg) -> MenuItem:
     return MenuItem(**cfg, submenus=submenus or None)
 
 
+def build_layout(cfg) -> Optional[Layout]:
+    if not cfg:
+        return None
+    cfg = dict(cfg)
+    header = cfg.pop('header', None) or {}
+    footer = cfg.pop('footer', None) or {}
+    logo = header.pop('logo', None) or {}
+    title = header.pop('title', None) or {}
+    return Layout(
+        header=LayoutHeader(
+            logo=LayoutLogo(**logo),
+            title=LayoutTitle(**title),
+        ),
+        footer=LayoutFooter(**footer),
+    )
+
+
 def build_module(cfg) -> Module:
     cfg = dict(cfg)
     menus = {k: build_item(v) for k, v in (cfg.pop('menus', None) or {}).items()}
-    return Module(**cfg, menus=menus)
+    layout = build_layout(cfg.pop('layout', None))
+    return Module(**cfg, menus=menus, layout=layout)
 
 
 def _versao_de_arquivo(caminho):
@@ -126,6 +189,7 @@ def build_app(cfg, versao_path=None) -> App:
         versao = _versao_de_arquivo(versao_path)
     return App(
         name=cfg['name'],
+        title=cfg.get('title'),
         logo=cfg['logo'],
         version=versao or None,
         tema=cfg['tema'],

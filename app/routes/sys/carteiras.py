@@ -34,11 +34,6 @@ Entity = {
     },
 }
 
-List = {
-    'fields': 'Carteira',
-    'ordering': ['nome'],
-}
-
 
 def _carteira_pre_save(instance, request, is_new):
     if is_new:
@@ -65,13 +60,29 @@ def _carteira_pre_get(mod, id):
     return {'em_uso': False}
 
 
-Form = {
-    'fields': 'Carteira',
-    'pre_save': _carteira_pre_save,
-    'delete': {
-        'when': _EM_USO,
-        'msg_ok': 'Carteira excluída!',
-        'msg_no': 'Carteira em uso — não pode ser excluída.',
+Page = {
+    'type': 'crud',
+    'props': {
+        'tabs': {
+            'Dados': {'type': 'List'},
+            'Filtros': {
+                'type': 'Filter',
+                'max_width': 80,
+            },
+        },
+        'list': {
+            'fields': 'Carteira',
+            'ordering': ['nome'],
+        },
+        'form': {
+            'fields': 'Carteira',
+            'pre_save': _carteira_pre_save,
+            'delete': {
+                'when': _EM_USO,
+                'msg_ok': 'Carteira excluída!',
+                'msg_no': 'Carteira em uso — não pode ser excluída.',
+            },
+            'pre_get': _carteira_pre_get,
+        },
     },
-    'pre_get': _carteira_pre_get,
 }

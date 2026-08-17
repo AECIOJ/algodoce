@@ -29,6 +29,22 @@ def get_uploads_endpoint(app=None):
     return (app or current_app).config.get('AJ_UPLOADS_ENDPOINT', 'uploads.uploaded_file')
 
 
+# ─── Markdown de conteúdo (páginas `template.type='markdown'`) ─────────────
+
+_markdown_loader = None
+
+
+def set_markdown_loader(fn):
+    """Registra a implementação de markdown→HTML do host (`fn(nome) -> html|None`)."""
+    global _markdown_loader
+    _markdown_loader = fn
+
+
+def get_markdown_loader():
+    """Loader registrado; `None` se o host não suportar conteúdo markdown."""
+    return _markdown_loader
+
+
 # ─── URL pública (QR de acesso) ─────────────────────────────────────────────
 
 _tunnel_url_provider = None

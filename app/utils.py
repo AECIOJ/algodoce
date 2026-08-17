@@ -3,8 +3,6 @@
 Os helpers genéricos foram movidos para o framework (app.ajsystem.core.utils);
 este módulo re-exporta os usados pelas rotas e mantém os específicos do app.
 """
-import os
-import markdown
 from datetime import datetime
 
 from app.ajsystem.core.utils import (  # noqa: F401
@@ -22,17 +20,7 @@ from app.ajsystem.core.utils import (  # noqa: F401
 )
 
 
-def render_pagina(nome):
-    path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "dados", "paginas", f"{nome}.md",
-    )
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read()
-        return markdown.markdown(content, extensions=["extra"])
-    except FileNotFoundError:
-        return None
+from app.content import render_pagina  # noqa: F401
 
 
 class LinhaTransacao:

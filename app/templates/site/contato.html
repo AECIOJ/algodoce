@@ -1,0 +1,29 @@
+{% extends "components/page_site.html" %}
+{% block content %}
+<div class="mx-auto py-4" style="max-width: 480px;">
+  <h2 style="color: var(--rosa); text-align:center; margin-bottom: 1.25rem;">Fale Conosco</h2>
+  <div class="flex flex-col gap-3">
+    {% for titulo, c in contacts.items() %}
+      <a href="{% if c.type == 'whatsapp' %}https://wa.me/{{ c.value }}{% elif c.type == 'email' %}mailto:{{ c.value }}{% elif c.type == 'instagram' %}https://instagram.com/{{ c.value }}{% elif c.type == 'facebook' %}https://facebook.com/{{ c.value }}{% elif c.type == 'linkedin' %}https://linkedin.com/{{ c.value }}{% else %}#{% endif %}"
+         target="_blank" rel="noopener"
+         class="flex items-center gap-3 px-4 py-3 rounded shadow-sm"
+         style="background:#fff; border:1px solid var(--fallback-b2, oklch(var(--b2))); text-decoration:none; color:inherit;">
+        <span style="font-size:1.4rem; color:var(--rosa);">
+          {% if c.type == 'whatsapp' %}<i class="bi bi-whatsapp"></i>
+          {% elif c.type == 'email' %}<i class="bi bi-envelope"></i>
+          {% elif c.type == 'instagram' %}<i class="bi bi-instagram"></i>
+          {% elif c.type == 'facebook' %}<i class="bi bi-facebook"></i>
+          {% elif c.type == 'linkedin' %}<i class="bi bi-linkedin"></i>{% endif %}
+        </span>
+        <span>
+          <span style="display:block; font-weight:600; color:var(--fallback-bc, oklch(var(--bc)));">{{ titulo }}</span>
+          <span style="display:block; font-size:0.9rem; color:var(--fallback-bc, oklch(var(--bc)));">{% if c.type in ('whatsapp', 'phone') %}{{ c.value|mask('(99) 99999-9999') }}{% else %}{{ c.value }}{% endif %}</span>
+        </span>
+      </a>
+    {% endfor %}
+    {% if not contacts %}
+      <p class="text-gray-500 text-center mt-3">Em breve mais canais de contato.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

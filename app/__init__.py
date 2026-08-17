@@ -98,7 +98,6 @@ def create_app():
         from app.routes.sys import categorias, produtos, insumos, pedidos, compras, contas
         from app.routes.sys import producao, operacoes, recursos, transacao, movimentos
         from app.routes.sys import transferencias, orcamentos, relatorios, carteiras
-        from app.routes.site import publico as site, vitrine, orcamento
         from app.routes import uploads
 
         app.register_blueprint(pedidos.bp)
@@ -109,16 +108,15 @@ def create_app():
         app.register_blueprint(movimentos.bp)
         app.register_blueprint(transferencias.bp)
         app.register_blueprint(relatorios.bp)
-        app.register_blueprint(site.bp)
         app.register_blueprint(uploads.bp)
-        app.register_blueprint(vitrine.bp)
-        app.register_blueprint(orcamento.bp)
 
         from app.ajsystem import init_app
         init_app(app)
 
         from app.ajsystem.core import adapter
         adapter.set_tunnel_url_provider(lambda: get_tunnel_url(force=True))
+        from app.content import render_pagina
+        adapter.set_markdown_loader(render_pagina)
 
         register_model('category', Category)
         register_model('conta', Conta)

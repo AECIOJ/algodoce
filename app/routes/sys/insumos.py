@@ -33,19 +33,28 @@ Entity = {
     },
 }
 
-List = {
-    'fields': 'Ingredient',
-    'ordering': ['nome'],
+Page = {
+    'type': 'crud',
+    'props': {
+        'tabs': {
+            'Dados': {'type': 'List'},
+            'Filtros': {'type': 'Filter'},
+        },
+        'list': {
+            'fields': 'Ingredient',
+            'ordering': ['nome'],
+        },
+        'form': {
+            'fields': 'Ingredient',
+            'delete': {
+                'when': {ProductIngredient, ProducaoInsumo, CompraItem, UnitConversion},
+            },
+            'sessions': {
+                'Conversões': {'table': ['UnitConversion']},
+                'Produtos': {'table': ['ProductIngredient'], 'readonly': True},
+            },
+        },
+    },
 }
 
 
-Form = {
-    'fields': 'Ingredient',
-    'delete': {
-        'when': {ProductIngredient, ProducaoInsumo, CompraItem, UnitConversion},
-    },
-    'sessions': {
-        'Conversões': {'table': ['UnitConversion']},
-        'Produtos': {'table': ['ProductIngredient'], 'readonly': True},
-    },
-}

@@ -1,13 +1,14 @@
 """Orquestrador `do_list` — request → response para listagens.
 
-Consome specs puros (`defs.list.List`) e delega a resolução de campos/engine
-para `core/list.py`. É o único ponto (além de `core.do_form`) que as
-rotas/`core.auto` usam para montar a página de listagem.
+Consome specs puros (`defs.page.Page` → aba `Dados` = spec do `List`) e delega
+a resolução de campos/engine para `core/list.py`. É o único ponto (além de
+`core.do_form`) que as rotas/`core.auto` usam para montar a página de listagem.
 """
 import importlib
 
 from flask import Blueprint, render_template, request, url_for
 
+from app.ajsystem.defs.page import Page as PageSpec
 from app.ajsystem.defs.form import _resolve_label
 from app.ajsystem.defs.fields import Field
 from app.ajsystem.defs.entities import get_field, _derive_fk_ref
@@ -42,7 +43,8 @@ def _resolve_endpoint(lista, key, bp_name):
 def do_list(entity_name: str, module_name: str, data=None, **extra):
     mod = importlib.import_module(module_name)
     entidades = mod.Entity
-    lista = mod.List
+    page = PageSpec.from_module(mod)
+    lista = page.dados.config if page.dados else {}
     bp_name = _module_blueprint(mod).name if _module_blueprint(mod) else None
 
     if entity_name not in entidades:
@@ -143,10 +145,12 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
         else:
             init_filters[fname] = ''
 
-    template = lista.get('template') or "pages/list.html"
+    template = (page.dados.template if page.dados else None) or "pages/list.html"
     return render_template(
         template,
         entity_name=entity_name,
+        TABS=list(page.items),
+        active_tab=page.active,
         LIST=list_obj,
         data=data,
         active_filters=active,

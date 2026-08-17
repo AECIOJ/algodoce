@@ -60,3 +60,8 @@ def init_app(app):
     system = APP.module('system')
     if system:
         registrar_modulos(app, system.menus)
+
+    # 6. registra os módulos públicos (páginas do site) a partir do menu
+    public = APP.module('public')
+    if public:
+        registrar_modulos(app, public.menus, modulo_ini='app.routes.site', login=False)

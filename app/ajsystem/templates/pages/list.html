@@ -2,6 +2,7 @@
 {% from "pages/macros.html" import heroicon, btn %}
 {% import "components/item_table.html" as itb with context %}
 {% import "components/form_macros.html" as fm with context %}
+{% import "components/tabs.html" as tb with context %}
 
 {% macro _det_cell(item, idx, col) %}
   {% set _raw = item|deep_attr(col.card_path or col.field) %}
@@ -32,7 +33,7 @@
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
 .list-table-wrap { width: fit-content; }
-.list-filter-wrap { width: fit-content; max-width: 120ch; }
+.list-filter-wrap { width: fit-content; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
 @media (max-width: 991.98px) {
   .list-table-wrap { width: 100% !important; min-width: 0 !important; max-width: 100%; }
@@ -62,22 +63,14 @@
 
 {% block page_content %}
 <div class="grow flex flex-col min-h-0" x-data="listPage()">
-<div x-data="{ tab: 'dados' }" class="flex flex-col min-h-0">
+{% call tb.render_tabs(active=active_tab) %}
   <div class="border-b flex lg:justify-center app-bar"
        style="--list-tot-ch: {{ tot_ch }}ch;min-height:var(--bar-h);background:var(--bar-bg-list);color:var(--bar-txt-list);border-color:var(--fallback-b3, oklch(var(--b3)));">
     <div class="page-list-header gap-2 flex-wrap flex items-center">
       <div role="tablist" class="tabs tabs-bordered">
-        <button role="tab" class="tab rounded-t-lg"
-                :class="{ 'tab-active font-semibold': tab === 'dados' }"
-                @click="tab = 'dados'" type="button">Dados</button>
-        <button role="tab" class="tab rounded-t-lg inline-flex items-center gap-1"
-                :class="{ 'tab-active font-semibold': tab === 'filtros' }"
-                @click="tab = 'filtros'" type="button">
-          {%- if active_filters -%}
-          {{ heroicon('funnel', 'w-4 h-4') }}
-          {%- endif -%}
-          Filtros
-        </button>
+        {% for t in TABS %}
+        {{ tb.render_tab_button(t, icon=('funnel' if (t.type == 'Filter' and active_filters) else none)) }}
+        {% endfor %}
       </div>
       <div class="flex items-center gap-1 flex-wrap justify-end ml-auto">
         {% block page_list_header_extra %}{% endblock %}
@@ -91,7 +84,10 @@
     </div>
   </div>
 
-  <div x-show="tab === 'dados'" class="flex-1 min-h-0 overflow-auto px-4">
+  <div class="flex-1 min-h-0 overflow-auto px-4">
+  {% for t in TABS %}
+  {% call tb.render_tab_panel(t) %}
+    {% if t.type == 'List' %}
     <div class="flex flex-col items-center">
     <div class="page-list-inner">
       <div class="list-table-wrap{% if default_adaptive %} adaptive{% endif %}{% if cardonly_cols %} has-cardonly{% endif %}" style="min-width:{{ tot_ch }}ch;width:fit-content;">
@@ -193,12 +189,9 @@
       </div>
     </div>
     </div>
-  </div>
-
-  <div x-show="tab === 'filtros'" class="flex-1 min-h-0 overflow-auto px-4">
+    {% elif t.type == 'Filter' %}
     <div class="flex flex-col items-center">
-    <div class="page-list-inner">
-      <div class="list-filter-wrap" style="min-width:min({{ tot_ch }}ch,120ch);width:fit-content;">
+      <div class="list-filter-wrap">
         <div class="flex flex-col gap-2 p-2">
           {% for name, cfg in FILTERS.items() %}
           {% set label = cfg.label or name | capitalize %}
@@ -280,9 +273,13 @@
         </div>
       </div>
     </div>
-    </div>
+    {% elif t.template %}
+    {% include t.template %}
+    {% endif %}
+  {% endcall %}
+  {% endfor %}
   </div>
-</div>
+{% endcall %}
 </div>
 {% endblock %}
 
@@ -291,7 +288,6 @@
 <script>
 function listPage() {
   return {
-    tab: 'dados',
     filters: (function() {
       var defaults = {{ initial_filters | tojson | safe }};
       var active = {{ active_filters | tojson | safe }};

@@ -43,7 +43,7 @@ TIPO_NOME_PLURAL = {"P": "Pagamentos", "R": "Recebimentos"}
 
 transacao_list = {'fields': TRANSACAO_FIELDS, 'fields_master': [1, 2, 3, 4, 5], 'fields_detail': [6, 7, 8, 9, 10, 11, 12, 13], 'master_key': 'transacao_id', 'edit_id_field': 'transacao.id'}
 
-Form = {'model': Transacao, 'new_label': 'Transação', 'body_template': 'sys_transacao/_form_body.html', 'nav_right_extra': 'sys_transacao/_nav_right.html', 'footer_left': 'sys_transacao/_footer_left.html', 'page_scripts': 'sys_transacao/_page_scripts.html', 'redirect': 'transacao.pagar_list', 'fields': [
+Form = {'model': Transacao, 'new_label': 'Transação', 'body_template': 'sys/transacao/_form_body.html', 'nav_right_extra': 'sys/transacao/_nav_right.html', 'footer_left': 'sys/transacao/_footer_left.html', 'page_scripts': 'sys/transacao/_page_scripts.html', 'redirect': 'transacao.pagar_list', 'fields': [
         {'name': 'data', 'input': 'date', 'width': 3},
         {'name': 'conta_id', 'input': 'select', 'query': 'conta', 'label': 'Conta', 'required': True, 'width': 6},
         {'name': 'operacao_id', 'input': 'select', 'query': 'operacao', 'label': 'Operação', 'width': 6},

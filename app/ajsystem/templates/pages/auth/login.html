@@ -1,0 +1,31 @@
+{% extends "pages/base.html" %}
+
+{% block title %}Segurança{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center px-4 py-8" style="min-height:60vh;">
+  <div class="card bg-white shadow-xl w-full" style="max-width:24rem;">
+    <div class="card-body">
+      <h2 class="card-title justify-center text-secondary">
+        <i class="bi bi-lock-fill"></i> Segurança
+      </h2>
+      <p class="text-center text-sm mb-2">
+        Informe a senha de segurança para acessar as configurações.
+      </p>
+      <form method="post" class="flex flex-col gap-3">
+        <div>
+          <label for="username" class="block text-sm mb-1">Usuário</label>
+          <input id="username" type="text" name="username" class="input input-bordered w-full" required autofocus>
+        </div>
+        <div>
+          <label for="password" class="block text-sm mb-1">Senha</label>
+          <input id="password" type="password" name="password" class="input input-bordered w-full" required>
+        </div>
+        <button type="submit" class="btn btn-primary inline-flex items-center justify-center gap-2">
+          <i class="bi bi-box-arrow-in-right"></i> Acessar
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -50,13 +50,31 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 > Padrão dos inputs numéricos: alinhados à direita (CSS global), conteúdo selecionado
 > ao focar (digitar sobrescreve) e sem spinner, a menos que a Entidade defina `step`.
 
-### List — configuração da listagem (§6)
+### Page — abas e configuração da listagem (§6)
 
 | Propriedade | Estado | Onde validada |
 |---|---|---|
+| `tabs.<id>.type` | ✓ | Dados/`List`, Filtros/`Filter` — 7 módulos (Categorias, Carteiras, Insumos, Produtos, Contas, Operações, Orçamentos); `Report`/`Custom` reservados; tipo inválido → `ValueError` |
+| `tabs.<id>.type` derivado da chave | ✓ | `Dados`→`List`, `Filtros`→`Filter`, `Relatórios`→`Report`, senão `Custom` |
+| `tabs.<id>.max_width` | ✓ | Carteiras — `Filtros.max_width: 80` (painel `max-width:80ch`, centralizado); demais sem max_width |
+| `tabs.<id>.template` | ✓ | Orçamentos — `sys/orcamentos/list.html` na aba Dados (template da página) |
+| auto-append de `Filtros` | ✓ | `Page` sem aba `Filter` ganha `Filtros` padrão (módulos migrados declaram explícito) |
+| forma legada `List` | ✓ | Módulo com `List` sem `Page` → default `Dados(List)+Filtros(Filter)` |
 | `fields` | ✓ | Categorias — `['Category']` (renomeada de `columns`); Carteiras |
 | `ordering` | ✓ | Categorias — `['ordem', 'nome']`; Carteiras — `['nome']` |
 | `title` | ✓ | Categorias |
+| página única (`tabs: ''`, `crud: False`) | ✓ | Vitrine (`route: 'vitrine'`), Sobre (markdown), Contato (html custom) |
+| `showcase` (§6.5) | ✓ | Vitrine — `fields`/`filter`/`layout`/`show`/`client_fields`/`badge_id`; carrinho `session['cart_items']` + identificação `session['client']` sem criar `Conta`; rotas `add`/`update`/`remove`/`api/cliente` geradas |
+| `template.type` `html`/`markdown` | ✓ | Contato (html), Sobre (markdown, loader do host) |
+
+> **Evolução do contrato `Page`:** a estrutura `tabs` (acima) foi substituída
+> pelo formato `type` + `props` (`app/ajsystem/defs/page.py`): `Page['type']`
+> define o roteiro (`'crud'`, `'showcase'`, `'cart'`, `'contacts'`, `'redirect'`,
+> `'custom'`) e `Page['props']` carrega a config específica do tipo (`tabs`,
+> `list`, `form`, `reports` para `crud`; `on_send` para `cart`; etc.). O `Form`
+> de módulo migrou para `Page['props']['form']` (funções `_pre_save`/`_post_save`
+> reordenadas antes do `Page`). O orquestrador `core/do_page.py` roteia por
+> `type` e dispara `Page['events']` (`on_send`, `on_show`).
 
 ### Form — configuração do formulário (§7)
 
@@ -73,6 +91,37 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | `sessions` | ✓ | Insumos — `Conversões` e `Produtos` (explícitas) |
 | `sessions.readonly` | ✓ | Insumos — sessão `Produtos` renderizada como texto |
 | `sessions.table` | ✓ | Insumos — `['UnitConversion']`, `['ProductIngredient']` |
+
+### Module — triggers de UI (§3.3)
+
+| Propriedade | Estado | Onde validada |
+|---|---|---|
+| `triggers.<ev>.target` | ✓ | `'logo'` — elemento `.brand-logo`; suportado qualquer seletor | 
+| `triggers.<ev>.action` | ✓ | `system` (popup login sistema), `admin` (popup admin), `qr` (QR mobile); SITE/SYS/ADMIN no `app/config.py` |
+| `triggers.click` | ✓ | 1 clique — SITE→`system`, SYS→`qr`, ADMIN→`system` |
+| `triggers.click_dbl` | ✓ | 2 cliques — SITE→`admin`, SYS→`admin` |
+| gerado por `auth_triggers.html` | ✓ | Lê `modulo.triggers`, gera handlers/popups condicionais; `auth_logo_modo` removido |
+
+### Layout — header/footer por módulo (§3.4)
+
+| Propriedade | Estado | Onde validada |
+|---|---|---|
+| `layout.header.logo.rows` | ✓ | Altura do logo em `em` (linhas ≈ altura do caractere) — SITE/SYS `4`; `height:<rows>em` + mobile via `--logo-rows` |
+| `layout.header.logo.align` | ✓ | `center` (padrão) — centralização do logo no container |
+| `layout.header.title.text` | ✓ | Texto literal (SITE — "O doce sabor do seu evento!"); valor especial `'app_title'` → resolve para `APP.title` (SYS) |
+| `layout.header.title.text: None` | ✓ | Não exibe título (campo omitido/None) |
+| `layout.header.title.align` | ✓ | `center` (padrão) — alinhamento do título |
+| `layout.header.title.font` | ✓ | Nome de fonte (Google Fonts, carregada no `head` via link condicional); `None`/omitido → system default |
+| `layout.header.title.color` | ✓ | Cor do texto (ex.: `'var(--rosa)'`); `None`/omitido → herda do tema |
+| `layout.footer.font` | ✓ | Fonte do rodapé (Google Fonts); `None`/omitido → system default |
+| `layout.footer.color` | ✓ | Cor do rodapé; `None`/omitido → `--bar-txt-rodape` |
+| `layout.footer.user` | ✓ | `True` mostra usuário no rodapé (SYS — `DOCEIRA`); `False` oculta (SITE) |
+
+### APP — propriedades (§3.2)
+
+| Propriedade | Estado | Onde validada |
+|---|---|---|
+| `APP.title` | ✓ | Título do app (ex.: "Sistema Gerenciador de Doceria"); referenciado por `title.text: 'app_title'` |
 
 ---
 
@@ -98,7 +147,7 @@ A partir de três dicionários declarativos por módulo:
 | Declaração | Para que serve |
 |---|---|
 | `Entity` | Define os **campos** (nome, tipo, máscara, referências, validação) |
-| `List` | Define a **listagem** (colunas, ordenação, cards, detalhes, filtros) |
+| `Page` | Define a **página** com abas; a aba `Dados` (type `List`) carrega a configuração da **listagem** |
 | `Form` | Define o **formulário** (campos, tabelas filhas, exclusão, hooks, botões) |
 
 O framework cuida de todo o resto:
@@ -460,6 +509,7 @@ pode ser inserido e a referência para a definição completa:
 ```python
 APP = {
     'name': 'Algodocê',          # nome exibido no topo/menu
+    'title': 'Sistema de ...',   # título do app (§3.4 — title.text: 'app_title')
     'logo': 'logo.png',          # arquivo em app/static/
     'version': '1.0.0',          # versão exibida no rodapé
     'tema': 'doceira',           # chave do dicionário Temas  →  §3.1
@@ -474,6 +524,7 @@ APP = {
 | Propriedade | Tipo | O que pode ser inserido | Ver § |
 |---|---|---|---|
 | `name` | str | Nome do app exibido no cabeçalho e nos títulos | — |
+| `title` | str | Título descritivo do app (ex.: `'Sistema Gerenciador de Doceria'`); usado no header quando `layout.header.title.text = 'app_title'` | [§3.4](#34-layout--header-e-footer-por-módulo) |
 | `logo` | str | Nome do arquivo em `app/static/` (ex.: `'logo.png'`). Vazio para não exibir | — |
 | `version` | str | Versão mostrada no rodapé (ex.: `'1.0.0'`). Se omitida, lê o arquivo `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE` → `'v1.YY.MM-SEQ'`) | — |
 | `tema` | str | Chave do dicionário `Temas`; define todas as cores | [§3.1](#31-temas-tokens-de-cor) |
@@ -494,6 +545,17 @@ A estrutura de cada módulo é um dict com `type`, `default_path` e `menus`:
 # dentro de APP['modules'] — ex.: módulo 'system'
 {'type': 'system',
  'default_path': 'cadastro/categorias',   # destino após login (caminho de menu)
+ 'triggers': {                            # §3.4 — interações de UI
+     'click':     {'target': 'logo', 'action': 'qr'},
+     'click_dbl': {'target': 'logo', 'action': 'admin'},
+ },
+ 'layout': {                              # §3.4 — header/footer
+     'header': {
+         'logo': {'rows': 6, 'align': 'center'},
+         'title': {'text': 'app_title', 'align': 'center'},
+     },
+     'footer': {'user': True},
+ },
  'menus': {
      'Categorias': {'icon': 'bi-journal'},        # sem submenu → módulo 'categorias'
      'Estoque': {'icon': 'bi-box', 'submenus': {  # com submenu
@@ -524,6 +586,69 @@ Propriedades de um item de menu:
 > do menu (blueprints com `bp` próprio, páginas custom) ou caminhos literais —
 > nunca para um módulo automático sem `bp`, pois ele não seria montado.
 
+### 3.4 Layout e triggers — header/footer e interações por módulo
+
+Além de `type`, `default_path` e `menus`, um módulo pode declarar **`layout`**
+(header/footer) e **`triggers`** (interações de UI). Ambas são opcionais — sem
+elas o módulo usa os padrões do motor.
+
+#### `layout` — header e footer
+
+```python
+'layout': {
+    'header': {
+        'logo':  {'rows': 3.5, 'align': 'center'},
+        'title': {'text': 'O doce sabor do seu evento!',
+                  'align': 'center',
+                  'font': 'Poppins',
+                  'color': 'var(--rosa)'},
+    },
+    'footer': {'font': None, 'color': None, 'user': False},
+}
+```
+
+O **header é um container dinâmico**: a altura acompanha o conteúdo — apenas o
+logo, ou logo + título empilhados. O `<img>` do logo usa `height: <rows>em`
+(linhas ≈ altura do caractere); no mobile escala via variável CSS `--logo-rows`.
+
+| Propriedade | Tipo | Padrão | O que configura |
+|---|---|---|---|
+| `header.logo.rows` | float | `5` | Altura do logo em `em` (≈ número de linhas de texto) |
+| `header.logo.align` | str | `'center'` | Alinhamento horizontal do logo |
+| `header.title.text` | str/`None` | `None` | Texto do título. `None`/omitido → não exibe. `'app_title'` (constante `TEXTO_APP`) → resolve para `APP.title` |
+| `header.title.align` | str | `'center'` | Alinhamento do título |
+| `header.title.font` | str/`None` | `None` | Nome da fonte (Google Fonts; carregada condicionalmente no `head`). `None` → font do tema |
+| `header.title.color` | str/`None` | `None` | Cor do texto (CSS color). `None` → herda do tema |
+| `footer.font` | str/`None` | `None` | Fonte do rodapé (Google Fonts) |
+| `footer.color` | str/`None` | `None` | Cor do texto do rodapé (sobrepõe `--bar-txt-rodape`) |
+| `footer.user` | bool | `True` | Exibe o usuário logado no rodapé (`versao | <usuario>`) |
+
+> `font: None` e `color: None` não precisam ser declarados — os defaults já são
+> `None`. Fonte em `header`/`footer` que não seja `None` dispara o `<link>` ao
+> Google Fonts no `page_base.html`.
+
+#### `triggers` — interações de UI
+
+```python
+'triggers': {
+    'click':     {'target': 'logo', 'action': 'system'},
+    'click_dbl': {'target': 'logo', 'action': 'admin'},
+}
+```
+
+O motor (`components/auth_triggers.html`) lê `modulo.triggers` e gera os
+handlers no elemento `target`. Substituiu o antigo `auth_logo.html`/`auth_logo_modo`.
+
+| Propriedade | Tipo | O que configura |
+|---|---|---|
+| `triggers.click.target` | str | Seletor do elemento (ex.: `'logo'` → `.brand-logo`) |
+| `triggers.click.action` | str | Ação de 1 clique: `'system'` (login sistema), `'admin'` (login admin), `'qr'` (QR mobile) |
+| `triggers.click_dbl.target` | str | Seletor do elemento (duplo clique) |
+| `triggers.click_dbl.action` | str | Ação de 2 cliques (mesmos valores de `click.action`) |
+
+> Módulos da aplicação: `SITE` usa `click→system` / `click_dbl→admin`;
+> `SYS` usa `click→qr` / `click_dbl→admin`; `ADMIN` usa `click→system`.
+
 ---
 
 ## 4. Módulos (rotas declarativas)
@@ -531,7 +656,7 @@ Propriedades de um item de menu:
 ### 4.1 O que é um módulo
 
 Um módulo é um arquivo Python em `app/routes/sys/` que declara os dicionários
-`Entity`, `List` e (opcionalmente) `Form`:
+`Entity`, `Page` (com a listagem aninhada) e (opcionalmente) `Form`:
 
 ```python
 # app/routes/sys/categorias.py
@@ -543,9 +668,15 @@ Entity = {
     },
 }
 
-List = {
-    'fields': ['Category'],
-    'ordering': ['nome'],
+Page = {
+    'tabs': {
+        'Dados': {
+            'type': 'List',
+            'fields': ['Category'],
+            'ordering': ['nome'],
+        },
+        'Filtros': {'type': 'Filter'},
+    },
 }
 
 Form = {
@@ -579,10 +710,17 @@ suas rotas.
 - **`Entity`** — mapa `nome_da_entidade → campos`. Cada campo é um dict de
   propriedades ([§5](#5-entity--definição-de-campos)). Pode ter **várias
   entidades** no mesmo módulo (ex.: `Product` e `ProductIngredient`).
-- **`List`** — dict com `fields`, `ordering`, `title`, etc. ([§6](#6-list--configuração)).
+- **`Page`** — dict com `tabs`: cada aba tem `type`, `max_width` opcional e, na
+  aba `Dados` (`type: 'List'`), a configuração da listagem (`fields`,
+  `ordering`, `title`, ... — [§6](#6-list--configuração)).
 - **`Form`** — dict com `fields`, `sessions`, `delete`, `buttons` e hooks
   ([§7](#7-form--configuração)). Também pode ser `Form(...)` da dataclass
   (`app.ajsystem.core.form`); `handle_form` aceita ambos.
+
+> Forma **legada**: módulos antigos declaram `List = {...}` no topo (sem `Page`).
+> O framework monta o default `Dados(List) + Filtros(Filter)` automaticamente,
+> preservando o comportamento — os módulos do projeto já foram migrados para
+> `Page`.
 
 ### 4.4 Registro do módulo (menu → blueprint)
 
@@ -793,20 +931,65 @@ filho) e atribui ao campo do pai após persistir as sessões.
 
 ## 6. List — configuração
 
-A `List` define como a listagem é renderizada.
+A configuração da listagem vive na aba `Dados` (`type: 'List'`) de `Page`.
 
 ### 6.1 Exemplo
 
 ```python
-List = {
-    'fields': ['Product'],
-    'ordering': ['nome'],
-    'title': 'Produtos cadastrados',
-    'new_endpoint': None,     # esconde o botão "Novo" (sem criação)
+Page = {
+    'tabs': {
+        'Dados': {
+            'type': 'List',
+            'fields': ['Product'],
+            'ordering': ['nome'],
+            'title': 'Produtos cadastrados',
+            'new_endpoint': None,     # esconde o botão "Novo" (sem criação)
+        },
+        'Filtros': {'type': 'Filter'},
+    },
 }
 ```
 
-### 6.2 Referência de propriedades
+### 6.2 `Page` — abas da página
+
+`Page` é um dict com `tabs` (`{id_da_aba: {cfg}}`). A **chave é o rótulo** exibido
+no botão da aba (ex.: `'Dados'`, `'Filtros'`, `'Relatórios'`). Cada aba aceita:
+
+| Propriedade | Tipo | O que configura | Padrão |
+|---|---|---|---|
+| `type` | str | Renderização do painel: `List`, `Filter`, `Report` ou `Custom` | derivado da chave (`Dados`→`List`, `Filtros`→`Filter`, `Relatórios`→`Report`, senão `Custom`) |
+| `max_width` | int | Largura máxima do **painel** (conteúdo) em `ch`, centralizada | largura da página |
+| `template` | str | Template alternativo da página (aba `List`) ou do painel (tipos `Report`/`Custom`) | `pages/list.html` |
+
+- O tipo de uma aba é **validado** — valor fora de `List/Filter/Report/Custom`
+  lança `ValueError`.
+- Sem `max_width`, o painel ocupa a largura da página (com a pequena margem
+  padrão). Com `max_width`, o conteúdo do painel fica centralizado e limitado
+  a `max_width` caracteres (`max-width: Nch; margin-inline: auto`).
+- Se o `Page` declarado não incluir aba `type: 'Filter'`, o framework acrescenta
+  uma aba `Filtros` padrão (para não perder a filtragem da listagem).
+- Tipos `Report`/`Custom` são **reservados**: renderizam `template` quando
+  informado, senão ficam vazios (implementação real via `do_report` é futura).
+
+Exemplo com largura de painel:
+
+```python
+Page = {
+    'tabs': {
+        'Dados': {
+            'type': 'List',
+            'fields': 'Carteira',
+            'ordering': ['nome'],
+        },
+        'Filtros': {
+            'type': 'Filter',
+            'max_width': 80,        # painel de filtros limitado a 80ch, centralizado
+        },
+    },
+}
+```
+
+### 6.3 Referência de propriedades da aba `List`
 
 | Propriedade | Tipo | O que configura | Padrão |
 |---|---|---|---|
@@ -822,20 +1005,101 @@ List = {
 | `edit_id_field` | str | Campo usado no `id=` do link de edição | `'id'` |
 | `buttons` | list | Botões no cabeçalho, à esquerda de "Incluir" (quebram para a próxima linha se não couber). Mesma sintaxe de `Form['buttons']` (§7.5): preset `ACTIONS` (ex.: `['on_off']`), `{nome: {overrides}}` ou dict `{label, endpoint, icon, color, ...}`. `on_off` é botão de linha (precisa de instância) e **não** é renderizado no cabeçalho | — |
 
-### 6.3 Semântica de endpoints (importante)
+### 6.4 Semântica de endpoints (importante)
 
 O padrão "ausente → default" permite comportamento por omissão, e o `None`
 explícito **esconde** o botão/link:
 
 ```python
-List = {
-    'fields': ['Category'],
-    'edit_endpoint': None,   # listagem somente-leitura
+Page = {
+    'tabs': {
+        'Dados': {
+            'type': 'List',
+            'fields': ['Category'],
+            'edit_endpoint': None,   # listagem somente-leitura
+        },
+        'Filtros': {'type': 'Filter'},
+    },
 }
 ```
 
 > Quando `new_endpoint`/`edit_endpoint` são `None`, o respectivo botão/link não é
 > renderizado. Útil para módulos de consulta ou detalhe.
+
+### 6.5 Página única e Vitrine declarativa (`showcase`)
+
+Página única: `Page` com `tabs: ''` descreve uma página **sem abas nem CRUD**,
+renderizada pelo motor via `do_page`. Declare `crud: False` (a rota `list` é
+gerada automaticamente). O `template` define o tipo de renderização:
+
+| `template.type` | `file` | Renderiza |
+|---|---|---|
+| `html` | opcional (omitido = `'index'`) | Template do módulo (`site/vitrine/index.html`) com contexto da função `context()` |
+| `markdown` | nome (`'sobre'`) ou caminho | Conteúdo markdown (loader do host) na template padrão `pages/markdown.html` |
+| `showcase` | — | Vitrine declarativa (abaixo) na template padrão `pages/showcase.html` |
+
+A **vitrine** (`Page['showcase']`) gera vitrine + carrinho de sessão +
+identificação do cliente sem nenhuma rota ou template custom. Exemplo completo:
+
+```python
+# app/routes/site/produtos.py — só declaração, sem funções
+Entity = {
+    'Product': {
+        'nome':        {'type': 'TEXT'},
+        'descricao':   {'type': 'MEMO', 'rows': 4},
+        'imagem':      {'type': 'IMAGE'},
+        'qtd_minima':  {'type': 'INT'},
+        'category_id': {'type': 'FK', 'query': 'category'},
+    },
+    'Category': {'nome': {'type': 'TEXT'}},
+}
+Page = {
+    'crud': False,
+    'tabs': '',
+    'route': 'vitrine',
+    'max_width': '48rem',           # largura da página; a vitrine dimensiona o resto proporcionalmente
+    'showcase': {
+        'fields': 'Product',        # entidade dos itens (chave do Entity)
+        'filter': 'Category',       # entidade do filtro de categoria
+        'layout': 'carousel',       # carousel | grid | list
+        'show': {'nome': 'title', 'imagem': 'left',
+                 'descricao': 'right', 'qtd_minima': 'qty'},
+        'client_fields': ['nome', 'telefone'],   # termos nome/telefone/email (aliases fone/mail)
+        'badge_id': 'bnOrcamentoBadge',          # id do contador do carrinho no shell
+    },
+}
+```
+
+A largura da página é declarada no **`Page`** (`max_width`: `int` → `{n}ch` ou
+string CSS, ex. `'48rem'`); a vitrine usa essa largura e dimensiona os demais
+elementos (filtro, card e navegador) proporcionalmente a ela.
+
+Propriedades da showcase:
+
+| Propriedade | Obrigatória | O que configura | Padrão |
+|---|---|---|---|
+| `fields` | sim | Entidade dos itens (chave do `Entity` do módulo) | — |
+| `filter` | não | Entidade do filtro de categoria (exibe badges + seletor) | — |
+| `layout` | não | `carousel`, `grid` ou `list` | `carousel` |
+| `show` | não | `{campo: posição}` dos campos do card (`title`, `left`, `right`, `qty`); a posição do campo `IMAGE` no `Entity` renderiza a imagem | — |
+| `client_fields` | não | Lista de termos pedidos no modal de identificação (`nome`, `telefone`, `email`; aliases `fone`, `mail`). Ativa o modal e a rota `POST /<rota>/api/cliente` | — |
+| `badge_id` | não | `id` do elemento-contador do carrinho no shell do host | — |
+
+Convenções: carrinho em `session['cart_items']` com itens `{entidade}_id` /
+`quantidade` / `observacao`; cliente identificado em `session['client']` (em
+memória, **sem** persistir em banco); itens e categorias filtrados pela coluna
+`ativo`/`active` quando existir; imagem servida por
+`adapter.get_uploads_endpoint()` (default `uploads.uploaded_file`). Rotas
+geradas: `POST /<rota>/<id>/add|update|remove` — o `add` valida a quantidade
+mínima (`qty` do produto) e responde `401` quando há `client_fields` e o
+cliente ainda não foi identificado (o JS abre o modal) — e
+`POST /<rota>/api/cliente` (valida os campos obrigatórios). Os endpoints
+(`adicionar`, `atualizar`, `remover`, `identificar`) são sobrescritos se o
+módulo os declarar com `@auto.rota`.
+
+> O fluxo do algodoce é o caso de uso padrão: identificar → adicionar ao
+> carrinho → `orcamento.py` monta o `Quote` a partir de `session['client']` +
+> `session['cart_items']` (uma `Conta` só nasce na conversão orçamento→pedido).
 
 ---
 
@@ -1161,10 +1425,16 @@ Entity = {
     },
 }
 
-List = {
-    'fields': ['Category'],
-    'ordering': ['ordem', 'nome'],
-    'title': 'Categorias',
+Page = {
+    'tabs': {
+        'Dados': {
+            'type': 'List',
+            'fields': ['Category'],
+            'ordering': ['ordem', 'nome'],
+            'title': 'Categorias',
+        },
+        'Filtros': {'type': 'Filter'},
+    },
 }
 
 Form = {

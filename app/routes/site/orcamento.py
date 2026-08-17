@@ -1,20 +1,52 @@
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
-from app.ajsystem.core.extensions import db
-from app.models.client import Conta
-from app.models.product import Product
-from app.models.quote import Quote
-from app.models.quote_item import QuoteItem
-from app.models.event import Event
+import sys
+
+from flask import jsonify, redirect, request, session, url_for
+
+from app.ajsystem.core import auto
+from app.ajsystem.core.cart import (
+    count_items,
+    minimo_quantidade,
+    resolve_cart,
+    send_cart,
+)
 from app.ajsystem.core.ntfy import notificar as aj_notificar
+from app.ajsystem.defs.cart import CART_SESSION_KEY, CLIENT_SESSION_KEY
+from app.constantes import FORMINHAS, QUOTE_STATUS, tipos_evento
 from app.models.setting import Setting
-from datetime import datetime, timezone, date, time
-from app.utils import _clean, _save_event
 
-
-bp = Blueprint("site_orcamento", __name__)
+Entity = {
+    'Quote': {
+        'cliente_nome': {'label': 'Cliente', 'required': True},
+        'cliente_telefone': {'label': 'Telefone', 'required': True},
+        'data_pedido': {'type': 'DATA_HORA'},
+        'status': {'type': 'LIST', 'options': QUOTE_STATUS},
+        'validade': {'type': 'INT', 'default': 3},
+        'carteira_id': {'type': 'FK', 'query': 'carteira'},
+        'forminhas': {'type': 'LIST', 'options': FORMINHAS},
+        'observacao': {'type': 'MEMO'},
+        'pedido_id': {'type': 'ID'},
+    },
+    'QuoteItem': {
+        'product_id': {'type': 'FK'},
+        'quantidade': {'type': 'INT', 'required': True},
+        'preco_unitario': {'type': 'NUM', 'currency': 'brl'},
+        'observacao': {'type': 'TEXT'},
+    },
+    'Event': {
+        'tipo': {'type': 'LIST', 'options': tipos_evento},
+        'tema': {'type': 'TEXT'},
+        'obs': {'type': 'MEMO'},
+        'data': {'type': 'DATA'},
+        'hora': {'type': 'HORA'},
+        'local': {'type': 'TEXT'},
+        'convidados': {'type': 'INT'},
+        'cerimonial': {'type': 'TEXT'},
+    },
+}
 
 
 def _notificar_orcamento(quote):
+    """Notificação ntfy para a doceira (falha silenciosa sem topic configurado)."""
     topic = Setting.get("ntfy_topic")
     if not topic:
         return
@@ -47,121 +79,80 @@ def _notificar_orcamento(quote):
     )
 
 
-def _load_session_items():
-    items = []
-    for i in session.get("orcamento_items", []):
-        produto = Product.query.get(i["product_id"])
-        if produto:
-            items.append({
-                "product_id": i["product_id"],
-                "produto": produto,
-                "quantidade": i["quantidade"],
-                "observacao": i["observacao"] or "",
-            })
-    return items
+def _on_send_orcamento(quote):
+    """Evento pós-envio da página: notifica e limpa o carrinho/identificação."""
+    _notificar_orcamento(quote)
+    session.pop(CART_SESSION_KEY, None)
+    session.pop(CLIENT_SESSION_KEY, None)
 
 
-@bp.route("/orcamento")
-def lista():
-    cliente_id = session.get("cliente_id")
-    cliente = None
-    if cliente_id:
-        cliente = Conta.query.get(cliente_id)
-    items = _load_session_items()
-    return render_template("site_orcamento/lista.html",
-                           cliente=cliente, items=items)
+Page = {
+    'type': 'cart',
+    'max_width': 48,
+    'props': {
+        'on_send': _on_send_orcamento,
+        'sessions': {
+            'Itens do Orçamento': {'type': 'table', 'fields': 'QuoteItem'},
+            'Dados do Evento': {'type': 'form', 'fields': 'Event'},
+        },
+    },
+}
 
 
-@bp.route("/orcamento/remover/<int:id>", methods=["POST"])
+def _mod():
+    return sys.modules[__name__]
+
+
+@auto.rota("/remover/<int:id>", methods=["POST"], endpoint="remover")
 def remover(id):
-    items = session.get("orcamento_items", [])
-    session["orcamento_items"] = [i for i in items if i["product_id"] != id]
-    return redirect(url_for("site_orcamento.lista"))
+    sc = resolve_cart(_mod())
+    items = session.get(sc['session_key'], [])
+    session[sc['session_key']] = [
+        i for i in items if i.get(sc['item_id']) != id
+    ]
+    return redirect(url_for(f'{request.endpoint.rsplit(".", 1)[0]}.list'))
 
 
-@bp.route("/orcamento/atualizar-item", methods=["POST"])
+@auto.rota("/atualizar-item", methods=["POST"], endpoint="atualizar_item")
 def atualizar_item():
+    sc = resolve_cart(_mod())
     data = request.get_json(silent=True) or {}
-    product_id = data.get("product_id")
+    product_id = data.get(sc['item_id'])
     if not product_id:
-        return jsonify(error="product_id required"), 400
-    items = session.get("orcamento_items", [])
+        return jsonify(error='product_id required'), 400
+
+    if 'quantidade' in data:
+        try:
+            quantidade = int(data['quantidade'])
+        except (TypeError, ValueError):
+            return jsonify(error='Quantidade inválida.'), 400
+        produto = sc['origin_model'].query.get(product_id)
+        if produto is None:
+            return jsonify(error='Produto não encontrado.'), 404
+        minima = minimo_quantidade(sc, produto)
+        if quantidade < minima:
+            return jsonify(
+                error=f'A quantidade mínima para {produto.nome} é {minima} und.'
+            ), 400
+
+    items = session.get(sc['session_key'], [])
     for i in items:
-        if i["product_id"] == product_id:
-            if "quantidade" in data:
-                i["quantidade"] = int(data["quantidade"])
-            if "observacao" in data:
-                i["observacao"] = data["observacao"].strip() or None
+        if i.get(sc['item_id']) == product_id:
+            if 'quantidade' in data:
+                i['quantidade'] = quantidade
+            if 'observacao' in data:
+                i['observacao'] = data['observacao'].strip() or None
             break
-    session["orcamento_items"] = items
+    session[sc['session_key']] = items
     return jsonify(success=True)
 
 
-@bp.route("/api/cliente", methods=["POST"])
-def identificar():
-    data = request.get_json(silent=True) or {}
-    telefone = data.get("telefone", "").strip()
-    nome = data.get("nome", "").strip()
-
-    if not telefone or not nome:
-        return jsonify(error="Telefone e nome são obrigatórios"), 400
-
-    cliente = Conta.query.filter_by(telefone=telefone).first()
-    if not cliente:
-        cliente = Conta(nome=nome, telefone=telefone, email=f"{telefone}@temp.com")
-        cliente.ativo = True
-        db.session.add(cliente)
-        db.session.flush()
-    else:
-        cliente.nome = nome
-
-    db.session.commit()
-    session["cliente_id"] = cliente.id
-    return jsonify(success=True, cliente_id=cliente.id)
-
-
-@bp.route("/orcamento/enviar", methods=["POST"])
+@auto.rota("/enviar", methods=["POST"], endpoint="enviar")
 def enviar():
-    cliente_id = session.get("cliente_id")
-    if not cliente_id:
-        return redirect(url_for("site_orcamento.lista"))
-    cliente = Conta.query.get(cliente_id)
-    if not cliente:
-        return redirect(url_for("site_orcamento.lista"))
-
-    session_items = session.get("orcamento_items", [])
-    if not session_items:
-        return redirect(url_for("site_orcamento.lista"))
-
-    quote = Quote(
-        cliente_nome=cliente.nome,
-        cliente_telefone=cliente.telefone,
-        data_pedido=datetime.now(timezone.utc),
-    )
-    db.session.add(quote)
-    db.session.flush()
-
-    for i in session_items:
-        item = QuoteItem(
-            quote_id=quote.id,
-            product_id=i["product_id"],
-            quantidade=i["quantidade"],
-            preco_unitario=None,
-            observacao=i.get("observacao") or None,
-        )
-        db.session.add(item)
-
-    _save_event(quote, request.form)
-
-    db.session.commit()
-    _notificar_orcamento(quote)
-    session.pop("orcamento_items", None)
-    session.pop("cliente_id", None)
-    return render_template("site_orcamento/confirmacao.html")
+    return send_cart(_mod())
 
 
-@bp.route("/api/orcamento-count")
+@auto.rota("/api/orcamento-count", endpoint="orcamento_count")
 def orcamento_count():
-    items = session.get("orcamento_items", [])
-    total = len(items)
-    return jsonify(total=total)
+    sc = resolve_cart(_mod())
+    return jsonify(total=count_items(sc))

@@ -52,7 +52,7 @@ def init_auth(app):
 
     @login_manager.unauthorized_handler
     def unauthorized():
-        return redirect(url_for('site.index'))
+        return redirect(url_for('_site_root'))
 
     @app.before_request
     def check_session_timeout():
@@ -68,7 +68,7 @@ def init_auth(app):
         if last and (now - last) > timeout:
             logout_user()
             session.clear()
-            return redirect(url_for('site.index'))
+            return redirect(url_for('_site_root'))
         session['_last_activity'] = now
 
 
@@ -275,11 +275,11 @@ def painel():
                 flash("Acesso autorizado.", "success")
                 return redirect(url_for("seguranca.painel"))
             flash("Credenciais inválidas.", "danger")
-        return render_template("sys_auth/login.html")
+        return render_template("pages/auth/login.html")
 
     settings = Setting.query.order_by(Setting.key).all()
     return render_template(
-        "sys_auth/settings.html",
+        "pages/auth/settings.html",
         settings=settings,
         permutacoes=PERMUTACOES,
         codigo_atual=Setting.get("painel_chave"),

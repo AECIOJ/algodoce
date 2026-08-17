@@ -88,34 +88,41 @@ Entity = {
     },
 }
 
-List = {
-    'fields': [
-        'Quote.id', 'Quote.cliente_nome', 'Quote.cliente_telefone', 'Quote.data_pedido',
-        'Quote.validade', 'Quote.total', 'Quote.carteira_id', 'Quote.status', 'Quote.pedido_id',
-    ],
-    'template': 'sys_orcamentos/list.html',
-}
-
-
-Form = {
-    'readonly_when': {'pedido_id': lambda v: v is not None},
-    'defaults': {'status': 1},
-    'buttons': [
-        {'label': 'Converter', 'icon': 'arrow-path', 'color': 'success', 'outline': False,
-         'endpoint': 'orcamentos.converter', 'position': 'nav_right',
-         'hide_if': ['pedido_id', None]},
-    ],
-    'delete': {
-        'when': lambda q: q.pedido_id is None,
-        'msg_ok': 'Orçamento excluído!',
-        'msg_no': 'Exclua o pedido vinculado antes de excluir o orçamento.',
-    },
-    'fields': [
-        'cliente_nome', 'cliente_telefone', 'validade', 'forminhas', 'carteira_id', 'observacao',
-    ],
-    'sessions': {
-        'Itens do Orçamento': {'table': ['QuoteItem']},
-        'Evento': {'table': ['Event']},
+Page = {
+    'type': 'crud',
+    'props': {
+        'tabs': {
+            'Dados': {'type': 'List'},
+            'Filtros': {'type': 'Filter'},
+        },
+        'list': {
+            'fields': [
+                'Quote.id', 'Quote.cliente_nome', 'Quote.cliente_telefone', 'Quote.data_pedido',
+                'Quote.validade', 'Quote.total', 'Quote.carteira_id', 'Quote.status', 'Quote.pedido_id',
+            ],
+            'template': 'sys/orcamentos/list.html',
+        },
+        'form': {
+            'readonly_when': {'pedido_id': lambda v: v is not None},
+            'defaults': {'status': 1},
+            'buttons': [
+                {'label': 'Converter', 'icon': 'arrow-path', 'color': 'success', 'outline': False,
+                 'endpoint': 'orcamentos.converter', 'position': 'nav_right',
+                 'hide_if': ['pedido_id', None]},
+            ],
+            'delete': {
+                'when': lambda q: q.pedido_id is None,
+                'msg_ok': 'Orçamento excluído!',
+                'msg_no': 'Exclua o pedido vinculado antes de excluir o orçamento.',
+            },
+            'fields': [
+                'cliente_nome', 'cliente_telefone', 'validade', 'forminhas', 'carteira_id', 'observacao',
+            ],
+            'sessions': {
+                'Itens do Orçamento': {'table': ['QuoteItem']},
+                'Evento': {'table': ['Event']},
+            },
+        },
     },
 }
 
@@ -136,7 +143,8 @@ def _converter_context(quote):
     suggested = Conta.query.filter(Conta.nome.ilike(quote.cliente_nome)).first()
     if not suggested and quote.cliente_telefone:
         suggested = Conta.query.filter(Conta.telefone == quote.cliente_telefone).first()
-    ctx['suggested_client'] = suggested
+    if suggested:
+        ctx['suggested_client'] = suggested
     if quote.cliente_telefone:
         phone_owner = Conta.query.filter(Conta.telefone == quote.cliente_telefone).first()
         if phone_owner and (not suggested or phone_owner.id != suggested.id):
@@ -164,7 +172,7 @@ def converter(id):
 
     if request.method == "GET":
         return render_template(
-            'sys_orcamentos/converter.html',
+            'sys/orcamentos/converter.html',
             quote=quote,
             total=quote.total,
             clientes=_converter_context(quote),

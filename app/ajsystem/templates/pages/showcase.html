@@ -1,0 +1,732 @@
+{% extends "components/page_site.html" %}
+
+{% block css %}
+{{ super() }}
+<style>
+  .showcase-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(8rem, clamp(9rem, 26%, 14rem)) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 1.5rem; }
+  .showcase-carousel-wrap { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; grid-column: 2; grid-row: 1; }
+  .showcase-col { width: 100%; }
+
+  .showcase-cat-badges {
+    grid-column: 1; grid-row: 1 / 3;
+    width: 100%;
+    display: flex; flex-direction: column; gap: 0.25rem;
+    padding: 1.5rem;
+    background: var(--fallback-b1, oklch(var(--b1)));
+    border-radius: var(--bs-border-radius-lg, 0.5rem);
+    box-shadow: var(--bs-box-shadow-sm, 0 0.125rem 0.25rem rgba(0,0,0,0.075));
+    overflow-y: auto;
+  }
+  .showcase-cat-badges .badge {
+    display: block; width: 100%; height: auto;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem; font-weight: 600; line-height: 1.4;
+    text-align: center;
+    border-radius: 6px !important; cursor: pointer;
+    text-decoration: none;
+    background: transparent; color: var(--rosa, #e91e63);
+    border: 1px solid var(--rosa, #e91e63);
+  }
+  .showcase-cat-badges .badge.is-active {
+    background: var(--rosa, #e91e63); color: #fff;
+  }
+  .showcase-cat-select-bar { display: none; }
+
+  .showcase-carousel {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+    padding: 0.75rem 1rem !important;
+  }
+  .showcase-track {
+    display: grid; flex: 1; min-height: 0;
+  }
+  .showcase-item {
+    grid-area: 1 / 1; width: 100%; min-width: 0;
+    height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+    opacity: 0; visibility: hidden; transition: opacity 0.35s ease;
+  }
+  .showcase-item.is-active { opacity: 1; visibility: visible; }
+  .showcase-item .showcase-counter { font-size: 0.8rem; color: var(--fallback-bc, oklch(var(--bc))); opacity: 0.6; text-align: center; margin-bottom: 0; flex-shrink: 0; }
+  .showcase-item h3 { flex-shrink: 0; padding: 0.25rem 0; color: var(--rosa, #e91e63); text-align: center; margin: 0.25rem 0 0.5rem; }
+  .showcase-item .showcase-row { flex: 1; height: auto; margin: 0; min-height: 0; display: flex; justify-content: center; gap: 1rem; }
+  .showcase-col:first-child {
+    width: auto; flex: 0 0 auto; max-width: 60%; height: 100%; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; margin-bottom: 0;
+  }
+  .showcase-col:first-child img {
+    width: auto; height: auto; max-width: 100%; max-height: 100%;
+    border-radius: 8px; display: block;
+  }
+  .showcase-col:last-child {
+    width: auto; flex: 1 1 0; min-width: 0;
+    display: flex; flex-direction: column;
+    height: 100%; min-height: 0; justify-content: center;
+    overflow: hidden;
+  }
+  .showcase-col:last-child > div:first-child { max-height: 100%; min-height: 0; overflow-y: auto; margin: auto 0; }
+  .showcase-placeholder {
+    width: 100%; min-width: 160px; height: 100%; min-height: 120px; border-radius: 8px;
+    background: var(--fallback-b2, oklch(var(--b2)));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 4rem;
+  }
+  .showcase-text { font-size: 0.9rem; line-height: 1.5; text-align: justify; }
+  .showcase-img { cursor: zoom-in; }
+  .showcase-lightbox {
+    position: fixed; inset: 0; z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.85);
+    opacity: 0; visibility: hidden; transition: opacity 0.2s;
+  }
+  .showcase-lightbox.show { opacity: 1; visibility: visible; }
+  .showcase-lightbox img {
+    max-width: 92vw; max-height: 88vh; border-radius: 8px;
+    box-shadow: 0 0 24px rgba(0,0,0,0.6);
+  }
+  .showcase-lightbox-close {
+    position: absolute; top: 12px; right: 16px;
+    width: 40px; height: 40px; border: none; border-radius: 50%;
+    background: rgba(255,255,255,0.15); color: #fff;
+    font-size: 1.6rem; line-height: 1; cursor: pointer;
+  }
+
+  .showcase-bottom-bar {
+    display: flex; align-items: center;
+    grid-column: 2; grid-row: 2;
+    padding: 8px 0; background: var(--fallback-b1, oklch(var(--b1)));
+    border-top: 1px solid #eee;
+    flex-shrink: 0; position: relative; min-height: 52px;
+  }
+  .showcase-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; border: none; border-radius: 50%;
+    background: var(--rosa, #e91e63); color: #fff;
+    font-size: 1.5rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: opacity 0.2s;
+    flex-shrink: 0;
+  }
+  .showcase-nav-prev { left: 0; }
+  .showcase-nav-next { right: 0; }
+  .showcase-nav:active { opacity: 0.7; }
+  .showcase-ctrl-center { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
+  .showcase-qtd-btn {
+    width: 38px; height: 38px; border: 2px solid var(--rosa, #e91e63); border-radius: 50%;
+    background: #fff; color: var(--rosa, #e91e63);
+    font-size: 1.3rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+  }
+  .showcase-qtd-btn:active { background: var(--rosa, #e91e63); color: #fff; }
+  .showcase-qtd-input {
+    width: 58px; text-align: center;
+    font-size: 1.2rem; font-weight: 700; color: #333;
+    border: none; border-bottom: 2px solid var(--rosa, #e91e63);
+    background: transparent; outline: none;
+    -moz-appearance: textfield;
+  }
+  .showcase-qtd-input::-webkit-outer-spin-button,
+  .showcase-qtd-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .showcase-action-btn {
+    height: 44px; padding: 0 20px; border: none; border-radius: 22px;
+    background: var(--rosa, #e91e63); color: #fff;
+    font-size: 1rem; font-weight: 600; white-space: nowrap;
+    cursor: pointer; transition: opacity 0.2s;
+  }
+  .showcase-action-btn:active { opacity: 0.7; }
+  .showcase-action-btn.is-salvar { background: #198754; }
+
+  .showcase-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 1rem; width: 100%; padding: 0.25rem;
+  }
+  .showcase-card {
+    background: #fff; border-radius: 12px; padding: 1rem;
+    box-shadow: var(--bs-box-shadow-sm, 0 0.125rem 0.25rem rgba(0,0,0,0.075));
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .showcase-card-img {
+    width: 100%; height: 180px; object-fit: contain; border-radius: 8px;
+  }
+  .showcase-card-img-empty {
+    background: var(--fallback-b2, oklch(var(--b2)));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 3rem;
+  }
+  .showcase-card-title { margin: 0; color: var(--rosa, #e91e63); font-size: 1.05rem; }
+  .showcase-card-text { margin: 0; font-size: 0.85rem; line-height: 1.5; flex: 1; }
+  .showcase-card-ctrl { display: flex; align-items: center; gap: 0.5rem; }
+  .showcase-card-ctrl .showcase-qtd-input { width: 48px; }
+  .showcase-add-btn {
+    flex: 1; border: none; border-radius: 20px; padding: 8px 12px;
+    background: var(--rosa, #e91e63); color: #fff; font-weight: 600; cursor: pointer;
+  }
+  .showcase-add-btn.is-salvar { background: #198754; }
+
+  .showcase-list { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
+  .showcase-list-row {
+    display: flex; align-items: center; gap: 1rem;
+    background: #fff; border-radius: 12px; padding: 0.75rem 1rem;
+    box-shadow: var(--bs-box-shadow-sm, 0 0.125rem 0.25rem rgba(0,0,0,0.075));
+  }
+  .showcase-list-img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+  .showcase-list-body { flex: 1; min-width: 0; }
+
+  .showcase-toast {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-16px);
+    background: #222; color: #fff; padding: 10px 18px; border-radius: 8px;
+    font-size: 0.9rem; z-index: 1080; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s; max-width: 90vw; text-align: center;
+  }
+  .showcase-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 575.98px) {
+    .showcase-layout { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 0; }
+    .showcase-carousel-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .showcase-cat-badges { display: none; }
+    .showcase-cat-select-bar {
+      display: flex; align-items: center; justify-content: center;
+      padding: 2px 12px; background: #fff;
+    }
+    .showcase-cat-select-bar select {
+      width: 100%; min-height: 42px; font-size: 1.05rem;
+      border: 1px solid #ccc; border-radius: 8px;
+      padding: 4px 10px; background: #fff;
+      color: var(--rosa, #e91e63); font-weight: 500;
+    }
+    .showcase-carousel {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
+      overflow: hidden; touch-action: pan-y;
+      padding: 0 0.5rem !important;
+      border: none !important; box-shadow: none !important;
+      border-radius: 0 !important; background: #fff;
+    }
+    .showcase-item h3 { padding: 0.5rem 0; }
+    .showcase-item .showcase-row { flex: 1; display: flex; flex-direction: column; margin: 0; gap: 0.5rem; }
+    .showcase-col:first-child {
+      flex: 0 0 auto; width: 100%; max-width: 100%; max-height: 45%;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; padding: 0; margin-bottom: 0;
+    }
+    .showcase-col:first-child img { max-width: 100%; max-height: 100%; height: auto; width: auto; }
+    .showcase-col:last-child { flex: 1; width: 100%; height: auto; min-height: 0; display: flex; flex-direction: column; padding-left: 0; padding-bottom: 0; }
+    .showcase-bottom-bar { flex-shrink: 0; padding: 6px 32px; }
+    .showcase-bottom-bar .showcase-nav { width: 34px; height: 34px; font-size: 1.2rem; }
+    .showcase-bottom-bar .showcase-qtd-btn { width: 32px; height: 32px; font-size: 1.1rem; }
+    .showcase-bottom-bar .showcase-qtd-input { width: 58px; font-size: 1rem; }
+    .showcase-bottom-bar .showcase-action-btn { height: 36px; padding: 0 14px; font-size: 0.85rem; }
+    .showcase-list-row { flex-wrap: wrap; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="showcase-layout"{% if showcase.max_width %} style="max-width: {{ showcase.max_width }}; margin-inline: auto;"{% endif %}>
+  {% if categorias %}
+  <div class="showcase-cat-badges">
+    <div class="text-center mb-2" style="font-size:0.95rem; font-weight:600; color:var(--rosa, #e91e63);">Categorias</div>
+    <a href="{{ list_url }}" class="badge mb-1 {% if not categoria_id %}is-active{% endif %}">Todas</a>
+    {% for cat in categorias %}
+    <a href="{{ list_url }}?{{ filter_param }}={{ cat.id }}" class="badge mb-1 {% if categoria_id == cat.id %}is-active{% endif %}">{{ cat.nome }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="showcase-cat-select-bar">
+    <select onchange="window.location.href = this.value">
+      <option value="{{ list_url }}" {% if not categoria_id %}selected{% endif %}>Todas as categorias</option>
+      {% for cat in categorias %}
+      <option value="{{ list_url }}?{{ filter_param }}={{ cat.id }}" {% if categoria_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  {% if showcase.layout == 'carousel' %}
+  <div class="showcase-carousel-wrap">
+    <div id="showcase-carrossel" class="card shadow-sm border-0 text-center showcase-carousel">
+      {% if produtos %}
+      <div class="showcase-track">
+        {% for p in produtos %}
+        <div class="showcase-item"
+             data-categoria="{{ p.categoria or '' }}"
+             data-id="{{ p.id }}"
+             data-qtd-minima="{{ p.qty }}"
+             data-qtd-orcamento="{{ p.qtd_orcamento }}">
+          <div class="showcase-counter">{{ loop.index }} / {{ produtos|length }}</div>
+          <h3 class="showcase-nome">{{ p.title }}</h3>
+          <div class="showcase-row flex flex-nowrap justify-center items-stretch">
+            {% for pos in ['left', 'right'] %}
+            <div class="showcase-col">
+              {% if p.image_url and pos == p.image_position %}
+                <img src="{{ p.image_url }}" class="showcase-img rounded shadow-sm" onclick="abrirLightbox(this.src)">
+              {% elif p[pos] %}
+                <div class="showcase-text">{{ p[pos] }}</div>
+              {% else %}
+                <div class="showcase-placeholder">📸</div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-gray-500">Nenhum item disponível no momento.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if produtos %}
+  <div class="showcase-bottom-bar">
+      <button id="showcase-prev" class="showcase-nav showcase-nav-prev">‹</button>
+      <div class="showcase-ctrl-center">
+        <button class="showcase-qtd-btn" id="showcase-qtd-minus">−</button>
+        <input type="number" class="showcase-qtd-input" id="showcase-qtd-value" value="1" min="0">
+        <button class="showcase-qtd-btn" id="showcase-qtd-plus">+</button>
+        <button class="showcase-action-btn" id="showcase-action">Adicionar</button>
+      </div>
+      <button id="showcase-next" class="showcase-nav showcase-nav-next">›</button>
+    </div>
+    {% endif %}
+
+  {% elif showcase.layout == 'grid' %}
+  <div class="showcase-grid">
+    {% if produtos %}
+      {% for p in produtos %}
+      <div class="showcase-card"
+           data-id="{{ p.id }}"
+           data-qtd-minima="{{ p.qty }}"
+           data-qtd-orcamento="{{ p.qtd_orcamento }}">
+        {% if p.image_url %}
+          <img src="{{ p.image_url }}" class="showcase-card-img">
+        {% else %}
+          <div class="showcase-card-img showcase-card-img-empty">📸</div>
+        {% endif %}
+        <h4 class="showcase-card-title">{{ p.title }}</h4>
+        {% if p.left %}<p class="showcase-card-text">{{ p.left }}</p>{% endif %}
+        <div class="showcase-card-ctrl">
+          <input type="number" class="showcase-qtd-input" value="{{ p.qty }}" min="{{ p.qty }}">
+          <button class="showcase-add-btn">Adicionar</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <p class="text-gray-500">Nenhum item disponível no momento.</p>
+    {% endif %}
+  </div>
+
+  {% elif showcase.layout == 'list' %}
+  <div class="showcase-list">
+    {% if produtos %}
+      {% for p in produtos %}
+      <div class="showcase-list-row"
+           data-id="{{ p.id }}"
+           data-qtd-minima="{{ p.qty }}"
+           data-qtd-orcamento="{{ p.qtd_orcamento }}">
+        {% if p.image_url %}<img src="{{ p.image_url }}" class="showcase-list-img">{% endif %}
+        <div class="showcase-list-body">
+          <h4 class="showcase-card-title">{{ p.title }}</h4>
+          {% if p.left %}<p class="showcase-card-text">{{ p.left }}</p>{% endif %}
+        </div>
+        <div class="showcase-card-ctrl">
+          <input type="number" class="showcase-qtd-input" value="{{ p.qty }}" min="{{ p.qty }}">
+          <button class="showcase-add-btn">Adicionar</button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+    <p class="text-gray-500">Nenhum item disponível no momento.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block modals %}
+{{ super() }}
+<div id="client-popup" style="display:none;">
+  <div class="auth-overlay" onclick="fecharClientPopup()"></div>
+  <div class="auth-card">
+    <div class="auth-card-inner">
+      <span class="auth-close" onclick="fecharClientPopup()">&times;</span>
+      <div class="auth-icon">🧑‍🍳</div>
+      <h4>Identifique-se</h4>
+      <p class="text-gray-500 mb-3">Informe seus dados para continuar</p>
+      <div id="client-fields"></div>
+      <div id="client-error" class="auth-error"></div>
+      <button onclick="submitClient()" class="auth-btn">Continuar</button>
+    </div>
+  </div>
+</div>
+<div id="showcase-lightbox" class="showcase-lightbox">
+  <img id="showcase-lightbox-img" src="" alt="">
+  <button class="showcase-lightbox-close" onclick="fecharLightbox()" aria-label="Fechar">&times;</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+var SHOWCASE = {{ {
+  'layout': showcase.layout,
+  'baseUrl': base_url,
+  'badgeId': showcase.badge_id or '',
+  'identifyUrl': identify_url or '',
+  'clientFields': client_fields,
+  'totalItens': total_itens,
+  'isCarousel': showcase.layout == 'carousel',
+} | tojson }};
+
+var pendingItem = null;
+var clientPopup = null;
+var CAROUSEL_INDEX = 0;
+
+function showAlert(msg) {
+  var el = document.createElement('div');
+  el.className = 'showcase-toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function() { el.classList.add('show'); }, 10);
+  setTimeout(function() {
+    el.classList.remove('show');
+    setTimeout(function() { el.remove(); }, 300);
+  }, 2600);
+}
+
+function setBadge(total) {
+  var b = SHOWCASE.badgeId ? document.getElementById(SHOWCASE.badgeId) : null;
+  if (!b) return;
+  b.textContent = total;
+  b.classList.toggle('show', total > 0);
+  var wrap = b.closest('a');
+  if (wrap) wrap.classList.toggle('bn-ativo', total > 0);
+}
+
+function abrirLightbox(src) {
+  var el = document.getElementById('showcase-lightbox');
+  var img = document.getElementById('showcase-lightbox-img');
+  if (!el || !img) return;
+  img.src = src;
+  el.classList.add('show');
+}
+
+function fecharLightbox() {
+  var el = document.getElementById('showcase-lightbox');
+  if (el) el.classList.remove('show');
+}
+
+document.addEventListener('click', function(e) {
+  if (e.target && e.target.id === 'showcase-lightbox') fecharLightbox();
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') fecharLightbox();
+});
+
+function phoneMask(input) {
+  var fn = function() {
+    var value = this.value.replace(/\D/g, '');
+    if (value.length > 11) value = value.slice(0, 11);
+    if (value.length > 6) {
+      value = '(' + value.slice(0, 2) + ') ' + value.slice(2, 7) + '-' + value.slice(7);
+    } else if (value.length > 2) {
+      value = '(' + value.slice(0, 2) + ') ' + value.slice(2);
+    } else if (value.length > 0) {
+      value = '(' + value;
+    }
+    this.value = value;
+  };
+  input.addEventListener('input', fn);
+}
+
+function adicionarItem(id, qtd, done) {
+  fetch(SHOWCASE.baseUrl + '/' + id + '/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quantidade: qtd })
+  }).then(function(r) {
+    if (r.status === 401) {
+      showClientPopup();
+      return null;
+    }
+    return r.json();
+  }).then(function(data) {
+    if (data && data.success) {
+      setBadge(data.total_itens);
+      if (typeof updateBarState === 'function') updateBarState(id, qtd);
+      if (done) done();
+    } else if (data && data.error) {
+      showAlert(data.error);
+    }
+  });
+}
+
+function atualizarItem(id, qtd) {
+  fetch(SHOWCASE.baseUrl + '/' + id + '/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quantidade: qtd })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data && data.success) {
+      updateBarState(id, qtd);
+    } else if (data && data.error) {
+      showAlert(data.error);
+    }
+  });
+}
+
+function removerItem(id) {
+  fetch(SHOWCASE.baseUrl + '/' + id + '/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data && data.success) {
+      setBadge(data.total_itens);
+      updateBarState(null, null);
+    }
+  });
+}
+
+function updateBarState(id, qtd) {
+  var item;
+  if (id !== null && id !== undefined) {
+    item = document.querySelector('.showcase-item[data-id="' + id + '"]');
+  } else {
+    item = document.querySelectorAll('.showcase-item')[CAROUSEL_INDEX];
+  }
+  if (!item) return;
+  var actionBtn = document.getElementById('showcase-action');
+  var qtdValue = document.getElementById('showcase-qtd-value');
+  var qtdMinus = document.getElementById('showcase-qtd-minus');
+  var qtdPlus = document.getElementById('showcase-qtd-plus');
+
+  if (qtd !== null && qtd !== undefined) {
+    item.dataset.qtdOrcamento = qtd;
+  }
+
+  var qtdOrc = item.dataset.qtdOrcamento;
+  var qtdMinima = parseInt(item.dataset.qtdMinima) || 1;
+
+  if (qtdOrc !== '') {
+    actionBtn.textContent = qtdOrc + ' no carrinho';
+    actionBtn.className = 'showcase-action-btn is-salvar';
+    actionBtn.dataset.mode = 'edit';
+    qtdMinus.style.display = 'none';
+    qtdPlus.style.display = 'none';
+    qtdValue.style.display = 'none';
+  } else {
+    actionBtn.textContent = 'Adicionar';
+    actionBtn.className = 'showcase-action-btn';
+    actionBtn.dataset.mode = 'add';
+    qtdMinus.style.display = '';
+    qtdPlus.style.display = '';
+    qtdValue.style.display = '';
+    qtdValue.value = qtdMinima;
+  }
+}
+
+function buildClientFields() {
+  var box = document.getElementById('client-fields');
+  box.innerHTML = '';
+  SHOWCASE.clientFields.forEach(function(f) {
+    var input = document.createElement('input');
+    input.type = f.input;
+    input.id = 'client-' + f.token;
+    input.placeholder = f.label + (f.required ? ' *' : '');
+    input.autocomplete = 'off';
+    input.dataset.required = f.required ? '1' : '0';
+    input.dataset.mask = f.mask || '';
+    input.dataset.token = f.token;
+    input.dataset.label = f.label;
+    if (f.mask === 'phone') phoneMask(input);
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') submitClient();
+    });
+    box.appendChild(input);
+  });
+}
+
+function showClientPopup() {
+  if (!SHOWCASE.clientFields.length || clientPopup) return;
+  buildClientFields();
+  clientPopup = document.getElementById('client-popup');
+  clientPopup.style.display = 'block';
+  setTimeout(function() { clientPopup.classList.add('show'); }, 10);
+  var first = clientPopup.querySelector('input');
+  if (first) first.focus();
+}
+
+function fecharClientPopup() {
+  if (!clientPopup) return;
+  clientPopup.classList.remove('show');
+  clientPopup.style.display = 'none';
+}
+
+function submitClient() {
+  var err = document.getElementById('client-error');
+  err.textContent = '';
+  var payload = {};
+  var ok = true;
+  var firstBad = null;
+
+  SHOWCASE.clientFields.forEach(function(f) {
+    var input = document.getElementById('client-' + f.token);
+    var val = input.value.trim();
+    if (f.required && !val) {
+      ok = false;
+      if (!firstBad) firstBad = input;
+      return;
+    }
+    payload[f.token] = val;
+  });
+
+  if (!ok) {
+    err.textContent = 'Preencha os campos obrigatórios.';
+    if (firstBad) firstBad.focus();
+    return;
+  }
+
+  fetch(SHOWCASE.identifyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.success) {
+      fecharClientPopup();
+      if (pendingItem) {
+        adicionarItem(pendingItem.id, pendingItem.qtd);
+        pendingItem = null;
+      }
+    } else {
+      err.textContent = data.error || 'Erro ao identificar';
+    }
+  }).catch(function() {
+    err.textContent = 'Erro de conexão';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  setBadge(SHOWCASE.totalItens);
+
+  if (SHOWCASE.isCarousel) {
+    var allItems = document.querySelectorAll('.showcase-item');
+    var currentIndex = 0;
+    var ctrlQtdValue = document.getElementById('showcase-qtd-value');
+    var ctrlQtdMinus = document.getElementById('showcase-qtd-minus');
+    var ctrlQtdPlus = document.getElementById('showcase-qtd-plus');
+    var ctrlAction = document.getElementById('showcase-action');
+
+    function showItem(index) {
+      allItems.forEach(function(i, idx) {
+        i.classList.toggle('is-active', idx === index);
+      });
+      currentIndex = index;
+      CAROUSEL_INDEX = index;
+      updateBarState(null, null);
+    }
+
+    document.getElementById('showcase-prev').addEventListener('click', function() {
+      showItem(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1);
+    });
+    document.getElementById('showcase-next').addEventListener('click', function() {
+      showItem(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0);
+    });
+
+    ctrlQtdMinus.addEventListener('click', function() {
+      var item = allItems[currentIndex];
+      if (!item) return;
+      var minima = parseInt(item.dataset.qtdMinima) || 1;
+      var current = parseInt(ctrlQtdValue.value) || minima;
+      if (current > minima) ctrlQtdValue.value = current - 1;
+    });
+
+    ctrlQtdPlus.addEventListener('click', function() {
+      var current = parseInt(ctrlQtdValue.value) || 1;
+      ctrlQtdValue.value = current + 1;
+    });
+
+    ctrlAction.addEventListener('click', function() {
+      var item = allItems[currentIndex];
+      if (!item) return;
+      var id = item.dataset.id;
+      var nome = item.querySelector('.showcase-nome').textContent;
+      var qtd = parseInt(ctrlQtdValue.value) || 0;
+      var minima = parseInt(item.dataset.qtdMinima) || 1;
+      var mode = ctrlAction.dataset.mode;
+
+      if (mode === 'add') {
+        if (qtd <= 0) {
+          showAlert('A quantidade deve ser maior que zero.');
+          return;
+        }
+        if (qtd < minima) {
+          showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
+          return;
+        }
+        pendingItem = { id: id, qtd: qtd };
+        adicionarItem(id, qtd);
+      } else if (mode === 'edit') {
+        var qtdOrc = parseInt(item.dataset.qtdOrcamento) || 0;
+        var newQtd = parseInt(ctrlQtdValue.value) || qtdOrc;
+        if (newQtd < minima) {
+          showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
+          return;
+        }
+        if (newQtd !== qtdOrc) atualizarItem(id, newQtd);
+      }
+    });
+
+    var touchStartX = 0;
+    var carrossel = document.getElementById('showcase-carrossel');
+    carrossel.addEventListener('touchstart', function(e) {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    carrossel.addEventListener('touchend', function(e) {
+      var diff = touchStartX - e.changedTouches[0].screenX;
+      if (Math.abs(diff) > 50) {
+        if (diff > 0) {
+          showItem(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0);
+        } else {
+          showItem(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1);
+        }
+      }
+    }, { passive: true });
+
+    if (allItems.length > 0) showItem(0);
+  } else {
+    document.querySelectorAll('.showcase-card, .showcase-list-row').forEach(function(card) {
+      var btn = card.querySelector('.showcase-add-btn');
+      if (!btn) return;
+      btn.addEventListener('click', function() {
+        var id = card.dataset.id;
+        var input = card.querySelector('.showcase-qtd-input');
+        var qtd = parseInt(input.value) || 0;
+        var minima = parseInt(card.dataset.qtdMinima) || 1;
+        if (qtd <= 0) {
+          showAlert('A quantidade deve ser maior que zero.');
+          return;
+        }
+        if (qtd < minima) {
+          showAlert('A quantidade mínima é ' + minima + ' und.');
+          return;
+        }
+        pendingItem = { id: id, qtd: qtd };
+        adicionarItem(id, qtd, function() {
+          btn.classList.add('is-salvar');
+          btn.textContent = 'Adicionado';
+          setTimeout(function() {
+            btn.classList.remove('is-salvar');
+            btn.textContent = 'Adicionar';
+          }, 1600);
+        });
+      });
+    });
+  }
+});
+</script>
+{% endblock %}

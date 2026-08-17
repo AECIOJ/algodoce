@@ -27,6 +27,21 @@ PRODUCAO_ETAPAS = {0: "Preparação", 1: "Montagem", 2: "Embalagem"}
 
 FORMINHAS = {0: "Simples (Inclusa)", 1: "Fornecidas pelo Cliente"}
 
+# Tipos de evento do formulário público de orçamento (valores gravados em
+# `Event.tipo`). O painel (sys) mantém o próprio vocabulário em
+# app/routes/sys/orcamentos.py.
+tipos_evento = {
+    'aniversario': 'Aniversário',
+    'casamento': 'Casamento',
+    'cha_de_bebe': 'Chá de Bebê',
+    'cha_de_panela': 'Chá de Panela',
+    'confraternizacao': 'Confraternização',
+    'formatura': 'Formatura',
+    '15_anos': '15 anos',
+    'cafe': 'Café',
+    'outros': 'Outros',
+}
+
 TIPO_OPERACAO = {1: "Receitas", 2: "Despesas"}
 
 TIPO_PREVISAO = {"P": "Pagar", "R": "Receber"}

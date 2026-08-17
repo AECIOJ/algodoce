@@ -10,43 +10,31 @@
   --bg-claro: var(--fallback-b1, oklch(var(--b1)));
 }
 body { background-color: var(--bg-claro); }
+main { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .site-header {
   backdrop-filter: blur(10px); background: rgba(255,255,255,0.95);
   border-bottom: 1px solid var(--fallback-b2, oklch(var(--b2)));
 }
-.brand-logo { height: 60px; cursor: pointer; }
+.brand-logo { cursor: pointer; }
 .nav-site a { color: #fff !important; font-weight: 500; padding: 0.5rem 0.6rem; font-size: 0.95rem; }
 .nav-site a:hover, .nav-site a.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
 .bar-link.active { border-bottom-color: var(--rosa) !important; }
+.site-nav-wrap { display: none; }
+@media (min-width: 576px) {
+  .site-nav-wrap { display: block; }
+}
+.bottom-nav { display: none; }
+@media (max-width: 575.98px) {
+  .bottom-nav { display: flex; }
+}
 @media (max-width: 575.98px) {
   .nav-site a { padding: 0.3rem 0.3rem; font-size: 0.82rem; }
-  .nav-site .container { gap: 0 !important; }
+  .nav-site .nav-site-inner { gap: 0 !important; }
 }
 .btn-verde { background-color: var(--verde-menta); border-color: var(--verde-menta); color: #fff; }
 .btn-verde:hover { background-color: color-mix(in srgb, var(--fallback-p, oklch(var(--p))) 80%, #000); border-color: color-mix(in srgb, var(--fallback-p, oklch(var(--p))) 80%, #000); color: var(--fallback-pc, oklch(var(--pc))); }
 .btn-rosa { background-color: var(--rosa); border-color: var(--rosa); color: var(--fallback-sc, oklch(var(--sc))); }
 .btn-rosa:hover { background-color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 80%, #000); border-color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 80%, #000); color: var(--fallback-sc, oklch(var(--sc))); }
-.auth-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5); z-index: 1050;
-}
-.auth-card {
-  position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  z-index: 1051; width: 320px; box-sizing: border-box;
-}
-.auth-card-inner {
-  background: var(--fallback-b1, oklch(var(--b1))); border-radius: 16px; padding: 2rem; text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-}
-.auth-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
-.auth-card h4, .auth-card h5 { margin-bottom: 1.25rem; color: var(--rosa); }
-.auth-card input { box-sizing: border-box; width: 100%; padding: 0.6rem 1rem; border: 2px solid var(--fallback-b3, oklch(var(--b3))); border-radius: 8px; font-size: 1rem; margin-bottom: 0.75rem; }
-.auth-card input:focus { border-color: var(--rosa); outline: none; }
-.auth-btn { box-sizing: border-box; width: 100%; padding: 0.6rem; border: none; border-radius: 8px; background: var(--rosa); color: var(--fallback-sc, oklch(var(--sc))); font-size: 1rem; font-weight: 600; cursor: pointer; }
-.auth-btn:hover { background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 80%, #000); }
-.auth-error { color: var(--fallback-er, oklch(var(--er))); font-size: 0.85rem; margin-bottom: 0.5rem; min-height: 1.2rem; }
-.auth-close { position: absolute; top: 8px; right: 16px; font-size: 1.5rem; cursor: pointer; color: var(--fallback-b3, oklch(var(--b3))); }
-.auth-close:hover { color: var(--fallback-bc, oklch(var(--bc))); }
 #auth-popup { display: none; }
 #auth-popup.show { display: block; }
 #client-popup { display: none; }
@@ -55,23 +43,32 @@ body { background-color: var(--bg-claro); }
 {% endblock %}
 
 {% block page_header %}
+{% set _logo = modulo.layout.header.logo if modulo and modulo.layout else None %}
+{% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
 <header class="flex-shrink-0 site-header">
   <div class="container text-center py-2">
-    <img src="{{ url_for('static', filename='icons/Logo.png') }}"
-         alt="AlgoDoce" class="brand-logo" id="siteLogo"
-         title="Área da Doceira">
-    <div class="mt-1 site-subtitle" style="font-size:0.85rem;color:var(--rosa);font-weight:500;letter-spacing:0.5px;">
-      O doce sabor do seu evento!
+    <img src="{{ url_for('static', filename=APP.logo) }}"
+         alt="{{ APP.name }}" class="brand-logo" id="siteLogo"
+         title="{{ APP.name }}"
+         style="{% if _logo %}height:{{ _logo.rows }}em;display:block;margin:0 auto;{% endif %}">
+{% set _title_text = APP.title if (_title and _title.text == 'app_title') else (_title.text if _title and _title.text else None) %}
+    {% if _title_text %}
+    <div class="mt-1 site-subtitle" style="font-size:0.85rem;font-weight:500;letter-spacing:0.5px;
+      text-align:{{ _title.align }};
+      {% if _title.font %}font-family:'{{ _title.font }}',sans-serif;{% endif %}
+      {% if _title.color %}color:{{ _title.color }};{% endif %}">
+      {{ _title_text }}
     </div>
+    {% endif %}
   </div>
 </header>
 {% endblock %}
 
 {% block before_content %}
-<nav class="flex-shrink-0 nav-site site-nav-wrap d-none d-sm-block" style="background:var(--rosa);">
-  <div class="container d-flex justify-content-center gap-3 px-2 py-2 flex-wrap">
+<nav class="flex-shrink-0 nav-site site-nav-wrap" style="background:var(--rosa);">
+  <div class="mx-auto nav-site-inner flex justify-center gap-3 px-2 py-2 flex-wrap" style="max-width: 48rem;">
     <a href="/sobre" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Sobre</a>
-    <a href="/vitrine/" id="produtosNavLink" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Produtos</a>
+    <a href="/vitrine" id="produtosNavLink" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Produtos</a>
     <a href="/orcamento" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Orçamento</a>
     <a href="/contato" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Contato</a>
   </div>
@@ -79,7 +76,7 @@ body { background-color: var(--bg-claro); }
 {% endblock %}
 
 {% block after_content %}
-<nav class="bottom-nav d-sm-none" id="bottomNav">
+<nav class="bottom-nav" id="bottomNav">
   <a href="/sobre" class="bottom-nav-item" id="bnSobre"><span style="font-size:1.2rem;">ℹ️</span><span style="font-size:0.65rem;font-weight:600;">Sobre</span></a>
   <a href="/vitrine/" class="bottom-nav-item" id="bnProdutos"><span style="font-size:1.2rem;">🧁</span><span style="font-size:0.65rem;font-weight:600;">Produtos</span></a>
   <a href="/orcamento" class="bottom-nav-item" id="bnOrcamento"><span style="font-size:1.2rem;">📋<span id="bnOrcamentoBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:var(--rosa);color:#fff;font-size:0.6rem;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 4px;">0</span></span><span style="font-size:0.65rem;font-weight:600;">Orçamento</span></a>
@@ -88,16 +85,18 @@ body { background-color: var(--bg-claro); }
 {% endblock %}
 
 {% block page_footer %}
-<footer class="flex-shrink-0 rodape" id="siteRodape">
+{% set _footer = modulo.layout.footer if modulo and modulo.layout else None %}
+<footer class="flex-shrink-0 rodape" id="siteRodape"
+  style="{% if _footer and _footer.font %}font-family:'{{ _footer.font }}',sans-serif;{% endif %}{% if _footer and _footer.color %}color:{{ _footer.color }};{% endif %}">
   <div>{{ versao }}</div>
-  <div>&copy; 2026 AJ Systems</div>
+  <div>&copy; 2026 {{ APP.name }}</div>
 </footer>
 {% endblock %}
 
 {% block scripts %}
-{% include 'components/auth_logo.html' %}
+{% include 'components/auth_triggers.html' %}
 <script>
 (function(){var p=window.location.pathname;document.querySelectorAll('.nav-site a').forEach(function(l){if(l.getAttribute('href')===p)l.classList.add('active');});if(p.indexOf('/vitrine')===0){var t=document.getElementById('produtosNavLink');if(t)t.classList.add('active');}var m={'/sobre':'bnSobre','/vitrine':'bnProdutos','/orcamento':'bnOrcamento','/contato':'bnContato'};for(var k in m){if(p.indexOf(k)===0){var e=document.getElementById(m[k]);if(e)e.classList.add('active');}}})();
-(function(){var x=new XMLHttpRequest();x.open('GET','/api/orcamento-count',true);x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){var d=JSON.parse(x.responseText);if(d.total>0){var b=document.getElementById('bnOrcamento');var g=document.getElementById('bnOrcamentoBadge');if(b&&g){g.textContent=d.total;g.style.display='inline';b.classList.add('bn-ativo');}}}};x.send();})();
+(function(){var x=new XMLHttpRequest();x.open('GET','/orcamento/api/orcamento-count',true);x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){var d=JSON.parse(x.responseText);if(d.total>0){var b=document.getElementById('bnOrcamento');var g=document.getElementById('bnOrcamentoBadge');if(b&&g){g.textContent=d.total;g.style.display='inline';b.classList.add('bn-ativo');}}}};x.send();})();
 </script>
 {% endblock %}

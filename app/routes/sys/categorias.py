@@ -13,12 +13,6 @@ Entity = {
     },
 }
 
-List = {
-    'fields': 'Category',
-    'ordering': ['ordem', 'nome'],
-    'title': 'Categorias',
-}
-
 
 def _pre_save(instance, request, is_new):
     if instance.ordem is None and is_new:
@@ -40,14 +34,28 @@ def _post_save(instance, changed, old_vals):
     db.session.commit()
 
 
-Form = {
-    'fields': 'Category',
-    'delete': {
-        'when': {Product},
-        'msg_ok': 'Categoria excluída!',
-        'msg_no': 'Não é possível excluir a categoria — está em uso.',
+Page = {
+    'type': 'crud',
+    'props': {
+        'tabs': {
+            'Dados': {'type': 'List'},
+            'Filtros': {'type': 'Filter'},
+        },
+        'list': {
+            'fields': 'Category',
+            'ordering': ['ordem', 'nome'],
+            'title': 'Categorias',
+        },
+        'form': {
+            'fields': 'Category',
+            'delete': {
+                'when': {Product},
+                'msg_ok': 'Categoria excluída!',
+                'msg_no': 'Não é possível excluir a categoria — está em uso.',
+            },
+            'pre_save': _pre_save,
+            'post_save': _post_save,
+            'buttons': ['on_off'],
+        },
     },
-    'pre_save': _pre_save,
-    'post_save': _post_save,
-    'buttons': ['on_off'],
 }

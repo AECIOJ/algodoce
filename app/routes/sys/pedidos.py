@@ -115,7 +115,7 @@ def _orders_pre_save(instance, request, is_new):
             instance.quote_id = quote.id
 
 
-ITENS_FIELDS = {'model': OrderItem, 'type': 'table', 'template': 'sys_orders/_itens.html', 'fields': {
+ITENS_FIELDS = {'model': OrderItem, 'type': 'table', 'template': 'sys/pedidos/_itens.html', 'fields': {
     'product_id':      {'label': 'Produto', 'input': 'select'},
     'quantidade':      {**FIELD_QUANTIDADE, 'label': 'Qtd'},
     'preco_unitario':  {**FIELD_PRECO, 'label': 'Preço'},
@@ -173,10 +173,10 @@ Form = {'model': Order, 'redirect': 'pedidos.list', 'fields': PEDIDOS_FIELDS, 's
         },
     }, 'readonly_when': {'status': [9]}, 'pre_save': _orders_pre_save, 'flash_ok': 'Pedido criado!', 'flash_update': 'Pedido atualizado!',
     'new_label': 'Pedido', 'new_title': 'Incluir Pedido',
-    'body_template': 'sys_orders/_form_body.html',
-    'nav_right_extra': 'sys_orders/_nav_right.html',
-    'footer_left': 'sys_orders/_footer_left.html',
-    'page_scripts': 'sys_orders/_page_scripts.html',
+    'body_template': 'sys/pedidos/_form_body.html',
+    'nav_right_extra': 'sys/pedidos/_nav_right.html',
+    'footer_left': 'sys/pedidos/_footer_left.html',
+    'page_scripts': 'sys/pedidos/_page_scripts.html',
 }
 
 
