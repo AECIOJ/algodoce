@@ -38,7 +38,7 @@ def list():
     linhas = apply_date_filter(linhas, 'data', active.get('data'))
     recursos = linhas
     ctx = build_field_context(_list.fields)
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 Form = {'model': Recurso, 'redirect': 'recursos.list', 'fields': RECURSOS_FIELDS}

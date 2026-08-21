@@ -1,7 +1,5 @@
 from datetime import date, timedelta
-from io import BytesIO
-import os
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from app.ajsystem.core.extensions import db
@@ -17,25 +15,25 @@ from app.models.carteira import Carteira
 from app.ajsystem.core.filters import resolve_filters, apply_select_filter, apply_date_filter, apply_text_filter, apply_number_filter
 from app.utils import LinhaTransacao
 from app.ajsystem.core.list import build_field_context, build_filter_config, List
-from app.ajsystem.core.pdf import gerar_pdf_relatorio
+from app.ajsystem.core.do_report import do_report, print_report
 from app.models.compra_historico import CompraHistorico
 
 
 COMPRAS_FIELDS = {
         'compra_id': {'width': 8},
-        'status_compra': {'label': 'Status', 'width': 10, 'options': COMPRA_STATUS, 'filter_options': COMPRA_STATUS},
-        'carteira': {'label': 'FP', 'width': 12, 'query': 'carteira'},
-        'fornecedor': {'width': 30, 'query': 'conta'},
+        'status_compra': {'label': 'Status', 'width': 10, 'options': COMPRA_STATUS},
+        'carteira': {'label': 'FP', 'width': 12, 'query': {'model': 'carteira'}},
+        'fornecedor': {'width': 30, 'query': {'model': 'conta'}},
         'fatura': {'width': 10},
-        'valor': {'width': 12, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'valor': {'width': 12, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
         'id': {'label': 'Previsão', 'width': 8},
         'vencimento': {'width': 10, 'input': 'date'},
         'documento': {'width': 10},
-        'previsto': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'realizado': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'variacao': {'label': 'Variação', 'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'saldo': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'status': {'label': 'Pagamento', 'width': 10, 'options': PREVISAO_STATUS, 'filter_options': PREVISAO_STATUS},
+        'previsto': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'realizado': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'variacao': {'label': 'Variação', 'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'saldo': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'status': {'label': 'Pagamento', 'width': 10, 'options': PREVISAO_STATUS},
 }
 
 compras_list = {'fields': COMPRAS_FIELDS, 'fields_master': [1,2,3,4,5,6], 'fields_detail': [7,8,9,10,11,12,13,14], 'master_key': 'compra_id', 'edit_endpoint': 'compras.edit', 'edit_id_field': 'compra_id', 'send_endpoint': 'compras.print_compra'}
@@ -92,7 +90,7 @@ def list():
     total_saldo = sum(l.saldo for l in linhas)
     _list = List(**compras_list)
     ctx = build_field_context(_list.master_fields)
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/novo", methods=["GET", "POST"])
@@ -170,7 +168,7 @@ def new():
     contas = Conta.query.filter_by(ativo=True).filter(Conta.tipo.in_([1, 2])).order_by(Conta.nome).all()
     insumos = Ingredient.query.order_by(Ingredient.nome).all()
     carteiras = Carteira.query.filter(Carteira.uso.in_([1, 2])).order_by(Carteira.nome).all()
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/<int:id>/editar", methods=["GET", "POST"])
@@ -360,23 +358,19 @@ def edit(id):
     carteiras = Carteira.query.filter(Carteira.uso.in_([1, 2])).order_by(Carteira.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes] if transacao else []
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
-    return render_template("index.html")
-
-
-@bp.route("/<int:id>/print")
-def print_compra(id):
-    compra = Compra.query.get_or_404(id)
-    from app.reports import COMPRA_REPORT
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/<int:id>/pdf")
 def pdf_compra(id):
     compra = Compra.query.get_or_404(id)
     from app.reports import COMPRA_REPORT
-    logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
-    pdf = gerar_pdf_relatorio(COMPRA_REPORT, compra.items, logo_path, instance=compra)
-    buf = BytesIO()
-    pdf.output(buf)
-    return Response(buf.getvalue(), mimetype="application/pdf",
-                    headers={"Content-Disposition": f"inline; filename=compra_{compra.id}.pdf"})
+    return do_report(COMPRA_REPORT, compra.items, instance=compra,
+                     filename=f"compra_{compra.id}.pdf")
+
+
+@bp.route("/<int:id>/print")
+def print_compra(id):
+    compra = Compra.query.get_or_404(id)
+    from app.reports import COMPRA_REPORT
+    return print_report(COMPRA_REPORT, compra)

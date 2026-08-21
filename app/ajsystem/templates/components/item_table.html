@@ -43,7 +43,7 @@
 {% set _prefix = 'child_' + _rel + '_' %}
 {% set _totals = _session_totals.get(_rel) if _session_totals is defined else none %}
 <div class="mb-3 child-table-wrap" {% if _totals and not _calc_fields %}data-total-expr="{{ _totals.expr }}" data-total-currency="{{ _totals.currency or '' }}"{% endif %}>
-  <h6 class="font-bold mb-1">{{ child.label }}</h6>
+  <h6 class="font-bold mb-1 text-sm">{{ child.label }}</h6>
 
   {# ── Desktop: tabela inline-edit ── #}
   <div class="it-desktop">
@@ -133,7 +133,7 @@
         {% endif %}
         {% if _calc_fields %}
         <tr class="it-total-row">
-          <th class="itm-label" colspan="{{ _edit_fields|length + (1 if _can_edit else 0) }}">Total</th>
+          <th class="itm-label" colspan="{{ _edit_fields|length }}">Total</th>
           {% for f in _calc_fields %}
           <td class="it-calc-total text-right font-semibold" data-calc-total="{{ f.name }}" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</td>
           {% endfor %}
@@ -142,9 +142,19 @@
         {% if _can_edit %}
         <tr>
           <td colspan="{{ _edit_fields|length + _calc_fields|length + 1 }}" class="py-2">
-            <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
-              <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
-            </button>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
+                <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
+              </button>
+              {% if child.buttons %}
+              {% for btn in child.buttons %}
+              <a href="{{ btn.action(instance) if btn.action else '#' }}" class="btn btn-outline btn-{{ btn.color or 'secondary' }} btn-sm inline-flex items-center gap-1">
+                {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+                {{ btn.label }}
+              </a>
+              {% endfor %}
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% endif %}
@@ -213,6 +223,14 @@
       <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
       </button>
+      {% if child.buttons %}
+      {% for btn in child.buttons %}
+      <a href="{{ btn.action(instance) if btn.action else '#' }}" class="btn btn-outline btn-{{ btn.color or 'secondary' }} btn-sm inline-flex items-center gap-1">
+        {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+        {{ btn.label }}
+      </a>
+      {% endfor %}
+      {% endif %}
       <span class="itm-pager"></span>
     </div>
     <div id="{{ _rel }}ColumnTemplate" style="display:none">
@@ -256,7 +274,7 @@
 {% set _totals_spec = child.group_totals or {} %}
 {% set _ncols = _edit_fields|length + _totals_spec|length %}
 <div class="mb-3 child-table-wrap it-grouped">
-  <h6 class="font-bold mb-1">{{ child.label }}</h6>
+  <h6 class="font-bold mb-1 text-sm">{{ child.label }}</h6>
 
   {# ── Desktop: tabela agrupada ── #}
   <div class="it-desktop">

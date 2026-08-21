@@ -165,6 +165,7 @@ class Form:
     footer_left: Optional[str] = None
     page_scripts: Optional[str] = None
     badge: Optional[dict] = None
+    tags: Optional[list] = None
     extra_buttons: Optional[list] = None
     children: Optional[list] = None
     spacing: float = 2
@@ -359,7 +360,7 @@ class Form:
                         dk = _default_dk_masterkey(c, entidade)
                         fld = Field(**build_field_config(n, {**c, **dk, **cfg_extra}))
                         if n in managed:
-                            fld.in_form = False
+                            fld.in_form = 0
                         elif fld.query is None and fld.input == 'select' and not fld.options:
                             query = _fk_query_for(child_model, fld.name)
                             if query:
@@ -393,7 +394,7 @@ class Form:
             if is_report and group_by:
                 for f in fields:
                     if f.name == group_by:
-                        f.in_form = False
+                        f.in_form = 0
             result.append({
                 'attr': rel,
                 'label': query_label(query_cfg, key) if query_cfg is not None else cfg.get('label', key),
@@ -453,7 +454,7 @@ class Form:
                 dk = _default_dk_masterkey(c, entidade)
                 fld = Field(**build_field_config(n, {**dict(c), **dk}))
                 if n in managed:
-                    fld.in_form = False
+                    fld.in_form = 0
                 elif fld.query is None and fld.input == 'select' and not fld.options:
                     query = _fk_query_for(child_model, fld.name)
                     if query:

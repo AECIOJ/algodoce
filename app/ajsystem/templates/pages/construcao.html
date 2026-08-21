@@ -1,14 +1,16 @@
 {% extends "pages/sys.html" %}
 {% block title %}Página em Construção{% endblock %}
 
+{# Página padrão do framework para rota não encontrada / seção não migrada.
+   Genérica: serve qualquer módulo; `pagina` é opcional. #}
 {% block page_content %}
-<div class="flex flex-col items-center justify-center text-center py-20 gap-4">
-  <div class="text-6xl" aria-hidden="true">🚧</div>
-  <h1 class="text-2xl font-bold" style="color:var(--fallback-bc, oklch(var(--bc)));">Página em Construção</h1>
-  <p class="text-sm" style="color:var(--fallback-b3, oklch(var(--b3)));">
-    A página <strong>{{ pagina }}</strong> ainda não foi criada.
-  </p>
-  <a href="{{ url_for('ajsystem.construcao', pagina=pagina) }}"
-     class="btn btn-sm" onclick="return false;" style="display:none;"></a>
+<div class="flex-1 flex flex-col items-center justify-center" style="min-height:50vh;">
+  <div class="text-center p-4">
+    <i class="bi bi-tools" style="font-size:3rem;color:#aaa;display:block;margin-bottom:1rem;"></i>
+    <h3 class="font-bold mb-2">Em construção</h3>
+    {% if pagina %}<p class="text-sm font-semibold mb-1">{{ pagina }}</p>{% endif %}
+    <p class="text-gray-500 mb-0">Esta seção está sendo migrada para o novo layout.</p>
+    <p class="text-gray-500">Em breve estará disponível.</p>
+  </div>
 </div>
 {% endblock %}

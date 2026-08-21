@@ -30,6 +30,7 @@ class List:
     template: Optional[str] = None
     linha: Optional[list[int]] = None
     card_idx: Optional[list[int]] = None
+    tags: Optional[list] = None
 
     def __post_init__(self):
         if isinstance(self.fields, dict):

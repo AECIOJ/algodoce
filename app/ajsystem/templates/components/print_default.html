@@ -1,0 +1,46 @@
+{% extends "components/page_layout.html" %}
+{% block head_extra %}
+<style>html,body{overflow:hidden!important}</style>
+{% endblock %}
+{% block content %}
+<div class="flex-1 min-h-0 flex flex-col">
+  <div class="shrink-0 flex items-center justify-end gap-2 px-4 py-2">
+    <button onclick="shareOrPrint()" class="btn btn-outline btn-primary btn-sm inline-flex items-center gap-1">
+      <svg class="w-4 h-4" aria-hidden="true"><use href="#i-paper-airplane"/></svg> Enviar
+    </button>
+    <a href="#" class="btn btn-outline btn-secondary btn-sm inline-flex items-center gap-1"
+       onclick="event.preventDefault();history.back();">
+      <svg class="w-4 h-4" aria-hidden="true"><use href="#i-arrow-left"/></svg> Voltar
+    </a>
+  </div>
+  <iframe id="pdf-frame" src="{{ pdf_url }}" class="flex-1 w-full border-0"></iframe>
+</div>
+<script>
+function fitFrame(){
+  var f=document.getElementById('pdf-frame');
+  if(!f)return;
+  var r=f.getBoundingClientRect();
+  f.style.height=Math.max(200,window.innerHeight-r.top)+'px';
+}
+window.addEventListener('load',fitFrame);
+window.addEventListener('resize',fitFrame);
+fitFrame();
+
+async function shareOrPrint(){
+  var f=document.getElementById('pdf-frame');
+  if(!f)return;
+  if(navigator.share&&navigator.canShare){
+    try{
+      var r=await fetch(f.getAttribute('src'));
+      var b=await r.blob();
+      var file=new File([b],'documento.pdf',{type:'application/pdf'});
+      if(navigator.canShare({files:[file]})){
+        await navigator.share({files:[file]});
+        return;
+      }
+    }catch(e){}
+  }
+  f.contentWindow.print();
+}
+</script>
+{% endblock %}

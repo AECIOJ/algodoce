@@ -174,7 +174,7 @@ def _process_image_fields(form, instance):
     """Aplica uploads temporarios e exclusoes de campos image (somente no salvar)."""
     changed = set()
     for f in form._resolved_fields:
-        if f.input != 'image' or not f.in_form:
+        if f.input != 'image' or f.in_form != 1:
             continue
         name = f.name
         old = getattr(instance, name, None)
@@ -328,7 +328,7 @@ def _save_session_children(form, instance, form_data):
         child_model = session.get('model')
         if child_model is None:
             continue
-        fields = [f for f in session.get('fields', []) if f.in_form]
+        fields = [f for f in session.get('fields', []) if f.in_form == 1]
         if not fields:
             continue
         prefix = 'child_' + rel_name + '_'
@@ -412,13 +412,13 @@ def _expr_names(expr):
     return set(re.findall(r'[A-Za-z_][A-Za-z0-9_]*', expr or ''))
 
 
-def _aggregate_specs(form):
-    """Campos do pai com `aggregate` dict (dos campos do form e da Entity)."""
+def _agg_specs(form):
+    """Campos do pai com `agg` dict (dos campos do form e da Entity)."""
     specs = []
     seen = set()
     for f in form._resolved_fields:
-        if isinstance(f.aggregate, dict) and f.aggregate.get('table') and f.aggregate.get('sum'):
-            specs.append((f.name, f.aggregate))
+        if isinstance(f.agg, dict) and f.agg.get('table') and f.agg.get('sum'):
+            specs.append((f.name, f.agg))
             seen.add(f.name)
     if form.module_name:
         try:
@@ -433,20 +433,20 @@ def _aggregate_specs(form):
                 for name, cfg in _entidade_fields(ent_cfg).items():
                     if name in seen or not isinstance(cfg, dict):
                         continue
-                    agg = cfg.get('aggregate')
+                    agg = cfg.get('agg')
                     if isinstance(agg, dict) and agg.get('table') and agg.get('sum'):
                         specs.append((name, agg))
                         seen.add(name)
     return specs
 
 
-def _apply_aggregates(form, instance):
-    """Recomputa campos do pai com `aggregate` dict após salvar os filhos.
+def _apply_aggs(form, instance):
+    """Recomputa campos do pai com `agg` dict após salvar os filhos.
 
-    Ex.: `'total': {'aggregate': {'table': 'items', 'sum': 'preco_unitario * quantidade'}}`.
+    Ex.: `'total': {'agg': {'table': 'items', 'sum': 'preco_unitario * quantidade'}}`.
     A expressão é avaliada por filho com namespace restrito aos atributos.
     """
-    for name, agg in _aggregate_specs(form):
+    for name, agg in _agg_specs(form):
         if not hasattr(instance, name):
             continue
         table = agg.get('table')

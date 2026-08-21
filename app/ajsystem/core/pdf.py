@@ -198,6 +198,9 @@ class DocPDFReport(FPDF):
         self._footer_cfg = _build_footer(report)
         self._is_first_page = True
         self._instance = None
+        # Metadados: título = label do Report (nome exibido pelo viewer;
+        # sem isso, data URI vira o "nome" do documento no canto esquerdo)
+        self.set_title(report.label)
         self.alias_nb_pages()
 
     def set_instance(self, instance):
@@ -433,13 +436,27 @@ MIN_COL_WIDTH = 15  # mm
 
 
 def _calc_col_widths(pdf, cols):
-    """Calcula larguras das colunas (percentuais → mm). Retorna (col_widths, total_w, x_start)."""
+    """Converte widths (ch) → mm pela métrica da fonte e distribui.
+
+    - Colunas com `width` (ch) → mm exato via largura do glifo '0';
+    - Sem nenhuma width → divisão igual;
+    - Com widths parciais → restante dividido entre as sem width;
+    - Todas com width → bloco centrado no disponível.
+    """
     avail_w = pdf.w - pdf.l_margin - pdf.r_margin
-    total_pct = sum(c.width or 0 for c in cols)
-    if total_pct > 0:
-        col_widths = [(c.width or 0) / total_pct * avail_w for c in cols]
+    unit = pdf.get_string_width('0') or 2.0
+    n = len(cols)
+    conv = [(c.width or 0) * unit for c in cols]
+    if not any(c.width for c in cols):
+        col_widths = [avail_w / n] * n
     else:
-        col_widths = [avail_w / len(cols)] * len(cols)
+        leftover = max(avail_w - sum(conv), 0.0)
+        missing = [i for i, c in enumerate(cols) if not c.width]
+        if missing:
+            share = leftover / len(missing)
+            for i in missing:
+                conv[i] = share
+        col_widths = conv
     total_w = sum(col_widths)
     x_start = pdf.l_margin + (avail_w - total_w) / 2
     return col_widths, total_w, x_start
@@ -486,7 +503,7 @@ def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
         ny = "NEXT" if i == len(cols) - 1 else "TOP"
         pdf.set_x(x_start + sum(col_widths[:i]))
         pdf.cell(col_widths[i], row_h, txt, border=0, align=align, new_x=nx, new_y=ny)
-        if col.aggregate == 'sum' and val is not None:
+        if col.agg == 'sum' and val is not None:
             try:
                 agg_values[col.field] += float(val)
             except (ValueError, TypeError):
@@ -503,7 +520,7 @@ def _render_footer_row(pdf, cols, col_widths, footer_label, agg_values, x_start,
     pdf.cell(label_w, 7, footer_label, border=0, align="R")
     last_val = ''
     for col in cols:
-        if col.aggregate == 'sum':
+        if col.agg == 'sum':
             last_val = _format_cell_value(agg_values.get(col.field, 0), col.format)
     pdf.set_x(x_start + label_w)
     pdf.cell(col_widths[-1], 7, last_val, border=0, align="R", new_x="LMARGIN", new_y="NEXT")
@@ -513,6 +530,129 @@ def _render_footer_row(pdf, cols, col_widths, footer_label, agg_values, x_start,
 def _table_close(pdf, x_start, total_w):
     """Linha de fechamento da tabela."""
     _draw_hline(pdf, x_start, total_w)
+
+
+def _group_value(row, g):
+    """Valor de agrupamento (suporta left(campo,n))."""
+    v = getattr(row, g['field'], None)
+    if g.get('left'):
+        v = str(v or '')[:g['left']]
+    return v
+
+
+def _group_title(g, val):
+    """Título do grupo: label da option (LIST) ou str(valor).
+    Opt-in `'code': True` prefixa o código → '1. Receitas'."""
+    opts = g.get('options')
+    lbl = opts.get(val, val) if opts else val
+    if g.get('code') and val is not None:
+        return f"{val}. {lbl}"
+    return str(lbl or '')
+
+
+def _render_group_header(pdf, g, val, xs, tw, pos):
+    txt = _group_title(g, val)
+    if pos == 'titulo':
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_x(xs + 2)
+        pdf.cell(tw - 2, 8, txt, border=0, new_x="LMARGIN", new_y="NEXT")
+    else:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_x(xs + 6)
+        pdf.cell(tw - 6, 7, txt, border=0, new_x="LMARGIN", new_y="NEXT")
+
+
+def _render_group_total(pdf, g, cols, cw, xs, acc):
+    if not any(c.agg for c in cols):
+        return
+    pdf.set_font("Helvetica", "B", 9)
+    label_w = sum(cw[:-1])
+    pdf.set_x(xs)
+    pdf.cell(label_w, 7, "Total", border=0, align="R")
+    last_i = max(i for i, c in enumerate(cols) if c.agg == 'sum') \
+        if any(c.agg == 'sum' for c in cols) else None
+    for i, col in enumerate(cols):
+        if col.agg == 'sum':
+            v = _format_cell_value(acc.get(col.field, 0), col.format)
+            is_last = i == len(cols) - 1
+            pdf.set_x(xs + sum(cw[:i]))
+            pdf.cell(cw[i], 7, v, border=0, align="R",
+                     **({'new_x': "LMARGIN", 'new_y': "NEXT"} if is_last else {}))
+
+
+def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
+                       agg_values, header_h, report):
+    """Grupos por mudança de valor do campo (specs normalizadas)."""
+    lines_after = (report.table or {}).get('lines_after', 0) if report else 0
+    show_lines = bool(report.show_table_lines) if report else False
+    prev = [None] * len(gs)
+    accs = [{c.field: 0 for c in cols if c.agg} for _ in gs]
+    started = False
+    table_open = True
+    gera_cab = True
+
+    def close_level(i):
+        g = gs[i]
+        if not started:
+            return
+        if g.get('total', True):
+            _render_group_total(pdf, g, cols, cw, xs, accs[i])
+        if g.get('line', True):
+            _draw_hline(pdf, xs, tw)
+
+    for row in data:
+        vals = [_group_value(row, g) for g in gs]
+        changed = 0 if not started else \
+            next((i for i in range(len(gs)) if vals[i] != prev[i]), None)
+
+        if changed is not None:
+            # fecha do nível mais interno até o primeiro alterado
+            for i in range(len(gs) - 1, changed - 1, -1):
+                close_level(i)
+            # abre níveis alterados (e internos herdam abertura)
+            for i in range(changed, len(gs)):
+                g = gs[i]
+                if g.get('eject'):
+                    pdf.add_page()
+                if g['pos'] == 'titulo':
+                    if table_open:
+                        _table_close(pdf, xs, tw)
+                        table_open = False
+                    if lines_after:
+                        pdf.ln(lines_after * 6)
+                    _render_group_header(pdf, g, vals[i], xs, tw, 'titulo')
+                    gera_cab = True
+                else:
+                    table_open = True
+                    pb = _check_page_break(pdf, header_h)
+                    if gera_cab or pb:
+                        _render_column_headers(pdf, cols, cw, xs, tw,
+                                               draw_top_line=True)
+                        gera_cab = False
+                    _render_group_header(pdf, g, vals[i], xs, tw, 'linha')
+                prev[i] = vals[i]
+            started = True
+
+        if not table_open:
+            table_open = True
+        page_break = _check_page_break(pdf, header_h)
+        if gera_cab or page_break:
+            _render_column_headers(pdf, cols, cw, xs, tw, draw_top_line=True)
+            gera_cab = False
+        if show_lines:
+            _draw_hline(pdf, xs, tw)
+        _render_data_row(pdf, cols, cw, row, xs, agg_values)
+        for acc in accs:
+            for c in cols:
+                if c.agg:
+                    v = getattr(row, c.field, 0) or 0
+                    acc[c.field] += v
+
+    # fecha grupos remanescentes
+    for i in range(len(gs) - 1, -1, -1):
+        close_level(i)
+    if show_lines:
+        _draw_hline(pdf, xs, tw)
 
 
 def _render_table(pdf: DocPDFReport, columns: ReportColumns,
@@ -537,57 +677,23 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
                      align="C", new_x="LMARGIN", new_y="NEXT")
             return
 
-    # Dados
-    agg_values = {c.field: 0 for c in cols if c.aggregate}
+    # Dados — grupos por mudança de valor (specs normalizadas em _apply_entity)
+    agg_values = {c.field: 0 for c in cols if c.agg}
     header_h = 7 + 6
     gera_cab = True
-    num_groups = len(report.groups) if report and report.groups else 0
+    gs = [g for g in (report.groups or []) if isinstance(g, dict) and 'field' in g] \
+        if report and report.groups else []
 
-    for row in data:
-        indice = str(row.indice) if getattr(row, 'indice', None) is not None else ''
-        depth = len(indice.split('.')) if indice else 0
-
-        if num_groups > 0 and 1 <= depth <= num_groups:
-            g = report.groups[depth - 1]
-            fmt = g.get('format', {})
-
-            if g.get('position') == 'Titulo':
-                if not gera_cab:
-                    _table_close(pdf, x_start, total_w)
-                    ln_after = (report.table or {}).get('lines_after', 0) if report else 0
-                    if ln_after:
-                        pdf.ln(ln_after * 6)
-                ln_before = (report.table or {}).get('lines_before', 0) if report else 0
-                if ln_before:
-                    pdf.ln(ln_before * 6)
-                if g.get('new_page'):
-                    pdf.add_page()
-                gera_cab = True
-
-            if g.get('position') == 'Linha':
-                page_break = _check_page_break(pdf, 8)
-                if gera_cab or page_break:
-                    _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=True)
-                    gera_cab = False
-
-            if report.show_table_lines:
-                _draw_hline(pdf, x_start, total_w)
-            pdf.set_font("Helvetica", fmt.get('font_style', ''), fmt.get('font_size', 10))
-            group_text = f"{indice} {row.nome}"
-            indent = fmt.get('indent', 2)
-            pdf.set_x(x_start + indent)
-            pdf.cell(total_w - indent, 8, group_text, border=0,
-                     new_x="LMARGIN", new_y="NEXT")
-            if report.show_table_lines:
-                _draw_hline(pdf, x_start, total_w)
-
-            continue
-
-        page_break = _check_page_break(pdf, header_h)
-        if gera_cab or page_break:
-            _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=True)
-            gera_cab = False
-        _render_data_row(pdf, cols, col_widths, row, x_start, agg_values)
+    if gs:
+        _walk_field_groups(pdf, cols, col_widths, total_w, x_start, data,
+                           gs, agg_values, header_h, report)
+    else:
+        for row in data:
+            page_break = _check_page_break(pdf, header_h)
+            if gera_cab or page_break:
+                _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=True)
+                gera_cab = False
+            _render_data_row(pdf, cols, col_widths, row, x_start, agg_values)
 
     # Linha de fechamento da tabela
     if not show_footer:
@@ -623,9 +729,7 @@ def _render_table_lines(pdf, lines, instance=None):
 def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None,
                         instance=None, title_substitutions: dict = None) -> DocPDFReport:
     """Gera PDF genérico a partir de um Report."""
-    # Resolver dados via data_fn se não foram passados explicitamente
-    if data is None:
-        data = report.data_fn() if report.data_fn else []
+    data = data or []
 
     pdf = DocPDFReport(report)
     pdf.set_auto_page_break(auto=report.auto_page_break, margin=report.margin_bottom)

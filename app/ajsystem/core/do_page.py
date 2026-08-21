@@ -129,11 +129,11 @@ def do_page(mod):
 
     # Contacts (Page type='contacts')
     if page_type == 'contacts':
-        ttype = template.get('type', 'html')
-        tfile = _arquivo_html(mod, spec, template.get('file'))
         ctx = {'contacts': props}
         _call_on_show(spec, ctx)
-        return render_template(tfile, page=spec, module_name=mod.__name__, **ctx)
+        return render_template(
+            'pages/contacts.html', page=spec, module_name=mod.__name__, **ctx,
+        )
 
     # Custom (default)
     ttype = template.get('type', 'html')

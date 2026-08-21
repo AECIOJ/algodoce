@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, replace
-from typing import Optional
+from typing import Callable, Optional
 
 
 def btn_style(color: str, outline: bool, size: str = 'sm') -> str:
@@ -19,10 +19,10 @@ class Button:
     label_pos: str = 'right'
     confirm_msg: Optional[str] = None
     endpoint: Optional[str] = None
-    url: Optional[str] = None
+    action: Optional[Callable] = None
     method: str = 'GET'
     show_if: Optional[tuple] = None
-    hide_if: Optional[tuple] = None
+    when: Optional[Callable] = None
     url_var: str = 'id'
     extra_params: Optional[dict] = None
     position: str = 'nav_right'
@@ -30,6 +30,7 @@ class Button:
     field: Optional[str] = None
     label_off: Optional[str] = None
     icon_off: Optional[str] = None
+    render: Optional[str] = None
 
     def btn_cls(self) -> str:
         return self.cls or btn_style(self.color, self.outline, self.size)
@@ -113,9 +114,11 @@ def resolve_buttons(specs, bp_name=None):
 
     Cada spec aceita: nome de preset em `ACTIONS` (ex.: `'on_off'`),
     `{nome: {overrides}}` (preset com ajustes) ou dict custom
-    (`label`, `endpoint`, `icon`, ...). Sem `endpoint` e com `bp_name`,
-    assume `'<bp_name>.toggle'`; `on_off` fixa `field` em `'ativo'`
-    (ou o override `field`).
+    (`label`, `action`, `endpoint`, `icon`, ...). `action` é um callable
+    `(instance|None) -> url|html`; com `render` (CSS selector), o HTML
+    retornado por `action` é injetado no container via `injectHTML`.
+    Sem `action`/`endpoint` e com `bp_name`, assume `'<bp_name>.toggle'`;
+    `on_off` fixa `field` em `'ativo'` (ou o override `field`).
     """
     if not specs:
         return []
@@ -150,12 +153,11 @@ def resolve_buttons(specs, bp_name=None):
                 if k in Button.__dataclass_fields__
             })
             field_name = cfg.get('field')
-        if btn.endpoint is None and bp_name:
+        if btn.endpoint is None and btn.action is None and bp_name:
             btn.endpoint = f"{bp_name}.toggle"
         if btn.on_off:
             btn.field = field_name or 'ativo'
         btn.show_if = _to_pair(btn.show_if)
-        btn.hide_if = _to_pair(btn.hide_if)
         resolved.append(btn)
     return resolved
 

@@ -1,22 +1,26 @@
-import os
-from io import BytesIO
-from flask import request, jsonify, Response, current_app
+from flask import request, jsonify
 from app.ajsystem.core.extensions import db
 from app.models.operacao import Operacao
 from app.constantes import TIPO_OPERACAO, CONECTORES
 from app.ajsystem.core import auto
+from app.ajsystem.core.do_report import print_report
+from app.reports import PLANO
+
+
+def print_plano(_):
+    """Botão Plano — impressão do plano de contas (dados do domínio)."""
+    return print_report(PLANO, data=Operacao.plano_rows())
 
 
 Entity = {
     'Operacao': {
         'id':     {'type': 'ID', 'width': 6},
-        'indice': {'label': 'Índice', 'width': 6, 'filter': False, 'in_form': False},
+        'indice': {'label': 'Índice', 'width': 6, 'in_filter': 0, 'in_form': 0},
         'nome':   {'type': 'TEXT', 'width': 20, 'transform': 'title'},
         'tipo':   {'type': 'LIST', 'width': 12, 'list': TIPO_OPERACAO},
         'fator':  {'type': 'INT', 'width': 8},
-        'pai_id': {'type': 'FK', 'label': 'Superior', 'query': 'operacao',
-                   'query_filter': {'ativa': True, 'pai_id': None}, 'width': 30,
-                   'card_path': 'pai.nome', 'filter_path': 'pai.nome'},
+        'pai_id': {'type': 'FK', 'label': 'Superior', 'query': {'model': 'operacao', 'when': 'ativa = true AND pai_id IS NULL'},
+                   'width': 30},
         'ordem':  {'type': 'INT', 'width': 8},
         'ativa':          {'type': 'BOOL', 'width': 8},
     },
@@ -65,10 +69,10 @@ Page = {
         },
         'list': {
             'fields': 'Operacao',
-            'buttons': [
-                {'label': 'Plano', 'icon': 'printer', 'color': 'info',
-                 'endpoint': 'operacoes.pdf_operacoes'},
-            ],
+                'buttons': [
+                    {'label': 'Plano', 'icon': 'printer', 'color': 'info',
+                     'action': print_plano, 'render': '#page-content'},
+                ],
         },
         'form': {
             'fields': 'Operacao',
@@ -102,18 +106,3 @@ def list():
 def usage(id):
     qtd = Operacao.query.filter_by(pai_id=id).count()
     return jsonify({"em_uso": qtd > 0, "quantidade": qtd})
-
-
-@auto.rota("/pdf")
-def pdf_operacoes():
-    from app.reports import PLANO
-    from app.ajsystem.core.pdf import gerar_pdf_relatorio
-    logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
-    pdf = gerar_pdf_relatorio(PLANO, logo_path=logo_path)
-    buf = BytesIO()
-    pdf.output(buf)
-    return Response(
-        buf.getvalue(),
-        mimetype="application/pdf",
-        headers={"Content-Disposition": "inline; filename=plano_de_contas.pdf"},
-    )

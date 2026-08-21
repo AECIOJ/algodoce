@@ -24,7 +24,7 @@ PRODUCAO_FIELDS = {
         'previsao_de': {'label': 'Previsão De', 'width': 14, 'input': 'date'},
         'previsao_ate': {'label': 'Previsão Até', 'width': 14, 'input': 'date'},
         'data_fim': {'label': 'Finalização', 'width': 12, 'input': 'date'},
-        'status': {'width': 14, 'options': PRODUCAO_STATUS, 'filter_options': PRODUCAO_STATUS},
+        'status': {'width': 14, 'options': PRODUCAO_STATUS},
 }
 
 producao_list = {'fields': PRODUCAO_FIELDS, 'edit_endpoint': 'producao.detail'}
@@ -56,7 +56,7 @@ def list():
     producoes = linhas
     _list = List(**producao_list)
     ctx = build_field_context(PRODUCAO_FIELDS)
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 def _calcular_qtd_produzir(produto, quantidade):
@@ -152,7 +152,7 @@ def nova():
         db.session.commit()
         flash(f"Produção {producao.id} criada com {len(pedidos)} pedido(s)!", "success")
         return redirect(url_for("producao.detail", id=producao.id))
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/<int:id>")
@@ -189,7 +189,7 @@ def detail(id):
     except ValueError:
         nav = {"first_id": None, "last_id": None, "prev_id": None, "next_id": None}
 
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/<int:id>/add-pedido", methods=["POST"])
@@ -372,4 +372,4 @@ def editar(id):
 @bp.route("/<int:id>/relatorio")
 def relatorio(id):
     producao = Producao.query.get_or_404(id)
-    return render_template("index.html")
+    return render_template("pages/construcao.html")

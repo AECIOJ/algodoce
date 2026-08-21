@@ -3,6 +3,8 @@
 Reutilizados por templates (filtros Jinja) e pelo motor de listagem/formulário.
 Não dependem de modelos nem da aplicação host.
 """
+import re
+
 from app.ajsystem.defs.constants import CONECTORES
 
 
@@ -97,6 +99,25 @@ def field_value(field, item):
             total = (v if total is None else total + v)
         return total
     return deep_attr(item, getattr(field, 'name', '') or '')
+
+
+def calc_value(calc, item):
+    """Valor de um campo `calc` (virtual, não persistido) para `item`.
+
+    - callable → `calc(item)`;
+    - string → expressão aritmética avaliada com namespace restrito aos
+      atributos de `item` (mesmo padrão do `_apply_aggs`).
+    """
+    if callable(calc):
+        return calc(item)
+    if not isinstance(calc, str):
+        return None
+    names = set(re.findall(r'[A-Za-z_][A-Za-z0-9_]*', calc or ''))
+    ns = {n: (getattr(item, n, None) or 0) for n in names}
+    try:
+        return eval(calc, {'__builtins__': {}}, ns)
+    except Exception:
+        return None
 
 
 def item_ref(item, siblings):

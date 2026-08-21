@@ -361,7 +361,7 @@ def _registrar_rotas_automaticas(app):
     """Gera rotas automáticas para o site público que não dependem de módulos.
 
     - ``/``  → redirect para ``/sobre`` (público) ou ``/sistema`` (logado)
-    - ``/sistema`` → dashboard ``index.html`` (``login_required``)
+    - ``/sistema`` → ``pages/construcao.html`` (``login_required``)
     """
     from flask import redirect as flask_redirect, render_template
     from flask_login import login_required, current_user
@@ -381,4 +381,4 @@ def _registrar_rotas_automaticas(app):
         @app.route('/sistema')
         @login_required
         def _site_sistema():
-            return render_template('index.html')
+            return render_template('pages/construcao.html')

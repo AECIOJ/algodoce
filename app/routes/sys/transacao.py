@@ -21,19 +21,19 @@ from app.fields import FIELD_DATA, FIELD_VENCIMENTO
 
 
 TRANSACAO_FIELDS = {
-        'transacao_id': {'label': 'Transação', 'width': 8, 'card_path': 'transacao.id'},
-        'conta': {'width': 15, 'query': 'conta'},
+        'transacao_id': {'label': 'Transação', 'width': 8},
+        'conta': {'width': 15, 'query': {'model': 'conta'}},
         'compra_id': {'width': 6, 'link': 'compras.edit'},
         'fatura': {'width': 10},
-        'valor': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
+        'valor': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
         'id': {'label': 'Previsão', 'width': 8},
         'documento': {'width': 10},
         'vencimento': {'width': 10, 'input': 'date'},
-        'previsto': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'realizado': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'variacao': {'label': 'Variação', 'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'saldo': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'status': {'width': 10, 'options': PREVISAO_STATUS, 'filter_options': PREVISAO_STATUS},
+        'previsto': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'realizado': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'variacao': {'label': 'Variação', 'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'saldo': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'status': {'width': 10, 'options': PREVISAO_STATUS},
 }
 
 TIPO_PAGAR = ("P", "C")
@@ -45,8 +45,8 @@ transacao_list = {'fields': TRANSACAO_FIELDS, 'fields_master': [1, 2, 3, 4, 5], 
 
 Form = {'model': Transacao, 'new_label': 'Transação', 'body_template': 'sys/transacao/_form_body.html', 'nav_right_extra': 'sys/transacao/_nav_right.html', 'footer_left': 'sys/transacao/_footer_left.html', 'page_scripts': 'sys/transacao/_page_scripts.html', 'redirect': 'transacao.pagar_list', 'fields': [
         {'name': 'data', 'input': 'date', 'width': 3},
-        {'name': 'conta_id', 'input': 'select', 'query': 'conta', 'label': 'Conta', 'required': True, 'width': 6},
-        {'name': 'operacao_id', 'input': 'select', 'query': 'operacao', 'label': 'Operação', 'width': 6},
+        {'name': 'conta_id', 'input': 'select', 'query': {'model': 'conta'}, 'label': 'Conta', 'required': True, 'width': 6},
+        {'name': 'operacao_id', 'input': 'select', 'query': {'model': 'operacao'}, 'label': 'Operação', 'width': 6},
         {'name': 'fatura', 'width': 4},
         {'name': 'valor', 'input': 'number', 'width': 3, 'align': 'right', 'currency': 'brl'},
         {'name': 'historico', 'input': 'textarea', 'width': 12},
@@ -54,7 +54,7 @@ Form = {'model': Transacao, 'new_label': 'Transação', 'body_template': 'sys/tr
         'Previsões': {'model': Previsao, 'type': 'editable_table', 'attr': 'previsoes', 'prefix': 'previsao_', 'fields': [
             {'name': 'documento', 'label': 'Documento'},
             {'name': 'vencimento', **FIELD_VENCIMENTO},
-            {'name': 'carteira_id', 'input': 'select', 'query': 'carteira', 'label': 'Carteira'},
+            {'name': 'carteira_id', 'input': 'select', 'query': {'model': 'carteira'}, 'label': 'Carteira'},
             {'name': 'previsto', 'input': 'number', 'align': 'right'},
             {'name': 'realizado', 'input': 'number', 'align': 'right'},
             {'name': 'variacao', 'label': 'Variação', 'input': 'number', 'align': 'right'},
@@ -223,7 +223,7 @@ def _list(tipo):
     ctx = build_field_context(TRANSACAO_FIELDS)
     edit_ep = 'transacao.pagar_edit' if is_pagar else 'transacao.receber_edit'
     _transacao_list = List(**{**transacao_list, 'edit_endpoint': edit_ep})
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 def _detail(id, tipo):
@@ -232,7 +232,7 @@ def _detail(id, tipo):
     if not transacao:
         flash("Código inexistente", "warning")
         return redirect(url_for("transacao.pagar_list" if is_pagar else "transacao.receber_list"))
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 def _excluir(id, tipo):
@@ -311,7 +311,7 @@ def pagar_new():
                 "valor": str(compra.valor or 0),
                 "historico": compra.historico or "",
             }
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
     if request.method == "POST":
         submitted_data, submitted_previsoes = _build_submitted()
 
@@ -360,14 +360,14 @@ def pagar_new():
             flash(f"Total das parcelas ({prev_total:.2f}) difere do valor da fatura ({float(transacao.valor):.2f})", "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
-            return render_template("index.html")
+            return render_template("pages/construcao.html")
 
         if compra and abs(float(transacao.valor) - float(compra.valor or 0)) > 0.005:
             db.session.rollback()
             flash(f"Valor da transação ({transacao.valor:.2f}) difere do valor da compra ({float(compra.valor or 0):.2f})", "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
-            return render_template("index.html")
+            return render_template("pages/construcao.html")
 
         if compra and not compra.transacao_id:
             compra.transacao_id = transacao.id
@@ -425,7 +425,7 @@ def pagar_edit(id):
             operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
             previsao_ids = [p.id for p in transacao.previsoes]
             movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
-            return render_template("index.html")
+            return render_template("pages/construcao.html")
         else:
             db.session.commit()
             flash("Conta atualizada!", "success")
@@ -435,7 +435,7 @@ def pagar_edit(id):
     operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes]
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 # ── RECEBER (new / edit — lógica específica) ─────────────────────────
@@ -500,7 +500,7 @@ def receber_new():
                 flash(err, "danger")
             contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
             operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
-            return render_template("index.html")
+            return render_template("pages/construcao.html")
 
         db.session.commit()
 
@@ -547,7 +547,7 @@ def receber_new():
 
     contas = Conta.query.filter_by(ativo=True).order_by(Conta.nome).all()
     operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/receber/<int:id>/editar", methods=["GET", "POST"])
@@ -592,7 +592,7 @@ def receber_edit(id):
                 operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
                 previsao_ids = [p.id for p in transacao.previsoes]
                 movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
-                return render_template("index.html")
+                return render_template("pages/construcao.html")
 
         db.session.commit()
         flash("Conta atualizada!", "success")
@@ -602,4 +602,4 @@ def receber_edit(id):
     operacoes = Operacao.query.filter_by(ativa=True).order_by(Operacao.ordem, Operacao.nome).all()
     previsao_ids = [p.id for p in transacao.previsoes]
     movimentos = Movto.query.filter(Movto.previsao_id.in_(previsao_ids)).order_by(Movto.data, Movto.id).all() if previsao_ids else []
-    return render_template("index.html")
+    return render_template("pages/construcao.html")

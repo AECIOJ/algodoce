@@ -9,19 +9,47 @@ from datetime import datetime
 
 from flask import flash, redirect, render_template, request, url_for
 
+from sqlalchemy import text
+
 from app.ajsystem.core.adapter import db
 from app.ajsystem.defs.form import Form
 from app.ajsystem.defs.fields import VALIDATORS
+from app.ajsystem.defs.query import _resolve_query, resolve_query_fields
 from app.ajsystem.defs.entities import (
     MODEL_MAP, _apply_transform, _infer_transform,
 )
 from app.ajsystem.core.form import (
     _is_readonly, _flat_fields, _process_image_fields, _save_session_children,
-    _apply_aggregates, _aggregate_specs, _build_nav, _resolve_delete,
+    _apply_aggs, _agg_specs, _build_nav, _resolve_delete,
     _when_allows, _session_items, _empty_value,
 )
 from app.ajsystem.core.edits import editor_assets
 from app.ajsystem.core.query import order_items, group_items, aggregate_rows
+
+
+def _resolve_tag_color(value, options=None, colors=None):
+    """Infer badge color from value, with optional explicit colors mapping."""
+    if colors and value in colors:
+        return colors[value]
+    if options and value in options:
+        label = str(options[value]).lower()
+    else:
+        label = str(value).lower() if value is not None else ''
+    if any(w in label for w in ('aprovado', 'renovado', 'ativo', 'pago', 'entregue')):
+        return 'success'
+    if any(w in label for w in ('reprovado', 'rejeitado', 'expirado', 'cancelado', 'inativo', 'atrasado')):
+        return 'error'
+    if any(w in label for w in ('negociação', 'negociacao', 'pendente', 'aguardando', 'enviado')):
+        return 'warning'
+    if any(w in label for w in ('rocessando', 'andamento', 'faturado')):
+        return 'info'
+    if isinstance(value, (int, float)):
+        if value <= 2:
+            return 'warning'
+        if value <= 6:
+            return 'info'
+        return 'error'
+    return 'ghost'
 
 
 def do_form(form_spec, id=None, extra_ctx=None, instance=None):
@@ -44,7 +72,9 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
         old_vals = {}
         fields_ok = True
         for f in _flat_fields(form):
-            if not f.in_form:
+            if f.in_form != 1:
+                continue
+            if f.calc:
                 continue
             if f.input == 'image':
                 continue
@@ -121,7 +151,7 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
                 return redirect(url_for(form.redirect))
 
         for f in form._resolved_fields:
-            if not f.in_form or not hasattr(instance, f.name):
+            if f.in_form != 1 or not hasattr(instance, f.name):
                 continue
             val = getattr(instance, f.name, None)
             if val is None or not isinstance(val, str):
@@ -133,7 +163,7 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
 
         _save_session_children(form, instance, request.form)
         db.session.flush()
-        _apply_aggregates(form, instance)
+        _apply_aggs(form, instance)
 
         changed = {n for n, old in old_vals.items()
                     if getattr(instance, n, None) != old}
@@ -146,22 +176,29 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
         return redirect(url_for(form.redirect))
 
     lookup = {}
+
+    def _fill_lookup(f):
+        q = _resolve_query(f.query)
+        if q is None or q.model not in MODEL_MAP:
+            return
+        model_cls = MODEL_MAP[q.model]
+        query = model_cls.query
+        if q.when:
+            query = query.filter(text(q.when))
+        field, display, ret, order = resolve_query_fields(q, model_cls)
+        items = query.order_by(order).all()
+        f.options = {
+            str(getattr(o, ret, None)): str(getattr(o, display, o))
+            for o in items if getattr(o, ret, None) is not None
+        }
+        lookup[f.name] = items
+
     for f in _flat_fields(form):
-        if f.query and f.query in MODEL_MAP:
-            model_cls = MODEL_MAP[f.query]
-            q = model_cls.query
-            if f.query_filter:
-                for k, v in f.query_filter.items():
-                    if isinstance(v, (list, tuple)):
-                        q = q.filter(getattr(model_cls, k).in_(v))
-                    else:
-                        q = q.filter(getattr(model_cls, k) == v)
-            lookup[f.name] = q.order_by(model_cls.nome).all()
+        _fill_lookup(f)
     for session in form._resolved_sessions:
         for f in session.get('fields', []):
-            if f.query and f.query in MODEL_MAP and f.name not in lookup:
-                model_cls = MODEL_MAP[f.query]
-                lookup[f.name] = model_cls.query.order_by(model_cls.nome).all()
+            if f.name not in lookup and f.in_form:
+                _fill_lookup(f)
 
     nav = _build_nav(form.model, id) if form.nav and id is not None else None
     _delete_cfg = _resolve_delete(form.delete, form.delete_when, form.flash_deny, form.flash_excluido, form.label)
@@ -169,7 +206,7 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
 
     template = form.template or 'pages/form.html'
     session_totals = {}
-    for _sname, _sagg in _aggregate_specs(form):
+    for _sname, _sagg in _agg_specs(form):
         session_totals[_sagg['table']] = {
             'expr': _sagg['sum'],
             'currency': _sagg.get('currency'),
@@ -189,6 +226,24 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
             _s['totals'] = aggregate_rows(_items, _spec, _s.get('fields'))
         else:
             _s['groups'] = None
+
+    # ── Resolver tags (badges no nav bar) ──
+    _resolved_tags = []
+    if form.tags and instance:
+        for tag_spec in form.tags:
+            if isinstance(tag_spec, str):
+                fname, colors = tag_spec, None
+            else:
+                fname = tag_spec.get('field', tag_spec.get('name'))
+                colors = tag_spec.get('colors')
+            f_obj = next((f for f in _flat_fields(form) if f.name == fname), None)
+            val = getattr(instance, fname, None)
+            options = f_obj.options if f_obj else None
+            label = str(options.get(val, val)) if options and val in options else str(val) if val is not None else ''
+            color = _resolve_tag_color(val, options, colors)
+            _resolved_tags.append({'text': label, 'color': color})
+    form._resolved_tags = _resolved_tags
+
     ctx = dict(
         instance=instance,
         form=form,

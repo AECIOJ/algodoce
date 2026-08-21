@@ -23,12 +23,12 @@ bp = Blueprint("movimentos", __name__, url_prefix="/movimentos")
 MOVIMENTOS_FIELDS = {
         'id': {'label': '#', 'width': 7, 'mask': '999.999'},
         'data': {'width': 10, 'input': 'date'},
-        'recurso': {'width': 15, 'query': 'recurso'},
-        'conta': {'width': 15, 'query': 'conta', 'card_path': 'conta.nome'},
-        'previsao': {'label': 'Previsão', 'width': 10, 'filter': False},
+        'recurso': {'width': 15, 'query': {'model': 'recurso'}},
+        'conta': {'width': 15, 'query': {'model': 'conta'}},
+        'previsao': {'label': 'Previsão', 'width': 10, 'in_filter': 0},
         'documento': {'width': 10},
-        'valor': {'width': 10, 'input': 'number', 'align': 'right', 'aggregate': 'sum', 'currency': 'brl'},
-        'operacao': {'width': 15, 'query': 'operacao'},
+        'valor': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'operacao': {'width': 15, 'query': {'model': 'operacao'}},
         'historico': {'label': 'Histórico', 'width': 30},
 }
 
@@ -68,7 +68,7 @@ def _list(tipo):
     movtos = linhas
     _list = List(**movimentos_list)
     ctx = build_field_context(MOVIMENTOS_FIELDS)
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 def _new(tipo, prefill=None, from_order=False, compra=None):
@@ -78,7 +78,7 @@ def _new(tipo, prefill=None, from_order=False, compra=None):
         operacoes = Operacao.query.filter_by(ativa=True, tipo=1).order_by(Operacao.ordem, Operacao.nome).all()
     else:
         operacoes = Operacao.query.filter_by(ativa=True, tipo=2).order_by(Operacao.ordem, Operacao.nome).all()
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 def _edit(id):
@@ -284,7 +284,7 @@ def recebimentos_edit(id):
             flash("Recebimento atualizado!", "success")
             return redirect(url_for("movimentos.recebimentos_list"))
 
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/pagamentos")
@@ -342,7 +342,7 @@ def pagamentos_edit(id):
             flash("Pagamento atualizado!", "success")
             return redirect(url_for("movimentos.pagamentos_list"))
 
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/<int:id>/excluir", methods=["POST"])

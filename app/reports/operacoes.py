@@ -1,10 +1,5 @@
-from types import SimpleNamespace
-from app.ajsystem.defs.report import Report
 from app.constantes import TIPO_OPERACAO
-from app.ajsystem.core.extensions import db
 from app.models.operacao import Operacao
-from app.ajsystem.core.utils import list_table
-from sqlalchemy import select
 
 
 def _build_tree():
@@ -40,60 +35,26 @@ def _build_tree():
     return secoes
 
 
-def _operacao_data():
-    cte = list_table(TIPO_OPERACAO)
-    tipos = db.session.execute(select(cte.c)).all()
-    secao_map = {s['tipo']: s for s in _build_tree()}
-
-    data = []
-    for t in tipos:
-        cod, desc = t.codigo, t.descricao
-        data.append(SimpleNamespace(
-            indice=str(cod), id=None, nome=desc, fator=None, ativa=None
-        ))
-        secao = secao_map.get(cod)
-        if secao:
-            for item in secao["flat"]:
-                op = item["operacao"]
-                data.append(SimpleNamespace(
-                    indice=item['indice'], id=op.id, nome=op.nome,
-                    fator=op.fator, ativa=op.ativa
-                ))
-    return data
-
-
-def _ativa_text(row):
-    return 'Sim' if row.ativa else 'Nao'
-
-
-PLANO = Report(
-    label='Plano de Contas',
-    ordem='indice',
-    data_fn=_operacao_data,
-    groups=[
-        {
-            'position': 'Titulo',
-            'format': {'font_style': 'B', 'indent': 2},
-        },
-        {
-            'position': 'Linha',
-            'format': {'font_style': 'B', 'indent': 6},
-        },
-    ],
-    header={
+PLANO = {
+    'label': 'Plano de Contas',
+    'ordem': 'indice',
+    'header': {
         'logo': {'position': 'C'},
         'titulo': {'label': 'Plano de Contas'},
     },
-    table={
+    'groups': {
+        'tipo': {'pos': 'titulo', 'code': True},   # '1. Receitas'
+        'left(indice,2)': {'pos': 'linha'},        # subgrupo: raiz + filhos
+    },
+    'table': {
         'lines_after': 1,
         'columns': {
-            'indice':         {'label': 'Indice', 'width': 22},
-            'id':             {'label': '#', 'width': 12, 'align': 'center'},
-            'nome':           {'label': 'Nome', 'width': 80},
-            'fator':          {'label': 'Fator', 'width': 14, 'align': 'center'},
-            'ativa':          {'label': 'Ativa', 'width': 14, 'align': 'center',
-                               'function': _ativa_text},
+            'indice': {'width': 10},   # label 'Índice' da Entity
+            'id':      {'width': 6},   # label '#'
+            'nome':    {},             # label 'Nome'
+            'fator':   {'width': 10},  # INT → center
+            'ativa':   {'width': 8},   # BOOL → Sim/Não
         },
     },
-    footer={'show_user': True, 'show_datetime': True, 'show_page_number': True},
-)
+    'footer': {'show_user': True, 'show_datetime': True, 'show_page_number': True},
+}

@@ -1,7 +1,6 @@
 """Comportamento de filtro do framework.
 
-As constantes FILTER_* vivem em `app.ajsystem.defs.filters`; este módulo
-contém apenas a aplicação de filtros sobre listas de objetos / queries.
+Contém apenas a aplicação de filtros sobre listas de objetos / queries.
 """
 from datetime import date, timedelta
 
@@ -25,6 +24,7 @@ def resolve_filters(config, request_args):
     """Lê query params da URL e retorna dict estruturado por tipo.
 
     - select / boolean → value direto (str):  {'status': '1'}
+    - checklist → lista de valores (str):     {'status': ['Pendente', 'Aprovado']}
     - date → sub-dict:  {'vencimento': {'preset': 'mes_atual', 'from': '...', 'to': '...'}}
     - text → sub-dict:  {'nome': {'mode': 'contains', 'value': 'sugar'}}
     - number → sub-dict: {'valor': {'mode': 'entre', 'val1': '10', 'val2': '50'}}
@@ -40,6 +40,15 @@ def resolve_filters(config, request_args):
             val = request_args.get(field)
             if val is not None and val != '':
                 result[field] = val
+            elif 'default' in cfg:
+                result[field] = cfg['default']
+
+        # ── checklist: valores múltiplos (getlist e/ou CSV) ──
+        elif ftype == 'checklist':
+            vals = [p.strip() for v in request_args.getlist(field)
+                    for p in str(v).split(',') if p.strip()]
+            if vals:
+                result[field] = vals
             elif 'default' in cfg:
                 result[field] = cfg['default']
 
@@ -146,6 +155,12 @@ def filtrar_vencimento(linhas, field, preset, hoje=None):
                 and getattr(l, field).year == hoje.year
                 and l.status not in (0, 8, 9)]
 
+    elif preset == 'ano_anterior':
+        return [l for l in linhas
+                if getattr(l, field)
+                and getattr(l, field).year == hoje.year - 1
+                and l.status not in (0, 8, 9)]
+
     return linhas
 
 
@@ -194,6 +209,9 @@ def filtrar_vencimento_query(query, model_field, preset, hoje=None):
 
     elif preset == 'ano_atual':
         return query.filter(extract('year', model_field) == hoje.year)
+
+    elif preset == 'ano_anterior':
+        return query.filter(extract('year', model_field) == hoje.year - 1)
 
     return query
 
@@ -330,7 +348,24 @@ def apply_date_filter(linhas, field, date_cfg):
         return _filter_date_last_n_days(linhas, field, 7)
     elif preset in ('mês', 'mes'):
         mes = date_cfg.get('mes') if isinstance(date_cfg, dict) else None
-        return _filter_date_month(linhas, field, mes)
+        try:
+            m = int(mes)
+        except (ValueError, TypeError):
+            return linhas
+        return [l for l in linhas
+                if getattr(l, field) and getattr(l, field).month == m]
+    elif preset in ('mês/ano', 'mes_ano', 'mes/ano'):
+        mes = date_cfg.get('mes') if isinstance(date_cfg, dict) else None
+        ano = date_cfg.get('ano') if isinstance(date_cfg, dict) else None
+        try:
+            m = int(mes)
+            y = int(ano)
+        except (ValueError, TypeError):
+            return linhas
+        return [l for l in linhas
+                if getattr(l, field)
+                and getattr(l, field).month == m
+                and getattr(l, field).year == y]
     elif preset in ('mês atual', 'mes atual'):
         return filtrar_vencimento(linhas, field, 'mes_atual')
     elif preset in ('mês anterior', 'mes anterior'):
@@ -340,6 +375,8 @@ def apply_date_filter(linhas, field, date_cfg):
         return _filter_date_year(linhas, field, ano)
     elif preset == 'ano atual':
         return filtrar_vencimento(linhas, field, 'ano_atual')
+    elif preset in ('ano anterior', 'ano_anterior'):
+        return filtrar_vencimento(linhas, field, 'ano_anterior')
     elif preset in ('a partir de',):
         fr = date_cfg.get('from') if isinstance(date_cfg, dict) else None
         return _filter_date_range(linhas, field, fr, None)

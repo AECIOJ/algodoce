@@ -26,20 +26,18 @@ renderização de listas (`List`, colunas, filtros).
                                         'boolean' → filtro Sim/Não
                                         'select'  → filtro select
  options          dict       None      Opções para select: {chave: label}
- filter           str|False  auto      Tipo do filtro forçado, ou False p/ desabilitar
- filter_options   list       None      Opções customizadas para o filtro select
+ in_filter        int        auto      0 oculta do filtro; 1 input; 2 select (1 opção); 3 checklist (1+ opções); None = auto
  mask             str        None      Máscara de formatação (ex: '999.999')
- query            str        None      Chave do MODEL_MAP p/ popular options do banco
+ query            str|dict|Query  None      Model p/ popular options (Query: model/display/return_field/when/order)
  validate         list       None      Regras de validação no form
- aggregate        str        None      'sum' p/ exibir total no rodapé
- aggregate_label  str        None      Label do total (ex: 'Total Geral')
+ agg             str        None      'sum' p/ exibir total no rodapé
  currency         str        None      'brl' p/ formatar como moeda R$
  hide_zero        bool       True      Ocultar valor zero
- card_path        str        None      Acesso aninhado (ex: 'conta.nome')
+ card_path        str        None      Acesso aninhado (ex: 'conta.nome') — derivado de query.display
  link             str        None      Endpoint p/ gerar link (ex: 'orders.edit')
  function         callable   None      Função para valor computado: f(item) -> valor
  rows             int        1         Altura do textarea no form (nº de linhas)
- in_form          bool       True      `False` exclui o campo do form (nem exibe nem submete)
+ in_form          int(0..3)  1        `0` exclui do form (nem exibe nem submete); `1` edita; `2` exibe apenas (sem input, não submete); `3` exibe apenas se houver valor (vazio omite). `True`→1, `False`→0
  in_list          int(0|1|2) 1        `0` exclui da listagem/card/filtro; `1` coluna na linha (vai p/ o card quando não couber); `2` sempre no card. `True`→1, `False`→0
  transform        str|callable  auto   Transformação ao salvar: 'title' (padrão em textos editáveis), 'cap', 'upper', 'lower', 'none' ou callable(val, field)
 
@@ -83,41 +81,48 @@ from sqlalchemy import text
 from typing import Optional
 
 from app.ajsystem.defs.fields import Field
-from app.ajsystem.defs.query import _resolve_query
+from app.ajsystem.defs.query import _resolve_query, resolve_query_fields
 from app.ajsystem.defs.entities import (
     _resolve_fieldset, _entidade_fields, MODEL_MAP, build_field_config,
+    query_display_path,
 )
 from app.ajsystem.defs.list import List  # noqa: F401
 
 
-def field_filter_type(f: Field) -> Optional[str]:
-    if f.filter is not None:
-        if isinstance(f.filter, dict):
-            return f.filter.get('type')
-        if isinstance(f.filter, str):
-            return f.filter
-        if f.filter is False:
-            return None
+def infer_filter_type(f: Field) -> Optional[str]:
+    """Resolve o widget do filtro a partir de `in_filter` (0 oculta, 1 input,
+    2 select, 3 checklist; None auto-inferido do tipo do campo)."""
+    inf = f.in_filter
+    if inf == 0:
+        return None
+    if inf == 1:
+        if f.input in ('date', 'datetime-local'):
+            return 'date'
+        if f.input == 'number':
+            return 'number'
+        if f.input == 'boolean':
+            return 'boolean'
+        return 'text'
+    if inf == 2:
+        if f.input == 'boolean':
+            return 'boolean'
+        return 'select'
+    if inf == 3:
+        return 'checklist'
     if f.input == 'boolean':
         return 'boolean'
-    if f.input == 'date':
+    if f.input in ('date', 'datetime-local'):
         return 'date'
     if f.input == 'number':
         return 'number'
-    if f.input == 'select':
-        return 'select'
-    if f.options is not None:
-        return 'select'
-    if f.filter_options is not None:
-        return 'select'
-    if f.query is not None:
+    if f.input == 'multi':
+        return None
+    if f.input == 'select' or f.options is not None or f.query is not None:
         return 'select'
     return 'text'
 
 
 def field_filter_options(f: Field):
-    if f.filter_options is not None:
-        return f.filter_options
     if f.options is not None:
         if isinstance(f.options, dict):
             return list(f.options.values())
@@ -127,11 +132,12 @@ def field_filter_options(f: Field):
         try:
             model = MODEL_MAP.get(q.model)
             if model and hasattr(model, 'query'):
+                field, display, _, order = resolve_query_fields(q, model)
                 query = model.query
                 if q.when:
                     query = query.filter(text(q.when))
-                items = query.order_by(q.order or q.field).all()
-                return [str(getattr(o, q.field, o)) for o in items if getattr(o, q.field, None)]
+                items = query.order_by(order).all()
+                return [str(getattr(o, display, o)) for o in items if getattr(o, display, None)]
         except Exception:
             pass
     return None
@@ -147,10 +153,10 @@ def field_to_column(f: Field) -> dict:
     col['width'] = w + 1
     if f.align != 'left':
         col['align'] = f.align
-    ft = field_filter_type(f)
+    ft = infer_filter_type(f)
     if ft:
         col['filter'] = ft
-    elif f.filter is False:
+    elif f.in_filter == 0:
         col['filter'] = False
     fo = field_filter_options(f)
     if fo:
@@ -167,18 +173,17 @@ def field_to_column(f: Field) -> dict:
         col['percent'] = True
     if f.hide_zero:
         col['hide_zero'] = True
-    if f.card_path:
-        col['card_path'] = f.card_path
+    _cp = query_display_path(f)
+    if _cp:
+        col['card_path'] = _cp
     if f.options:
         col['options'] = f.options
     if f.link:
         col['link'] = f.link
-    if f.function:
-        col['function'] = f.function
-    if f.aggregate:
-        col['aggregate'] = f.aggregate
-        if f.aggregate_label:
-            col['aggregate_label'] = f.aggregate_label
+    if f.calc:
+        col['calc'] = f.calc
+    if f.agg:
+        col['agg'] = f.agg
     return col
 
 
@@ -191,13 +196,16 @@ FILTER_MODES = {
     'number': [('igual', 'Igual a'), ('entre', 'Entre'),
                ('maior_que', 'Maior que'), ('maior_igual', 'Maior ou igual a'),
                ('menor_que', 'Menor que'), ('menor_igual', 'Menor ou igual a')],
-    'date': [('hoje', 'Hoje'), ('periodo', 'Período'), ('ontem', 'Ontem'),
-             ('ultimos_7_dias', 'Últimos 7 dias'), ('mes', 'Mês'),
+    'date': [('hoje', 'Hoje'), ('ontem', 'Ontem'),
+             ('ultimos_7_dias', 'Últimos 7 dias'),
              ('mes_atual', 'Mês Atual'), ('mes_anterior', 'Mês Anterior'),
-             ('ano', 'Ano'), ('ano_atual', 'Ano Atual'),
-             ('a_partir_de', 'A partir de'), ('ate_a_data_de', 'Até a data de')],
+             ('mes', 'Mês'), ('mes_ano', 'Mês/Ano'), ('ano_atual', 'Ano Atual'),
+             ('ano_anterior', 'Ano Anterior'), ('ano', 'Ano'),
+             ('ate_a_data_de', 'Até a data de'), ('a_partir_de', 'A partir de'),
+             ('periodo', 'Período')],
     'boolean': [('', 'Todos'), ('true', 'Sim'), ('false', 'Não')],
     'select': [],
+    'checklist': [],
 }
 
 
@@ -212,33 +220,19 @@ def build_filter_config(fields):
 
     config = {}
     for f in field_list:
-        if f.filter is False:
-            continue
-
-        if isinstance(f.filter, dict):
-            cfg = {**f.filter}
-            if cfg.get('type') == 'select' and 'options' not in cfg:
-                opts = field_filter_options(f)
-                if opts:
-                    cfg['options'] = opts
-            if f.filter_path:
-                cfg['filter_path'] = f.filter_path
-            cfg.setdefault('label', f.display_label)
-            config[f.name] = cfg
-            continue
-
-        ftype = f.filter if isinstance(f.filter, str) else field_filter_type(f)
+        ftype = infer_filter_type(f)
         if not ftype:
             continue
 
         cfg = {'type': ftype, 'modes': FILTER_MODES.get(ftype, [])}
         cfg['label'] = f.display_label
-        if ftype == 'select':
+        if ftype in ('select', 'checklist'):
             opts = field_filter_options(f)
             if opts:
                 cfg['options'] = opts if isinstance(opts, list) else list(opts.values()) if isinstance(opts, dict) else opts
-        if f.filter_path:
-            cfg['filter_path'] = f.filter_path
+        _fp = query_display_path(f)
+        if _fp:
+            cfg['filter_path'] = _fp
         config[f.name] = cfg
 
     return config
@@ -259,16 +253,15 @@ def build_field_context(fields: list[Field] | dict) -> dict:
             if q is not None:
                 model = MODEL_MAP.get(q.model)
                 if model and hasattr(model, 'query'):
+                    field, display, ret, order = resolve_query_fields(q, model)
                     query = model.query
                     if q.when:
                         query = query.filter(text(q.when))
-                    items = query.order_by(q.order or q.field).all()
-                    names = [str(getattr(o, q.field, o)) for o in items if getattr(o, q.field, None)]
-                    if f.filter_options is None:
-                        f.filter_options = names
+                    items = query.order_by(order).all()
                     if f.options is None:
-                        f.options = {str(getattr(o, 'id', o)): str(getattr(o, q.field, o)) for o in items if getattr(o, q.field, None)}
-            ft = field_filter_type(f)
+                        f.options = {str(getattr(o, ret, o)): str(getattr(o, display, o))
+                                     for o in items if getattr(o, display, None)}
+            ft = infer_filter_type(f)
             if ft == 'select':
                 fo = field_filter_options(f)
                 if fo is not None and f.name not in ctx['filter_options']:

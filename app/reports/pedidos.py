@@ -1,4 +1,3 @@
-from app.ajsystem.defs.report import Report
 from app.constantes import FORMINHAS
 
 
@@ -54,10 +53,9 @@ def _forminhas_carteira(order):
     return f"Forminhas: {f} | Forma de Pagamento: {c}"
 
 
-PEDIDO_REPORT = Report(
-    label='Pedido',
-    edit_endpoint='pedidos.form',
-    header={
+PEDIDO_REPORT = {
+    'label': 'Pedido',
+    'header': {
         'layout': 'logo_left',
         'title': 'Pedido #{id}',
         'fields': [
@@ -67,17 +65,17 @@ PEDIDO_REPORT = Report(
             {'field': 'data_previsao_entrega', 'label': 'Previsão', 'align': 'right', 'format': 'datetime'},
         ],
     },
-    after_table=_event_after,
-    table={
+    'after_table': _event_after,
+    'table': {
         'columns': {
             'product.nome':   {'label': 'Produto', 'width': 50},
             'quantidade':     {'label': 'Qtd.', 'width': 10, 'align': 'center'},
             'preco_unitario': {'label': 'Preço', 'width': 20, 'align': 'right', 'format': 'brl'},
             'valor':          {'label': 'Valor', 'width': 20, 'align': 'right', 'format': 'brl',
-                               'function': _valor_item, 'aggregate': 'sum'},
+                               'function': _valor_item, 'agg': 'sum'},
         },
         'footer': True,
         'footer_label': 'Total',
         'after': _forminhas_carteira,
     },
-)
+}

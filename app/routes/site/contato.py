@@ -8,5 +8,4 @@ Page = {
  #       'Facebook':          {'type': 'facebook',  'value': 'algodoce'},
  #       'LinkedIn':          {'type': 'linkedin',  'value': 'company/algodoce'},
     },
-    'template': {'type': 'html', 'file': 'site/contato.html'},
 }

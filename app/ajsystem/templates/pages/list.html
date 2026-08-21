@@ -6,7 +6,7 @@
 
 {% macro _det_cell(item, idx, col) %}
   {% set _raw = item|deep_attr(col.card_path or col.field) %}
-    {% if col.function %}{{ col.function(item) }}
+    {% if col.calc %}{{ calc_value(col.calc, item) }}
     {% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">
     {% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}
     {% elif col.currency and _raw is not none %}{{ _raw|brl }}
@@ -113,7 +113,12 @@
               {% if LIST.linha is none or loop.index0 in LIST.linha %}
               <td{% if col.align is defined and col.align != 'left' %} style="text-align:{{ col.align }}"{% endif %} data-field="{{ col.field }}">
                 {% set _raw = item|deep_attr(col.card_path or col.field) %}
-                {% if col.options and _raw is not none %}
+                {% if tag_field_names and col.field in tag_field_names %}
+                  {% set _label = col.options.get(_raw, _raw) if col.options and _raw is not none else _raw %}
+                  {% if _label is not none %}<span class="badge badge-sm badge-{{ _raw|tag_color(col.options, tag_colors.get(col.field)) }}">{{ _label }}</span>{% else %}—{% endif %}
+                {% elif col.calc %}
+                  {{ calc_value(col.calc, item) }}
+                {% elif col.options and _raw is not none %}
                   {{ col.options.get(_raw, _raw) }}
                 {% elif col.currency and _raw is not none %}
                   {{ _raw|brl }}
@@ -149,7 +154,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.calc %}{{ calc_value(col.calc, item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endif %}
@@ -158,7 +163,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field card-only{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.calc %}{{ calc_value(col.calc, item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endfor %}
@@ -166,7 +171,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.function %}{{ col.function(item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.calc %}{{ calc_value(col.calc, item) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|brl }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif col.link and _raw is not none %}<a href="{{ url_for(col.link, id=_raw) }}">{{ _raw }}</a>{% elif _raw is not none %}{% if _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endfor %}
@@ -239,6 +244,19 @@
               {% endfor %}
               {% endif %}
             </select>
+            {% elif ftype == 'checklist' %}
+            {% set _opts = cfg.get('options', {}) %}
+            <div class="flex flex-wrap gap-x-3 gap-y-0.5 border rounded p-1.5">
+              {% if _opts is mapping %}
+              {% for val, opt_label in _opts.items() %}
+              <label class="flex items-center gap-1.5 text-xs whitespace-nowrap"><input type="checkbox" class="checkbox checkbox-xs" value="{{ opt_label }}" x-model="filters['{{ name }}']"><span>{{ opt_label }}</span></label>
+              {% endfor %}
+              {% else %}
+              {% for opt_label in _opts %}
+              <label class="flex items-center gap-1.5 text-xs whitespace-nowrap"><input type="checkbox" class="checkbox checkbox-xs" value="{{ opt_label }}" x-model="filters['{{ name }}']"><span>{{ opt_label }}</span></label>
+              {% endfor %}
+              {% endif %}
+            </div>
             {% elif ftype == 'date' %}
             <div class="flex flex-col gap-1">
               <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}'].preset">
@@ -246,6 +264,20 @@
                 <option value="{{ val }}">{{ label_mode }}</option>
                 {% endfor %}
               </select>
+              <input type="number" class="input input-bordered input-sm w-full"
+                     x-show="filters['{{ name }}'].preset === 'mes'"
+                     x-model="filters['{{ name }}'].mes"
+                     min="1" max="12" placeholder="Mês (1-12)">
+              <div class="flex gap-1" x-show="filters['{{ name }}'].preset === 'mes_ano'">
+                <input type="number" class="input input-bordered input-sm flex-1"
+                       x-model="filters['{{ name }}'].mes" min="1" max="12" placeholder="Mês">
+                <input type="number" class="input input-bordered input-sm flex-1"
+                       x-model="filters['{{ name }}'].ano" min="2000" max="2099" placeholder="Ano">
+              </div>
+              <input type="number" class="input input-bordered input-sm w-full"
+                     x-show="filters['{{ name }}'].preset === 'ano'"
+                     x-model="filters['{{ name }}'].ano"
+                     min="2000" max="2099" placeholder="Ano (ex: 2026)">
               <div class="flex gap-1" x-show="filters['{{ name }}'].preset === 'periodo'">
                 <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].from" placeholder="De">
                 <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].to" placeholder="Até">
@@ -303,7 +335,9 @@ function listPage() {
       for (var field in this.filters) {
         var val = this.filters[field];
         if (val === null || val === undefined || val === '' || (typeof val === 'object' && Object.keys(val).length === 0)) continue;
-        if (typeof val === 'object') {
+        if (Array.isArray(val)) {
+          if (val.length) params.set(field, val.join(','));
+        } else if (typeof val === 'object') {
           if ('value' in val && val.value) {
             params.set(field + '_value', val.value);
             if ('mode' in val && val.mode) params.set(field + '_mode', val.mode);
@@ -317,6 +351,8 @@ function listPage() {
             params.set(field + '_preset', val.preset);
             if (val.from) params.set(field + '_from', val.from);
             if (val.to) params.set(field + '_to', val.to);
+            if (val.mes) params.set(field + '_mes', val.mes);
+            if (val.ano) params.set(field + '_ano', val.ano);
           }
         } else {
           params.set(field, val);

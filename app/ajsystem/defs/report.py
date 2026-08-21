@@ -39,7 +39,7 @@ class ReportColumn:
     width: Optional[float] = None
     align: str = 'left'
     format: Optional[str] = None
-    aggregate: Optional[str] = None
+    agg: Optional[str] = None
     function: Optional[Callable] = None
 
     def __post_init__(self):
@@ -97,7 +97,6 @@ class Report:
       - footer: rodapé de página (report_footer, show_*, footer_*)
     """
     label: str
-    endpoint: Optional[str] = None
 
     # Página
     page_size: str = 'A4'
@@ -122,10 +121,11 @@ class Report:
     # Texts avulsos
     texts: Optional[list] = None
 
-    # Template de impressão HTML (wrapper com iframe + botão Voltar)
+    # Template de impressão HTML (fragmento p/ injeção e página standalone)
     print_template: str = 'components/print_default.html'
-    # Endpoint de edição para fallback do botão Voltar (ex: 'compras.edit')
-    edit_endpoint: Optional[str] = None
+    print_fragment_template: str = 'components/print_fragment.html'
+    # Path da logo (relativo ao root_path do app; resolvido em runtime)
+    logo_path: str = 'static/icons/Logo.png'
 
     # Margens (mm)
     margin_top: float = 10
@@ -141,8 +141,22 @@ class Report:
     # Ex: [{'bg': (240,240,240), 'size': 10, 'bold': True, 'indent': 2}]
     groups: Optional[list] = None
 
-    # Função que retorna os dados do relatório (callable sem argumentos)
-    data_fn: Optional[callable] = None
-
     # Linhas horizontais internas da tabela (entre linhas de dados e GroupRow)
     show_table_lines: bool = False
+
+    # Atributo da instância de onde saem os dados da tabela quando `data`
+    # não é passado explicitamente (default 'items').
+    data_attr: str = 'items'
+
+
+def parse_report(spec):
+    """dict | Report → Report (idempotente).
+
+    Relatórios são declarados como dict puro no app
+    (`FOO_REPORT = {...}`); o motor resolve para Report aqui.
+    """
+    if isinstance(spec, Report):
+        return spec
+    if isinstance(spec, dict):
+        return Report(**spec)
+    raise TypeError(f"report deve ser dict ou Report, recebeu {type(spec).__name__}: {spec!r}")

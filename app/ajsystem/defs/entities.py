@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from app.ajsystem.defs.fields import FIELD_TYPES, Field, _auto_label
+from app.ajsystem.defs.query import Query, _resolve_query, resolve_query_fields
 from app.ajsystem.core.utils import _title_case
 
 
@@ -113,7 +114,12 @@ def _infer_field_from_model(model, name: str) -> dict:
 
 
 def _derive_fk_ref(f: Field, model) -> Field:
-    """Preenche query/card_path/filter_path de um FK a partir da relação do model."""
+    """Preenche `query` de um FK a partir da relação do model.
+
+    O display/listagem é derivado de `query.display` em render time (o motor
+    não guarda mais `card_path`/`filter_path`). Retorna o campo inalterado
+    quando já tem `query`/`masterkey`/`options` ou não é FK.
+    """
     if f.query or f.masterkey or f.options is not None:
         return f
     if not f.name.endswith('_id') or model is None:
@@ -123,16 +129,13 @@ def _derive_fk_ref(f: Field, model) -> Field:
         return f
     stem = f.name[:-3]
     rel = None
-    rel_name = None
     if stem in mapper.relationships:
         rel = mapper.relationships[stem]
-        rel_name = stem
     else:
-        for rname, r in mapper.relationships.items():
+        for r in mapper.relationships.values():
             cols = getattr(r, 'local_columns', None)
             if cols and any(c.name == f.name for c in cols):
                 rel = r
-                rel_name = rname
                 break
     if rel is None:
         return f
@@ -140,13 +143,48 @@ def _derive_fk_ref(f: Field, model) -> Field:
     key = _model_key(target)
     if key is None:
         return f
-    f.query = key
-    display = 'nome' if hasattr(target, 'nome') else 'descricao'
-    if not f.card_path:
-        f.card_path = f'{rel_name}.{display}'
-    if not f.filter_path:
-        f.filter_path = f'{rel_name}.{display}'
+    f.query = Query(model=key)
     return f
+
+
+def query_display_path(f: Field, model=None) -> Optional[str]:
+    """Deriva o caminho de exibição (list) de `f.query.display`.
+
+    Ex.: `carteira_id` com query model `carteira` → `'carteira.nome'`.
+    A relação é o stem do campo `*_id` ou o model do query; `model` (item
+    listado) é usado só para resolver o nome real da relação quando o stem
+    não bate.
+    """
+    q = _resolve_query(f.query)
+    if q is None:
+        return None
+    target = MODEL_MAP.get(q.model)
+    if target is None:
+        return None
+    _, display, _, _ = resolve_query_fields(q, target)
+    rel = _rel_name_for_field(model, f.name)
+    if rel is None:
+        rel = f.name[:-3] if f.name.endswith('_id') else q.model
+    if not rel:
+        return None
+    return f'{rel}.{display}'
+
+
+def _rel_name_for_field(model, field_name):
+    """Nome da relação de um campo `*_id` no model (ou None)."""
+    if not field_name.endswith('_id') or model is None:
+        return None
+    mapper = getattr(model, '__mapper__', None)
+    if mapper is None:
+        return None
+    stem = field_name[:-3]
+    if stem in mapper.relationships:
+        return stem
+    for rname, r in mapper.relationships.items():
+        cols = getattr(r, 'local_columns', None)
+        if cols and any(c.name == field_name for c in cols):
+            return rname
+    return None
 
 
 def build_field_config(name: str, cfg: dict) -> dict:
@@ -162,10 +200,7 @@ def build_field_config(name: str, cfg: dict) -> dict:
 
     mk = props.pop('masterkey', None)
     if mk:
-        props.setdefault('query', mk)
-        rel_name = name[:-3] if name.endswith('_id') else name
-        props.setdefault('card_path', f'{rel_name}.nome')
-        props.setdefault('filter_path', f'{rel_name}.nome')
+        props['query'] = Query(model=mk)
 
     if 'list' in props:
         props['options'] = props.pop('list')
@@ -192,7 +227,7 @@ def build_field_config(name: str, cfg: dict) -> dict:
 def _infer_transform(f: Field) -> str:
     if f.transform is not None:
         return f.transform
-    if not f.in_form or f.readonly or f.hidden:
+    if f.in_form != 1 or f.readonly or f.hidden:
         return 'none'
     if f.input in ('number', 'boolean', 'checkbox', 'date', 'time', 'image'):
         return 'none'

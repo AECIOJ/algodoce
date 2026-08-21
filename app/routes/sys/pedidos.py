@@ -1,9 +1,7 @@
 from datetime import date, datetime, timezone, timedelta
-from io import BytesIO
 from app.utils import parse_brl, parse_prazo_recebimento, _save_event, _clean
-from flask import Blueprint, render_template, request, redirect, url_for, flash, Response, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
-import os
 from app.ajsystem.core.extensions import db
 from app.models.client import Conta
 from app.models.product import Product
@@ -11,7 +9,7 @@ from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.event import Event
 from app.models.quote import Quote
-from app.ajsystem.core.pdf import gerar_pdf_relatorio
+from app.ajsystem.core.do_report import do_report, print_report
 from app.models.carteira import Carteira
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
@@ -36,21 +34,20 @@ tipos_evento = {t: t for t in tipos_evento_list}
 
 PEDIDOS_FIELDS = {'model': Order, 'fields': {
     'id':                    FIELD_ID,
-    'cliente':               {'label': 'Cliente', 'width': 20, 'query': 'conta', 'card_path': 'conta.nome', 'in_form': False, 'filter_path': 'conta.nome'},
-    'client_id':             {'label': 'Cliente', 'width': 8, 'input': 'select', 'query': 'conta',
-                               'required': True, 'query_filter': {'ativo': True, 'tipo': [0, 1]}},
+    'cliente':               {'label': 'Cliente', 'width': 20, 'query': {'model': 'conta'}, 'in_form': 0},
+    'client_id':             {'label': 'Cliente', 'width': 8, 'input': 'select', 'query': {'model': 'conta', 'when': 'ativo = true AND tipo IN (0, 1)'},
+                               'required': True},
     'data_pedido':           {**FIELD_DATA_HORA, 'width': 10},
     'data_previsao_entrega': {**FIELD_DATA_HORA, 'width': 10, 'label': 'Prev. Entrega'},
     'data_entrega':          {**FIELD_DATA_HORA, 'width': 10},
-    'carteira':              {'label': 'Pagamento', 'width': 15, 'query': 'carteira', 'in_form': False, 'filter_path': 'carteira.nome'},
-    'carteira_id':           {'width': 12, 'input': 'select', 'query': 'carteira',
-                               'query_filter': {'uso': [0, 1]},
+    'carteira':              {'label': 'Pagamento', 'width': 15, 'query': {'model': 'carteira'}, 'in_form': 0},
+    'carteira_id':           {'width': 12, 'input': 'select', 'query': {'model': 'carteira', 'when': 'uso IN (0, 1)'},
                                'attrs': {'id': 'carteira-select'}},
     'forminhas':             {'width': 12, 'input': 'select', 'options': FORMINHAS},
     'total':                 {**FIELD_TOTAL, 'width': 10},
     'status':                {**FIELD_STATUS, 'width': 10, 'options': ORDER_STATUS},
-    'transacao':             {'label': 'Faturado', 'width': 10, 'filter': False, 'in_form': False},
-    'quote_id':              {'label': 'Orçamento', 'width': 9, 'filter': False, 'link': 'orcamentos.form', 'in_form': False},
+    'transacao':             {'label': 'Faturado', 'width': 10, 'in_filter': 0, 'in_form': 0},
+    'quote_id':              {'label': 'Orçamento', 'width': 9, 'in_filter': 0, 'link': 'orcamentos.form', 'in_form': 0},
 }}
 
 pedidos_list = {'fields': PEDIDOS_FIELDS, 'edit_endpoint': 'pedidos.form', 'send_endpoint': 'pedidos.print_order'}
@@ -146,7 +143,7 @@ PREVISAO_FIELDS = {'model': Previsao, 'fields': {
 
 MOVTO_FIELDS = {'model': Movto, 'fields': {
     'id':        {'label': 'Recebimento', 'link': 'movimentos.recebimentos_form'},
-    'recurso':   { 'query': 'recurso'},
+    'recurso':   { 'query': {'model': 'recurso'}},
     'valor':     FIELD_VALOR,
     'historico': FIELD_HISTORICO,
 }}
@@ -198,7 +195,7 @@ def dashboard():
         grupos.setdefault(o.status, []).append(o)
     ordem_status = [0, 1, 2, 9]
     grupos_ordenados = {s: grupos.get(s, []) for s in ordem_status}
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/pedidos", endpoint="list")
@@ -222,7 +219,7 @@ def order_list():
     linhas = apply_number_filter(linhas, 'total', active.get('total'))
     orders = linhas
     ctx = build_field_context(PEDIDOS_FIELDS)
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 @bp.route("/pedidos/novo", defaults={"id": None}, methods=["GET", "POST"])
@@ -285,23 +282,15 @@ def cancel(id):
 def print_order(id):
     order = Order.query.get_or_404(id)
     from app.reports import PEDIDO_REPORT
-    return render_template(
-        PEDIDO_REPORT.print_template,
-        fallback_url=url_for(PEDIDO_REPORT.edit_endpoint, id=order.id),
-        pdf_url=url_for('pedidos.pdf_order', id=order.id),
-    )
+    return print_report(PEDIDO_REPORT, order)
 
 
 @bp.route("/pedidos/<int:id>/pdf")
 def pdf_order(id):
     order = Order.query.get_or_404(id)
     from app.reports import PEDIDO_REPORT
-    logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
-    pdf = gerar_pdf_relatorio(PEDIDO_REPORT, order.items, logo_path, instance=order)
-    buf = BytesIO()
-    pdf.output(buf)
-    return Response(buf.getvalue(), mimetype="application/pdf",
-                    headers={"Content-Disposition": f"inline; filename=pedido_{order.id}.pdf"})
+    return do_report(PEDIDO_REPORT, order.items, instance=order,
+                     filename=f"pedido_{order.id}.pdf")
 
 
 @bp.route("/pedidos/<int:id>/gerar-financeiro", methods=["GET", "POST"])
@@ -383,4 +372,4 @@ def gerar_financeiro(id):
             total,
         )
 
-    return render_template("index.html")
+    return render_template("pages/construcao.html")

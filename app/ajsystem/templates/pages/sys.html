@@ -1,4 +1,4 @@
-{% extends "pages/base.html" %}
+{% extends "components/page_layout.html" %}
 
 {% block head_extra %}
 {% for _css in _editor_css if _editor_css is defined %}
@@ -236,6 +236,35 @@
 <script src="{{ _js }}"></script>
 {% endfor %}
 {% include 'components/auth_triggers.html' %}
+<script>
+function injectHTML(selector, html) {
+  if (!html) return;
+  var t = document.querySelector(selector);
+  if (!t) return;
+  t.innerHTML = html;
+  t.querySelectorAll('script').forEach(function(old) {
+    var s = document.createElement('script');
+    s.textContent = old.textContent;
+    old.parentNode.replaceChild(s, old);
+  });
+}
+</script>
+<script>
+function fetchRender(url, selector) {
+  var target = document.querySelector(selector);
+  if (!target) return;
+  fetch(url, { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+      target.innerHTML = html;
+      target.querySelectorAll('script').forEach(function(old) {
+        var s = document.createElement('script');
+        s.textContent = old.textContent;
+        old.parentNode.replaceChild(s, old);
+      });
+    });
+}
+</script>
 <script>
 var _confirmModal = null;
 function _getConfirmModal() {

@@ -1,7 +1,5 @@
 from datetime import datetime, timezone, timedelta
-from io import BytesIO
-import os
-from flask import request, redirect, url_for, flash, Response, render_template, current_app
+from flask import request, redirect, url_for, flash, render_template
 from app.ajsystem.core.extensions import db
 from app.models.client import Conta
 from app.models.order import Order
@@ -10,8 +8,8 @@ from app.models.quote import Quote
 from app.constantes import QUOTE_STATUS, FORMINHAS
 from app.ajsystem.core import auto
 from app.ajsystem.core.do_list import do_list
+from app.ajsystem.core.do_report import print_report
 from app.ajsystem.core.form import pesquise
-from app.ajsystem.core.pdf import gerar_pdf_relatorio
 from app.reports import ORCAMENTO_REPORT
 
 
@@ -48,43 +46,76 @@ tipos_evento_list = [
 tipos_evento = {t: t for t in tipos_evento_list}
 
 
+def _btn_validar_action(_):
+    """Botão Validar da listagem — valida orçamentos expirados."""
+    return url_for('orcamentos.validar')
+
+
+def _btn_converter_action(instance):
+    """Botão Converter do form — abre a página de conversão do orçamento."""
+    return url_for('orcamentos.converter', id=instance.id)
+
+
+def _btn_enviar_action(instance):
+    """Botão Enviar do form — pre-controle + impressão do orçamento."""
+    if instance is None or not instance.items:
+        return ''
+    return print_report(ORCAMENTO_REPORT, instance)
+
+
+def _btn_rejeitar_action(instance):
+    """Botão Rejeitar do form — rejeita o orçamento."""
+    return url_for('orcamentos.rejeitar', id=instance.id)
+
+
+def _btn_atualizar_precos_action(instance):
+    """Botão Atualizar preços zerados — busca preços dos produtos para itens com preço zero."""
+    return url_for('orcamentos.atualizar_precos', id=instance.id)
+
+
+def _orcamento_pre_save(instance, request, is_new):
+    """Muda status de 0 (Pendente) para 1 (Negociação) na 1a edição admin."""
+    if not is_new and instance.status == 0:
+        instance.status = 1
+
+
 Entity = {
     'Quote': {
         'id':               {'type': 'ID', 'width': 6},
         'cliente_nome':     {'label': 'Cliente', 'required': True, 'width': 20},
-        'cliente_telefone': {'label': 'Telefone', 'required': True, 'width': 16, 'mask': '(99) 99999-9999'},
-        'data_pedido':      {'label': 'Data', 'input': 'date', 'width': 10},
-        'validade':         {'label': 'Validade (dias)', 'input': 'number', 'width': 14, 'attrs': {'min': 1}, 'card_path': 'validade_data', 'filter': False},
-        'forminhas':        {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12},
-        'total':            {'type': 'NUM', 'currency': 'brl', 'aggregate': {'table': 'items', 'sum': 'preco_unitario * quantidade'}, 'width': 12},
-        'carteira_id':      {'type': 'FK', 'label': 'Pagamento', 'query': 'carteira', 'query_filter': {'uso': [0, 1]}, 'width': 15, 'filter': False, 'card_path': 'carteira.nome'},
-        'observacao':       {'label': 'Observação', 'input': 'textarea', 'width': 12},
-        'status':           {'type': 'LIST', 'width': 12, 'options': QUOTE_STATUS, 'filter_options': QUOTE_STATUS},
-        'pedido_id':        {'label': 'Pedido', 'width': 9, 'filter': False, 'link': 'pedidos.form'},
+        'cliente_telefone': {'label': 'Telefone', 'required': True, 'mask': '(99) 99999-9999'},
+        'data_pedido':      {'label': 'Data', 'input': 'date', 'in_form': 2},
+        'data_renovacao':   {'label': 'Renovado em', 'input': 'date', 'in_form': 3, 'in_list': 0, 'in_filter': 0},
+        'validade':         {'label': 'Validade (dias)', 'input': 'number', 'width': 14, 'min': 1, 'in_list': 0},
+        'validade_data':    {'label': 'Válido até', 'calc': quote_validade, 'width': 14, 'in_form': 2, 'in_filter': 0},
+        'forminhas':        {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12, 'in_list': 0},
+        'total':            {'type': 'NUM', 'currency': 'brl', 'agg': {'table': 'items', 'sum': 'preco_unitario * quantidade'}, 'width': 12, 'in_form': 0},
+        'carteira_id':      {'type': 'FK', 'label': 'Pagamento', 'query': {'model': 'carteira', 'when': 'uso IN (0, 1)'}, 'width': 15, 'in_filter': 0},
+        'observacao':       {'label': 'Observação', 'input': 'textarea', 'in_list': 0},
+        'status':           {'type': 'LIST', 'width': 12, 'options': QUOTE_STATUS, 'in_form': 0, 'in_filter': 3},
+        'pedido_id':        {'label': 'Pedido', 'width': 9, 'in_form': 0, 'in_filter': 0, 'link': 'pedidos.form'},
     },
     'QuoteItem': {
-        '__meta__':         {'label': 'Itens do Orçamento'},
         'id':               {'type': 'ID'},
-        'quote_id':         {'type': 'ID'},
+        'quote_id':         {'type': 'DK'},
         'product_id':       {'type': 'FK', 'label': 'Produto', 'required': True, 'on_set': preco_on_set},
         'quantidade':       {'type': 'INT', 'label': 'Qtd', 'required': True},
         'preco_unitario':   {'type': 'NUM', 'label': 'Preço', 'currency': 'brl'},
-        'valor':            {'type': 'NUM', 'label': 'Valor', 'currency': 'brl', 'in_form': False, 'calc': 'quantidade * preco_unitario'},
+        'valor':            {'type': 'NUM', 'label': 'Valor', 'currency': 'brl', 'in_form': 0, 'calc': 'quantidade * preco_unitario'},
         'observacao':       {'type': 'TEXT', 'label': 'Obs', 'required': False},
     },
     'Event': {
-        '__meta__':   {'label': 'Evento'},
         'id':         {'type': 'ID'},
-        'quote_id':   {'type': 'ID'},
-        'order_id':   {'type': 'ID', 'in_form': False},
+        'quote_id':   {'type': 'DK'},
+        'order_id':   {'type': 'ID', 'in_form': 0},
         'tipo':       {'type': 'LIST', 'label': 'Tipo', 'options': tipos_evento},
         'tema':       {'type': 'TEXT', 'label': 'Tema'},
-        'convidados': {'type': 'INT', 'label': 'Nº Convidados'},
-        'obs':        {'type': 'MEMO', 'label': 'Observação'},
+        'convidados': {'type': 'INT', 'label': 'Nº Convidados', 'width':10},
         'data':       {'type': 'DATA', 'label': 'Data'},
         'hora':       {'type': 'HORA', 'label': 'Hora'},
         'local':      {'type': 'TEXT', 'label': 'Local'},
         'cerimonial': {'type': 'TEXT', 'label': 'Cerimonial'},
+        'obs':        {'type': 'MEMO', 'label': 'Observação'},
     },
 }
 
@@ -96,30 +127,44 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'fields': [
-                'Quote.id', 'Quote.cliente_nome', 'Quote.cliente_telefone', 'Quote.data_pedido',
-                'Quote.validade', 'Quote.total', 'Quote.carteira_id', 'Quote.status', 'Quote.pedido_id',
+            'fields': 'Quote',
+            'tags': [{'field': 'status', 'colors': {0: 'warning', 1: 'info', 6: 'info', 7: 'error', 8: 'error', 9: 'success'}}],
+            'buttons': [
+                {'label': 'Validar', 'icon': 'check', 'action': _btn_validar_action,
+                 'color': 'info', 'outline': True},
             ],
-            'template': 'sys/orcamentos/list.html',
         },
         'form': {
             'readonly_when': {'pedido_id': lambda v: v is not None},
             'defaults': {'status': 1},
+            'pre_save': _orcamento_pre_save,
+            'tags': [{'field': 'status', 'colors': {0: 'warning', 1: 'info', 6: 'info', 7: 'error', 8: 'error', 9: 'success'}}],
             'buttons': [
+                {'label': 'Enviar', 'icon': 'paper-airplane', 'color': 'success', 'outline': True,
+                 'action': _btn_enviar_action, 'render': '#page-content', 'position': 'nav_right',
+                 'when': lambda i: i.pedido_id is None and i.status < 7},
                 {'label': 'Converter', 'icon': 'arrow-path', 'color': 'success', 'outline': False,
-                 'endpoint': 'orcamentos.converter', 'position': 'nav_right',
-                 'hide_if': ['pedido_id', None]},
+                 'action': _btn_converter_action, 'position': 'nav_right',
+                 'when': lambda i: i.pedido_id is None and i.status < 7},
+                {'label': 'Rejeitar', 'icon': 'xmark', 'color': 'error', 'outline': True,
+                 'action': _btn_rejeitar_action, 'position': 'footer_left',
+                 'when': lambda i: i.status < 7},
             ],
             'delete': {
                 'when': lambda q: q.pedido_id is None,
                 'msg_ok': 'Orçamento excluído!',
                 'msg_no': 'Exclua o pedido vinculado antes de excluir o orçamento.',
             },
-            'fields': [
-                'cliente_nome', 'cliente_telefone', 'validade', 'forminhas', 'carteira_id', 'observacao',
-            ],
+            'fields': 'Quote',
             'sessions': {
-                'Itens do Orçamento': {'table': ['QuoteItem']},
+                'Itens do Orçamento': {
+                    'table': ['QuoteItem'],
+                    'buttons': [
+                        {'label': 'Preços', 'icon': 'arrow-path',
+                         'color': 'warning', 'outline': True,
+                         'action': _btn_atualizar_precos_action},
+                    ],
+                },
                 'Evento': {'table': ['Event']},
             },
         },
@@ -155,8 +200,6 @@ def _converter_context(quote):
 @auto.rota('/', endpoint='list')
 def list_orcamentos():
     quotes = Quote.query.order_by(Quote.id.desc()).all()
-    for q in quotes:
-        q.validade_data = quote_validade(q)
     return do_list('Quote', __name__, data=quotes)
 
 
@@ -167,7 +210,7 @@ def converter(id):
         flash("Orçamento já foi convertido!", "warning")
         return redirect(url_for("orcamentos.list"))
     if quote.status >= 7:
-        flash("Orçamento não pode ser convertido — expirado ou reprovado.", "warning")
+        flash("Orçamento não pode ser convertido — expirado ou rejeitado.", "warning")
         return redirect(url_for("orcamentos.list"))
 
     if request.method == "GET":
@@ -283,6 +326,39 @@ def renovar(id):
     return redirect(url_for("orcamentos.form", id=id))
 
 
+@auto.rota('/<int:id>/rejeitar', methods=['POST', 'GET'], endpoint='rejeitar')
+def rejeitar(id):
+    quote = Quote.query.get_or_404(id)
+    if quote.status >= 7:
+        flash("Este orçamento já não pode ser rejeitado.", "warning")
+        return redirect(url_for("orcamentos.form", id=id))
+    quote.status = 8
+    db.session.commit()
+    flash("Orçamento rejeitado!", "success")
+    return redirect(url_for("orcamentos.form", id=id))
+
+
+@auto.rota('/<int:id>/atualizar-precos', methods=['POST', 'GET'], endpoint='atualizar_precos')
+def atualizar_precos(id):
+    quote = Quote.query.get_or_404(id)
+    count = 0
+    for item in quote.items:
+        if item.preco_unitario:
+            continue
+        valor = pesquise('product', item.product_id, 'preco')
+        if valor is None:
+            continue
+        divisor = pesquise('product', item.product_id, 'qtd_minima') or 1
+        try:
+            item.preco_unitario = float(valor) / float(divisor)
+            count += 1
+        except (TypeError, ValueError, ZeroDivisionError):
+            continue
+    db.session.commit()
+    flash("%d preço(s) atualizado(s)!" % count, "success")
+    return redirect(url_for("orcamentos.form", id=id))
+
+
 @auto.rota('/<int:id>/excluir', methods=['POST'], endpoint='delete')
 def excluir(id):
     quote = Quote.query.get_or_404(id)
@@ -295,16 +371,3 @@ def excluir(id):
     db.session.commit()
     flash("Orçamento excluído!", "success")
     return redirect(url_for("orcamentos.list"))
-
-
-@auto.rota('/<int:id>/pdf', endpoint='pdf')
-def pdf_quote(id):
-    quote = Quote.query.get_or_404(id)
-    if quote.pedido_id:
-        return redirect(url_for('pedidos.pdf_order', id=quote.pedido_id))
-    logo_path = os.path.join(current_app.root_path, "static", "icons", "Logo.png")
-    pdf = gerar_pdf_relatorio(ORCAMENTO_REPORT, quote.items, logo_path, instance=quote)
-    buf = BytesIO()
-    pdf.output(buf)
-    return Response(buf.getvalue(), mimetype="application/pdf",
-                    headers={"Content-Disposition": f"inline; filename=orcamento_{quote.id}.pdf"})

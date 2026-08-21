@@ -11,7 +11,7 @@ from flask import Blueprint, render_template, request, url_for
 from app.ajsystem.defs.page import Page as PageSpec
 from app.ajsystem.defs.form import _resolve_label
 from app.ajsystem.defs.fields import Field
-from app.ajsystem.defs.entities import get_field, _derive_fk_ref
+from app.ajsystem.defs.entities import get_field, _derive_fk_ref, query_display_path
 from app.ajsystem.core.list import (
     List, build_filter_config, build_field_context,
     _resolve_cols, _resolve_field_names, _resolve_model,
@@ -85,6 +85,7 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
         linha=linha_indices,
         card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1)) if len(all_fields) > len(line_fields) else None),
         buttons=lista.get('buttons'),
+        tags=lista.get('tags'),
     )
     buttons = list_obj.resolve_buttons(bp_name)
 
@@ -116,10 +117,12 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
             data = apply_number_filter(data, field, filter_value)
         elif ftype == 'boolean':
             data = apply_boolean_filter(data, field, filter_value)
-        elif ftype == 'select':
+        elif ftype in ('select', 'checklist'):
             field_obj = get_field(list_obj.fields, field)
             options = field_obj.options if field_obj else {}
-            filter_path = field_obj.filter_path if field_obj else None
+            filter_path = query_display_path(field_obj, model) if field_obj else None
+            if isinstance(filter_value, list):
+                filter_value = ','.join(map(str, filter_value))
             data = apply_select_filter(data, field, filter_value, options or {}, filter_path)
         elif ftype == 'date':
             data = apply_date_filter(data, field, filter_value)
@@ -142,10 +145,23 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
             init_filters[fname] = {'preset': '', 'from': '', 'to': ''}
         elif ftype in ('boolean', 'select'):
             init_filters[fname] = ''
+        elif ftype == 'checklist':
+            init_filters[fname] = []
         else:
             init_filters[fname] = ''
 
     template = (page.dados.template if page.dados else None) or "pages/list.html"
+    tag_colors = {}
+    tag_field_names = set()
+    if list_obj.tags:
+        for _ts in list_obj.tags:
+            if isinstance(_ts, dict):
+                _fn = _ts.get('field', _ts.get('name'))
+                tag_colors[_fn] = _ts.get('colors')
+                tag_field_names.add(_fn)
+            else:
+                tag_colors[_ts] = None
+                tag_field_names.add(_ts)
     return render_template(
         template,
         entity_name=entity_name,
@@ -162,6 +178,8 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
         new_label=new_label,
         detail_fields=detail_fields,
         detail_data=detail_data,
+        tag_colors=tag_colors,
+        tag_field_names=tag_field_names,
         card_fields=card_fields,
         cardonly_fields=cardonly_fields,
         buttons=buttons,

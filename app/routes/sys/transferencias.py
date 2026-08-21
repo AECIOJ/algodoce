@@ -27,7 +27,7 @@ TRF_FIELDS = {
         'id': {'label': '#', 'width': 7, 'mask': '999.999'},
         'data': {'width': 10, 'input': 'date'},
         'historico': {'label': 'Histórico', 'width': 30},
-        'status': {'width': 12, 'function': _trf_status},
+        'status': {'width': 12, 'calc': _trf_status},
 }
 
 transferencias_list = {'fields': TRF_FIELDS, 'edit_endpoint': 'transferencias.trf_edit'}
@@ -52,7 +52,7 @@ def _list():
     trfs = linhas
     _list = List(**transferencias_list)
     ctx = build_field_context(TRF_FIELDS)
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 def _load_form_data():
@@ -63,7 +63,7 @@ def _load_form_data():
 
 def _new():
     recursos, contas = _load_form_data()
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 def _edit(id):
@@ -112,7 +112,7 @@ def trf_edit(id):
 
     movimentos = Movto.query.filter_by(trf_id=id).order_by(Movto.id).all()
 
-    return render_template("index.html")
+    return render_template("pages/construcao.html")
 
 
 def _save(trf):

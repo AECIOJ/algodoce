@@ -22,30 +22,44 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 
 | Propriedade | Estado | Onde validada |
 |---|---|---|
+| `agg` | ✓ | Renomeada de `aggregate`. Dois usos: **auto-cálculo do pai** ao salvar filhos (`Orçamentos` — `'total': {'agg': {'table': 'items', 'sum': 'preco_unitario * quantidade'}}`) e **rodapé** `'sum'` na lista/relatório (`FIELD_TOTAL`, reports) |
 | `align` | ✓ | Tipos numéricos (`INT`/`NUM`/`PERCENT`) — células da lista à direita; inputs `number` alinham à direita globalmente (CSS `input[type="number"]`) |
 | `attrs` | ✗ | Categorias — substituída por `min`/`max`/`step`; reavaliar se necessário |
+| `calc` | ✓ | Campo **calculado virtual** (não persistido): aceita expressão string (`QuoteItem.valor` = `'quantidade * preco_unitario'` — célula ao vivo na sub-tabela) ou **callable** `f(item) -> valor` (Orçamentos — `validade_data` = data de vencimento, exibida na lista e no form como rótulo `readonly`). Substitui a prop `function` (§5.2) |
+| `card_path` | ✗ | Substituída por `query.display` (FK — derivado automaticamente no list) ou `calc` (display derivado, ex.: `validade_data`). Sem uso direto nos módulos |
 | `decimals` | ✓ | Insumos — `fator`; Carteiras — `taxa_recebimento` (PERCENT) |
-| `DK` | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `in_form=False`) |
+| `DK` | ✓ | Insumos — `ingredient_id`/`product_id` (chave da linha-pai; oculto, `in_form=0`); Orçamentos — `quote_id` |
+| `filter` | ✗ | Substituída por `in_filter` (0/1/2/3) — o tipo do widget é inferido do campo (`input`/`options`/`query`), com `in_filter` 0/1/2/3 para ocultar/forçar (§5.3) |
+| `filter_options` | ✗ | Redundante com `options`/`query` — opções derivadas automaticamente |
+| `filter_path` | ✗ | Substituída por `query.display` (derivado automaticamente no filtro select) |
+| `function` | ✗ | **Recusada** — substituída por `calc` callable (campo calculado virtual na coluna). Sem uso direto nos módulos |
 | `hidden` |  | a validar — campo invisível que submete via `<input type="hidden">` |
+| `hide_if` | ✗ | Substituída por `when` (callable `(instance) -> bool`) — Suporta condições complexas (comparações, múltiplos campos) |
 | `ID` em coluna FK | ✗ | Insumos — `ingredient_id`/`product_id` eram `ID`; usar `DK` (linha-pai) ou `FK` |
-| `in_form` | ✓ | Gate do form (renomeada de `edit`): `False` exclui do form sem submeter — Operações `indice`; Orçamentos `valor`/`order_id`; Pedidos `cliente`/`carteira`/`transacao`/`quote_id`; Produtos `ativo`; defaults `ID`/`DK` |
+| `in_form` | ✓ | Gate do form (renomeada de `edit`), tri-state: `0` não exibe nem submete (defaults `ID`/`DK`; Orçamentos `total`/`status`/`pedido_id`; Pedidos `cliente`/`carteira`/`transacao`/`quote_id`; Operações `indice`; Produtos `ativo`); `1` edita (padrão); `2` exibe apenas (sem input, não submete) — Orçamentos `data_pedido`/`validade_data`; `3` exibe apenas **se houver valor** (vazio omite o campo) — Orçamentos `data_renovacao` |
+| `in_filter` | ✓ | Gate do filtro de lista (renomeada de `filter`): `0` oculta (Orçamentos `data_renovacao`/`validade_data`/`carteira_id`/`pedido_id`; Operações `indice`; Movimentos `previsao`; Pedidos `transacao`/`quote_id`); `1` input (texto/número/data); `2` select (1 opção); `3` checklist multi-seleção (1+ opções) — Orçamentos `status`; `None` = auto do campo (text/number/date→1; select/options/query/boolean→2) |
 | `in_list` | ✓ | Coluna na tabela e/ou card: `0` exclui da listagem/card/filtro; `1` coluna na linha (vai p/ o card quando não couber, padrão); `2` sempre no card — Produtos `descricao` (`in_list: 2`; `True`→`1`, `False`→`0`) |
 | `label` | ✓ | Insumos — `product_id` → 'Produto'; Carteiras — `prazo_recebimento` → 'Prazo', `taxa_recebimento` → 'Taxa' |
+| `link` | ✓ | Orçamentos — `pedido_id` → `pedidos.form` (célula clicável) |
 | `list` | ✓ | Insumos — `tipo`/`unidade_medida` (LIST) e `etapas` (MULT10); Carteiras — `uso`/`gerar` (LIST) |
 | `LIST` em campo multivalorado | ✗ | Insumos — `etapa` (valor único) → `MULT10` (`etapas`) |
 | `mask` | ✓ | Categorias — `ordem` (`'999'`) |
-| `masterkey` | ✓ | Insumos — opcional: `product_id` sem `masterkey` (query derivado da relação) |
+| `masterkey` | ✓ | **FK/DK (opcional)**: chave do `MODEL_MAP` que identifica o field do relacionamento na tabela-mestra (ex.: `'quote'` em `quote_id`) — substitui `__meta__`/query explícito em `DK`. Popula `query` = `Query(model=<chave>)` |
 | `max` | ✓ | Categorias — `ordem` |
-| `min` | ✓ | Categorias — `ordem` |
+| `min` | ✓ | Categorias — `ordem`; Orçamentos — `validade` (`min: 1`) |
 | `MULT10` | ✓ | Insumos — `etapas` (códigos concatenados, máx. 10 opções 0-9; editor genérico abre em modal) |
 | `on_set` | ✓ | Produtos — `ingredient_id` (qtd/unidade); Orçamentos — `product_id` (preço); Insumos — `unidade` (fator=1) |
 | `percent` | ✓ | Carteiras — `taxa_recebimento` (tipo `PERCENT`); formata `12,5%` na lista e sufixo `%` no input do form |
+| `query` | ✓ | `Query` dataclass (aceita `str` = model / `dict` / instância) — model, `field`, `columns`, `display`, `return_field`, `when`, `order`; implícitos derivados do model (§5.4) |
+| `query_filter` | ✗ | Substituída por `Query.when` (SQL) — sem uso direto nos módulos |
 | `readonly` | ✓ | Pedidos/Recursos — `id`/`total`/`status` (FIELD_* de `app/fields`) |
 | `required` | ✓ | Insumos — `product_id`, `unidade_medida`, `fator`, `unidade` |
 | `step` | ✓ | Passo do input quando definido na Entidade (ex.: `0.1`; mostra as setinhas do spinner); sem `step` o input emite `step="any"` e não exibe as setinhas |
+| `tags` | ✓ | Fields renderizados como badges — Form: nav bar (à direita, flex-wrap); List: substitui texto da célula. Cores inferidas do valor ou por `colors: {valor: 'cor'}`. Orçamentos — `status` |
 | `transform` | ✓ | Insumos — `nome` ('title'); Carteiras — `nome` ('title') |
 | `type` | ✓ | Categorias — `ID`, `TEXT`, `INT`, `BOOL`; Carteiras — `LIST`, `INT`, `NUM`, `PERCENT` |
 | `width` | ✓ | Categorias — `id`; Carteiras — `id` |
+| `when` (botão) | ✓ | Condição callable `(instance) -> bool` para exibir o botão (substitui `hide_if`) — Orçamentos `Enviar`: `lambda i: i.pedido_id is None and i.status < 7`; `Converter`: `lambda i: i.pedido_id is None and i.status < 7` |
 
 > Padrão dos inputs numéricos: alinhados à direita (CSS global), conteúdo selecionado
 > ao focar (digitar sobrescreve) e sem spinner, a menos que a Entidade defina `step`.
@@ -57,15 +71,16 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | `tabs.<id>.type` | ✓ | Dados/`List`, Filtros/`Filter` — 7 módulos (Categorias, Carteiras, Insumos, Produtos, Contas, Operações, Orçamentos); `Report`/`Custom` reservados; tipo inválido → `ValueError` |
 | `tabs.<id>.type` derivado da chave | ✓ | `Dados`→`List`, `Filtros`→`Filter`, `Relatórios`→`Report`, senão `Custom` |
 | `tabs.<id>.max_width` | ✓ | Carteiras — `Filtros.max_width: 80` (painel `max-width:80ch`, centralizado); demais sem max_width |
-| `tabs.<id>.template` | ✓ | Orçamentos — `sys/orcamentos/list.html` na aba Dados (template da página) |
+| `tabs.<id>.template` | ✓ | Propriedade disponível (ex.: aba Dados usa template da página); Orçamentos usava `sys/orcamentos/list.html` e **foi removido** — passou a usar `pages/list.html` do motor (templates custom eliminados do módulo) |
 | auto-append de `Filtros` | ✓ | `Page` sem aba `Filter` ganha `Filtros` padrão (módulos migrados declaram explícito) |
 | forma legada `List` | ✓ | Módulo com `List` sem `Page` → default `Dados(List)+Filtros(Filter)` |
-| `fields` | ✓ | Categorias — `['Category']` (renomeada de `columns`); Carteiras |
+| `fields` | ✓ | Modelo único expande toda a Entity, com visibilidade via flags: list usa `'Quote'` + `in_list: 0` para ocultar (Orçamentos — `validade`/`forminhas`/`observacao`); form usa `'Quote'` + `in_form: 0`/`2`/`3` para ocultar/exibir (Orçamentos — `total`/`status`/`pedido_id` ocultos; `data_pedido`/`validade_data` exibidos; `data_renovacao` exibido só quando houver). Lista explícita `['Entity.campo', ...]` também suportada |
 | `ordering` | ✓ | Categorias — `['ordem', 'nome']`; Carteiras — `['nome']` |
 | `title` | ✓ | Categorias |
 | página única (`tabs: ''`, `crud: False`) | ✓ | Vitrine (`route: 'vitrine'`), Sobre (markdown), Contato (html custom) |
 | `showcase` (§6.5) | ✓ | Vitrine — `fields`/`filter`/`layout`/`show`/`client_fields`/`badge_id`; carrinho `session['cart_items']` + identificação `session['client']` sem criar `Conta`; rotas `add`/`update`/`remove`/`api/cliente` geradas |
-| `template.type` `html`/`markdown` | ✓ | Contato (html), Sobre (markdown, loader do host) |
+| `contacts` (§6.5) | ✓ | Contato — `props` `{título: {type: 'whatsapp'/'email'/'instagram'/'facebook'/'linkedin'/'phone', value}}`; template nativo do motor (`pages/contacts.html`) com ícones e máscara de telefone; sem `template` no módulo |
+| `template.type` `markdown` | ✓ | Sobre (markdown, loader do host) |
 
 > **Evolução do contrato `Page`:** a estrutura `tabs` (acima) foi substituída
 > pelo formato `type` + `props` (`app/ajsystem/defs/page.py`): `Page['type']`
@@ -80,17 +95,120 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 
 | Propriedade | Estado | Onde validada |
 |---|---|---|
-| `buttons` | ✓ | Categorias — `on_off` |
-| `delete` | ✓ | Categorias — `when`, `msg_ok`, `msg_no`; Carteiras — `when` multi-model `[Compra, Order, Quote, Previsao]`, `msg_ok`/`msg_no` |
-| `fields` | ✓ | Categorias — `'Category'` |
+| `buttons` | ✓ | Categorias — `on_off`; Orçamentos — botão `Enviar` (`action` callable, `when: lambda i: i.pedido_id is None and i.status < 7`, `position: 'nav_right'`), `Converter` (`action`, `when: lambda i: i.pedido_id is None and i.status < 7`) e `Rejeitar` (`action`, `color: 'error'`, `position: 'footer_left'`, `when: lambda i: i.status < 7`); list — botão `Validar` (`action` callable, `color: 'info'`) |
+| `defaults` | ✓ | Orçamentos — `{'status': 1}` (valor inicial do novo registro) |
+| `delete` | ✓ | Categorias — `when`, `msg_ok`, `msg_no`; Carteiras — `when` multi-model `[Compra, Order, Quote, Previsao]`, `msg_ok`/`msg_no`; Orçamentos — `when` callable `lambda q: q.pedido_id is None` |
+| `fields` | ✓ | Categorias — `'Category'`; Orçamentos — lista explícita `['cliente_nome', 'cliente_telefone', 'validade', 'forminhas', 'carteira_id', 'observacao']` |
 | `form_tail` | ✗ | Desaprovada — sem consumidores ativos (mantida só p/ compat) |
 | `page_scripts` | ✗ | Desaprovada — ainda usada por Transacao/Pedidos (`_page_scripts.html`), mas sem novos usos |
 | `post_save` | ✓ | Categorias — reordenação |
 | `pre_get` | ✓ | Carteiras — `em_uso`/`ro_fields` no editar: quando em uso, só `nome` fica readonly com hint |
-| `pre_save` | ✓ | Categorias — auto-ordenação `ordem`; Carteiras — guarda de `nome` quando em uso (com `no_autoflush`)
-| `sessions` | ✓ | Insumos — `Conversões` e `Produtos` (explícitas) |
+| `pre_save` | ✓ | Categorias — auto-ordenação `ordem`; Carteiras — guarda de `nome` quando em uso (com `no_autoflush`); Orçamentos — status 0→1 (Pendente→Negociação na 1a edição admin) |
+| `readonly_when` | ✓ | Orçamentos — `{'pedido_id': lambda v: v is not None}` (orçamento convertido vira read-only) |
+| `sessions` | ✓ | Insumos — `Conversões` e `Produtos` (explícitas); Orçamentos — `Itens do Orçamento` e `Evento` |
+| `sessions.buttons` | ✓ | Orçamentos — `Itens do Orçamento`: botão `Atualizar preços zerados` (`action` callable, `color: 'warning'`, `icon: 'arrow-path'`) ao lado do Adicionar |
 | `sessions.readonly` | ✓ | Insumos — sessão `Produtos` renderizada como texto |
 | `sessions.table` | ✓ | Insumos — `['UnitConversion']`, `['ProductIngredient']` |
+| `tags` | ✓ | Orçamentos — `[{'field': 'status', 'colors': {9: 'success', 7: 'error', ...}}]` (badges no nav bar, cores inferidas ou por `colors`) |
+
+### Report — configuração de relatórios PDF (§7.7)
+
+Declaração **dict puro** (`ORCAMENTO_REPORT = {...}` em `app/reports/`);
+motor resolve via `parse_report()`. **Sem rotas**: a action do botão chama
+`print_report(DICT, instance)` e o motor gera o PDF na hora, embutindo-o
+no iframe como data URI.
+
+**Fields/columns na pegada List/Form** — dois formatos, resolução automática
+da Entity do módulo corrente (via blueprint da request, mesmo `_resolve_cols`
+do List/Form):
+- **lista** (enxuta): strs puros + dicts para calculados/overrides;
+- **mapa** `nome: extras`: quando qualquer campo precisa de extras.
+
+Da Entity vêm **label + apresentação inferida do type** (`NUM`/currency →
+`brl` right, `DATA` → `datetime` right, `INT` → center), **FK**
+(`product_id` → valor via `product.nome`) e **`calc`** (vira
+`function(row)` no PDF). Extras sobrepõem; chave ausente/ambígua passa
+direto se trouxer `label`/`function` (senão: erro claro). `width` é sempre
+em **ch** — o motor converte para mm pela métrica da fonte.
+
+| Propriedade | Estado | Onde validada |
+|---|---|---|
+| `label` | ✓ | Título fallback do PDF (`pdf.py`); gravado como `/Title` do PDF (nome exibido pelo viewer) |
+| `header.fields` / `table.columns` | ✓ | Dois formatos: **lista enxuta** (strs + dicts calculados) e **mapa** `nome: extras` — resolução automática pela Entity do módulo (via blueprint da request, mesmo `_resolve_cols` de List/Form) |
+| inferência type → apresentação | ✓ | `NUM`/currency → `brl` right · `DATA` → `datetime` right · `INT` → center (override explícito vence) |
+| FK na Entity | ✓ | `product_id` → label `'Produto'` + valor via `product.nome` (convenção `<base>.nome`) |
+| BOOL / LIST na Entity | ✓ | BOOL → `Sim`/`Não` · LIST → label das options (`tipo` → `TIPO_OPERACAO`) |
+| auto-label | ✓ | Campo sem `label` na Entity → `_auto_label` (mesmo fallback de List/Form) |
+| `groups` (mapa por campo) | ✓ | `'groups': {'tipo': {'pos': 'titulo', 'code': True}, 'left(indice,2)': {}}` — agrupa por mudança de valor; defaults `pos='linha'`, `total=True`, `line=True`, `eject=False`, `code=False`; título = label da option (LIST) ou str(valor), com código prefixado quando `code=True` (`1. Receitas`); subtotal por grupo quando houver col `agg` |
+| `calc` na Entity | ✓ | callable usado direto (`quote_validade`); string vira `function(row)` (`_calc_fn`, avaliação restrita) |
+| `width` em ch | ✓ | Sempre caracteres; motor converte para mm pela métrica da fonte (`_calc_col_widths`), bloco centrado; parciais dividem o restante |
+| chave fora da Entity | ✓ | Passthrough se extras trouxerem `label`/`function`; senão erro claro (guard de typo) |
+| `print_fragment_template` | ✓ | Default `'components/print_fragment.html'` (fragmento sem page_layout, injeção via `injectHTML`) |
+| `print_erro` (interno) | ✓ | `components/print_erro.html` — falha de impressão exibe `msg` (default `'Erro na impressão do Relatório'`) |
+| `logo_path` | ✓ | Default `'static/icons/Logo.png'`; resolvido em runtime por `do_report._resolve_logo()` |
+| `print_template` | ✓ | Default `'components/print_default.html'` (página standalone imprimível, p/ rota custom) |
+| `before_table` / `after_table` | ✓ | Orçamentos — `_event_after`/`_forminhas_carteira`; Compras — `_report_before`/`_report_after`; Pedidos — `_event_after`/`_forminhas_carteira` |
+| `data_attr` | ✓ | Default `'items'`; `print_report(REPORT, instance)` extrai `instance.<data_attr>` quando `data` omitido |
+
+**Botão com pre-controle (action + render):**
+
+```python
+# app/routes/sys/orcamentos.py — só o registro; data sai de instance.<data_attr>:
+def _btn_enviar_action(instance):
+    if not instance.items:
+        return ''                                  # não injeta nada
+    return print_report(ORCAMENTO_REPORT, instance)
+
+{'label': 'Enviar', 'icon': 'paper-airplane', 'color': 'success',
+ 'action': _btn_enviar_action, 'render': '#page-content'}
+
+# app/reports/orcamentos.py — header 100% Entity (calc callable ou expressão):
+'header': {'fields': [
+    'cliente_nome',        # label/texto esquerda
+    'data_pedido',         # DATA → right/datetime
+    'cliente_telefone',
+    'validade_data',       # calc da Entity → label 'Válido até'
+]},
+'table': {'columns': {
+    'product_id':     {'width': 44},               # FK → 'Produto'; product.nome
+    'quantidade':     {'width': 8},                # INT → center; label 'Qtd'
+    'preco_unitario': {'width': 14},               # NUM brl → right/brl
+    'valor':          {'width': 14, 'agg': 'sum'}, # calc da Entity vira function
+]},
+
+# app/reports/operacoes.py — grupos por mudança de valor (após header):
+PLANO = {
+    'label': 'Plano de Contas',
+    'header': {...},
+    'groups': {
+        'tipo': {'pos': 'titulo'},           # seção: label da option (LIST)
+        'left(indice,2)': {'pos': 'linha'},  # subgrupo: raiz + filhos diretos
+    },
+    'table': {'columns': {
+        'indice': {'width': 10}, 'id': {'width': 6}, 'nome': {},
+        'fator': {'width': 10}, 'ativa': {'width': 8},
+    }},
+}
+
+# app/routes/sys/operacoes.py — dados do domínio:
+def print_plano(_):
+    return print_report(PLANO, data=Operacao.plano_rows())
+```
+
+Contrato: `action` retorna **HTML** — fragmento do relatório ou conteúdo
+alternativo; string vazia/None → container intacto (`injectHTML` guarda).
+
+**Removidas / Desaprovadas (convenção sobre configuração):**
+- ~~`edit_endpoint`~~ / ~~`pdf_endpoint`~~ / ~~`endpoint`~~ / rotas `/pdf`,`/print`
+  auto-geradas — PDF embutido via data URI, nenhuma rota envolvida
+- ~~`mod.REPORT`~~ / mapa de registros / scan do pacote (`report_loader`,
+  `REPORTS_PACKAGE`) — resolução vem do blueprint da request
+- ~~chave `'print'` no botão~~ — substituída por `action` explícita (pre-controle)
+- ~~`redirect_fn`~~ — pre-controle vive na `action` do botão; caso especial de
+  rota: `@auto.rota` com mesmo endpoint vence a gerada
+- ~~`data_fn`~~ — dados vêm da instância (`data_attr`) ou explícitos na action
+- ~~`fallback_url`~~ — erro exibe view interna `print_erro.html` com `msg`;
+  Voltar usa `reload()`/`history.back()`
 
 ### Module — triggers de UI (§3.3)
 
@@ -201,8 +319,8 @@ O framework é a pasta `app/ajsystem/`:
  │   ├── render_list.py    # render_list + resolvers de colunas/ordenação
  │   └── auth.py           # init_auth + blueprints auth e seguranca (login/logout/chave)
  ├── templates/
- │   ├── pages/            # base.html, sys.html, list.html, form.html, macros.html
- │   └── components/       # form_macros.html, item_table.html, image_widget.html, ...
+ │   ├── pages/            # sys.html, list.html, form.html, construcao.html, ...
+ │   └── components/       # page_layout.html, form_macros.html, item_table.html, ...
  ```
 
  O bloco `defs/` contém as definições declarativas (estrutura de entidades,
@@ -625,7 +743,7 @@ logo, ou logo + título empilhados. O `<img>` do logo usa `height: <rows>em`
 
 > `font: None` e `color: None` não precisam ser declarados — os defaults já são
 > `None`. Fonte em `header`/`footer` que não seja `None` dispara o `<link>` ao
-> Google Fonts no `page_base.html`.
+> Google Fonts no `page_layout.html`.
 
 #### `triggers` — interações de UI
 
@@ -783,22 +901,22 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `INT` | `number` | `align: right`, `width: 5`, `decimals: 0` |
 | `NUM` | `number` | `align: right`, `width: 10`, `decimals: 2` |
 | `PERCENT` | `number` | Percentual 0–100, `decimals: 1`, `min: 0`, `max: 100`; exibe com `%` (ex.: `12,5%`) |
-| `ID` | `number` | PK da tabela; `in_form: False`, `label: '#'`, `filter` numérico |
-| `DK` | `number` | Ligação filho→pai (sessão); `in_form: False`, preenchido pelo motor |
-| `DATA` | `date` | `filter` por data |
-| `DATA_HORA` | `datetime-local` | `filter` por data |
+| `ID` | `number` | PK da tabela; `in_form: 0`, `label: '#'`, `in_filter: 0` |
+| `DK` | `number` | Ligação filho→pai (sessão); `in_form: 0`, `in_filter: 0`, preenchido pelo motor |
+| `DATA` | `date` | filtro por data (`in_filter` 1) |
+| `DATA_HORA` | `datetime-local` | filtro por data (`in_filter` 1) |
 | `HORA` | `time` | — |
-| `BOOL` | `boolean` | `filter` Sim/Não (checkbox) |
+| `BOOL` | `boolean` | filtro Sim/Não (`in_filter` 2) |
 | `FONE` | `text` | `mask: '(99) 99999-9999'`, `digits_only: True` |
 | `CPF` | `text` | `mask: '999.999.999-99'`, `digits_only`, `validate: 'cpf'` |
 | `CNPJ` | `text` | `mask: '99.999.999/9999-99'`, `digits_only`, `validate: 'cnpj'` |
-| `FK` | `select` | `filter` select; referência a outra entidade — `masterkey` opcional, veja §5.2 |
-| `LIST` | `select` | `filter` select; opções fixas via `list`/`options` |
+| `FK` | `select` | filtro select (`in_filter` 2); referência a outra entidade — `masterkey` opcional, veja §5.2 |
+| `LIST` | `select` | filtro select (`in_filter` 2) ou checklist (`in_filter` 3); opções fixas via `list`/`options` |
 | `MULT10` | `multi` | Opções fixas via `list`/`options` (máx. 10, códigos 0-9); editor genérico em modal; persiste códigos concatenados |
-| `IMAGE` | `image` | `filter: False`, widget de preview/upload |
+| `IMAGE` | `image` | `in_filter: 0`, widget de preview/upload |
 
 > As props base do tipo são **mescladas** com as da entidade e do form — você
-> pode sobrescrever/estender qualquer uma (ex.: `{'type': 'BOOL', 'in_form': False}`).
+> pode sobrescrever/estender qualquer uma (ex.: `{'type': 'BOOL', 'in_form': 0}`).
 > `required` é sempre **opt-in** (`'required': True`), nunca herdado do tipo.
 > No formulário, a referência de um campo `*_id` pode ser **derivada da relação**
 > do model (em vez de `masterkey`) — veja §5.4.
@@ -814,9 +932,9 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `input` | str | Sobrescreve o widget (`text`, `textarea`, `number`, `date`, `boolean`, `select`, `image`, ...) |
 | `required` | bool | Obrigatório (validação de presença) |
 | `help` | str/dict | Ajuda do campo: `str` → texto no modal (quebras com `\n`); `dict` `{entrada: descrição}` → tabela "Entrada \| Descrição" no modal. Aparece um botão-ícone ao lado do label que abre o modal (Carteiras — `prazo_recebimento` com formatos de prazo) |
-| `in_form` | bool | `False` não renderiza o campo no form (nem exibe nem submete) |
+| `in_form` | int | Gate do form: `0` não exibe nem submete; `1` edita (padrão); `2` exibe apenas o valor (sem input, não submete — ex.: datas exibidas antes da validade); `3` exibe apenas **se houver valor** (vazio omite o campo — ex.: `data_renovacao`). `True`→`1`, `False`→`0` |
 | `in_list` | int | `0` exclui o campo da listagem, do card e do filtro; `1` coluna na linha (vai p/ o card quando não couber); `2` sempre no card; padrão `1`. `True`→`1`, `False`→`0` |
-| `readonly` | bool | Exibe o valor como texto estático no form (sem edição); o valor é submetido via `<input type="hidden">` (preserva valores preenchidos por `on_set`) |
+| `readonly` | bool | Exibe o valor como texto estático no form (sem edição); o valor é submetido via `<input type="hidden">` (preserva valores preenchidos por `on_set`). Equivalente a `in_form: 2` — porém com submit via hidden |
 | `hidden` | bool | Invisível no form; submete o valor via `<input type="hidden">` (controle interno) |
 | `default` | any | Valor inicial de novos registros |
 | `attrs` | dict | Atributos HTML do input (ex.: `{'min': 0, 'step': 1}`) |
@@ -827,60 +945,78 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `percent` | bool | Formata como percentual (`percent` — ex.: `12,5%`); setado pelo tipo `PERCENT` |
 | `derived` | dict | Campo **virtual** (sem coluna no banco): `{'sum': '<caminho>'}` soma as folhas do caminho, atravessando coleções (ex.: `'items.quantidade'`). Calculado na renderização (células, colunas e agregados) |
 | `hide_zero` | bool | Ocultar valores zero na listagem (padrão `True`) |
-| `masterkey` | str | **FK (opcional)**: chave do `MODEL_MAP` (ex.: `'category'`) — popula o select, e `card_path`/`filter_path` viram `<chave>.nome`. Sem ele, a referência é derivada da relação do model no form (§5.4). Em campos `DK` o padrão é a **primeira tabela da `Entity`** |
+| `masterkey` | str | **FK/DK (opcional)**: chave do `MODEL_MAP` que identifica o field do relacionamento na tabela-mestra (ex.: `'quote'` em `quote_id`) — popula `query` = `Query(model=<chave>)`. Sem ele, a referência é derivada da relação do model (§5.4). Em campos `DK` o padrão é a **primeira tabela da `Entity`** |
 | `list` | dict | **LIST/MULT10**: opções fixas `{valor: rótulo}` (alias de `options`) |
-| `options` | dict | Opções do select (ou `{'model': ..., 'order': ...}`) |
-| `query` | str | Chave do `MODEL_MAP` p/ popular opções do banco |
-| `query_filter` | dict | Filtro aplicado na query de opções |
-| `filter` | dict/str/False | Filtro de lista. `False` desabilita; senão inferido do `input` |
-| `filter_options` | list | Opções customizadas do filtro select |
-| `filter_path` | str | Atributo usado no filtro de referência (padrão `'<chave>.nome'` via masterkey) |
-| `card_path` | str | Acesso aninhado de exibição (padrão `'<chave>.nome'` via masterkey) |
+| `options` | dict | Opções do select (estáticas, ou preenchidas pelo motor via `query`) |
+| `query` | str/dict/Query | Referência de consulta: `str` = chave do `MODEL_MAP` (default `display='nome'`), `dict`/`Query` = `model`, `field`, `columns`, `display`, `return_field`, `when`, `order` (§5.4) |
+| `in_filter` | int | Filtro de lista: `0` oculta; `1` input; `2` select (1 opção); `3` checklist (1+ opções); `None` = inferido do `input`/`options`/`query` (text/number/date→1, select/boolean→2) |
 | `validate` | str/callable | `'cpf'`/`'cnpj'` ou função `(valor) -> bool` |
 | `transform` | str/callable | Transformação ao salvar: `'title'` (padrão em textos editáveis), `'cap'` (só o 1º caractere maiúsculo), `'upper'`, `'lower'`, `'none'` ou callable `(val, field)` |
 | `rows` | int | Altura do textarea (MEMO) |
 | `upload_path` | str | Pasta relativa dos uploads de IMAGE |
 | `link` | str | Endpoint p/ link da célula (ex.: `'produtos.list'`) |
-| `function` | callable | Valor computado na coluna: `f(item) -> valor` |
+| `calc` | str/callable | Campo **calculado virtual** (não persistido): string = expressão aritmética (célula ao vivo na sub-tabela do form); callable = `f(item) -> valor` renderizado na coluna (lista) e como rótulo `readonly` no form — substitui a prop `function` |
 
 ### 5.3 Filtros de lista
 
-Campos com filtro habilitado ganham widget na tela de lista. O filtro é inferido
+Campos com filtro habilitado ganham widget na tela de lista. O tipo é inferido
 do `input` do campo (text → busca, number → intervalo, date → período,
-boolean/select → Sim/Não/listas) e pode ser forçado/desabilitado com `filter`:
+boolean/select → Sim/Não/listas) e pode ser forçado/ocultado com `in_filter`:
 
 ```python
-{'type': 'TEXT', 'filter': 'text'}        # explícito
-{'type': 'MEMO', 'filter': False}         # desabilita
+{'type': 'TEXT', 'in_filter': 1}          # input de texto (explícito)
+{'type': 'MEMO', 'in_filter': 0}          # oculta do filtro
+{'type': 'LIST', 'in_filter': 3}          # checklist multi-seleção (1+ opções)
 ```
+
+No checklist, cada opção vira um checkbox; a seleção é enviada como valores
+separados por vírgula (`?status=Pendente&status=Negociação`) e filtrada por
+inclusão no valor do registro (SQL `IN` para listas de objetos).
 
 Referências (`FK`/`masterkey`) geram select com as opções do banco
 automaticamente. O rótulo de cada filtro na aba **Filtros** segue o
 `label`/`display_label` do campo (não o nome cru — ex.: `carteira_id` →
 "Carteira").
 
-### 5.4 Chave reservada `__meta__`, referências derivadas e `aggregate`
+### 5.4 `Query`, chave reservada `__meta__`, referências derivadas e `agg`
 
-**`__meta__`** — toda entrada da `Entity` é um dict de campos; chaves que
-começam com `__` são **reservadas** e não viram campos. Hoje existe apenas
-`__meta__`:
+**`Query` — referência declarativa de consulta.** Todo campo `*_id` de select
+pode usar `str` (chave do `MODEL_MAP`), `dict` ou a dataclass `Query`:
 
 ```python
-'ProductIngredient': {
-    '__meta__': {'label': 'Insumos', 'readonly': True},  # rótulo/readonly da sessão derivada
-    'ingredient_id': {'type': 'FK', 'required': True},
-    ...
-}
+# dict (idêntico à dataclass)
+'carteira_id': {'type': 'FK', 'query': {'model': 'carteira', 'when': 'uso IN (0, 1)'}}
+'product_id':  {'type': 'FK', 'query': {'model': 'product', 'display': 'preco', 'return_field': 'preco'}}
 ```
 
-- `label` — rótulo da sessão no form (padrão: nome da relação);
-- `readonly` — sessão somente-leitura (sem adicionar/remover).
+Campos **implícitos** — derivados automaticamente do model consultado:
+
+| Campo | Derivação | Ex.: `carteira_id` | Ex.: `preco` (product) |
+|---|---|---|---|
+| `model` | **obrigatório** | `'carteira'` | `'product'` |
+| `field` | PK do model (coluna de busca) | `'id'` | `'id'` |
+| `columns` | 1º campo string após a PK | `'nome'` | `'nome'` |
+| `display` | 1º campo string após a PK | `'nome'` | `'preco'` (informado) |
+| `return_field` | PK do model | `'id'` | `'preco'` (informado) |
+| `when` | — | `'uso IN (0, 1)'` | — |
+| `order` | `display` | `'nome'` | `'preco'` |
+
+- `display` — coluna exibida no select, na listagem (`card_path` derivado:
+  `carteira_id` + model `carteira` → exibe `carteira.nome`) e no filtro;
+- `return_field` — coluna submetida após a seleção (default: PK). Ex.: buscar o
+  produto pela FK e retornar o `preco` (em vez do id);
+- `when` — cláusula SQL `WHERE` (substitui a antiga `query_filter`).
+
+**Chave reservada `__meta__`** — toda entrada da `Entity` é um dict de campos;
+chaves que começam com `__` são **reservadas** e não viram campos. A função de
+`__meta__` (`label`/`readonly` de sessões derivadas) foi **substituída por
+`masterkey`** — marcada para remoção; o motor ainda a lê para compatibilidade.
 
 **Referência derivada da relação** — um campo `*_id` sem `masterkey`/`query` tem
 o `query` resolvido automaticamente pelo motor a partir da relação do model do
-filho (ex.: `product_id` em `quote_item` → `query='product'`). Vale para campos
-de sessões **e** do form principal (ex.: `category_id` em `Product` →
-`query='category'`). O alvo precisa estar em `MODEL_MAP` (§4.6).
+filho (ex.: `product_id` em `quote_item` → `query=Query(model='product')`). Vale
+para campos de sessões **e** do form principal (ex.: `category_id` em `Product`).
+O alvo precisa estar em `MODEL_MAP` (§4.6).
 
 **Selects `LIST` com valor fora do padrão** — o select e o rótulo aceitam o
 valor salvo mesmo que a caixa/maiúscula não bata com a chave da `list`
@@ -889,7 +1025,7 @@ o valor é normalizado para a chave padrão.
 
 **Campo `DK` (detail key)** — marca a coluna que liga a linha filha à **tabela
 principal da `Entity`** (a primeira chave da `Entity`, ex.: `ingredient_id` na
-sessão "Conversões" de um Insumo). É `in_form: False`, não participa de validação
+sessão "Conversões" de um Insumo). É `in_form: 0`, não participa de validação
 e é preenchido automaticamente pelo motor ao salvar (FK para o pai). Se
 `masterkey`/`query` não forem dados, o padrão é a chave `MODEL_MAP` da primeira
 tabela da `Entity`:
@@ -916,12 +1052,12 @@ e botões Cancelar/OK. O modal grava o valor concatenado (ordenado) num hidden
 único — o servidor recebe o mesmo contrato de antes (códigos concatenados).
 Em sessões `readonly`, o campo é renderizado apenas como texto, sem editor.
 
-**`aggregate` dict no form** — além do `'sum'` de rodapé na listagem, `aggregate`
+**`agg` dict no form** — além do `'sum'` de rodapé na listagem/relatório, `agg`
 aceita um dict para o motor **recalcular o campo do pai ao salvar** os filhos:
 
 ```python
 'total': {'type': 'NUM', 'currency': 'brl',
-          'aggregate': {'table': 'items', 'sum': 'preco_unitario * quantidade'}},
+          'agg': {'table': 'items', 'sum': 'preco_unitario * quantidade'}},
 ```
 
 O motor soma a expressão (avaliada com namespace restrito aos atributos de cada
@@ -969,7 +1105,8 @@ no botão da aba (ex.: `'Dados'`, `'Filtros'`, `'Relatórios'`). Cada aba aceita
 - Se o `Page` declarado não incluir aba `type: 'Filter'`, o framework acrescenta
   uma aba `Filtros` padrão (para não perder a filtragem da listagem).
 - Tipos `Report`/`Custom` são **reservados**: renderizam `template` quando
-  informado, senão ficam vazios (implementação real via `do_report` é futura).
+  informado, senão ficam vazios. Relatórios PDF são gerados por `do_report`
+  (§7.7) com dados da instância (`data_attr`) ou passados diretamente.
 
 Exemplo com largura de painel:
 
@@ -1000,6 +1137,7 @@ Page = {
 | `ordering` | list[str] | Nomes de **atributos** da model p/ `ORDER BY` (ex.: `['ordem', 'nome']`) | — |
 | `title` | str | Título da página | nome da entidade |
 | `template` | str | Template alternativo da página | `pages/list.html` |
+| `tags` | list | Fields renderizados como badges coloridos nas células — `[{'field': 'status', 'colors': {9: 'success', ...}}]` ou `['status']` (cores inferidas) | — |
 | `new_endpoint` | str/None | Endpoint do botão "Novo". Ausente → `'<blueprint>.form'`; `None` → esconde; string → usa esse endpoint | — |
 | `edit_endpoint` | str/None | Endpoint do link de edição da linha. Ausente → `'<blueprint>.form'`; `None` → esconde | — |
 | `edit_id_field` | str | Campo usado no `id=` do link de edição | `'id'` |
@@ -1037,6 +1175,13 @@ gerada automaticamente). O `template` define o tipo de renderização:
 | `html` | opcional (omitido = `'index'`) | Template do módulo (`site/vitrine/index.html`) com contexto da função `context()` |
 | `markdown` | nome (`'sobre'`) ou caminho | Conteúdo markdown (loader do host) na template padrão `pages/markdown.html` |
 | `showcase` | — | Vitrine declarativa (abaixo) na template padrão `pages/showcase.html` |
+
+`Page['type']` também aceita `'contacts'` e `'cart'`, ambos com template nativo
+do motor (`pages/contacts.html` e `pages/cart.html`): contato renderiza
+`props` `{título: {type, value}}` (ícones whatsapp/email/instagram/facebook/
+linkedin, telefone mascarado), e carrinho renderiza `session['cart_items']`
+com envio em `Page['events']['on_send']`. Nenhum template no módulo é
+necessário nesses casos.
 
 A **vitrine** (`Page['showcase']`) gera vitrine + carrinho de sessão +
 identificação do cliente sem nenhuma rota ou template custom. Exemplo completo:
@@ -1188,7 +1333,7 @@ Regras da derivação (`Form._auto_sessions`):
 - relações `MANYTOONE`, auto-referências e `secondary`/`viewonly` são ignoradas;
 - o **rótulo** vem de `__meta__['label']` (ou do nome da relação) e `readonly`
   de `__meta__['readonly']` — veja §5.4;
-- **campos gerenciados ficam ocultos** (`in_form: False`): PKs simples (`id`) e FKs
+- **campos gerenciados ficam ocultos** (`in_form: 0`): PKs simples (`id`) e FKs
   que apontam ao model pai (ex.: `quote_id`). O motor os preenche pela relação;
 - FKs para outros models têm o `query` derivado da relação (§5.4);
 - sessão `single: True` quando a relação é 1:1 (ex.: o `event` de um orçamento).
@@ -1264,7 +1409,7 @@ resolvida) são persistidas pelo motor no `pre_save` (inputs
 - `rid` numérico = registro existente (**upsert**); `n*` = novo; FKs para o pai
   são preenchidas pela relação; existentes não submetidos são excluídos;
 - sessões `single` são criadas/atualizadas e nunca apagadas por um envio vazio;
-- `aggregate` dict (§5.4) é recalculado após salvar.
+- `agg` dict (§5.4) é recalculado após salvar.
 
 > As sessões renderizam uma tabela de itens com adicionar/remover
 > (`components/item_table.html`). O padrão canônico de persistência é **o do
@@ -1311,14 +1456,19 @@ Três formas no `Form`:
 | `outline` | bool | Estilo outline |
 | `size` | str | `sm`/`md`/`lg` |
 | `endpoint` / `url` | str | Destino do link |
+| `action` | callable | `(instance) → url` ou, com `render`, `(instance) → html` |
+| `render` | str | CSS selector do container que recebe HTML retornado por `action` via `injectHTML` (ex: `'#page-content'`) |
 | `method` | str | `GET`/`POST` (para ações) |
 | `confirm_msg` | str | Mensagem do modal de confirmação |
 | `on_off` | bool | Botão de toggle ativo/inativo |
 | `field` | str | Campo booleano do toggle (padrão `'ativo'`) |
 | `label_off`/`icon_off` | str | Rótulo/ícone no estado "off" |
-| `show_if` / `hide_if` | tuple/dict | Mostrar/ocultar conforme condição `(campo, valor)` |
-| `position` | str | `nav_right`, `nav_left`, ... |
+| `when` | callable | `(instance) → bool`; oculta o botão quando retorna `False` |
+| `show_if` | tuple | Mostrar conforme condição `(campo, valor)` (legado) |
+| `position` | str | `nav_right`, `nav_left`, `footer_left`, `footer_right` |
 | `extra_params` | dict | Parâmetros extras na URL |
+
+> ~~`hide_if`~~ removido — usar `when`.
 
 Presets: `BTN_SALVAR`, `BTN_ENVIAR`, `BTN_EXCLUIR`, `BTN_NOVO`, `BTN_VOLTAR`,
 `BTN_EDITAR`, `BTN_CANCELAR`, `BTN_CONVERTER`, `BTN_LISTA`, `BTN_IMPRIMIR`,
@@ -1367,7 +1517,73 @@ def _carteira_pre_get(mod, id):
     return {'em_uso': False}
 ```
 
-### 7.7 Templates custom
+### 7.7 Relatórios PDF (`do_report` / `print_report`)
+
+Relatórios são **dicts declarativos** (igual a `Entity`/`Page`) em
+`app/reports/*.py`; o motor resolve para `Report` via `parse_report`.
+**Nenhuma rota envolvida**: a action do botão constrói os dados, chama
+`print_report(DICT, data=...)`, o motor gera os bytes do PDF e embute-os
+no iframe como **data URI** — N relatórios por página sem conflito de URLs.
+
+```python
+# app/reports/orcamentos.py — declaração pura:
+ORCAMENTO_REPORT = {
+    'label': 'Orçamento',                 # display (título do PDF)
+    'header': {...}, 'table': {...}, 'after_table': _event_after,
+}
+
+# app/routes/sys/orcamentos.py — botão com pre-controle no form:
+def _btn_enviar_action(instance):
+    if not instance.items:
+        return ''                          # não injeta nada
+    return print_report(ORCAMENTO_REPORT, data=instance.items, instance=instance)
+
+{'label': 'Enviar', 'icon': 'paper-airplane', 'color': 'success',
+ 'action': _btn_enviar_action, 'render': '#page-content',
+ 'when': lambda i: i.pedido_id is None and i.status < 7}
+
+# app/routes/sys/operacoes.py — dados construídos pela app:
+def print_plano(_):
+    return print_report(PLANO, data=_operacao_data())
+
+{'label': 'Plano', 'icon': 'printer', 'color': 'info',
+ 'action': print_plano, 'render': '#page-content'}
+```
+
+**Report (dict)** — propriedades:
+
+| Propriedade | Tipo | Descrição | Padrão |
+|---|---|---|---|
+| `logo_path` | str | Path da logo (relativo a `root_path`); resolvido em runtime | `'static/icons/Logo.png'` |
+| `print_template` | str | Página standalone imprimível (p/ rota custom) | `'components/print_default.html'` |
+| `print_fragment_template` | str | Fragmento HTML p/ injeção via `injectHTML` | `'components/print_fragment.html'` |
+
+**`do_report(report, data=None, instance=None, filename, as_response=True)`**
+
+- `report` — dict ou Report (resolvido por `parse_report`)
+- `data` — itens/rows do relatório (sempre explícitos)
+- `instance` — instância do model (para `{id}` no título)
+- `filename` — nome do arquivo PDF no Content-Disposition
+- `as_response=False` → retorna objeto FPDF (para testes)
+
+**`print_report(report, data=None, instance=None, msg=None)`** — fragmento
+HTML com PDF embutido (data URI), sem page_layout; usado nas actions.
+
+**`print_report_page(report, data=None, instance=None, msg=None)`** — mesma
+view como página completa; para views standalone via rota custom.
+
+> **Contrato de erro:** qualquer falha de geração renderiza a view interna
+> `components/print_erro.html` com `msg`
+> (default `'Erro na impressão do Relatório'`). Sem URLs de fallback —
+> o botão Voltar das views usa `reload()` (fragmento) / `history.back()`
+> (página cheia).
+>
+> ~~`edit_endpoint`~~ / ~~`pdf_endpoint`~~ / ~~`endpoint`~~ / rotas `/pdf`,
+> `/print` geradas / ~~`mod.REPORT`~~ / mapa ou scan de pacote /
+> chave `'print'` / ~~`redirect_fn`~~ / ~~`data_fn`~~ / ~~`data_attr`~~:
+> removidos — tudo vive na action da app + data URI.
+
+### 7.8 Templates custom
 
 Você pode sobrescrever partes sem recriar a página inteira:
 
@@ -1564,6 +1780,32 @@ Form = {
   fonte SQL global (`join`/`where`/`raw`) é extensão futura.
 - O formato inline legado (§7.3, `'query': ['Order']` + `group_by`/`group_totals`)
   continua suportado pelo motor.
+
+### Campo calculado (`Field.calc`)
+
+Campo **virtual** (sem coluna no banco) — o valor **não é persistido**, é
+calculado sob demanda na renderização:
+
+```python
+# callable — função `f(item) -> valor` renderizada na coluna da lista e como
+# rótulo `readonly` no form (substitui a antiga prop `function`):
+'validade_data': {'label': 'Válido até', 'calc': quote_validade,
+                  'width': 14, 'readonly': True, 'in_filter': 0},
+
+# string — expressão aritmética avaliada por linha, com namespace restrito
+# aos atributos; renderiza ao vivo a célula da sub-tabela no form
+# (ex.: `QuoteItem.valor`):
+'valor': {'type': 'NUM', 'calc': 'quantidade * preco_unitario', 'in_form': 0},
+```
+
+- Callable: recebe o registro (`item`) e devolve o valor final da célula
+  (texto/`Markup` incluso). Avaliado no servidor pelo global Jinja `calc_value`
+  (`init.py`).
+- String: usa o mesmo avaliador restrito do `agg` (`eval` com `__builtins__`
+  vazio) no servidor e o `itEval` (JS) ao vivo no form.
+- `calc` não participa de save/filtro — é exibição apenas. No form, campos com
+  `calc` são renderizados como rótulo `readonly` (sem input) e não são
+  persistidos.
 
 ### Campo derivado (`Field.derived`)
 

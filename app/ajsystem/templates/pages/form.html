@@ -87,6 +87,9 @@
     </div>
     {% endif %}
     <div class="app-bar-right">
+      {% for tag in form._resolved_tags %}
+      <span class="badge badge-{{ tag.color }} badge-sm">{{ tag.text }}</span>
+      {% endfor %}
       {% if form.tag %}
       <span class="badge badge-{{ form.tag.type or 'ghost' }} badge-sm">{{ form.tag.text }}</span>
       {% endif %}

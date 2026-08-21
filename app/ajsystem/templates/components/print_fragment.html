@@ -1,16 +1,15 @@
-{% extends "components/page_sys.html" %}
-{% block modals %}{% endblock %}
-{% block head_extra %}
-<style>html,body{overflow:hidden!important}</style>
-{% endblock %}
-{% block content %}
-<div class="d-flex justify-content-end gap-2 mb-2 no-print">
-  <button onclick="shareOrPrint()" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
-    <i class="bi bi-send"></i> Enviar
-  </button>
-  <a href="#" onclick="var ref=document.referrer||'{{ fallback_url }}';window.location.href=ref;" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"><i class="bi bi-arrow-left"></i> Voltar</a>
+<div class="flex-1 min-h-0 flex flex-col">
+  <div class="shrink-0 flex items-center justify-end gap-2 px-4 py-2">
+    <button onclick="shareOrPrint()" class="btn btn-outline btn-primary btn-sm inline-flex items-center gap-1">
+      <svg class="w-4 h-4" aria-hidden="true"><use href="#i-paper-airplane"/></svg> Enviar
+    </button>
+    <a href="#" class="btn btn-outline btn-secondary btn-sm inline-flex items-center gap-1"
+       onclick="event.preventDefault();window.location.reload();">
+      <svg class="w-4 h-4" aria-hidden="true"><use href="#i-arrow-left"/></svg> Voltar
+    </a>
+  </div>
+  <iframe id="pdf-frame" src="{{ pdf_url }}" class="flex-1 w-full border-0"></iframe>
 </div>
-<iframe id="pdf-frame" src="{{ pdf_url }}" style="width:100%;border:none;"></iframe>
 <script>
 function fitFrame(){
   var f=document.getElementById('pdf-frame');
@@ -39,4 +38,3 @@ async function shareOrPrint(){
   f.contentWindow.print();
 }
 </script>
-{% endblock %}

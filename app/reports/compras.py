@@ -1,6 +1,3 @@
-from app.ajsystem.defs.report import Report
-
-
 def _fornecedor_nome(compra):
     return compra.fornecedor.nome if compra and compra.fornecedor else '-'
 
@@ -49,10 +46,9 @@ def _report_after(compra):
     ]
 
 
-COMPRA_REPORT = Report(
-    label='Compra',
-    edit_endpoint='compras.edit',
-    header={
+COMPRA_REPORT = {
+    'label': 'Compra',
+    'header': {
         'layout': 'logo_left',
         'title': _report_title,
         'fields': [
@@ -60,18 +56,18 @@ COMPRA_REPORT = Report(
             {'field': 'data', 'label': 'Data', 'align': 'right', 'format': 'date'},
         ],
     },
-    before_table=_report_before,
-    table={
+    'before_table': _report_before,
+    'table': {
         'columns': {
             'insumo.nome':   {'label': 'Insumo', 'width': 50},
             'quantidade':    {'label': 'Qtd.', 'width': 15, 'align': 'center'},
             'preco':         {'label': 'Preço', 'width': 20, 'align': 'right', 'format': 'brl'},
             'valor':         {'label': 'Valor', 'width': 20, 'align': 'right', 'format': 'brl',
                               'function': lambda i: (i.preco or 0) * i.quantidade,
-                              'aggregate': 'sum'},
+                              'agg': 'sum'},
         },
         'footer': True,
         'footer_label': 'Total',
     },
-    after_table=_report_after,
-)
+    'after_table': _report_after,
+}

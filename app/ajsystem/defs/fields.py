@@ -34,7 +34,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Union
 
-from app.ajsystem.defs.filters import FILTER_NUMBER, FILTER_DATE, FILTER_BOOLEAN, FILTER_SELECT
 from app.ajsystem.defs.query import Query
 
 
@@ -44,19 +43,19 @@ FIELD_TYPES = {
     'INT':       {'input': 'number', 'align': 'right', 'width': 5, 'decimals': 0},
     'NUM':       {'input': 'number', 'align': 'right', 'width': 10, 'decimals': 2},
     'PERCENT':   {'input': 'number', 'align': 'right', 'width': 6, 'decimals': 1, 'min': 0, 'max': 100, 'percent': True},
-    'ID':        {'input': 'number', 'in_form': False, 'label': '#', 'filter': FILTER_NUMBER},
-    'DK':        {'input': 'number', 'in_form': False, 'filter': False},
-    'DATA':      {'input': 'date', 'filter': FILTER_DATE},
-    'DATA_HORA': {'input': 'datetime-local', 'filter': FILTER_DATE},
+    'ID':        {'input': 'number', 'in_form': 0, 'label': '#'},
+    'DK':        {'input': 'number', 'in_form': 0, 'in_filter': 0},
+    'DATA':      {'input': 'date'},
+    'DATA_HORA': {'input': 'datetime-local'},
     'HORA':      {'input': 'time'},
-    'BOOL':      {'input': 'boolean', 'filter': FILTER_BOOLEAN},
+    'BOOL':      {'input': 'boolean'},
     'FONE':      {'input': 'text', 'mask': '(99) 99999-9999', 'digits_only': True},
     'CPF':       {'input': 'text', 'mask': '999.999.999-99', 'digits_only': True, 'validate': 'cpf'},
     'CNPJ':      {'input': 'text', 'mask': '99.999.999/9999-99', 'digits_only': True, 'validate': 'cnpj'},
-    'FK':        {'input': 'select', 'filter': FILTER_SELECT},
-    'LIST':      {'input': 'select', 'filter': FILTER_SELECT},
-    'MULT10':    {'input': 'multi', 'filter': False},
-    'IMAGE':     {'input': 'image', 'filter': False, 'required': False, 'upload_path': ''},
+    'FK':        {'input': 'select'},
+    'LIST':      {'input': 'select'},
+    'MULT10':    {'input': 'multi', 'in_filter': 0},
+    'IMAGE':     {'input': 'image', 'in_filter': 0, 'required': False, 'upload_path': ''},
 }
 
 
@@ -130,9 +129,7 @@ class Field:
     align: str = 'left'
     input: str = 'text'
     options: Optional[dict] = None
-    filter: Any = None
-    filter_options: Any = field(default=None)
-    filter_path: Optional[str] = None
+    in_filter: Optional[int] = None
     mask: Optional[str] = None
     query: Optional[Union[str, dict, Query]] = None
     query_filter: Optional[dict] = None
@@ -142,15 +139,12 @@ class Field:
     max: Optional[Union[int, float]] = None
     step: Optional[Union[int, float]] = None
     masterkey: Optional[str] = None
-    aggregate: Optional[str] = None
-    aggregate_label: Optional[str] = None
+    agg: Optional[str] = None
     derived: Optional[dict] = None
     currency: Optional[str] = None
     percent: bool = False
     hide_zero: bool = True
-    card_path: Optional[str] = None
     link: Optional[str] = None
-    function: Optional[Callable] = None
     required: bool = False
     placeholder: Optional[str] = None
     help: Any = None
@@ -161,16 +155,24 @@ class Field:
     upload_path: str = ''
     digits_only: bool = False
     attrs: Optional[dict] = None
-    in_form: bool = True
+    in_form: int = 1
     in_list: int = 1
     default: Any = None
     rows: int = 1
     on_set: Optional[Callable] = None
     on_set_ent: Optional[str] = None
     on_set_mod: Optional[str] = None
-    calc: Optional[str] = None
+    calc: Optional[Union[str, Callable]] = None
 
     def __post_init__(self):
+        if self.in_filter is True:
+            self.in_filter = 1
+        elif self.in_filter is False:
+            self.in_filter = 0
+        if self.in_form is True:
+            self.in_form = 1
+        elif self.in_form is False:
+            self.in_form = 0
         if self.in_list is True:
             self.in_list = 1
         elif self.in_list is False:
@@ -179,6 +181,10 @@ class Field:
             self.width = len(self.mask)
             if self.input == 'number' and not self.mask.startswith('-'):
                 self.width += 1
+        if self.width is None:
+            self.width = {'number': 12, 'date': 12, 'time': 10,
+                          'datetime-local': 16, 'boolean': 6, 'checkbox': 6,
+                          'image': 12}.get(self.input, 18)
         if self.input == 'number' and self.align == 'left':
             self.align = 'right'
 
@@ -188,11 +194,4 @@ class Field:
 
     @property
     def width_ch(self) -> int:
-        if self.width is not None:
-            return self.width
-        if self.mask:
-            w = len(self.mask)
-            if self.input == 'number' and not self.mask.startswith('-'):
-                w += 1
-            return w
-        return {'boolean': 6, 'checkbox': 6, 'number': 12, 'date': 12, 'image': 12}.get(self.input, 18)
+        return self.width
