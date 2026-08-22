@@ -139,7 +139,7 @@ em **ch** — o motor converte para mm pela métrica da fonte.
 | FK na Entity | ✓ | `product_id` → label `'Produto'` + valor via `product.nome` (convenção `<base>.nome`) |
 | BOOL / LIST na Entity | ✓ | BOOL → `Sim`/`Não` · LIST → label das options (`tipo` → `TIPO_OPERACAO`) |
 | auto-label | ✓ | Campo sem `label` na Entity → `_auto_label` (mesmo fallback de List/Form) |
-| `groups` (mapa por campo) | ✓ | `'groups': {'tipo': {'pos': 'titulo', 'code': True}, 'left(indice,2)': {}}` — agrupa por mudança de valor; defaults `pos='linha'`, `total=True`, `line=True`, `eject=False`, `code=False`; título = label da option (LIST) ou str(valor), com código prefixado quando `code=True` (`1. Receitas`); subtotal por grupo quando houver col `agg` |
+| `groups` (lista/mapa por campo) | ✓ | `'groups': [{'indice': {'left': 2, 'pos': 1, 'skip': True, 'fields': 'nome', 'transform': 'upper', 'bold': False}}]` — agrupa por mudança de valor; lista permite N níveis do mesmo campo; defaults `pos=1` (**0** oculto · **1** linha · **2** titulo), `total=True`, `line=True`, `eject=False`, `bold=True`; opção `left: n` agrupa pelos primeiros **n segmentos** do código; **`text`**: template do título — `{campo}` = valor da linha (LIST→label), `{<field do grupo>}` = código, demais caracteres literais; `fields` (str/list) acrescenta descrição ao título; `transform` ('upper'/'title'/'lower') aplica efeito; `skip=True` consome a linha-âncora (não repete nas colunas); subtotal quando houver col `agg` |
 | `calc` na Entity | ✓ | callable usado direto (`quote_validade`); string vira `function(row)` (`_calc_fn`, avaliação restrita) |
 | `width` em ch | ✓ | Sempre caracteres; motor converte para mm pela métrica da fonte (`_calc_col_widths`), bloco centrado; parciais dividem o restante |
 | chave fora da Entity | ✓ | Passthrough se extras trouxerem `label`/`function`; senão erro claro (guard de typo) |
@@ -180,19 +180,29 @@ def _btn_enviar_action(instance):
 PLANO = {
     'label': 'Plano de Contas',
     'header': {...},
-    'groups': {
-        'tipo': {'pos': 'titulo'},           # seção: label da option (LIST)
-        'left(indice,2)': {'pos': 'linha'},  # subgrupo: raiz + filhos diretos
-    },
+    'groups': [
+        {'indice': {'left': 1, 'pos': 2,
+                    'text': '{indice}. {tipo}'}},   # título: '1. Receitas'
+        {'indice': {'left': 2, 'pos': 1, 'skip': True,
+                    'text': '{indice} {nome}',
+                    'transform': 'upper', 'bold': False}},
+    ],
     'table': {'columns': {
         'indice': {'width': 10}, 'id': {'width': 6}, 'nome': {},
         'fator': {'width': 10}, 'ativa': {'width': 8},
     }},
 }
 
-# app/routes/sys/operacoes.py — dados do domínio:
-def print_plano(_):
-    return print_report(PLANO, data=Operacao.plano_rows())
+# app/routes/sys/operacoes.py — action pura; fonte inferida das colunas:
+{'label': 'Plano', 'icon': 'printer', 'color': 'info',
+ 'action': lambda _: print_report(PLANO), 'render': '#page-content'}
+
+# app/routes/sys/operacoes.py — Entity amarra o cálculo hierárquico:
+# Field.code → código hierárquico em uma passada (core/hier.py::codigos):
+'indice': {'label': 'Índice', 'code': {'mask': '9.99.99',
+                                       'prefix_fields': ['tipo'],
+                                       'scope_fields': ['tipo']}},
+'indice': {..., 'calc': _indice_calc},
 ```
 
 Contrato: `action` retorna **HTML** — fragmento do relatório ou conteúdo
@@ -1542,12 +1552,9 @@ def _btn_enviar_action(instance):
  'action': _btn_enviar_action, 'render': '#page-content',
  'when': lambda i: i.pedido_id is None and i.status < 7}
 
-# app/routes/sys/operacoes.py — dados construídos pela app:
-def print_plano(_):
-    return print_report(PLANO, data=_operacao_data())
-
+# app/routes/sys/operacoes.py — fonte inferida; Field.code na Entity:
 {'label': 'Plano', 'icon': 'printer', 'color': 'info',
- 'action': print_plano, 'render': '#page-content'}
+ 'action': lambda _: print_report(PLANO), 'render': '#page-content'}
 ```
 
 **Report (dict)** — propriedades:
@@ -1557,6 +1564,18 @@ def print_plano(_):
 | `logo_path` | str | Path da logo (relativo a `root_path`); resolvido em runtime | `'static/icons/Logo.png'` |
 | `print_template` | str | Página standalone imprimível (p/ rota custom) | `'components/print_default.html'` |
 | `print_fragment_template` | str | Fragmento HTML p/ injeção via `injectHTML` | `'components/print_fragment.html'` |
+
+**Header/Table:**
+
+- `header.title`: str ou dict `{label, font_size, font_style, align}` ·
+  `header.line`: True → linha horizontal após o cabeçalho
+- `table.rows_after` / `table.rows_before`: espaçamento (default **1**)
+
+**Fonte de dados (inferência):** sem `data`/`instance`, o motor localiza o
+**model da Entity que contém todas as colunas** da tabela (`_resolve_model`),
+consulta-o e ordena pelo **calc callable** de uma das colunas (ex.: índice
+hierárquico via `core/hier.py::codigos` (Field.code)). Ambíguo/ausente → erro com
+orientação.
 
 **`do_report(report, data=None, instance=None, filename, as_response=True)`**
 

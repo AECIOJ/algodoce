@@ -109,6 +109,19 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
         else:
             data = model.query.all()
 
+    # Código hierárquico (Field.code) tem precedência sobre calc-sort:
+    # calcula os códigos numa passada e já retorna em ordem DFS.
+    code_field = next((f for f in line_fields if getattr(f, 'code', None)), None)
+    if code_field is not None and data:
+        from app.ajsystem.core.hier import codigos
+        data = codigos(data, attr=code_field.name, **(code_field.code or {}))
+    else:
+        # calc chamável → ordenação hierárquica python-side
+        calc_field = next((f for f in line_fields
+                           if callable(getattr(f, 'calc', None))), None)
+        if calc_field and data:
+            data = sorted(data, key=calc_field.calc)
+
     for field, filter_value in active.items():
         ftype = filter_config.get(field, {}).get('type', 'text')
         if ftype == 'text':

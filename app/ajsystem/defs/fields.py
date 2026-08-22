@@ -163,6 +163,10 @@ class Field:
     on_set_ent: Optional[str] = None
     on_set_mod: Optional[str] = None
     calc: Optional[Union[str, Callable]] = None
+    # Código hierárquico em uma passada (core/hier.py::codigos) — ex.:
+    # {'mask': '9.99.99', 'prefix_fields': ['tipo'], 'scope_fields': ['tipo']}
+    # O motor calcula os códigos sobre a coleção e ordena por eles (DFS).
+    code: Optional[dict] = None
 
     def __post_init__(self):
         if self.in_filter is True:

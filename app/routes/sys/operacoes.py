@@ -7,15 +7,13 @@ from app.ajsystem.core.do_report import print_report
 from app.reports import PLANO
 
 
-def print_plano(_):
-    """Botão Plano — impressão do plano de contas (dados do domínio)."""
-    return print_report(PLANO, data=Operacao.plano_rows())
-
-
 Entity = {
     'Operacao': {
         'id':     {'type': 'ID', 'width': 6},
-        'indice': {'label': 'Índice', 'width': 6, 'in_filter': 0, 'in_form': 0},
+        'indice': {'label': 'Índice', 'width': 6, 'in_filter': 0, 'in_form': 0,
+                   'code': {'mask': '9.9.99',
+                            'prefix_fields': ['tipo'],
+                            'scope_fields': ['tipo']}},
         'nome':   {'type': 'TEXT', 'width': 20, 'transform': 'title'},
         'tipo':   {'type': 'LIST', 'width': 12, 'list': TIPO_OPERACAO},
         'fator':  {'type': 'INT', 'width': 8},
@@ -71,7 +69,8 @@ Page = {
             'fields': 'Operacao',
                 'buttons': [
                     {'label': 'Plano', 'icon': 'printer', 'color': 'info',
-                     'action': print_plano, 'render': '#page-content'},
+                     'action': lambda _: print_report(PLANO),
+                     'render': '#page-content'},
                 ],
         },
         'form': {
@@ -86,20 +85,6 @@ Page = {
         },
     },
 }
-
-
-@auto.rota("/", endpoint='list')
-def list():
-    from app.reports.operacoes import _build_tree
-    secoes = _build_tree()
-    op_data = []
-    for secao in secoes:
-        for item in secao["flat"]:
-            op = item["operacao"]
-            op.indice = item["indice"]
-            op_data.append(op)
-    from app.ajsystem.core.do_list import do_list
-    return do_list('Operacao', __name__, data=op_data)
 
 
 @auto.rota("/<int:id>/uso")

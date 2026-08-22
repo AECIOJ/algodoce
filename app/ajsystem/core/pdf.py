@@ -10,6 +10,7 @@ from typing import Optional
 from flask_login import current_user
 from fpdf import FPDF
 
+from app.ajsystem.core.utils import apply_transform
 from app.ajsystem.defs.report import (
     Report, ReportField, ReportColumn, ReportColumns, ReportGroup,
     ReportText, parse_header_field,
@@ -18,7 +19,7 @@ from app.ajsystem.defs.report import (
 
 _HEADER_DEFAULTS = {
     'logo': {'position': 'N', 'lines': 2},
-    'titulo': {'label': None, 'align': 'C', 'font_style': 'B', 'font_size': 16},
+    'title': {'label': None, 'align': 'C', 'font_style': 'B', 'font_size': 16},
     'subtitle': None,
     'fields': None,
     'field_columns': 2,
@@ -46,6 +47,7 @@ class _ReportHeader:
     field_columns: int = 2
     on_each_page: bool = True
     layout: str = 'centered'
+    line: bool = False              # linha horizontal após o cabeçalho
 
 
 @dataclass
@@ -55,8 +57,8 @@ class _ReportTable:
     footer: bool = False
     footer_label: str = 'Total'
     after: Optional[object] = None
-    lines_before: int = 0
-    lines_after: int = 0
+    rows_before: int = 1
+    rows_after: int = 1
 
 
 @dataclass
@@ -82,12 +84,16 @@ def _build_header(report: Report) -> '_ReportHeader':
     logo_lines = logo_cfg.get('lines', 4)
     logo_align = 'C' if pos == 'N' else pos
 
-    # Título: nested (deep merge) ou flat
-    titulo_cfg = {**_HEADER_DEFAULTS.get('titulo', {}), **(h.get('titulo') or {})}
-    title = titulo_cfg.get('label') or h.get('title') or report.label
-    title_font_size = titulo_cfg.get('font_size', h.get('title_font_size', 16))
-    title_font_style = titulo_cfg.get('font_style', h.get('title_font_style', 'B'))
-    title_align = titulo_cfg.get('align', h.get('title_align', 'C'))
+    # Título: dict (deep merge) ou str
+    t_raw = h.get('title')
+    title_cfg = {**_HEADER_DEFAULTS.get('title', {}),
+                 **(t_raw if isinstance(t_raw, dict) else {})}
+    title = (title_cfg.get('label') if isinstance(t_raw, dict) else None) \
+        or (t_raw if isinstance(t_raw, str) else None) \
+        or report.label
+    title_font_size = title_cfg.get('font_size', h.get('title_font_size', 16))
+    title_font_style = title_cfg.get('font_style', h.get('title_font_style', 'B'))
+    title_align = title_cfg.get('align', h.get('title_align', 'C'))
 
     # Subtítulo: dict, str ou None
     sub_cfg = h.get('subtitle')
@@ -117,6 +123,7 @@ def _build_header(report: Report) -> '_ReportHeader':
         field_columns=h.get('field_columns', 2),
         on_each_page=h.get('on_each_page', True),
         layout=h.get('layout', 'centered'),
+        line=bool(h.get('line', False)),
     )
 
 
@@ -130,8 +137,8 @@ def _build_table(report: Report) -> '_ReportTable':
         footer=t.get('footer', False),
         footer_label=t.get('footer_label', 'Total'),
         after=t.get('after'),
-        lines_before=t.get('lines_before', 0),
-        lines_after=t.get('lines_after', 0),
+        rows_before=t.get('rows_before', 1),
+        rows_after=t.get('rows_after', 1),
     )
 
 
@@ -233,6 +240,10 @@ class DocPDFReport(FPDF):
                     self.image(logo, x=x, w=logo_w, h=0)
                     self.ln(h.logo_height)
             self._render_header_centered(h)
+
+        if h.line:
+            y = self.get_y()
+            self.line(self.l_margin, y, self.w - self.r_margin, y)
 
     def _render_header_logo_left(self, h, logo_w):
         """Renderiza header com logo à esquerda, título + campos à direita."""
@@ -533,33 +544,65 @@ def _table_close(pdf, x_start, total_w):
 
 
 def _group_value(row, g):
-    """Valor de agrupamento (suporta left(campo,n))."""
     v = getattr(row, g['field'], None)
     if g.get('left'):
-        v = str(v or '')[:g['left']]
+        # left(n) = n primeiros SEGMENTOS do código ('1.2.01'/2 → '1.2')
+        sc = g.get('sep', '.')
+        v = sep_join(str(v or ''), g['left'], sc)
+    elif g.get('anchor_self') and v is None:
+        # raiz âncora: pai nulo usa o próprio id (abre e pertence ao bloco)
+        v = getattr(row, 'id', None)
     return v
 
 
-def _group_title(g, val):
-    """Título do grupo: label da option (LIST) ou str(valor).
-    Opt-in `'code': True` prefixa o código → '1. Receitas'."""
-    opts = g.get('options')
-    lbl = opts.get(val, val) if opts else val
-    if g.get('code') and val is not None:
-        return f"{val}. {lbl}"
-    return str(lbl or '')
+def sep_join(code, n, sep='.'):
+    parts = code.split(sep)
+    return sep.join(parts[:n])
 
 
-def _render_group_header(pdf, g, val, xs, tw, pos):
-    txt = _group_title(g, val)
-    if pos == 'titulo':
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.set_x(xs + 2)
-        pdf.cell(tw - 2, 8, txt, border=0, new_x="LMARGIN", new_y="NEXT")
-    else:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_x(xs + 6)
-        pdf.cell(tw - 6, 7, txt, border=0, new_x="LMARGIN", new_y="NEXT")
+def _group_title(g, val, row=None):
+    """Título do grupo — template `text`.
+
+    '{campo}' = valor da linha com formatação da Entity (LIST → label);
+    `{<g.field>}` = código do grupo (left aplicado); demais caracteres
+    são literais. Ex.: '{indice}. {tipo}' → '1. Receitas'.
+
+    Sem `text` → str(valor) do grupo.
+    `transform`: 'upper' | 'title' | 'lower' aplicado ao texto final.
+    """
+    tpl = g.get('text')
+    if not tpl:
+        return apply_transform(str(val or ''), g.get('transform'))
+
+    fmt_opts = g.get('_fmt_opts') or {}
+
+    class _NS(dict):
+        def __missing__(self, k):
+            v = getattr(row, k, None) if row is not None else None
+            o = fmt_opts.get(k)
+            if o is not None and v is not None:
+                v = o.get(v, v)
+            return '' if v is None else str(v)
+
+    ns = _NS()
+    gv = val
+    o = fmt_opts.get(g.get('field'))
+    if o is not None and gv is not None:
+        gv = o.get(gv, gv)
+    ns[g['field']] = gv
+    return apply_transform(tpl.format_map(ns), g.get('transform'))
+
+
+def _render_group_header(pdf, g, val, xs, tw, pos, row=None):
+    txt = apply_transform(_group_title(g, val, row=row), g.get('transform'))
+    style = 'B' if g.get('bold', True) else ''
+    size = 11 if pos == 2 else 10
+    indent = 2 if pos == 2 else 6
+    height = 8 if pos == 2 else 7
+    pdf.set_font("Helvetica", style, size)
+    pdf.set_x(xs + indent)
+    pdf.cell(tw - indent, height, txt, border=0,
+             new_x="LMARGIN", new_y="NEXT")
 
 
 def _render_group_total(pdf, g, cols, cw, xs, acc):
@@ -583,12 +626,12 @@ def _render_group_total(pdf, g, cols, cw, xs, acc):
 def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                        agg_values, header_h, report):
     """Grupos por mudança de valor do campo (specs normalizadas)."""
-    lines_after = (report.table or {}).get('lines_after', 0) if report else 0
+    lines_after = (report.table or {}).get('rows_after', 1) if report else 1
     show_lines = bool(report.show_table_lines) if report else False
     prev = [None] * len(gs)
     accs = [{c.field: 0 for c in cols if c.agg} for _ in gs]
     started = False
-    table_open = True
+    table_open = False   # nada foi desenhado ainda — evita fechar tabela fantasma
     gera_cab = True
 
     def close_level(i):
@@ -605,6 +648,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
         changed = 0 if not started else \
             next((i for i in range(len(gs)) if vals[i] != prev[i]), None)
 
+        opened_linha = False
         if changed is not None:
             # fecha do nível mais interno até o primeiro alterado
             for i in range(len(gs) - 1, changed - 1, -1):
@@ -614,24 +658,32 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                 g = gs[i]
                 if g.get('eject'):
                     pdf.add_page()
-                if g['pos'] == 'titulo':
+                pos = g['pos']
+                if pos == 2:                     # titulo
                     if table_open:
                         _table_close(pdf, xs, tw)
                         table_open = False
                     if lines_after:
                         pdf.ln(lines_after * 6)
-                    _render_group_header(pdf, g, vals[i], xs, tw, 'titulo')
+                    _render_group_header(pdf, g, vals[i], xs, tw, pos, row)
                     gera_cab = True
-                else:
+                elif pos == 1:                   # linha
                     table_open = True
                     pb = _check_page_break(pdf, header_h)
                     if gera_cab or pb:
                         _render_column_headers(pdf, cols, cw, xs, tw,
                                                draw_top_line=True)
                         gera_cab = False
-                    _render_group_header(pdf, g, vals[i], xs, tw, 'linha')
+                    _render_group_header(pdf, g, vals[i], xs, tw, pos, row)
+                    opened_linha = True
+                # pos == 0: oculto — agrupa/totaliza sem imprimir cabeçalho
                 prev[i] = vals[i]
             started = True
+
+            # linha que ABRIU o grupo é consumida como cabeçalho quando o
+            # grupo declara skip=True — não repete nas colunas
+            if any(g['pos'] == 1 and g.get('skip') for g in gs):
+                continue
 
         if not table_open:
             table_open = True
@@ -664,6 +716,7 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
     cols = list(columns)
     if not cols:
         return
+
 
     col_widths, total_w, x_start = _calc_col_widths(pdf, cols)
 
@@ -766,8 +819,8 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     if tbl.columns:
         _render_table(pdf, tbl.columns, data, tbl.footer, tbl.footer_label,
                       instance, report=report)
-    if tbl.lines_after:
-        pdf.ln(tbl.lines_after * 6)
+    if tbl.rows_after:
+        pdf.ln(tbl.rows_after * 6)
 
     # After table
     _after = report.after_table

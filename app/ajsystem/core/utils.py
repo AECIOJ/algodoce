@@ -212,3 +212,20 @@ def list_table(valores: dict):
         for k, v in valores.items()
     ]
     return union_all(*ctes).cte('list_table')
+
+
+import re
+
+
+def apply_transform(text, mode):
+    """Efeito de texto: 'upper' | 'title' | 'lower' (None/other = intacto)."""
+    if not text or not mode:
+        return text
+    mode = mode.lower()
+    if mode == 'upper':
+        return str(text).upper()
+    if mode == 'lower':
+        return str(text).lower()
+    if mode == 'title':
+        return str(text).title()
+    return text

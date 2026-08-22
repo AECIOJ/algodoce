@@ -200,20 +200,23 @@ def _apply_entity(raw, entity):
             out['table'] = {**table, 'columns': cols}
 
     groups = out.get('groups')
-    if isinstance(groups, dict):
+    if isinstance(groups, (dict, list)):
+        # dict  {campo: opts}            — um grupo por campo
+        # lista [{campo: opts}, ...]     — permite N níveis no MESMO campo
+        items = (groups.items() if isinstance(groups, dict)
+                 else [(k, v) for item in groups for k, v in (item or {}).items()])
         specs = []
-        for key, o in groups.items():
+        for field, o in items:
             o = dict(o or {})
-            m = re.match(r'^left\((\w+)\s*,\s*(\d+)\)$', key)
-            field = m.group(1) if m else key
             sp = {'field': field,
-                  'pos': o.pop('pos', 'linha'),      # linha | titulo
-                  'total': o.pop('total', True),     # subtotal do grupo
-                  'line': o.pop('line', True),       # linha horizontal ao fechar
-                  'eject': o.pop('eject', False),    # quebra de página
-                  'code': o.pop('code', False)}      # prefixa código no título
-            if m:
-                sp['left'] = int(m.group(2))
+                  'pos': o.pop('pos', 1),          # 0 oculto | 1 linha | 2 titulo
+                  'total': o.pop('total', True),   # subtotal do grupo
+                  'line': o.pop('line', True),     # linha horizontal ao fechar
+                  'eject': o.pop('eject', False)}  # quebra de página
+            if 'left' in o:                          # nº de segmentos do código
+                sp['left'] = max(1, int(o.pop('left')))
+            # demais extras fluem para o engine: fields/skip/transform/bold
+            sp.update(o)
             model = _locate(field)
             if model:
                 raw_cfg = entity[model].get(field, {})
@@ -221,8 +224,28 @@ def _apply_entity(raw, entity):
                 opts = raw_cfg.get('list') or raw_cfg.get('options')
                 if opts:
                     sp['options'] = opts          # título do grupo = label da option
+                if raw_cfg.get('type') == 'FK':
+                    # título do grupo via relacionamento (ex.: pai.nome)
+                    sp['fk_path'] = f'{field[:-3] if field.endswith("_id") else field}.nome'
             else:
                 sp['label'] = o.pop('label', _auto_label(field))
+            # extras declarativos fluem inteiros p/ o engine de grupos:
+            # fields/skip/transform/bold/text/...
+            sp.update(o)
+            # 'text': template com {campo} — resolve options (LIST) p/ label
+            ttxt = sp.get('text')
+            if ttxt:
+                import re as _re
+                fo = {}
+                for nm in set(_re.findall(r'{(\w+)}', ttxt)):
+                    mdl = _locate(nm)
+                    if mdl:
+                        o_ = entity[mdl].get(nm, {})
+                        lst = o_.get('list') or o_.get('options')
+                        if lst:
+                            fo[nm] = lst
+                if fo:
+                    sp['_fmt_opts'] = fo
             specs.append(sp)
         out['groups'] = specs
     return out
@@ -247,6 +270,61 @@ def do_report(report, data=None, instance=None, filename="relatorio.pdf",
     )
 
 
+def _infer_source(report, entity):
+    """Model da Entity que contém TODAS as colunas da tabela.
+
+    Retorna (model_name | None, sort_fn | None, code_cfg | None,
+    code_attr) — sort_fn é o `calc` callable de uma das colunas;
+    code_cfg/code_attr indicam Field.code (código hierárquico DFS).
+    Zero ou múltiplos candidatos → KeyError com orientação.
+    """
+    tbl = report.table if isinstance(report.table, dict) else None
+    items = tbl.get('columns') if tbl else None
+    if not entity or not isinstance(items, dict) or not items:
+        return None, None, None, None
+    bases = [k.split('.')[-1] for k in items]
+    cands = [m for m, cfg in entity.items()
+             if isinstance(cfg, dict) and all(b in cfg for b in bases)]
+    if len(cands) > 1:
+        raise KeyError(
+            f"Colunas {bases} existem em múltiplos models "
+            f"({', '.join(cands)}) — ajuste a declaração "
+            f"(report '{report.label}')")
+    if not cands:
+        raise KeyError(
+            f"Nenhum model da Entity contém todas as colunas {bases} "
+            f"(report '{report.label}')")
+    m = cands[0]
+    for b in bases:
+        raw = entity[m].get(b, {})
+        cc = raw.get('calc')
+        if callable(cc):
+            return m, cc, None, None
+        if isinstance(raw.get('code'), dict):
+            return m, None, raw['code'], b
+    return m, None, None, None
+
+
+def _auto_data(report, data, instance):
+    """Precedência: `data` explícito → `instance.<data_attr>` →
+    inferência pela Entity. Field.code → DFS (hier.codigos);
+    calc callable → sort python-side."""
+    if data is not None or instance is not None:
+        if data is None and instance is not None:
+            data = getattr(instance, report.data_attr, None)
+        return data
+    name, sort_fn, code_cfg, code_attr = _infer_source(
+        report, _module_entity())
+    if not name:
+        return None
+    from app.ajsystem.core.list import _resolve_model
+    out = list(_resolve_model(name).query.all())
+    if code_cfg and code_attr:
+        from app.ajsystem.core.hier import codigos
+        return codigos(out, attr=code_attr, **code_cfg)
+    return sorted(out, key=sort_fn) if (sort_fn and out) else out
+
+
 def print_report_page(report, instance=None, data=None, msg=None):
     """Retorna página completa com iframe do PDF embutido (data URI).
 
@@ -254,8 +332,9 @@ def print_report_page(report, instance=None, data=None, msg=None):
     automaticamente (pegada List/Form). Falha de geração → view padrão
     `print_erro.html` com `msg` (default: 'Erro na impressão do Relatório').
     """
+    report = parse_report(_apply_entity(report, _module_entity()))
+    data = _auto_data(report, data, instance)
     try:
-        report = parse_report(_apply_entity(report, _module_entity()))
         src = _data_uri(_pdf_bytes(report, data, instance))
         return render_template(report.print_template, pdf_url=src)
     except Exception:
@@ -271,8 +350,9 @@ def print_report(report, instance=None, data=None, msg=None):
     módulo corrente automaticamente (pegada List/Form).
     Falha → view padrão `print_erro.html` com `msg`.
     """
+    report = parse_report(_apply_entity(report, _module_entity()))
+    data = _auto_data(report, data, instance)
     try:
-        report = parse_report(_apply_entity(report, _module_entity()))
         src = _data_uri(_pdf_bytes(report, data, instance))
         return render_template(report.print_fragment_template, pdf_url=src)
     except Exception:
