@@ -11,3 +11,11 @@ class Category(db.Model):
 
     def __repr__(self):
         return f"<Category {self.nome}>"
+
+
+Entity = {
+    'id':    {'type': 'ID', 'width': 6},
+    'nome':  {'type': 'TEXT', 'required': True},
+    'ordem': {'type': 'INT', 'mask': '999', 'min': 0, 'max': 99},
+    'ativo': {'type': 'BOOL'},
+}

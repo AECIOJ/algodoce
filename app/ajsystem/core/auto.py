@@ -1,31 +1,24 @@
-"""Geração automática de blueprints CRUD a partir da definição do módulo.
+"""AUTO — montagem de blueprints a partir do menu do config.
 
-Modo declarativo (padrão-alvo): o módulo de rotas declara apenas `Entity` +
-`List` (+ `Form` opcional) e, para rotas custom, usa o decorator `@auto.rota`.
-NÃO declara `bp = Blueprint(...)` nem `@bp.route`. O motor:
-
-- cria o blueprint internamente a partir do nome do arquivo (slug normalizado);
-- monta as rotas CRUD padrão (listagem, formulário e, se configurado em `Form`,
-  exclusão e ativar/desativar);
-- monta as rotas custom declaradas com `@auto.rota`;
-- registra o blueprint no app (via `registrar_modulos`, conforme o menu).
-
-Modos legados: módulos que ainda expõem `bp = Blueprint(...)` são preservados —
-o motor retorna o bp existente e estes continuam registrados explicitamente.
+Reescrito do zero observando `core/old/auto.py`. Para cada item de menu importa
+o módulo de rota e, se declarativo (`Page`/`Schema`), monta o blueprint CRUD
+via `core.do_list`/`core.do_form`. Módulos ausentes → `pages/construcao.html`.
 """
 import importlib
 import unicodedata
-from flask import Blueprint, redirect, url_for, flash
+from dataclasses import fields as dc_fields
+
+from flask import Blueprint, flash, redirect, render_template, url_for
 from flask_login import login_required
 
+from app.ajsystem.defs.data import (
+    resolve_entity_fields, page_list_cfg as _lista_config, module_page,
+)
+from app.ajsystem.defs.form import Form
 from app.ajsystem.core.adapter import db
 from app.ajsystem.core.do_list import do_list
-from app.ajsystem.core.form import handle_form, _resolve_delete, _when_allows, _resolve_label
-from app.ajsystem.core.do_page import do_page
-from app.ajsystem.core.showcase import generated_routes as _generated_showcase_routes
-
-# registro de rotas custom declaradas com @auto.rota, indexado por nome de módulo
-_ROTAS = {}
+from app.ajsystem.core.do_form import do_form
+from app.ajsystem.core.form import _resolve_delete, _when_allows
 
 
 def _normalizar_slug(label: str) -> str:
@@ -34,73 +27,11 @@ def _normalizar_slug(label: str) -> str:
     return s.lower().strip()
 
 
-def rota(path, methods=None, endpoint=None, defaults=None):
-    """Decorator para declarar rotas custom sem um objeto Blueprint.
-
-    No momento do import do módulo ele apenas registra a view no motor; o bp é
-    montado depois por `montar_blueprint`. O `endpoint` default é o nome da
-    função (`list`, `toggle`, `search`, ...) e define o endpoint da rota.
-    """
-    methods = methods or ['GET']
-
-    def _decorator(func):
-        mod_name = func.__module__
-        _ROTAS.setdefault(mod_name, []).append({
-            'path': path,
-            'methods': methods,
-            'endpoint': endpoint or func.__name__,
-            'defaults': defaults,
-            'func': func,
-        })
-        return func
-
-    return _decorator
-
-
-def _rotas_do_modulo(mod):
-    return _ROTAS.get(mod.__name__, []) if mod is not None else []
-
-
 def _blueprint_no_modulo(mod):
     for name in dir(mod):
         obj = getattr(mod, name, None)
         if isinstance(obj, Blueprint):
             return obj
-    return None
-
-
-def _entidade_principal(mod):
-    form = _form_config(mod)
-    if form:
-        fields = form.get('fields')
-        if isinstance(fields, str) and fields in getattr(mod, 'Entity', {}):
-            return fields
-    lista = _lista_config(mod)
-    if isinstance(lista, dict):
-        fields = lista.get('fields')
-        if isinstance(fields, str):
-            return fields if fields in getattr(mod, 'Entity', {}) else None
-        columns = fields or [next(iter(getattr(mod, 'Entity', {})), '')]
-        if columns:
-            primeira = columns[0]
-            entidade = primeira.split('.', 1)[0] if isinstance(primeira, str) else ''
-            if entidade in getattr(mod, 'Entity', {}):
-                return entidade
-    entidades = getattr(mod, 'Entity', {})
-    if entidades:
-        return next(iter(entidades))
-    return None
-
-
-def _get_model(mod):
-    entidade = _entidade_principal(mod)
-    if entidade:
-        cand = getattr(mod, entidade, None)
-        if isinstance(cand, type):
-            return cand
-    form = _form_config(mod)
-    if isinstance(form.get('model'), type):
-        return form['model']
     return None
 
 
@@ -115,63 +46,72 @@ def _form_config(mod):
     return f if isinstance(f, dict) else {}
 
 
-def _lista_config(mod):
-    """Config do `List`: props.list de Page (novo) ou aba List em props.tabs."""
-    page = getattr(mod, 'Page', None)
-    if isinstance(page, dict):
-        props = page.get('props') or {}
-        list_cfg = props.get('list')
-        if isinstance(list_cfg, dict):
-            return list_cfg
-        tabs = props.get('tabs') or page.get('tabs') or {}
-        for key, cfg in tabs.items():
-            if isinstance(cfg, dict) and cfg.get('type', 'Custom') == 'List':
-                cfg = dict(cfg)
-                for std in ('type', 'max_width', 'template'):
-                    cfg.pop(std, None)
-                return cfg
-    lista = getattr(mod, 'List', None)
-    return lista if isinstance(lista, dict) else None
+def _entidade_principal(mod):
+    form = _form_config(mod)
+    if form:
+        fields = form.get('fields')
+        if isinstance(fields, str):
+            return fields
+    lista = _lista_config(mod)
+    if isinstance(lista, dict):
+        fields = lista.get('fields')
+        if isinstance(fields, str):
+            return fields
+        columns = fields or []
+        if columns:
+            primeira = columns[0]
+            if isinstance(primeira, str):
+                return primeira.split('.', 1)[0]
+    entidades = getattr(mod, 'Schema', {}) or {}
+    if entidades:
+        return next(iter(entidades))
+    return None
+
+
+def _get_model(mod):
+    entidade = _entidade_principal(mod)
+    if entidade:
+        cand = getattr(mod, entidade, None)
+        if isinstance(cand, type) and getattr(cand, '__table__', None) is not None:
+            return cand
+    form = _form_config(mod)
+    if isinstance(form.get('model'), type):
+        return form['model']
+    return None
 
 
 def _toggle_field(form_cfg):
-    """Campo booleano do toggle: `Form['toggle']` explícito ou derivado do
-    botão `on_off` em `Form['buttons']` (default 'ativo')."""
-    if form_cfg.get('toggle'):
-        return form_cfg['toggle']
     for b in form_cfg.get('buttons') or []:
         if b == 'on_off':
             return 'ativo'
         if isinstance(b, dict) and len(b) == 1 and 'on_off' in b:
-            overrides = b['on_off'] or {}
-            return overrides.get('field') or 'ativo'
+            return (b['on_off'] or {}).get('field') or 'ativo'
         if isinstance(b, dict) and b.get('on_off') is True and b.get('field'):
             return b['field']
     return None
 
 
-def _page_single(mod):
-    """True quando o módulo NÃO é crud (type != 'crud' ou tabs vazio legado)."""
-    page = getattr(mod, 'Page', None)
-    if not isinstance(page, dict):
-        return False
-    page_type = page.get('type')
-    if page_type is not None:
-        return page_type != 'crud'
-    return bool('tabs' in page and not page.get('tabs'))
+def _build_form(mod, entidade, model, slug=None):
+    cfg = dict(_form_config(mod))
+    if 'pre_get' in cfg:
+        cfg.pop('pre_get')
+    cfg.setdefault('fields', entidade)
+    allowed = {f.name for f in dc_fields(Form)}
+    form = Form(**{k: v for k, v in cfg.items() if k in allowed})
+    schema = getattr(mod, 'Schema', None) or {}
+    schema_merged = resolve_entity_fields(schema, model, entidade)
+    form.resolve(entidade, model, schema_merged, blueprint=slug)
+    if slug:
+        form._redirect = f"{slug}.list"
+    if hasattr(mod, '_label') and not form._label:
+        form._label = getattr(mod, '_label')
+    return form
 
 
 def _generated_crud(mod, slug):
-    """Retorna as rotas CRUD padrão a gerar: lista de (rule, endpoint, func).
-
-    Módulos com `type != 'crud'` no `Page` e módulos legados com
-    `CRUD = False` não geram rotas CRUD — apenas as declaradas com
-    `@auto.rota` (e a `list` via `do_page`).
-    """
     page = getattr(mod, 'Page', None)
     if isinstance(page, dict):
-        page_type = page.get('type', 'crud')
-        if page_type != 'crud':
+        if page.get('type', 'crud') != 'crud':
             return []
         if page.get('crud') is False:
             return []
@@ -187,23 +127,16 @@ def _generated_crud(mod, slug):
     routes.append(('/', 'list', _list))
 
     def _form(id=None):
-        spec = dict(_form_config(mod) or _lista_config(mod) or {})
-        spec.setdefault('module_name', mod.__name__)
+        form = _build_form(mod, entidade, model, slug=slug)
         extra = None
-        pre_get = spec.pop('pre_get', None)
+        pre_get = _form_config(mod).get('pre_get')
         if callable(pre_get):
             extra = pre_get(mod, id)
-        return handle_form(spec, id, extra_ctx=extra)
+        return do_form(form, id, extra_ctx=extra)
     routes.append(('/novo', 'form', _form))
     routes.append(('/<int:id>/editar', 'form', _form))
 
-    del_cfg = _resolve_delete(
-        form_cfg.get('delete'),
-        form_cfg.get('delete_when'),
-        form_cfg.get('flash_deny'),
-        form_cfg.get('flash_excluido'),
-        label=_resolve_label(mod, _entidade_principal(mod)),
-    )
+    del_cfg = _resolve_delete(form_cfg.get('delete'), label=entidade)
     if model is not None and del_cfg:
         def _delete(id):
             instance = model.query.get_or_404(id)
@@ -218,7 +151,7 @@ def _generated_crud(mod, slug):
 
     campo = _toggle_field(form_cfg)
     if model is not None and campo:
-        flash_toggle = form_cfg.get('flash_toggle') or 'Atualizado!'
+        flash_toggle = 'Atualizado!'
 
         def _toggle(id):
             instance = model.query.get_or_404(id)
@@ -232,93 +165,64 @@ def _generated_crud(mod, slug):
 
 
 def montar_blueprint(mod, slug=None, url_prefix=None, login=True, label=None):
-    """Resolve o Blueprint de um módulo.
-
-    - módulo com `bp` próprio (legado) → retorna existente, sem alterar;
-    - módulo declarativo → cria o bp, monta as CRUD geradas (a menos que o
-      endpoint seja declarado com `@auto.rota`, o módulo declare `crud: False`
-      no `Page` ou `CRUD = False`) + as rotas custom, injeta `mod.bp` e retorna.
-
-    Módulos públicos passam `login=False` (sem `login_required` no blueprint).
-    """
     existente = _blueprint_no_modulo(mod)
     if existente is not None:
         return existente
 
     if label:
         setattr(mod, '_label', label)
-
     if not slug:
         slug = _normalizar_slug(mod.__name__.rsplit('.', 1)[-1])
     prefix = url_prefix or f"/{slug}"
 
     bp = Blueprint(slug, mod.__name__, url_prefix=prefix)
-
     if login:
         @bp.before_request
         @login_required
         def protect():
             pass
 
-    custom = _rotas_do_modulo(mod)
-    custom_names = {r['endpoint'] for r in custom}
-
-    # rotas custom declaradas
-    for r in custom:
-        kwargs = {'methods': r['methods']}
-        if r['defaults']:
-            kwargs['defaults'] = r['defaults']
-        bp.add_url_rule(
-            r['path'], r['endpoint'], r['func'], **kwargs,
-        )
-
-    # rotas CRUD geradas (somente quando o endpoint não for declarado)
     generated = _generated_crud(mod, slug)
     for rule, endpoint, func in generated:
-        if endpoint in custom_names:
-            continue
-        methods = ('GET', 'POST') if endpoint in ('novo', 'form') else ('POST',) if endpoint == 'delete' else ('GET',)
-        kwargs = {}
         if rule == '/novo':
-            kwargs['defaults'] = {'id': None}
-        bp.add_url_rule(rule, endpoint, func, methods=methods, **kwargs)
-
-    # vitrine declarativa (Page type='showcase') — carrinho + identificação
-    for rule, endpoint, func, methods in _generated_showcase_routes(mod):
-        if endpoint in custom_names:
-            continue
-        bp.add_url_rule(rule, endpoint, func, methods=methods)
-
-    # página única (sem CRUD nem rota `list` custom) → `list` renderiza via do_page
-    if _page_single(mod) and 'list' not in custom_names:
-        bp.add_url_rule('/', 'list', lambda: do_page(mod), methods=['GET'], strict_slashes=False)
+            methods = ('GET', 'POST')
+            bp.add_url_rule(rule, endpoint, func, methods=methods, defaults={'id': None})
+        elif endpoint == 'form':
+            bp.add_url_rule(rule, endpoint, func, methods=('GET', 'POST'))
+        elif endpoint == 'delete':
+            bp.add_url_rule(rule, endpoint, func, methods=('POST',))
+        else:
+            bp.add_url_rule(rule, endpoint, func, methods=('GET',))
 
     setattr(mod, 'bp', bp)
     return bp
 
 
 def _iterar_itens_menus(modulo_menu):
-    """Percorre a árvore de menus produzindo pares (label, item)."""
     for label, item in modulo_menu.items():
         if item.submenus:
             yield from _iterar_itens_menus(item.submenus)
         yield label, item
 
 
+def _blueprint_construcao(slug, label=None, login=True, url_prefix=None):
+    bp = Blueprint(slug, f'{__name__}.{slug}', url_prefix=url_prefix or f'/{slug}')
+    if login:
+        @bp.before_request
+        @login_required
+        def protect():
+            pass
+
+    def _construcao():
+        return render_template('pages/construcao.html', pagina=label or slug)
+
+    bp.add_url_rule('/', 'list', _construcao, methods=['GET'], strict_slashes=False)
+    bp.add_url_rule('/novo', 'form', _construcao)
+    bp.add_url_rule('/<int:id>/editar', 'form', _construcao)
+    return bp
+
+
 def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True):
-    """Itera a árvore de menus e registra blueprints (auto-gerados ou existentes).
-
-    Para cada submenu/item, deriva o slug (do `endpoint` explícito quando houver,
-    senão do rótulo normalizado) e importa o módulo. Módulo que já expõe `bp` é
-    ignorado (registrado explicitamente na app). Módulo sem bp tem o CRUD montado
-    e é registrado. Itens com `url` explícita são ignorados.
-
-    `login=False` registra módulos públicos. Módulos do pacote `.site` recebem
-    blueprint nomeado `site_<slug>` (prefixo `/site_` evita colisão com módulos
-    de mesmo nome em `.sys`, ex.: `produtos`). O prefixo de URL é o `route`
-    declarado no `Page` quando houver; senão `/{slug}`, com fallback para
-    `/site/{slug}` se esse caminho já estiver em uso (rota existente).
-    """
     registrados = []
     vistos = set()
     para_site = modulo_ini.endswith('.site')
@@ -328,11 +232,17 @@ def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True)
         slug = _normalizar_slug(item.page or label)
         if slug in vistos:
             continue
+        vistos.add(slug)
+        bp_slug = f'site_{slug}' if para_site else slug
         try:
             mod = importlib.import_module(f'{modulo_ini}.{slug}')
         except ImportError:
+            bp = _blueprint_construcao(bp_slug, label=label, login=login,
+                                       url_prefix=f'/{bp_slug}')
+            if bp is not None:
+                app.register_blueprint(bp)
+                registrados.append(bp.name)
             continue
-        vistos.add(slug)
         if _blueprint_no_modulo(mod) is not None:
             continue
         if para_site:
@@ -342,31 +252,25 @@ def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True)
             prefix = f'/{base}'
             if not route and any(r.rule == f'/{base}/' for r in app.url_map.iter_rules()):
                 prefix = f'/site{prefix}'
-            bp = montar_blueprint(mod, slug=f'site_{slug}', url_prefix=prefix, label=label, login=login)
+            bp = montar_blueprint(mod, slug=bp_slug, url_prefix=prefix, label=label, login=login)
         else:
-            bp = montar_blueprint(mod, slug, label=label, login=login)
+            bp = montar_blueprint(mod, bp_slug, label=label, login=login)
         if bp is None:
             continue
         app.register_blueprint(bp)
         registrados.append(bp.name)
 
-    # ── rotas automáticas do site (quando não existem módulos root/sistema) ──
     if para_site:
         _registrar_rotas_automaticas(app)
-
     return registrados
 
 
 def _registrar_rotas_automaticas(app):
-    """Gera rotas automáticas para o site público que não dependem de módulos.
-
-    - ``/``  → redirect para ``/sobre`` (público) ou ``/sistema`` (logado)
-    - ``/sistema`` → ``pages/construcao.html`` (``login_required``)
-    """
+    """Rotas automáticas públicas: `/` → redirect (logado → /sistema, senão /sobre)
+    e `/sistema` → páginas/construcao (login_required). Somente se ausentes."""
     from flask import redirect as flask_redirect, render_template
     from flask_login import login_required, current_user
 
-    # Não registra se já existir rota na raiz
     has_root = any(r.rule == '/' for r in app.url_map.iter_rules())
     if not has_root:
         @app.route('/')
@@ -375,7 +279,6 @@ def _registrar_rotas_automaticas(app):
                 return flask_redirect('/sistema')
             return flask_redirect('/sobre')
 
-    # Não registra se já existir rota /sistema
     has_sistema = any(r.rule == '/sistema' for r in app.url_map.iter_rules())
     if not has_sistema:
         @app.route('/sistema')

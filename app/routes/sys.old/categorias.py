@@ -1,8 +1,17 @@
 from app.ajsystem.core.extensions import db
 from app.models.category import Category
 from app.models.product import Product
+from app.ajsystem.core.form import handle_form
 
-Schema = {}
+
+Entity = {
+    'Category': {
+        'id':    {'type': 'ID', 'width': 6},
+        'nome':  {'type': 'TEXT', },
+        'ordem': {'type': 'INT', 'mask': '999', 'min': 0, 'max': 99},
+        'ativo': {'type': 'BOOL'},
+    },
+}
 
 
 def _pre_save(instance, request, is_new):
@@ -19,7 +28,7 @@ def _post_save(instance, changed, old_vals):
     if n is None or n > len(others) + 1:
         ordered = others + [instance]
     else:
-        ordered = others[:n - 1] + [instance] + others[n - 1:]
+        ordered = others[:n-1] + [instance] + others[n-1:]
     for i, cat in enumerate(ordered, 1):
         cat.ordem = i
     db.session.commit()
@@ -33,8 +42,9 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Category',
-            'order': ['ordem', 'nome'],
+            'fields': 'Category',
+            'ordering': ['ordem', 'nome'],
+            'title': 'Categorias',
         },
         'form': {
             'fields': 'Category',

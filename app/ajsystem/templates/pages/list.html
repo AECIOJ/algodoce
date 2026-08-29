@@ -32,7 +32,7 @@
 <style>
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
-.list-table-wrap { width: fit-content; }
+.list-table-wrap { width: fit-content; min-width: 100%; }
 .list-filter-wrap { width: fit-content; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
 @media (max-width: 991.98px) {
@@ -52,10 +52,9 @@
   }
   .list-table thead th.col-actions { z-index: 3; }
 }
-@media (min-width: 992px) {
-  .list-table-wrap.adaptive:not(.has-cardonly) .row-expand-col { display: none; }
-  .list-table-wrap.adaptive:not(.has-cardonly) tr.detail-row { display: none !important; }
-}
+.list-table-wrap.adaptive.col-fit .row-expand-col { display: none; }
+.list-table-wrap.adaptive.col-fit.has-cardonly .row-expand-col { display: table-cell; }
+.list-table-wrap.adaptive.col-fit tr.detail-row.collapsed { display: none !important; }
 .detail-overflow .of-dyn { display: none; }
 </style>
 {{ itb.item_table_styles() }}
@@ -65,7 +64,7 @@
 <div class="grow flex flex-col min-h-0" x-data="listPage()">
 {% call tb.render_tabs(active=active_tab) %}
   <div class="border-b flex lg:justify-center app-bar"
-       style="--list-tot-ch: {{ tot_ch }}ch;min-height:var(--bar-h);background:var(--bar-bg-list);color:var(--bar-txt-list);border-color:var(--fallback-b3, oklch(var(--b3)));">
+       style="min-height:var(--bar-h);background:var(--bar-bg-list);color:var(--bar-txt-list);border-color:var(--fallback-b3, oklch(var(--b3)));">
     <div class="page-list-header gap-2 flex-wrap flex items-center">
       <div role="tablist" class="tabs tabs-bordered">
         {% for t in TABS %}
@@ -88,9 +87,8 @@
   {% for t in TABS %}
   {% call tb.render_tab_panel(t) %}
     {% if t.type == 'List' %}
-    <div class="flex flex-col items-center">
     <div class="page-list-inner">
-      <div class="list-table-wrap{% if default_adaptive %} adaptive{% endif %}{% if cardonly_cols %} has-cardonly{% endif %}" style="min-width:{{ tot_ch }}ch;width:fit-content;">
+      <div class="list-table-wrap{% if default_adaptive %} adaptive{% endif %}{% if cardonly_cols %} has-cardonly{% endif %}">
         <table class="table table-sm table-pin-rows sortable list-table" style="background:var(--fallback-b1, oklch(var(--b1)));">
           <thead>
             <tr>
@@ -192,8 +190,7 @@
           </tbody>
         </table>
       </div>
-    </div>
-    </div>
+      </div>
     {% elif t.type == 'Filter' %}
     <div class="flex flex-col items-center">
       <div class="list-filter-wrap">
@@ -430,13 +427,18 @@ function fitListColumns() {
       });
     }
 
-    if (!isMobile) {
+    var scrollBox = wrap.closest('.overflow-auto') || wrap.parentElement;
+    var boxWidth = scrollBox.clientWidth - 8;
+
+    if (table.scrollWidth <= boxWidth + 1) {
       var allIdx = ths.map(function (_, i) { return i; });
       applyKeep(allIdx);
+      wrap.classList.add('col-fit');
       return;
     }
+    wrap.classList.remove('col-fit');
 
-    var avail = wrap.clientWidth - 8;
+    var avail = boxWidth;
     var widths = ths.map(function (th) { return th.offsetWidth; });
     var keepIdx = [expandIdx];
     var used = (widths[expandIdx] || 0);
@@ -453,8 +455,9 @@ function fitListColumns() {
 
     applyKeep(keepIdx);
 
+    var prevSW = table.scrollWidth;
     var guard = 0;
-    while (table.scrollWidth > wrap.clientWidth + 1 && guard < ths.length) {
+    while (table.scrollWidth > boxWidth + 1 && guard < ths.length) {
       guard++;
       var drop = -1;
       for (var j = keepIdx.length - 1; j >= 0; j--) {
@@ -464,6 +467,8 @@ function fitListColumns() {
       if (drop === -1) break;
       keepIdx.splice(drop, 1);
       applyKeep(keepIdx);
+      if (table.scrollWidth >= prevSW) break;
+      prevSW = table.scrollWidth;
     }
   });
 }

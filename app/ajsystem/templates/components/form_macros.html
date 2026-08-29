@@ -65,11 +65,14 @@
   <input type="number" name="{{ ns }}" class="input input-bordered input-sm{% if field.percent %} input-percent{% endif %}{% if field.step is none and (not field.attrs or 'step' not in field.attrs) %} no-spinner{% endif %}" style="width:{{ _iwidth }}" step="{{ step_val }}" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str }}>
   {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
-  <input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+  {% set _iwidth = (field.width + 5) ~ 'ch' %}
+  <div class="inline-flex items-center w-full"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
 {% elif field.input == 'time' %}
-  <input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+  {% set _iwidth = (field.width + 5) ~ 'ch' %}
+  <div class="inline-flex items-center w-full"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir relógio"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
 {% elif field.input == 'datetime-local' %}
-  <input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}>
+  {% set _iwidth = (field.width + 5) ~ 'ch' %}
+  <div class="inline-flex items-center w-full"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
 {% elif field.input == 'image' %}
 {% set _img_has = val %}
 <div class="image-widget" data-ns="{{ ns }}" data-tem-imagem="{{ '1' if _img_has else '0' }}" data-upload-path="{{ field.upload_path or '' }}">
@@ -225,6 +228,14 @@
              title="Ativar/Desativar" aria-label="Ativar/Desativar"
              onclick="window.location.href='{{ url }}'">
     </span>
+  {% elif btn.method == 'POST' and url %}
+  <form method="POST" action="{{ url }}" class="inline mr-2">
+    <button type="submit" class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
+      {% if btn.confirm_msg %}onclick="event.preventDefault();showConfirm('{{ btn.confirm_msg }}', function(){ this.closest('form').submit(); });"{% endif %}>
+      {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+      {{ btn.label }}
+    </button>
+  </form>
   {% elif btn.render and btn.action %}
   <template>{{ _html|safe }}</template>
   <a href="#" class="btn btn-sm mr-2 btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
@@ -276,7 +287,11 @@
 
 {% macro render_child_table(instance, child, ro=false) %}
 {% import "components/item_table.html" as itb with context %}
-{% if child.query and child.groups is defined and child.groups is not none %}
+{% set _q = child.get('query') if child is mapping else child.query %}
+{% set _tbl = child.get('table') if child is mapping else child.table %}
+{% set _groups = child.get('groups') if child is mapping else child.groups %}
+{% set _grouped = (_q or (_tbl and (_tbl.get('group_by') if _tbl is mapping else _tbl.group_by))) and _groups is defined and _groups is not none %}
+{% if _grouped %}
 {{ itb.item_table_grouped(instance, child, ro) }}
 {% else %}
 {{ itb.item_table_edit(instance, child, ro) }}
@@ -369,17 +384,24 @@
 {% macro render_sessions(sessions, data=none, ro=false, ro_fields=none) %}
 {% set _sessions = sessions._resolved_sessions if sessions._resolved_sessions is defined else sessions %}
 {% for session in _sessions %}
-{% set _ro = ro or session.readonly %}
-{% if session.template %}
-{% include session.template %}
-{% elif session.single %}
-{% set _child = data|deep_attr(session.attr) if data is not none else none %}
+{% set _when = session.get('when') if session is mapping else session.when %}
+{% set _skip_when = _when is not none and data is not none and not _when(data) %}
+{% if not _skip_when %}
+{% set _ro = ro or (session.get('readonly') if session is mapping else session.readonly) %}
+{% set _template = session.get('template') if session is mapping else session.template %}
+{% if _template %}
+{% include _template %}
+{% set _single = session.get('single') if session is mapping else session.single %}
+{% elif _single %}
+{% set _attr = session.get('attr') if session is mapping else session.attr %}
+{% set _child = data|deep_attr(_attr) if data is not none else none %}
 <div class="mt-3">
-  <h6 class="font-bold mb-1 text-sm">{{ session.label }}</h6>
-  {{ render_fields(session.fields, data=_child, ro=_ro, name_prefix='child_' + session.attr + '_', ro_fields=ro_fields) }}
+  <h6 class="font-bold mb-1 text-sm">{{ session.get('label') if session is mapping else session.label }}</h6>
+  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=_child, ro=_ro, name_prefix='child_' + _attr + '_', ro_fields=ro_fields) }}
 </div>
 {% else %}
 {{ render_child_table(data, session, _ro) }}
+{% endif %}
 {% endif %}
 {% endfor %}
 {% endmacro %}

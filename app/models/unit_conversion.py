@@ -1,4 +1,5 @@
 from app.ajsystem.core.extensions import db
+from app.constantes import UND_LIST
 
 
 class UnitConversion(db.Model):
@@ -15,3 +16,11 @@ class UnitConversion(db.Model):
 
     def __repr__(self):
         return f"<UnitConversion i={self.ingredient_id} {self.unidade}={self.fator}>"
+
+
+Entity = {
+    'id':            {'type': 'ID'},
+    'ingredient_id': {'type': 'DK', 'label': 'Insumo'},
+    'unidade':       {'type': 'LIST', 'options': UND_LIST, 'required': True},
+    'fator':         {'type': 'NUM', 'required': True, 'decimals': 6},
+}

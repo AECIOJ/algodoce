@@ -16,11 +16,12 @@ from datetime import timedelta
 
 
 class Config:
-    _user = os.getenv("POSTGRES_USER", "algodoce")
-    _password = os.getenv("POSTGRES_PASSWORD", "algodoce123")
-    _host = os.getenv("POSTGRES_HOST", "pg_18")
+    # Defaults neutros (o app host fornece os reais via variáveis de ambiente).
+    _user = os.getenv("POSTGRES_USER", "postgres")
+    _password = os.getenv("POSTGRES_PASSWORD", "")
+    _host = os.getenv("POSTGRES_HOST", "localhost")
     _port = os.getenv("POSTGRES_PORT", "5432")
-    _db = os.getenv("POSTGRES_DB", "algodoce")
+    _db = os.getenv("POSTGRES_DB", "postgres")
     SQLALCHEMY_DATABASE_URI = f"postgresql://{_user}:{_password}@{_host}:{_port}/{_db}"
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
     WTF_CSRF_ENABLED = True

@@ -1,15 +1,24 @@
-"""Autenticação — login manager + rotas de autenticação e painel.
+"""Orquestrador `do_auth` — wiring do login manager + rotas de autenticação
+e painel de segurança.
 
-Reescrito do zero observando o legado (`core/old/do_auth.py`). Mantém os
-contratos consumidos pelo front (app/static/js/*):
-  POST /api/login, /api/login-sistema, /api/login-admin
-  GET  /api/admin-config, /api/check-chave, /api/chave-diaria, /api/diaria-opcoes
-  POST /api/keepalive, GET /logout, /seguranca/...
+Agrupa a inicialização (`init_auth`: user_loader, unauthorized_handler e
+timeout de sessão) e os blueprints `auth` (login/logout/keepalive/chave
+diária) e `seguranca` (painel de configurações do sistema).
+
+Contratos consumidos pelo front-end (app/static/js/{auth,login,seguranca}.js):
+  POST /api/login             {username, password}        -> {redirect} | 401 {error}
+  POST /api/login-sistema     {username, password, chave} -> {redirect} | 401 {error}
+  POST /api/login-admin       {username, password, chave} -> {redirect} | 401 {error}
+  GET  /api/admin-config      -> {tem_usuario, tem_senha}
+  POST /api/check-chave       -> {tem: bool}
+  GET  /api/chave-diaria      -> {tem, chave, ordem, label}
+  GET  /api/diaria-opcoes     -> {opcoes: [{valor, label}]}
+  POST /api/keepalive         -> {ok: true}
+  GET  /logout                -> redirect /
 """
 import os
 import time
 from datetime import datetime
-
 from flask import (
     Blueprint, request, jsonify, session, redirect, current_app,
     render_template, flash, url_for,
@@ -18,8 +27,8 @@ from flask import request as _req
 from flask_login import (
     current_user, login_user, logout_user, login_required,
 )
-
 from app.ajsystem.core.adapter import db, User, Setting, APP, login_manager
+from app.ajsystem.core.menu import pagina_home
 
 bp = Blueprint("auth", __name__)
 bp_seguranca = Blueprint("seguranca", __name__, url_prefix="/seguranca")
@@ -30,6 +39,7 @@ THRESHOLD = 3
 MAX_DELAY = 60
 
 PERMUTACOES = ["AMH", "AHM", "MAH", "MHA", "HAM", "HMA"]
+
 _ROTULOS_CHAVE = {"A": "Ano", "M": "Mês", "H": "Hora"}
 
 
@@ -106,9 +116,10 @@ def _clear_attempts():
     FAILED_ATTEMPTS.pop(ip, None)
 
 
+# ─── Blueprint auth ────────────────────────────────────────────────────────
+
 @bp.route("/api/login", methods=["POST"])
 def login():
-    from app.ajsystem.core.menu import pagina_home
     data = request.get_json(silent=True) or {}
     username = data.get("username", "")
     password = data.get("password", "")
@@ -135,7 +146,6 @@ def login():
 
 @bp.route("/api/login-sistema", methods=["POST"])
 def login_sistema():
-    from app.ajsystem.core.menu import pagina_home
     data = request.get_json(silent=True) or {}
     u = data.get("username", "")
     p = data.get("password", "")
@@ -147,8 +157,10 @@ def login_sistema():
 
     if u != expected_u or p != expected_p:
         return jsonify(error="Credenciais inválidas"), 401
-    if expected_chave_code in PERMUTACOES and c != _gerar_chave(expected_chave_code):
-        return jsonify(error="Chave inválida"), 401
+
+    if expected_chave_code in PERMUTACOES:
+        if c != _gerar_chave(expected_chave_code):
+            return jsonify(error="Chave inválida"), 401
 
     user = User.query.filter_by(username=u).first()
     if not user:
@@ -161,7 +173,6 @@ def login_sistema():
 
 @bp.route("/api/login-admin", methods=["POST"])
 def login_admin():
-    from app.ajsystem.core.menu import pagina_home
     data = request.get_json(silent=True) or {}
     u = data.get("username", "")
     p = data.get("password", "")
@@ -242,6 +253,8 @@ def logout():
     return resp
 
 
+# ─── Blueprint seguranca ───────────────────────────────────────────────────
+
 @bp_seguranca.before_request
 @login_required
 def protect():
@@ -278,6 +291,7 @@ def salvar():
     if not session.get("seguranca_autenticado"):
         flash("Acesso negado.", "danger")
         return redirect(url_for("seguranca.painel"))
+
     for key in Setting.KEYS:
         val = request.form.get(key, "")
         Setting.set(key, val)

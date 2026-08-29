@@ -1,6 +1,0 @@
-{% if instance %}
-<div class="form-check mb-0">
-  <input class="form-check-input" type="checkbox" id="reprovado-check" {{ 'checked' if instance.status == 3 }} onchange="toggleReprovado(this)">
-  <label class="form-check-label small" for="reprovado-check">Cancelado</label>
-</div>
-{% endif %}

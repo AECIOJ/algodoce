@@ -85,15 +85,13 @@ body {
   background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 25%, var(--fallback-b1, oklch(var(--b1))));
   color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 60%, var(--fallback-bc, oklch(var(--bc))));
 }
-.page-list-inner {
-  width: 100%;
+#page-content {
   max-width: 100%;
+  margin-inline: auto;
 }
 @media (min-width: 992px) {
-  .page-list-inner {
-    width: fit-content;
-    min-width: 60vw;
-    max-width: 100%;
+  #page-content {
+    max-width: calc(100vw - 4rem);
   }
 }
 .tab-pane.active {
@@ -309,16 +307,6 @@ html.list-page main.container {
   max-width: 98% !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-}
-html.list-page .page-list-inner {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-}
-@media (min-width: 992px) {
-  html.list-page .page-list-inner {
-    width: fit-content !important;
-  }
 }
 html.list-page .table-list-wrap table {
   min-width: 0 !important;
@@ -555,12 +543,6 @@ tr.detail-row > td { padding: 0 !important; }
 }
 .page-list-header {
   width: 100%;
-}
-@media (min-width: 1024px) {
-  .page-list-header {
-    width: auto;
-    min-width: var(--list-tot-ch);
-  }
 }
 
 /* === form_list: layout responsivo + sticky header + card expansion === */
@@ -1120,4 +1102,31 @@ input.input-percent {
   padding-right: 1.75rem;
 }
 
+.container {
+  width: 100%;
+  margin-inline: auto;
+}
+@media (min-width: 576px) {
+  .container { max-width: 540px; }
+}
+@media (min-width: 768px) {
+  .container { max-width: 720px; }
+}
+@media (min-width: 992px) {
+  .container { max-width: 960px; }
+}
+@media (min-width: 1200px) {
+  .container { max-width: 1140px; }
+}
+
+.btn-outline-danger {
+  color: #dc3545;
+  background: #fff;
+  border-color: #dc3545;
+}
+.btn-outline-danger:hover {
+  background: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+}
 

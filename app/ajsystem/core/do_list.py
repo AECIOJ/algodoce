@@ -1,29 +1,62 @@
 """Orquestrador `do_list` — request → response para listagens.
 
-Consome specs puros (`defs.page.Page` → aba `Dados` = spec do `List`) e delega
-a resolução de campos/engine para `core/list.py`. É o único ponto (além de
-`core.do_form`) que as rotas/`core.auto` usam para montar a página de listagem.
+Reescrito do zero observando `core/old/do_list.py`. Lê `Page`/`Schema` (dicts
+declarativos) do módulo de rota e resolve os campos via `defs.data`
+(merge `Entity(model)` + `Schema`). Mantém os contratos de render de
+`pages/list.html`.
 """
 import importlib
 
 from flask import Blueprint, render_template, request, url_for
 
-from app.ajsystem.defs.page import Page as PageSpec
-from app.ajsystem.defs.form import _resolve_label
-from app.ajsystem.defs.fields import Field
-from app.ajsystem.defs.entities import get_field, _derive_fk_ref, query_display_path
+from app.ajsystem.defs.data import (
+    _auto_label, build_field, page_list_cfg, resolve_entity_fields, module_page,
+)
 from app.ajsystem.core.list import (
-    List, build_filter_config, build_field_context,
-    _resolve_cols, _resolve_field_names, _resolve_model,
+    List, build_filter_config, build_field_context, resolve_column_configs,
+    _resolve_model,
 )
-from app.ajsystem.core.filters import (
-    resolve_filters,
-    apply_text_filter,
-    apply_number_filter,
-    apply_boolean_filter,
-    apply_select_filter,
-    apply_date_filter,
-)
+from app.ajsystem.core.filters import resolve_filters
+
+TAB_TYPES = ('List', 'Filter', 'Report', 'Custom')
+
+
+def _default_type(key):
+    norm = (key or '').strip().lower()
+    if norm == 'dados':
+        return 'List'
+    if norm in ('filtros', 'filtrar'):
+        return 'Filter'
+    if norm in ('relatorios', 'relatório', 'relatórios', 'reports', 'report'):
+        return 'Report'
+    return 'Custom'
+
+
+def build_tabs(page: dict):
+    """Reconstrói a lista de abas + aba ativa a partir do `Page` dict."""
+    tabs = []
+    props = (page or {}).get('props') or {}
+    tab_specs = props.get('tabs')
+    list_cfg = props.get('list')
+    if not tab_specs:
+        tab_specs = {'Dados': {'type': 'List'}}
+    for key, cfg in (tab_specs or {}).items():
+        cfg = dict(cfg or {})
+        ttype = cfg.pop('type', None) or _default_type(key)
+        if ttype == 'List' and list_cfg:
+            cfg.update(list_cfg)
+        tabs.append({
+            'id': key,
+            'type': ttype,
+            'template': cfg.pop('template', None),
+            'config': cfg,
+        })
+    for t in tabs:
+        if t['type'] not in TAB_TYPES:
+            raise ValueError(f"Page: tipo inválido '{t['type']}' na aba '{t['id']}'")
+    if not any(t['type'] == 'Filter' for t in tabs):
+        tabs.append({'id': 'Filtros', 'type': 'Filter', 'template': None, 'config': {}})
+    return tabs, (tabs[0]['id'] if tabs else '')
 
 
 def _module_blueprint(mod):
@@ -42,19 +75,16 @@ def _resolve_endpoint(lista, key, bp_name):
 
 def do_list(entity_name: str, module_name: str, data=None, **extra):
     mod = importlib.import_module(module_name)
-    entidades = mod.Entity
-    page = PageSpec.from_module(mod)
-    lista = page.dados.config if page.dados else {}
+    schema = getattr(mod, 'Schema', None) or {}
+    page = module_page(mod)
+    tabs, active_tab = build_tabs(page)
+    lista = page_list_cfg(page)
     bp_name = _module_blueprint(mod).name if _module_blueprint(mod) else None
 
-    if entity_name not in entidades:
-        raise KeyError(f"Entity '{entity_name}' não definida em {module_name}")
-
     model = _resolve_model(entity_name)
+    merged = resolve_entity_fields(schema, model, entity_name)
 
-    field_configs = _resolve_cols(lista.get('fields', entity_name), entidades, principal=entidades.get(entity_name))
-    fields = [Field(**cfg) for cfg in field_configs]
-    fields = [_derive_fk_ref(f, model) for f in fields]
+    fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged)
     fields = [f for f in fields if f.in_list != 0]
 
     line_fields = [f for f in fields if f.in_list == 1]
@@ -63,15 +93,14 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
         line_fields, cardonly_fields = fields, []
 
     card_fields = None
-    card_configs = _resolve_cols(lista.get('card', []), entidades)
-    card_fields = [Field(**cfg) for cfg in card_configs] if card_configs else None
-    if card_fields:
-        card_fields = [_derive_fk_ref(f, model) for f in card_fields]
+    card_configs = resolve_column_configs(merged, lista.get('card', []), principal=merged)
+    card_fields = card_configs or None
 
     all_fields = line_fields + cardonly_fields + (card_fields or [])
     fields_master = list(range(1, len(line_fields) + 1))
 
-    linha_names = _resolve_field_names(lista.get('linha', []))
+    linha_names = lista.get('linha') or []
+    linha_names = [n.split('.', 1)[-1] for n in linha_names]
     linha_indices = [i for i, f in enumerate(line_fields) if f.name in linha_names] if linha_names else None
 
     edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
@@ -83,7 +112,8 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
         edit_id_field=lista.get('edit_id_field', 'id'),
         template=lista.get('template'),
         linha=linha_indices,
-        card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1)) if len(all_fields) > len(line_fields) else None),
+        card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1))
+                  if len(all_fields) > len(line_fields) else None),
         buttons=lista.get('buttons'),
         tags=lista.get('tags'),
     )
@@ -92,78 +122,54 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
     detail_fields = None
     detail_data = None
     if 'detail' in lista:
-        det_configs = _resolve_cols(lista['detail'], entidades)
-        detail_fields = [Field(**cfg) for cfg in det_configs]
-        detail_fields = [_derive_fk_ref(f, model) for f in detail_fields]
+        detail_fields = resolve_column_configs(merged, lista['detail'], principal=merged)
         detail_data = entity_name.lower() + '_items'
         list_obj.detail_data = detail_data
 
     filter_config = build_filter_config(list_obj.fields)
-    active = resolve_filters(filter_config, request.args)
+    initial_filters, active = resolve_filters(filter_config, request.args)
 
     if data is None:
-        ordering = lista.get('ordering', [])
+        ordering = lista.get('order', []) or lista.get('ordering', [])
+        if isinstance(ordering, str):
+            ordering = [ordering]
         if ordering:
-            order_cols = [getattr(model, col) for col in ordering]
-            data = model.query.order_by(*order_cols).all()
+            data = model.query.order_by(*[getattr(model, c) for c in ordering]).all()
         else:
             data = model.query.all()
 
-    # Código hierárquico (Field.code) tem precedência sobre calc-sort:
-    # calcula os códigos numa passada e já retorna em ordem DFS.
-    code_field = next((f for f in line_fields if getattr(f, 'code', None)), None)
-    if code_field is not None and data:
-        from app.ajsystem.core.hier import codigos
-        data = codigos(data, attr=code_field.name, **(code_field.code or {}))
-    else:
-        # calc chamável → ordenação hierárquica python-side
-        calc_field = next((f for f in line_fields
-                           if callable(getattr(f, 'calc', None))), None)
-        if calc_field and data:
-            data = sorted(data, key=calc_field.calc)
-
+    from app.ajsystem.core.filters import apply_filters
     for field, filter_value in active.items():
         ftype = filter_config.get(field, {}).get('type', 'text')
-        if ftype == 'text':
-            data = apply_text_filter(data, field, filter_value)
-        elif ftype == 'number':
-            data = apply_number_filter(data, field, filter_value)
-        elif ftype == 'boolean':
-            data = apply_boolean_filter(data, field, filter_value)
-        elif ftype in ('select', 'checklist'):
-            field_obj = get_field(list_obj.fields, field)
-            options = field_obj.options if field_obj else {}
-            filter_path = query_display_path(field_obj, model) if field_obj else None
-            if isinstance(filter_value, list):
-                filter_value = ','.join(map(str, filter_value))
-            data = apply_select_filter(data, field, filter_value, options or {}, filter_path)
-        elif ftype == 'date':
-            data = apply_date_filter(data, field, filter_value)
+        if ftype == 'date' and isinstance(filter_value, dict):
+            from app.ajsystem.core.filters import filtrar_vencimento_query
+            query = model.query
+            query = filtrar_vencimento_query(query, getattr(model, field),
+                                             filter_value.get('preset'),
+                                             filter_value.get('from'))
+            ord_fb = lista.get('order', ['id']) or lista.get('ordering', ['id'])
+            if isinstance(ord_fb, str):
+                ord_fb = [ord_fb]
+            data = query.order_by(*[getattr(model, c) for c in ord_fb]).all()
+            continue
+        model_field = getattr(model, field, None)
+        if model_field is None:
+            continue
+        query = model.query
+        query = apply_filters(query, model_field, ftype, filter_value)
+        ordering = lista.get('order', ['id']) or lista.get('ordering', ['id'])
+        if isinstance(ordering, str):
+            ordering = [ordering]
+        data = query.order_by(*[getattr(model, c) for c in ordering]).all()
 
-    ctx = build_field_context(list_obj.master_fields)
+    ctx = build_field_context(list_obj.fields)
 
-    title = lista.get('title', entity_name)
+    title = lista.get('title') or _auto_label(entity_name)
     new_endpoint = _resolve_endpoint(lista, 'new_endpoint', bp_name)
     new_url = url_for(new_endpoint) if new_endpoint else None
-    new_label = 'Incluir ' + _resolve_label(mod, entity_name)
+    new_label = 'Incluir ' + _auto_label(entity_name)
 
-    init_filters = {}
-    for fname, fcfg in filter_config.items():
-        ftype = fcfg.get('type', 'text')
-        if ftype == 'text':
-            init_filters[fname] = {'mode': 'contains', 'value': ''}
-        elif ftype == 'number':
-            init_filters[fname] = {'mode': 'igual', 'val1': '', 'val2': ''}
-        elif ftype == 'date':
-            init_filters[fname] = {'preset': '', 'from': '', 'to': ''}
-        elif ftype in ('boolean', 'select'):
-            init_filters[fname] = ''
-        elif ftype == 'checklist':
-            init_filters[fname] = []
-        else:
-            init_filters[fname] = ''
-
-    template = (page.dados.template if page.dados else None) or "pages/list.html"
+    template = (lista.get('template') or "pages/list.html")
     tag_colors = {}
     tag_field_names = set()
     if list_obj.tags:
@@ -175,15 +181,16 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
             else:
                 tag_colors[_ts] = None
                 tag_field_names.add(_ts)
+
     return render_template(
         template,
         entity_name=entity_name,
-        TABS=list(page.items),
-        active_tab=page.active,
+        TABS=tabs,
+        active_tab=active_tab,
         LIST=list_obj,
         data=data,
         active_filters=active,
-        initial_filters=init_filters,
+        initial_filters=initial_filters,
         FILTERS=filter_config,
         ctx=ctx,
         title=title,

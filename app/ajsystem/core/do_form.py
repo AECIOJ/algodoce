@@ -1,34 +1,24 @@
 """Orquestrador `do_form` — request → response para formulários.
 
-Consome o spec puro `defs.form.Form` e delega a persistência/coerção para a
-capacidade `core/form.py`. É o único ponto (além de `core.do_list`) que as
-rotas/`core.auto` usam para montar a página de formulário e salvar.
+Reescrito do zero observando `core/old/do_form.py`. Consome o spec puro
+`defs.form.Form` e delega persistência/coerção a `core/form.py` e validação/
+transform a `defs.validators`/`defs.transformers`.
 """
 import re
-from datetime import datetime
 
 from flask import flash, redirect, render_template, request, url_for
 
-from sqlalchemy import text
-
 from app.ajsystem.core.adapter import db
-from app.ajsystem.defs.form import Form
-from app.ajsystem.defs.fields import VALIDATORS
-from app.ajsystem.defs.query import _resolve_query, resolve_query_fields
-from app.ajsystem.defs.entities import (
-    MODEL_MAP, _apply_transform, _infer_transform,
-)
 from app.ajsystem.core.form import (
-    _is_readonly, _flat_fields, _process_image_fields, _save_session_children,
-    _apply_aggs, _agg_specs, _build_nav, _resolve_delete,
-    _when_allows, _session_items, _empty_value,
+    _empty_value, _coerce, _is_readonly, _flat_fields, _process_image_fields,
+    _build_nav, _resolve_delete, _when_allows,
 )
-from app.ajsystem.core.edits import editor_assets
-from app.ajsystem.core.query import order_items, group_items, aggregate_rows
+from app.ajsystem.defs.data import fk_target_model
+from app.ajsystem.defs.validators import resolve_validator
+from app.ajsystem.defs.transformers import apply_field_transforms
 
 
 def _resolve_tag_color(value, options=None, colors=None):
-    """Infer badge color from value, with optional explicit colors mapping."""
     if colors and value in colors:
         return colors[value]
     if options and value in options:
@@ -52,18 +42,54 @@ def _resolve_tag_color(value, options=None, colors=None):
     return 'ghost'
 
 
-def do_form(form_spec, id=None, extra_ctx=None, instance=None):
-    form = form_spec if isinstance(form_spec, Form) else Form(**form_spec)
-    instance = instance or (form.model.query.get(id) if id is not None else None)
+def _build_lookup(form, extra_lookup=None):
+    """Popula `_lookup` (legado) para FKs — `{campo: [instâncias alvo]}`.
+
+    Para cada campo `select` sem `options`, resolve o model alvo do FK e
+    carrega as instâncias (usadas pelo template para montar os `<option>` e
+    exibir o nome em vez do id). `extra_lookup` tem prioridade.
+    """
+    lookup = dict(extra_lookup or {})
+
+    def fill(f, src_model):
+        if f.input != 'select' or f.options is not None:
+            return
+        if f.name in lookup:
+            return
+        tgt = None
+        q = f.query
+        if q is not None:
+            mk = q if isinstance(q, str) else (q.get('model') if isinstance(q, dict) else getattr(q, 'model', None))
+            if mk:
+                from app.ajsystem.core.list import _resolve_model
+                try:
+                    tgt = _resolve_model(mk)
+                except Exception:
+                    tgt = None
+        if tgt is None:
+            tgt = fk_target_model(src_model, f.name)
+        if tgt is None or getattr(tgt, '__table__', None) is None:
+            return
+        lookup[f.name] = list(tgt.query.all())
+
+    for f in _flat_fields(form):
+        fill(f, form._model)
+    for session in form._resolved_sessions:
+        child_model = session.get('model')
+        for f in (session.get('columns') or []) or []:
+            fill(f, child_model)
+    return lookup
+
+
+def do_form(form, id=None, extra_ctx=None, instance=None):
+    """GET: renderiza o form (novo/editar). POST: valida, salva e redireciona."""
+    instance = instance or (form._model.query.get(id) if id is not None else None)
     is_new = instance is None
     ro = _is_readonly(form, instance)
 
     if request.method == "POST":
         if is_new:
-            instance = form.model()
-            if form.defaults:
-                for k, v in form.defaults.items():
-                    setattr(instance, k, v)
+            instance = form._model()
             for f in _flat_fields(form):
                 if f.default is not None:
                     setattr(instance, f.name, f.default() if callable(f.default) else f.default)
@@ -78,45 +104,18 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
                 continue
             if f.input == 'image':
                 continue
-            if f.input in ('checkbox', 'boolean'):
-                raw = request.form.get(f.name)
-                val = raw in ('on', '1', 1, True)
-            elif f.input == 'number':
-                raw = request.form.get(f.name, '').strip()
-                if not raw:
-                    val = None
-                elif f.decimals is not None and f.decimals > 0:
-                    try:
-                        val = float(raw)
-                    except (ValueError, TypeError):
-                        val = None
-                else:
-                    try:
-                        val = int(raw)
-                    except (ValueError, TypeError):
-                        val = None
-            elif f.input in ('date',):
-                raw = request.form.get(f.name, '').strip()
-                val = datetime.strptime(raw, '%Y-%m-%d').date() if raw else None
-            elif f.input in ('time',):
-                raw = request.form.get(f.name, '').strip()
-                val = datetime.strptime(raw, '%H:%M').time() if raw else None
-            elif f.input in ('datetime-local',):
-                raw = request.form.get(f.name, '').strip()
-                val = datetime.fromisoformat(raw) if raw else None
-            elif f.input == 'multi':
-                val = ''.join(sorted(request.form.getlist(f.name))) or None
+            if f.input == 'multi':
+                raw = request.form.getlist(f.name)
             else:
-                val = request.form.get(f.name, '').strip() or None
-                if val and f.digits_only:
-                    val = re.sub(r'\D', '', val) or None
+                raw = request.form.get(f.name)
+            val = _coerce(raw, f)
             if f.required and _empty_value(val):
                 flash(f'{f.label or f.name} é obrigatório.', 'warning')
                 fields_ok = False
                 continue
             if val and f.validate:
-                fn = VALIDATORS.get(f.validate) if isinstance(f.validate, str) else f.validate
-                if callable(fn) and not fn(val):
+                validator = resolve_validator(f.validate)
+                if callable(validator) and not validator(val):
                     flash(f'{f.label or f.name} inválido.', 'warning')
                     fields_ok = False
                     continue
@@ -137,7 +136,7 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
 
         if not fields_ok:
             db.session.rollback()
-            return redirect(url_for(form.redirect))
+            return redirect(url_for(form._redirect))
 
         if is_new:
             db.session.flush()
@@ -148,86 +147,28 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
             result = form.pre_save(instance, request, is_new)
             if result is False:
                 db.session.rollback()
-                return redirect(url_for(form.redirect))
+                return redirect(url_for(form._redirect))
 
-        for f in form._resolved_fields:
-            if f.in_form != 1 or not hasattr(instance, f.name):
-                continue
-            val = getattr(instance, f.name, None)
-            if val is None or not isinstance(val, str):
-                continue
-            tr = _infer_transform(f)
-            if tr == 'none':
-                continue
-            setattr(instance, f.name, _apply_transform(val, tr, f))
+        apply_field_transforms(instance, form._resolved_fields)
 
-        _save_session_children(form, instance, request.form)
         db.session.flush()
-        _apply_aggs(form, instance)
+        db.session.commit()
 
         changed = {n for n, old in old_vals.items()
-                    if getattr(instance, n, None) != old}
+                   if getattr(instance, n, None) != old}
         changed |= image_changed
-
-        db.session.commit()
         if form.post_save:
             form.post_save(instance, changed, old_vals)
         flash(form.flash_ok if is_new else form.flash_update, 'success')
-        return redirect(url_for(form.redirect))
+        return redirect(url_for(form._redirect))
 
-    lookup = {}
-
-    def _fill_lookup(f):
-        q = _resolve_query(f.query)
-        if q is None or q.model not in MODEL_MAP:
-            return
-        model_cls = MODEL_MAP[q.model]
-        query = model_cls.query
-        if q.when:
-            query = query.filter(text(q.when))
-        field, display, ret, order = resolve_query_fields(q, model_cls)
-        items = query.order_by(order).all()
-        f.options = {
-            str(getattr(o, ret, None)): str(getattr(o, display, o))
-            for o in items if getattr(o, ret, None) is not None
-        }
-        lookup[f.name] = items
-
-    for f in _flat_fields(form):
-        _fill_lookup(f)
-    for session in form._resolved_sessions:
-        for f in session.get('fields', []):
-            if f.name not in lookup and f.in_form:
-                _fill_lookup(f)
-
-    nav = _build_nav(form.model, id) if form.nav and id is not None else None
-    _delete_cfg = _resolve_delete(form.delete, form.delete_when, form.flash_deny, form.flash_excluido, form.label)
-    _can_delete = (instance is None) or (_delete_cfg is not None and _when_allows(_delete_cfg['when'], instance))
+    nav = _build_nav(form._model, id) if id is not None else None
+    _delete_cfg = _resolve_delete(form.delete, label=form._label)
+    _can_delete = (instance is None) or (
+        _delete_cfg is not None and _when_allows(_delete_cfg['when'], instance))
 
     template = form.template or 'pages/form.html'
-    session_totals = {}
-    for _sname, _sagg in _agg_specs(form):
-        session_totals[_sagg['table']] = {
-            'expr': _sagg['sum'],
-            'currency': _sagg.get('currency'),
-        }
-    for _s in form._resolved_sessions:
-        if not _s.get('query'):
-            continue
-        if _s.get('group_by'):
-            _items = order_items(
-                _session_items(instance, _s.get('attr')),
-                _s.get('order_by'),
-                _s.get('fields'),
-            )
-            _gf = next((f for f in _s.get('fields', []) if f.name == _s['group_by']), None)
-            _spec = _s.get('group_totals') or {}
-            _s['groups'] = group_items(_items, _gf, _spec, _s.get('fields'))
-            _s['totals'] = aggregate_rows(_items, _spec, _s.get('fields'))
-        else:
-            _s['groups'] = None
 
-    # ── Resolver tags (badges no nav bar) ──
     _resolved_tags = []
     if form.tags and instance:
         for tag_spec in form.tags:
@@ -239,9 +180,8 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
             f_obj = next((f for f in _flat_fields(form) if f.name == fname), None)
             val = getattr(instance, fname, None)
             options = f_obj.options if f_obj else None
-            label = str(options.get(val, val)) if options and val in options else str(val) if val is not None else ''
-            color = _resolve_tag_color(val, options, colors)
-            _resolved_tags.append({'text': label, 'color': color})
+            label = str(options.get(val, val)) if (options and val in options) else (str(val) if val is not None else '')
+            _resolved_tags.append({'text': label, 'color': _resolve_tag_color(val, options, colors)})
     form._resolved_tags = _resolved_tags
 
     ctx = dict(
@@ -250,17 +190,10 @@ def do_form(form_spec, id=None, extra_ctx=None, instance=None):
         nav=nav,
         ro=ro,
         is_new=is_new,
-        _lookup=lookup,
+        _lookup=_build_lookup(form, extra_ctx.get('_lookup') if extra_ctx else None),
         can_delete=_can_delete,
-        _session_totals=session_totals,
+        _session_totals={},
     )
-    _editor_inputs = {f.input for f in _flat_fields(form)}
-    for _s in form._resolved_sessions:
-        for _f in _s.get('fields', []):
-            _editor_inputs.add(_f.input)
-    _editor_js, _editor_css = editor_assets(_editor_inputs)
-    ctx['_editor_js'] = [url_for('ajsystem.static', filename=_f) + '?v=1' for _f in _editor_js]
-    ctx['_editor_css'] = [url_for('ajsystem.static', filename=_f) + '?v=1' for _f in _editor_css]
     if extra_ctx:
         for k, v in extra_ctx.items():
             if k == '_lookup' and isinstance(v, dict):

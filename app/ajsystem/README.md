@@ -16,13 +16,15 @@ Estado de cada propriedade do contrato, validado página a página. A revisão
 guia a reorganização deste README ao final: marcas somem e as seções de
 referência (§5–§7) passam a refletir somente o contrato aprovado.
 
+Atualização recente: Inclusão da dataclass `Query` em `defs/data.py` estilo SQL (`fields`, `join`, `when`, `groups`, `order`, `limit`) para uso em `List` e `Report`.
+
 Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corrigir) · `vazio` pendente.
 
 ### Field — propriedades de campo (§5)
 
 | Propriedade | Estado | Onde validada |
 |---|---|---|
-| `agg` | ✓ | Renomeada de `aggregate`. Dois usos: **auto-cálculo do pai** ao salvar filhos (`Orçamentos` — `'total': {'agg': {'table': 'items', 'sum': 'preco_unitario * quantidade'}}`) e **rodapé** `'sum'` na lista/relatório (`FIELD_TOTAL`, reports) |
+| `agg` | ✗/✓ | **Removida do field** (decisão). A agregação é propriedade do **componente**, não do campo. No **form/table** (sub-tabela de sessão) implementado agora: `table.columns` (lista de nomes de campos resolvidos pela `Entity` da página) e `table.total` (lista de nomes → soma vertical no rodapé); `agg` fica **declarativo por-linha** na coluna (`'pago': {'agg': 'sum'}`), suportado mas sem uso real em pedidos/orcamentos. `ReportColumn.agg` (report) segue e permanece. Migração por componente: **list** — `agg: 'sum'` removido de `movimentos`/`transacao`/`compras` (inerte no HTML); **report** — já via `ReportColumn.agg`. Implementar list/table-aggr em futuras páginas |
 | `align` | ✓ | Tipos numéricos (`INT`/`NUM`/`PERCENT`) — células da lista à direita; inputs `number` alinham à direita globalmente (CSS `input[type="number"]`) |
 | `attrs` | ✗ | Categorias — substituída por `min`/`max`/`step`; reavaliar se necessário |
 | `calc` | ✓ | Campo **calculado virtual** (não persistido): aceita expressão string (`QuoteItem.valor` = `'quantidade * preco_unitario'` — célula ao vivo na sub-tabela) ou **callable** `f(item) -> valor` (Orçamentos — `validade_data` = data de vencimento, exibida na lista e no form como rótulo `readonly`). Substitui a prop `function` (§5.2) |
@@ -40,11 +42,14 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | `in_filter` | ✓ | Gate do filtro de lista (renomeada de `filter`): `0` oculta (Orçamentos `data_renovacao`/`validade_data`/`carteira_id`/`pedido_id`; Operações `indice`; Movimentos `previsao`; Pedidos `transacao`/`quote_id`); `1` input (texto/número/data); `2` select (1 opção); `3` checklist multi-seleção (1+ opções) — Orçamentos `status`; `None` = auto do campo (text/number/date→1; select/options/query/boolean→2) |
 | `in_list` | ✓ | Coluna na tabela e/ou card: `0` exclui da listagem/card/filtro; `1` coluna na linha (vai p/ o card quando não couber, padrão); `2` sempre no card — Produtos `descricao` (`in_list: 2`; `True`→`1`, `False`→`0`) |
 | `label` | ✓ | Insumos — `product_id` → 'Produto'; Carteiras — `prazo_recebimento` → 'Prazo', `taxa_recebimento` → 'Taxa' |
-| `link` | ✓ | Orçamentos — `pedido_id` → `pedidos.form` (célula clicável) |
+| `link` | ✗ | Removida — navegação resolvida pelo motor via `query.model`, não explicitamente no field |
 | `list` | ✓ | Insumos — `tipo`/`unidade_medida` (LIST) e `etapas` (MULT10); Carteiras — `uso`/`gerar` (LIST) |
 | `LIST` em campo multivalorado | ✗ | Insumos — `etapa` (valor único) → `MULT10` (`etapas`) |
 | `mask` | ✓ | Categorias — `ordem` (`'999'`) |
-| `masterkey` | ✓ | **FK/DK (opcional)**: chave do `MODEL_MAP` que identifica o field do relacionamento na tabela-mestra (ex.: `'quote'` em `quote_id`) — substitui `__meta__`/query explícito em `DK`. Popula `query` = `Query(model=<chave>)` |
+| `__meta__` | ✗ | **Removida** — label/readonly de sessões derivadas substituídos por `label` explícito na config da sessão; `masterkey` substitui query explícito em DK |
+| `masterkey` | ✓ | **FK/DK (opcional)**: chave do `MODEL_MAP` que identifica o field do relacionamento na tabela-mestra (ex.: `'quote'` em `quote_id`) — substitui `__meta__`/query explícito em `DK`. Popula `query` = `Query(model=<chave>)`. **Consolida pares FK**: um campo `*_id` com `masterkey` serve tanto para exibição na lista quanto para dados (Pedidos — `transacao_id`/`movto_id` consolidados de pares `transacao`+`transacao_id`/`movto`+`movto_id`) |
+| `total` | ✓ | **Total de session (table)**: prop `total` dentro de `table` na session config. É uma **lista de nomes de fields** da Entity que terão seus valores **somados** na row de rodapé (soma vertical, opcionalmente com `calc`/`currency` derivados da Entity). O rótulo 'Total' é interno ao motor e não deve ser informado pelo usuário. Exemplo: `{'table': {'columns': ['product_id', 'quantidade', 'preco_unitario', 'valor'], 'total': ['quantidade', 'valor']}}`. Se não definido, não exibe row de total. |
+| `group_by` (table) | ✓ | **Agrupamento em table readonly**: prop `group_by` dentro de `table` (ex.: `{'table': {'group_by': 'status', 'columns': [...], 'total': ['qtd', 'total'], 'order_by': 'data desc'}}`). Agrupa os registros do relacionamento pelo field (ordenado pelas options da Entity), renderizado pelo macro `item_table_grouped` com **subtotal por grupo e total geral**. Sessão é forçada `readonly`. O subtotal de cada grupo usa o mesmo `table.total` (soma vertical). `order_by` opcional ordena dentro de cada grupo. Contas — `Pedidos` agrupados por `status`. |
 | `max` | ✓ | Categorias — `ordem` |
 | `min` | ✓ | Categorias — `ordem`; Orçamentos — `validade` (`min: 1`) |
 | `MULT10` | ✓ | Insumos — `etapas` (códigos concatenados, máx. 10 opções 0-9; editor genérico abre em modal) |
@@ -96,19 +101,18 @@ Legenda: `✓` aprovada · `✗` desaprovada (deprecada) · `~` quebrada (a corr
 | Propriedade | Estado | Onde validada |
 |---|---|---|
 | `buttons` | ✓ | Categorias — `on_off`; Orçamentos — botão `Enviar` (`action` callable, `when: lambda i: i.pedido_id is None and i.status < 7`, `position: 'nav_right'`), `Converter` (`action`, `when: lambda i: i.pedido_id is None and i.status < 7`) e `Rejeitar` (`action`, `color: 'error'`, `position: 'footer_left'`, `when: lambda i: i.status < 7`); list — botão `Validar` (`action` callable, `color: 'info'`) |
-| `defaults` | ✓ | Orçamentos — `{'status': 1}` (valor inicial do novo registro) |
-| `delete` | ✓ | Categorias — `when`, `msg_ok`, `msg_no`; Carteiras — `when` multi-model `[Compra, Order, Quote, Previsao]`, `msg_ok`/`msg_no`; Orçamentos — `when` callable `lambda q: q.pedido_id is None` |
-| `fields` | ✓ | Categorias — `'Category'`; Orçamentos — lista explícita `['cliente_nome', 'cliente_telefone', 'validade', 'forminhas', 'carteira_id', 'observacao']` |
-| `form_tail` | ✗ | Desaprovada — sem consumidores ativos (mantida só p/ compat) |
-| `page_scripts` | ✗ | Desaprovada — ainda usada por Transacao/Pedidos (`_page_scripts.html`), mas sem novos usos |
+| `delete` | ✓ | Categorias — set `{Product}` + `msg_ok`/`msg_no` (dict); Carteiras — quando multi-model `{Compra, Order, Quote, Previsao}`; Insumos — set `{ProductIngredient, ProducaoInsumo, CompraItem, UnitConversion}`; Orçamentos — callable `lambda q: q.pedido_id is None` |
+| `fields` | ✓ | Categorias — `'Category'`; Insumos — `'Ingredient'`; Orçamentos — lista explícita `['cliente_nome', 'cliente_telefone', 'validade', 'forminhas', 'carteira_id', 'observacao']` |
+| `form_tail` | ✗ | Removida — sem consumidores ativos |
+| `page_scripts` | ✗ | Removida — usada por Transacao; Pedidos migrado (child-table + on_set genéricos) |
+| `body_template` | ✗ | Removida — substituída por campos declarativos na Entity + sessões; Pedidos migrado |
+| `nav_right_extra` | ✗ | Removida — substituída por `buttons` com `position: nav_right`; Pedidos migrado |
+| `footer_left` | ✗ | Removida — substituída por `buttons` com `position: footer_left`; Pedidos migrado |
 | `post_save` | ✓ | Categorias — reordenação |
 | `pre_get` | ✓ | Carteiras — `em_uso`/`ro_fields` no editar: quando em uso, só `nome` fica readonly com hint |
 | `pre_save` | ✓ | Categorias — auto-ordenação `ordem`; Carteiras — guarda de `nome` quando em uso (com `no_autoflush`); Orçamentos — status 0→1 (Pendente→Negociação na 1a edição admin) |
-| `readonly_when` | ✓ | Orçamentos — `{'pedido_id': lambda v: v is not None}` (orçamento convertido vira read-only) |
-| `sessions` | ✓ | Insumos — `Conversões` e `Produtos` (explícitas); Orçamentos — `Itens do Orçamento` e `Evento` |
-| `sessions.buttons` | ✓ | Orçamentos — `Itens do Orçamento`: botão `Atualizar preços zerados` (`action` callable, `color: 'warning'`, `icon: 'arrow-path'`) ao lado do Adicionar |
-| `sessions.readonly` | ✓ | Insumos — sessão `Produtos` renderizada como texto |
-| `sessions.table` | ✓ | Insumos — `['UnitConversion']`, `['ProductIngredient']` |
+| `readonly` | ✓ | Form/readonly unificado (`False`/`True`/callable) — substitui `readonly_when` |
+| `sessions` | ✓ | Insumos — `Conversões` e `Produtos` (dict puro com `table.columns`); Orçamentos — `Itens do Orçamento` e `Evento` |
 | `tags` | ✓ | Orçamentos — `[{'field': 'status', 'colors': {9: 'success', 7: 'error', ...}}]` (badges no nav bar, cores inferidas ou por `colors`) |
 
 ### Report — configuração de relatórios PDF (§7.7)
@@ -250,6 +254,17 @@ alternativo; string vazia/None → container intacto (`injectHTML` guarda).
 | Propriedade | Estado | Onde validada |
 |---|---|---|
 | `APP.title` | ✓ | Título do app (ex.: "Sistema Gerenciador de Doceria"); referenciado por `title.text: 'app_title'` |
+
+### Motor / CSS — contratos de renderização
+
+| Propriedade | Estado | Onde validada |
+|---|---|---|
+| CSS inline via `{% include %}` | ✓ | `page_layout.html` inclui `components/motor_style.css` como `<style>` — sem `<link>` para `app/static/css/style.css`. Motor é única fonte |
+| `#page-content` como container de largura | ✓ | `max-width: 100%` (mobile), `calc(100vw - 4rem)` (desktop ≥992px), `margin-inline: auto` — controla largura de todas as páginas |
+| `.page-list-inner` deprecated | ✗ | Removida — largura controlada por `#page-content` |
+| `#page-content` min-height | ✓ | `200px` — garante área mínima de conteúdo |
+| `fitListColumns()` greedy (todas viewports) | ✓ | Mede `.overflow-auto` parent; colunas que não cabem vão para detail card — funciona desktop E mobile |
+| `.container` max-width | ✓ | Breakpoints: 540px/720px/960px/1140px — override de DaisyUI |
 
 ---
 
@@ -541,11 +556,15 @@ canônica dos estáticos prontos. Copie para o `app/static/` da sua app:
 
 ```bash
 cp app/ajsystem/static/css/tailwind.css    app/static/css/tailwind.css     # tema padrão do framework
-cp app/ajsystem/static/css/style.css       app/static/css/style.css
 cp app/ajsystem/static/css/multi-ctl.css   app/static/css/multi-ctl.css
 cp app/ajsystem/static/js/multi-ctl.js     app/static/js/multi-ctl.js
 cp -r app/ajsystem/static/lib/             app/static/lib/                 # htmx, alpine, bootstrap-icons, qrcode
 ```
+
+> **`style.css` do motor é inline** — o CSS genérico do framework (`motor_style.css`)
+> é incluído via `{% include %}` no `page_layout.html`, tornando-se parte do
+> HTML renderizado. Não precisa ser copiado para `app/static/`. O motor é a
+> única fonte de verdade para este CSS.
 
 O `tailwind.css` pré-compilado usa o **tema padrão do framework** (`ajsystem`),
 neutro. Para um tema próprio, use o caminho A (rebuild gera
@@ -820,8 +839,8 @@ cria, protegidas por `login_required`:
 |---|---|---|---|
 | `/<slug>/` | `<slug>.list` | GET | sempre |
 | `/<slug>/novo` e `/<slug>/<id>/editar` | `<slug>.form` | GET/POST | sempre |
-| `/<slug>/<id>/excluir` | `<slug>.delete` | POST | se `Form['delete']` |
-| `/<slug>/<id>/toggle` | `<slug>.toggle` | GET | se `Form['toggle']` ou botão `on_off` |
+| `/<slug>/<id>/excluir` | `<slug>.delete` | POST | se `Form['delete']` (≠ `False`) |
+| `/<slug>/<id>/toggle` | `<slug>.toggle` | GET | se houver botão `on_off` em `Form['buttons']` |
 
 ### 4.2 Modo declarativo vs modo legado
 
@@ -920,7 +939,7 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `FONE` | `text` | `mask: '(99) 99999-9999'`, `digits_only: True` |
 | `CPF` | `text` | `mask: '999.999.999-99'`, `digits_only`, `validate: 'cpf'` |
 | `CNPJ` | `text` | `mask: '99.999.999/9999-99'`, `digits_only`, `validate: 'cnpj'` |
-| `FK` | `select` | filtro select (`in_filter` 2); referência a outra entidade — `masterkey` opcional, veja §5.2 |
+| `FK` | `select` | filtro select (`in_filter` 2); referência a outra entidade — `masterkey` opcional, veja §5.2. **Nunca duplicar** (par display+data): um campo `*_id` serve para ambos |
 | `LIST` | `select` | filtro select (`in_filter` 2) ou checklist (`in_filter` 3); opções fixas via `list`/`options` |
 | `MULT10` | `multi` | Opções fixas via `list`/`options` (máx. 10, códigos 0-9); editor genérico em modal; persiste códigos concatenados |
 | `IMAGE` | `image` | `in_filter: 0`, widget de preview/upload |
@@ -956,6 +975,26 @@ disponíveis (`app/ajsystem/defs/fields.py`):
 | `derived` | dict | Campo **virtual** (sem coluna no banco): `{'sum': '<caminho>'}` soma as folhas do caminho, atravessando coleções (ex.: `'items.quantidade'`). Calculado na renderização (células, colunas e agregados) |
 | `hide_zero` | bool | Ocultar valores zero na listagem (padrão `True`) |
 | `masterkey` | str | **FK/DK (opcional)**: chave do `MODEL_MAP` que identifica o field do relacionamento na tabela-mestra (ex.: `'quote'` em `quote_id`) — popula `query` = `Query(model=<chave>)`. Sem ele, a referência é derivada da relação do model (§5.4). Em campos `DK` o padrão é a **primeira tabela da `Entity`** |
+
+> **Regra FK: um campo só, nunca par.** Um campo `*_id` com `type: 'FK'` serve
+> tanto para exibição na lista quanto para dados. Use `masterkey` (sem `when`)
+> ou `query` dict (com `when`) — nunca crie dois campos para a mesma FK.
+> O motor deriva `card_path` automaticamente via `_rel_name_for_field()`.
+>
+> ```python
+> # ✓ CORRETO — campo único
+> 'transacao_id': {'type': 'FK', 'label': 'Faturado', 'width': 10,
+>                  'masterkey': 'transacao', 'in_filter': 0, 'in_form': 0}
+>
+> # ✓ CORRETO — com query.when (filtra opções do form/select)
+> 'client_id': {'type': 'FK', 'label': 'Cliente', 'width': 20,
+>               'query': {'model': 'conta', 'when': 'ativo = true'}, 'required': True}
+>
+> # ✗ ERRADO — par desnecessário
+> 'transacao':    {'type': 'FK', 'label': 'Faturado', ...},  # display duplicado
+> 'transacao_id': {'type': 'FK', 'query': {'model': 'transacao'}, ...}
+> ```
+
 | `list` | dict | **LIST/MULT10**: opções fixas `{valor: rótulo}` (alias de `options`) |
 | `options` | dict | Opções do select (estáticas, ou preenchidas pelo motor via `query`) |
 | `query` | str/dict/Query | Referência de consulta: `str` = chave do `MODEL_MAP` (default `display='nome'`), `dict`/`Query` = `model`, `field`, `columns`, `display`, `return_field`, `when`, `order` (§5.4) |
@@ -1018,9 +1057,11 @@ Campos **implícitos** — derivados automaticamente do model consultado:
 - `when` — cláusula SQL `WHERE` (substitui a antiga `query_filter`).
 
 **Chave reservada `__meta__`** — toda entrada da `Entity` é um dict de campos;
-chaves que começam com `__` são **reservadas** e não viram campos. A função de
-`__meta__` (`label`/`readonly` de sessões derivadas) foi **substituída por
-`masterkey`** — marcada para remoção; o motor ainda a lê para compatibilidade.
+chaves que começam com `__` são **reservadas** e não viram campos. `__meta__`
+(`label`/`readonly` de sessões derivadas) foi **substituída por `label`
+explícito na config da sessão** e `masterkey` para DK — removida de novos
+módulos (Pedidos usa `table: ['Entity']` + `label` na sessão). Motor ainda
+lê para compatibilidade com módulos legado.
 
 **Referência derivada da relação** — um campo `*_id` sem `masterkey`/`query` tem
 o `query` resolvido automaticamente pelo motor a partir da relação do model do
@@ -1260,74 +1301,66 @@ módulo os declarar com `@auto.rota`.
 
 ## 7. Form — configuração
 
-O `Form` é um dict com a configuração completa do formulário:
+O `Form` é um dict em `Page['props']['form']` com a configuração **declarativa**
+do formulário. O **motor** resolve o resto a partir de `fields` + o `Schema` da
+página (rota) + as entitys associadas (imports do módulo): ele **lembra de nada
+do host** — apenas lẽ a página e resolve via `columns`/`fields`.
 
 ```python
-Form = {
-    'fields': 'Category',
-    'delete': {
-        'when': {Product},
-        'msg_ok': 'Categoria excluída',
-        'msg_no': 'Em uso',
-    },
+Form = {                     # dentro de Page['props']['form']
+    'fields': 'Category',    # nome da entidade (source de verdade)
+    'delete': {Product},     # set de classes/models → bloqueia se houver referência
     'buttons': ['on_off'],
     'pre_save': _pre_save,
 }
 ```
 
-> Equivalente à dataclass `Form(...)` de `app.ajsystem.core.form` — `handle_form`
-> aceita ambos. Os módulos do projeto usam o dict.
-
 ### 7.1 Formato de `fields`
+
+`fields` é a **única fonte** de model + schema + colunas. O motor resolve o model
+via `_resolve_model` (`MODEL_MAP`), faz o merge do `Schema` da página com o
+`Entity` do model e monta os campos resolvidos.
 
 | Formato | Sintaxe | Quando usar |
 |---|---|---|
 | string | `'fields': 'Category'` | todos os campos da entidade `Category` |
 | lista | `'fields': ['nome', 'preco']` | campos específicos (por nome) |
-| dict com `fields` | `'fields': {'fields': {'nome': {...}}}` | campos explícitos |
-| dict com `entity` | `'fields': {'entity': 'Encomenda', 'only': ['data', 'cliente'], 'overrides': {...}}` | entidade + seleção + ajustes |
+| dict de campo | `'fields': [{'name': 'nome', 'label': 'N.ome'}]` | sobreposições de campo |
 
-> `field_overrides` (propriedade da dataclass) é o equivalente de `overrides` em
-> nível de form: `{campo: {props}}` mesclado sobre os campos da entidade.
+> Não existe mais `model`, `entity_name`, `schema` ou `field_overrides` como
+> props: tudo é derivado de `fields` pelo motor.
 
 ### 7.2 Referência de propriedades
 
 | Propriedade | Tipo | O que configura | Padrão |
 |---|---|---|---|
-| `fields` | ver §7.1 | Campos do form | — |
-| `model` | Model | Model principal (derivado de `entity_name`/`fields` se ausente) | — |
-| `redirect` | str | Endpoint após salvar | `'<blueprint>.list'` |
-| `label` | str | Nome do registro (botões/flash) | auto: menu singularizado → entidade |
-| `new_label` | str | Rótulo do "Novo"/título novo | `label` |
-| `new_title` | str | Título da página em modo criação | `label` |
-| `flash_ok` | str | Mensagem de sucesso (criação) | `'{label} incluído!'` |
-| `flash_update` | str | Mensagem de sucesso (atualização) | `'{label} atualizado!'` |
-| `nav` | bool | Barra de navegação superior | `True` |
-| `nav_right_extra` | str/HTML | HTML extra à direita da barra | — |
-| `back_url` | str | URL do botão "Voltar" | `url_for(<bp>.list)` |
-| `readonly_when` | dict | `{campo: valor}` — todos iguais ⇒ form readonly. Valor também aceita callable `(valor_atual) -> bool` ou lista/set de valores | — |
-| `defaults` | dict | Valores iniciais `{campo: valor}` em novos registros | — |
+| `fields` | str/list/dict | Campos do form (§7.1) — resolve model+schema+colunas | — |
+| `sessions` | dict | Tabelas/seções filhas (§7.3) | — |
+| `template` | str | **1ª prop**: se setada, as demais são ignoradas | `pages/form.html` |
+| `readonly` | bool/callable | Form read-only: `False` (padrão), `True`, ou `(instance)->bool` | `False` |
+| `delete` | bool/callable/set/dict | Exclusão (§7.4) | `False` |
 | `pre_save` | callable | `(instance, request, is_new) -> bool` (§7.6) | — |
 | `post_save` | callable | `(instance, changed, old_vals)` (§7.6) | — |
-| `pre_get` | callable | `(mod, id) -> dict` de contexto extra (§7.6) | — |
-| `sessions` | dict | Tabelas filhas (§7.3) | — |
-| `delete` | bool/dict | Exclusão (§7.4) | `False` |
-| `delete_when` | dict/list | Alias de `delete['when']` | — |
-| `toggle` | str | Campo booleano do botão ativar/desativar | via `buttons` (`'ativo'`) |
 | `buttons` | list | Botões (§7.5) | — |
-| `template` | str | Template completo alternativo | `pages/form.html` |
-| `body_template` | str | Template parcial do corpo (campos) | — |
-| `form_tail` | str/HTML | HTML antes dos botões de ação | — |
-| `footer_left` | str/HTML | Rodapé (coluna esquerda) | — |
-| `page_scripts` | str/HTML | Scripts adicionais da página | — |
+| `tags` | list | Badges no nav bar (§2) | — |
+| `flash_ok` | str | Mensagem de sucesso (criação) | `'{label} incluído!'` |
+| `flash_update` | str | Mensagem de sucesso (atualização) | `'{label} atualizado!'` |
 | `spacing` | int | Espaçamento do grid de campos | `2` |
-| `badge`/`tag` | dict/HTML | Badge no cabeçalho do form | — |
-| `children` | list | (legado) itens filhos | — |
 
-### 7.3 `sessions` — tabelas filhas
+**Props removidas** (o motor resolve/deriva — comportamento padrão):
+`model`, `module_name`, `entity_name`, `schema`, `field_overrides`, `redirect`
+(derivado do blueprint), `label`/`new_label`/`new_title` (derivados de `fields`),
+`back_url`, `edit_endpoint`, `nav`, `nav_right_extra`, `body_template`,
+`form_tail`, `footer_left`, `page_scripts`, `tag` (→ `tags`), `delete_when`
+(→ `delete`), `readonly_when` (→ `readonly`), `defaults` (default resolve no
+campo), `toggle` (→ via `buttons: ['on_off']`), `flash_deny`, `flash_excluido`,
+`flash_toggle`.
+
+### 7.3 `sessions` — seções filhas (dict puro)
 
 **Derivação automática (recomendado)** — se `sessions` não for declarado, o motor
-deriva as sessões dos **relacionamentos** do model do form:
+deriva as sessões dos **relacionamentos** do model do form (as relações
+ONETOMANY/ONETOONE cujo model alvo tenha `Entity`):
 
 ```python
 Form = {
@@ -1336,115 +1369,61 @@ Form = {
 }
 ```
 
-Regras da derivação (`Form._auto_sessions`):
-
-- cada relação **ONETOMANY/ONETOONE** cujo model alvo tenha uma entrada em
-  `Entity` vira uma sessão (`attr` = nome da relação);
-- relações `MANYTOONE`, auto-referências e `secondary`/`viewonly` são ignoradas;
-- o **rótulo** vem de `__meta__['label']` (ou do nome da relação) e `readonly`
-  de `__meta__['readonly']` — veja §5.4;
-- **campos gerenciados ficam ocultos** (`in_form: 0`): PKs simples (`id`) e FKs
-  que apontam ao model pai (ex.: `quote_id`). O motor os preenche pela relação;
-- FKs para outros models têm o `query` derivado da relação (§5.4);
-- sessão `single: True` quando a relação é 1:1 (ex.: o `event` de um orçamento).
-
-**Sessões explícitas** — como antes, com `table`/`model`/`fields`/`attr`:
+**Sessões explícitas** — dict, com `template`, `fields`, `query` ou `table`:
 
 ```python
 Form = {
-    'fields': 'Product',
+    'fields': 'Ingredient',
     'sessions': {
-        'Insumos': {'table': ['ProductIngredient'], 'attr': 'ingredients'},  # automático
-        'Eventos': {'model': Event, 'fields': {'tipo': {'type': 'TEXT'}}},   # explícito
-        'Obs': 'sys_produtos/_obs.html',                                     # template só
+        'Conversões': {                       # chave = rótulo da seção
+            'table': {'columns': ['UnitConversion'], 'allow_add': True, 'allow_delete': True},
+        },
+        'Produtos': {
+            'table': {'columns': ['ProductIngredient'], 'allow_add': False, 'allow_delete': False},
+        },
+        'Obs': {'template': 'sys_insumos/_obs.html'},   # template só (1ª prop)
     },
 }
 ```
 
-Propriedades de cada sessão:
+Propriedades de cada sessão (dict):
 
 | Propriedade | Tipo | O que configura |
 |---|---|---|
-| `table` | list | Entidades da `Entity` do módulo (ex.: `['ProductIngredient']`) — monta colunas automaticamente |
-| `model` | Model/str | Model dos itens (ou nome da entidade do módulo) |
-| `fields` | dict/list | Campos explícitos (mesmo formato de `Form.fields`) |
-| `attr` | str | Atributo/relação no model pai (usado p/ ler/salvar itens) |
-| `readonly` | bool | Sessão somente-leitura (sem adicionar/remover) |
-| `template` | str | Template parcial do form filho (ex.: `sys_x/_itens.html`) |
-| `label` | str | Rótulo da sessão | nome da chave |
-| `prefix` | str | Prefixo dos campos de formulário | `'<attr>_'` |
-| `order_by` | str | Ordenação dos itens |
-| `buttons` | list | Botões da tabela de itens |
+| `template` | str | **1ª prop**; se setada, as demais são ignoradas (template parcial) |
+| `fields` | str/list/dict | Campos não-tabulares (form simples, mesmo formato de `Form.fields`) |
+| `query` | dict | **Somente-leitura** (mini-relatório) com `columns` e demais props de `Query` (§12) |
+| `table` | dict | Tabela editável com `columns`, `allow_add`, `allow_delete`, `order` |
+| `name` | str | Rótulo explícito da seção (senão usa a chave do dict) |
 
-Uma sessão com apenas string equivale a `{'attr': <nome>, 'template': <string>}`.
-
-**Sessões `query`** — tabela **somente-leitura** (sem adicionar/remover) para
-apresentação, com agrupamento e subtotais — um "mini-relatório" na tela:
-
-```python
-Form = {
-    'fields': 'Conta',
-    'sessions': {
-        'Pedidos': {
-            'query': ['Order'],                   # entidades p/ colunas (como 'table')
-            'group_by': 'status',                 # agrupa por este campo
-            'group_totals': {                     # rótulo -> agregado
-                'Qtd':   'count',                 # conta linhas
-                'Valor': {'sum': 'total', 'currency': True},  # soma (currency => BRL)
-            },
-        },
-    },
-}
-```
-
-- `query` aceita **lista** de entidades no formato legado (string = chave de
-  `Query` nomeada — ver §12); a sessão vira `readonly` (não persistida pelo
-  motor);
-- `group_by` (opcional): campo de agrupamento. Grupos ordenados pelas `options`
-  do campo (ex. `ORDER_STATUS`), senão por valor; só aparecem grupos com itens.
-  A coluna do campo agrupado some das linhas de detalhe;
-- `group_totals` (opcional): agregados por grupo **e** total geral. `'count'`
-  conta linhas; `{'sum': '<campo>', 'currency': bool}` soma o campo (ignora
-  `None`); com `currency: True` formata como moeda (`fmt_brl`).
-
-> Hoje o formato inline acima (lista/string de entidades) é um caminho
-> **legado**: o formato recomendado é uma `Query` nomeada — ver §12.
-
-**Persistência genérica** — as sessões derivadas (e as de `table` com entidade
-resolvida) são persistidas pelo motor no `pre_save` (inputs
-`child_<rel>_<rid>_<campo>`, ver `Form._save_session_children`):
-
-- **linha ignorada** quando todos os campos editáveis estão vazios **ou** falta
-  valor em um campo `required`;
-- `rid` numérico = registro existente (**upsert**); `n*` = novo; FKs para o pai
-  são preenchidas pela relação; existentes não submetidos são excluídos;
-- sessões `single` são criadas/atualizadas e nunca apagadas por um envio vazio;
-- `agg` dict (§5.4) é recalculado após salvar.
-
-> As sessões renderizam uma tabela de itens com adicionar/remover
-> (`components/item_table.html`). O padrão canônico de persistência é **o do
-> motor** — não declare mais `pre_save` para parsear filhos.
+> `query` e `table` são **mutuamente exclusivos** — o motor lança erro se ambos
+> forem declarados. `columns` aceita o nome da entidade (expande todos os campos)
+> ou lista de campos específicos. O vetor de colunas é resolvido contra o `Entity`
+> + `Schema` da entidade filha e preserva a **ordem de definição**.
 
 ### 7.4 `delete` — exclusão com proteção
 
+`delete` aceita os seguintes formatos (o motor normaliza todos):
+
 ```python
-'delete': {
-    'when': {Product},          # blocos: não exclui se existir filho
-    'msg_ok': 'Categoria excluída',
-    'msg_no': 'Não é possível excluir — está em uso.',
-}
+'delete': False,                # sem exclusão (padrão)
+'delete': True,                 # sempre permite
+'delete': lambda i: i.status < 7,        # callable (instance) -> bool
+'delete': {Product, Order, Quote},       # set de classes/models → bloqueia se houver referência
+'delete': {'when': {Product}, 'msg_ok': 'Categoria excluída.', 'msg_no': 'Em uso.'},
 ```
 
-| Propriedade | Tipo | O que configura |
-|---|---|---|
-| `when` | set/list/dict/callable | `{Model}` ou `[Model...]` → checa FK e bloqueia; `{campo: valor}` → bloqueia se campo ≠ valor; callable `(instance)->bool`; `True` permite sempre; `False` desabilita |
-| `msg_ok` | str | Mensagem de sucesso |
-| `msg_no` | str | Mensagem ao bloquear |
-| `callback` | callable | (custom) lógica extra antes de excluir — use numa rota `delete` custom |
+| Formato | O que configura |
+|---|---|
+| `False` | sem exclusão — a rota `/<id>/excluir` não é criada |
+| `True` | permite excluir sempre |
+| callable | `(instance)->bool` — `True` permite |
+| set/list/tuple de classes | checa FK nos models dados; se houver referência, bloqueia |
+| dict | `{'when': <qualquer formato acima>, 'msg_ok': ..., 'msg_no': ...}` |
 
-> O motor usa `can_delete(instance, when)` internamente, monta o modal de
-> confirmação (`ConfirmModal`) e cria a rota `/<id>/excluir`. Com `delete=False`
-> a rota não é criada. Para limpar uploads etc., declare a rota `delete` custom
+> O motor monta o modal de confirmação e cria a rota `/<id>/excluir`. O botão
+> **Excluir** no rodapé do form só aparece no modo edição quando há `delete`
+> habilitado. Para limpeza/callback extra, declare uma rota `delete` custom
 > (veja §4.5).
 
 ### 7.5 Botões (`buttons`)
@@ -1466,9 +1445,9 @@ Três formas no `Form`:
 | `outline` | bool | Estilo outline |
 | `size` | str | `sm`/`md`/`lg` |
 | `endpoint` / `url` | str | Destino do link |
-| `action` | callable | `(instance) → url` ou, com `render`, `(instance) → html` |
-| `render` | str | CSS selector do container que recebe HTML retornado por `action` via `injectHTML` (ex: `'#page-content'`) |
-| `method` | str | `GET`/`POST` (para ações) |
+| `action` | callable | `(instance) → url` ou, com `render`, `(instance) → html` — Orçamentos `Enviar`; Pedidos `Enviar` (render fragment) |
+| `render` | str | CSS selector do container que recebe HTML retornado por `action` via `injectHTML` (ex: `'#page-content'`) — Pedidos `Enviar` |
+| `method` | str | `GET`/`POST` (para ações) — Pedidos `Cancelar Pedido` (POST com confirm) |
 | `confirm_msg` | str | Mensagem do modal de confirmação |
 | `on_off` | bool | Botão de toggle ativo/inativo |
 | `field` | str | Campo booleano do toggle (padrão `'ativo'`) |

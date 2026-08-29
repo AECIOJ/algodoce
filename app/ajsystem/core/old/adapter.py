@@ -1,8 +1,9 @@
-"""Acoplamento do framework com a aplicação host.
+"""Ponto único de acoplamento do framework com a aplicação host.
 
-Ponto único de import das dependências específicas do projeto (SQLAlchemy db,
-login manager, modelos User/Setting, config APP) mais hooks opcionais de
-markdown/túnel. Para portar o framework a outro host, ajustar este arquivo.
+O framework (app.ajsystem) só importa deste módulo as dependências
+específicas do projeto: SQLAlchemy db, login manager, modelos User/Setting,
+config APP e o endpoint de uploads. Para portar o framework para outro
+projeto, basta substituir/implementar as funções deste arquivo.
 """
 import os
 
@@ -21,31 +22,40 @@ TEMAS = build_temas(_TEMAS)
 
 
 def get_uploads_endpoint(app=None):
-    """Endpoint usado pelas templates oara servir uploads de imagem."""
+    """Endpoint usado pelas templates para servir uploads de imagem.
+
+    Pode ser sobrescrito via config `AJ_UPLOADS_ENDPOINT`.
+    """
     return (app or current_app).config.get('AJ_UPLOADS_ENDPOINT', 'uploads.uploaded_file')
 
 
-# ─── Markdown de conteúdo (páginas `type='markdown'`) ────────────────────────
+# ─── Markdown de conteúdo (páginas `template.type='markdown'`) ─────────────
+
 _markdown_loader = None
 
 
 def set_markdown_loader(fn):
+    """Registra a implementação de markdown→HTML do host (`fn(nome) -> html|None`)."""
     global _markdown_loader
     _markdown_loader = fn
 
 
 def get_markdown_loader():
+    """Loader registrado; `None` se o host não suportar conteúdo markdown."""
     return _markdown_loader
 
 
 # ─── URL pública (QR de acesso) ─────────────────────────────────────────────
+
 _tunnel_url_provider = None
 
 
 def set_tunnel_url_provider(fn):
+    """Registra a implementação de URL pública do host (ex.: túnel)."""
     global _tunnel_url_provider
     _tunnel_url_provider = fn
 
 
 def get_tunnel_url():
+    """URL pública do app p/ QR de acesso; padrão: `None` (fallback no endpoint)."""
     return _tunnel_url_provider() if _tunnel_url_provider else None

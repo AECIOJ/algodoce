@@ -27,7 +27,7 @@ MOVIMENTOS_FIELDS = {
         'conta': {'width': 15, 'query': {'model': 'conta'}},
         'previsao': {'label': 'Previsão', 'width': 10, 'in_filter': 0},
         'documento': {'width': 10},
-        'valor': {'width': 10, 'input': 'number', 'align': 'right', 'agg': 'sum', 'currency': 'brl'},
+        'valor': {'width': 10, 'input': 'number', 'align': 'right', 'currency': 'brl'},
         'operacao': {'width': 15, 'query': {'model': 'operacao'}},
         'historico': {'label': 'Histórico', 'width': 30},
 }

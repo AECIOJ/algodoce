@@ -36,10 +36,15 @@
 {% set items = [_raw] %}
 {% set _single = true %}
 {% endif %}
-{% set _can_edit = not ro and not _single %}
-{% set _edit_fields = child.fields|selectattr('in_form')|rejectattr('hidden')|list %}
+{% set _can_edit = not ro and not _single and not (child.get('query') if child is mapping else child.query) %}
 {% set _hidden_fields = child.fields|selectattr('hidden')|list %}
-{% set _calc_fields = child.fields|selectattr('calc')|list %}
+{% if child.columns is defined and child.columns %}
+{% set _display_fields = child.columns %}
+{% else %}
+{% set _display_fields = child.fields %}
+{% endif %}
+{% set _edit_fields = _display_fields|selectattr('in_form')|rejectattr('hidden')|list %}
+{% set _calc_fields = _display_fields|selectattr('calc')|list %}
 {% set _prefix = 'child_' + _rel + '_' %}
 {% set _totals = _session_totals.get(_rel) if _session_totals is defined else none %}
 <div class="mb-3 child-table-wrap" {% if _totals and not _calc_fields %}data-total-expr="{{ _totals.expr }}" data-total-currency="{{ _totals.currency or '' }}"{% endif %}>
@@ -98,7 +103,7 @@
         </tr>
         {% endfor %}
       </tbody>
-      {% if _can_edit or _calc_fields %}
+      {% if _can_edit or _calc_fields or child.totals %}
       <tfoot>
         {% if _can_edit %}
         <tr id="{{ _rel }}RowTemplate" style="display:none" data-crow="__IDX__">
@@ -131,12 +136,35 @@
           </td>
         </tr>
         {% endif %}
-        {% if _calc_fields %}
+        {% if child.table and child.table.total is mapping %}
+        {% set _total_fields = child.table.total %}
         <tr class="it-total-row">
-          <th class="itm-label" colspan="{{ _edit_fields|length }}">Total</th>
-          {% for f in _calc_fields %}
-          <td class="it-calc-total text-right font-semibold" data-calc-total="{{ f.name }}" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</td>
+          <th class="itm-label">Total</th>
+          {% for _f in _edit_fields + _calc_fields %}
+          {% if _f.name in _total_fields %}
+          <td class="it-calc-total text-right font-semibold"
+              data-total-field="{{ _f.name }}"
+              data-total-fn="{{ _total_fields[_f.name].fn }}"
+              {% if _total_fields[_f.name].calc %}data-calc="{{ _total_fields[_f.name].calc }}"{% endif %}
+              {% if _total_fields[_f.name].currency %}data-total-currency="{{ _total_fields[_f.name].currency }}"{% endif %}>—</td>
+          {% else %}
+          <td></td>
+          {% endif %}
           {% endfor %}
+          {% if _can_edit %}<td></td>{% endif %}
+        </tr>
+        {% elif _calc_fields %}
+        {% set _calc_names = _calc_fields|map(attribute='name')|list %}
+        <tr class="it-total-row">
+          <th class="itm-label">Total</th>
+          {% for _f in _edit_fields + _calc_fields %}
+          {% if _f.name in _calc_names %}
+          <td class="it-calc-total text-right font-semibold" data-calc-total="{{ _f.name }}" data-calc="{{ _f.calc }}"{% if _f.currency %} data-calc-currency="{{ _f.currency }}"{% endif %}>—</td>
+          {% else %}
+          <td></td>
+          {% endif %}
+          {% endfor %}
+          {% if _can_edit %}<td></td>{% endif %}
         </tr>
         {% endif %}
         {% if _can_edit %}
@@ -263,15 +291,25 @@
 {% endmacro %}
 
 {#
-  Tabela de sessão tipo 'query' agrupada: cabeçalho do grupo + linhas de
-  detalhe + subtotal por grupo + total geral (ver Form.sessions 'query').
-  Somente-leitura; agrupamento ordenado pelas options do campo.
+  Tabela de sessão agrupada: cabeçalho do grupo + linhas de detalhe + subtotal
+  por grupo + total geral. Suporta table agrupada (columns + table.total) e a
+  query legada (fields + group_totals). Somente-leitura; agrupamento ordenado
+  pelas options do campo.
 #}
 {% macro item_table_grouped(instance, child, ro=false) %}
 {% set _groups = child.groups %}
-{% set _edit_fields = child.fields|selectattr('in_form')|rejectattr('hidden')|list %}
+{% if child.columns is defined and child.columns %}
+{% set _display_fields = child.columns %}
+{% else %}
+{% set _display_fields = child.fields %}
+{% endif %}
+{% set _edit_fields = _display_fields|selectattr('in_form')|rejectattr('hidden')|list %}
 {% set _totals = child.totals %}
+{% if child.table and child.table.total is mapping %}
+{% set _totals_spec = child.table.total %}
+{% else %}
 {% set _totals_spec = child.group_totals or {} %}
+{% endif %}
 {% set _ncols = _edit_fields|length + _totals_spec|length %}
 <div class="mb-3 child-table-wrap it-grouped">
   <h6 class="font-bold mb-1 text-sm">{{ child.label }}</h6>
@@ -285,7 +323,8 @@
           <th class="text-sm"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
           {% endfor %}
           {% for _tlabel in _totals_spec.keys() %}
-          <th class="text-sm text-right">{{ _tlabel }}</th>
+          {% set _tl = _edit_fields|selectattr('name', 'equalto', _tlabel)|first %}
+          <th class="text-sm text-right">{{ _tl.display_label if _tl else _tlabel }}</th>
           {% endfor %}
         </tr>
       </thead>
@@ -343,7 +382,8 @@
       <div class="it-group-sub">
         <span>Subtotal</span>
         {% for _tlabel in _totals_spec.keys() %}
-        <span class="it-group-sub-val">{{ _tlabel }}: {{ render_agg_total(_g['totals'].get(_tlabel)) }}</span>
+        {% set _tl = _edit_fields|selectattr('name', 'equalto', _tlabel)|first %}
+        <span class="it-group-sub-val">{{ _tl.display_label if _tl else _tlabel }}: {{ render_agg_total(_g['totals'].get(_tlabel)) }}</span>
         {% endfor %}
       </div>
     </div>
@@ -352,7 +392,8 @@
     <div class="it-group-total-line">
       <span>Total</span>
       {% for _tlabel in _totals_spec.keys() %}
-      <span>{{ _tlabel }}: {{ render_agg_total(_totals.get(_tlabel)) }}</span>
+      {% set _tl = _edit_fields|selectattr('name', 'equalto', _tlabel)|first %}
+      <span>{{ _tl.display_label if _tl else _tlabel }}: {{ render_agg_total(_totals.get(_tlabel)) }}</span>
       {% endfor %}
     </div>
     {% endif %}
@@ -457,6 +498,8 @@
   .itm-table td.itm-cell input[type="date"], .itm-table td.itm-cell input[type="time"] { width: 13ch; }
 
   .it-group-row td.it-group-label { background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; }
+  .it-total-row th.itm-label,
+  .it-total-row td.itm-label { text-align: right; background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; }
   .it-total-row td { background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; }
   .it-group-block { margin-bottom: 0.75rem; border: 1px solid var(--fallback-b3, oklch(var(--b3))); border-radius: 0.5rem; overflow: hidden; }
   .it-group-head { font-weight: 600; padding: 0.4rem 0.6rem; background: var(--fallback-b2, oklch(var(--b2))); }

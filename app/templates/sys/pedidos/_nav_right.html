@@ -1,6 +1,0 @@
-{% if instance and instance.quote_id %}
-{{ btn(BTN_DETALHES, url_for('orcamentos.form', id=instance.quote_id), label='Orçamento #' + (instance.quote_id|fmtid)) }}
-{% endif %}
-{% if instance %}
-{{ btn(BTN_ENVIAR, url_for('pedidos.print_order', id=instance.id)) }}
-{% endif %}

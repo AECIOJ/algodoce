@@ -1,4 +1,5 @@
 from app.ajsystem.core.extensions import db
+from app.constantes import TIPO_INGREDIENTE, UND_LIST
 
 
 class Ingredient(db.Model):
@@ -15,3 +16,11 @@ class Ingredient(db.Model):
 
     def __repr__(self):
         return f"<Ingredient {self.nome}>"
+
+
+Entity = {
+    'id':              {'type': 'ID', 'width': 6},
+    'nome':            {'type': 'TEXT', 'width': 18, 'transform': 'title'},
+    'tipo':            {'type': 'LIST', 'width': 12, 'options': TIPO_INGREDIENTE},
+    'unidade_medida':  {'type': 'LIST', 'label': 'Und', 'width': 8, 'options': UND_LIST, 'required': True},
+}

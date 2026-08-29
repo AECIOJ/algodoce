@@ -89,7 +89,7 @@ Entity = {
         'validade':         {'label': 'Validade (dias)', 'input': 'number', 'width': 14, 'min': 1, 'in_list': 0},
         'validade_data':    {'label': 'Válido até', 'calc': quote_validade, 'width': 14, 'in_form': 2, 'in_filter': 0},
         'forminhas':        {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12, 'in_list': 0},
-        'total':            {'type': 'NUM', 'currency': 'brl', 'agg': {'table': 'items', 'sum': 'preco_unitario * quantidade'}, 'width': 12, 'in_form': 0},
+        'total':            {'type': 'NUM', 'currency': 'brl', 'width': 12, 'in_form': 0},
         'carteira_id':      {'type': 'FK', 'label': 'Pagamento', 'query': {'model': 'carteira', 'when': 'uso IN (0, 1)'}, 'width': 15, 'in_filter': 0},
         'observacao':       {'label': 'Observação', 'input': 'textarea', 'in_list': 0},
         'status':           {'type': 'LIST', 'width': 12, 'options': QUOTE_STATUS, 'in_form': 0, 'in_filter': 3},
@@ -158,7 +158,10 @@ Page = {
             'fields': 'Quote',
             'sessions': {
                 'Itens do Orçamento': {
-                    'table': ['QuoteItem'],
+                    'table': {
+                        'columns': ['product_id', 'quantidade', 'preco_unitario', 'valor', 'observacao'],
+                        'total': ['quantidade', 'valor'],
+                    },
                     'buttons': [
                         {'label': 'Preços', 'icon': 'arrow-path',
                          'color': 'warning', 'outline': True,

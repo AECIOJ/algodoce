@@ -1,12 +1,5 @@
-"""Menu — resolução de URLs da árvore de menus registrada no config.
-
-Reescrito do zero observando `core/old/menu.py`. Consome a estrutura
-`App`/`Module`/`MenuItem` de `defs.config`. Módulos ausentes apontam para a
-página `ajsystem.construcao`.
-"""
 import importlib
 import unicodedata
-
 from flask import Blueprint, url_for, request, current_app
 from flask_login import current_user
 
@@ -14,12 +7,25 @@ from app.ajsystem.core.adapter import APP
 
 
 def _normalizar_slug(label: str) -> str:
+    """Remove acentos, ç e minúsculas → slug do módulo de página."""
     s = unicodedata.normalize('NFKD', label or '')
     s = ''.join(c for c in s if not unicodedata.combining(c))
     return s.lower().strip()
 
 
-def _modulo_pagina(slug: str, modulo_ini='app.routes.sys'):
+def _modulo_ini_do_contexto():
+    """Pacote de rotas do módulo atual: site (`public`) vs sistema (`sys`)."""
+    mod = modulo_atual()
+    return 'app.routes.site' if mod and mod.type == 'public' else 'app.routes.sys'
+
+
+def _modulo_pagina(slug: str, modulo_ini=None):
+    """Retorna o módulo `<pacote>.<slug>` ou None se não existir.
+
+    `modulo_ini` default é derivado do módulo ativo (público → `app.routes.site`).
+    """
+    if not modulo_ini:
+        modulo_ini = _modulo_ini_do_contexto()
     try:
         return importlib.import_module(f'{modulo_ini}.{slug}')
     except ImportError:
@@ -35,6 +41,7 @@ def _blueprint_do_modulo(mod):
 
 
 def _endpoint_lista(bp):
+    """Endpoint de listagem do blueprint: 'list' ou o 1º endpoint registrado."""
     vf = current_app.view_functions
     prefixo = f'{bp.name}.'
     nomes = [k[len(prefixo):] for k in vf if k.startswith(prefixo)]
@@ -52,10 +59,13 @@ def modulo_atual():
 
 
 def url_do_item(item, label=None):
-    """Resolve a URL de um item de menu (endpoint, caminho literal ou módulo).
+    """Resolve a URL de um item de menu.
 
-    Item sem url → módulo `<slug>.py` → URL do blueprint `.list`. Módulo
-    ausente (página não migrada) → `ajsystem.construcao`.
+    - item com `url` → rota registrada (nome de endpoint → url_for) ou caminho
+      literal ('/pagina', 'https://...').
+    - caso contrário → arquivo do módulo (`page` ou rótulo normalizado) →
+      módulo `<pacote do módulo ativo>.<slug>` → URL do blueprint.list.
+      Módulo inexistente → página 'Em construção'.
     """
     if item.url:
         if item.url.startswith('/') or '://' in item.url:
@@ -102,6 +112,7 @@ def menus_para_json():
 
 
 def _achar_por_slug(itens, slug):
+    """Encontra (label, item) cujo slug (page ou rótulo) casa com o segmento."""
     for label, item in itens.items():
         if _normalizar_slug(item.page or label) == slug:
             return label, item
@@ -109,6 +120,14 @@ def _achar_por_slug(itens, slug):
 
 
 def _resolver_default(mod, valor):
+    """Resolve `default_path` em URL: literal → endpoint nomeado → caminho de menu.
+
+    - literal: '/pagina' → devolve como está;
+    - endpoint nomeado (contém '.', ex.: 'seguranca.painel') → url_for;
+    - caminho de menu 'secao/item' → percorre a árvore; seção (com submenus)
+      como alvo → 1º submenu navegável.
+    Retorna None se não resolver.
+    """
     if not valor:
         return None
     if valor.startswith('/'):
@@ -148,6 +167,11 @@ def _resolver_default(mod, valor):
 
 
 def pagina_home(mod=None):
+    """URL inicial do módulo: 'default_path' declarado → padrão interno (1º menu) → '/'.
+
+    'default_path' aceita endpoint nomeado ('seguranca.painel'), caminho literal
+    ('/manual') ou caminho de menu ('cadastro/categorias', 'cadastro').
+    """
     if mod is None:
         mod = modulo_atual()
     if mod is None:

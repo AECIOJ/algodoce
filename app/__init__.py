@@ -93,21 +93,10 @@ def create_app():
         from app.models.product_ingredient import ProductIngredient
         from app.models.unit_conversion import UnitConversion
 
-        from app.ajsystem.defs.entities import register_model
+        from app.ajsystem.defs.data import register_model
 
-        from app.routes.sys import categorias, produtos, insumos, pedidos, compras, contas
-        from app.routes.sys import producao, operacoes, recursos, transacao, movimentos
-        from app.routes.sys import transferencias, orcamentos, relatorios, carteiras
         from app.routes import uploads
 
-        app.register_blueprint(pedidos.bp)
-        app.register_blueprint(compras.bp)
-        app.register_blueprint(producao.bp)
-        app.register_blueprint(recursos.bp)
-        app.register_blueprint(transacao.bp)
-        app.register_blueprint(movimentos.bp)
-        app.register_blueprint(transferencias.bp)
-        app.register_blueprint(relatorios.bp)
         app.register_blueprint(uploads.bp)
 
         from app.ajsystem import init_app

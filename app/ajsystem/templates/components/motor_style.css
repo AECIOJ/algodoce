@@ -85,15 +85,13 @@ body {
   background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 25%, var(--fallback-b1, oklch(var(--b1))));
   color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 60%, var(--fallback-bc, oklch(var(--bc))));
 }
-.page-list-inner {
-  width: 100%;
+#page-content {
   max-width: 100%;
+  margin-inline: auto;
 }
 @media (min-width: 992px) {
-  .page-list-inner {
-    width: fit-content;
-    min-width: 60vw;
-    max-width: 100%;
+  #page-content {
+    max-width: calc(100vw - 4rem);
   }
 }
 .tab-pane.active {
@@ -309,16 +307,6 @@ html.list-page main.container {
   max-width: 98% !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
-}
-html.list-page .page-list-inner {
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-}
-@media (min-width: 992px) {
-  html.list-page .page-list-inner {
-    width: fit-content !important;
-  }
 }
 html.list-page .table-list-wrap table {
   min-width: 0 !important;
@@ -555,12 +543,6 @@ tr.detail-row > td { padding: 0 !important; }
 }
 .page-list-header {
   width: 100%;
-}
-@media (min-width: 1024px) {
-  .page-list-header {
-    width: auto;
-    min-width: var(--list-tot-ch);
-  }
 }
 
 /* === form_list: layout responsivo + sticky header + card expansion === */
@@ -877,7 +859,7 @@ html.edit-form #page-content {
 .bg-expired { background-color: color-mix(in srgb, var(--fallback-b3, oklch(var(--b3))) 60%, var(--fallback-b1, oklch(var(--b1)))) !important; color: color-mix(in srgb, var(--fallback-bc, oklch(var(--bc))) 65%, transparent) !important; }
 
 @media (max-width: 991.98px) {
-  .brand-logo { height: 72px; }
+  .brand-logo { height: 72px !important; }
 }
 
 /* =============================================
@@ -886,7 +868,7 @@ html.edit-form #page-content {
 @media (max-width: 575.98px) {
   .site-header .site-subtitle { font-size: 0.65rem !important; margin-top: 0 !important; margin-bottom: 2px; line-height: 1.1; }
   .site-header .container { padding-top: 0 !important; padding-bottom: 0 !important; }
-  .site-header .brand-logo { height: 76px; }
+  .site-header .brand-logo { height: 76px !important; }
   .site-header .nav-site { display: none; }
   .site-nav-wrap {
     overflow-x: auto;
@@ -976,7 +958,6 @@ html.edit-form #page-content {
 }
 .bottom-nav-item.active {
   color: var(--fallback-s, oklch(var(--s)));
-  background: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 12%, transparent);
 }
 .bottom-nav-item.active .bottom-nav-icon {
   transform: scale(1.1);
@@ -1120,6 +1101,16 @@ input[type="number"]:not([step]) {
 input.input-percent {
   padding-right: 1.75rem;
 }
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+input[type="date"]::-moz-calendar-picker-indicator,
+input[type="time"]::-moz-calendar-picker-indicator,
+input[type="datetime-local"]::-moz-calendar-picker-indicator {
+  display: none;
+}
 
 .container {
   width: 100%;
@@ -1148,5 +1139,4 @@ input.input-percent {
   color: #fff;
   border-color: #dc3545;
 }
-
 

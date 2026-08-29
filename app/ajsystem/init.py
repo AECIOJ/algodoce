@@ -4,13 +4,13 @@ import os
 import jinja2
 
 from app.ajsystem import ajsystem, heroicon_filter
-from app.ajsystem.core.adapter import APP, get_uploads_endpoint
+from app.ajsystem.core.adapter import APP, TEMAS, get_uploads_endpoint
+from app.ajsystem.core.menu import modulo_atual
 from app.ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguranca
 from app.ajsystem.core.auto import registrar_modulos
 from app.ajsystem.core.form import _empty_value
 from app.ajsystem.core.menu import url_do_item
-from app.ajsystem.defs.fields import fmt_mask
-from app.ajsystem.defs.entities import get_field
+from app.ajsystem.defs.data import fmt_mask, get_field
 from app.ajsystem.core.list import fields_to_columns, field_grid
 from app.ajsystem.core.utils import (
     deep_attr, fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, item_ref,
@@ -31,9 +31,6 @@ def init_app(app):
     app.register_blueprint(ajsystem)
     app.register_blueprint(auth)
     app.register_blueprint(seguranca)
-
-    from app.ajsystem.core.do_api import api
-    app.register_blueprint(api)
 
     # 3. auth (login manager, session timeout, unauthorized handler)
     init_auth(app)
@@ -69,3 +66,53 @@ def init_app(app):
     public = APP.module('public')
     if public:
         registrar_modulos(app, public.menus, modulo_ini='app.routes.site', login=False)
+
+    # 7. globals/contexto padrão do framework (tema, app config, módulo atual).
+    #    O host pode sobrescrever com seus próprios context_processor.
+    def tema_atual():
+        nome = APP.tema or next(iter(TEMAS))
+        return nome if nome in TEMAS else next(iter(TEMAS))
+
+    @app.context_processor
+    def aj_framework_context():
+        import json
+        from app.ajsystem.core.menu import menus_para_json
+        tema_nome = tema_atual()
+        return {
+            'APP': APP,
+            'TEMA': TEMAS[tema_nome],
+            'TEMAS': TEMAS,
+            'TEMA_NOME': tema_nome,
+            'modulo': modulo_atual(),
+            'modulo_menus_json': json.dumps(menus_para_json()),
+        }
+
+    @app.context_processor
+    def aj_framework_buttons():
+        from app.ajsystem.defs.buttons import (
+            Button, ConfirmModal, CONFIRM_EXCLUIR, CONFIRM_REMOVER_ITEM,
+            BTN_SALVAR, BTN_ENVIAR, BTN_EXCLUIR, BTN_NOVO, BTN_VOLTAR,
+            BTN_EDITAR, BTN_CANCELAR, BTN_CONVERTER, BTN_LISTA,
+            BTN_IMPRIMIR, BTN_DETALHES, BTN_ADICIONAR, BTN_ADICIONAR_ITEM,
+            BTN_FINALIZAR, BTN_ATUALIZAR, BTN_REMOVER, BTN_SIM, BTN_NAO,
+            BTN_LIMPAR, BTN_APLICAR, BTN_OK, BTN_SAIR, BTN_RENOVAR,
+            BTN_RELATORIO, BTN_GERAR, BTN_CONFIRMAR, BTN_EDITAR_PRODUTO,
+            BTN_ENTRAR, BTN_ACESSAR,
+        )
+        return {
+            'Button': Button, 'ConfirmModal': ConfirmModal,
+            'CONFIRM_EXCLUIR': CONFIRM_EXCLUIR, 'CONFIRM_REMOVER_ITEM': CONFIRM_REMOVER_ITEM,
+            'BTN_SALVAR': BTN_SALVAR, 'BTN_ENVIAR': BTN_ENVIAR, 'BTN_EXCLUIR': BTN_EXCLUIR,
+            'BTN_NOVO': BTN_NOVO, 'BTN_VOLTAR': BTN_VOLTAR, 'BTN_EDITAR': BTN_EDITAR,
+            'BTN_CANCELAR': BTN_CANCELAR, 'BTN_CONVERTER': BTN_CONVERTER,
+            'BTN_LISTA': BTN_LISTA, 'BTN_IMPRIMIR': BTN_IMPRIMIR,
+            'BTN_DETALHES': BTN_DETALHES, 'BTN_ADICIONAR': BTN_ADICIONAR,
+            'BTN_ADICIONAR_ITEM': BTN_ADICIONAR_ITEM, 'BTN_FINALIZAR': BTN_FINALIZAR,
+            'BTN_ATUALIZAR': BTN_ATUALIZAR, 'BTN_REMOVER': BTN_REMOVER,
+            'BTN_SIM': BTN_SIM, 'BTN_NAO': BTN_NAO,
+            'BTN_LIMPAR': BTN_LIMPAR, 'BTN_APLICAR': BTN_APLICAR,
+            'BTN_OK': BTN_OK, 'BTN_SAIR': BTN_SAIR, 'BTN_RENOVAR': BTN_RENOVAR,
+            'BTN_RELATORIO': BTN_RELATORIO, 'BTN_GERAR': BTN_GERAR,
+            'BTN_CONFIRMAR': BTN_CONFIRMAR, 'BTN_EDITAR_PRODUTO': BTN_EDITAR_PRODUTO,
+            'BTN_ENTRAR': BTN_ENTRAR, 'BTN_ACESSAR': BTN_ACESSAR,
+        }

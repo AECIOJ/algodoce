@@ -139,7 +139,6 @@ class Field:
     max: Optional[Union[int, float]] = None
     step: Optional[Union[int, float]] = None
     masterkey: Optional[str] = None
-    agg: Optional[str] = None
     derived: Optional[dict] = None
     currency: Optional[str] = None
     percent: bool = False

@@ -593,10 +593,52 @@ function itCalcRefresh(wrap) {
     cell.textContent = cur ? itFmtMoney(sum, cur) : String(sum);
   });
 }
+function itSessionTotals(wrap) {
+  if (!wrap) return;
+  var relEl = wrap.querySelector('.it-desktop tbody[data-rel]');
+  var rel = relEl ? relEl.getAttribute('data-rel') : null;
+  var prefix = rel ? 'child_' + rel + '_' : null;
+  function varsFor(crow, expr) {
+    var vars = {};
+    (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach(function(f) {
+      var el = (prefix && crow) ? wrap.querySelector('[name="' + prefix + crow + '_' + f + '"]') : null;
+      vars[f] = el ? parseFloat(el.value) : NaN;
+    });
+    return vars;
+  }
+  wrap.querySelectorAll('[data-total-field]').forEach(function(cell) {
+    var fname = cell.getAttribute('data-total-field');
+    var fn = cell.getAttribute('data-total-fn') || 'sum';
+    var cur = cell.getAttribute('data-total-currency');
+    var expr = cell.getAttribute('data-calc');
+    var sum = 0, count = 0, seen = [];
+    wrap.querySelectorAll('[data-crow]').forEach(function(el) {
+      var crow = el.getAttribute('data-crow');
+      if (crow === null || seen.indexOf(crow) !== -1) return;
+      seen.push(crow);
+      var val;
+      if (expr) {
+        val = itEval(expr, varsFor(crow, expr));
+      } else {
+        var input = prefix ? wrap.querySelector('[name="' + prefix + crow + '_' + fname + '"]') : null;
+        val = input ? parseFloat(input.value) : 0;
+      }
+      if (fn === 'sum') sum += val || 0;
+      else if (fn === 'avg') { sum += val || 0; count++; }
+      else if (fn === 'count') count++;
+    });
+    var result;
+    if (fn === 'avg') result = count > 0 ? sum / count : 0;
+    else if (fn === 'count') result = count;
+    else result = sum;
+    cell.textContent = (cur && fn !== 'count') ? itFmtMoney(result, cur) : String(result);
+  });
+}
 function itTablesRefreshAll() {
   document.querySelectorAll('.child-table-wrap').forEach(function(wrap) {
     itOnSetBind(wrap);
     itCalcRefresh(wrap);
+    itSessionTotals(wrap);
     itTotalsRefresh(wrap);
   });
 }

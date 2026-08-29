@@ -30,21 +30,6 @@ Entity = {
     },
 }
 
-Query = {
-    'pedidos': {
-        'fields': ['Order'],
-        'group_by': 'status',
-        'order_by': 'data_pedido desc',
-        'totals': {
-            'Qtd':          {'sum': 'qtd'},
-            'Valor':        {'sum': 'total', 'currency': True},
-            'Média/Pedido': {'avg': 'total', 'currency': True},
-            'Média/Item':   {'avg': 'total', 'by': 'qtd', 'currency': True},
-        },
-    },
-}
-
-
 def contas_pre_save(instance, request, is_new):
     cpf = request.form.get("cpf", "").strip() or None
     cnpj = request.form.get("cnpj", "").strip() or None
@@ -67,7 +52,17 @@ Page = {
         },
         'form': {
             'fields': 'Conta',
-            'sessions': {'Pedidos': {'query': 'pedidos'}},
+            'sessions': {
+                'Pedidos': {
+                    'readonly': True,
+                    'table': {
+                        'columns': ['id', 'data_pedido', 'total', 'qtd'],
+                        'total':   ['qtd', 'total'],
+                        'group_by': 'status',
+                        'order_by': 'data_pedido desc',
+                    },
+                },
+            },
             'pre_save': contas_pre_save,
             'buttons': ['on_off'],
         },

@@ -2,10 +2,10 @@
 {% import "components/form_macros.html" as fm with context %}
 {% import "components/item_table.html" as itb with context %}
 
-{% set entity_label = form.new_label or entity_label|default(form.model.__name__) %}
-{% set new_title = form.new_title or new_title|default(('Incluir' if is_new else 'Editar') ~ ' ' ~ entity_label) %}
-{% set back_url = form.back_url or back_url|default(url_for(form.redirect)) %}
-{% set edit_endpoint = form.edit_endpoint or edit_endpoint|default(form.redirect.rsplit('.', 1)[0] + '.form') %}
+{% set entity_label = form._label or form._entity_name or '' %}
+{% set new_title = ('Incluir' if is_new else 'Editar') ~ ' ' ~ entity_label %}
+{% set back_url = back_url|default(url_for(form._redirect)) %}
+{% set edit_endpoint = edit_endpoint|default(form._redirect.rsplit('.', 1)[0] + '.form') %}
 {% if instance %}{% set entity_id = instance.id %}{% endif %}
 
 {% block head_extra %}
@@ -90,13 +90,9 @@
       {% for tag in form._resolved_tags %}
       <span class="badge badge-{{ tag.color }} badge-sm">{{ tag.text }}</span>
       {% endfor %}
-      {% if form.tag %}
-      <span class="badge badge-{{ form.tag.type or 'ghost' }} badge-sm">{{ form.tag.text }}</span>
-      {% endif %}
       {% for btn in form._resolved_buttons if btn.position == 'nav_right' %}
       {{ fm.render_button(btn, instance) }}
       {% endfor %}
-      {% if form.nav_right_extra %}{% include form.nav_right_extra %}{% endif %}
     </div>
   </div>
 
@@ -106,13 +102,8 @@
     <form method="POST" id="main-form" class="p-2 pb-3 w-full">
       {% if instance %}{% endif %}
 
-      {% if form.body_template %}
-      {% include form.body_template %}
-      {% else %}
       {{ fm.render_fields(form._resolved_fields, data=instance, ro=ro, spacing=form.spacing, ro_fields=ro_fields|default(none)) }}
       {% if form._resolved_sessions %}{{ fm.render_sessions(form._resolved_sessions, data=instance, ro=ro, ro_fields=ro_fields|default(none)) }}{% endif %}
-      {% if form.form_tail %}{% include form.form_tail %}{% endif %}
-      {% endif %}
     </form>
     </div>
   </div>
@@ -128,7 +119,6 @@
         </button>
       </form>
       {% endif %}
-      {% if form.footer_left %}{% include form.footer_left %}{% endif %}
       {% for btn in form._resolved_buttons if btn.position == 'footer_left' %}
       {{ fm.render_button(btn, instance) }}
       {% endfor %}
@@ -180,7 +170,6 @@
 {% block scripts %}
 {{ super() }}
 {% include 'components/image_widget.html' %}
-{% if form.page_scripts %}{% include form.page_scripts %}{% endif %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   document.documentElement.classList.add('edit-form');
