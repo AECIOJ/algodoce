@@ -105,7 +105,7 @@ def aggregate_rows(items, spec, fields=None):
                 s = (v if s is None else s + v)
             totals[label] = {
                 'type': 'sum', 'field': field_name,
-                'currency': bool(agg.get('currency')), 'value': s,
+                'currency': agg.get('currency') or None, 'value': s,
             }
         elif isinstance(agg, dict) and agg.get('avg'):
             field_name = agg['avg']
@@ -130,7 +130,7 @@ def aggregate_rows(items, spec, fields=None):
             value = None if not divisor or s is None else s / divisor
             totals[label] = {
                 'type': 'avg', 'field': field_name,
-                'currency': bool(agg.get('currency')), 'value': value,
+                'currency': agg.get('currency') or None, 'value': value,
             }
         else:
             totals[label] = {'type': 'count', 'value': len(items)}

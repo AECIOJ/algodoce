@@ -1,0 +1,13 @@
+{% include "components/print_fragment.html" %}
+<script>
+{# Exibe o container exclusivo de relatório (padrão `reportRender` das
+   listagens): injeta-se este fragmento no `#report-content` (vazio/oculto)
+   e este script alterna a visibilidade com a página corrente. O Voltar do
+   fragmento (`closeReport()`) restaura tudo sem recarregar. #}
+(function () {
+  var rep = document.getElementById('report-content');
+  var page = document.getElementById('page-content');
+  if (rep) rep.style.display = '';
+  if (page) page.style.display = 'none';
+})();
+</script>

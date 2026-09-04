@@ -24,23 +24,10 @@
 {% endblock %}
 
 {% block page_content %}
-<style>
-  .form-container {
-    margin-inline: auto;
-    max-width: 160ch;
-    width: 100%;
-  }
-  @media (max-width: 767px) {
-    .form-container {
-      max-width: none;
-      margin-inline: 0;
-    }
-  }
-</style>
-<div class="grow flex flex-col min-h-0">
+<div class="grow flex flex-col min-h-0 form-block">
   {# Form header bar #}
-  <div class="app-bar shrink-0"
-       style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));background:var(--bar-bg-form);color:var(--bar-txt-form);">
+<div class="app-bar shrink-0"
+         style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));background:var(--bar-bg-form);color:var(--bar-txt-form);">
     <div class="app-bar-left">
       {% from "pages/macros.html" import btn %}
       {{ btn(BTN_LISTA, back_url|default('#')) }}
@@ -88,7 +75,7 @@
     {% endif %}
     <div class="app-bar-right">
       {% for tag in form._resolved_tags %}
-      <span class="badge badge-{{ tag.color }} badge-sm">{{ tag.text }}</span>
+      {% if tag.link %}<a href="{{ url_for(tag.link, id=tag.id) }}" class="no-underline">{% endif %}<span class="text-sm">{{ tag.label }}:</span> <span class="badge badge-{{ tag.color }} badge-sm">{{ tag.text }}</span>{% if tag.link %}</a>{% endif %}
       {% endfor %}
       {% for btn in form._resolved_buttons if btn.position == 'nav_right' %}
       {{ fm.render_button(btn, instance) }}
@@ -98,21 +85,19 @@
 
   {# Form body #}
   <div class="flex-1 min-h-0 overflow-auto px-4">
-    <div class="form-container">
     <form method="POST" id="main-form" class="p-2 pb-3 w-full">
       {% if instance %}{% endif %}
 
       {{ fm.render_fields(form._resolved_fields, data=instance, ro=ro, spacing=form.spacing, ro_fields=ro_fields|default(none)) }}
       {% if form._resolved_sessions %}{{ fm.render_sessions(form._resolved_sessions, data=instance, ro=ro, ro_fields=ro_fields|default(none)) }}{% endif %}
     </form>
-    </div>
   </div>
 
   {# Form footer bar #}
   <div class="app-bar form-footer shrink-0"
        style="background:var(--bar-bg-form);color:var(--bar-txt-form);">
     <div class="app-bar-left">
-      {% if form.delete and can_delete and instance and instance.id %}
+      {% if form.delete and can_delete and instance and instance.id and not ro %}
       <form method="POST" action="{{ url_for(edit_endpoint.rsplit('.', 1)[0] + '.delete', id=instance.id) }}" class="inline">
         <button type="submit" class="btn btn-danger inline-flex items-center gap-1" onclick="return confirm('Excluir este registro?')">
           <svg class="w-4 h-4" aria-hidden="true"><use href="#i-trash"/></svg> Excluir
@@ -127,9 +112,9 @@
       {% for btn in form._resolved_buttons if btn.position == 'footer_right' %}
       {{ fm.render_button(btn, instance) }}
       {% endfor %}
-      <button type="submit" form="main-form" id="btn-salvar" class="btn btn-success inline-flex items-center gap-1" {% if not is_new %}disabled{% endif %}>
+      {% if not ro %}<button type="submit" form="main-form" id="btn-salvar" class="btn btn-success inline-flex items-center gap-1" {% if not is_new %}disabled{% endif %}>
         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-check"/></svg> Salvar
-      </button>
+      </button>{% endif %}
       <button type="button" class="btn btn-outline btn-secondary inline-flex items-center gap-1" onclick="confirmSair()">
         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-arrow-left"/></svg> Voltar
       </button>

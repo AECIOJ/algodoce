@@ -19,3 +19,14 @@ class CompraItem(db.Model):
 
     def __repr__(self):
         return f"<CompraItem c={self.compra_id} i={self.insumo_id}>"
+
+
+Entity = {
+    'id':           {'type': 'ID'},
+    'compra_id':    {'type': 'DK'},
+    'insumo_id':    {'type': 'FK', 'label': 'Insumo', 'required': True},
+    'quantidade':   {'type': 'NUM', 'label': 'Qtd', 'required': True},
+    'preco':        {'type': 'NUM', 'label': 'Preço', 'required': True, 'currency': 1},
+    'valor':        {'type': 'NUM', 'label': 'Valor', 'currency': 1,
+                     'pos_form': 0, 'calc': 'quantidade * preco'},
+}

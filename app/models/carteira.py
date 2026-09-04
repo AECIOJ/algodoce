@@ -1,4 +1,5 @@
 from app.ajsystem.core.extensions import db
+from app.constantes import CARTEIRA_USO, CARTEIRA_GERAR
 
 
 class Carteira(db.Model):
@@ -13,3 +14,13 @@ class Carteira(db.Model):
 
     def __repr__(self):
         return f"<Carteira {self.nome}>"
+
+
+Entity = {
+    'id':                {'type': 'ID', 'width': 6},
+    'nome':              {'type': 'TEXT', 'width': 30, 'transform': 'title'},
+    'uso':               {'type': 'LIST', 'width': 12, 'options': CARTEIRA_USO},
+    'gerar':             {'type': 'LIST', 'width': 12, 'options': CARTEIRA_GERAR},
+    'prazo_recebimento': {'type': 'TEXT', 'label': 'Prazo', 'width': 12},
+    'taxa_recebimento':  {'type': 'PERCENT', 'label': 'Taxa', 'width': 8},
+}

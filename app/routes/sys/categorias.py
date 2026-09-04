@@ -26,6 +26,7 @@ def _post_save(instance, changed, old_vals):
 
 
 Page = {
+    'label': 'Categoria',
     'type': 'crud',
     'props': {
         'tabs': {

@@ -30,3 +30,17 @@ class Previsao(db.Model):
     @property
     def saldo(self):
         return float(self.previsto) + float(self.variacao or 0) - float(self.realizado or 0)
+
+
+Entity = {
+    'id':           {'type': 'ID'},
+    'transacao_id': {'type': 'DK'},
+    'documento':    {'type': 'TEXT', 'label': 'Documento'},
+    'vencimento':   {'type': 'DATA', 'label': 'Vencimento', 'required': True},
+    'carteira_id':  {'type': 'FK', 'label': 'Carteira'},
+    'previsto':     {'type': 'NUM', 'label': 'Previsto', 'required': True, 'currency': 1},
+    'realizado':    {'type': 'NUM', 'label': 'Realizado', 'currency': 1},
+    'variacao':     {'type': 'NUM', 'label': 'Variação', 'currency': 1},
+    'saldo':        {'type': 'NUM', 'label': 'Saldo', 'currency': 1,
+                     'pos_form': 0, 'calc': 'previsto - realizado + variacao'},
+}

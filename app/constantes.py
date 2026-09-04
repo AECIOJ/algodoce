@@ -36,9 +36,7 @@ tipos_evento = {
 
 TIPO_OPERACAO = {1: "Receitas", 2: "Despesas"}
 
-TIPO_PREVISAO = {"P": "Pagar", "R": "Receber"}
-TIPO_TRANSACAO = {"P": "Contas a Pagar", "R": "Contas a Receber",
-                  "C": "Compras", "V": "Vendas"}
+TIPO_TRANSACAO = {'R': 'Receber', 'P': 'Pagar'}
 
 PREVISAO_STATUS = {0: "Editando", 1: "Pendente", 2: "Parcial", 8: "Cancelado", 9: "Quitado"}
 

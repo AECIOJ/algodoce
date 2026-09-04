@@ -36,7 +36,7 @@ def infer_transform(f) -> str:
     """Transform default de um `Field` resolvido (None → auto)."""
     if f.transform is not None:
         return f.transform
-    if f.in_form != 1 or f.readonly or f.hidden:
+    if f.pos_form != 1 or f.readonly or f.hidden:
         return 'none'
     if f.input in ('number', 'boolean', 'checkbox', 'date', 'time', 'image'):
         return 'none'

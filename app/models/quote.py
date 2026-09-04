@@ -1,5 +1,14 @@
 from datetime import datetime, timezone
 from app.ajsystem.core.extensions import db
+from app.constantes import QUOTE_STATUS, FORMINHAS
+from app.ajsystem.core.utils import add_dias
+
+
+def _validade_data(q):
+    """Data de validade do orçamento = base (renovação ou pedido) + prazo (dias)."""
+    if not q:
+        return None
+    return add_dias(q.data_renovacao or q.data_pedido, q.validade or 3)
 
 
 class Quote(db.Model):
@@ -32,3 +41,21 @@ class Quote(db.Model):
 
     def __repr__(self):
         return f"<Quote {self.id}>"
+
+
+Entity = {
+    'id':               {'type': 'ID', 'width': 6},
+    'cliente_nome':     {'type': 'TEXT', 'label': 'Cliente', 'required': True, 'width': 20},
+    'cliente_telefone': {'type': 'FONE', 'label': 'Telefone', 'required': True},
+    'data_pedido':      {'type': 'DATA_HORA', 'label': 'Data',},
+    'status':           {'type': 'LIST', 'width': 12, 'options': QUOTE_STATUS,
+                         'tag': {'colors': {0: 'warning', 1: 'info', 6: 'success'}}},
+    'validade':         {'type': 'INT', 'label': 'Validade (dias)', 'min': 1},
+    'validade_data':    {'type': 'DATA_HORA', 'label': 'Válido até', 'calc': _validade_data, 'width': 14, 'pos_form': 2},
+    'forminhas':        {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12},
+    'total':            {'type': 'NUM', 'currency': 1, 'width': 12, 'readonly': True},
+    'carteira_id':      {'type': 'FK', 'label': 'Pagamento', 'width': 15},
+    'pedido_id':        {'type': 'FK', 'label': 'Pedido', 'width': 9,
+                        'tag': {'link': 'pedidos.form', 'color': 'info'}},
+    'observacao':       {'type': 'MEMO', 'width': 40, 'pos_list': 2},
+}

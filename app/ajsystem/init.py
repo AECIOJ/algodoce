@@ -11,12 +11,12 @@ from app.ajsystem.core.auto import registrar_modulos
 from app.ajsystem.core.form import _empty_value
 from app.ajsystem.core.menu import url_do_item
 from app.ajsystem.defs.data import fmt_mask, get_field
-from app.ajsystem.core.list import fields_to_columns, field_grid
+from app.ajsystem.core.list import fields_to_columns
 from app.ajsystem.core.utils import (
-    deep_attr, fmt_brl, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, item_ref,
+    deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, item_ref,
     field_value, calc_value,
 )
-from app.ajsystem.core.do_form import _resolve_tag_color
+from app.ajsystem.defs.tags import _resolve_tag_color
 
 
 def init_app(app):
@@ -40,6 +40,7 @@ def init_app(app):
     app.jinja_env.filters['is_empty'] = _empty_value
     app.jinja_env.filters['item_ref'] = item_ref
     app.jinja_env.filters['brl'] = fmt_brl
+    app.jinja_env.filters['money'] = fmt_money
     app.jinja_env.filters['percent'] = fmt_percent
     app.jinja_env.filters['fmtid'] = fmt_id
     app.jinja_env.filters['fmtzero'] = fmt_zero
@@ -48,7 +49,6 @@ def init_app(app):
     app.jinja_env.filters['fmtdatetime'] = fmt_datetime
     app.jinja_env.filters['mask'] = fmt_mask
     app.jinja_env.filters['fields_to_columns'] = fields_to_columns
-    app.jinja_env.filters['field_grid'] = field_grid
     app.jinja_env.filters['tag_color'] = _resolve_tag_color
     app.jinja_env.filters['heroicon'] = heroicon_filter
     app.jinja_env.globals['get_field'] = get_field

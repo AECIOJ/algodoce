@@ -53,8 +53,9 @@ def _forminhas_carteira(order):
     return f"Forminhas: {f} | Forma de Pagamento: {c}"
 
 
-PEDIDO_REPORT = {
+PEDIDO = {
     'label': 'Pedido',
+    'print_fragment_template': 'sys/print_fragment.html',
     'header': {
         'layout': 'logo_left',
         'title': 'Pedido #{id}',
@@ -65,17 +66,19 @@ PEDIDO_REPORT = {
             {'field': 'data_previsao_entrega', 'label': 'Previsão', 'align': 'right', 'format': 'datetime'},
         ],
     },
-    'after_table': _event_after,
-    'table': {
-        'columns': {
-            'product.nome':   {'label': 'Produto', 'width': 50},
-            'quantidade':     {'label': 'Qtd.', 'width': 10, 'align': 'center'},
-            'preco_unitario': {'label': 'Preço', 'width': 20, 'align': 'right', 'format': 'brl'},
-            'valor':          {'label': 'Valor', 'width': 20, 'align': 'right', 'format': 'brl',
-                               'function': _valor_item, 'agg': 'sum'},
+    'body': {
+        'table': {
+            'columns': {
+                'product.nome':   {'label': 'Produto', 'width': 50},
+                'quantidade':     {'label': 'Qtd.', 'width': 10, 'align': 'center'},
+                'preco_unitario': {'label': 'Preço', 'width': 20, 'align': 'right'},
+                'valor':          {'label': 'Valor', 'width': 20, 'align': 'right',
+                                   'function': _valor_item, 'agg': 'sum'},
+            },
+            'footer': True,
+            'footer_label': 'Total',
+            'after': _forminhas_carteira,
         },
-        'footer': True,
-        'footer_label': 'Total',
-        'after': _forminhas_carteira,
+        'after': _event_after,
     },
 }

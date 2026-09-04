@@ -86,13 +86,7 @@ body {
   color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 60%, var(--fallback-bc, oklch(var(--bc))));
 }
 #page-content {
-  max-width: 100%;
-  margin-inline: auto;
-}
-@media (min-width: 992px) {
-  #page-content {
-    max-width: calc(100vw - 4rem);
-  }
+  width: 100%;
 }
 .tab-pane.active {
   display: block;
@@ -1140,3 +1134,13 @@ input[type="datetime-local"]::-moz-calendar-picker-indicator {
   border-color: #dc3545;
 }
 
+
+.mw-bound {
+  --mw-gutter: 1rem;
+  width: 100%;
+  margin-inline: auto;
+  max-width: min(var(--mw-cap), calc(100% - 2 * var(--mw-gutter)));
+}
+@media (max-width: 767px) {
+  .mw-bound { max-width: none; }
+}

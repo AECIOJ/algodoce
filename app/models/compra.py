@@ -1,4 +1,5 @@
 from app.ajsystem.core.extensions import db
+from app.constantes import COMPRA_STATUS
 
 
 class Compra(db.Model):
@@ -45,3 +46,16 @@ class Compra(db.Model):
 
     def __repr__(self):
         return f"<Compra {self.id}>"
+
+
+Entity = {
+    'id':           {'type': 'ID', 'width': 6},
+    'data':         {'type': 'DATA', 'width': 10},
+    'fornecedor_id': {'type': 'FK', 'label': 'Fornecedor', 'width': 20},
+    'carteira_id':  {'type': 'FK', 'label': 'Pagamento', 'width': 15},
+    'valor':        {'type': 'NUM', 'currency': 1, 'width': 12},
+    'status':       {'type': 'LIST', 'width': 11, 'options': COMPRA_STATUS,
+                     'tag': {'colors': {0: 'warning', 1: 'info', 2: 'info',
+                                        6: 'warning', 8: 'success', 9: 'error'}}},
+    'historico':    {'type': 'MEMO', 'label': 'Histórico', 'width': 40, 'pos_list': 2},
+}

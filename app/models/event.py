@@ -1,4 +1,5 @@
 from app.ajsystem.core.extensions import db
+from app.constantes import tipos_evento
 
 
 class Event(db.Model):
@@ -25,3 +26,18 @@ class Event(db.Model):
 
     def __repr__(self):
         return f"<Event {self.id}>"
+
+
+Entity = {
+    'id':          {'type': 'ID'},
+    'quote_id':    {'type': 'DK'},
+    'order_id':    {'type': 'DK'},
+    'tipo':        {'type': 'LIST', 'label': 'Tipo', 'options': tipos_evento},
+    'tema':        {'type': 'TEXT', 'width': 22},
+    'data':        {'type': 'DATA', 'label': 'Data do evento'},
+    'hora':        {'type': 'HORA', 'label': 'Horário'},
+    'local':       {'type': 'TEXT', 'width': 24},
+    'convidados':  {'type': 'INT', 'label': 'Convidados'},
+    'cerimonial':  {'type': 'TEXT', 'width': 22},
+    'obs':         {'type': 'MEMO', 'label': 'Observações', 'pos_list': 2},
+}

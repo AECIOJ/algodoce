@@ -101,7 +101,7 @@ def _delete_uploaded(filename):
 def _process_image_fields(form, instance):
     changed = set()
     for f in form._resolved_fields:
-        if f.input != 'image' or f.in_form != 1:
+        if f.input != 'image' or f.pos_form != 1:
             continue
         name = f.name
         old = getattr(instance, name, None)
@@ -142,10 +142,19 @@ def _is_readonly(form, instance):
     return True
 
 
-def _build_nav(model, current_id):
+def _build_nav(model, current_id, fixed=None):
     from sqlalchemy import text
+    where = ''
+    params = {}
+    for i, (mf, v) in enumerate(fixed or []):
+        key = getattr(mf, 'key', None) or getattr(mf, 'name', None)
+        if not key:
+            continue
+        where += (' AND ' if where else 'WHERE ') + f'{key} = :p{i}'
+        params[f'p{i}'] = v
     rows = db.session.execute(
-        text(f'SELECT id FROM {model.__tablename__} ORDER BY id')
+        text(f'SELECT id FROM {model.__tablename__} {where} ORDER BY id'),
+        params,
     ).fetchall()
     ids = [r[0] for r in rows]
     idx = ids.index(current_id) if current_id in ids else -1

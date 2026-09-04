@@ -41,28 +41,31 @@ def _forminhas_carteira(q):
     return f"Forminhas: {f} | Forma de Pagamento: {c}"
 
 
-ORCAMENTO_REPORT = {
+ORCAMENTO = {
     'label': 'Orçamento',
+    'print_fragment_template': 'sys/print_fragment.html',
     'header': {
         'layout': 'logo_left',
         'title': 'Orçamento #{id}',
         'fields': [
             'cliente_nome',       # tudo da Entity
-            'data_pedido',
+            {'name': 'data_pedido', 'format': 'datetime'},
             'cliente_telefone',
-            'validade_data',      # calc da Entity (label 'Válido até')
+            {'name': 'validade_data', 'format': 'datetime'},   # calc da Entity (label 'Válido até')
         ],
     },
-    'after_table': _event_after,
-    'table': {
-        'columns': {
-            'product_id':     {'width': 44},   # FK → label 'Produto'; valor via product.nome
-            'quantidade':     {'width': 8},    # INT → center
-            'preco_unitario': {'width': 14},   # NUM brl → right/brl
-            'valor':          {'width': 14, 'agg': 'sum'},   # calc da Entity
+    'body': {
+        'table': {
+            'columns': {
+                'product_id':     {'width': 44},   # FK → label 'Produto'; valor via product.nome
+                'quantidade':     {'width': 10},   # INT → center (mínimo do motor: 15mm)
+                'preco_unitario': {'width': 14},   # NUM currency → right/brl
+                'valor':          {'width': 14, 'agg': 'sum'},   # calc da Entity
+            },
+            'footer': True,
+            'footer_label': 'Total',
+            'after': _forminhas_carteira,
         },
-        'footer': True,
-        'footer_label': 'Total',
-        'after': _forminhas_carteira,
+        'after': _event_after,
     },
 }

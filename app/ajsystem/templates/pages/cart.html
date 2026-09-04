@@ -56,7 +56,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="cart-page"{% if max_width %} style="max-width: {{ max_width }}; margin-inline: auto;"{% endif %}>
+<div class="cart-page"{% if max_width %} style="max-width: min({{ max_width }}, calc(100% - 2rem)); margin-inline: auto;"{% endif %}>
   <h2 style="color: var(--rosa);">🧾 {{ cart_title }}</h2>
   {% if cliente %}
     <p class="text-gray-500">Para: {{ cliente.nome }} · {{ cliente.telefone }}</p>

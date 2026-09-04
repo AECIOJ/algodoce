@@ -33,3 +33,19 @@ class Movto(db.Model):
 
     def __repr__(self):
         return f"<Movto {self.id} {self.tipo} {self.valor}>"
+
+
+Entity = {
+    'id':           {'type': 'ID', 'width': 7},
+    'tipo':         {'type': 'TEXT', 'width': 4, 'required': True},
+    'data':         {'type': 'DATA', 'width': 10, 'required': True},
+    'recurso_id':   {'type': 'FK', 'label': 'Recurso', 'width': 15, 'required': True},
+    'conta_id':     {'type': 'FK', 'label': 'Conta', 'width': 15},
+    'previsao_id':  {'type': 'FK', 'label': 'Previsão', 'width': 10},
+    'documento':    {'type': 'TEXT', 'width': 10},
+    'valor':        {'type': 'NUM', 'width': 10, 'currency': 1, 'required': True},
+    'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15},
+    'variacao':     {'type': 'NUM', 'label': 'Variação', 'width': 10},
+    'sincronizar':  {'type': 'BOOL', 'label': 'Sincronizar', 'default': True},
+    'historico':    {'type': 'MEMO', 'label': 'Histórico', 'width': 30, 'pos_list': 2},
+}

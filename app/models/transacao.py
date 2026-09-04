@@ -1,4 +1,5 @@
 from app.ajsystem.core.extensions import db
+from app.constantes import TIPO_TRANSACAO
 
 
 class Transacao(db.Model):
@@ -42,3 +43,18 @@ class Transacao(db.Model):
     def pedido(self):
         from app.models.order import Order
         return Order.query.filter_by(transacao_id=self.id).first()
+
+
+Entity = {
+    'id':           {'type': 'ID', 'width': 6},
+    'data':         {'type': 'DATA', 'width': 12, 'required': True},
+    'tipo':         {'type': 'LIST', 'width': 12, 'options': TIPO_TRANSACAO, 'required': True},
+    'conta_id':     {'type': 'FK', 'label': 'Conta', 'width': 15},
+    'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15},
+    'fatura':       {'type': 'TEXT', 'width': 12},
+    'valor':        {'type': 'NUM', 'width': 12, 'currency': 1, 'required': True},
+    'historico':    {'type': 'MEMO', 'width': 40, 'pos_list': 2},
+    'cancelado':    {'type': 'DATA', 'width': 12, 'pos_list': 0},
+    'total_previsto': {'type': 'NUM', 'label': 'Total Previsto', 'width': 12,
+                       'currency': 1, 'readonly': True, 'pos_list': 0},
+}

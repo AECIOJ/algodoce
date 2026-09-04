@@ -2,12 +2,12 @@
 
 Cada sistema declara relatórios via:
 
-    REP = Report(label='...', header={...}, table={...})
+    REP = Report(label='...', header={...}, body={...})
 
 E o motor `ajsystem.core.pdf.gerar_pdf_relatorio(report, ...)` os renderiza.
 """
 from dataclasses import dataclass, field as dc_field
-from typing import Optional, Callable
+from typing import Optional, Callable, Union
 
 
 @dataclass
@@ -86,15 +86,38 @@ class ReportText:
 
 
 @dataclass
+class ReportBody:
+    """Corpo de um relatório: datasource + formato de impressão.
+
+    `source` define DE ONDE vêm os dados (entity string, dict com filtros ou um
+    `Query`). `form` e `table` são formatos de impressão MUTUAMENTE EXCLUSIVOS:
+      - `form`:  impressão campo/valor posicionado na página (reservado p/ futuro);
+      - `table`: tabela com `columns` + `hierarchy` (níveis visuais de quebra).
+    `before`/`after` são linhas impressas antes/depois do formato.
+    """
+    source: Optional[Union[str, dict, object]] = None
+    form: Optional[dict] = None
+    table: Optional[dict] = None
+    before: Optional[object] = None
+    after: Optional[object] = None
+    # Filtro aplicado pelo motor na query (dict de igualdade `{campo: valor}`
+    # ou callable). O valor pode vir da request na impressão (ex.: tipo).
+    filter: Optional[Union[dict, Callable]] = None
+
+    def __post_init__(self):
+        formats = [k for k in ('form', 'table') if getattr(self, k) is not None]
+        if len(formats) > 1:
+            raise ValueError("ReportBody: defina 'form' OU 'table', não ambos.")
+
+
+@dataclass
 class Report:
     """Configuração completa de um relatório PDF.
 
-    Seções:
-      - header: dict com config do cabeçalho (logo, título, campos)
-      - before_table: lista de linhas ou callable antes da tabela
-      - table: dict com config da tabela (columns, footer, after)
-      - after_table: lista de linhas ou callable depois da tabela
-      - footer: rodapé de página (report_footer, show_*, footer_*)
+    Seções (forma declarativa `dict`):
+      - header: dict com config do cabeçalho (logo, título, fields)
+      - body:   dict do `ReportBody` (datasource + formato de impressão)
+      - footer: dict do rodapé de página (report_footer, show_*, footer_*)
     """
     label: str
 
@@ -106,17 +129,13 @@ class Report:
     # Header (dict consolidado)
     header: Optional[dict] = dc_field(default=None)
 
-    # Table (dict consolidado)
-    table: Optional[dict] = dc_field(default=None)
+    # Body (datasource + formato de impressão) — ReportBody | dict
+    body: Optional[ReportBody] = dc_field(default=None)
 
     # Report footer (última linha de cada página) — dict consolidado
     # Chaves: text, show_user, show_datetime, show_company, show_page_number,
     #         separator, align, font_size. Todos default False (exceto text).
     footer: Optional[dict] = None
-
-    # Before / after table (list of line dicts or callable)
-    before_table: Optional[object] = None
-    after_table: Optional[object] = None
 
     # Texts avulsos
     texts: Optional[list] = None
@@ -134,19 +153,8 @@ class Report:
     margin_right: float = 10
     auto_page_break: bool = True
 
-    # Ordem dos dados no relatório (field name). None = ordem original.
-    ordem: Optional[str] = None
-
-    # Níveis visuais de GroupRow. Lista de dicts com bg=(R,G,B), size, bold, indent.
-    # Ex: [{'bg': (240,240,240), 'size': 10, 'bold': True, 'indent': 2}]
-    groups: Optional[list] = None
-
     # Linhas horizontais internas da tabela (entre linhas de dados e GroupRow)
     show_table_lines: bool = False
-
-    # Atributo da instância de onde saem os dados da tabela quando `data`
-    # não é passado explicitamente (default 'items').
-    data_attr: str = 'items'
 
 
 def parse_report(spec):
@@ -158,5 +166,9 @@ def parse_report(spec):
     if isinstance(spec, Report):
         return spec
     if isinstance(spec, dict):
+        spec = dict(spec)
+        body = spec.get('body')
+        if isinstance(body, dict):
+            spec['body'] = ReportBody(**body)
         return Report(**spec)
     raise TypeError(f"report deve ser dict ou Report, recebeu {type(spec).__name__}: {spec!r}")

@@ -35,6 +35,11 @@
     background-color: oklch(var(--n)/0.25);
     border: 2px solid oklch(var(--n)/0.4);
   }
+  /* A bolinha do daisyUI é um box-shadow com `--tglbg` (default = base --b1, quase
+     branco) — sobre o trilho claro fica invisível. Escurece só quando inativo. */
+  .toggle:not(:checked) {
+    --tglbg: oklch(var(--bc)/1);
+  }
   .toggle-success:checked,
   .toggle-success[aria-checked="true"] {
     background-color: oklch(var(--su)/1);

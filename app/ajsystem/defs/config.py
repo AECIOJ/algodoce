@@ -66,17 +66,18 @@ class Layout:
 class MenuItem:
     """Item de menu.
 
+    - `page`: arquivo do módulo quando o rótulo do menu ≠ nome do arquivo
+      (ex.: menu 'Contas a Receber', 'page': 'receber' → app.routes.sys.receber).
+      É a forma padrão de ligar um item ao seu módulo.
     - `url`: rota registrada (nome de endpoint, ex.: 'orcamentos.list') ou
       caminho literal ('/pagina', 'https://...'). É escape de navegação — não
       monta módulo.
-    - `page`: arquivo do módulo quando o rótulo do menu ≠ nome do arquivo
-      (ex.: menu 'Operações', 'page': 'opr' → app.routes.sys.opr).
-    - Se nem `url` nem `page` → módulo derivado do rótulo.
+    - Se nem `page` nem `url` → módulo derivado do rótulo.
     """
+    page: Optional[str] = None
     url: Optional[str] = None
     icon: str = ''
     submenus: Optional[Dict[str, 'MenuItem']] = None
-    page: Optional[str] = None
 
 
 @dataclass

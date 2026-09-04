@@ -126,6 +126,9 @@
 <div id="page-content" class="flex-1 min-h-0 flex flex-col">
   {% block page_content %}{% endblock %}
 </div>
+{# Container padrão (exclusivo) para relatórios — ocupa o meio quando recebe
+   conteúdo injetado via reportRender/injectHTML, ocultando a página corrente. #}
+<div id="report-content" class="flex-1 min-h-0 flex flex-col" style="display:none;"></div>
 {% endblock %}
 
 {% block after_content %}
@@ -246,6 +249,145 @@ function injectHTML(selector, html) {
     var s = document.createElement('script');
     s.textContent = old.textContent;
     old.parentNode.replaceChild(s, old);
+  });
+}
+
+/* Rota padrão de render de relatório: injeta no container exclusivo do meio
+   (#report-content) e alterna a visibilidade com a página corrente. */
+function reportRender(html) {
+  if (!html) return;
+  var rep = document.getElementById('report-content');
+  var page = document.getElementById('page-content');
+  if (!rep) { injectHTML('#page-content', html); return; }
+  rep.innerHTML = html;
+  rep.style.display = '';
+  if (page) page.style.display = 'none';
+  rep.querySelectorAll('script').forEach(function(old) {
+    var s = document.createElement('script');
+    s.textContent = old.textContent;
+    old.parentNode.replaceChild(s, old);
+  });
+}
+
+/* Fecha o relatório e volta à página sem recarregar; limpa os parâmetros de
+   impressão da URL para que um refresh mostre a listagem normal. */
+function closeReport() {
+  var rep = document.getElementById('report-content');
+  var page = document.getElementById('page-content');
+  if (rep) rep.style.display = 'none';
+  if (page) page.style.display = '';
+  if (window.history && history.replaceState) {
+    history.replaceState({}, '', window.location.pathname);
+  }
+  // Recalcula as colunas adaptativas agora que a lista voltou a ser visível
+  // (a largura 0 da página oculta teria colapsado a tabela indevidamente).
+  if (window.fitListColumns) window.fitListColumns();
+  window.scrollTo(0, 0);
+}
+
+/* Busca em modal p/ lookup com `query` (editor com botão externo).
+   Fluxo: botão → GET base (descobre params exigidos) → lê params no form →
+   sem valor → avisa; com valor → GET com params → dialog com linhas →
+   clique preenche hidden + visor. */
+function searchOpen(btn) {
+  var box = btn ? btn.closest('.search-ctl') : null;
+  if (!box) return;
+  var page = box.getAttribute('data-search-page') || '';
+  var query = box.getAttribute('data-search-query') || '';
+  if (!page || !query) return;
+  var base = '/ajsystem/lookup-search?page=' + encodeURIComponent(page)
+           + '&query=' + encodeURIComponent(query);
+  fetch(base, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+    .then(function(r) { return r.json(); })
+    .then(function(data) { searchHandle(box, base, data); })
+    .catch(function() { searchToast('Falha na busca.'); });
+}
+function searchHandle(box, base, data) {
+  data = data || {};
+  if (data.error) { searchToast(data.error); return; }
+  if (data.need && data.need.length) {
+    var form = box.closest('form');
+    var qs = [];
+    for (var i = 0; i < data.need.length; i++) {
+      var el = form ? form.querySelector('[name="' + data.need[i] + '"]') : null;
+      var v = el ? (el.value || '') : '';
+      if (!v) { searchToast('Selecione a conta primeiro.'); return; }
+      qs.push(encodeURIComponent(data.need[i]) + '=' + encodeURIComponent(v));
+    }
+    fetch(base + '&' + qs.join('&'), {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(function(r) { return r.json(); })
+      .then(function(d2) { searchHandle(box, base, d2); })
+      .catch(function() { searchToast('Falha na busca.'); });
+    return;
+  }
+  searchDialog(box, data.columns || [], data.rows || []);
+}
+function searchToast(msg) {
+  if (window.itToasts) window.itToasts(msg, 'warning');
+  else alert(msg);
+}
+function searchDialog(box, cols, rows) {
+  var old = document.getElementById('searchModal');
+  if (old) old.remove();
+  var d = document.createElement('dialog');
+  d.id = 'searchModal';
+  d.className = 'modal';
+  var html = '<div class="modal-box" style="max-width:46rem;">'
+    + '<h3 class="font-bold text-lg text-center">Buscar</h3>'
+    + '<div style="max-height:65vh;overflow:auto;margin-top:0.5rem;">'
+    + '<table class="table table-sm w-full"><thead><tr>';
+  cols.forEach(function(c) { html += '<th class="text-sm">' + c.label + '</th>'; });
+  html += '</tr></thead><tbody>';
+  if (!rows.length) html += '<tr><td colspan="' + Math.max(cols.length, 1) + '" class="text-center text-sm opacity-60">Nenhum registro.</td></tr>';
+  rows.forEach(function(r) {
+    var rawAttr = JSON.stringify(r.raw || {}).replace(/'/g, "&#39;");
+    html += '<tr data-search-id="' + r.id + '" data-search-raw=\'' + rawAttr + '\' style="cursor:pointer;">';
+    r.cells.forEach(function(c) { html += '<td class="text-sm">' + c + '</td>'; });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>'
+    + '<div class="modal-action"><button type="button" class="btn btn-ghost" id="searchCancel">Fechar</button></div>'
+    + '</div>';
+  d.innerHTML = html;
+  document.body.appendChild(d);
+  d.querySelector('#searchCancel').addEventListener('click', function() { d.close(); });
+  d.querySelectorAll('tr[data-search-id]').forEach(function(tr) {
+    tr.addEventListener('click', function() {
+      var hid = box.querySelector('input[type="hidden"]');
+      var vis = box.querySelector('.search-val');
+      if (hid) {
+        hid.value = tr.getAttribute('data-search-id');
+        hid.dispatchEvent(new Event('change', {bubbles: true}));
+      }
+      if (vis) vis.textContent = tr.getAttribute('data-search-id');
+      searchApplyReplaces(box, hid, tr);
+      if (window.marcarFormAlterado) marcarFormAlterado();
+      d.close();
+    });
+  });
+  d.showModal();
+}
+function searchApplyReplaces(box, hid, tr) {
+  var map = box ? box.getAttribute('data-replaces-map') : '';
+  if (!map || !tr) return;
+  var raw = {};
+  try { raw = JSON.parse(tr.getAttribute('data-search-raw') || '{}'); } catch (e) { raw = {}; }
+  var fk = box.getAttribute('data-search-field') || '';
+  var hn = hid && hid.name ? hid.name : '';
+  var base = (fk && hn.length > fk.length + 1 && hn.slice(-fk.length - 1) === '_' + fk)
+    ? hn.slice(0, hn.length - fk.length - 1) : '';
+  var form = box.closest('form');
+  map.split(',').forEach(function(pair) {
+    var parts = pair.split(':');
+    if (parts.length < 2) return;
+    var alvo = parts[0].trim(), fonte = parts[1].trim();
+    if (!(fonte in raw) || raw[fonte] === null || raw[fonte] === undefined) return;
+    var target = form ? form.querySelector('[name="' + (base ? base + '_' : '') + alvo + '"]') : null;
+    if (!target) return;
+    var v = raw[fonte];
+    target.value = (typeof v === 'number') ? String(Math.round(v * 100) / 100) : String(v);
+    target.dispatchEvent(new Event('input', {bubbles: true}));
+    target.dispatchEvent(new Event('change', {bubbles: true}));
   });
 }
 </script>
@@ -449,8 +591,20 @@ function itEval(expr, vars) {
   return expr1();
 }
 function itFmtMoney(v, cur) {
-  var sym = cur === 'usd' ? '$' : 'R$';
-  return sym + ' ' + v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  var m = itMoneyInfo(cur);
+  var num = Number(v) || 0;
+  return m.symbol + ' ' + num.toLocaleString(m.locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+function itMoneyInfo(cur) {
+  var map = {1: {symbol: 'R$', locale: 'pt-BR'}, 2: {symbol: '$', locale: 'en-US'}, 3: {symbol: '€', locale: 'pt-BR'}};
+  return map[itNormalizeCurrency(cur)] || map[1];
+}
+function itNormalizeCurrency(cur) {
+  if (cur === undefined || cur === null) return 1;
+  var s = String(cur).trim().toLowerCase();
+  if (s === '' || s === 'brl' || s === 'true' || s === 'sim' || s === '1') return 1;
+  var n = parseInt(s, 10);
+  return (n === 2 || n === 3) ? n : 1;
 }
 function itTotalsRefresh(wrap) {
   if (!wrap) return;
@@ -513,6 +667,36 @@ function itTotalsRefresh(wrap) {
 }
 function itOnSetBind(wrap) {
   if (!wrap) return;
+  // Preenchimento client-side a partir do registro escolhido no select FK:
+  // mapa `{campoAlvo: campoFonte}` — pode vir de `on_set` (data-onset-map) ou de
+  // `lookup.replaces` (data-replaces-map). Copia os valores da opção para os
+  // campos mapeados da linha, sem requisição.
+  wrap.querySelectorAll('select[data-onset-map], select[data-replaces-map]').forEach(function(sel) {
+    if (sel.__itOsMapBound) return;
+    sel.__itOsMapBound = true;
+    sel.addEventListener('change', function() {
+      var opt = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+      if (!sel.value || !opt) return;
+      var fk = sel.getAttribute('data-onset-fk') || sel.getAttribute('data-replaces-fk')
+            || sel.name.split('_').pop();
+      var map = sel.getAttribute('data-onset-map') || sel.getAttribute('data-replaces-map') || '';
+      var base = sel.name.slice(0, sel.name.length - fk.length - 1);
+      (map || '').split(',').forEach(function(pair) {
+        var parts = pair.split(':');
+        if (parts.length < 2) return;
+        var target = wrap.querySelector('[name="' + base + '_' + parts[0].trim() + '"]');
+        var val = opt.getAttribute('data-' + parts[1].trim());
+        if (target && val !== null && val !== undefined) {
+          target.value = val;
+          target.dispatchEvent(new Event('input', {bubbles: true}));
+          target.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+      });
+      itCalcRefresh(wrap);
+      itSessionTotals(wrap);
+      itTotalsRefresh(wrap);
+    });
+  });
   wrap.querySelectorAll('select[data-onset-ent]').forEach(function(sel) {
     if (sel.__itOsBound) return;
     sel.__itOsBound = true;
@@ -556,6 +740,37 @@ function itOnSetBind(wrap) {
         }).catch(function() {});
     });
   });
+}
+function itUpdateZerados(btn) {
+  var wrap = btn ? btn.closest('.child-table-wrap') : null;
+  if (!wrap) return;
+  var count = 0;
+  wrap.querySelectorAll('.it-desktop tbody[data-rel] tr[data-crow]').forEach(function(tr) {
+    var crow = tr.getAttribute('data-crow');
+    if (crow === null || crow === '__IDX__') return;
+    tr.querySelectorAll('select[data-replaces-map], select[data-onset-map]').forEach(function(sel) {
+      if (!sel.value) return;
+      var opt = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+      if (!opt) return;
+      var map = sel.getAttribute('data-replaces-map') || sel.getAttribute('data-onset-map') || '';
+      (map || '').split(',').forEach(function(pair) {
+        var parts = pair.split(':');
+        if (parts.length < 2) return;
+        var targetEl = tr.querySelector('[name="' + sel.name.slice(0, sel.name.lastIndexOf('_') + 1)
+                        + parts[0].trim() + '"]');
+        if (!targetEl) return;
+        var v = parseFloat(opt.getAttribute('data-' + parts[1].trim()));
+        if (isNaN(v)) return;
+        var cur = parseFloat(targetEl.value);
+        if (isNaN(cur) || cur === 0) {
+          targetEl.value = String(Math.round(v * 100) / 100);
+          targetEl.dispatchEvent(new Event('input', {bubbles: true}));
+          count++;
+        }
+      });
+    });
+  });
+  if (count > 0 && window.itToasts) itToasts('Valores atualizados', 'success');
 }
 function itCalcRefresh(wrap) {
   if (!wrap) return;
@@ -631,7 +846,28 @@ function itSessionTotals(wrap) {
     if (fn === 'avg') result = count > 0 ? sum / count : 0;
     else if (fn === 'count') result = count;
     else result = sum;
-    cell.textContent = (cur && fn !== 'count') ? itFmtMoney(result, cur) : String(result);
+    var _txt;
+    if (cur && fn !== 'count') {
+      _txt = itFmtMoney(result, cur);
+    } else if (fn === 'count') {
+      _txt = String(result);
+    } else {
+      var decAttr = cell.getAttribute('data-total-decimals');
+      var dec = decAttr !== null && decAttr !== '' ? parseInt(decAttr, 10) : NaN;
+      _txt = isNaN(dec) ? String(result) : Number(result).toFixed(dec);
+    }
+    var _tgt = cell.querySelector('.it-val') || cell;
+    _tgt.textContent = _txt;
+    var tgt = cell.getAttribute('data-total-target');
+    if (tgt && seen.length > 0) {
+      var num = Number(result) || 0;
+      var form = wrap.closest('form');
+      (form ? form.querySelectorAll('[name="' + tgt + '"]') : []).forEach(function(inp) {
+        inp.value = (inp.type === 'hidden')
+          ? String(Number(num).toFixed(2))
+          : (cur ? itFmtMoney(num, cur) : String(num));
+      });
+    }
   });
 }
 function itTablesRefreshAll() {
@@ -830,16 +1066,20 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.target && e.target.name && e.target.name.indexOf('child_') === 0) {
         itSyncValue(e.target);
         syncChildInputValue(e.target);
-        itCalcRefresh(e.target.closest('.child-table-wrap'));
-        itTotalsRefresh(e.target.closest('.child-table-wrap'));
+        var _w = e.target.closest('.child-table-wrap');
+        itCalcRefresh(_w);
+        itSessionTotals(_w);
+        itTotalsRefresh(_w);
       }
     });
     form.addEventListener('change', function(e) {
       if (e.target && e.target.name && e.target.name.indexOf('child_') === 0) {
         itSyncValue(e.target);
         syncChildInputValue(e.target);
-        itCalcRefresh(e.target.closest('.child-table-wrap'));
-        itTotalsRefresh(e.target.closest('.child-table-wrap'));
+        var _w = e.target.closest('.child-table-wrap');
+        itCalcRefresh(_w);
+        itSessionTotals(_w);
+        itTotalsRefresh(_w);
       }
     });
   }
@@ -847,10 +1087,11 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.child-table-wrap').forEach(function(wrap) {
     itOnSetBind(wrap);
     itCalcRefresh(wrap);
+    itSessionTotals(wrap);
     itTotalsRefresh(wrap);
     var body = wrap.querySelector('.it-desktop tbody[data-rel]');
     if (body && 'MutationObserver' in window) {
-      new MutationObserver(function() { itOnSetBind(wrap); itCalcRefresh(wrap); itTotalsRefresh(wrap); })
+      new MutationObserver(function() { itOnSetBind(wrap); itCalcRefresh(wrap); itSessionTotals(wrap); itTotalsRefresh(wrap); })
         .observe(body, {childList: true});
     }
   });

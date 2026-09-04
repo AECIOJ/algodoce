@@ -1,4 +1,5 @@
 from app.ajsystem.core.extensions import db
+from app.constantes import COMPRA_STATUS
 
 
 class CompraHistorico(db.Model):
@@ -16,3 +17,13 @@ class CompraHistorico(db.Model):
 
     def __repr__(self):
         return f"<CompraHistorico c={self.compra_id} s={self.status} d={self.data}>"
+
+
+Entity = {
+    'id':          {'type': 'ID'},
+    'compra_id':   {'type': 'DK'},
+    'status':      {'type': 'LIST', 'options': COMPRA_STATUS},
+    'data':        {'type': 'DATA', 'required': True},
+    'responsavel': {'type': 'TEXT', 'label': 'Responsável'},
+    'motivo':      {'type': 'TEXT', 'label': 'Motivo'},
+}

@@ -13,6 +13,26 @@ from app.ajsystem.defs.buttons import resolve_buttons
 from app.ajsystem.defs.data import _auto_label, resolve_entity_fields
 
 
+def _total_decimals(f, child_model, child_merged=None):
+    """Casas decimais do total de uma coluna, iguais às da linha.
+
+    Precedência: `decimals` declarado na Entity/Schema; senão a escala da
+    coluna NUM no banco (ex.: NUM(12,3) → 3, igual ao exibido na linha).
+    Sem informação → None (JS usa `String`, como antes)."""
+    cfg = (child_merged or {}).get(getattr(f, 'name', None), {}) or {}
+    if 'decimals' in cfg:
+        return cfg['decimals']
+    if child_model is not None:
+        try:
+            t = child_model.__table__.columns[getattr(f, 'name', None)].type
+            scale = getattr(t, 'scale', None)
+            if scale is not None:
+                return scale
+        except Exception:
+            pass
+    return None
+
+
 @dataclass
 class Form:
     # ── Props declarativas (o motor resolve o restante a partir de `fields`) ──
@@ -26,8 +46,8 @@ class Form:
     pre_save: Optional[Callable] = None
     post_save: Optional[Callable] = None
     buttons: Optional[list] = None
-    tags: Optional[list] = None
     spacing: float = 2
+    max_width: Optional[Union[int, str]] = None
 
     # ── Campos internos (preenchidos pelo motor, não declarados) ──
     def __post_init__(self):
@@ -35,6 +55,7 @@ class Form:
         self._entity_name = None
         self._model = None
         self._schema = None
+        self._schema_orig = None
         self._redirect = None
         self._label = None
         self._resolved_fields = []
@@ -44,10 +65,14 @@ class Form:
 
     def resolve(self, entity_name: str, model, schema: dict, blueprint=None):
         """Motor: a partir da entity nomeada, do model e do Schema da página,
-        deriva campos/colunas, label, redirect e sessões."""
+        deriva campos/colunas, label, redirect e sessões.
+
+        `schema` é o Schema original da página (chaveado por entidade); dele é
+        derivado o merged do form principal e aplicados os overrides aos filhos."""
         self._entity_name = entity_name
         self._model = model
-        self._schema = schema  # entity merged (Schema + Entity(model))
+        self._schema_orig = schema or {}
+        self._schema = resolve_entity_fields(self._schema_orig, model, entity_name)
         if blueprint is not None:
             self._bp_name = blueprint
         if self.template:
@@ -71,7 +96,9 @@ class Form:
             if self._model is None:
                 self._model = _resolve_model(spec)
             self._entity_name = spec
-            self._schema = resolve_entity_fields({}, self._model, spec)
+            if not merged:
+                # sem Schema da página → expande a própria Entity (com overrides se houver)
+                self._schema = resolve_entity_fields({}, self._model, spec)
             if not self._label:
                 self._label = _auto_label(spec)
                 self._apply_flash_defaults()
@@ -118,16 +145,26 @@ class Form:
             resolved_query = None
             resolved_table = None
             resolved_cols = []
+            resolved_fields = []
             child_model = None
-            if spec_query:
+            # Sessão 1:1 — só `fields` (sem query/table): formula o child único
+            # (ex. o Evento de um orçamento). O primeiro item de `fields` nomeia
+            # a Entity do child; os demais restringem as colunas.
+            is_form = spec_fields is not None and spec_query is None and spec_table is None
+            if is_form:
+                col_specs = spec_fields if isinstance(spec_fields, list) else [spec_fields]
+                child_ent = col_specs[0] if col_specs else name
+                if isinstance(child_ent, str):
+                    child_merged, child_model = self._child_merged(child_ent)
+                    resolved_fields = self._resolve_session_cols(child_merged, col_specs, child_ent)
+            elif spec_query:
                 q_cols = spec_query.get('columns') if isinstance(spec_query, dict) else getattr(spec_query, 'columns', None)
                 child_ent = q_cols[0] if isinstance(q_cols, list) and q_cols else name
                 if isinstance(child_ent, str):
                     child_merged, child_model = self._child_merged(child_ent)
                     resolved_cols = self._resolve_session_cols(child_merged, q_cols, child_ent)
                 resolved_query = {**spec_query, 'columns': resolved_cols}
-
-            if spec_table:
+            elif spec_table:
                 t_cols = spec_table.get('columns') if isinstance(spec_table, dict) else getattr(spec_table, 'columns', None)
                 child_ent = t_cols[0] if isinstance(t_cols, list) and t_cols else name
                 if isinstance(child_ent, str):
@@ -135,6 +172,43 @@ class Form:
                     resolved_cols = self._resolve_session_cols(child_merged, t_cols, child_ent)
                 t_dict = dict(spec_table) if isinstance(spec_table, dict) else {k: v for k, v in spec.__dict__.items() if not k.startswith('_')}
                 t_dict['columns'] = resolved_cols
+                # `totals` define a linha de totais do detalhe. Aceita:
+                #   - lista de nomes:            ['qtd', 'valor']
+                #   - lista mista:               ['qtd', {'valor': 'eTotal'}]
+                #     item string → totaliza a coluna (sem destino);
+                #     item dict {coluna: editor} → totaliza E grava no editor
+                #     do master (celula `data-total-target`).
+                #   - string única:              'valor'
+                # Sem `totals` nenhuma coluna é totalizada.
+                spec_totals = spec_table.get('totals') if isinstance(spec_table, dict) else getattr(spec_table, 'totals', None)
+                if spec_totals:
+                    entries = spec_totals if isinstance(spec_totals, list) else [spec_totals]
+                    total_map = {}
+                    for entry in entries:
+                        if isinstance(entry, dict):
+                            for col, editor in entry.items():
+                                f = next((x for x in resolved_cols if getattr(x, 'name', None) == col), None)
+                                if f is None:
+                                    continue
+                                total_map[f.name] = {
+                                    'fn': 'sum',
+                                    'calc': f.calc if getattr(f, 'calc', None) else None,
+                                    'currency': getattr(f, 'currency', None) or None,
+                                    'decimals': _total_decimals(f, child_model, child_merged),
+                                    'target': editor or None,
+                                }
+                        else:
+                            f = next((x for x in resolved_cols if getattr(x, 'name', None) == entry), None)
+                            if f is None:
+                                continue
+                            total_map[f.name] = {
+                                'fn': 'sum',
+                                'calc': f.calc if getattr(f, 'calc', None) else None,
+                                    'currency': bool(getattr(f, 'currency', None)),
+                                    'decimals': _total_decimals(f, child_model, child_merged),
+                            }
+                    if total_map:
+                        t_dict['total'] = total_map
                 resolved_table = t_dict
 
             attr, child_cols = self._resolve_parent_link(child_model, resolved_cols, fallback=name.lower())
@@ -145,8 +219,9 @@ class Form:
                 'attr': attr,
                 'model': child_model,
                 'columns': child_cols,
-                'fields': resolve_column_configs(self._schema or {}, spec_fields,
-                                                 principal=self._schema or {}) if spec_fields else [],
+                'fields': resolved_fields or (
+                    resolve_column_configs(self._schema or {}, spec_fields,
+                                           principal=self._schema or {}) if spec_fields else []),
                 'query': resolved_query,
                 'table': resolved_table,
                 'buttons': resolve_buttons(spec_buttons, self._bp_name) if spec_buttons else [],
@@ -156,7 +231,7 @@ class Form:
     def _resolve_parent_link(self, child_model, cols, fallback=''):
         """Descobre o vínculo pai→filho da sessão: o `attr` (relationship no
         model pai que expõe os filhos) e as colunas com a FK do pai marcadas
-        `in_form: 0` (campo gerenciado pelo motor).
+        `pos_form: 0` (campo gerenciado pelo motor).
 
         Primário: FK column → tabela pai + relationship no mapper. Override:
         prop `mastermodel` na config do campo (Schema). Fallback: nome/plural
@@ -221,13 +296,13 @@ class Form:
         if fk_name:
             for f in cols:
                 if getattr(f, 'name', None) == fk_name:
-                    f.in_form = 0
+                    f.pos_form = 0
 
         return attr, cols
 
     def _child_merged(self, child_ent):
         model = _resolve_model(child_ent)
-        merged = resolve_entity_fields({}, model, child_ent)
+        merged = resolve_entity_fields(self._schema_orig or {}, model, child_ent)
         return merged, model
 
     def _resolve_session_cols(self, child_merged, cols, child_ent):
@@ -243,3 +318,22 @@ class Form:
 
     def _resolve_buttons(self):
         return resolve_buttons(self.buttons, self._bp_name)
+
+
+_FORM_KEYS = frozenset(f.name for f in dc_fields(Form))
+
+
+def parse_form(spec, **overrides):
+    """Normaliza a spec de formulário (dict | Form) para `Form` (idempotente).
+
+    Mantém apps declarando dict; o motor molda pelo dataclass. `overrides`
+    (ex. `fields`, label) são aplicados ao `Form` resultante.
+    """
+    if isinstance(spec, Form):
+        form = spec
+    else:
+        cfg = {k: v for k, v in (spec or {}).items() if k in _FORM_KEYS}
+        form = Form(**cfg)
+    for k, v in overrides.items():
+        setattr(form, k, v)
+    return form

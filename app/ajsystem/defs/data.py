@@ -27,8 +27,8 @@ FIELD_TYPES = {
     'INT':       {'input': 'number', 'align': 'right', 'width': 5, 'decimals': 0},
     'NUM':       {'input': 'number', 'align': 'right', 'width': 10, 'decimals': 2},
     'PERCENT':   {'input': 'number', 'align': 'right', 'width': 6, 'decimals': 1, 'min': 0, 'max': 100, 'percent': True},
-    'ID':        {'input': 'number', 'in_form': 0, 'label': '#'},
-    'DK':        {'input': 'number', 'in_form': 0, 'in_filter': 0},
+    'ID':        {'input': 'number', 'pos_form': 0, 'label': '#'},
+    'DK':        {'input': 'number', 'pos_form': 0, 'pos_filter': 0},
     'DATA':      {'input': 'date'},
     'DATA_HORA': {'input': 'datetime-local'},
     'HORA':      {'input': 'time'},
@@ -38,8 +38,8 @@ FIELD_TYPES = {
     'CNPJ':      {'input': 'text', 'mask': '99.999.999/9999-99', 'digits_only': True, 'validate': 'cnpj'},
     'FK':        {'input': 'select'},
     'LIST':      {'input': 'select'},
-    'MULT10':    {'input': 'multi', 'in_filter': 0},
-    'IMAGE':     {'input': 'image', 'in_filter': 0, 'required': False, 'upload_path': ''},
+    'MULT10':    {'input': 'multi', 'pos_filter': 0},
+    'IMAGE':     {'input': 'image', 'pos_filter': 0, 'required': False, 'upload_path': ''},
 }
 
 # `required` é sempre opt-in: declarado na Entity/Schema via 'required': True.
@@ -72,6 +72,26 @@ def _auto_label(name: str) -> str:
     return ' '.join(w.capitalize() for w in name.split('_'))
 
 
+def resolve_max_width(value):
+    """`max_width` de list/form: `int` → `<n>ch`; string é CSS pronto.
+
+    `None` (prop ausente) → `None` (o template aplica o default). `int` deve
+    ser positivo; `bool` não é int aceitável. Qualquer outro tipo é erro de
+    config (fail-fast).
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError("max_width deve ser int (largura em ch) ou string CSS")
+    if isinstance(value, int):
+        if value <= 0:
+            raise ValueError(f"max_width deve ser positivo (recebido {value})")
+        return f"{value}ch"
+    if isinstance(value, str):
+        return value
+    raise ValueError("max_width deve ser int (largura em ch) ou string CSS")
+
+
 # ── Dataclass Field (runtime resolvido) ──────────────────────────────────────
 @dataclass
 class Query:
@@ -91,6 +111,33 @@ class Table:
     allow_add: bool = True
     allow_delete: bool = True
     order: Optional[Union[str, list[str]]] = None
+
+
+@dataclass
+class Lookup:
+    """Complemento de um campo para escolha/exibição por busca (no lugar do `query`
+    do campo). Define COMO escolher e exibir um registro vinculado (FK).
+
+    - `fields`:  campo(s) a listar ao escolher. `1` → `<select>`; `>1` → `<modal>`.
+                 Default: `[display]`.
+    - `display`: campo a exibir (listagem/readonly e no select). Default: primeiro
+                 campo após `id` da entidade alvo (senão o primeiro campo).
+    - `value`:   campo a retornar e gravar no registro. Default: `'id'`.
+    - `when`:    condição para listar nas opções de escolha (dict ou string SQL).
+    - `replaces`: dict `{campo_alvo: campo_fonte}` — ao selecionar um registro,
+                  copia client-side atributos da opção (campos do registro alvo)
+                  para campos do registro filho. Ex.: `{'quantidade': 'qtd_minima',
+                  'preco_unitario': 'preco'}`.
+    - `query`:   nome de uma busca declarada na rota (ex.: `'PREVISOES'`) — em vez
+                 de `<select>`, renderiza display + hidden + botão externo que abre
+                 modal de busca alimentado pelo endpoint do motor.
+    """
+    fields: Optional[Union[str, list]] = None
+    display: Optional[str] = None
+    value: Optional[str] = None
+    when: Optional[Union[str, dict, Callable]] = None
+    replaces: Optional[dict] = None
+    query: Optional[str] = None
 
 
 @dataclass
@@ -121,26 +168,24 @@ class Field:
     name: str
     label: Optional[str] = None
     width: Optional[int] = None
-    grid: Optional[int] = None
     align: str = 'left'
     input: str = 'text'
     options: Optional[dict] = None
-    in_filter: Optional[int] = None
+    pos_filter: Optional[int] = None
     mask: Optional[str] = None
+    editor: Optional[str] = None  # nome exclusivo do input no HTML (substitui field.name no `name`)
     query: Any = None          # config crua (str/dict); Query entra posteriormente
+    lookup: Any = None         # complemento de escolha/exibição (dict | Lookup | True)
     validate: Optional[Union[str, list, Callable]] = None
     decimals: Optional[int] = None
     min: Optional[Union[int, float]] = None
     max: Optional[Union[int, float]] = None
     step: Optional[Union[int, float]] = None
     derived: Optional[dict] = None
-    currency: Optional[str] = None
+    currency: Optional[Union[int, str, bool]] = None  # código CURRENCY (0=off); True/'brl' legados = padrão
     percent: bool = False
-    hide_zero: bool = True
-    link: Optional[str] = None
     required: bool = False
     mastermodel: Optional[Any] = None
-    lookup: Optional[str] = None
     placeholder: Optional[str] = None
     help: Any = None
     transform: Any = None
@@ -150,28 +195,37 @@ class Field:
     upload_path: str = ''
     digits_only: bool = False
     attrs: Optional[dict] = None
-    in_form: int = 1
-    in_list: int = 1
+    pos_form: int = 1
+    pos_list: int = 1
     default: Any = None
     rows: int = 1
-    on_set: Optional[Callable] = None
+    on_set: Optional[Union[Callable, dict]] = None
     on_set_ent: Optional[str] = None
     on_set_mod: Optional[str] = None
     calc: Optional[Union[str, Callable]] = None
+    tag: Any = None
 
     def __post_init__(self):
-        if self.in_filter is True:
-            self.in_filter = 1
-        elif self.in_filter is False:
-            self.in_filter = 0
-        if self.in_form is True:
-            self.in_form = 1
-        elif self.in_form is False:
-            self.in_form = 0
-        if self.in_list is True:
-            self.in_list = 1
-        elif self.in_list is False:
-            self.in_list = 0
+        if self.pos_filter is True:
+            self.pos_filter = 1
+        elif self.pos_filter is False:
+            self.pos_filter = 0
+        if self.pos_filter == 9:
+            # filtro fixo: gerenciado pelo motor — fora do corpo, da lista
+            # e do painel (a força vence declaração explícita)
+            self.pos_form = 0
+            self.pos_list = 0
+        if self.pos_form is True:
+            self.pos_form = 1
+        elif self.pos_form is False:
+            self.pos_form = 0
+        if self.pos_list is True:
+            self.pos_list = 1
+        elif self.pos_list is False:
+            self.pos_list = 0
+        if self.tag is not None:
+            from app.ajsystem.defs.tags import parse_tag
+            self.tag = parse_tag(self.tag)
         if self.width is None and self.mask:
             self.width = len(self.mask)
             if self.input == 'number' and not self.mask.startswith('-'):
@@ -378,13 +432,25 @@ def _infer_field_from_model(model, name: str) -> dict:
 
 
 # ── Leitura declarativa de módulo de rota (Page/Schema/Form/List) ───────────
-def module_page(mod) -> dict:
-    """Lê o dict `Page` de um módulo de rota ({} se ausente/não-dict)."""
+def module_page(mod) -> "Page":
+    """Lê o `Page` de um módulo de rota (dataclass; {} → Page vazio)."""
+    from app.ajsystem.defs.pages import parse_page
     p = getattr(mod, 'Page', None)
-    return p if isinstance(p, dict) else {}
+    if p is None:
+        return parse_page({})
+    return parse_page(p)
 
 
-def page_props(page: dict) -> dict:
+def module_page_label(page) -> str:
+    """`label` do `Page` (ex.: 'Orçamento'). Usado como rótulo do form (id na
+    navegação, msgs de inclusão/alteração)."""
+    return (page.label or '') if not isinstance(page, dict) else (page.get('label') or '')
+
+
+def page_props(page) -> dict:
+    props = getattr(page, 'props', None)
+    if props is not None:
+        return props or {}
     return (page.get('props') or {}) if isinstance(page, dict) else {}
 
 
@@ -488,3 +554,175 @@ def fk_target_model(model, field_name):
             if getattr(cls, '__tablename__', None) == tbl_name:
                 return cls
     return None
+
+
+def fk_relation_name(model, field_name):
+    """Nome do atributo de relação (`pai`, `cliente`, ...) cuja coluna local é
+    `field_name` no `model`. Fallback: nome do campo com `_id` removido."""
+    mapper = getattr(model, '__mapper__', None)
+    if mapper is not None:
+        for key, rel in mapper.relationships.items():
+            cols = getattr(rel, 'local_columns', None)
+            if cols and any(c.name == field_name for c in cols):
+                return key
+    if field_name and field_name.endswith('_id'):
+        return field_name[:-3]
+    return field_name
+
+
+def _target_first_fields(target_model):
+    """Campos tabelados do `target_model` na ordem das colunas (ignorando pk)."""
+    keys = []
+    try:
+        cols = list(target_model.__table__.columns)
+    except Exception:
+        return keys
+    for col in cols:
+        if getattr(col, 'name', None) and col.name != 'id':
+            keys.append(col.name)
+    return keys
+
+
+def resolve_lookup(field, source_model):
+    """Resolve a prop `lookup` de um `Field` numa config com defaults.
+
+    `lookup` pode ser: `True` (usa defaults), dict, ou um objeto `Lookup`.
+    O que o motor infere da FK (`fk_target_model`): o model a pesquisar. O que a
+    config informa:
+      - `display`: campo a exibir (default: primeiro campo após `id`).
+      - `value`:   campo a retornar/gravar (default: 'id').
+      - `fields`:  campo(s) a listar ao escolher (default: [`display`]).
+      - `when`:    condição para listar nas opções de escolha.
+    Retorna dict resolvido com `path` (`<relação>.<display>`) ou `None`.
+    """
+    raw = getattr(field, 'lookup', None)
+    if raw is None or raw is False:
+        return None
+    cfg = {}
+    if raw is not True:
+        if isinstance(raw, Lookup):
+            cfg = {k: v for k, v in vars(raw).items() if v is not None}
+        elif isinstance(raw, dict):
+            cfg = dict(raw)
+
+    target = fk_target_model(source_model, field.name) if source_model else None
+    display = cfg.get('display')
+    if not display:
+        if target is not None:
+            firsts = _target_first_fields(target)
+            display = firsts[0] if firsts else 'id'
+        else:
+            display = 'id'
+    value = cfg.get('value', 'id')
+    fields = cfg.get('fields')
+    if fields is None:
+        fields = [display]
+    elif isinstance(fields, str):
+        fields = [fields]
+    relation = (fk_relation_name(source_model, field.name)
+                if source_model else field.name)
+    return {
+        'display': display,
+        'fields': fields,
+        'value': value,
+        'when': cfg.get('when'),
+        'replaces': cfg.get('replaces'),
+        'query': cfg.get('query'),
+        'path': f'{relation}.{display}',
+    }
+
+
+def _when_value(v):
+    """Coage valor escalar de `when`: 'true'/'false' → bool; numérico → número."""
+    if isinstance(v, str):
+        s = v.strip().strip("'\"")
+        if s.lower() == 'true':
+            return True
+        if s.lower() == 'false':
+            return False
+        try:
+            return int(s)
+        except (TypeError, ValueError):
+            pass
+        try:
+            return float(s)
+        except (TypeError, ValueError):
+            pass
+        return s
+    return v
+
+
+def _when_in_list(rval):
+    """Parseia lista de `IN (...)`: [valores] sem Nones (NULL não casa em IN)."""
+    s = (rval or '').strip()
+    if s.startswith('(') and s.endswith(')'):
+        s = s[1:-1]
+    items = []
+    for part in s.split(','):
+        part = part.strip()
+        if not part:
+            continue
+        v = _when_value(part)
+        if v is not None:
+            items.append(v)
+    return items
+
+
+def apply_lookup_when(query, target_model, when):
+    """Aplica a condição `when` de um lookup a uma query alvo.
+
+    Suporta dict (`{'col': valor}`; `None` → `IS NULL`; lista/tupla/set →
+    `IN`, vazia → ignora) ou string SQL simples com `=`, `!=`, `IN`, `NOT IN`,
+    `IS NULL`, `IS NOT NULL` unidas por `AND`."""
+    if not when:
+        return query
+    if callable(when):
+        raise TypeError("lookup.when deve ser dict ou string, não callable")
+    try:
+        col = target_model.__table__.columns
+    except Exception:
+        return query
+
+    conds = []
+    if isinstance(when, dict):
+        for k, v in when.items():
+            try:
+                f = col.get(k)
+            except Exception:
+                f = None
+            if f is None:
+                continue
+            if v is None:
+                conds.append(f.is_(None))
+            elif isinstance(v, (list, tuple, set, frozenset)):
+                vals = [x for x in v if x is not None]
+                if vals:
+                    conds.append(f.in_(vals))
+            else:
+                conds.append(f == v)
+    elif isinstance(when, str):
+        import re as _re
+        for m in _re.finditer(r'(\w+)\s*(NOT IN|IN|!=|=|IS NULL|IS NOT NULL)\s*(.*?)(?:\s+AND\s+|$)', when, _re.IGNORECASE):
+            name, op, rval = m.group(1), m.group(2).upper(), m.group(3).strip()
+            try:
+                f = col.get(name)
+            except Exception:
+                f = None
+            if f is None:
+                continue
+            if op in ('IS NULL', 'IS NOT NULL'):
+                conds.append(f.is_(None) if op == 'IS NULL' else f.isnot(None))
+            elif op in ('IN', 'NOT IN'):
+                vals = _when_in_list(rval)
+                if not vals:
+                    continue
+                conds.append(f.in_(vals) if op == 'IN' else ~f.in_(vals))
+            else:
+                rval = _when_value(rval)
+                if op == '!=':
+                    conds.append(f != rval)
+                else:
+                    conds.append(f == rval)
+    for c in conds:
+        query = query.filter(c)
+    return query

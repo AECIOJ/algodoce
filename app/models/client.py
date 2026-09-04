@@ -1,4 +1,5 @@
 from app.ajsystem.core.extensions import db
+from app.constantes import TIPO_CONTA
 
 
 class Conta(db.Model):
@@ -19,3 +20,17 @@ class Conta(db.Model):
 
     def __repr__(self):
         return f"<Conta {self.nome}>"
+
+
+Entity = {
+    'id':             {'type': 'ID', 'width': 7},
+    'nome':           {'type': 'TEXT', 'width': 20, 'transform': 'title'},
+    'tipo':           {'type': 'LIST', 'width': 12, 'options': TIPO_CONTA},
+    'telefone':       {'type': 'FONE', 'required': True},
+    'email':          {'type': 'TEXT', 'input': 'email', 'width': 50},
+    'cpf':            {'type': 'CPF', 'label': 'CPF'},
+    'cnpj':           {'type': 'CNPJ', 'label': 'CNPJ'},
+    'insc_estadual':  {'type': 'TEXT', 'label': 'Insc. Estadual'},
+    'endereco':       {'type': 'TEXT', 'label': 'Endereço', 'input': 'textarea', 'pos_list': 2},
+    'ativo':          {'type': 'BOOL'},
+}

@@ -5,56 +5,17 @@ de `defs.data` (merged `Entity(model)`+`Schema`). Helpers data-agnósticos para 
 renderização de `pages/list.html` (cujos contratos são mantidos).
 """
 import re
-from dataclasses import dataclass, field as dc_field
-from typing import Optional, Union
 
-from app.ajsystem.defs.buttons import resolve_buttons as _resolve_buttons
 from app.ajsystem.defs.data import (
-    Field, _resolve_fieldset, _entidade_fields, build_field, build_field_config,
-    get_field,
+    Field, _resolve_fieldset, _entidade_fields, build_field,
 )
-
-
-@dataclass
-class List:
-    """Config de listagem — objeto consumido por `pages/list.html`."""
-    fields: Union[list, dict]
-    fields_master: Optional[list] = None
-    edit_endpoint: Optional[str] = None
-    edit_id_field: str = 'id'
-    detail_data: Optional[str] = None
-    buttons: Optional[list] = None
-    template: Optional[str] = None
-    linha: Optional[list] = None
-    card_idx: Optional[list] = None
-    tags: Optional[list] = None
-
-    def __post_init__(self):
-        if isinstance(self.fields, dict):
-            if 'fields' in self.fields:
-                self.fields = _resolve_fieldset(self.fields)
-            else:
-                self.fields = [Field(name=k, **v) for k, v in _entidade_fields(self.fields).items()]
-
-    def resolve_buttons(self, bp_name=None):
-        return _resolve_buttons(self.buttons, bp_name)
-
-    @property
-    def master_fields(self):
-        if self.fields_master is not None:
-            return [self.fields[i - 1] for i in self.fields_master]
-        return self.fields
-
-    @property
-    def card_fields(self):
-        if self.card_idx:
-            return [self.fields[i - 1] for i in self.card_idx]
-        return None
+from app.ajsystem.core.utils import currency_symbol
+from app.ajsystem.defs.list import List, parse_list  # re-export (dataclass em `defs`)
 
 
 def infer_filter_type(f: Field):
-    inf = f.in_filter
-    if inf == 0:
+    inf = f.pos_filter
+    if inf == 0 or inf == 9:
         return None
     if inf == 1:
         if f.input in ('date', 'datetime-local'):
@@ -84,25 +45,111 @@ def infer_filter_type(f: Field):
 def field_filter_options(f: Field):
     if f.options is not None:
         if isinstance(f.options, dict):
-            return list(f.options.values())
+            return dict(f.options)  # preserva chaves: o filtro submete a chave
         return list(f.options)
     return None
+
+
+def _cell_width_ch(text):
+    """Largura visual aproximada de `text` em unidades `ch` (largura do '0').
+
+    `ch` é a largura do glifo '0', tipicamente o mais estreito entre alfanuméricos
+    em fontes não-tabulares. Para o conteúdo caber sem quebrar numa célula usamos
+    pesos **conservadores**: dígitos/letras maiores que 1, para não subestimar.
+    Cobre máscaras diversificadas (telefone, CPF/CNPJ, datas com nome de mês/dia
+    da semana etc.).
+    """
+    w = 0.0
+    for c in text:
+        cu = c.upper()
+        if cu.isalpha():
+            w += 1.2 if cu in 'WM' else 1.05
+        elif c.isdigit():
+            w += 1.15
+        elif c == ' ':
+            w += 0.55
+        elif c in '()[]':
+            w += 0.6
+        elif c in ',.:;':
+            w += 0.55
+        elif c in '-/\\':
+            w += 0.65
+        elif c == '@':
+            w += 1.0
+        else:
+            w += 0.8
+    return w
+
+
+def _mask_width_ch(mask):
+    """Largura estimada do maior conteúdo que a máscara pode formar.
+
+    Substitui os curingas `9`/`A`/`a` pelos glifos mais largos possíveis e soma a
+    largura dos literais. Máscaras com texto (datas longas, nome de mês, dia da
+    semana) são cobertas genericamente aqui.
+    """
+    out = []
+    for c in mask:
+        if c == '9':
+            out.append('8')
+        elif c in 'Aa':
+            out.append('W' if c == 'A' else 'w')
+        elif c == 'X':
+            out.append('W')
+        else:
+            out.append(c)
+    return _cell_width_ch(''.join(out))
+
+
+def _content_width_ch(f):
+    """Largura em `ch` do conteúdo da célula, sem considerar o cabeçalho."""
+    if f.mask and f.digits_only:
+        return _mask_width_ch(f.mask)
+    if f.options:
+        labs = [str(v) for v in f.options.values()]
+        return max((_cell_width_ch(ln) for ln in labs), default=0)
+    if f.input in ('date', 'datetime-local', 'time'):
+        fmt = {'date': 'dd/mm/aaaa',
+               'datetime-local': 'dd/mm/aaaa hh:mm',
+               'time': 'hh:mm'}[f.input]
+        return _cell_width_ch(fmt)
+    if f.input == 'number':
+        dec = f.decimals if f.decimals is not None else 2
+        body = '8' * 9
+        if f.decimals is not None:
+            body = '8' * 9 + ',' + '8' * max(dec, 0)
+        s = body
+        if f.currency:
+            sym = currency_symbol(f.currency)
+            s = (sym + ' ' if sym else '') + body
+        if f.percent:
+            s = body + ' %'
+        return _cell_width_ch(s)
+    if f.input in ('boolean', 'checkbox'):
+        return _cell_width_ch('Falso')
+    if f.input == 'select':
+        return _cell_width_ch('Selecionar')
+    return 0
 
 
 def field_to_column(f: Field) -> dict:
     col = {'label': f.label or f.name, 'field': f.name, 'input': f.input}
     DEFAULT_WIDTHS = {'boolean': 6, 'number': 8, 'date': 12, 'select': 15}
-    w = f.width or DEFAULT_WIDTHS.get(f.input, 15)
+    if f.width:
+        w = f.width
+    else:
+        w = _content_width_ch(f) or DEFAULT_WIDTHS.get(f.input, 15)
+    # cabeçalho: a palavra mais longa do label define um mínimo
     largest_word = max(len(x) for x in (f.label or f.name).split()) if (f.label or f.name) else 3
     if w < largest_word:
         w = largest_word
-    col['width'] = w + 1
+    col['width'] = int(w + 1)
     if f.align != 'left':
         col['align'] = f.align
     ft = infer_filter_type(f)
     if ft:
         col['filter'] = ft
-    elif f.in_filter == 0:
+    elif f.pos_filter == 0:
         col['filter'] = False
     fo = field_filter_options(f)
     if fo:
@@ -111,20 +158,22 @@ def field_to_column(f: Field) -> dict:
         col['mask'] = f.mask
     if f.digits_only:
         col['digits_only'] = True
+    if f.mask and f.digits_only:
+        col['nowrap'] = True
     if f.decimals is not None:
         col['decimals'] = f.decimals
     if f.currency:
         col['currency'] = f.currency
     if f.percent:
         col['percent'] = True
-    if f.hide_zero:
-        col['hide_zero'] = True
     if f.options:
         col['options'] = f.options
-    if f.link:
-        col['link'] = f.link
     if f.calc:
         col['calc'] = f.calc
+    if f.lookup:
+        col['lookup'] = f.lookup
+    if f.tag:
+        col['tag'] = f.tag
     return col
 
 
@@ -189,25 +238,6 @@ def build_field_context(fields) -> dict:
             if fo is not None and f.name not in ctx['filter_options']:
                 ctx['filter_options'][f.name] = fo
     return ctx
-
-
-def field_grid(f: Field) -> int:
-    if f.grid:
-        return f.grid
-    if f.input == 'textarea':
-        return 12
-    if f.input in ('boolean', 'checkbox'):
-        return 2
-    w = f.width or 12
-    if w <= 4:
-        return 2
-    if w <= 8:
-        return 3
-    if w <= 14:
-        return 4
-    if w <= 24:
-        return 6
-    return 8
 
 
 def _resolve_model(entity_name: str):

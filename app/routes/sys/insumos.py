@@ -7,6 +7,7 @@ from app.models.compra_item import CompraItem
 Schema = {}
 
 Page = {
+    'label': 'Insumo',
     'type': 'crud',
     'props': {
         'tabs': {
@@ -18,6 +19,7 @@ Page = {
             'order': ['nome'],
         },
         'form': {
+            'max_width': 70,
             'fields': 'Ingredient',
             'delete': {ProductIngredient, ProducaoInsumo, CompraItem, UnitConversion},
             'sessions': {

@@ -102,6 +102,25 @@ def create_app():
         from app.ajsystem import init_app
         init_app(app)
 
+        # Rotinas extras fora do CRUD gerado pelo motor (a lógica vive no
+        # arquivo da rota; aqui só a fiação, pois o blueprint já foi registrado).
+        from flask_login import login_required
+        from app.routes.sys import orcamentos as _mod_orcamentos
+        app.add_url_rule('/orcamentos/<int:id>/aprovar', endpoint='orcamentos.aprovar',
+                         view_func=login_required(_mod_orcamentos.aprovar),
+                         methods=('GET', 'POST'))
+        app.add_url_rule('/orcamentos/<int:id>/renovar', endpoint='orcamentos.renovar',
+                         view_func=login_required(_mod_orcamentos.renovar),
+                         methods=('POST',))
+        from app.routes.sys import recebimentos as _mod_recebimentos
+        from app.routes.sys import pagamentos as _mod_pagamentos
+        app.add_url_rule('/recebimentos/<int:id>/excluir', endpoint='recebimentos.excluir',
+                         view_func=login_required(_mod_recebimentos.excluir),
+                         methods=('POST',))
+        app.add_url_rule('/pagamentos/<int:id>/excluir', endpoint='pagamentos.excluir',
+                         view_func=login_required(_mod_pagamentos.excluir),
+                         methods=('POST',))
+
         from app.ajsystem.core import adapter
         adapter.set_tunnel_url_provider(lambda: get_tunnel_url(force=True))
         from app.content import render_pagina

@@ -10,7 +10,7 @@ from typing import Optional
 from flask_login import current_user
 from fpdf import FPDF
 
-from app.ajsystem.core.utils import apply_transform
+from app.ajsystem.core.utils import apply_transform, fmt_money, normalize_currency
 from app.ajsystem.defs.report import (
     Report, ReportField, ReportColumn, ReportColumns, ReportGroup,
     ReportText, parse_header_field,
@@ -127,8 +127,19 @@ def _build_header(report: Report) -> '_ReportHeader':
     )
 
 
+def _report_body(report):
+    """Conteúdo do `Report.body` (ReportBody) — {} se ausente."""
+    return report.body if report else None
+
+
+def _body_table(report):
+    """Dict `table` do corpo (fonte de columns/hierarchy)."""
+    body = _report_body(report)
+    return (getattr(body, 'table', None) or {}) if body else {}
+
+
 def _build_table(report: Report) -> '_ReportTable':
-    t = report.table or {}
+    t = _body_table(report)
     columns = t.get('columns')
     if isinstance(columns, dict):
         columns = ReportColumns(columns)
@@ -352,6 +363,8 @@ class DocPDFReport(FPDF):
             return '-'
         if rf.format == 'brl':
             return _fmt(val)
+        if rf.format is True or isinstance(rf.format, int):
+            return fmt_money(val, rf.format)
         if rf.format == 'date' and hasattr(val, 'strftime'):
             return val.strftime('%d/%m/%Y')
         if rf.format == 'datetime' and hasattr(val, 'strftime'):
@@ -426,6 +439,8 @@ def _format_cell_value(val, fmt: str) -> str:
         return '-'
     if fmt == 'brl':
         return _fmt(val)
+    if fmt is True or isinstance(fmt, int):
+        return fmt_money(val, fmt)
     if fmt == 'date' and hasattr(val, 'strftime'):
         return val.strftime('%d/%m/%Y')
     if fmt == 'datetime' and hasattr(val, 'strftime'):
@@ -545,6 +560,8 @@ def _table_close(pdf, x_start, total_w):
 
 def _group_value(row, g):
     v = getattr(row, g['field'], None)
+    if v is None and g.get('function'):
+        v = g['function'](row)
     if g.get('left'):
         # left(n) = n primeiros SEGMENTOS do código ('1.2.01'/2 → '1.2')
         sc = g.get('sep', '.')
@@ -605,6 +622,18 @@ def _render_group_header(pdf, g, val, xs, tw, pos, row=None):
              new_x="LMARGIN", new_y="NEXT")
 
 
+def _render_group_line(pdf, g, val, xs, tw, row=None):
+    """Linha `pos=1` — interna à tabela, texto corrido na largura da tabela."""
+    txt = apply_transform(_group_title(g, val, row=row), g.get('transform'))
+    style = 'B' if g.get('bold', True) else ''
+    pdf.set_font("Helvetica", style, 9)
+    indent = max(1, int(g.get('left', 1) or 1)) * 4
+    height = 7
+    pdf.set_x(xs + indent)
+    pdf.cell(tw - indent, height, txt, border=0,
+             new_x="LMARGIN", new_y="NEXT")
+
+
 def _render_group_total(pdf, g, cols, cw, xs, acc):
     if not any(c.agg for c in cols):
         return
@@ -626,7 +655,7 @@ def _render_group_total(pdf, g, cols, cw, xs, acc):
 def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                        agg_values, header_h, report):
     """Grupos por mudança de valor do campo (specs normalizadas)."""
-    lines_after = (report.table or {}).get('rows_after', 1) if report else 1
+    lines_after = (_body_table(report)).get('rows_after', 1) if report else 1
     show_lines = bool(report.show_table_lines) if report else False
     prev = [None] * len(gs)
     accs = [{c.field: 0 for c in cols if c.agg} for _ in gs]
@@ -649,6 +678,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
             next((i for i in range(len(gs)) if vals[i] != prev[i]), None)
 
         opened_linha = False
+        skip_row = False
         if changed is not None:
             # fecha do nível mais interno até o primeiro alterado
             for i in range(len(gs) - 1, changed - 1, -1):
@@ -667,23 +697,24 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                         pdf.ln(lines_after * 6)
                     _render_group_header(pdf, g, vals[i], xs, tw, pos, row)
                     gera_cab = True
-                elif pos == 1:                   # linha
-                    table_open = True
+                elif pos == 1:                   # linha — interna a tabela, texto único
+                    if not table_open:
+                        table_open = True
                     pb = _check_page_break(pdf, header_h)
                     if gera_cab or pb:
                         _render_column_headers(pdf, cols, cw, xs, tw,
                                                draw_top_line=True)
                         gera_cab = False
-                    _render_group_header(pdf, g, vals[i], xs, tw, pos, row)
-                    opened_linha = True
+                    _render_group_line(pdf, g, vals[i], xs, tw, row)
+                    # a row que ABRE o nível é a própria linha (consumida como
+                    # cabeçalho), não repete como dado na tabela
+                    skip_row = True
                 # pos == 0: oculto — agrupa/totaliza sem imprimir cabeçalho
                 prev[i] = vals[i]
             started = True
 
-            # linha que ABRIU o grupo é consumida como cabeçalho quando o
-            # grupo declara skip=True — não repete nas colunas
-            if any(g['pos'] == 1 and g.get('skip') for g in gs):
-                continue
+        if skip_row:
+            continue
 
         if not table_open:
             table_open = True
@@ -734,8 +765,9 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
     agg_values = {c.field: 0 for c in cols if c.agg}
     header_h = 7 + 6
     gera_cab = True
-    gs = [g for g in (report.groups or []) if isinstance(g, dict) and 'field' in g] \
-        if report and report.groups else []
+    gs = [g for g in _body_table(report).get('hierarchy', [])
+          if isinstance(g, dict) and 'field' in g] \
+        if report else []
 
     if gs:
         _walk_field_groups(pdf, cols, col_widths, total_w, x_start, data,
@@ -800,15 +832,12 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     # Definir instância
     pdf.set_instance(instance)
 
-    # Ordenar dados se ordem especificada
-    if report.ordem and data:
-        data = sorted(data, key=lambda r: str(_deep_attr(r, report.ordem) or ''))
-
     # Primeira página
     pdf.add_page()
 
-    # Before table
-    _before = report.before_table
+    # Before table (do corpo)
+    _body = _report_body(report)
+    _before = getattr(_body, 'before', None) if _body else None
     if callable(_before) and instance:
         _before = _before(instance) or []
     if _before:
@@ -822,8 +851,8 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     if tbl.rows_after:
         pdf.ln(tbl.rows_after * 6)
 
-    # After table
-    _after = report.after_table
+    # After table (do corpo)
+    _after = getattr(_body, 'after', None) if _body else None
     if callable(_after) and instance:
         _after = _after(instance) or []
     if _after:

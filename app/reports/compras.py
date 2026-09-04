@@ -46,8 +46,9 @@ def _report_after(compra):
     ]
 
 
-COMPRA_REPORT = {
+COMPRA = {
     'label': 'Compra',
+    'print_fragment_template': 'sys/print_fragment.html',
     'header': {
         'layout': 'logo_left',
         'title': _report_title,
@@ -56,18 +57,21 @@ COMPRA_REPORT = {
             {'field': 'data', 'label': 'Data', 'align': 'right', 'format': 'date'},
         ],
     },
-    'before_table': _report_before,
-    'table': {
-        'columns': {
-            'insumo.nome':   {'label': 'Insumo', 'width': 50},
-            'quantidade':    {'label': 'Qtd.', 'width': 15, 'align': 'center'},
-            'preco':         {'label': 'Preço', 'width': 20, 'align': 'right', 'format': 'brl'},
-            'valor':         {'label': 'Valor', 'width': 20, 'align': 'right', 'format': 'brl',
-                              'function': lambda i: (i.preco or 0) * i.quantidade,
-                              'agg': 'sum'},
+    'body': {
+        'before': _report_before,
+        'table': {
+            'columns': {
+                'insumo.nome':   {'label': 'Insumo', 'width': 50},
+                'quantidade':    {'label': 'Qtd.', 'width': 10, 'align': 'center',
+                                  'format': None},   # NUM sem currency: sem formato (heurística NUM→brl do motor)
+                'preco':         {'label': 'Preço', 'width': 20, 'align': 'right'},
+                'CompraItem.valor': {'label': 'Valor', 'width': 20, 'align': 'right',
+                                     'function': lambda i: (i.preco or 0) * i.quantidade,
+                                     'agg': 'sum'},   # 'valor' existe em Compra e CompraItem: forma pontilhada desambigua
+            },
+            'footer': True,
+            'footer_label': 'Total',
         },
-        'footer': True,
-        'footer_label': 'Total',
+        'after': _report_after,
     },
-    'after_table': _report_after,
 }

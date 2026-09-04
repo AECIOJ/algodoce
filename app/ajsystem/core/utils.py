@@ -4,8 +4,9 @@ Reutilizados por templates (filtros Jinja) e pelo motor de listagem/formulário.
 Não dependem de modelos nem da aplicação host.
 """
 import re
+from datetime import datetime, timedelta
 
-from app.ajsystem.defs.constants import CONECTORES
+from app.ajsystem.defs.constants import CONECTORES, CURRENCY, DEFAULT_CURRENCY
 
 
 def as_options(items):
@@ -30,9 +31,65 @@ def fmt_id(value):
 
 
 def fmt_brl(value):
+    """Filtro legado `brl` (sem símbolo; None → '0,00')."""
     if value is None:
         return '0,00'
-    return f'{value:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+    return _fmt_number(value, 'pt-BR')
+
+
+def _fmt_number(value, locale):
+    """Número com 2 decimais no agrupamento do locale (sem símbolo)."""
+    if value is None:
+        return '0,00' if locale == 'pt-BR' else '0.00'
+    try:
+        num = f'{float(value):,.2f}'
+    except (TypeError, ValueError):
+        return str(value)
+    if locale == 'pt-BR':
+        num = num.replace(',', 'X').replace('.', ',').replace('X', '.')
+    return num
+
+
+def normalize_currency(cur):
+    """Normaliza a prop `Field.currency` para código de `CURRENCY`.
+
+    `True`/`'brl'` legados e `1` → padrão; `0`/`None`/`False` → desligado
+    (None); código desconhecido → desligado (nunca quebra, nunca mente
+    símbolo). Retorna o código int ou None.
+    """
+    if cur is None or cur is False or cur == 0:
+        return None
+    if cur is True:
+        return DEFAULT_CURRENCY
+    if isinstance(cur, str):
+        if cur.strip().lower() == 'brl':
+            return DEFAULT_CURRENCY
+        return None
+    try:
+        code = int(cur)
+    except (TypeError, ValueError):
+        return None
+    return code if CURRENCY.get(code) else None
+
+
+def currency_symbol(cur):
+    """Símbolo da moeda (`'R$'`) a partir do código/legado; '' se desligado."""
+    code = normalize_currency(cur)
+    info = CURRENCY.get(code) if code is not None else None
+    return info['symbol'] if info else ''
+
+
+def fmt_money(value, cur=DEFAULT_CURRENCY):
+    """Formata valor monetário pelo código de `CURRENCY` (filtro `money`).
+
+    `fmt_money(v)` sem código = padrão (BRL), idêntico ao antigo `fmt_brl`.
+    """
+    code = normalize_currency(cur)
+    if code is None:
+        code = DEFAULT_CURRENCY
+    info = CURRENCY.get(code) or CURRENCY[DEFAULT_CURRENCY]
+    num = _fmt_number(value, info['locale'])
+    return f"{info['symbol']} {num}" if info['symbol'] else num
 
 
 def fmt_percent(value):
@@ -101,6 +158,33 @@ def field_value(field, item):
     return deep_attr(item, getattr(field, 'name', '') or '')
 
 
+def divide(a, b):
+    """Divisão segura: retorna 0 quando `b` é nulo/zero, evitando
+    `ZeroDivisionError`."""
+    if not b:
+        return 0
+    try:
+        return a / b
+    except (TypeError, ValueError):
+        return 0
+
+
+def add_dias(dta, dias):
+    """Soma `dias` a uma data/hora, ignorando fuso. Retorna o mesmo tipo:
+    `datetime` in → `datetime`, `date` in → `date`. `dias` nulo/0 é tratado
+    como 0; `dta` nulo/ausente → `None`."""
+    if dta is None:
+        return None
+    try:
+        dias = int(dias or 0)
+    except (TypeError, ValueError):
+        dias = 0
+    ref = dta
+    if isinstance(ref, datetime) and ref.tzinfo is not None:
+        ref = ref.replace(tzinfo=None)
+    return ref + timedelta(days=dias)
+
+
 def calc_value(calc, item):
     """Valor de um campo `calc` (virtual, não persistido) para `item`.
 
@@ -114,6 +198,7 @@ def calc_value(calc, item):
         return None
     names = set(re.findall(r'[A-Za-z_][A-Za-z0-9_]*', calc or ''))
     ns = {n: (getattr(item, n, None) or 0) for n in names}
+    ns['divide'] = divide
     try:
         return eval(calc, {'__builtins__': {}}, ns)
     except Exception:

@@ -20,3 +20,15 @@ class QuoteItem(db.Model):
 
     def __repr__(self):
         return f"<QuoteItem q={self.quote_id} p={self.product_id}>"
+
+
+Entity = {
+    'id':              {'type': 'ID'},
+    'quote_id':        {'type': 'DK'},
+    'product_id':      {'type': 'FK', 'label': 'Produto', 'required': True},
+    'quantidade':      {'type': 'INT', 'label': 'Qtd', 'required': True},
+    'preco_unitario':  {'type': 'NUM', 'label': 'Preço', 'currency': 1},
+    'valor':           {'type': 'NUM', 'label': 'Valor', 'currency': 1,
+                        'pos_form': 0, 'calc': 'quantidade * preco_unitario'},
+    'observacao':      {'type': 'TEXT', 'label': 'Obs'},
+}

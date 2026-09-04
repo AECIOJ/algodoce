@@ -6,15 +6,14 @@ via `core.do_list`/`core.do_form`. Módulos ausentes → `pages/construcao.html`
 """
 import importlib
 import unicodedata
-from dataclasses import fields as dc_fields
 
 from flask import Blueprint, flash, redirect, render_template, url_for
 from flask_login import login_required
 
 from app.ajsystem.defs.data import (
-    resolve_entity_fields, page_list_cfg as _lista_config, module_page,
+    page_list_cfg as _lista_config, module_page, module_page_label,
 )
-from app.ajsystem.defs.form import Form
+from app.ajsystem.defs.form import parse_form
 from app.ajsystem.core.adapter import db
 from app.ajsystem.core.do_list import do_list
 from app.ajsystem.core.do_form import do_form
@@ -96,11 +95,12 @@ def _build_form(mod, entidade, model, slug=None):
     if 'pre_get' in cfg:
         cfg.pop('pre_get')
     cfg.setdefault('fields', entidade)
-    allowed = {f.name for f in dc_fields(Form)}
-    form = Form(**{k: v for k, v in cfg.items() if k in allowed})
+    form = parse_form(cfg)
     schema = getattr(mod, 'Schema', None) or {}
-    schema_merged = resolve_entity_fields(schema, model, entidade)
-    form.resolve(entidade, model, schema_merged, blueprint=slug)
+    label = module_page_label(module_page(mod))
+    if label:
+        form._label = label
+    form.resolve(entidade, model, schema, blueprint=slug)
     if slug:
         form._redirect = f"{slug}.list"
     if hasattr(mod, '_label') and not form._label:
@@ -132,7 +132,8 @@ def _generated_crud(mod, slug):
         pre_get = _form_config(mod).get('pre_get')
         if callable(pre_get):
             extra = pre_get(mod, id)
-        return do_form(form, id, extra_ctx=extra)
+        from app.ajsystem.core.do_list import list_max_width
+        return do_form(form, id, extra_ctx=extra, list_max_width=list_max_width(entidade, mod.__name__))
     routes.append(('/novo', 'form', _form))
     routes.append(('/<int:id>/editar', 'form', _form))
 

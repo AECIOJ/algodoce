@@ -1,0 +1,30 @@
+<dialog id="choiceModal_{{ uid }}" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">{{ title }}</h3>
+    <form method="get" action="{{ url_target }}">
+      {% for k, v in hidden_params.items() %}
+      <input type="hidden" name="{{ k }}" value="{{ v }}">
+      {% endfor %}
+      <label class="form-control w-full mt-3">
+        <span class="label-text mb-1">{{ label }}</span>
+        <select name="{{ param }}" class="select select-bordered w-full"
+                onchange="this.form.submit()">
+          <option value="">— Todos —</option>
+          {% for value, opt_label in options.items() %}
+          <option value="{{ value }}">{{ opt_label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="modal-action justify-between">
+        <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">{{ confirm_label or 'Ok' }}</button>
+      </div>
+    </form>
+  </div>
+</dialog>
+<script>
+(function(){
+  var d = document.getElementById('choiceModal_{{ uid }}');
+  if (d && !d.open && typeof d.showModal === 'function') d.showModal();
+})();
+</script>

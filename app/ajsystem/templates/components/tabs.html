@@ -1,6 +1,6 @@
 {% from "pages/macros.html" import heroicon %}
 
-{% macro render_tabs(active='') %}
+{% macro render_tabs(active='', max_width=none) %}
 <div x-data='{ tab: {{ (active or '')|tojson }} }' class="flex flex-col min-h-0">
   {{ caller() }}
 </div>

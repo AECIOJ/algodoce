@@ -5,8 +5,10 @@ estrutura consumida por `pages/list.html` (`initial_filters`/`active_filters`).
 `apply_filters` aplica condições no nível SQL quando aplicável.
 """
 import calendar
+import re
 from datetime import date, datetime, timedelta
 
+from sqlalchemy import Integer as _Integer
 from sqlalchemy import extract
 
 
@@ -97,6 +99,43 @@ def filtrar_vencimento_query(query, model_field, preset, hoje=None):
     return query
 
 
+def _key(value):
+    """Coage chave de filtro `select`: string numérica → int; resto intacto.
+
+    O filtro submete a CHAVE das options (ex.: `'1'`), não o rótulo.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and re.fullmatch(r'[+-]?\d+', value.strip() or ''):
+        try:
+            return int(value.strip())
+        except (TypeError, ValueError):
+            pass
+    return value
+
+
+def fixed_filters(fields, model):
+    """Filtros fixos (`pos_filter == 9`): lista `[(campo_model, valor)]`.
+
+    Valor = `default` do field (chamado se callable); `None` → ignora.
+    Campo ausente no model → ignora. Semântica de igualdade (AND com os
+    filtros do usuário); não aparece no painel.
+    """
+    out = []
+    for f in fields or []:
+        if getattr(f, 'pos_filter', None) != 9:
+            continue
+        default = getattr(f, 'default', None)
+        value = default() if callable(default) else default
+        if value is None:
+            continue
+        mf = getattr(model, getattr(f, 'name', None), None)
+        if mf is None:
+            continue
+        out.append((mf, _key(value)))
+    return out
+
+
 def _filter_conditions(model_field, ftype, cfg_value):
     """Retorna uma lista de condições SQL (ou None) p/ o tipo/valor do filtro."""
     if cfg_value is None:
@@ -108,11 +147,23 @@ def _filter_conditions(model_field, ftype, cfg_value):
             return [model_field == False]  # noqa: E712
         return []
     if ftype in ('select', 'checklist'):
+        is_int = isinstance(getattr(model_field, 'type', None), _Integer)
         if isinstance(cfg_value, str) and ',' in cfg_value:
-            vals = [v.strip() for v in cfg_value.split(',') if v.strip()]
+            vals = []
+            for v in cfg_value.split(','):
+                v = v.strip()
+                if not v:
+                    continue
+                v = _key(v)
+                if is_int and isinstance(v, str):
+                    continue  # rótulo/lixo em coluna int: ignora em vez de 500
+                vals.append(v)
             return [model_field.in_(vals)] if vals else []
         if cfg_value:
-            return [model_field == cfg_value]
+            v = _key(cfg_value)
+            if is_int and isinstance(v, str):
+                return []
+            return [model_field == v]
         return []
     if ftype == 'text':
         value = cfg_value.get('value')

@@ -28,6 +28,7 @@ class Button:
     position: str = 'nav_right'
     on_off: bool = False
     field: Optional[str] = None
+    js: Optional[str] = None
     label_off: Optional[str] = None
     icon_off: Optional[str] = None
     render: Optional[str] = None
@@ -153,7 +154,7 @@ def resolve_buttons(specs, bp_name=None):
                 if k in Button.__dataclass_fields__
             })
             field_name = cfg.get('field')
-        if btn.endpoint is None and btn.action is None and bp_name:
+        if btn.endpoint is None and btn.action is None and not btn.js and bp_name:
             btn.endpoint = f"{bp_name}.toggle"
         if btn.on_off:
             btn.field = field_name or 'ativo'

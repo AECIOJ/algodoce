@@ -124,15 +124,15 @@ SYS = {
                 'Compras':    {'icon': 'bi-bag'},
             },
         },
-        'Produção': {
-            'icon': 'bi-gear',
-        },
+        # 'Produção': {
+        #     'icon': 'bi-gear',
+        # },
         'Financeiro': {
             'icon': 'bi-cash-stack',
             'submenus': {
                 'Recursos':         {'icon': 'bi-piggy-bank'},
-                'Contas a Receber': {'icon': 'bi-arrow-down-circle'},
-                'Contas a Pagar':   {'icon': 'bi-arrow-up-circle'},
+                'Contas a Receber': {'icon': 'bi-arrow-down-circle', 'page': 'receber'},
+                'Contas a Pagar': {'icon': 'bi-arrow-up-circle', 'page': 'pagar'},
                 'Recebimentos':     {'icon': 'bi-cash'},
                 'Pagamentos':       {'icon': 'bi-credit-card'},
                 'Transferências':   {'icon': 'bi-arrow-left-right'},

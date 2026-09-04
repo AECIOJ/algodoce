@@ -223,7 +223,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="showcase-layout"{% if showcase.max_width %} style="max-width: {{ showcase.max_width }}; margin-inline: auto;"{% endif %}>
+<div class="showcase-layout"{% if showcase.max_width %} style="max-width: min({{ showcase.max_width }}, calc(100% - 2rem)); margin-inline: auto;"{% endif %}>
   {% if categorias %}
   <div class="showcase-cat-badges">
     <div class="text-center mb-2" style="font-size:0.95rem; font-weight:600; color:var(--rosa, #e91e63);">Categorias</div>
