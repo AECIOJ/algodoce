@@ -1,8 +1,21 @@
 {% extends "components/site.html" %}
 {% block content %}
 <div class="mx-auto py-4" style="max-width: 1900px;flex:1;display:flex;flex-direction:column;justify-content:center;">
-  <style>.contacts-grid{grid-template-columns:repeat(2,minmax(0,1fr));}@media(min-width:1000px){.contacts-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}</style>
-  <div style="display:grid;gap:0.75rem;justify-items:stretch;align-items:stretch;" class="contacts-grid">
+  <style>
+    .contacts-grid{display:grid;gap:0.75rem;grid-template-columns:1fr;}
+    @media(min-width:600px){
+      .contacts-grid.count-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .contacts-grid.count-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .contacts-grid.count-4,.contacts-grid.count-6{grid-template-columns:repeat(2,minmax(0,1fr));}
+    }
+    @media(min-width:1100px){
+      .contacts-grid.count-4{grid-template-columns:repeat(4,minmax(0,1fr));}
+      .contacts-grid.count-5{grid-template-columns:repeat(5,minmax(0,1fr));}
+      .contacts-grid.count-6{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .contacts-grid.count-7,.contacts-grid.count-8,.contacts-grid.count-9{grid-template-columns:repeat(3,minmax(0,1fr));}
+    }
+  </style>
+  <div class="contacts-grid count-{{ contacts|length }}" style="justify-items:stretch;align-items:stretch;">
     {% for titulo, c in contacts.items() %}
       <a href="{% if c.type == 'whatsapp' %}https://wa.me/{{ c.value }}{% elif c.type == 'email' %}mailto:{{ c.value }}{% elif c.type == 'instagram' %}https://instagram.com/{{ c.value }}{% elif c.type == 'facebook' %}https://facebook.com/{{ c.value }}{% elif c.type == 'linkedin' %}https://linkedin.com/{{ c.value }}{% elif c.type in ('address', 'endereco') %}https://www.google.com/maps/search/?api=1&query={{ c.value|urlencode }}{% else %}#{% endif %}"
          target="_blank" rel="noopener"
