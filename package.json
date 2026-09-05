@@ -9,7 +9,7 @@
     "prewatch:css": "npm run gen:theme",
     "watch:css": "postcss app/static/css/tailwind.src.css -o app/static/css/tailwind.css --watch",
     "gen:theme:framework": "python3 -m ajsystem.core.do_themes --framework",
-    "build:css:framework": "npm run gen:theme:framework && DAISYUI_THEMES=./app/ajsystem/tailwind.daisyui.framework.json postcss app/static/css/tailwind.src.css -o app/ajsystem/static/css/tailwind.css"
+    "build:css:framework": "npm run gen:theme:framework && DAISYUI_THEMES=./ajsystem/tailwind.daisyui.framework.json postcss app/static/css/tailwind.src.css -o ajsystem/static/css/tailwind.css"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

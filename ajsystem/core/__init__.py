@@ -6,9 +6,9 @@ estrutura):
 - Orquestradores `do_*` — request → response (do_form, do_list, do_report,
   do_auth); consomem specs puros de `defs/`.
 - Capacidades — lógica reutilizável sem request: `form`, `list`, `query`,
-  `pdf`, `filters`, `edits`, `crypto`, `ntfy`, `utils`, `auto`/`menu`
+  `pdf`, `filters`, `crypto`, `ntfy`, `utils`, `auto`/`menu`
   (blueprints) e `adapter` (adaptador de acoplamento com o app host).
 
 Estrutura declarativa pura fica em `defs/`; `handles/` foi eliminado e
-fundido em `core/do_*`. Modelo completo em `app/ajsystem/ARCHITECTURE.md`.
+fundido em `core/do_*`. Modelo completo em `ajsystem/ARCHITECTURE.md`.
 """
