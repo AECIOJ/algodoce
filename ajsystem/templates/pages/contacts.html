@@ -1,28 +1,27 @@
 {% extends "components/site.html" %}
 {% block content %}
-<div class="mx-auto py-4" style="max-width: 480px;">
-  <h2 style="color: var(--rosa); text-align:center; margin-bottom: 1.25rem;">Fale Conosco</h2>
-  <div class="flex flex-col gap-3">
+<div class="mx-auto py-4" style="max-width: 1900px;flex:1;display:flex;flex-direction:column;justify-content:center;">
+  <style>.contacts-grid{grid-template-columns:repeat(2,minmax(0,1fr));}@media(min-width:1000px){.contacts-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}</style>
+  <div style="display:grid;gap:0.75rem;justify-items:stretch;align-items:stretch;" class="contacts-grid">
     {% for titulo, c in contacts.items() %}
-      <a href="{% if c.type == 'whatsapp' %}https://wa.me/{{ c.value }}{% elif c.type == 'email' %}mailto:{{ c.value }}{% elif c.type == 'instagram' %}https://instagram.com/{{ c.value }}{% elif c.type == 'facebook' %}https://facebook.com/{{ c.value }}{% elif c.type == 'linkedin' %}https://linkedin.com/{{ c.value }}{% else %}#{% endif %}"
+      <a href="{% if c.type == 'whatsapp' %}https://wa.me/{{ c.value }}{% elif c.type == 'email' %}mailto:{{ c.value }}{% elif c.type == 'instagram' %}https://instagram.com/{{ c.value }}{% elif c.type == 'facebook' %}https://facebook.com/{{ c.value }}{% elif c.type == 'linkedin' %}https://linkedin.com/{{ c.value }}{% elif c.type in ('address', 'endereco') %}https://www.google.com/maps/search/?api=1&query={{ c.value|urlencode }}{% else %}#{% endif %}"
          target="_blank" rel="noopener"
-         class="flex items-center gap-3 px-4 py-3 rounded shadow-sm"
-         style="background:#fff; border:1px solid var(--fallback-b2, oklch(var(--b2))); text-decoration:none; color:inherit;">
-        <span style="font-size:1.4rem; color:var(--rosa);">
+         class="flex rounded shadow-sm"
+         style="background:#fff; border:1px solid var(--fallback-b2, oklch(var(--b2))); text-decoration:none; color:inherit;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:0.35rem;min-width:0;padding:1rem 0.5rem;overflow:hidden;">
+        <span style="color:var(--rosa);font-size:2.4rem;line-height:1;height:2.4rem;display:flex;align-items:center;">
           {% if c.type == 'whatsapp' %}<i class="bi bi-whatsapp"></i>
           {% elif c.type == 'email' %}<i class="bi bi-envelope"></i>
           {% elif c.type == 'instagram' %}<i class="bi bi-instagram"></i>
           {% elif c.type == 'facebook' %}<i class="bi bi-facebook"></i>
-          {% elif c.type == 'linkedin' %}<i class="bi bi-linkedin"></i>{% endif %}
+          {% elif c.type == 'linkedin' %}<i class="bi bi-linkedin"></i>
+          {% elif c.type in ('address', 'endereco') %}<i class="bi bi-geo-alt"></i>{% endif %}
         </span>
-        <span>
-          <span style="display:block; font-weight:600; color:var(--fallback-bc, oklch(var(--bc)));">{{ titulo }}</span>
-          <span style="display:block; font-size:0.9rem; color:var(--fallback-bc, oklch(var(--bc)));">{% if c.type in ('whatsapp', 'phone') %}{{ c.value|mask('(99) 99999-9999') }}{% else %}{{ c.value }}{% endif %}</span>
-        </span>
+        <span style="display:block; font-weight:600; font-size:1.15rem; min-height:1.75rem; color:var(--fallback-bc, oklch(var(--bc)));">{{ titulo }}</span>
+        <span style="display:block;font-size:1rem;overflow-wrap:anywhere; color:var(--fallback-bc, oklch(var(--bc)));">{% if c.type in ('address', 'endereco') %}{% for _p in c.value.split(';') %}{{ _p.strip() }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% elif c.type in ('whatsapp', 'phone') %}{{ c.value|mask('(99) 99999-9999') }}{% else %}{{ c.value }}{% endif %}</span>
       </a>
     {% endfor %}
     {% if not contacts %}
-      <p class="text-gray-500 text-center mt-3">Em breve mais canais de contato.</p>
+      <p class="text-gray-500 text-sm text-center mt-3">Em breve mais canais de contato.</p>
     {% endif %}
   </div>
 </div>

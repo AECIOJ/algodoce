@@ -2,9 +2,10 @@ Page = {
     'type': 'contacts',
     'max_width': 48,
     'props': {
-        'Telefone/WhatsApp': {'type': 'whatsapp', 'value': '5591981174498'},
+        'Endereço': {'type':'address', 'value':'Tv. Estado do Pará, 50 - Sala 2 - Centro;Paragominas/PA'},
+        'WhatsApp': {'type': 'whatsapp', 'value': '91981174498'},
+        'Instagram': {'type': 'instagram', 'value': 'marilene_algodoce'},
  #       'Email':             {'type': 'email',    'value': 'contato@algodoce.com'},
-        'Instagram':         {'type': 'instagram', 'value': 'marilene_algodoce'},
  #       'Facebook':          {'type': 'facebook',  'value': 'algodoce'},
  #       'LinkedIn':          {'type': 'linkedin',  'value': 'company/algodoce'},
     },
