@@ -1,4 +1,4 @@
-from app.ajsystem.core.extensions import db
+from ajsystem.core.extensions import db
 from app.models.category import Category
 from app.models.product import Product
 

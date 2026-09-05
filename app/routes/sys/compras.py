@@ -1,5 +1,5 @@
 from datetime import date
-from app.ajsystem.core.do_report import print_report
+from ajsystem.core.do_report import print_report
 from app.models.compra import Compra
 from app.models.compra_item import CompraItem
 from app.models.compra_historico import CompraHistorico

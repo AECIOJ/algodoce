@@ -1,14 +1,14 @@
 from datetime import datetime, timezone
-from app.ajsystem.core.extensions import db
+from ajsystem.core.extensions import db
 
 
 def _encrypt(raw):
-    from app.ajsystem.core.crypto import encrypt
+    from ajsystem.core.crypto import encrypt
     return encrypt(raw)
 
 
 def _decrypt(cipher):
-    from app.ajsystem.core.crypto import decrypt
+    from ajsystem.core.crypto import decrypt
     return decrypt(cipher)
 
 

@@ -1,5 +1,5 @@
 from app.models.movto import Movto
-from app.routes.sys.movto_sync import sync_movto_save, excluir_movto
+from app.routes.sys.movto import sync_movto_save, excluir_movto
 
 
 def excluir(id):

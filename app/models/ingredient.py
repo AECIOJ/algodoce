@@ -1,4 +1,4 @@
-from app.ajsystem.core.extensions import db
+from ajsystem.core.extensions import db
 from app.constantes import TIPO_INGREDIENTE, UND_LIST
 
 

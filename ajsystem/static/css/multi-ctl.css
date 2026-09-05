@@ -1,0 +1,3 @@
+# Editor MULT10 (ajsystem) — estilos do <dialog>.
+# As regras .multi-ctl do chip vivem em item_table.html (contexto de grade).
+#multiModal .modal-box { width: max-content; min-width: 18rem; max-width: min(94vw, 32rem); }

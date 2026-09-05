@@ -1,5 +1,5 @@
-from app.ajsystem.core.extensions import db
-from app.ajsystem.core.utils import divide
+from ajsystem.core.extensions import db
+from ajsystem.core.utils import divide
 from app.constantes import UND_LIST, TIPO_INGREDIENTE
 
 

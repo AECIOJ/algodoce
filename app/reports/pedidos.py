@@ -55,7 +55,7 @@ def _forminhas_carteira(order):
 
 PEDIDO = {
     'label': 'Pedido',
-    'print_fragment_template': 'sys/print_fragment.html',
+    'print_fragment_template': 'components/print_overlay.html',
     'header': {
         'layout': 'logo_left',
         'title': 'Pedido #{id}',

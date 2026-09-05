@@ -43,7 +43,7 @@ def _forminhas_carteira(q):
 
 ORCAMENTO = {
     'label': 'Orçamento',
-    'print_fragment_template': 'sys/print_fragment.html',
+    'print_fragment_template': 'components/print_overlay.html',
     'header': {
         'layout': 'logo_left',
         'title': 'Orçamento #{id}',

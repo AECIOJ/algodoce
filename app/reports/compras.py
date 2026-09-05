@@ -48,7 +48,7 @@ def _report_after(compra):
 
 COMPRA = {
     'label': 'Compra',
-    'print_fragment_template': 'sys/print_fragment.html',
+    'print_fragment_template': 'components/print_overlay.html',
     'header': {
         'layout': 'logo_left',
         'title': _report_title,

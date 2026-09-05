@@ -1,0 +1,102 @@
+{% extends "components/page_layout.html" %}
+{% block title %}AlgoDoce{% endblock %}
+
+{% block css %}
+{{ super() }}
+<style>
+:root {
+  --rosa: var(--fallback-s, oklch(var(--s)));
+  --verde-menta: var(--fallback-p, oklch(var(--p)));
+  --bg-claro: var(--fallback-b1, oklch(var(--b1)));
+}
+body { background-color: var(--bg-claro); }
+main { overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.site-header {
+  backdrop-filter: blur(10px); background: rgba(255,255,255,0.95);
+  border-bottom: 1px solid var(--fallback-b2, oklch(var(--b2)));
+}
+.brand-logo { cursor: pointer; }
+.nav-site a { color: #fff !important; font-weight: 500; padding: 0.5rem 0.6rem; font-size: 0.95rem; }
+.nav-site a:hover, .nav-site a.active { background: rgba(255,255,255,0.2); border-radius: 4px; }
+.bar-link.active { border-bottom-color: var(--rosa) !important; }
+.site-nav-wrap { display: none; }
+@media (min-width: 576px) {
+  .site-nav-wrap { display: block; }
+}
+.bottom-nav { display: none; }
+@media (max-width: 575.98px) {
+  .bottom-nav { display: flex; }
+}
+@media (max-width: 575.98px) {
+  .nav-site a { padding: 0.3rem 0.3rem; font-size: 0.82rem; }
+  .nav-site .nav-site-inner { gap: 0 !important; }
+}
+.btn-verde { background-color: var(--verde-menta); border-color: var(--verde-menta); color: #fff; }
+.btn-verde:hover { background-color: color-mix(in srgb, var(--fallback-p, oklch(var(--p))) 80%, #000); border-color: color-mix(in srgb, var(--fallback-p, oklch(var(--p))) 80%, #000); color: var(--fallback-pc, oklch(var(--pc))); }
+.btn-rosa { background-color: var(--rosa); border-color: var(--rosa); color: var(--fallback-sc, oklch(var(--sc))); }
+.btn-rosa:hover { background-color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 80%, #000); border-color: color-mix(in srgb, var(--fallback-s, oklch(var(--s))) 80%, #000); color: var(--fallback-sc, oklch(var(--sc))); }
+#auth-popup { display: none; }
+#auth-popup.show { display: block; }
+#client-popup { display: none; }
+#client-popup.show { display: block; }
+</style>
+{% endblock %}
+
+{% block page_header %}
+{% set _logo = modulo.layout.header.logo if modulo and modulo.layout else None %}
+{% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
+<header class="flex-shrink-0 site-header">
+  <div class="container text-center py-2">
+    <img src="{{ url_for('static', filename=APP.logo) }}"
+         alt="{{ APP.name }}" class="brand-logo" id="siteLogo"
+         title="{{ APP.name }}"
+         style="{% if _logo %}height:{{ _logo.rows }}em;display:block;margin:0 auto;{% endif %}">
+{% set _title_text = APP.title if (_title and _title.text == 'app_title') else (_title.text if _title and _title.text else None) %}
+    {% if _title_text %}
+    <div class="mt-1 site-subtitle" style="font-size:0.85rem;font-weight:500;letter-spacing:0.5px;
+      text-align:{{ _title.align }};
+      {% if _title.font %}font-family:'{{ _title.font }}',sans-serif;{% endif %}
+      {% if _title.color %}color:{{ _title.color }};{% endif %}">
+      {{ _title_text }}
+    </div>
+    {% endif %}
+  </div>
+</header>
+{% endblock %}
+
+{% block before_content %}
+<nav class="flex-shrink-0 nav-site site-nav-wrap" style="background:var(--rosa);">
+  <div class="mx-auto nav-site-inner flex justify-center gap-3 px-2 py-2 flex-wrap" style="max-width: 48rem;">
+    <a href="/sobre" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Sobre</a>
+    <a href="/vitrine" id="produtosNavLink" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Produtos</a>
+    <a href="/orcamento" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Orçamento</a>
+    <a href="/contato" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Contato</a>
+  </div>
+</nav>
+{% endblock %}
+
+{% block after_content %}
+<nav class="bottom-nav" id="bottomNav">
+  <a href="/sobre" class="bottom-nav-item" id="bnSobre"><span style="font-size:1.2rem;">ℹ️</span><span style="font-size:0.65rem;font-weight:600;">Sobre</span></a>
+  <a href="/vitrine/" class="bottom-nav-item" id="bnProdutos"><span style="font-size:1.2rem;">🧁</span><span style="font-size:0.65rem;font-weight:600;">Produtos</span></a>
+  <a href="/orcamento" class="bottom-nav-item" id="bnOrcamento"><span style="font-size:1.2rem;">📋<span id="bnOrcamentoBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:var(--rosa);color:#fff;font-size:0.6rem;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 4px;">0</span></span><span style="font-size:0.65rem;font-weight:600;">Orçamento</span></a>
+  <a href="/contato" class="bottom-nav-item" id="bnContato"><span style="font-size:1.2rem;"><i class="bi bi-whatsapp"></i></span><span style="font-size:0.65rem;font-weight:600;">Contato</span></a>
+</nav>
+{% endblock %}
+
+{% block page_footer %}
+{% set _footer = modulo.layout.footer if modulo and modulo.layout else None %}
+<footer class="flex-shrink-0 rodape" id="siteRodape"
+  style="{% if _footer and _footer.font %}font-family:'{{ _footer.font }}',sans-serif;{% endif %}{% if _footer and _footer.color %}color:{{ _footer.color }};{% endif %}">
+  <div>{{ versao }}</div>
+  <div>&copy; 2026 {{ APP.name }}</div>
+</footer>
+{% endblock %}
+
+{% block scripts %}
+{% include 'components/auth_triggers.html' %}
+<script>
+(function(){var p=window.location.pathname;document.querySelectorAll('.nav-site a').forEach(function(l){if(l.getAttribute('href')===p)l.classList.add('active');});if(p.indexOf('/vitrine')===0){var t=document.getElementById('produtosNavLink');if(t)t.classList.add('active');}var m={'/sobre':'bnSobre','/vitrine':'bnProdutos','/orcamento':'bnOrcamento','/contato':'bnContato'};for(var k in m){if(p.indexOf(k)===0){var e=document.getElementById(m[k]);if(e)e.classList.add('active');}}})();
+(function(){var x=new XMLHttpRequest();x.open('GET','/orcamento/api/orcamento-count',true);x.onreadystatechange=function(){if(x.readyState===4&&x.status===200){var d=JSON.parse(x.responseText);if(d.total>0){var b=document.getElementById('bnOrcamento');var g=document.getElementById('bnOrcamentoBadge');if(b&&g){g.textContent=d.total;g.style.display='inline';b.classList.add('bn-ativo');}}}};x.send();})();
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-from app.ajsystem.core.do_report import print_report
+from ajsystem.core.do_report import print_report
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.order import Entity as OrderEntity

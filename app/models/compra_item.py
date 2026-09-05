@@ -1,4 +1,4 @@
-from app.ajsystem.core.extensions import db
+from ajsystem.core.extensions import db
 
 
 class CompraItem(db.Model):

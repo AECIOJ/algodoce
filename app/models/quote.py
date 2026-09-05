@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
-from app.ajsystem.core.extensions import db
+from ajsystem.core.extensions import db
 from app.constantes import QUOTE_STATUS, FORMINHAS
-from app.ajsystem.core.utils import add_dias
+from ajsystem.core.utils import add_dias
 
 
 def _validade_data(q):

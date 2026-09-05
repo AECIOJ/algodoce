@@ -1,5 +1,5 @@
 from app.constantes import TIPO_OPERACAO
-from app.ajsystem.core.extensions import db
+from ajsystem.core.extensions import db
 
 
 class Operacao(db.Model):

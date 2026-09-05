@@ -2,15 +2,15 @@ import sys
 
 from flask import jsonify, redirect, request, session, url_for
 
-from app.ajsystem.core import auto
-from app.ajsystem.core.cart import (
+from ajsystem.core import auto
+from ajsystem.core.cart import (
     count_items,
     minimo_quantidade,
     resolve_cart,
     send_cart,
 )
-from app.ajsystem.core.ntfy import notificar as aj_notificar
-from app.ajsystem.defs.cart import CART_SESSION_KEY, CLIENT_SESSION_KEY
+from ajsystem.core.ntfy import notificar as aj_notificar
+from ajsystem.defs.cart import CART_SESSION_KEY, CLIENT_SESSION_KEY
 from app.constantes import FORMINHAS, QUOTE_STATUS, tipos_evento
 from app.models.setting import Setting
 

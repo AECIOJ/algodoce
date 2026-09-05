@@ -2,39 +2,20 @@ import os
 import threading
 import time
 from datetime import timedelta
-import requests
 from flask import Flask
-from app.ajsystem.core.config import Config
-from app.ajsystem.core.extensions import db, migrate, login_manager
+from ajsystem.core.config import Config
+from ajsystem.core.extensions import db, migrate, login_manager
+from ajsystem.tunnel import provider as tunnel_provider
 from flask_migrate import upgrade
 import sqlalchemy as sa
 
-_tunnel_url = None
-_tunnel_url_ts = 0
-TUNNEL_TTL = 3300
-
 
 def _fetch_tunnel_url():
-    global _tunnel_url, _tunnel_url_ts
-    try:
-        r = requests.get("http://algodoce_cloudflare:4040/api/tunnels", timeout=2)
-        data = r.json()
-        for t in data.get("tunnels", []):
-            u = t.get("public_url", "")
-            if u.startswith("https://"):
-                _tunnel_url = u
-                _tunnel_url_ts = time.time()
-                return
-    except Exception:
-        pass
+    tunnel_provider.fetch_tunnel_url()
 
 
 def get_tunnel_url(force=False):
-    global _tunnel_url, _tunnel_url_ts
-    now = time.time()
-    if force or _tunnel_url is None or (now - _tunnel_url_ts) > TUNNEL_TTL:
-        _fetch_tunnel_url()
-    return _tunnel_url or ""
+    return tunnel_provider.get_tunnel_url(force=force)
 
 
 def _bg_fetch_tunnel():
@@ -93,13 +74,13 @@ def create_app():
         from app.models.product_ingredient import ProductIngredient
         from app.models.unit_conversion import UnitConversion
 
-        from app.ajsystem.defs.data import register_model
+        from ajsystem.defs.data import register_model
 
-        from app.routes import uploads
+        from ajsystem.core.do_upload import bp as uploads_bp
 
-        app.register_blueprint(uploads.bp)
+        app.register_blueprint(uploads_bp)
 
-        from app.ajsystem import init_app
+        from ajsystem import init_app
         init_app(app)
 
         # Rotinas extras fora do CRUD gerado pelo motor (a lógica vive no
@@ -121,9 +102,9 @@ def create_app():
                          view_func=login_required(_mod_pagamentos.excluir),
                          methods=('POST',))
 
-        from app.ajsystem.core import adapter
+        from ajsystem.core import adapter
         adapter.set_tunnel_url_provider(lambda: get_tunnel_url(force=True))
-        from app.content import render_pagina
+        from ajsystem.core.content import render_pagina
         adapter.set_markdown_loader(render_pagina)
 
         register_model('category', Category)
@@ -182,12 +163,12 @@ def create_app():
     @app.context_processor
     def inject_versao():
         from flask_login import current_user
-        from app.ajsystem.core.adapter import APP
+        from ajsystem.core.adapter import APP
         usuario = (current_user.username if current_user.is_authenticated else "Visitante").upper()
         return dict(versao=APP.version or '', usuario=usuario)
 
     def tema_atual():
-        from app.ajsystem.core.adapter import APP, TEMAS
+        from ajsystem.core.adapter import APP, TEMAS
         nome = APP.tema or next(iter(TEMAS))
         if nome not in TEMAS:
             nome = next(iter(TEMAS))
@@ -196,8 +177,8 @@ def create_app():
     @app.context_processor
     def inject_app_config():
         import json
-        from app.ajsystem.core.adapter import APP, TEMAS
-        from app.ajsystem.core.menu import modulo_atual, menus_para_json
+        from ajsystem.core.adapter import APP, TEMAS
+        from ajsystem.core.menu import modulo_atual, menus_para_json
         tema_nome = tema_atual()
         return {
             'APP': APP,
@@ -216,7 +197,7 @@ def create_app():
 
     @app.context_processor
     def inject_buttons():
-        from app.ajsystem.defs.buttons import (
+        from ajsystem.defs.buttons import (
             BTN_SALVAR, BTN_ENVIAR, BTN_EXCLUIR, BTN_NOVO, BTN_VOLTAR,
             BTN_EDITAR, BTN_CANCELAR, BTN_CONVERTER, BTN_LISTA,
             BTN_IMPRIMIR, BTN_DETALHES, BTN_ADICIONAR, BTN_ADICIONAR_ITEM,
