@@ -37,6 +37,7 @@
 {% set _single = true %}
 {% endif %}
 {% set _can_edit = not ro and not _single and not (child.get('query') if child is mapping else child.query) %}
+{% set _is_query = (child.get('query') if child is mapping else child.query) %}
 {% set _hidden_fields = child.fields|selectattr('hidden')|list %}
 {% if child.columns is defined and child.columns %}
 {% set _display_fields = child.columns %}
@@ -76,6 +77,8 @@
             {{ fm.render_label(f, item) }}
             {% set _rv = item|deep_attr(f.name) if item is not none else none %}
             <input type="hidden" name="{{ _prefix + _rid + '_' + (f.editor or f.name) }}" value="{{ _rv if _rv is not none else '' }}">
+            {% elif _is_query %}
+            {{ fm.render_label(f, item) }}
             {% elif f.readonly %}
             {{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}
             {% elif f.input == 'multi' %}
@@ -93,9 +96,11 @@
           {% for f in _calc_fields %}
           <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
           {% endfor %}
+          {% if not _is_query %}
           {% for f in _hidden_fields %}
           {{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}
           {% endfor %}
+          {% endif %}
           {% if _can_edit %}
           <td class="text-center">
             <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover linha">
@@ -229,7 +234,7 @@
             {% for item in items %}
             {% set _ref = item|item_ref(items) %}
             {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
-            <td class="itm-cell"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %} data-crow="{{ _rid }}">{% if ro %}{{ fm.render_label(f, item) }}{% elif f.input == 'multi' %}{{ fm.render_multi_ctl(f, item, name_prefix=_prefix + _rid + '_') }}{% else %}{{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}{% endif %}</td>
+            <td class="itm-cell"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %} data-crow="{{ _rid }}">{% if ro or _is_query %}{{ fm.render_label(f, item) }}{% elif f.input == 'multi' %}{{ fm.render_multi_ctl(f, item, name_prefix=_prefix + _rid + '_') }}{% else %}{{ fm.render_field(f, item, ro=false, name_prefix=_prefix + _rid + '_', show_label=false) }}{% endif %}</td>
             {% endfor %}
           </tr>
           {% endfor %}
@@ -243,7 +248,7 @@
             {% endfor %}
           </tr>
           {% endfor %}
-          {% if _hidden_fields %}
+          {% if _hidden_fields and not _is_query %}
           <tr style="display:none">
             <th></th>
             {% for item in items %}

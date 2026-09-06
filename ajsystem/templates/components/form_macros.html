@@ -47,7 +47,7 @@
 {% endif %}
 {% elif field.input == 'select' %}
 {% if field.lookup and field.lookup.query %}
-<div class="search-ctl inline-flex items-center gap-1 w-full" data-search-page="{{ request.blueprint or '' }}" data-search-query="{{ field.lookup.query }}" data-search-field="{{ field.name }}"{% if field.lookup.replaces %} data-replaces-map="{% for _k, _v in field.lookup.replaces.items() %}{{ _k }}:{{ _v }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
+<div class="search-ctl inline-flex items-center gap-1 w-full" data-search-page="{{ request.blueprint or '' }}" data-search-query="{{ field.lookup.query }}" data-search-field="{{ field.name }}"{% set _rq = (field.lookup.replaces if field.lookup and field.lookup.replaces else none) or field.replaces %}{% set _rmm = namespace(s='') %}{% if _rq %}{% for _k, _v in _rq.items() %}{% if _v is string %}{% if _rmm.s %}{% set _rmm.s = _rmm.s + ',' %}{% endif %}{% set _rmm.s = _rmm.s + _k ~ ':' ~ _v %}{% endif %}{% endfor %}{% endif %}{% if _rmm.s %} data-replaces-map="{{ _rmm.s }}"{% endif %}>
   <input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
   <span class="search-val input input-bordered input-sm flex-1 overflow-hidden whitespace-nowrap">{{ val if val is not none else '—' }}</span>
   <button type="button" class="btn btn-outline btn-sm px-2" onclick="searchOpen(this)" title="Buscar">
@@ -55,11 +55,11 @@
   </button>
 </div>
 {% else %}
-  <select name="{{ ns }}" class="select select-bordered select-sm w-full" {{ req }} {{ dis }} {{ attr_str|safe }}{% if field.query %}{% set _qm = field.query.model if field.query is not string else field.query %}{% if _qm %} data-model="{{ _qm }}"{% endif %}{% endif %}{% if field.on_set %}{% if field.on_set is mapping %} data-onset-fk="{{ field.name }}" data-onset-map="{% for _k, _v in field.on_set.items() %}{{ _k }}:{{ _v }}{% if not loop.last %},{% endif %}{% endfor %}"{% else %} data-onset-ent="{{ field.on_set_ent }}" data-onset-fk="{{ field.name }}"{% if field.on_set_mod %} data-onset-mod="{{ field.on_set_mod }}"{% endif %}{% endif %}{% endif %}{% if field.lookup and field.lookup.replaces %} data-replaces-fk="{{ field.name }}" data-replaces-map="{% for _k, _v in field.lookup.replaces.items() %}{{ _k }}:{{ _v }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
+  <select name="{{ ns }}" class="select select-bordered select-sm w-full" {{ req }} {{ dis }} {{ attr_str|safe }}{% if field.query %}{% set _qm = field.query.model if field.query is not string else field.query %}{% if _qm %} data-model="{{ _qm }}"{% endif %}{% endif %}{% if field.on_set is mapping %} data-onset-fk="{{ field.name }}" data-onset-map="{% for _k, _v in field.on_set.items() %}{{ _k }}:{{ _v }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}{% set _rp = (field.lookup.replaces if field.lookup and field.lookup.replaces else none) or field.replaces or (field.on_set if field.on_set is mapping else none) %}{% set _rsm = namespace(s='') %}{% if _rp %}{% for _k, _v in _rp.items() %}{% if _rsm.s %}{% set _rsm.s = _rsm.s + ',' %}{% endif %}{% if _v is string and not field.options %}{% set _rsm.s = _rsm.s + _k ~ ':' ~ _v %}{% else %}{% set _rsm.s = _rsm.s + _k ~ ':' ~ _k %}{% endif %}{% endfor %}{% endif %}{% if _rsm.s %} data-replaces-fk="{{ field.name }}" data-replaces-map="{{ _rsm.s }}"{% endif %}>
     <option value="">Selecione...</option>
     {% if field.options %}
       {% for k, v in field.options.items() %}
-      <option value="{{ k }}" {{ 'selected' if val is not none and (val|string == k|string or val|string|lower == k|string|lower) }}>{{ v }}</option>
+      <option value="{{ k }}" {{ 'selected' if val is not none and (val|string == k|string or val|string|lower == k|string|lower) }}{% if _rp %}{% for _k2, _v2 in _rp.items() %}{% if _v2 is mapping %}{% set _vv = _v2.get(k) %}{% if _vv is none %}{% set _vv = _v2.get(k|string) %}{% endif %}{% if _vv is not none %} data-{{ _k2 }}="{{ _vv }}"{% endif %}{% else %} data-{{ _k2 }}="{{ _v2 }}"{% endif %}{% endfor %}{% endif %}>{{ v }}</option>
       {% endfor %}
     {% else %}
       {% set qlist = _lookup.get(field.name) if _lookup is defined else none %}
@@ -70,11 +70,11 @@
             {% set _fields = field.lookup.fields %}
             {% set _ns2 = namespace(lb='') %}
             {% for _fld in _fields %}{% if _ns2.lb %}{% set _ns2.lb = _ns2.lb ~ ' - ' %}{% endif %}{% set _ns2.lb = _ns2.lb ~ (item|deep_attr(_fld) or '') %}{% endfor %}
-            <option value="{{ _lkval }}" {{ 'selected' if val is not none and val|string == _lkval|string }}{% set _rp = (field.lookup.replaces if field.lookup and field.lookup.replaces else none) or (field.on_set if field.on_set is mapping else none) %}{% if _rp %}{% for _k, _v in _rp.items() %} data-{{ _v }}="{{ item|deep_attr(_v) }}"{% endfor %}{% endif %}>{{ _ns2.lb }}</option>
+            <option value="{{ _lkval }}" {{ 'selected' if val is not none and val|string == _lkval|string }}{% if _rp %}{% for _k, _v in _rp.items() %}{% if _v is mapping %}{% set _vv = _v.get(_lkval) %}{% if _vv is none %}{% set _vv = _v.get(_lkval|string) %}{% endif %}{% if _vv is not none %} data-{{ _k }}="{{ _vv }}"{% endif %}{% elif _v is string %} data-{{ _v }}="{{ item|deep_attr(_v) }}"{% else %} data-{{ _k }}="{{ _v }}"{% endif %}{% endfor %}{% endif %}>{{ _ns2.lb }}</option>
           {% endfor %}
         {% else %}
           {% for item in qlist %}
-          <option value="{{ item.id }}" {{ 'selected' if val is not none and val|string == item.id|string }}{% set _rp = (field.lookup.replaces if field.lookup and field.lookup.replaces else none) or (field.on_set if field.on_set is mapping else none) %}{% if _rp %}{% for _k, _v in _rp.items() %} data-{{ _v }}="{{ item|deep_attr(_v) }}"{% endfor %}{% endif %}>{{ item.nome }}</option>
+          <option value="{{ item.id }}" {{ 'selected' if val is not none and val|string == item.id|string }}{% if _rp %}{% for _k, _v in _rp.items() %}{% if _v is mapping %}{% set _vv = _v.get(item.id) %}{% if _vv is none %}{% set _vv = _v.get(item.id|string) %}{% endif %}{% if _vv is not none %} data-{{ _k }}="{{ _vv }}"{% endif %}{% elif _v is string %} data-{{ _v }}="{{ item|deep_attr(_v) }}"{% else %} data-{{ _k }}="{{ _v }}"{% endif %}{% endfor %}{% endif %}>{{ item.nome }}</option>
           {% endfor %}
         {% endif %}
       {% endif %}
@@ -90,7 +90,7 @@
   </label>
 {% elif field.input == 'number' %}
   {% if field.percent %}<div class="relative inline-flex items-center w-full">{% endif %}
-  <input type="number" name="{{ ns }}" class="input input-bordered input-sm{% if field.percent %} input-percent{% endif %}{% if field.step is none and (not field.attrs or 'step' not in field.attrs) %} no-spinner{% endif %}" style="width:{{ _iwidth }}" step="{{ step_val }}" value="{{ val if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str }}>
+  <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm{% if field.percent %} input-percent{% endif %}{% if field.step is none and (not field.attrs or 'step' not in field.attrs) %} no-spinner{% endif %}" style="width:{{ _iwidth }}" step="{{ step_val }}" {% if field.decimals is not none %}data-num-decimals="{{ field.decimals }}" {% endif %}value="{{ val|fmt_num(field.decimals) if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str }}>
   {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}

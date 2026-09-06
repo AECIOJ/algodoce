@@ -133,6 +133,10 @@ def _coerce(value, f):
         s = str(value).strip()
         if not s:
             return None
+        if ',' in s:
+            # pt-BR exibido ('1.234,56'): milhar some, vírgula vira ponto.
+            # Sem vírgula, ponto é decimal ('1.5') e segue intacto.
+            s = s.replace(' ', '').replace('.', '').replace(',', '.')
         try:
             if f.decimals is not None and f.decimals > 0:
                 return float(s)

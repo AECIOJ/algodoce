@@ -386,6 +386,7 @@ function searchApplyReplaces(box, hid, tr) {
     if (!target) return;
     var v = raw[fonte];
     target.value = (typeof v === 'number') ? String(Math.round(v * 100) / 100) : String(v);
+    fmtFieldInput(target);
     target.dispatchEvent(new Event('input', {bubbles: true}));
     target.dispatchEvent(new Event('change', {bubbles: true}));
   });
@@ -606,6 +607,54 @@ function itNormalizeCurrency(cur) {
   var n = parseInt(s, 10);
   return (n === 2 || n === 3) ? n : 1;
 }
+/* ── numéricos pt-BR (inputs com data-num-decimals) ───────────────────────
+   Leitura: parseNum aceita '1.234,56' e '1.5' (vírgula presente ⇒ pt-BR).
+   Escrita: fmtFieldInput formata pela casa do field no blur e após
+   preenchimentos (replaces/totais); vazio/inválido não é tocado. */
+function parseNum(v) {
+  if (v === null || v === undefined) return NaN;
+  var s = String(v).replace(/\s/g, '');
+  if (s === '') return NaN;
+  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  var n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+function numDecimals(el) {
+  if (!el || el.disabled) return null;
+  var d = el.getAttribute('data-num-decimals');
+  if (d === null || d === '') return null;
+  var n = parseInt(d, 10);
+  return isNaN(n) ? null : n;
+}
+function fmtNumBR(v, dec) {
+  var n = Number(v);
+  if (isNaN(n)) return null;
+  if (!dec) return String(Math.round(n));
+  return n.toLocaleString('pt-BR', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+}
+function fmtFieldInput(el) {
+  var dec = numDecimals(el);
+  if (dec === null) return false;
+  var raw = el.value;
+  if (raw === null || raw === undefined || String(raw).trim() === '') return false;
+  var s = String(raw);
+  var f = (!dec) ? s.trim() : fmtNumBR(parseNum(s), dec);
+  if (f === null || f === undefined || f === s) return false;
+  el.value = f;
+  el.dispatchEvent(new Event('input', {bubbles: true}));
+  el.dispatchEvent(new Event('change', {bubbles: true}));
+  return true;
+}
+function unFmtFieldInput(el) {
+  var dec = numDecimals(el);
+  if (!dec) return;
+  var raw = el.value;
+  if (!raw || String(raw).trim() === '') return;
+  var n = parseNum(raw);
+  if (isNaN(n)) return;
+  var t = String(n);
+  if (t !== String(raw)) el.value = t;
+}
 function itTotalsRefresh(wrap) {
   if (!wrap) return;
   var expr = wrap.getAttribute('data-total-expr');
@@ -627,7 +676,7 @@ function itTotalsRefresh(wrap) {
     var vars = {};
     fields.forEach(function(f) {
       var el = tr.querySelector('[name="' + prefix + c + '_' + f + '"]');
-      vars[f] = el ? parseFloat(el.value) : 0;
+      vars[f] = el ? parseNum(el.value) || 0 : 0;
     });
     var rowTotal = itEval(expr, vars);
     grand += rowTotal;
@@ -648,7 +697,7 @@ function itTotalsRefresh(wrap) {
       var vars = {};
       fields.forEach(function(f) {
         var el = mtable.querySelector('[name="' + prefix + c + '_' + f + '"]');
-        vars[f] = el ? parseFloat(el.value) : 0;
+        vars[f] = el ? parseNum(el.value) || 0 : 0;
       });
       var rowTotal = itEval(expr, vars);
       var td = document.createElement('td');
@@ -688,6 +737,7 @@ function itOnSetBind(wrap) {
         var val = opt.getAttribute('data-' + parts[1].trim());
         if (target && val !== null && val !== undefined) {
           target.value = val;
+          fmtFieldInput(target);
           target.dispatchEvent(new Event('input', {bubbles: true}));
           target.dispatchEvent(new Event('change', {bubbles: true}));
         }
@@ -695,49 +745,6 @@ function itOnSetBind(wrap) {
       itCalcRefresh(wrap);
       itSessionTotals(wrap);
       itTotalsRefresh(wrap);
-    });
-  });
-  wrap.querySelectorAll('select[data-onset-ent]').forEach(function(sel) {
-    if (sel.__itOsBound) return;
-    sel.__itOsBound = true;
-    sel.addEventListener('change', function() {
-      if (!sel.value) return;
-      var ent = sel.getAttribute('data-onset-ent');
-      var fk = sel.getAttribute('data-onset-fk') || sel.name.split('_').pop();
-      var mod = sel.getAttribute('data-onset-mod') || '';
-      var params = 'ent=' + encodeURIComponent(ent)
-        + '&fk=' + encodeURIComponent(fk)
-        + '&valor=' + encodeURIComponent(sel.value)
-        + '&mod=' + encodeURIComponent(mod);
-      fetch('/api/on_set?' + params, {headers: {'Accept': 'application/json'}})
-        .then(function(r) { return r.json(); })
-        .then(function(d) {
-          if (!d || !d.ok || !d.valores) return;
-          var base = sel.name.slice(0, sel.name.length - fk.length - 1);
-          Object.keys(d.valores).forEach(function(k) {
-            var target = wrap.querySelector('[name="' + base + '_' + k + '"]');
-            if (!target) return;
-            var v = d.valores[k];
-            if (target.tagName === 'SELECT') {
-              var want = String(v);
-              var match = null;
-              for (var i = 0; i < target.options.length; i++) {
-                if (target.options[i].value === want) { match = target.options[i]; break; }
-              }
-              if (!match) {
-                want = want.toLowerCase();
-                for (i = 0; i < target.options.length; i++) {
-                  if (target.options[i].value.toLowerCase() === want) { match = target.options[i]; break; }
-                }
-              }
-              if (match) target.value = match.value;
-            } else {
-              target.value = typeof v === 'number' ? String(Math.round(v * 100) / 100) : v;
-            }
-            target.dispatchEvent(new Event('input', {bubbles: true}));
-            target.dispatchEvent(new Event('change', {bubbles: true}));
-          });
-        }).catch(function() {});
     });
   });
 }
@@ -759,11 +766,12 @@ function itUpdateZerados(btn) {
         var targetEl = tr.querySelector('[name="' + sel.name.slice(0, sel.name.lastIndexOf('_') + 1)
                         + parts[0].trim() + '"]');
         if (!targetEl) return;
-        var v = parseFloat(opt.getAttribute('data-' + parts[1].trim()));
+        var v = parseNum(opt.getAttribute('data-' + parts[1].trim()));
         if (isNaN(v)) return;
-        var cur = parseFloat(targetEl.value);
+        var cur = parseNum(targetEl.value);
         if (isNaN(cur) || cur === 0) {
           targetEl.value = String(Math.round(v * 100) / 100);
+          fmtFieldInput(targetEl);
           targetEl.dispatchEvent(new Event('input', {bubbles: true}));
           count++;
         }
@@ -781,7 +789,7 @@ function itCalcRefresh(wrap) {
     var vars = {};
     (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach(function(f) {
       var el = (prefix && crow) ? wrap.querySelector('[name="' + prefix + crow + '_' + f + '"]') : null;
-      vars[f] = el ? parseFloat(el.value) : NaN;
+      vars[f] = el ? parseNum(el.value) : NaN;
     });
     return vars;
   }
@@ -817,7 +825,7 @@ function itSessionTotals(wrap) {
     var vars = {};
     (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach(function(f) {
       var el = (prefix && crow) ? wrap.querySelector('[name="' + prefix + crow + '_' + f + '"]') : null;
-      vars[f] = el ? parseFloat(el.value) : NaN;
+      vars[f] = el ? parseNum(el.value) : NaN;
     });
     return vars;
   }
@@ -836,7 +844,7 @@ function itSessionTotals(wrap) {
         val = itEval(expr, varsFor(crow, expr));
       } else {
         var input = prefix ? wrap.querySelector('[name="' + prefix + crow + '_' + fname + '"]') : null;
-        val = input ? parseFloat(input.value) : 0;
+        val = input ? parseNum(input.value) || 0 : 0;
       }
       if (fn === 'sum') sum += val || 0;
       else if (fn === 'avg') { sum += val || 0; count++; }
@@ -866,6 +874,7 @@ function itSessionTotals(wrap) {
         inp.value = (inp.type === 'hidden')
           ? String(Number(num).toFixed(2))
           : (cur ? itFmtMoney(num, cur) : String(num));
+        fmtFieldInput(inp);
       });
     }
   });
@@ -1052,6 +1061,16 @@ document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('input[data-validate]').forEach(function(el) {
     el.addEventListener('blur', function() { _validateEl(el); });
     el.addEventListener('change', function() { _validateEl(el); });
+  });
+  // Numéricos pt-BR: formata ao sair (blur) e edita cru ao entrar (focus).
+  // Delegado no documento: cobre linhas adicionadas depois.
+  document.addEventListener('focusin', function(e) {
+    var t = e.target;
+    if (t && t.matches && t.matches('input[data-num-decimals]')) unFmtFieldInput(t);
+  });
+  document.addEventListener('focusout', function(e) {
+    var t = e.target;
+    if (t && t.matches && t.matches('input[data-num-decimals]')) fmtFieldInput(t);
   });
   var form = document.getElementById('main-form');
   if (form) {

@@ -128,6 +128,8 @@ class Lookup:
                   copia client-side atributos da opção (campos do registro alvo)
                   para campos do registro filho. Ex.: `{'quantidade': 'qtd_minima',
                   'preco_unitario': 'preco'}`.
+                  Legado: prefira `replaces` no `Field`; `lookup.replaces` segue
+                  suportado com precedência (alias, não declare nos dois).
     - `query`:   nome de uma busca declarada na rota (ex.: `'PREVISOES'`) — em vez
                  de `<select>`, renderiza display + hidden + botão externo que abre
                  modal de busca alimentado pelo endpoint do motor.
@@ -176,6 +178,9 @@ class Field:
     editor: Optional[str] = None  # nome exclusivo do input no HTML (substitui field.name no `name`)
     query: Any = None          # config crua (str/dict); Query entra posteriormente
     lookup: Any = None         # complemento de escolha/exibição (dict | Lookup | True)
+    replaces: Optional[dict] = None  # {campo_alvo: fonte} — fonte = atributo do
+        # registro (select FK) ou {valor_opcao: literal} (modo por-opção, p/ LIST).
+        # `lookup.replaces` (legado) tem precedência quando ambos declarados.
     validate: Optional[Union[str, list, Callable]] = None
     decimals: Optional[int] = None
     min: Optional[Union[int, float]] = None
@@ -592,6 +597,9 @@ def resolve_lookup(field, source_model):
       - `value`:   campo a retornar/gravar (default: 'id').
       - `fields`:  campo(s) a listar ao escolher (default: [`display`]).
       - `when`:    condição para listar nas opções de escolha.
+      - `replaces`: `lookup.replaces` (legado, com precedência) ou `replaces`
+        do `Field`. Valor str = atributo-fonte do registro (select FK);
+        valor dict = mapa por-opção `{valor_opcao: literal}` (p/ LIST).
     Retorna dict resolvido com `path` (`<relação>.<display>`) ou `None`.
     """
     raw = getattr(field, 'lookup', None)
@@ -603,6 +611,8 @@ def resolve_lookup(field, source_model):
             cfg = {k: v for k, v in vars(raw).items() if v is not None}
         elif isinstance(raw, dict):
             cfg = dict(raw)
+    if cfg.get('replaces') is None:
+        cfg['replaces'] = getattr(field, 'replaces', None)
 
     target = fk_target_model(source_model, field.name) if source_model else None
     display = cfg.get('display')

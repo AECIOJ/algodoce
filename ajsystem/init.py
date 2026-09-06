@@ -13,7 +13,7 @@ from ajsystem.core.menu import url_do_item
 from ajsystem.defs.data import fmt_mask, get_field
 from ajsystem.core.list import fields_to_columns
 from ajsystem.core.utils import (
-    deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, item_ref,
+    deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, fmt_num, item_ref,
     field_value, calc_value,
 )
 from ajsystem.defs.tags import _resolve_tag_color
@@ -42,6 +42,7 @@ def init_app(app):
     app.jinja_env.filters['brl'] = fmt_brl
     app.jinja_env.filters['money'] = fmt_money
     app.jinja_env.filters['percent'] = fmt_percent
+    app.jinja_env.filters['fmt_num'] = fmt_num
     app.jinja_env.filters['fmtid'] = fmt_id
     app.jinja_env.filters['fmtzero'] = fmt_zero
     app.jinja_env.filters['fmtzeroi'] = fmt_zero_int

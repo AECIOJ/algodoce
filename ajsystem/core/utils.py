@@ -99,6 +99,28 @@ def fmt_percent(value):
     return f'{value:,.1f}'.replace(',', 'X').replace('.', ',').replace('X', '.') + '%'
 
 
+def fmt_num(value, decimals=None):
+    """Número pt-BR p/ inputs (filtro `fmt_num`): casas de `decimals`, sem símbolo.
+
+    `None`/'' → ''. Sem `decimals` (ou 0) → inteiro sem agrupar ('1000'), para
+    que a leitura de volta seja inequívoca (ponto = decimal só com vírgula).
+    Com `decimals` > 0 → agrupa milhar e fixa as casas ('1.234,56').
+    """
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return ''
+    try:
+        dec = int(decimals) if decimals is not None else 0
+    except (TypeError, ValueError):
+        dec = 0
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if dec <= 0:
+        return str(int(num)) if num.is_integer() else str(num)
+    return f'{num:,.{dec}f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
 def deep_attr(obj, path):
     if obj is None:
         return None

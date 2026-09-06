@@ -4,7 +4,11 @@ from app.models.produto_insumo import ProdutoInsumo
 from app.models.producao_insumo import ProducaoInsumo
 from app.models.compra_item import CompraItem
 
-Schema = {}
+Schema = {
+    'ConversaoUnidade': {
+        'unidade': {'replaces': {'fator': 0}},
+    },
+}
 
 Page = {
     'label': 'Insumo',

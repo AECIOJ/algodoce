@@ -170,13 +170,14 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 | `step` | int | Passo do input numérico |
 | `mask` | str | Máscara de formatação (ex.: `'999'`) |
 | `rows` | int | Altura (número de linhas) para campo de texto |
-| `decimals` | int | Casas decimais |
+| `decimals` | int | Casas decimais (inputs numéricos exibem pt-BR com essas casas; `0` = inteiro) |
 | `pos_list` | int | Visibilidade na lista: `0` oculta; `2` vai para o card; `1`/`None` exibe |
 | `pos_filter` | int | Filtro do painel: `0` fora; `1`/`2`/`3` modos; `9` fixo pelo `default` (aplica `WHERE` de igualdade, sem UI; força `pos_form: 0` + `pos_list: 0`) |
 | `input` | str | Tipo de input (`'email'`, `'textarea'`, ...) |
 | `align` | str | Alinhamento da célula (`'left'`, `'center'`, `'right'`...) |
 | `lookup` | dict/`Lookup` | Complemento de FK para escolha/exibição por busca (ver abaixo) |
-| `on_set` | dict | **Preenchimento automático** de campos ao escolher (apenas client-side) `{campo_alvo: campo_fonte}`; só em campos FK `select` |
+| `replaces` | dict | **Preenchimento automático** de campos ao escolher: `{campo_alvo: fonte}` — fonte = atributo do registro (select FK), `{valor_opcao: literal}` (modo por-opção, p/ LISTA) ou literal (modo constante). `lookup.replaces` (legado) tem precedência |
+| `on_set` | dict | Alias de `replaces` no nível do campo (mesmo mecanismo client-side) |
 
 > **`lookup`** aplica-se a campos FK e substitui o `query`-de-campo. O motor infere
 > da FK o model a pesquisar e o valor gravado é o da prop `value` (default `'id'`).
@@ -196,7 +197,23 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 >   `campo_fonte` (atributo do registro alvo do FK) é copiado client-side para
 >   `campo_alvo` (campo da linha). O mesmo mapa alimenta o botão de rodapé que
 >   reaplica o preenchimento (ex. botão de "preços zerados" via `buttons`).
->   `replaces` e `on_set` são alternativas — use um ou outro.
+>   Também existe no nível do campo (`replaces` do `Field`, mesma semântica;
+>   `lookup.replaces` tem precedência quando ambos declarados) e `on_set` (dict)
+>   é alias do mesmo mecanismo.
+>   **Modo por-opção** (selects de LISTA): se o valor do mapa for um dict,
+>   `{campo_alvo: {valor_opcao: literal}}`, cada opção estática carrega seu
+>   próprio valor de preenchimento. Ex.:
+>   ```python
+>   'campo_origem': {'type': 'LIST', 'options': STATUS,
+>                    'replaces': {'campo_alvo': {0: 'x', 1: 'y'}}},
+>   ```
+>   **Modo constante**: valor escalar (string em LISTA, número/bool em qualquer
+>   select) vira literal em todas as opções. Ex.:
+>   ```python
+>   'campo_origem': {'type': 'LIST', 'options': STATUS,
+>                    'replaces': {'campo_alvo': 'fixo'}},
+>   ```
+>   (Em select FK, string segue significando atributo-fonte do registro.)
 > - `query` (str): nome de uma busca declarada na rota — em vez de `<select>`,
 >   renderiza display + hidden + botão externo que abre modal de busca
 >   (`GET /ajsystem/lookup-search?page=<slug>&query=<NOME>[&<param>=...]`).
@@ -219,12 +236,10 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 > (callable ou expressão string). Agregações sobre relacionamentos (ex.: soma
 > dos itens de um pedido) pertencem à sessão/`Query`, não ao `field`.
 
-> **`on_set`** (apenas client-side, sem requisição) preenche automaticamente
-> campos da linha quando um valor é escolhido num campo FK `select`. É um dict
-> `{campo_alvo: campo_fonte}`: ao selecionar o registro, o valor de `campo_fonte`
-> (atributo do registro escolhido) é copiado para `campo_alvo` (campo da linha).
-> Exemplo — ao escolher o produto, traz `quantidade` (da `qtd_minima`) e
-> `preco_unitario` (do `preco`):
+> **`on_set`** (dict) é alias de `replaces` no nível do campo — mesmo mecanismo
+> client-side, mesma semântica (inclusive o modo por-opção). Exemplo — ao
+> escolher o produto, traz `quantidade` (da `qtd_minima`) e `preco_unitario`
+> (do `preco`):
 > ```python
 > 'produto_id': {'type': 'FK', 'label': 'Produto', 'required': True,
 >                'on_set': {'quantidade': 'qtd_minima',
