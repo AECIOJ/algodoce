@@ -11,8 +11,8 @@ def _validade_data(q):
     return add_dias(q.data_renovacao or q.data_pedido, q.validade or 3)
 
 
-class Quote(db.Model):
-    __tablename__ = "quotes"
+class Orcamento(db.Model):
+    __tablename__ = "orcamentos"
 
     id = db.Column(db.Integer, primary_key=True)
     data_pedido = db.Column(
@@ -22,7 +22,7 @@ class Quote(db.Model):
     cliente_nome = db.Column(db.String(100), nullable=False)
     cliente_telefone = db.Column(db.String(20), nullable=False)
     status = db.Column(db.Integer, nullable=False, default=0)
-    pedido_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
+    pedido_id = db.Column(db.Integer, db.ForeignKey("pedidos.id"), nullable=True)
     total = db.Column(db.Numeric(10, 2), nullable=True)
     observacao = db.Column(db.Text)
     validade = db.Column(db.Integer, nullable=False, default=3)
@@ -31,16 +31,16 @@ class Quote(db.Model):
     forminhas = db.Column(db.Integer, nullable=False, default=0)
 
     carteira = db.relationship("Carteira", uselist=False)
-    order = db.relationship("Order", foreign_keys=[pedido_id], lazy="joined")
-    event = db.relationship("Event", back_populates="quote", uselist=False, lazy="joined")
+    pedido = db.relationship("Pedido", foreign_keys=[pedido_id], lazy="joined")
+    evento = db.relationship("Evento", back_populates="orcamento", uselist=False, lazy="joined")
     items = db.relationship(
-        "QuoteItem", back_populates="quote",
-        foreign_keys="QuoteItem.quote_id",
+        "OrcamentoItem", back_populates="orcamento",
+        foreign_keys="OrcamentoItem.orcamento_id",
         lazy="joined"
     )
 
     def __repr__(self):
-        return f"<Quote {self.id}>"
+        return f"<Orcamento {self.id}>"
 
 
 Entity = {

@@ -1,31 +1,31 @@
 from ajsystem.core.extensions import db
 
 
-class OrderItem(db.Model):
-    __tablename__ = "order_items"
+class PedidoItem(db.Model):
+    __tablename__ = "pedido_itens"
 
     id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(
-        db.Integer, db.ForeignKey("orders.id"), nullable=False
+    pedido_id = db.Column(
+        db.Integer, db.ForeignKey("pedidos.id"), nullable=False
     )
-    product_id = db.Column(
-        db.Integer, db.ForeignKey("products.id"), nullable=False
+    produto_id = db.Column(
+        db.Integer, db.ForeignKey("produtos.id"), nullable=False
     )
     quantidade = db.Column(db.Integer, nullable=False)
     preco_unitario = db.Column(db.Numeric(10, 2), nullable=True)
     observacao = db.Column(db.Text, nullable=True)
 
-    product = db.relationship("Product", lazy="select")
-    order = db.relationship("Order", back_populates="items")
+    produto = db.relationship("Produto", lazy="select")
+    pedido = db.relationship("Pedido", back_populates="items")
 
     def __repr__(self):
-        return f"<OrderItem o={self.order_id} p={self.product_id}>"
+        return f"<PedidoItem o={self.pedido_id} p={self.produto_id}>"
 
 
 Entity = {
     'id':              {'type': 'ID'},
-    'order_id':        {'type': 'DK'},
-    'product_id':      {'type': 'FK', 'label': 'Produto', 'required': True},
+    'pedido_id':        {'type': 'DK'},
+    'produto_id':      {'type': 'FK', 'label': 'Produto', 'required': True},
     'quantidade':      {'type': 'INT', 'label': 'Qtd', 'required': True},
     'preco_unitario':  {'type': 'NUM', 'label': 'Preço', 'currency': 1},
     'valor':           {'type': 'NUM', 'label': 'Valor', 'currency': 1,

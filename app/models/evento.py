@@ -2,15 +2,15 @@ from ajsystem.core.extensions import db
 from app.constantes import tipos_evento
 
 
-class Event(db.Model):
-    __tablename__ = "events"
+class Evento(db.Model):
+    __tablename__ = "eventos"
 
     id = db.Column(db.Integer, primary_key=True)
-    quote_id = db.Column(
-        db.Integer, db.ForeignKey("quotes.id"), nullable=True, unique=True
+    orcamento_id = db.Column(
+        db.Integer, db.ForeignKey("orcamentos.id"), nullable=True, unique=True
     )
-    order_id = db.Column(
-        db.Integer, db.ForeignKey("orders.id"), nullable=True, unique=True
+    pedido_id = db.Column(
+        db.Integer, db.ForeignKey("pedidos.id"), nullable=True, unique=True
     )
     tipo = db.Column(db.String(30), nullable=True)
     tema = db.Column(db.String(200), nullable=True)
@@ -21,17 +21,17 @@ class Event(db.Model):
     convidados = db.Column(db.Integer, nullable=True)
     cerimonial = db.Column(db.String(200), nullable=True)
 
-    quote = db.relationship("Quote", back_populates="event", foreign_keys=[quote_id])
-    order = db.relationship("Order", back_populates="event", foreign_keys=[order_id])
+    orcamento = db.relationship("Orcamento", back_populates="evento", foreign_keys=[orcamento_id])
+    pedido = db.relationship("Pedido", back_populates="evento", foreign_keys=[pedido_id])
 
     def __repr__(self):
-        return f"<Event {self.id}>"
+        return f"<Evento {self.id}>"
 
 
 Entity = {
     'id':          {'type': 'ID'},
-    'quote_id':    {'type': 'DK'},
-    'order_id':    {'type': 'DK'},
+    'orcamento_id':    {'type': 'DK'},
+    'pedido_id':    {'type': 'DK'},
     'tipo':        {'type': 'LIST', 'label': 'Tipo', 'options': tipos_evento},
     'tema':        {'type': 'TEXT', 'width': 22},
     'data':        {'type': 'DATA', 'label': 'Data do evento'},

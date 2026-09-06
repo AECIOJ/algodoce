@@ -1,8 +1,8 @@
 from ajsystem.core.extensions import db
 
 
-class Category(db.Model):
-    __tablename__ = "categories"
+class Categoria(db.Model):
+    __tablename__ = "categorias"
 
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
@@ -10,7 +10,7 @@ class Category(db.Model):
     ordem = db.Column(db.Integer, default=0)
 
     def __repr__(self):
-        return f"<Category {self.nome}>"
+        return f"<Categoria {self.nome}>"
 
 
 Entity = {

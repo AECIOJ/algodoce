@@ -19,7 +19,7 @@ from flask_login import (
     current_user, login_user, logout_user, login_required,
 )
 
-from ajsystem.core.adapter import db, User, Setting, APP, login_manager
+from ajsystem.core.adapter import db, Usuario, Configuracao, APP, login_manager
 
 bp = Blueprint("auth", __name__)
 bp_seguranca = Blueprint("seguranca", __name__, url_prefix="/seguranca")
@@ -39,7 +39,7 @@ def init_auth(app):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return Usuario.query.get(int(user_id))
 
     @login_manager.unauthorized_handler
     def unauthorized():
@@ -65,7 +65,7 @@ def init_auth(app):
 
 def _gerar_chave(ordem=None):
     if ordem is None:
-        ordem = Setting.get("painel_chave")
+        ordem = Configuracao.get("painel_chave")
     if ordem not in PERMUTACOES:
         return ""
     now = datetime.now()
@@ -116,7 +116,7 @@ def login():
 
     delay = _impose_delay()
 
-    user = User.query.filter_by(username=username).first()
+    user = Usuario.query.filter_by(username=username).first()
     if user and user.check_password(password):
         session.permanent = True
         login_user(user, remember=True)
@@ -142,16 +142,16 @@ def login_sistema():
     p = data.get("password", "")
     c = data.get("chave", "")
 
-    expected_u = Setting.get("painel_usuario") or os.getenv("ADMIN_USERNAME", "doceira")
-    expected_p = Setting.get("painel_senha") or os.getenv("ADMIN_PASSWORD", "doceira")
-    expected_chave_code = Setting.get("painel_chave")
+    expected_u = Configuracao.get("painel_usuario") or os.getenv("ADMIN_USERNAME", "doceira")
+    expected_p = Configuracao.get("painel_senha") or os.getenv("ADMIN_PASSWORD", "doceira")
+    expected_chave_code = Configuracao.get("painel_chave")
 
     if u != expected_u or p != expected_p:
         return jsonify(error="Credenciais inválidas"), 401
     if expected_chave_code in PERMUTACOES and c != _gerar_chave(expected_chave_code):
         return jsonify(error="Chave inválida"), 401
 
-    user = User.query.filter_by(username=u).first()
+    user = Usuario.query.filter_by(username=u).first()
     if not user:
         return jsonify(error="Usuário não encontrado"), 401
     session.permanent = True
@@ -183,7 +183,7 @@ def login_admin():
     if c != _gerar_chave(expected_chave_code):
         return jsonify(error="Chave inválida"), 401
 
-    admin = User.query.first()
+    admin = Usuario.query.first()
     if admin:
         login_user(admin, remember=True)
     session["seguranca_autenticado"] = True
@@ -200,13 +200,13 @@ def admin_config():
 
 @bp.route("/api/check-chave", methods=["POST"])
 def check_chave():
-    ordem = Setting.get("painel_chave")
+    ordem = Configuracao.get("painel_chave")
     return jsonify(tem=ordem in PERMUTACOES)
 
 
 @bp.route("/api/chave-diaria")
 def chave_diaria():
-    ordem = Setting.get("painel_chave")
+    ordem = Configuracao.get("painel_chave")
     if ordem not in PERMUTACOES:
         return jsonify(tem=False)
     now = datetime.now()
@@ -256,8 +256,8 @@ def painel():
         if request.method == "POST":
             u = request.form.get("username", "")
             p = request.form.get("password", "")
-            expected_u = Setting.get("painel_usuario") or os.getenv("ADMIN_USERNAME", "doceira")
-            expected_p = Setting.get("painel_senha") or os.getenv("ADMIN_PASSWORD", "doceira")
+            expected_u = Configuracao.get("painel_usuario") or os.getenv("ADMIN_USERNAME", "doceira")
+            expected_p = Configuracao.get("painel_senha") or os.getenv("ADMIN_PASSWORD", "doceira")
             if u == expected_u and p == expected_p:
                 session["seguranca_autenticado"] = True
                 flash("Acesso autorizado.", "success")
@@ -265,12 +265,12 @@ def painel():
             flash("Credenciais inválidas.", "danger")
         return render_template("pages/auth/login.html")
 
-    settings = Setting.query.order_by(Setting.key).all()
+    settings = Configuracao.query.order_by(Configuracao.key).all()
     return render_template(
         "pages/auth/settings.html",
         settings=settings,
         permutacoes=PERMUTACOES,
-        codigo_atual=Setting.get("painel_chave"),
+        codigo_atual=Configuracao.get("painel_chave"),
     )
 
 
@@ -279,9 +279,9 @@ def salvar():
     if not session.get("seguranca_autenticado"):
         flash("Acesso negado.", "danger")
         return redirect(url_for(f"{bp_seguranca.name}.painel"))
-    for key in Setting.KEYS:
+    for key in Configuracao.KEYS:
         val = request.form.get(key, "")
-        Setting.set(key, val)
+        Configuracao.set(key, val)
     db.session.commit()
     flash("Configurações salvas com sucesso.", "success")
     return redirect(url_for(f"{bp_seguranca.name}.painel"))

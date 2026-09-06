@@ -9,7 +9,7 @@ class ProducaoInsumo(db.Model):
         db.Integer, db.ForeignKey("producao.id"), nullable=False
     )
     insumo_id = db.Column(
-        db.Integer, db.ForeignKey("ingredients.id"), nullable=False
+        db.Integer, db.ForeignKey("insumos.id"), nullable=False
     )
     quantidade = db.Column(db.Numeric(10, 3), nullable=False)
     comprado = db.Column(db.Numeric(10, 3), nullable=False, default=0)
@@ -17,7 +17,7 @@ class ProducaoInsumo(db.Model):
     tipo = db.Column(db.Integer, nullable=False, default=0)
 
     producao = db.relationship("Producao", back_populates="insumos")
-    insumo = db.relationship("Ingredient", lazy="joined")
+    insumo = db.relationship("Insumo", lazy="joined")
 
     def __repr__(self):
         return f"<ProducaoInsumo p={self.producao_id} i={self.insumo_id}>"

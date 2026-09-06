@@ -37,7 +37,7 @@ def create_app():
         directory=os.path.join(os.path.dirname(__file__), "migrations"),
     )
 
-    from app.models.user import User
+    from app.models.usuario import Usuario
 
     @app.after_request
     def no_static_cache(response):
@@ -48,31 +48,33 @@ def create_app():
 
     with app.app_context():
         # Import all models FIRST so mapper init resolves correctly
-        from app.models import client as conta_model, product, ingredient, product_ingredient, unit_conversion, order, category, quote, operacao, transacao, previsao  # noqa
-        from app.models.event import Event  # noqa
-        from app.models.quote_item import QuoteItem  # noqa
+        from app.models import conta as conta_model, produto, insumo, produto_insumo, conversao_unidade, pedido, categoria, orcamento, operacao, transacao, previsao  # noqa
+        from app.models.evento import Evento  # noqa
+        from app.models.orcamento_item import OrcamentoItem  # noqa
         from app.models.compra import Compra  # noqa
         from app.models.compra_item import CompraItem  # noqa
         from app.models.compra_historico import CompraHistorico  # noqa
-        from app.models.order_item import OrderItem  # noqa
-        from app.models.setting import Setting  # noqa
+        from app.models.pedido_item import PedidoItem  # noqa
+        from app.models.configuracao import Configuracao  # noqa
         from app.models.producao import Producao  # noqa
         from app.models.producao_insumo import ProducaoInsumo  # noqa
         from app.models.producao_produto import ProducaoProduto  # noqa
         from app.models.recurso import Recurso  # noqa
-        from app.models.movto import Movto  # noqa
-        from app.models.trf import Trf  # noqa
+        from app.models.movimento import Movimento  # noqa
+        from app.models.transferencia import Transferencia  # noqa
         from app.models.carteira import Carteira  # noqa
 
-        from app.models.category import Category
-        from app.models.client import Conta
+        from app.models.categoria import Categoria
+        from app.models.conta import Conta
         from app.models.operacao import Operacao
-        from app.models.product import Product
-        from app.models.ingredient import Ingredient
-        from app.models.quote import Quote
+        from app.models.produto import Produto
+        from app.models.insumo import Insumo
+        from app.models.orcamento import Orcamento
+        from app.models.pedido import Pedido
+        from app.models.pedido_item import PedidoItem
         from app.models.previsao import Previsao
-        from app.models.product_ingredient import ProductIngredient
-        from app.models.unit_conversion import UnitConversion
+        from app.models.produto_insumo import ProdutoInsumo
+        from app.models.conversao_unidade import ConversaoUnidade
 
         from ajsystem.defs.data import register_model
 
@@ -107,31 +109,43 @@ def create_app():
         from ajsystem.core.content import render_pagina
         adapter.set_markdown_loader(render_pagina)
 
-        register_model('category', Category)
+        register_model('category', Categoria)
+        register_model('categoria', Categoria)
         register_model('conta', Conta)
         register_model('operacao', Operacao)
-        register_model('product', Product)
-        register_model('ingredient', Ingredient)
-        register_model('quote', Quote)
+        register_model('product', Produto)
+        register_model('produto', Produto)
+        register_model('ingredient', Insumo)
+        register_model('insumo', Insumo)
+        register_model('quote', Orcamento)
+        register_model('orcamento', Orcamento)
         register_model('recurso', Recurso)
         register_model('producao', Producao)
         register_model('previsao', Previsao)
-        register_model('movto', Movto)
-        register_model('recurso_trf', Trf)
+        register_model('movto', Movimento)
+        register_model('movimento', Movimento)
+        register_model('recurso_trf', Transferencia)
+        register_model('transferencia', Transferencia)
         register_model('carteira', Carteira)
-        register_model('quote_item', QuoteItem)
-        register_model('event', Event)
-        register_model('product_ingredient', ProductIngredient)
-        register_model('unit_conversion', UnitConversion)
+        register_model('quote_item', OrcamentoItem)
+        register_model('orcamento_item', OrcamentoItem)
+        register_model('event', Evento)
+        register_model('evento', Evento)
+        register_model('product_ingredient', ProdutoInsumo)
+        register_model('produto_insumo', ProdutoInsumo)
+        register_model('unit_conversion', ConversaoUnidade)
+        register_model('conversao_unidade', ConversaoUnidade)
+        register_model('pedido', Pedido)
+        register_model('pedido_item', PedidoItem)
 
         try:
             upgrade()
         except Exception:
             pass
 
-        Setting.ensure_keys()
+        Configuracao.ensure_keys()
 
-        for seq, tbl in [('quotes_id_seq', 'quotes'), ('orders_id_seq', 'orders'), ('compras_id_seq', 'compras')]:
+        for seq, tbl in [('orcamentos_id_seq', 'orcamentos'), ('pedidos_id_seq', 'pedidos'), ('compras_id_seq', 'compras')]:
             try:
                 db.session.execute(
                     sa.text(f"SELECT setval('{seq}', COALESCE((SELECT MAX(id) FROM {tbl}), 1))")
@@ -142,9 +156,9 @@ def create_app():
 
         admin_username = os.getenv("ADMIN_USERNAME", "admin")
         admin_password = os.getenv("ADMIN_PASSWORD", "admin")
-        admin = User.query.filter_by(username=admin_username).first()
+        admin = Usuario.query.filter_by(username=admin_username).first()
         if not admin:
-            admin = User(username=admin_username)
+            admin = Usuario(username=admin_username)
             db.session.add(admin)
         admin.set_password(admin_password)
         db.session.commit()
@@ -191,8 +205,8 @@ def create_app():
 
     @app.context_processor
     def inject_site_categories():
-        from app.models.category import Category
-        cats = Category.query.filter_by(ativo=True).order_by(Category.ordem).all()
+        from app.models.categoria import Categoria
+        cats = Categoria.query.filter_by(ativo=True).order_by(Categoria.ordem).all()
         return dict(site_categories=cats)
 
     @app.context_processor

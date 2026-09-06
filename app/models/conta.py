@@ -16,7 +16,7 @@ class Conta(db.Model):
     ativo = db.Column(db.Boolean, default=True)
     tipo = db.Column(db.Integer, default=0)
 
-    orders = db.relationship("Order", backref="conta", lazy="dynamic")
+    pedidos = db.relationship("Pedido", backref="conta", lazy="dynamic")
 
     def __repr__(self):
         return f"<Conta {self.nome}>"

@@ -41,8 +41,8 @@ class Transacao(db.Model):
 
     @property
     def pedido(self):
-        from app.models.order import Order
-        return Order.query.filter_by(transacao_id=self.id).first()
+        from app.models.pedido import Pedido
+        return Pedido.query.filter_by(transacao_id=self.id).first()
 
 
 Entity = {

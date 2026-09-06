@@ -1,7 +1,7 @@
-from app.models.product import Product
-from app.models.product_ingredient import ProductIngredient
-from app.models.order_item import OrderItem
-from app.models.quote_item import QuoteItem
+from app.models.produto import Produto
+from app.models.produto_insumo import ProdutoInsumo
+from app.models.pedido_item import PedidoItem
+from app.models.orcamento_item import OrcamentoItem
 
 Schema = {}
 
@@ -14,22 +14,22 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Product',
+            'columns': 'Produto',
             'order': ['nome'],
         },
         'form': {
             'max_width': 115,
-            'fields': 'Product',
+            'fields': 'Produto',
             'buttons': ['on_off'],
             'delete': {
-                'when': [OrderItem, QuoteItem],
+                'when': [PedidoItem, OrcamentoItem],
                 'msg_ok': 'Produto excluído!',
                 'msg_no': 'Não é possível excluir. Produto já em uso.',
             },
             'sessions': {
                 'Insumos': {
                     'table': {
-                        'columns': ['ProductIngredient'],
+                        'columns': ['ProdutoInsumo'],
                     }
                 },
             },

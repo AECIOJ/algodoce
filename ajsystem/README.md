@@ -209,7 +209,7 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 > ```python
 > 'pai_id': {'type': 'FK', 'label': 'Superior',
 >            'lookup': {'display': 'nome', 'fields': ['nome'], 'value': 'id'}},
-> 'product_id': {'type': 'FK', 'label': 'Produto', 'required': True,
+> 'produto_id': {'type': 'FK', 'label': 'Produto', 'required': True,
 >                'lookup': {'replaces': {'quantidade': 'qtd_minima',
 >                                        'preco_unitario': 'preco'}}},
 > ```
@@ -226,7 +226,7 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 > Exemplo — ao escolher o produto, traz `quantidade` (da `qtd_minima`) e
 > `preco_unitario` (do `preco`):
 > ```python
-> 'product_id': {'type': 'FK', 'label': 'Produto', 'required': True,
+> 'produto_id': {'type': 'FK', 'label': 'Produto', 'required': True,
 >                'on_set': {'quantidade': 'qtd_minima',
 >                           'preco_unitario': 'preco'}},
 > ```
@@ -404,7 +404,7 @@ podendo ser definida **uma, duas ou todas**, conforme o caso:
 
 - **`fields` sozinho** = child **único (1:1)** renderizado como formulário de
   campos dentro do form. O primeiro item nomeia a **Entity** do filho (ex.
-  `['Event']`); os demais, se houver, restringem as colunas exibidas. A seção
+  `['Evento']`); os demais, se houver, restringem as colunas exibidas. A seção
   aparece **mesmo quando o registro ainda não tem filho** (campos vazios), para
   permitir a inclusão; o motor persiste o child (criar/atualizar) no submit,
   vinculando a FK do pai.
@@ -446,9 +446,9 @@ coluna `valor` — um campo `calc` = `quantidade * preco_unitario`):
 ```python
 'form': {
     'sessions': {
-        'Evento': {'fields': ['Event']},                       # form 1:1 editável
+        'Evento': {'fields': ['Evento']},                       # form 1:1 editável
         'Itens do Orçamento': {'table': {
-            'columns': ['QuoteItem'],
+            'columns': ['OrcamentoItem'],
             'totals': ['valor'],                               # linha de totais
         }},
     },
@@ -495,8 +495,8 @@ Vitrine declarativa para exibir um catálogo ao cliente.
 Page = {
     'type': 'showcase',
     'props': {
-        'fields': 'Product',
-        'filter': 'Category',
+        'fields': 'Produto',
+        'filter': 'Categoria',
         'layout': 'carousel',
     },
 }

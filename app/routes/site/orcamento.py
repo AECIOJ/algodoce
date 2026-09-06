@@ -12,10 +12,10 @@ from ajsystem.core.cart import (
 from ajsystem.core.ntfy import notificar as aj_notificar
 from ajsystem.defs.cart import CART_SESSION_KEY, CLIENT_SESSION_KEY
 from app.constantes import FORMINHAS, QUOTE_STATUS, tipos_evento
-from app.models.setting import Setting
+from app.models.configuracao import Configuracao
 
 Entity = {
-    'Quote': {
+    'Orcamento': {
         'cliente_nome': {'label': 'Cliente', 'required': True},
         'cliente_telefone': {'label': 'Telefone', 'required': True},
         'data_pedido': {'type': 'DATA_HORA'},
@@ -26,13 +26,13 @@ Entity = {
         'observacao': {'type': 'MEMO'},
         'pedido_id': {'type': 'ID'},
     },
-    'QuoteItem': {
-        'product_id': {'type': 'FK'},
+    'OrcamentoItem': {
+        'produto_id': {'type': 'FK'},
         'quantidade': {'type': 'INT', 'required': True},
         'preco_unitario': {'type': 'NUM', 'currency': 'brl'},
         'observacao': {'type': 'TEXT'},
     },
-    'Event': {
+    'Evento': {
         'tipo': {'type': 'LIST', 'options': tipos_evento},
         'tema': {'type': 'TEXT'},
         'obs': {'type': 'MEMO'},
@@ -47,7 +47,7 @@ Entity = {
 
 def _notificar_orcamento(quote):
     """Notificação ntfy para a doceira (falha silenciosa sem topic configurado)."""
-    topic = Setting.get("ntfy_topic")
+    topic = Configuracao.get("ntfy_topic")
     if not topic:
         return
 
@@ -56,10 +56,10 @@ def _notificar_orcamento(quote):
 
     items = []
     for item in quote.items:
-        nome = item.product.nome if item.product else "?"
+        nome = item.produto.nome if item.produto else "?"
         items.append(f"- {item.quantidade}x {nome}")
 
-    event = quote.event
+    event = quote.evento
     extra = ""
     if event:
         if event.tipo:
@@ -75,7 +75,7 @@ def _notificar_orcamento(quote):
         title=title,
         message=message,
         tags=["envelope"],
-        token=Setting.get("ntfy_token"),
+        token=Configuracao.get("ntfy_token"),
     )
 
 
@@ -92,8 +92,8 @@ Page = {
     'props': {
         'on_send': _on_send_orcamento,
         'sessions': {
-            'Itens do Orçamento': {'type': 'table', 'fields': 'QuoteItem'},
-            'Dados do Evento': {'type': 'form', 'fields': 'Event'},
+            'Itens do Orçamento': {'type': 'table', 'fields': 'OrcamentoItem'},
+            'Dados do Evento': {'type': 'form', 'fields': 'Evento'},
         },
     },
 }
@@ -117,16 +117,16 @@ def remover(id):
 def atualizar_item():
     sc = resolve_cart(_mod())
     data = request.get_json(silent=True) or {}
-    product_id = data.get(sc['item_id'])
-    if not product_id:
-        return jsonify(error='product_id required'), 400
+    produto_id = data.get(sc['item_id'])
+    if not produto_id:
+        return jsonify(error='produto_id required'), 400
 
     if 'quantidade' in data:
         try:
             quantidade = int(data['quantidade'])
         except (TypeError, ValueError):
             return jsonify(error='Quantidade inválida.'), 400
-        produto = sc['origin_model'].query.get(product_id)
+        produto = sc['origin_model'].query.get(produto_id)
         if produto is None:
             return jsonify(error='Produto não encontrado.'), 404
         minima = minimo_quantidade(sc, produto)
@@ -137,7 +137,7 @@ def atualizar_item():
 
     items = session.get(sc['session_key'], [])
     for i in items:
-        if i.get(sc['item_id']) == product_id:
+        if i.get(sc['item_id']) == produto_id:
             if 'quantidade' in data:
                 i['quantidade'] = quantidade
             if 'observacao' in data:

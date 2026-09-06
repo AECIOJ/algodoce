@@ -1,6 +1,6 @@
-from app.models.ingredient import Ingredient
-from app.models.unit_conversion import UnitConversion
-from app.models.product_ingredient import ProductIngredient
+from app.models.insumo import Insumo
+from app.models.conversao_unidade import ConversaoUnidade
+from app.models.produto_insumo import ProdutoInsumo
 from app.models.producao_insumo import ProducaoInsumo
 from app.models.compra_item import CompraItem
 
@@ -15,22 +15,22 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Ingredient',
+            'columns': 'Insumo',
             'order': ['nome'],
         },
         'form': {
             'max_width': 70,
-            'fields': 'Ingredient',
-            'delete': {ProductIngredient, ProducaoInsumo, CompraItem, UnitConversion},
+            'fields': 'Insumo',
+            'delete': {ProdutoInsumo, ProducaoInsumo, CompraItem, ConversaoUnidade},
             'sessions': {
                 'Conversões': {
                     'table': {
-                        'columns': ['UnitConversion'],
+                        'columns': ['ConversaoUnidade'],
                     }
                 },
                 'Produtos': {
                     'query': {
-                        'columns': ['ProductIngredient'],
+                        'columns': ['ProdutoInsumo'],
                     }
                 },
             },

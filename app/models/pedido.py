@@ -3,11 +3,11 @@ from ajsystem.core.extensions import db
 from app.constantes import ORDER_STATUS, FORMINHAS
 
 
-class Order(db.Model):
-    __tablename__ = "orders"
+class Pedido(db.Model):
+    __tablename__ = "pedidos"
 
     id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(
+    conta_id = db.Column(
         db.Integer, db.ForeignKey("conta.id"), nullable=False
     )
     data_pedido = db.Column(
@@ -21,34 +21,34 @@ class Order(db.Model):
     total = db.Column(db.Numeric(10, 2), nullable=True)
     carteira_id = db.Column(db.Integer, db.ForeignKey("carteira.id"), nullable=True)
     transacao_id = db.Column(db.Integer, db.ForeignKey("transacao.id"), nullable=True, unique=True)
-    movto_id = db.Column(db.Integer, db.ForeignKey("movto.id"), nullable=True, unique=True)
+    movimento_id = db.Column(db.Integer, db.ForeignKey("movimentos.id"), nullable=True, unique=True)
     forminhas = db.Column(db.Integer, nullable=False, default=0)
 
     producao_id = db.Column(
         db.Integer, db.ForeignKey("producao.id"), nullable=True
     )
     producao = db.relationship("Producao", foreign_keys=[producao_id], lazy="select")
-    quote_id = db.Column(
-        db.Integer, db.ForeignKey("quotes.id"), nullable=True
+    orcamento_id = db.Column(
+        db.Integer, db.ForeignKey("orcamentos.id"), nullable=True
     )
-    quote = db.relationship("Quote", foreign_keys=[quote_id], lazy="select")
+    orcamento = db.relationship("Orcamento", foreign_keys=[orcamento_id], lazy="select")
     carteira = db.relationship("Carteira", uselist=False)
     transacao = db.relationship("Transacao", foreign_keys=[transacao_id], uselist=False)
-    movto = db.relationship("Movto", foreign_keys=[movto_id], uselist=False)
-    event = db.relationship("Event", back_populates="order", uselist=False, lazy="select")
+    movto = db.relationship("Movimento", foreign_keys=[movimento_id], uselist=False)
+    evento = db.relationship("Evento", back_populates="pedido", uselist=False, lazy="select")
     items = db.relationship(
-        "OrderItem", back_populates="order",
-        foreign_keys="OrderItem.order_id",
+        "PedidoItem", back_populates="pedido",
+        foreign_keys="PedidoItem.pedido_id",
         lazy="select"
     )
 
     def __repr__(self):
-        return f"<Order {self.id} - {self.status}>"
+        return f"<Pedido {self.id} - {self.status}>"
 
 
 Entity = {
     'id':                    {'type': 'ID', 'width': 6},
-    'client_id':             {'type': 'FK', 'label': 'Cliente', 'width': 20, 'required': True},
+    'conta_id':             {'type': 'FK', 'label': 'Cliente', 'width': 20, 'required': True},
     'data_pedido':           {'type': 'DATA_HORA', 'label': 'Data Pedido',},
     'data_previsao_entrega': {'type': 'DATA_HORA', 'label': 'Prev. Entrega', },
     'data_entrega':          {'type': 'DATA_HORA', 'label': 'Data Entrega', },

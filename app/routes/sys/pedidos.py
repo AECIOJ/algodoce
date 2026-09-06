@@ -1,14 +1,14 @@
 from ajsystem.core.do_report import print_report
-from app.models.order import Order
-from app.models.order_item import OrderItem
-from app.models.order import Entity as OrderEntity
-from app.models.order_item import Entity as OrderItemEntity
+from app.models.pedido import Pedido
+from app.models.pedido_item import PedidoItem
+from app.models.pedido import Entity as PedidoEntity
+from app.models.pedido_item import Entity as PedidoItemEntity
 from app.reports.pedidos import PEDIDO
 
 # Entity aninhada para o motor de relatórios (`_module_entity`).
 Entity = {
-    'Order': OrderEntity,
-    'OrderItem': OrderItemEntity,
+    'Pedido': PedidoEntity,
+    'PedidoItem': PedidoItemEntity,
 }
 
 
@@ -24,8 +24,8 @@ def _btn_enviar_action(instance):
 
 
 Schema = {
-    'Order': {
-        'client_id': {'label': 'Cliente',
+    'Pedido': {
+        'conta_id': {'label': 'Cliente',
                       'lookup': {'display': 'nome', 'fields': ['nome', 'telefone'],
                                  'when': {'ativo': True, 'tipo': [0, 1]}}},
         'carteira_id': {'label': 'Pagamento',
@@ -33,8 +33,8 @@ Schema = {
         'status': {'pos_form': 4},
         'total': {'editor': 'eTotal'},
     },
-    'OrderItem': {
-        'product_id': {
+    'PedidoItem': {
+        'produto_id': {
             'lookup': {
                 'replaces': {
                     'quantidade': 'qtd_minima',
@@ -54,12 +54,12 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Order',
+            'columns': 'Pedido',
             'order': ['data_entrega'],
         },
         'form': {
             'max_width': 130,
-            'fields': 'Order',
+            'fields': 'Pedido',
             'flash_ok': 'Pedido criado!',
             'flash_update': 'Pedido atualizado!',
             'buttons': [
@@ -70,12 +70,12 @@ Page = {
             'sessions': {
                 'Itens do Pedido': {
                     'table': {
-                        'columns': ['OrderItem'],
+                        'columns': ['PedidoItem'],
                         'totals': ['quantidade', {'valor': 'eTotal'}],
                     },
                 },
                 'Evento': {
-                    'fields': ['Event'],
+                    'fields': ['Evento'],
                 },
             },
         },

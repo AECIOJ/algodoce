@@ -1,20 +1,20 @@
 from ajsystem.core.extensions import db
-from app.models.category import Category
-from app.models.product import Product
+from app.models.categoria import Categoria
+from app.models.produto import Produto
 
 Schema = {}
 
 
 def _pre_save(instance, request, is_new):
     if instance.ordem is None and is_new:
-        last = db.session.query(db.func.max(Category.ordem)).scalar() or 0
+        last = db.session.query(db.func.max(Categoria.ordem)).scalar() or 0
         instance.ordem = last + 1
 
 
 def _post_save(instance, changed, old_vals):
     if 'ordem' not in changed:
         return
-    others = Category.query.filter(Category.id != instance.id).order_by(Category.ordem, Category.nome).all()
+    others = Categoria.query.filter(Categoria.id != instance.id).order_by(Categoria.ordem, Categoria.nome).all()
     n = instance.ordem
     if n is None or n > len(others) + 1:
         ordered = others + [instance]
@@ -34,13 +34,13 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Category',
+            'columns': 'Categoria',
             'order': ['ordem', 'nome'],
         },
         'form': {
-            'fields': 'Category',
+            'fields': 'Categoria',
             'delete': {
-                'when': {Product},
+                'when': {Produto},
                 'msg_ok': 'Categoria excluída!',
                 'msg_no': 'Não é possível excluir a categoria — está em uso.',
             },

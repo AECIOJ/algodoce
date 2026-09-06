@@ -1,10 +1,10 @@
 from datetime import date
-from app.models.trf import Trf
-from app.models.movto import Movto
+from app.models.transferencia import Transferencia
+from app.models.movimento import Movimento
 
 Schema = {
-    'Trf': {},
-    'Movto': {
+    'Transferencia': {},
+    'Movimento': {
         'recurso_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
         'conta_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
                                 'when': {'ativo': True}}},
@@ -25,15 +25,15 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Trf',
+            'columns': 'Transferencia',
             'order': ['data', 'id'],
         },
         'form': {
-            'fields': 'Trf',
+            'fields': 'Transferencia',
             'sessions': {
                 'Movimentações': {
                     'table': {
-                        'columns': ['Movto'],
+                        'columns': ['Movimento'],
                     },
                 },
             },

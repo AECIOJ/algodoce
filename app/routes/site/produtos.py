@@ -1,12 +1,12 @@
 Entity = {
-    'Product': {
+    'Produto': {
         'nome':        {'type': 'TEXT'},
         'descricao':   {'type': 'MEMO', 'rows': 4},
         'imagem':      {'type': 'IMAGE'},
         'qtd_minima':  {'type': 'INT'},
-        'category_id': {'type': 'FK', 'query': {'model': 'category'}},
+        'categoria_id': {'type': 'FK', 'query': {'model': 'category'}},
     },
-    'Category': {'nome': {'type': 'TEXT'}},
+    'Categoria': {'nome': {'type': 'TEXT'}},
 }
 
 Page = {
@@ -14,8 +14,8 @@ Page = {
     'route': 'vitrine',
     'max_width': 100,
     'props': {
-        'fields': 'Product',
-        'filter': 'Category',
+        'fields': 'Produto',
+        'filter': 'Categoria',
         'layout': 'carousel',
         'show': {
             'nome':       'title',

@@ -1,8 +1,8 @@
 from app.models.carteira import Carteira
 from app.models.compra import Compra
-from app.models.order import Order
+from app.models.pedido import Pedido
 from app.models.previsao import Previsao
-from app.models.quote import Quote
+from app.models.orcamento import Orcamento
 
 Schema = {}
 
@@ -22,7 +22,7 @@ Page = {
             'max_width': 70,
             'fields': 'Carteira',
             'delete': {
-                'when': [Compra, Order, Quote, Previsao],
+                'when': [Compra, Pedido, Orcamento, Previsao],
                 'msg_ok': 'Carteira excluída!',
                 'msg_no': 'Carteira em uso — não pode ser excluída.',
             },

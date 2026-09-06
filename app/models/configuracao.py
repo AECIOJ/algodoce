@@ -12,7 +12,7 @@ def _decrypt(cipher):
     return decrypt(cipher)
 
 
-class Setting(db.Model):
+class Configuracao(db.Model):
     KEYS = {
         "doceira_telefone": "Telefone",
         "doceira_email": "E-mail",
@@ -24,7 +24,7 @@ class Setting(db.Model):
         "painel_chave": "Chave",
 
     }
-    __tablename__ = "settings"
+    __tablename__ = "configuracoes"
 
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(100), unique=True, nullable=False)

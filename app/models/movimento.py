@@ -1,8 +1,8 @@
 from ajsystem.core.extensions import db
 
 
-class Movto(db.Model):
-    __tablename__ = "movto"
+class Movimento(db.Model):
+    __tablename__ = "movimentos"
 
     id = db.Column(db.Integer, primary_key=True)
     data = db.Column(db.Date, nullable=False)
@@ -15,7 +15,7 @@ class Movto(db.Model):
     variacao = db.Column(db.Numeric(12, 2), nullable=True, default=0)
     sincronizar = db.Column(db.Boolean, nullable=False, default=True)
     operacao_id = db.Column(db.Integer, db.ForeignKey("operacao.id"), nullable=True)
-    trf_id = db.Column(db.Integer, db.ForeignKey("recurso_trf.id"), nullable=True)
+    transferencia_id = db.Column(db.Integer, db.ForeignKey("transferencias.id"), nullable=True)
     historico = db.Column(db.Text, nullable=True)
 
     recurso = db.relationship("Recurso", backref="movtos")
@@ -32,7 +32,7 @@ class Movto(db.Model):
         return 'Pago na data' if self.tipo == 'S' else 'Recebido na data'
 
     def __repr__(self):
-        return f"<Movto {self.id} {self.tipo} {self.valor}>"
+        return f"<Movimento {self.id} {self.tipo} {self.valor}>"
 
 
 Entity = {

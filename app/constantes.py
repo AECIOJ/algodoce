@@ -20,7 +20,7 @@ PRODUCAO_ETAPAS = {0: "Preparação", 1: "Montagem", 2: "Embalagem"}
 FORMINHAS = {0: "Simples (Inclusa)", 1: "Fornecidas pelo Cliente"}
 
 # Tipos de evento do formulário público de orçamento (valores gravados em
-# `Event.tipo`). O painel (sys) mantém o próprio vocabulário em
+# `Evento.tipo`). O painel (sys) mantém o próprio vocabulário em
 # app/routes/sys/orcamentos.py.
 tipos_evento = {
     'aniversario': 'Aniversário',

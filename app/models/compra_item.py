@@ -9,13 +9,13 @@ class CompraItem(db.Model):
         db.Integer, db.ForeignKey("compras.id"), nullable=False
     )
     insumo_id = db.Column(
-        db.Integer, db.ForeignKey("ingredients.id"), nullable=False
+        db.Integer, db.ForeignKey("insumos.id"), nullable=False
     )
     quantidade = db.Column(db.Numeric(12, 3), nullable=False)
     preco = db.Column(db.Numeric(12, 2), nullable=False)
 
     compra = db.relationship("Compra", back_populates="items")
-    insumo = db.relationship("Ingredient", lazy="joined")
+    insumo = db.relationship("Insumo", lazy="joined")
 
     def __repr__(self):
         return f"<CompraItem c={self.compra_id} i={self.insumo_id}>"

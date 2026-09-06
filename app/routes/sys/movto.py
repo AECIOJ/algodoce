@@ -58,19 +58,19 @@ def sync_movto_save(instance, changed, old_vals):
 
 def excluir_movto(id, list_endpoint, label='Lançamento'):
     """Exclui movto revertendo a previsão + desvinculando compra/pedido."""
-    from app.models.movto import Movto
+    from app.models.movimento import Movimento
     from app.models.compra import Compra
-    from app.models.order import Order
-    movto = Movto.query.get(id)
+    from app.models.pedido import Pedido
+    movto = Movimento.query.get(id)
     if not movto:
         flash("Registro inexistente", "warning")
         return redirect(url_for(list_endpoint))
-    compra = Compra.query.filter_by(movto_id=movto.id).first()
-    order = Order.query.filter_by(movto_id=movto.id).first()
+    compra = Compra.query.filter_by(movimento_id=movto.id).first()
+    order = Pedido.query.filter_by(movimento_id=movto.id).first()
     if compra:
-        compra.movto_id = None
+        compra.movimento_id = None
     if order:
-        order.movto_id = None
+        order.movimento_id = None
     _sync_previsao(movto.previsao_id, float(movto.valor or 0),
                    movto.variacao, movto.sincronizar, -1)
     db.session.delete(movto)

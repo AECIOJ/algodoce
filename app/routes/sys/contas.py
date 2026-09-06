@@ -1,5 +1,5 @@
-from app.models.client import Conta
-from app.models.order import Order
+from app.models.conta import Conta
+from app.models.pedido import Pedido
 
 Schema = {}
 
@@ -21,7 +21,7 @@ Page = {
             'sessions': {
                 'Pedidos': {
                     'query': {
-                        'columns': ['Order'],
+                        'columns': ['Pedido'],
                         'groups': 'status',
                         'order': 'data_pedido desc',
                     },

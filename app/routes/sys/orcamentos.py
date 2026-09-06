@@ -2,20 +2,20 @@ from flask import request, redirect, url_for, flash, render_template, render_tem
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
 from ajsystem.core.do_report import print_report
-from app.models.client import Conta
-from app.models.order import Order
-from app.models.order_item import OrderItem
-from app.models.quote import Quote
-from app.models.quote_item import QuoteItem
-from app.models.quote import Entity as QuoteEntity
-from app.models.quote_item import Entity as QuoteItemEntity
+from app.models.conta import Conta
+from app.models.pedido import Pedido
+from app.models.pedido_item import PedidoItem
+from app.models.orcamento import Orcamento
+from app.models.orcamento_item import OrcamentoItem
+from app.models.orcamento import Entity as OrcamentoEntity
+from app.models.orcamento_item import Entity as OrcamentoItemEntity
 from app.reports.orcamentos import ORCAMENTO
 
 # Entity aninhada para o motor de relatórios (`_module_entity`): labels,
 # formatos, FK e calc resolvidos a partir das Entities dos models.
 Entity = {
-    'Quote': QuoteEntity,
-    'QuoteItem': QuoteItemEntity,
+    'Orcamento': OrcamentoEntity,
+    'OrcamentoItem': OrcamentoItemEntity,
 }
 
 
@@ -32,13 +32,13 @@ def _btn_enviar_action(instance):
 
 
 Schema = {
-    'Quote': {
+    'Orcamento': {
         'status': {'pos_form': 4},
         'total': {'editor': 'eTotal'},
         'pedido_id': {'pos_form': 4},
     },
-    'QuoteItem': {
-        'product_id': {
+    'OrcamentoItem': {
+        'produto_id': {
             'lookup': {
                 'replaces': {
                     'quantidade': 'qtd_minima',
@@ -58,11 +58,11 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Quote',
+            'columns': 'Orcamento',
             'order': ['id'],
         },
         'form': {
-            'fields': 'Quote',
+            'fields': 'Orcamento',
             'readonly': lambda q: q is not None and q.pedido_id is not None,
             'delete': {
                 'when': lambda q: q.pedido_id is None,
@@ -91,12 +91,12 @@ Page = {
                          'js': 'itUpdateZerados(this)'},
                     ],
                     'table': {
-                        'columns': ['QuoteItem'],
+                        'columns': ['OrcamentoItem'],
                         'totals': ['quantidade', {'valor': 'eTotal'}],
                     },
                 },
                 'Evento': {
-                    'fields': ['Event'],
+                    'fields': ['Evento'],
                 },
             },
         },
@@ -197,12 +197,12 @@ _CONVERTER_HTML = """{% extends "pages/sys.html" %}
           {% if clientes.perfect_match %}
           <div class="form-control mb-2">
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="client_id" class="radio radio-sm" value="{{ clientes.perfect_match.id }}" checked>
+              <input type="radio" name="conta_id" class="radio radio-sm" value="{{ clientes.perfect_match.id }}" checked>
               <span class="text-sm">{{ clientes.perfect_match.nome }} — {{ clientes.perfect_match.telefone }} <span class="badge badge-success badge-sm">Combinação exata</span></span>
             </label>
           </div>
           {% endif %}
-          <select name="client_id" class="select select-bordered select-sm w-full">
+          <select name="conta_id" class="select select-bordered select-sm w-full">
             <option value="">— Selecione —</option>
             {% for c in clientes.clients %}
             <option value="{{ c.id }}"
@@ -255,7 +255,7 @@ def aprovar(id):
     Rota registrada em `create_app` como `orcamentos.aprovar`
     (`/<int:id>/aprovar`, GET+POST), pois o motor gera apenas o CRUD.
     """
-    quote = Quote.query.get_or_404(id)
+    quote = Orcamento.query.get_or_404(id)
     if quote.pedido_id:
         flash("Orçamento já foi convertido!", "warning")
         return redirect(url_for("orcamentos.list"))
@@ -292,14 +292,14 @@ def aprovar(id):
         db.session.add(conta)
         db.session.flush()
     else:
-        client_id = request.form.get("client_id", type=int)
-        conta = Conta.query.get(client_id)
+        conta_id = request.form.get("conta_id", type=int)
+        conta = Conta.query.get(conta_id)
         if not conta:
             flash("Selecione um cliente para converter.", "warning")
             return redirect(url_for("orcamentos.aprovar", id=id))
 
-    order = Order(
-        client_id=conta.id,
+    order = Pedido(
+        conta_id=conta.id,
         data_entrega=None,
         observacao=quote.observacao,
         carteira_id=quote.carteira_id,
@@ -310,9 +310,9 @@ def aprovar(id):
     db.session.flush()
 
     for item in quote.items:
-        order_item = OrderItem(
-            order_id=order.id,
-            product_id=item.product_id,
+        order_item = PedidoItem(
+            pedido_id=order.id,
+            produto_id=item.produto_id,
             quantidade=item.quantidade,
             preco_unitario=item.preco_unitario,
             observacao=item.observacao,
@@ -323,11 +323,11 @@ def aprovar(id):
     order.total = sum(
         (i.preco_unitario or 0) * i.quantidade for i in order.items
     )
-    if quote.event:
-        order.event = quote.event
+    if quote.evento:
+        order.evento = quote.evento
     quote.status = 9
     quote.pedido_id = order.id
-    order.quote_id = quote.id
+    order.orcamento_id = quote.id
 
     db.session.commit()
     flash("Orçamento convertido para pedido!", "success")
@@ -340,7 +340,7 @@ def renovar(id):
     Rota registrada em `create_app` como `orcamentos.renovar`
     (`/<int:id>/renovar`, POST), pois o motor gera apenas o CRUD.
     """
-    quote = Quote.query.get_or_404(id)
+    quote = Orcamento.query.get_or_404(id)
     if quote.status != 7:
         flash("Apenas orçamentos expirados podem ser renovados.", "warning")
         return redirect(url_for("orcamentos.list"))

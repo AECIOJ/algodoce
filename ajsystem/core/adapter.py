@@ -1,7 +1,7 @@
 """Acoplamento do framework com a aplicação host.
 
 Ponto único de import das dependências específicas do projeto (SQLAlchemy db,
-login manager, modelos User/Setting, config APP) mais hooks opcionais de
+login manager, modelos Usuario/Configuracao, config APP) mais hooks opcionais de
 markdown/túnel. Para portar o framework a outro host, ajustar este arquivo.
 """
 import os
@@ -9,8 +9,8 @@ import os
 from flask import current_app
 
 from ajsystem.core.extensions import db, login_manager
-from app.models.user import User
-from app.models.setting import Setting
+from app.models.usuario import Usuario
+from app.models.configuracao import Configuracao
 from app import config as _config_mod
 from app.config import APP as _APP, Temas as _TEMAS
 from ajsystem.defs.config import build_app, build_temas

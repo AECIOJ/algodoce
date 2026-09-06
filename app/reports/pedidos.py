@@ -14,7 +14,7 @@ def _cliente_telefone(order):
 
 
 def _event_after(instance):
-    e = instance.event
+    e = instance.evento
     if not e:
         return []
     lines = []
@@ -69,7 +69,7 @@ PEDIDO = {
     'body': {
         'table': {
             'columns': {
-                'product.nome':   {'label': 'Produto', 'width': 50},
+                'produto.nome':   {'label': 'Produto', 'width': 50},
                 'quantidade':     {'label': 'Qtd.', 'width': 10, 'align': 'center'},
                 'preco_unitario': {'label': 'Preço', 'width': 20, 'align': 'right'},
                 'valor':          {'label': 'Valor', 'width': 20, 'align': 'right',

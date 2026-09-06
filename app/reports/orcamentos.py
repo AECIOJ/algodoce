@@ -2,7 +2,7 @@ from app.constantes import FORMINHAS
 
 
 def _event_after(instance):
-    e = instance.event
+    e = instance.evento
     if not e:
         return []
     lines = []
@@ -57,7 +57,7 @@ ORCAMENTO = {
     'body': {
         'table': {
             'columns': {
-                'product_id':     {'width': 44},   # FK → label 'Produto'; valor via product.nome
+                'produto_id':     {'width': 44},   # FK → label 'Produto'; valor via produto.nome
                 'quantidade':     {'width': 10},   # INT → center (mínimo do motor: 15mm)
                 'preco_unitario': {'width': 14},   # NUM currency → right/brl
                 'valor':          {'width': 14, 'agg': 'sum'},   # calc da Entity

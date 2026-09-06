@@ -1,4 +1,4 @@
-from app.models.movto import Movto
+from app.models.movimento import Movimento
 from app.routes.sys.movto import sync_movto_save, excluir_movto
 
 
@@ -16,7 +16,7 @@ PREVISOES = {
 }
 
 Schema = {
-    'Movto': {
+    'Movimento': {
         'tipo': {'pos_filter': 9, 'default': 'S'},
         'recurso_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
         'conta_id': {'label': 'Fornecedor',
@@ -38,11 +38,11 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Movto',
+            'columns': 'Movimento',
             'order': ['data', 'id'],
         },
         'form': {
-            'fields': 'Movto',
+            'fields': 'Movimento',
             'delete': False,
             'post_save': sync_movto_save,
             'buttons': [
