@@ -164,20 +164,19 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 | `transform` | str | Transformação de exibição (`'title'`, etc.) |
 | `options` | dict | Opções de `LIST` e de `MULT10` `{valor: rótulo}` |
 | `currency` | int | Moeda pelo código `CURRENCY` (`0` = sem moeda; `1` = padrão). `True`/`'brl'` legados equivalem ao padrão. Formatação e símbolo vêm do motor (filtro `money`) |
-| `editor` | str | Nome exclusivo do input no HTML (default: o nome do campo). Evita colisão quando dois campos teriam o mesmo `name` na página; o save lê `editor or name` |
+| `input_name` | str | Nome do input no HTML (default: o nome do campo). Usado como alvo de escrita dos totais; o save lê `input_name or name` |
 | `tag` | dict | Badge do valor — `{'colors': {...}, 'color': ..., 'link': ...}` (ver `tag` abaixo) |
 | `min` / `max` | int/float | Limites do valor |
 | `step` | int | Passo do input numérico |
 | `mask` | str | Máscara de formatação (ex.: `'999'`) |
 | `rows` | int | Altura (número de linhas) para campo de texto |
-| `decimals` | int | Casas decimais (inputs numéricos exibem pt-BR com essas casas; `0` = inteiro) |
+| `decimals` | int | Casas decimais (inputs numéricos exibem pt-BR com essas casas; `0` = inteiro; com decimais, a digitação é modo calculadora: dígitos à direita, vírgula alterna p/ fração, Backspace desfaz) |
 | `pos_list` | int | Visibilidade na lista: `0` oculta; `2` vai para o card; `1`/`None` exibe |
 | `pos_filter` | int | Filtro do painel: `0` fora; `1`/`2`/`3` modos; `9` fixo pelo `default` (aplica `WHERE` de igualdade, sem UI; força `pos_form: 0` + `pos_list: 0`) |
 | `input` | str | Tipo de input (`'email'`, `'textarea'`, ...) |
 | `align` | str | Alinhamento da célula (`'left'`, `'center'`, `'right'`...) |
 | `lookup` | dict/`Lookup` | Complemento de FK para escolha/exibição por busca (ver abaixo) |
-| `replaces` | dict | **Preenchimento automático** de campos ao escolher: `{campo_alvo: fonte}` — fonte = atributo do registro (select FK), `{valor_opcao: literal}` (modo por-opção, p/ LISTA) ou literal (modo constante). `lookup.replaces` (legado) tem precedência |
-| `on_set` | dict | Alias de `replaces` no nível do campo (mesmo mecanismo client-side) |
+| `on_set` | dict | **Efeitos ao setar**: `{'replaces': {...}, 'disables': [...]}` — preenchimento (`{campo_alvo: fonte}`) e desabilitação mútua (lista de alvos) |
 
 > **`lookup`** aplica-se a campos FK e substitui o `query`-de-campo. O motor infere
 > da FK o model a pesquisar e o valor gravado é o da prop `value` (default `'id'`).
@@ -192,26 +191,22 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 >   campo) e `None` como `IS NULL`. String aceita `=`, `!=`, `IN (...)`,
 >   `NOT IN (...)`, `IS NULL`, `IS NOT NULL` unidas por `AND` (ex.:
 >   `'ativo = true AND tipo IN (0, 1)'`).
-> - `replaces` (dict): **preenchimento automático** de campos da linha a partir
->   do registro escolhido — `{campo_alvo: campo_fonte}`. Ao selecionar, o valor de
->   `campo_fonte` (atributo do registro alvo do FK) é copiado client-side para
->   `campo_alvo` (campo da linha). O mesmo mapa alimenta o botão de rodapé que
->   reaplica o preenchimento (ex. botão de "preços zerados" via `buttons`).
->   Também existe no nível do campo (`replaces` do `Field`, mesma semântica;
->   `lookup.replaces` tem precedência quando ambos declarados) e `on_set` (dict)
->   é alias do mesmo mecanismo.
+> - `replaces` (em `on_set`): **preenchimento automático** de campos da linha
+>   a partir do registro escolhido — `{campo_alvo: campo_fonte}`. O mesmo mapa
+>   alimenta o botão de rodapé que reaplica o preenchimento (ex. botão de
+>   "preços zerados" via `buttons`).
 >   **Modo por-opção** (selects de LISTA): se o valor do mapa for um dict,
 >   `{campo_alvo: {valor_opcao: literal}}`, cada opção estática carrega seu
 >   próprio valor de preenchimento. Ex.:
 >   ```python
 >   'campo_origem': {'type': 'LIST', 'options': STATUS,
->                    'replaces': {'campo_alvo': {0: 'x', 1: 'y'}}},
+>                    'on_set': {'replaces': {'campo_alvo': {0: 'x', 1: 'y'}}}},
 >   ```
 >   **Modo constante**: valor escalar (string em LISTA, número/bool em qualquer
 >   select) vira literal em todas as opções. Ex.:
 >   ```python
 >   'campo_origem': {'type': 'LIST', 'options': STATUS,
->                    'replaces': {'campo_alvo': 'fixo'}},
+>                    'on_set': {'replaces': {'campo_alvo': 'fixo'}}},
 >   ```
 >   (Em select FK, string segue significando atributo-fonte do registro.)
 > - `query` (str): nome de uma busca declarada na rota — em vez de `<select>`,
@@ -227,7 +222,7 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 > 'pai_id': {'type': 'FK', 'label': 'Superior',
 >            'lookup': {'display': 'nome', 'fields': ['nome'], 'value': 'id'}},
 > 'produto_id': {'type': 'FK', 'label': 'Produto', 'required': True,
->                'lookup': {'replaces': {'quantidade': 'qtd_minima',
+>                'on_set': {'replaces': {'quantidade': 'qtd_minima',
 >                                        'preco_unitario': 'preco'}}},
 > ```
 
@@ -236,14 +231,22 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 > (callable ou expressão string). Agregações sobre relacionamentos (ex.: soma
 > dos itens de um pedido) pertencem à sessão/`Query`, não ao `field`.
 
-> **`on_set`** (dict) é alias de `replaces` no nível do campo — mesmo mecanismo
-> client-side, mesma semântica (inclusive o modo por-opção). Exemplo — ao
-> escolher o produto, traz `quantidade` (da `qtd_minima`) e `preco_unitario`
-> (do `preco`):
+> **`on_set`** (dict) — **efeitos ao setar** o campo, com as chaves:
+> - `replaces`: preenchimento `{campo_alvo: campo_fonte}` (modo fonte),
+>   `{campo_alvo: {valor_opcao: literal}}` (modo por-opção, p/ LISTA) ou
+>   `{campo_alvo: literal}` (modo constante). Exemplo — ao escolher o produto,
+>   traz `quantidade` (da `qtd_minima`) e `preco_unitario` (do `preco`):
 > ```python
 > 'produto_id': {'type': 'FK', 'label': 'Produto', 'required': True,
->                'on_set': {'quantidade': 'qtd_minima',
->                           'preco_unitario': 'preco'}},
+>                'on_set': {'replaces': {'quantidade': 'qtd_minima',
+>                                        'preco_unitario': 'preco'}}},
+> ```
+> - `disables`: lista de campos desabilitados enquanto este tiver valor
+>   (reabilita ao limpar). Guarda anti-deadlock: alvo com valor nunca é
+>   desabilitado. Ex. — CPF × CNPJ:
+> ```python
+> 'cpf':  {'type': 'CPF', 'on_set': {'disables': ['cnpj', 'insc_estadual']}},
+> 'cnpj': {'type': 'CNPJ', 'on_set': {'disables': ['cpf']}},
 > ```
 > Campos **`calc`** (virtual, não persistido) de uma tabela editável só são
 > totalizados quando listados em `table.totals` (ver sessões).
@@ -258,10 +261,45 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 >     'params': {'conta_id': 'transacao.conta_id'},
 >     'order': ['vencimento'],
 > }
-> 'previsao_id': {'lookup': {'display': 'id', 'query': 'PREVISOES',
->                            'replaces': {'valor': 'saldo'}}},
+> 'previsao_id': {'lookup': {'display': 'id', 'query': 'PREVISOES'},
+>                'on_set': {'replaces': {'valor': 'saldo'}}},
 > ```
 > Linhas trazem `raw` (valores crus) para o `replaces` aplicar ao escolher.
+>
+> **Validadores client-side** — genéricos em `ajsystem/static/js/validators.js`
+> (`cpf`, `cnpj`, registro `window.FieldValidators`); customs do app em
+> `app/static/js/validacoes.js` (arquivo do app, criar seguindo o modelo):
+> ```js
+> // app/static/js/validacoes.js
+> FieldValidators.register('placa', function (v) {
+>   return /^[A-Z]{3}[0-9]$/.test(String(v || ''));
+> });
+> ```
+> ```python
+> # declaração no campo: chave resolvida nos dois registros
+> 'placa': {'type': 'TEXT', 'validate': 'placa'},
+> ```
+> ```html
+> <!-- incluir APÓS validators.js (sys.html tem o slot marcado em comentário); bump no ?v= a cada mudança -->
+> <script src="{{ url_for('static', filename='js/validacoes.js') }}?v=1"></script>
+> ```
+> Regras: a chave é resolvida em cada lado de forma independente — `validate`
+> com chave desconhecida não bloqueia (fail-soft + aviso no console); a função
+> custom recebe DÍGITOS (máscara já removida), então só serve a validações
+> numéricas; para impor no POST, espelhe a regra em `defs/validators.py`
+> (`VALIDATORS`), pois o client é só UX.
+>
+> **JS do framework (`ajsystem/static/js/`)** — um arquivo por domínio, IIFE +
+> `'use strict'`, exportando em `window` o que templates/`onclick` consomem;
+> carga via `<script src>` no bloco `scripts` do `sys.html` (ordem: libs,
+> framework, app), com `?v=N` e bump a cada mudança (sem build; bind-mount
+> reflete na hora, navegador cacheia). Regra: arquivo sem wiring e sem teste
+> apodrece (precedente: `multi-ctl.js`, hoje sem inclusão) — todo `.js` novo
+> entra já incluído e testado. `modals.js` (diálogos) e `validators.js`
+> (validações) seguem o padrão. Candidatos futuros, **propositalmente ainda
+> inline**: `numbers.js` (parse/format pt-BR), `totals.js` (cálculos e somas),
+> `items.js` (linhas filhas), `search.js` (fluxo de busca), `shell.js`
+> (menus/timeout/QR) — extrair um por vez, cada um com teste, nunca big-bang.
 
 > **`tag`** — badge semântico do valor do campo (texto + cor), com
 > navegação opcional:
@@ -404,6 +442,33 @@ Dict custom (além do preset `'on_off'`):
 
 Botões com `endpoint`/`action` são ocultos em registro novo (sem instância).
 
+> **Modal via `action` (`modal_script`)** — um callable Python pode abrir um
+> modal JS numa página gerada: retorne `modal_script(...)` e aponte `render`
+> para um container (ex.: `'#report-content'`); o `injectHTML` executa o
+> `<script>` ao injetar. A `action` recebe a `instance` (pode ser `None`).
+> ```python
+> from ajsystem.defs.buttons import modal_script
+>
+> def _btn_detalhes(instance):
+>     if instance is None:
+>         return ''
+>     return modal_script(
+>         'Detalhes',
+>         lines=[f'Cliente: {instance.cliente_nome}',
+>                f'Total: {instance.total}'],
+>         buttons=[{'label': 'Fechar', 'cls': 'btn-ghost', 'value': 'x'}],
+>     )
+>
+> {'label': 'Detalhes', 'icon': 'eye', 'color': 'info', 'outline': True,
+>  'action': _btn_detalhes, 'render': '#report-content',
+>  'position': 'nav_right'},
+> ```
+> Regras: monta `ajModal({...})` com escape seguro (`json` + neutralização
+> de `</`) — pode interpolar dado do banco sem risco de quebrar o JS;
+> `instance=None` deve retornar `''`; só modal **informativo** (sem callbacks
+> — confirmação com ação segue via `confirm_msg`/JS); para HTML arbitrário use
+> `html=` (já sanitizado, por sua conta).
+
 ##### `sessions` — seções filhas
 
 Uma sessão é uma seção do formulário que trata um **filho** (outra entidade
@@ -430,10 +495,10 @@ podendo ser definida **uma, duas ou todas**, conforme o caso:
 - `table.columns`: colunas da tabela editável; o motor persiste as linhas
   (adicionar/remover) do relacionamento.
 - `table.totals`: lista que define a **linha de totais** no rodapé da tabela
-  editável. Aceita item string (só totaliza) ou dict `{coluna: editor}`
-  (totaliza **e** grava no input do master cujo `editor` é o valor). Ex.:
+  editável. Aceita item string (só totaliza) ou dict `{coluna: input_name}`
+  (totaliza **e** grava no input do master cujo `input_name` é o valor). Ex.:
   `['quantidade', {'valor': 'eTotal'}]` — soma `quantidade` e soma `valor`
-  propagando ao campo do master com `editor: 'eTotal'`. Sem `totals`, nenhuma
+  propagando ao campo do master com `input_name: 'eTotal'`. Sem `totals`, nenhuma
   linha de totais é exibida. Campos com `calc` podem ser totalizados — o total
   soma, para cada linha, o valor calculado (não apenas o campo cru). O rótulo
   `Total` ocupa as colunas até a primeira coluna totalizada. A célula do total
@@ -445,7 +510,7 @@ podendo ser definida **uma, duas ou todas**, conforme o caso:
   `{'label': 'Atualizar preços zerados', 'icon': 'currency-dollar',
   'color': 'secondary', 'js': 'itUpdateZerados(this)'}` — preenche, para cada
   linha cujo campo esteja vazio/zerado, o valor do atributo da opção selecionada,
-  seguindo o mapa `replaces`/`on_set` do FK. Nota: `buttons` só renderiza na
+  seguindo o mapa `on_set` do FK. Nota: `buttons` só renderiza na
   tabela editável (`table`).
 - `query.columns`: colunas da exibição somente leitura (mini-relatório).
 - `query.groups`: campo de agrupamento; a leitura é exibida agrupada (na ordem

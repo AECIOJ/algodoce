@@ -34,17 +34,15 @@ def _btn_enviar_action(instance):
 Schema = {
     'Orcamento': {
         'status': {'pos_form': 4},
-        'total': {'editor': 'eTotal'},
+        'total': {'input_name': 'eTotal'},
         'pedido_id': {'pos_form': 4},
     },
     'OrcamentoItem': {
         'produto_id': {
-            'lookup': {
-                'replaces': {
-                    'quantidade': 'qtd_minima',
-                    'preco_unitario': 'preco_unitario',
-                },
-            },
+            'on_set': {'replaces': {
+                'quantidade': 'qtd_minima',
+                'preco_unitario': 'preco_unitario',
+            }},
         },
     },
 }

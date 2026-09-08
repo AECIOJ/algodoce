@@ -47,4 +47,8 @@
     color: oklch(var(--suc)/1);
   }
 </style>
+{% set _modal = TEMA.modal or {} %}
+<script>
+  window.AJ_MODAL = {{ {'tons': (_modal.tons or {}), 'tipos': (_modal.tipos or {})}|tojson }};
+</script>
 {% endif %}

@@ -10,7 +10,7 @@ from ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguran
 from ajsystem.core.auto import registrar_modulos
 from ajsystem.core.form import _empty_value
 from ajsystem.core.menu import url_do_item
-from ajsystem.defs.data import fmt_mask, get_field
+from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens
 from ajsystem.core.list import fields_to_columns
 from ajsystem.core.utils import (
     deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, fmt_num, item_ref,
@@ -49,6 +49,7 @@ def init_app(app):
     app.jinja_env.filters['fmtdate'] = fmt_date
     app.jinja_env.filters['fmtdatetime'] = fmt_datetime
     app.jinja_env.filters['mask'] = fmt_mask
+    app.jinja_env.tests['datemask'] = has_date_tokens
     app.jinja_env.filters['fields_to_columns'] = fields_to_columns
     app.jinja_env.filters['tag_color'] = _resolve_tag_color
     app.jinja_env.filters['heroicon'] = heroicon_filter

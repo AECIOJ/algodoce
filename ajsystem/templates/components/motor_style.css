@@ -1093,7 +1093,7 @@ input[type="number"]:not([step]) {
   -moz-appearance: textfield;
 }
 input.input-percent {
-  padding-right: 1.75rem;
+  padding-right: 2rem;
 }
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator,

@@ -25,9 +25,6 @@ class Page:
     on_show: Optional[Callable] = None    # hook executado ao renderizar a página
     upload: Optional[dict] = None         # política de upload da página (sobrescreve App.upload; ausente = herda)
 
-    # ── Campos internos (preenchidos pelo motor) ──
-    _module_name: Optional[str] = None
-
     # Acesso amigável a sub-configs (mantém compat com usos via dict .get)
     def get(self, key, default=None):
         return getattr(self, key, default)
@@ -43,8 +40,6 @@ def parse_page(spec) -> Page:
         return spec
     if isinstance(spec, dict):
         spec = dict(spec)
-        if 'module' in spec:
-            spec.setdefault('_module_name', spec.pop('module'))
         return Page(**{k: v for k, v in spec.items() if k in _page_fields()})
     raise TypeError(f"Page deve ser dict ou Page, recebeu {type(spec).__name__}: {spec!r}")
 

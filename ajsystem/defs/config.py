@@ -22,6 +22,7 @@ class Tema:
     feedback: dict = field(default_factory=dict)
     apoio: dict = field(default_factory=dict)
     barras: dict = field(default_factory=dict)
+    modal: dict = field(default_factory=dict)
 
 
 @dataclass

@@ -34,7 +34,7 @@ Schema = {
         'carteira_id': {'label': 'Pagamento',
                         'lookup': {'display': 'nome'}},
         'status': {'pos_form': 4},
-        'valor': {'readonly': True, 'editor': 'eTotal'},
+        'valor': {'readonly': True, 'input_name': 'eTotal'},
     },
     'CompraItem': {
         'insumo_id': {

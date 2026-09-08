@@ -21,7 +21,7 @@ Entity = {
         'data_pedido': {'type': 'DATA_HORA'},
         'status': {'type': 'LIST', 'options': QUOTE_STATUS},
         'validade': {'type': 'INT', 'default': 3},
-        'carteira_id': {'type': 'FK', 'query': {'model': 'carteira'}},
+        'carteira_id': {'type': 'FK'},
         'forminhas': {'type': 'LIST', 'options': FORMINHAS},
         'observacao': {'type': 'MEMO'},
         'pedido_id': {'type': 'ID'},

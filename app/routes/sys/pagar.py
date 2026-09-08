@@ -8,7 +8,7 @@ Schema = {
                                 'when': {'ativo': True, 'tipo': [1, 2]}}},
         'operacao_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
                                 'when': 'tipo = 2 AND pai_id IS NOT NULL'}},
-        'total_previsto': {'editor': 'ePrevisto'},
+        'total_previsto': {'input_name': 'ePrevisto'},
         'tipo': {'pos_filter': 9, 'default': 'P'},
     },
     'Previsao': {

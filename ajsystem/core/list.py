@@ -37,7 +37,7 @@ def infer_filter_type(f: Field):
         return 'number'
     if f.input == 'multi':
         return None
-    if f.input == 'select' or f.options is not None or f.query is not None:
+    if f.input == 'select' or f.options is not None:
         return 'select'
     return 'text'
 

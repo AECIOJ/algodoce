@@ -11,8 +11,8 @@ Regra de merge por campo: `Entity[field] ∪ Schema[entidade][field]`, o que vie
 no `Schema` vence. Se o model não tem `Entity`, o `Schema`/config da rota vale
 integral (compat com o modelo legado).
 
-Esta camada NÃO importa `query` (a espec `Query`/FK entra depois, quando uma
-página precisar). Aqui `query` permanece apenas como config crua.
+Esta camada NÃO importa `Query` (a espec de busca/FK entra depois, quando uma
+página precisar).
 """
 import importlib
 import re
@@ -45,10 +45,29 @@ FIELD_TYPES = {
 # `required` é sempre opt-in: declarado na Entity/Schema via 'required': True.
 
 
+_DOW_PT = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']
+_MES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
+           'jul', 'ago', 'set', 'out', 'nov', 'dez']
+_DATE_TOKENS_RE = re.compile(r'ddd|mmm|aaaa|yyyy|aa|yy|dd|mm')
+
+
+def has_date_tokens(mask):
+    """Diz se a máscara tem tokens de data (`dd`/`mm`/`mmm`/`aa`/`yy`/`aaaa`/`yyyy`/`ddd`)."""
+    return bool(mask) and _DATE_TOKENS_RE.search(str(mask)) is not None
+
+
 def fmt_mask(value, mask):
-    """Aplica `mask` a `value`. Tolerante: extrai dígitos antes de formatar."""
+    """Aplica `mask` a `value`. Tolerante: extrai dígitos antes de formatar.
+
+    Com tokens de data e valor data/hora: `dd`/`mm`/`aaaa` (ou `yyyy`)/
+    `aa` (ou `yy`) do dia/mês/ano, `ddd` dia da semana e `mmm` mês abreviado
+    (PT, sem locale); `9`s preenchidos dos dígitos DDMMYYYY; literais passam
+    direto. Sem tokens (ou valor sem data): caminho original de dígitos.
+    """
     if value is None:
         return ''
+    if has_date_tokens(mask) and hasattr(value, 'strftime') and hasattr(value, 'year'):
+        return _fmt_mask_data(value, mask)
     digits = re.sub(r'\D', '', str(value))
     if not mask:
         return digits
@@ -64,6 +83,38 @@ def fmt_mask(value, mask):
         else:
             out.append(ch)
     return ''.join(out)
+
+
+def _fmt_mask_data(value, mask):
+    """Formata data/hora pela máscara com tokens (ver `fmt_mask`)."""
+    y, m, d = value.year, value.month, value.day
+    rep = {
+        'aaaa': f'{y:04d}',
+        'yyyy': f'{y:04d}',
+        'aa': f'{y % 100:02d}',
+        'yy': f'{y % 100:02d}',
+        'mmm': _MES_PT[m - 1],
+        'mm': f'{m:02d}',
+        'ddd': _DOW_PT[value.weekday()],
+        'dd': f'{d:02d}',
+    }
+    digits = f'{d:02d}{m:02d}{y:04d}'
+    out = []
+    di = 0
+    for ch in mask:
+        if ch == '9':
+            if di < len(digits):
+                out.append(digits[di])
+                di += 1
+            else:
+                break
+        else:
+            out.append(ch)
+    text = ''.join(out)
+    for tok in ('aaaa', 'yyyy', 'aa', 'yy', 'mmm', 'mm', 'ddd', 'dd'):
+        if tok in text:
+            text = text.replace(tok, rep[tok])
+    return text
 
 
 def _auto_label(name: str) -> str:
@@ -101,22 +152,19 @@ class Query:
     when: Optional[Union[str, dict, Callable]] = None
     groups: Optional[Union[str, list[str]]] = None
     order: Optional[Union[str, list[str]]] = None
-    limit: Optional[int] = None
 
 
 @dataclass
 class Table:
     """Especificação de tabela editável (Master-Detail) em sessões de formulário."""
     columns: Union[str, list, dict, None] = None
-    allow_add: bool = True
-    allow_delete: bool = True
     order: Optional[Union[str, list[str]]] = None
 
 
 @dataclass
 class Lookup:
-    """Complemento de um campo para escolha/exibição por busca (no lugar do `query`
-    do campo). Define COMO escolher e exibir um registro vinculado (FK).
+    """Complemento de um campo para escolha/exibição por busca. Define COMO
+    escolher e exibir um registro vinculado (FK).
 
     - `fields`:  campo(s) a listar ao escolher. `1` → `<select>`; `>1` → `<modal>`.
                  Default: `[display]`.
@@ -124,12 +172,6 @@ class Lookup:
                  campo após `id` da entidade alvo (senão o primeiro campo).
     - `value`:   campo a retornar e gravar no registro. Default: `'id'`.
     - `when`:    condição para listar nas opções de escolha (dict ou string SQL).
-    - `replaces`: dict `{campo_alvo: campo_fonte}` — ao selecionar um registro,
-                  copia client-side atributos da opção (campos do registro alvo)
-                  para campos do registro filho. Ex.: `{'quantidade': 'qtd_minima',
-                  'preco_unitario': 'preco'}`.
-                  Legado: prefira `replaces` no `Field`; `lookup.replaces` segue
-                  suportado com precedência (alias, não declare nos dois).
     - `query`:   nome de uma busca declarada na rota (ex.: `'PREVISOES'`) — em vez
                  de `<select>`, renderiza display + hidden + botão externo que abre
                  modal de busca alimentado pelo endpoint do motor.
@@ -138,7 +180,6 @@ class Lookup:
     display: Optional[str] = None
     value: Optional[str] = None
     when: Optional[Union[str, dict, Callable]] = None
-    replaces: Optional[dict] = None
     query: Optional[str] = None
 
 
@@ -151,7 +192,6 @@ class Session:
     `query` (somente leitura) OU `table` (editável).
     """
     template: Optional[str] = None
-    name: Optional[str] = None
     fields: Union[str, list, dict, None] = None
     query: Optional[dict] = None
     table: Optional[Union[dict, Table]] = None
@@ -159,10 +199,8 @@ class Session:
     def __post_init__(self):
         if self.template:
             return
-        if not self.name:
-            raise ValueError("Session: 'name' é obrigatório quando 'template' não é fornecido.")
         if self.query is not None and self.table is not None:
-            raise ValueError(f"Sessão '{self.name}': defina 'query' OU 'table', não ambas na mesma sessão.")
+            raise ValueError("Sessão: defina 'query' OU 'table', não ambas na mesma sessão.")
 
 
 @dataclass
@@ -175,22 +213,16 @@ class Field:
     options: Optional[dict] = None
     pos_filter: Optional[int] = None
     mask: Optional[str] = None
-    editor: Optional[str] = None  # nome exclusivo do input no HTML (substitui field.name no `name`)
-    query: Any = None          # config crua (str/dict); Query entra posteriormente
+    input_name: Optional[str] = None  # nome do input no HTML (default: field.name); o save lê `input_name or name`
     lookup: Any = None         # complemento de escolha/exibição (dict | Lookup | True)
-    replaces: Optional[dict] = None  # {campo_alvo: fonte} — fonte = atributo do
-        # registro (select FK) ou {valor_opcao: literal} (modo por-opção, p/ LIST).
-        # `lookup.replaces` (legado) tem precedência quando ambos declarados.
     validate: Optional[Union[str, list, Callable]] = None
     decimals: Optional[int] = None
     min: Optional[Union[int, float]] = None
     max: Optional[Union[int, float]] = None
     step: Optional[Union[int, float]] = None
-    derived: Optional[dict] = None
     currency: Optional[Union[int, str, bool]] = None  # código CURRENCY (0=off); True/'brl' legados = padrão
     percent: bool = False
     required: bool = False
-    mastermodel: Optional[Any] = None
     placeholder: Optional[str] = None
     help: Any = None
     transform: Any = None
@@ -198,14 +230,12 @@ class Field:
     readonly: bool = False
     hidden: bool = False
     digits_only: bool = False
-    attrs: Optional[dict] = None
     pos_form: int = 1
     pos_list: int = 1
     default: Any = None
     rows: int = 1
-    on_set: Optional[Union[Callable, dict]] = None
-    on_set_ent: Optional[str] = None
-    on_set_mod: Optional[str] = None
+    on_set: Optional[dict] = None  # efeitos ao setar: {'replaces': {...},
+        # 'disables': [...]} (ver README)
     calc: Optional[Union[str, Callable]] = None
     tag: Any = None
 
@@ -269,7 +299,6 @@ def build_field_config(name: str, cfg: dict) -> dict:
     if 'label' not in props:
         props['label'] = _auto_label(name)
 
-    # `query` fica como config crua (entrada para relacionamentos/FK).
     if 'list' in props:
         props['options'] = props.pop('list')
 
@@ -597,9 +626,9 @@ def resolve_lookup(field, source_model):
       - `value`:   campo a retornar/gravar (default: 'id').
       - `fields`:  campo(s) a listar ao escolher (default: [`display`]).
       - `when`:    condição para listar nas opções de escolha.
-      - `replaces`: `lookup.replaces` (legado, com precedência) ou `replaces`
-        do `Field`. Valor str = atributo-fonte do registro (select FK);
-        valor dict = mapa por-opção `{valor_opcao: literal}` (p/ LIST).
+      - `replaces`: `replaces` de `on_set` do `Field` (efeitos ao setar).
+        Valor str = atributo-fonte do registro (select FK); valor dict =
+        mapa por-opção `{valor_opcao: literal}` (p/ LIST); escalar = constante.
     Retorna dict resolvido com `path` (`<relação>.<display>`) ou `None`.
     """
     raw = getattr(field, 'lookup', None)
@@ -611,8 +640,8 @@ def resolve_lookup(field, source_model):
             cfg = {k: v for k, v in vars(raw).items() if v is not None}
         elif isinstance(raw, dict):
             cfg = dict(raw)
-    if cfg.get('replaces') is None:
-        cfg['replaces'] = getattr(field, 'replaces', None)
+    _os = getattr(field, 'on_set', None)
+    cfg['replaces'] = _os.get('replaces') if isinstance(_os, dict) else None
 
     target = fk_target_model(source_model, field.name) if source_model else None
     display = cfg.get('display')

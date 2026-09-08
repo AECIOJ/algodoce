@@ -122,34 +122,6 @@
   </div>
 </div>
 
-<dialog id="sairModal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">Descartar alterações?</h3>
-    <div class="text-center py-3">
-      <p class="mb-0">Há alterações não salvas. Deseja sair mesmo assim?</p>
-    </div>
-    <div class="modal-action justify-center">
-      <form method="dialog">
-        <button class="btn btn-ghost btn-sm">Cancelar</button>
-      </form>
-      <button type="button" class="btn btn-danger btn-sm inline-flex items-center gap-1" id="sairConfirmBtn">
-        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-logout"/></svg> Sair
-      </button>
-    </div>
-  </div>
-</dialog>
-
-<dialog id="helpModal" class="modal">
-  <div class="modal-box">
-    <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
-        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-xmark"/></svg>
-      </button>
-    </form>
-    <h3 class="font-bold text-lg" id="helpModalTitle"></h3>
-    <div class="pt-2" id="helpModalBody"></div>
-  </div>
-</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -170,57 +142,5 @@ document.addEventListener('DOMContentLoaded', function() {
     window.marcarFormAlterado = markModified;
   }
 });
-function confirmSair() {
-  var modal = document.getElementById('sairModal');
-  var btn = document.getElementById('sairConfirmBtn');
-  if (btn) btn.onclick = function() { if (modal) modal.close(); window.history.back(); };
-  if (window._formModified || window.modified) {
-    if (modal) modal.showModal();
-  } else {
-    window.history.back();
-  }
-}
-function showFieldHelp(btn) {
-  var modal = document.getElementById('helpModal');
-  if (!modal) return;
-  document.getElementById('helpModalTitle').textContent = btn.getAttribute('data-help-title') || '';
-  var body = document.getElementById('helpModalBody');
-  body.innerHTML = '';
-  var items = btn.getAttribute('data-help-items');
-  if (items) {
-    var obj = JSON.parse(items);
-    var table = document.createElement('table');
-    table.className = 'table table-sm w-full';
-    var thead = document.createElement('thead');
-    var trh = document.createElement('tr');
-    ['Entrada', 'Descrição'].forEach(function(h) {
-      var th = document.createElement('th');
-      th.textContent = h;
-      trh.appendChild(th);
-    });
-    thead.appendChild(trh);
-    table.appendChild(thead);
-    var tbody = document.createElement('tbody');
-    Object.keys(obj).forEach(function(k) {
-      var tr = document.createElement('tr');
-      var td1 = document.createElement('td');
-      td1.className = 'font-mono text-xs whitespace-nowrap';
-      td1.textContent = k;
-      var td2 = document.createElement('td');
-      td2.textContent = obj[k];
-      tr.appendChild(td1);
-      tr.appendChild(td2);
-      tbody.appendChild(tr);
-    });
-    table.appendChild(tbody);
-    body.appendChild(table);
-  } else {
-    var p = document.createElement('p');
-    p.className = 'text-sm whitespace-pre-line';
-    p.textContent = btn.getAttribute('data-help-text') || '';
-    body.appendChild(p);
-  }
-  modal.showModal();
-}
 </script>
 {% endblock %}

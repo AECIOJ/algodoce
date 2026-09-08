@@ -1,17 +1,11 @@
 {% macro render_field(field, data=none, ro=false, name_prefix='', show_label=true, ro_fields=none) %}
 {% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
-{% set ns = (name_prefix or '') + (field.editor or field.name) %}
+{% set ns = (name_prefix or '') + (field.input_name or field.name) %}
 {% set label = field.display_label %}
 {% set req = 'required' if field.required else '' %}
 {% set dis = 'disabled' if (field.disabled or ro) else '' %}
 {% set ph = field.placeholder or '' %}
 {% set _ro_msg = ro_fields.get(field.name) if ro_fields else none %}
-{% set attr_str = '' %}
-{% if field.attrs %}
-  {% for k, v in field.attrs.items() %}
-    {% set attr_str = attr_str ~ ' ' ~ k ~ '="' ~ v ~ '"' %}
-  {% endfor %}
-{% endif %}
 {% set num_str = '' %}
 {% if field.min is not none %}{% set num_str = num_str ~ ' min="' ~ field.min ~ '"' %}{% endif %}
 {% if field.max is not none %}{% set num_str = num_str ~ ' max="' ~ field.max ~ '"' %}{% endif %}
@@ -47,7 +41,7 @@
 {% endif %}
 {% elif field.input == 'select' %}
 {% if field.lookup and field.lookup.query %}
-<div class="search-ctl inline-flex items-center gap-1 w-full" data-search-page="{{ request.blueprint or '' }}" data-search-query="{{ field.lookup.query }}" data-search-field="{{ field.name }}"{% set _rq = (field.lookup.replaces if field.lookup and field.lookup.replaces else none) or field.replaces %}{% set _rmm = namespace(s='') %}{% if _rq %}{% for _k, _v in _rq.items() %}{% if _v is string %}{% if _rmm.s %}{% set _rmm.s = _rmm.s + ',' %}{% endif %}{% set _rmm.s = _rmm.s + _k ~ ':' ~ _v %}{% endif %}{% endfor %}{% endif %}{% if _rmm.s %} data-replaces-map="{{ _rmm.s }}"{% endif %}>
+<div class="search-ctl inline-flex items-center gap-1 w-full" data-search-page="{{ request.blueprint or '' }}" data-search-query="{{ field.lookup.query }}" data-search-field="{{ field.name }}"{% set _rq = (field.on_set.get('replaces') if field.on_set is mapping else none) %}{% set _rmm = namespace(s='') %}{% if _rq %}{% for _k, _v in _rq.items() %}{% if _v is string %}{% if _rmm.s %}{% set _rmm.s = _rmm.s + ',' %}{% endif %}{% set _rmm.s = _rmm.s + _k ~ ':' ~ _v %}{% endif %}{% endfor %}{% endif %}{% if _rmm.s %} data-replaces-map="{{ _rmm.s }}"{% endif %}>
   <input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
   <span class="search-val input input-bordered input-sm flex-1 overflow-hidden whitespace-nowrap">{{ val if val is not none else '—' }}</span>
   <button type="button" class="btn btn-outline btn-sm px-2" onclick="searchOpen(this)" title="Buscar">
@@ -55,7 +49,7 @@
   </button>
 </div>
 {% else %}
-  <select name="{{ ns }}" class="select select-bordered select-sm w-full" {{ req }} {{ dis }} {{ attr_str|safe }}{% if field.query %}{% set _qm = field.query.model if field.query is not string else field.query %}{% if _qm %} data-model="{{ _qm }}"{% endif %}{% endif %}{% if field.on_set is mapping %} data-onset-fk="{{ field.name }}" data-onset-map="{% for _k, _v in field.on_set.items() %}{{ _k }}:{{ _v }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}{% set _rp = (field.lookup.replaces if field.lookup and field.lookup.replaces else none) or field.replaces or (field.on_set if field.on_set is mapping else none) %}{% set _rsm = namespace(s='') %}{% if _rp %}{% for _k, _v in _rp.items() %}{% if _rsm.s %}{% set _rsm.s = _rsm.s + ',' %}{% endif %}{% if _v is string and not field.options %}{% set _rsm.s = _rsm.s + _k ~ ':' ~ _v %}{% else %}{% set _rsm.s = _rsm.s + _k ~ ':' ~ _k %}{% endif %}{% endfor %}{% endif %}{% if _rsm.s %} data-replaces-fk="{{ field.name }}" data-replaces-map="{{ _rsm.s }}"{% endif %}>
+  <select name="{{ ns }}" class="select select-bordered select-sm w-full" {{ req }} {{ dis }} {% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}{% set _rp = (field.on_set.get('replaces') if field.on_set is mapping else none) %}{% set _rsm = namespace(s='') %}{% if _rp %}{% for _k, _v in _rp.items() %}{% if _rsm.s %}{% set _rsm.s = _rsm.s + ',' %}{% endif %}{% if _v is string and not field.options %}{% set _rsm.s = _rsm.s + _k ~ ':' ~ _v %}{% else %}{% set _rsm.s = _rsm.s + _k ~ ':' ~ _k %}{% endif %}{% endfor %}{% endif %}{% if _rsm.s %} data-replaces-fk="{{ field.name }}" data-replaces-map="{{ _rsm.s }}"{% endif %}>
     <option value="">Selecione...</option>
     {% if field.options %}
       {% for k, v in field.options.items() %}
@@ -82,25 +76,25 @@
   </select>
 {% endif %}
 {% elif field.input == 'textarea' %}
-  <textarea name="{{ ns }}" class="textarea textarea-bordered w-full" rows="{{ field.rows }}" style="min-height:calc({{ field.rows }} * 1.25rem + 0.75rem);{% if field.rows == 1 %}resize:none;overflow-y:hidden;{% endif %}" {% if field.rows == 1 %}wrap="off"{% endif %} {{ req }} {{ dis }}>{{ val or '' }}</textarea>
+  <textarea name="{{ ns }}" class="textarea textarea-bordered w-full" rows="{{ field.rows }}" style="min-height:calc({{ field.rows }} * 1.25rem + 0.75rem);{% if field.rows == 1 %}resize:none;overflow-y:hidden;{% endif %}" {% if field.rows == 1 %}wrap="off"{% endif %} {{ req }} {{ dis }}{% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}>{{ val or '' }}</textarea>
 {% elif field.input in ('checkbox', 'boolean') %}
   <label class="flex items-center gap-2 cursor-pointer pt-1">
     <input type="checkbox" name="{{ ns }}" class="checkbox checkbox-sm" value="1" {{ 'checked' if val }} {{ req }} {{ dis }}>
     {% if show_label %}<span class="text-sm font-semibold">{{ field.display_label }}</span>{% endif %}
   </label>
 {% elif field.input == 'number' %}
-  {% if field.percent %}<div class="relative inline-flex items-center w-full">{% endif %}
-  <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm{% if field.percent %} input-percent{% endif %}{% if field.step is none and (not field.attrs or 'step' not in field.attrs) %} no-spinner{% endif %}" style="width:{{ _iwidth }}" step="{{ step_val }}" {% if field.decimals is not none %}data-num-decimals="{{ field.decimals }}" {% endif %}value="{{ val|fmt_num(field.decimals) if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str }}>
+  {% if field.percent %}<div class="relative inline-flex items-center">{% endif %}
+  <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm{% if field.percent %} input-percent{% endif %}{% if field.step is none %} no-spinner{% endif %}" style="width:{{ _iwidth }}{% if field.align and field.align != 'left' %};text-align:{{ field.align }}{% endif %}{% if field.percent %};padding-right:2rem{% endif %}" step="{{ step_val }}" {% if field.decimals is not none %}data-num-decimals="{{ field.decimals }}" {% endif %}value="{{ val|fmt_num(field.decimals) if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str|safe }}{% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}>
   {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+  <div class="inline-flex items-center w-full it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
 {% elif field.input == 'time' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir relógio"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
+  <div class="inline-flex items-center w-full it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir relógio"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
 {% elif field.input == 'datetime-local' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}{{ attr_str|safe }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+  <div class="inline-flex items-center w-full it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
 {% elif field.input == 'image' %}
 {% set _img_has = val %}
 <div class="image-widget" data-ns="{{ ns }}" data-tem-imagem="{{ '1' if _img_has else '0' }}">
@@ -127,12 +121,12 @@
 {% elif field.input == 'multi' %}
 {{ render_multi_ctl(field, data, name_prefix, ro) }}
 {% else %}
-  <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if field.mask and field.digits_only and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask %}data-mask="{{ field.mask }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{{ attr_str|safe }}>
+  <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if field.mask and field.digits_only and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask %}data-mask="{{ field.mask }}" maxlength="{{ field.mask|length }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}>{% if field.validate %}<p class="text-error text-xs mt-0.5" data-err-for="{{ ns }}" style="display:none">{{ field.display_label }} inválido.</p>{% endif %}
 {% endif %}
 {% endmacro %}
 
 {% macro render_label(field, data=none, ro=false) %}
-{% set val = (calc_value(field.calc, data) if (field.calc is defined and field.calc) else (field_value(field, data) if (field.derived is defined and field.derived) else (data|deep_attr(field.name)))) if data is not none else (field.default() if field.default is callable else field.default) %}
+{% set val = (calc_value(field.calc, data) if (field.calc is defined and field.calc) else (data|deep_attr(field.name))) if data is not none else (field.default() if field.default is callable else field.default) %}
 {% if field.input == 'image' and val %}
 <img src="{{ url_for(aj_uploads_endpoint(), filename=val) }}" style="max-height:60px;" class="border rounded" onclick="previewImagem(this.src)">
 {% elif field.input in ('boolean', 'checkbox') %}
@@ -165,14 +159,14 @@
     {{ _ns.nome if _ns.nome else val }}
   {% endif %}
 {% elif val is not none %}
-  {% if field.currency %}{{ val|money(field.currency) }}{% elif field.percent %}{{ val|percent }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
+  {% if field.currency %}{{ val|money(field.currency) }}{% elif field.percent %}{{ val|percent }}{% elif val.strftime is defined and field.mask is datemask %}{{ val|mask(field.mask) }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
 {% else %}—
 {% endif %}
 {% endmacro %}
 
 {% macro render_multi_ctl(field, data=none, name_prefix='', ro=false) %}
 {% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
-{% set ns = (name_prefix or '') + (field.editor or field.name) %}
+{% set ns = (name_prefix or '') + (field.input_name or field.name) %}
 {% set dis = 'disabled' if (field.disabled or ro) else '' %}
 {% set req = 'required' if field.required else '' %}
 <div class="multi-ctl" data-multi-options='{{ field.options|tojson }}' data-multi-title="{{ field.display_label }}"{% if dis %} data-multi-disabled="1"{% endif %}>

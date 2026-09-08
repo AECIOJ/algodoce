@@ -51,7 +51,7 @@ def _save_single_sessions(form, instance):
             setattr(instance, attr, child)   # vincula via relationship (seta FK do pai)
             db.session.add(child)
         for f in fields:
-            raw = request.form.get(prefix + (f.editor or f.name))
+            raw = request.form.get(prefix + (f.input_name or f.name))
             if raw is None:
                 continue
             setattr(child, f.name, _coerce(raw, f))
@@ -114,7 +114,7 @@ def _save_table_sessions(form, instance):
                    and f.input != 'image'
                    and f.name not in pk_names
                    and f.name != dk_name]
-        by_input = {(f.editor or f.name): f for f in savable}
+        by_input = {(f.input_name or f.name): f for f in savable}
         posted_ids = set()
         posted_crows = set()
         new_children = []
@@ -250,18 +250,7 @@ def _build_lookup(form, extra_lookup=None, instance=None):
             return
         if f.name in lookup:
             return
-        tgt = None
-        q = f.query
-        if q is not None:
-            mk = q if isinstance(q, str) else (q.get('model') if isinstance(q, dict) else getattr(q, 'model', None))
-            if mk:
-                from ajsystem.core.list import _resolve_model
-                try:
-                    tgt = _resolve_model(mk)
-                except Exception:
-                    tgt = None
-        if tgt is None:
-            tgt = fk_target_model(src_model, f.name)
+        tgt = fk_target_model(src_model, f.name)
         if tgt is None or getattr(tgt, '__table__', None) is None:
             return
         opts = tgt.query
@@ -351,9 +340,9 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
             if f.input == 'image':
                 continue
             if f.input == 'multi':
-                raw = request.form.getlist(f.editor or f.name)
+                raw = request.form.getlist(f.input_name or f.name)
             else:
-                raw = request.form.get(f.editor or f.name)
+                raw = request.form.get(f.input_name or f.name)
             val = _coerce(raw, f)
             if f.required and _empty_value(val):
                 flash(f'{f.label or f.name} é obrigatório.', 'warning')

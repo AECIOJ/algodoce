@@ -3,13 +3,16 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
 
 <dialog id="modalCrop" class="modal">
-  <div class="modal-box max-w-3xl">
-    <form method="dialog">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Fechar" onclick="fecharCrop()">
-        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-xmark"/></svg>
-      </button>
-    </form>
-    <h3 class="font-bold text-lg mb-2">Editar Foto</h3>
+  <div class="modal-box p-0 overflow-hidden" style="max-width:min(48rem,calc(100vw - 2rem))">
+    <div class="flex items-center gap-2" style="background:{{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }};color:{{ TEMA.modal.tons.primary.texto|default('#FFFFFF', true) }};padding:.75rem 1.5rem">
+      <form method="dialog">
+        <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" style="color:inherit" aria-label="Fechar" onclick="fecharCrop()">
+          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-xmark"/></svg>
+        </button>
+      </form>
+      <h3 class="font-bold text-lg">Editar Foto</h3>
+    </div>
+    <div style="padding:1rem 1.5rem">
     <div class="text-center">
       <div id="crop-dropzone" class="border-2 border-dashed rounded p-5" tabindex="0"
            style="border-color:var(--fallback-b3, oklch(var(--b3)));cursor:pointer;min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
@@ -33,6 +36,7 @@
           <svg class="w-4 h-4" aria-hidden="true"><use href="#i-check"/></svg> Salvar
         </button>
       </div>
+    </div>
     </div>
   </div>
 </dialog>

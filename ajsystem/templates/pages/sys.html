@@ -159,20 +159,7 @@
 {% endblock %}
 
 {% block modals %}
-<dialog id="confirmModal" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg" id="confirmModalTitle">Confirmação</h3>
-    <p class="py-4" id="confirmModalBody"></p>
-    <div class="modal-action">
-      <form method="dialog">
-        <button class="btn btn-ghost" id="confirmModalCancel">Cancelar</button>
-      </form>
-      <button class="btn btn-error" id="confirmModalOk">
-        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-check"/></svg> OK
-      </button>
-    </div>
-  </div>
-</dialog>
+{# diálogos via ajModal() (construídos sob demanda) #}
 
 {% if qr_enabled %}
 <dialog id="qrModal" class="modal">
@@ -216,8 +203,11 @@
 </dialog>
 
 <dialog id="timeoutModal" class="modal" x-data="{ open: false }" x-show="open" @keydown.escape="open = false">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">Sessão expirando</h3>
+  <div class="modal-box p-0 overflow-hidden" style="max-width:min(32rem,calc(100vw - 2rem))">
+    <div class="flex items-center gap-2" style="background:{{ TEMA.modal.tons.warning.fundo|default('#FB8C00', true) }};color:{{ TEMA.modal.tons.warning.texto|default('#000000', true) }};padding:.75rem 1.5rem">
+      <h3 class="font-bold text-lg flex items-center gap-2"><span><svg style="width:2rem;height:2rem;display:block" aria-hidden="true"><use href="#i-clock"/></svg></span><span>Sessão expirando</span></h3>
+    </div>
+    <div style="padding:1rem 1.5rem">
     <div class="text-center py-4">
       <p>Sua sessão expira em breve por inatividade. Deseja continuar logado?</p>
       <p class="text-3xl font-bold my-3" id="timeout-countdown"></p>
@@ -230,6 +220,7 @@
         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg> Sim, continuar logado
       </button>
     </div>
+    </div>
   </div>
 </dialog>
 {% endblock %}
@@ -238,6 +229,9 @@
 {% for _js in _editor_js if _editor_js is defined %}
 <script src="{{ _js }}"></script>
 {% endfor %}
+<script src="{{ url_for('ajsystem.static', filename='js/validators.js') }}?v=1"></script>
+<script src="{{ url_for('ajsystem.static', filename='js/modals.js') }}?v=2"></script>
+{# validacoes do app (app/static/js/validacoes.js): incluir aqui quando criado, APÓS validators.js — ver README #}
 {% include 'components/auth_triggers.html' %}
 <script>
 function injectHTML(selector, html) {
@@ -285,7 +279,7 @@ function closeReport() {
   window.scrollTo(0, 0);
 }
 
-/* Busca em modal p/ lookup com `query` (editor com botão externo).
+/* Busca em modal p/ lookup com `query` (controle com botão externo).
    Fluxo: botão → GET base (descobre params exigidos) → lê params no form →
    sem valor → avisa; com valor → GET com params → dialog com linhas →
    clique preenche hidden + visor. */
@@ -326,47 +320,28 @@ function searchToast(msg) {
   if (window.itToasts) window.itToasts(msg, 'warning');
   else alert(msg);
 }
-function searchDialog(box, cols, rows) {
-  var old = document.getElementById('searchModal');
-  if (old) old.remove();
-  var d = document.createElement('dialog');
-  d.id = 'searchModal';
-  d.className = 'modal';
-  var html = '<div class="modal-box" style="max-width:46rem;">'
-    + '<h3 class="font-bold text-lg text-center">Buscar</h3>'
-    + '<div style="max-height:65vh;overflow:auto;margin-top:0.5rem;">'
-    + '<table class="table table-sm w-full"><thead><tr>';
-  cols.forEach(function(c) { html += '<th class="text-sm">' + c.label + '</th>'; });
-  html += '</tr></thead><tbody>';
-  if (!rows.length) html += '<tr><td colspan="' + Math.max(cols.length, 1) + '" class="text-center text-sm opacity-60">Nenhum registro.</td></tr>';
-  rows.forEach(function(r) {
-    var rawAttr = JSON.stringify(r.raw || {}).replace(/'/g, "&#39;");
-    html += '<tr data-search-id="' + r.id + '" data-search-raw=\'' + rawAttr + '\' style="cursor:pointer;">';
-    r.cells.forEach(function(c) { html += '<td class="text-sm">' + c + '</td>'; });
-    html += '</tr>';
-  });
-  html += '</tbody></table></div>'
-    + '<div class="modal-action"><button type="button" class="btn btn-ghost" id="searchCancel">Fechar</button></div>'
-    + '</div>';
-  d.innerHTML = html;
-  document.body.appendChild(d);
-  d.querySelector('#searchCancel').addEventListener('click', function() { d.close(); });
-  d.querySelectorAll('tr[data-search-id]').forEach(function(tr) {
-    tr.addEventListener('click', function() {
-      var hid = box.querySelector('input[type="hidden"]');
-      var vis = box.querySelector('.search-val');
-      if (hid) {
-        hid.value = tr.getAttribute('data-search-id');
-        hid.dispatchEvent(new Event('change', {bubbles: true}));
-      }
-      if (vis) vis.textContent = tr.getAttribute('data-search-id');
-      searchApplyReplaces(box, hid, tr);
-      if (window.marcarFormAlterado) marcarFormAlterado();
-      d.close();
-    });
-  });
-  d.showModal();
+/* Toasts mínimos (DaisyUI) — usados por buscas, zerados e validação. */
+function itToasts(msg, type) {
+  if (!msg) return;
+  var box = document.getElementById('it-toasts');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'it-toasts';
+    box.className = 'toast toast-top toast-center';
+    box.style.zIndex = '9999';
+    document.body.appendChild(box);
+  }
+  var d = document.createElement('div');
+  d.className = 'alert alert-' + (type || 'info') + ' py-2 text-sm shadow-lg';
+  d.textContent = msg;
+  box.appendChild(d);
+  setTimeout(function() {
+    if (d.parentNode) d.parentNode.removeChild(d);
+    if (!box.children.length && box.parentNode) box.parentNode.removeChild(box);
+  }, 4000);
 }
+window.itToasts = itToasts;
+
 function searchApplyReplaces(box, hid, tr) {
   var map = box ? box.getAttribute('data-replaces-map') : '';
   if (!map || !tr) return;
@@ -409,21 +384,18 @@ function fetchRender(url, selector) {
 }
 </script>
 <script>
-var _confirmModal = null;
-function _getConfirmModal() {
-  if (!_confirmModal) _confirmModal = document.getElementById('confirmModal');
-  return _confirmModal;
-}
-function showAlert(msg) {
-  document.getElementById('confirmModalTitle').textContent = 'Atenção';
-  document.getElementById('confirmModalBody').textContent = msg;
-  var okBtn = document.getElementById('confirmModalOk');
-  okBtn.className = 'btn btn-primary';
-  okBtn.textContent = 'OK';
-  okBtn.onclick = function() { _getConfirmModal().close(); };
-  document.getElementById('confirmModalCancel').style.display = 'none';
-  _getConfirmModal().showModal();
-}
+/* ajModal — diálogo genérico do framework (DaisyUI + tema do app).
+   Padrão visual: barra com a cor do tom (ícone + título) e corpo claro.
+   Cores via `window.AJ_MODAL.tons` (prop `modal` do tema; fallback embutido).
+   Variações internas por opts:
+   {kind ('erro'|'alerta'|...→ tom via AJ_MODAL.tipos), tone (direto, vence),
+    title, icon (heroicon, herda a cor da barra), lines[] (texto seguro),
+    html (confiável, já sanitizado pelo chamador), node (elemento),
+    buttons:[{label, cls, value, icon, onClick}], wide, closable (X),
+    focus (el p/ focar ao fechar), onClose(returnValue), onOpen(dialog)}.
+   Remove do DOM ao fechar. Retorna o <dialog> exibido. */
+
+
 function confirmFormSubmit(form, msg) {
   showConfirm(msg, function() { form.submit(); });
   return false;
@@ -645,15 +617,120 @@ function fmtFieldInput(el) {
   el.dispatchEvent(new Event('change', {bubbles: true}));
   return true;
 }
-function unFmtFieldInput(el) {
+/* ── entrada calculadora p/ numéricos com decimais ────────────────────────
+   Dígitos entram à direita deslocando p/ esquerda; vírgula alterna p/ fração;
+   Backspace desfaz na ordem inversa. Buffer por elemento (`_calcBuf`) + marca
+   do último render (`_calcShown`): o buffer vale enquanto o display coincide
+   com o renderizado (writes programáticos disparam re-sync, que preserva
+   `comma` só se a fração tem dígito ≠ 0); seleção total reinicia; caret sempre
+   ao fim após render. INT (dec 0), readonly/disabled: fora.
+   Render sempre via fmtNumBR (idêntico ao blur); cada tecla dispara `input`
+   (totais ao vivo). Vazio exibido como '' (preserva None no save). */
+function calcBuf(el) {
+  if (!el._calcBuf) el._calcBuf = {int: '', frac: '', comma: false};
+  return el._calcBuf;
+}
+function calcIsCalc(el) {
+  if (!el || !el.matches) return 0;
+  if (!el.matches('input[data-num-decimals]')) return 0;
+  if (el.readOnly || el.disabled) return 0;
   var dec = numDecimals(el);
+  return (dec > 0) ? dec : 0;
+}
+function calcResync(el, dec) {
+  var b = calcBuf(el);
+  var raw = String(el.value == null ? '' : el.value);
+  el._calcShown = raw;
+  var s = raw.trim();
+  if (s === '') { b.int = ''; b.frac = ''; b.comma = false; return b; }
+  var ci = s.indexOf(',');
+  var left = ci >= 0 ? s.slice(0, ci) : s;
+  var right = ci >= 0 ? s.slice(ci + 1) : '';
+  b.int = left.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+  b.frac = right.replace(/\D/g, '').slice(0, dec);
+  b.comma = /[1-9]/.test(b.frac);
+  return b;
+}
+function calcRender(el, dec) {
+  var b = calcBuf(el);
+  var v;
+  if (!b.int && !b.frac && !b.comma) v = '';
+  else v = fmtNumBR(parseFloat((b.int === '' ? '0' : b.int) + '.' + (b.frac || '')) || 0, dec);
+  el._calcShown = v;
+  if (v === String(el.value)) return false;
+  el.value = v;
+  try { el.setSelectionRange(v.length, v.length); } catch (err) {}
+  el._calcKey = true;
+  el.dispatchEvent(new Event('input', {bubbles: true}));
+  return true;
+}
+function calcFullSel(el) {
+  try {
+    return el.selectionStart === 0 && el.selectionEnd === String(el.value).length && String(el.value).length > 0;
+  } catch (err) { return false; }
+}
+function calcKeyDown(e) {
+  var t = e.target;
+  var dec = calcIsCalc(t);
   if (!dec) return;
-  var raw = el.value;
-  if (!raw || String(raw).trim() === '') return;
-  var n = parseNum(raw);
-  if (isNaN(n)) return;
-  var t = String(n);
-  if (t !== String(raw)) el.value = t;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  var k = e.key;
+  var isDigit = k >= '0' && k <= '9';
+  var isComma = (k === ',' || k === '.' || k === 'Decimal');
+  var isBack = (k === 'Backspace' || k === 'Delete');
+  if (!isDigit && !isComma && !isBack) return;
+  e.preventDefault();
+  var b = calcBuf(t);
+  if (calcFullSel(t)) { b.int = ''; b.frac = ''; b.comma = false; }
+  else if (String(t.value) !== t._calcShown) { calcResync(t, dec); }
+  if (isBack) {
+    if (b.frac !== '') b.frac = b.frac.slice(0, -1);
+    else if (b.comma) b.comma = false;
+    else b.int = b.int.slice(0, -1);
+  } else if (isComma) {
+    b.comma = true;
+  } else if (b.comma) {
+    if (b.frac.length < dec) b.frac += k;
+  } else {
+    b.int = (b.int + k).replace(/^0+(?=\d)/, '');
+  }
+  calcRender(t, dec);
+}
+function calcPaste(e) {
+  var t = e.target;
+  var dec = calcIsCalc(t);
+  if (!dec) return;
+  var txt = '';
+  try { txt = (e.clipboardData && e.clipboardData.getData('text')) || ''; } catch (err) {}
+  e.preventDefault();
+  if (txt.indexOf(',') >= 0) txt = txt.split('.').join('');
+  var b = calcBuf(t);
+  b.int = ''; b.frac = ''; b.comma = false;
+  for (var i = 0; i < txt.length; i++) {
+    var ch = txt.charAt(i);
+    if (ch >= '0' && ch <= '9') {
+      if (b.comma) { if (b.frac.length < dec) b.frac += ch; }
+      else b.int += ch;
+    } else if (!b.comma && (ch === ',' || ch === '.')) {
+      b.comma = true;
+    }
+  }
+  b.int = b.int.replace(/^0+(?=\d)/, '');
+  calcRender(t, dec);
+}
+function calcFocus(e) {
+  var t = e.target;
+  var dec = calcIsCalc(t);
+  if (!dec) return;
+  calcResync(t, dec);
+  try { t.select(); } catch (err) {}
+}
+function calcFallback(e) {
+  var t = e.target;
+  var dec = calcIsCalc(t);
+  if (!dec) return;
+  if (t._calcKey) { t._calcKey = false; return; }
+  fmtFieldInput(t);
 }
 function itTotalsRefresh(wrap) {
   if (!wrap) return;
@@ -717,9 +794,8 @@ function itTotalsRefresh(wrap) {
 function itOnSetBind(wrap) {
   if (!wrap) return;
   // Preenchimento client-side a partir do registro escolhido no select FK:
-  // mapa `{campoAlvo: campoFonte}` — pode vir de `on_set` (data-onset-map) ou de
-  // `lookup.replaces` (data-replaces-map). Copia os valores da opção para os
-  // campos mapeados da linha, sem requisição.
+  // mapa `{campoAlvo: campoFonte}` via `data-replaces-map` (de `on_set`).
+  // Copia os valores da opção para os campos mapeados da linha, sem requisição.
   wrap.querySelectorAll('select[data-onset-map], select[data-replaces-map]').forEach(function(sel) {
     if (sel.__itOsMapBound) return;
     sel.__itOsMapBound = true;
@@ -745,6 +821,42 @@ function itOnSetBind(wrap) {
       itCalcRefresh(wrap);
       itSessionTotals(wrap);
       itTotalsRefresh(wrap);
+    });
+  });
+}
+function itDisablesBase(src) {
+  var fk = src.getAttribute('data-disables-fk') || '';
+  var nm = src.name || '';
+  if (fk && nm.length > fk.length + 1 && nm.slice(-fk.length - 1) === '_' + fk) {
+    return nm.slice(0, nm.length - fk.length - 1);
+  }
+  return '';
+}
+/* ── disables declarativo (data-disables, de `on_set.disables`) ─────────
+   Origem com valor desabilita os alvos; origem limpa reabilita. Guarda
+   anti-deadlock: alvo com valor nunca é desabilitado (resta sempre um lado
+   editável). Avaliação global por form a cada evento + no load; sem dispatch
+   (só alterna `disabled`, não mexe em valor). Limita-se a text/select/
+   number/textarea como origem e alvo. */
+function itDisablesEval(root) {
+  var scope = (root && root.closest) ? (root.closest('form') || document) : document;
+  if (!scope.querySelector('[data-disables]')) return;
+  var off = {}, all = {};
+  scope.querySelectorAll('input[data-disables],select[data-disables],textarea[data-disables]').forEach(function(src) {
+    var base = itDisablesBase(src);
+    var has = src.value !== null && src.value !== undefined && String(src.value).trim() !== '';
+    (src.getAttribute('data-disables') || '').split(',').forEach(function(t) {
+      t = (t || '').trim();
+      if (!t) return;
+      var target = base ? base + '_' + t : t;
+      all[target] = true;
+      if (has) off[target] = true;
+    });
+  });
+  Object.keys(all).forEach(function(nm) {
+    scope.querySelectorAll('[name="' + nm + '"]').forEach(function(tel) {
+      var tHas = tel.value !== null && tel.value !== undefined && String(tel.value).trim() !== '';
+      tel.disabled = !!(off[nm] && !tHas);
     });
   });
 }
@@ -984,19 +1096,7 @@ function itmPagerInit() {
     itmApplyPage(table);
   });
 }
-function showConfirm(msg, onConfirm) {
-  document.getElementById('confirmModalTitle').textContent = 'Confirmação';
-  document.getElementById('confirmModalBody').textContent = msg;
-  var okBtn = document.getElementById('confirmModalOk');
-  okBtn.className = 'btn btn-error';
-  okBtn.textContent = 'Confirmar';
-  okBtn.onclick = function() {
-    _getConfirmModal().close();
-    if (onConfirm) onConfirm();
-  };
-  document.getElementById('confirmModalCancel').style.display = '';
-  _getConfirmModal().showModal();
-}
+
 
 /* ── máscara de inputs + validação (CPF/CNPJ) no browser ── */
 function _maskDigits(v) {
@@ -1009,28 +1109,6 @@ function _applyMask(digits, mask) {
   }
   return out;
 }
-function _cpfOk(d) {
-  if (d.length !== 11 || /^(\d)\1+$/.test(d)) return false;
-  var s = 0;
-  for (var i = 0; i < 9; i++) s += +d[i] * (10 - i);
-  var d1 = (s * 10) % 11 % 11 === 10 ? 0 : (s * 10) % 11;
-  if (d1 !== +d[9]) return false;
-  s = 0;
-  for (var i = 0; i < 10; i++) s += +d[i] * (11 - i);
-  var d2 = (s * 10) % 11 % 11 === 10 ? 0 : (s * 10) % 11;
-  return d2 === +d[10];
-}
-function _cnpjOk(d) {
-  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false;
-  var w1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2], s = 0;
-  for (var i = 0; i < 12; i++) s += +d[i] * w1[i];
-  var d1 = s % 11 < 2 ? 0 : 11 - s % 11;
-  if (d1 !== +d[12]) return false;
-  var w2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]; s = 0;
-  for (var i = 0; i < 13; i++) s += +d[i] * w2[i];
-  var d2 = s % 11 < 2 ? 0 : 11 - s % 11;
-  return d2 === +d[13];
-}
 function _maskEl(el) {
   var mask = el.getAttribute('data-mask');
   if (!mask) return;
@@ -1041,10 +1119,17 @@ function _validateEl(el) {
   if (!rule) return true;
   var digits = _maskDigits(el.value);
   if (!digits) return true;
-  var ok = rule === 'cpf' ? _cpfOk(digits) : rule === 'cnpj' ? _cnpjOk(digits) : true;
+  var ok = window.FieldValidators ? window.FieldValidators.validate(rule, digits) : true;
   el.classList.toggle('input-error', !ok);
+  var msg = document.querySelector('p[data-err-for="' + el.name + '"]');
+  if (msg) msg.style.display = ok ? 'none' : '';
   return ok;
 }
+/* Modal de erros de validação: lista as mensagens e, ao fechar, devolve o
+   foco ao primeiro campo inválido. Sem o dialog (fora do form), cai para
+   toast; sem toast, só bloqueia. */
+
+
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('[id$="RowTemplate"], [id$="ColumnTemplate"]').forEach(function(tpl) {
     tpl.querySelectorAll('input,select,textarea').forEach(function(el) {
@@ -1056,30 +1141,57 @@ document.addEventListener('DOMContentLoaded', function() {
     el.addEventListener('input', function() {
       _maskEl(el);
       el.classList.remove('input-error');
+      var msg = document.querySelector('p[data-err-for="' + el.name + '"]');
+      if (msg) msg.style.display = 'none';
     });
   });
   document.querySelectorAll('input[data-validate]').forEach(function(el) {
-    el.addEventListener('blur', function() { _validateEl(el); });
+    el.addEventListener('blur', function() {
+      if (_validateEl(el)) { el._lastModalVal = el.value; return; }
+      if (el._lastModalVal === el.value) return;
+      el._lastModalVal = el.value;
+      var p = document.querySelector('p[data-err-for="' + el.name + '"]');
+      showErrorModal([p ? p.textContent : 'Verifique o campo destacado.'], el);
+    });
     el.addEventListener('change', function() { _validateEl(el); });
   });
-  // Numéricos pt-BR: formata ao sair (blur) e edita cru ao entrar (focus).
-  // Delegado no documento: cobre linhas adicionadas depois.
+  // Entrada calculadora p/ decimais (delegado: cobre linhas dinâmicas).
+  // focus = init + select-all; keydown/paste = máquina; input sem keydown
+  // (mobile/teclados sem `key`, autofill, arraste) = fallback de normalização.
   document.addEventListener('focusin', function(e) {
     var t = e.target;
-    if (t && t.matches && t.matches('input[data-num-decimals]')) unFmtFieldInput(t);
+    if (t && t.matches && t.matches('input[data-num-decimals]')) calcFocus(t);
   });
+  document.addEventListener('keydown', function(e) { calcKeyDown(e); });
+  document.addEventListener('paste', function(e) { calcPaste(e); });
+  document.addEventListener('input', function(e) { calcFallback(e); });
   document.addEventListener('focusout', function(e) {
     var t = e.target;
     if (t && t.matches && t.matches('input[data-num-decimals]')) fmtFieldInput(t);
   });
+  // Disables declarativo: qualquer edição no form reavalia os alvos.
+  document.addEventListener('input', function(e) {
+    var f = e.target && e.target.form ? e.target.form : null;
+    if (f && f.querySelector('[data-disables]')) itDisablesEval(f);
+  });
+  document.addEventListener('change', function(e) {
+    var f = e.target && e.target.form ? e.target.form : null;
+    if (f && f.querySelector('[data-disables]')) itDisablesEval(f);
+  });
+  itDisablesEval(document);
   var form = document.getElementById('main-form');
   if (form) {
     form.addEventListener('submit', function(e) {
-      var bad = null;
+      var bads = [];
       document.querySelectorAll('input[data-validate]').forEach(function(el) {
-        if (!_validateEl(el) && !bad) bad = el;
+        if (!_validateEl(el)) bads.push(el);
       });
-      if (bad) { e.preventDefault(); bad.focus(); }
+      if (bads.length) {
+        e.preventDefault();
+        var first = bads[0];
+        var p = document.querySelector('p[data-err-for="' + first.name + '"]');
+        if (window.itToasts) itToasts(p ? p.textContent : 'Verifique o campo destacado.', 'error');
+      }
     });
     form.addEventListener('input', function(e) {
       if (e.target && e.target.name && e.target.name.indexOf('child_') === 0) {
@@ -1110,7 +1222,7 @@ document.addEventListener('DOMContentLoaded', function() {
     itTotalsRefresh(wrap);
     var body = wrap.querySelector('.it-desktop tbody[data-rel]');
     if (body && 'MutationObserver' in window) {
-      new MutationObserver(function() { itOnSetBind(wrap); itCalcRefresh(wrap); itSessionTotals(wrap); itTotalsRefresh(wrap); })
+      new MutationObserver(function() { itOnSetBind(wrap); itCalcRefresh(wrap); itSessionTotals(wrap); itTotalsRefresh(wrap); itDisablesEval(wrap); })
         .observe(body, {childList: true});
     }
   });

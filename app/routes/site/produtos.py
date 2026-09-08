@@ -4,7 +4,7 @@ Entity = {
         'descricao':   {'type': 'MEMO', 'rows': 4},
         'imagem':      {'type': 'IMAGE'},
         'qtd_minima':  {'type': 'INT'},
-        'categoria_id': {'type': 'FK', 'query': {'model': 'category'}},
+        'categoria_id': {'type': 'FK'},
     },
     'Categoria': {'nome': {'type': 'TEXT'}},
 }

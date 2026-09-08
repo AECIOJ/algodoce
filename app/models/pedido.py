@@ -50,7 +50,7 @@ Entity = {
     'id':                    {'type': 'ID', 'width': 6},
     'conta_id':             {'type': 'FK', 'label': 'Cliente', 'width': 20, 'required': True},
     'data_pedido':           {'type': 'DATA_HORA', 'label': 'Data Pedido',},
-    'data_previsao_entrega': {'type': 'DATA_HORA', 'label': 'Prev. Entrega', },
+    'data_previsao_entrega': {'type': 'DATA_HORA', 'label': 'Prev. Entrega', 'mask': 'ddd dd/mm/yyyy'},
     'data_entrega':          {'type': 'DATA_HORA', 'label': 'Data Entrega', },
     'carteira_id':           {'type': 'FK', 'label': 'Pagamento', 'width': 15},
     'forminhas':             {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12},

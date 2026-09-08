@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field, replace
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Optional
+import json
 
 
 def btn_style(color: str, outline: bool, size: str = 'sm') -> str:
@@ -161,4 +162,36 @@ def resolve_buttons(specs, bp_name=None):
         btn.show_if = _to_pair(btn.show_if)
         resolved.append(btn)
     return resolved
+
+
+def modal_script(title=None, lines=None, *, buttons=None, icon=None,
+                 wide=False, html=None):
+    """Monta `<script>ajModal(...)</script>` com escape seguro, para uso como
+    retorno de `action` de botão com `render` (ex.: `'#report-content'`).
+
+    Espelha 1:1 as opts do `ajModal` (ver `sys.html`): `title`, `lines` (str
+    ou lista — texto seguro), `buttons` ([{label, cls, value, icon}]),
+    `icon` (heroicon), `wide` (bool), `html` (confiável, já sanitizado pelo
+    chamador — NUNCA passe dado cru do banco aqui; prefira `lines`).
+
+    Limites: modal informativo (sem callbacks — confirmação com ação segue
+    via `confirm_msg`/JS); `instance` pode ser `None` (trate no chamador).
+    """
+    if isinstance(lines, str):
+        lines = [lines]
+    opts: Dict[str, Any] = {}
+    if title is not None:
+        opts['title'] = title
+    if lines:
+        opts['lines'] = [str(t) for t in lines]
+    if buttons is not None:
+        opts['buttons'] = [dict(b) for b in buttons]
+    if icon is not None:
+        opts['icon'] = icon
+    if wide:
+        opts['wide'] = True
+    if html is not None:
+        opts['html'] = html
+    payload = json.dumps(opts, ensure_ascii=False).replace('</', '<\\/')
+    return f'<script>ajModal({payload});</script>'
 

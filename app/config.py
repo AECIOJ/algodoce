@@ -58,6 +58,19 @@ Temas = {
             'lista':   {'fundo': _CREME,  'texto': _ROSA},
             'rodape':  {'fundo': _FUNDO,  'texto': _ROSA},
         },
+        'modal': {
+            'tons': {
+                'error':   {'fundo': _ERRO,   'texto': _BRANCO},
+                'warning': {'fundo': _AVISO,  'texto': _PRETO},
+                'info':    {'fundo': _INFO,   'texto': _BRANCO},
+                'primary': {'fundo': _VERDE,  'texto': _BRANCO},
+                'success': {'fundo': _OK,     'texto': _BRANCO},
+            },
+            'tipos': {
+                'erro': 'error', 'alerta': 'warning', 'ajuda': 'info',
+                'confirma': 'primary', 'busca': 'primary', 'sair': 'warning',
+            },
+        },
     },
 }
 

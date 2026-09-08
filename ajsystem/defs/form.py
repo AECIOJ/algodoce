@@ -176,7 +176,7 @@ class Form:
                 #   - lista de nomes:            ['qtd', 'valor']
                 #   - lista mista:               ['qtd', {'valor': 'eTotal'}]
                 #     item string → totaliza a coluna (sem destino);
-                #     item dict {coluna: editor} → totaliza E grava no editor
+                #     item dict {coluna: input_name} → totaliza E grava no input
                 #     do master (celula `data-total-target`).
                 #   - string única:              'valor'
                 # Sem `totals` nenhuma coluna é totalizada.
@@ -186,7 +186,7 @@ class Form:
                     total_map = {}
                     for entry in entries:
                         if isinstance(entry, dict):
-                            for col, editor in entry.items():
+                            for col, input_name in entry.items():
                                 f = next((x for x in resolved_cols if getattr(x, 'name', None) == col), None)
                                 if f is None:
                                     continue
@@ -195,7 +195,7 @@ class Form:
                                     'calc': f.calc if getattr(f, 'calc', None) else None,
                                     'currency': getattr(f, 'currency', None) or None,
                                     'decimals': _total_decimals(f, child_model, child_merged),
-                                    'target': editor or None,
+                                    'target': input_name or None,
                                 }
                         else:
                             f = next((x for x in resolved_cols if getattr(x, 'name', None) == entry), None)
@@ -233,23 +233,12 @@ class Form:
         model pai que expõe os filhos) e as colunas com a FK do pai marcadas
         `pos_form: 0` (campo gerenciado pelo motor).
 
-        Primário: FK column → tabela pai + relationship no mapper. Override:
-        prop `mastermodel` na config do campo (Schema). Fallback: nome/plural
-        da classe filha, senão `fallback` (nome da sessão).
+        Primário: FK column → tabela pai + relationship no mapper. Fallback:
+        nome/plural da classe filha, senão `fallback` (nome da sessão).
         """
         cols = list(cols or [])
         parent = self._model
         attr = None
-        mastermodel_key = None
-
-        for f in cols:
-            mk = getattr(f, 'mastermodel', None)
-            if mk:
-                mastermodel_key = mk
-                break
-
-        if mastermodel_key:
-            parent = _resolve_model(mastermodel_key)
 
         parent_table = None
         try:

@@ -1,6 +1,9 @@
 <dialog id="choiceModal_{{ uid }}" class="modal">
-  <div class="modal-box">
-    <h3 class="font-bold text-lg">{{ title }}</h3>
+  <div class="modal-box p-0 overflow-hidden" style="max-width:min(32rem,calc(100vw - 2rem))">
+    <div class="flex items-center gap-2" style="background:{{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }};color:{{ TEMA.modal.tons.primary.texto|default('#FFFFFF', true) }};padding:.75rem 1.5rem">
+      <h3 class="font-bold text-lg">{{ title }}</h3>
+    </div>
+    <div style="padding:1rem 1.5rem">
     <form method="get" action="{{ url_target }}">
       {% for k, v in hidden_params.items() %}
       <input type="hidden" name="{{ k }}" value="{{ v }}">
@@ -20,6 +23,7 @@
         <button type="submit" class="btn btn-primary">{{ confirm_label or 'Ok' }}</button>
       </div>
     </form>
+    </div>
   </div>
 </dialog>
 <script>
