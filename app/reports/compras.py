@@ -62,11 +62,11 @@ COMPRA = {
         'table': {
             'columns': {
                 'insumo.nome':   {'label': 'Insumo', 'width': 50},
-                'quantidade':    {'label': 'Qtd.', 'width': 10, 'align': 'center',
+                'qtd':         {'label': 'Qtd.', 'width': 10, 'align': 'center',
                                   'format': None},   # NUM sem currency: sem formato (heurística NUM→brl do motor)
                 'preco':         {'label': 'Preço', 'width': 20, 'align': 'right'},
                 'CompraItem.valor': {'label': 'Valor', 'width': 20, 'align': 'right',
-                                     'function': lambda i: (i.preco or 0) * i.quantidade,
+                                     'function': lambda i: (i.preco or 0) * i.qtd,
                                      'agg': 'sum'},   # 'valor' existe em Compra e CompraItem: forma pontilhada desambigua
             },
             'footer': True,

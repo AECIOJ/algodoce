@@ -3,7 +3,11 @@ from app.models.produto_insumo import ProdutoInsumo
 from app.models.pedido_item import PedidoItem
 from app.models.orcamento_item import OrcamentoItem
 
-Schema = {}
+Schema = {
+    'Produto': { 
+        'qtd_receita': {'pos_form' : 0 },
+        }
+}
 
 Page = {
     'label': 'Produto',
@@ -28,6 +32,7 @@ Page = {
             },
             'sessions': {
                 'Insumos': {
+                    'fields': ['qtd_receita'],
                     'table': {
                         'columns': ['ProdutoInsumo'],
                     }

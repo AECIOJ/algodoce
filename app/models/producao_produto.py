@@ -14,7 +14,7 @@ class ProducaoProduto(db.Model):
     produto_id = db.Column(
         db.Integer, db.ForeignKey("produtos.id"), nullable=False
     )
-    quantidade = db.Column(db.Integer, nullable=False)
+    qtd = db.Column(db.Integer, nullable=False)
     producao_0 = db.Column(db.Integer, nullable=False, default=0)
     producao_1 = db.Column(db.Integer, nullable=False, default=0)
     producao_2 = db.Column(db.Integer, nullable=False, default=0)

@@ -318,16 +318,16 @@
 {% endif %}
 {% endmacro %}
 
-{% macro render_child_table(instance, child, ro=false) %}
+{% macro render_child_table(instance, child, ro=false, title=true) %}
 {% import "components/item_table.html" as itb with context %}
 {% set _q = child.get('query') if child is mapping else child.query %}
 {% set _tbl = child.get('table') if child is mapping else child.table %}
 {% set _groups = child.get('groups') if child is mapping else child.groups %}
 {% set _grouped = (_q or (_tbl and (_tbl.get('group_by') if _tbl is mapping else _tbl.group_by))) and _groups is defined and _groups is not none %}
 {% if _grouped %}
-{{ itb.item_table_grouped(instance, child, ro) }}
+{{ itb.item_table_grouped(instance, child, ro, title) }}
 {% else %}
-{{ itb.item_table_edit(instance, child, ro) }}
+{{ itb.item_table_edit(instance, child, ro, title) }}
 {% endif %}
 {% endmacro %}
 
@@ -371,7 +371,7 @@
 {% if spacing is none %}{% set spacing = 2 %}{% endif %}
 {% set _visible = [] %}
 {% for _f in _fields %}
-{% if _f.pos_form and _f.pos_form != 4 %}
+{% if _f is field_body %}
 {% set _fv = (calc_value(_f.calc, data) if (_f.calc is defined and _f.calc and data is not none) else (data|deep_attr(_f.name) if data is not none else none)) %}
 {% if not (_f.pos_form == 3 and _fv|is_empty) %}
 {% if _visible.append(_f) %}{% endif %}
@@ -414,6 +414,11 @@
 </div>
 {% endmacro %}
 
+{% macro section_title(title) %}
+<h6 class="font-bold text-lg mb-1">{{ title }}</h6>
+<div class="w-full mb-2" style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));"></div>
+{% endmacro %}
+
 {% macro render_sessions(sessions, data=none, ro=false, ro_fields=none) %}
 {% set _sessions = sessions._resolved_sessions if sessions._resolved_sessions is defined else sessions %}
 {% for session in _sessions %}
@@ -434,11 +439,19 @@
 {% set _attr = session.get('attr') if session is mapping else session.attr %}
 {% set _child = data|deep_attr(_attr) if data is not none else none %}
 <div class="mt-3">
-  <h6 class="font-bold mb-1 text-sm">{{ session.get('label') if session is mapping else session.label }}</h6>
+  {{ section_title(session.get('label') if session is mapping else session.label) }}
   {{ render_fields(session.get('fields') if session is mapping else session.fields, data=_child, ro=_ro, name_prefix='child_' + _attr + '_', ro_fields=ro_fields) }}
 </div>
 {% else %}
+{% if (session.get('fields') if session is mapping else session.fields) and (session.get('table') if session is mapping else session.table) %}
+<div class="mt-3">
+  {{ section_title(session.get('label') if session is mapping else session.label) }}
+  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=data, ro=_ro, ro_fields=ro_fields) }}
+</div>
+{{ render_child_table(data, session, _ro, title=false) }}
+{% else %}
 {{ render_child_table(data, session, _ro) }}
+{% endif %}
 {% endif %}
 {% endif %}
 {% endfor %}

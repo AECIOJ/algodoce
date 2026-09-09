@@ -11,7 +11,7 @@ class CompraItem(db.Model):
     insumo_id = db.Column(
         db.Integer, db.ForeignKey("insumos.id"), nullable=False
     )
-    quantidade = db.Column(db.Numeric(12, 3), nullable=False)
+    qtd = db.Column(db.Numeric(12, 3), nullable=False)
     preco = db.Column(db.Numeric(12, 2), nullable=False)
 
     compra = db.relationship("Compra", back_populates="items")
@@ -25,8 +25,8 @@ Entity = {
     'id':           {'type': 'ID'},
     'compra_id':    {'type': 'DK'},
     'insumo_id':    {'type': 'FK', 'label': 'Insumo', 'required': True},
-    'quantidade':   {'type': 'NUM', 'label': 'Qtd', 'required': True},
+    'qtd':          {'type': 'NUM', 'label': 'Qtd', 'required': True},
     'preco':        {'type': 'NUM', 'label': 'Preço', 'required': True, 'currency': 1},
     'valor':        {'type': 'NUM', 'label': 'Valor', 'currency': 1,
-                     'pos_form': 0, 'calc': 'quantidade * preco'},
+                     'pos_form': 0, 'calc': 'qtd * preco'},
 }

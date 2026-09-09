@@ -61,8 +61,11 @@ def list_max_width(entity_name: str, module_name: str) -> str:
     model = _resolve_model(entity_name)
     merged = resolve_entity_fields(schema, model, entity_name)
     fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged)
-    fields = [f for f in fields if f.pos_list != 0]
-    line_fields = [f for f in fields if f.pos_list == 1] or fields
+    if not any(f._pos_managed for f in fields):
+        line_fields = list(fields)
+    else:
+        fields = [f for f in fields if f.pos_list != 0]
+        line_fields = [f for f in fields if f.pos_list == 1] or fields
     edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
     return resolve_max_width(lista.get('max_width')) or _total_ch(line_fields, edit_endpoint)
 
@@ -121,12 +124,16 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
 
     fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged)
     fields_all = list(fields)
-    fields = [f for f in fields if f.pos_list != 0]
-
-    line_fields = [f for f in fields if f.pos_list == 1]
-    cardonly_fields = [f for f in fields if f.pos_list == 2]
-    if not line_fields:
-        line_fields, cardonly_fields = fields, []
+    if not any(f._pos_managed for f in fields):
+        # lista explícita de campos → autoritativa (pos_list não filtra)
+        line_fields = list(fields)
+        cardonly_fields = []
+    else:
+        fields = [f for f in fields if f.pos_list != 0]
+        line_fields = [f for f in fields if f.pos_list == 1]
+        cardonly_fields = [f for f in fields if f.pos_list == 2]
+        if not line_fields:
+            line_fields, cardonly_fields = fields, []
 
     card_fields = None
     card_configs = resolve_column_configs(merged, lista.get('card', []), principal=merged)

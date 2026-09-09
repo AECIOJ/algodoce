@@ -66,7 +66,7 @@ Page = {
                 'Itens': {
                     'table': {
                         'columns': ['CompraItem'],
-                        'totals': ['quantidade', {'valor': 'eTotal'}],
+                        'totals': ['qtd', {'valor': 'eTotal'}],
                     },
                 },
                 'Histórico': {

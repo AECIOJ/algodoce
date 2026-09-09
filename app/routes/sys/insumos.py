@@ -6,7 +6,7 @@ from app.models.compra_item import CompraItem
 
 Schema = {
     'ConversaoUnidade': {
-        'unidade': {'on_set': {'replaces': {'fator': 0}}},
+        'und': {'on_set': {'replaces': {'fator': 0}}},
     },
 }
 

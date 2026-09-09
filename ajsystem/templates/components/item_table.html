@@ -17,7 +17,7 @@
 #}
 {% import "components/form_macros.html" as fm with context %}
 
-{% macro item_table_edit(instance, child, ro=false) %}
+{% macro item_table_edit(instance, child, ro=false, title=true) %}
 {% set _rel = child.attr or child.name %}
 {% set _raw = instance|deep_attr(_rel) %}
 {% if child.single %}
@@ -44,12 +44,12 @@
 {% else %}
 {% set _display_fields = child.fields %}
 {% endif %}
-{% set _edit_fields = _display_fields|selectattr('pos_form')|rejectattr('hidden')|list %}
+{% set _edit_fields = _display_fields|rejectattr('hidden')|select('field_row')|list %}
 {% set _calc_fields = _display_fields|selectattr('calc')|list %}
 {% set _prefix = 'child_' + _rel + '_' %}
 {% set _totals = _session_totals.get(_rel) if _session_totals is defined else none %}
 <div class="mb-3 child-table-wrap" {% if _totals and not _calc_fields %}data-total-expr="{{ _totals.expr }}" data-total-currency="{{ _totals.currency or '' }}"{% endif %}>
-  <h6 class="font-bold mb-1 text-sm">{{ child.label }}</h6>
+  {% if title %}{{ fm.section_title(child.label) }}{% endif %}
 
   {# ── Desktop: tabela inline-edit ── #}
   <div class="it-desktop">
@@ -311,14 +311,14 @@
   query legada (fields + group_totals). Somente-leitura; agrupamento ordenado
   pelas options do campo.
 #}
-{% macro item_table_grouped(instance, child, ro=false) %}
+{% macro item_table_grouped(instance, child, ro=false, title=true) %}
 {% set _groups = child.groups %}
 {% if child.columns is defined and child.columns %}
 {% set _display_fields = child.columns %}
 {% else %}
 {% set _display_fields = child.fields %}
 {% endif %}
-{% set _edit_fields = _display_fields|selectattr('pos_form')|rejectattr('hidden')|list %}
+{% set _edit_fields = _display_fields|rejectattr('hidden')|select('field_row')|list %}
 {% set _totals = child.totals %}
 {% if child.table and child.table.total is mapping %}
 {% set _totals_spec = child.table.total %}
@@ -327,7 +327,7 @@
 {% endif %}
 {% set _ncols = _edit_fields|length + _totals_spec|length %}
 <div class="mb-3 child-table-wrap it-grouped">
-  <h6 class="font-bold mb-1 text-sm">{{ child.label }}</h6>
+  {% if title %}{{ fm.section_title(child.label) }}{% endif %}
 
   {# ── Desktop: tabela agrupada ── #}
   <div class="it-desktop">

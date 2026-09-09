@@ -257,20 +257,31 @@ def _resolve_model(entity_name: str):
     return model
 
 
-def resolve_column_configs(merged_entity: dict, spec, principal=None) -> list:
+def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_managed=None) -> list:
     """Resolve `spec` (str/de lista) para configs de campo a partir da entity
     merged `{campo: cfg}` (mesma semântica de `_resolve_cols` do legado).
 
     `str` bare = nome de uma entidade → expande todos os campos da entity
     merged (config = principal ou merged). `str`/item com `.` → campo específico.
+
+    `pos_managed` marca cada `Field` com `_pos_managed` (pos_form/pos_list só
+    atuam quando o conjunto foi definido pelo NOME DO MODEL/entidade — expansão;
+    em lista explícita de campos, a lista é autoritativa e `pos_*` não filtra).
+    Parâmetro explícito vence a detecção (ex.: sessão com `['OrcamentoItem']`).
     """
     config = principal or merged_entity
     if isinstance(spec, str):
         if spec in config:
             spec = [spec]
+            managed = False   # nome de campo específico → explícito
         else:
             # Mantém a ordem em que os campos foram definidos no dicionário (Python 3.7+ dict preserva ordem)
             spec = list((config or {}).keys())
+            managed = True    # nome de model/entidade → expansão (pos vale)
+    else:
+        managed = False       # lista explícita de campos
+    if pos_managed is not None:
+        managed = bool(pos_managed)
     cols = []
     for item in spec or []:
         if isinstance(item, dict):
@@ -280,10 +291,14 @@ def resolve_column_configs(merged_entity: dict, spec, principal=None) -> list:
             rest = {k: v for k, v in item.items() if k != 'name'}
             base = config.get(name, {}) or {}
             base = base if isinstance(base, dict) else {}
-            cols.append(build_field(name, {**base, **rest}))
+            f = build_field(name, {**base, **rest})
+            f._pos_managed = managed
+            cols.append(f)
             continue
         field_name = item.split('.', 1)[-1]
         base = config.get(field_name, {}) or {}
         base = base if isinstance(base, dict) else {}
-        cols.append(build_field(field_name, base))
+        f = build_field(field_name, base)
+        f._pos_managed = managed
+        cols.append(f)
     return cols

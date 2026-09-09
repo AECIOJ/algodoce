@@ -50,6 +50,12 @@ def init_app(app):
     app.jinja_env.filters['fmtdatetime'] = fmt_datetime
     app.jinja_env.filters['mask'] = fmt_mask
     app.jinja_env.tests['datemask'] = has_date_tokens
+    _jinja_field_body = (lambda f: ((getattr(f, 'pos_form', 1) or 0) != 4 and bool(getattr(f, 'pos_form', 1)))
+                         if getattr(f, '_pos_managed', True) else True)
+    _jinja_field_row = (lambda f: bool(getattr(f, 'pos_form', 1))
+                        if getattr(f, '_pos_managed', True) else True)
+    app.jinja_env.tests['field_body'] = _jinja_field_body
+    app.jinja_env.tests['field_row'] = _jinja_field_row
     app.jinja_env.filters['fields_to_columns'] = fields_to_columns
     app.jinja_env.filters['tag_color'] = _resolve_tag_color
     app.jinja_env.filters['heroicon'] = heroicon_filter

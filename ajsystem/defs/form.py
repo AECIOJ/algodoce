@@ -295,14 +295,19 @@ class Form:
         return merged, model
 
     def _resolve_session_cols(self, child_merged, cols, child_ent):
+        # Nome do model/entidade → expansão da Entity: pos_form/pos_list atuam
+        # (`_pos_managed=True`). Lista explícita de campos → autoritativa.
         if cols is None:
-            return resolve_column_configs(child_merged, child_ent, principal=child_merged)
+            return resolve_column_configs(child_merged, child_ent,
+                                          principal=child_merged, pos_managed=True)
         if isinstance(cols, str):
             if cols == child_ent:
-                return resolve_column_configs(child_merged, child_ent, principal=child_merged)
+                return resolve_column_configs(child_merged, child_ent,
+                                              principal=child_merged, pos_managed=True)
             cols = [cols]
         elif isinstance(cols, list) and len(cols) == 1 and cols[0] == child_ent:
-            return resolve_column_configs(child_merged, child_ent, principal=child_merged)
+            return resolve_column_configs(child_merged, child_ent,
+                                          principal=child_merged, pos_managed=True)
         return resolve_column_configs(child_merged, cols, principal=child_merged)
 
     def _resolve_buttons(self):

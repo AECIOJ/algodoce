@@ -37,7 +37,9 @@ def _save_single_sessions(form, instance):
         if attr is None:
             continue
         fields = session.get('fields') or []
-        editable = [f for f in fields if getattr(f, 'pos_form', None) not in (0, 4)]
+        editable = [f for f in fields
+                    if getattr(f, '_pos_managed', True) is False
+                    or getattr(f, 'pos_form', None) not in (0, 4)]
         if not editable:
             continue
         prefix = 'child_' + attr + '_'
@@ -56,6 +58,39 @@ def _save_single_sessions(form, instance):
                 continue
             setattr(child, f.name, _coerce(raw, f))
         apply_field_transforms(child, editable)
+
+
+def _save_session_masters(form, instance, old_vals, is_new):
+    """Persiste campos-master declarados em `session.fields` de sessões de
+    TABELA (ex.: `sessions.Insumos.fields=['qtd_receita']` do Produto).
+
+    Lista explícita → autoritativa: o campo é renderizado/editado acima da
+    tabela child (mesmo com `pos_form: 0` na Schema). Validação igual à do
+    loop principal.
+    """
+    fields_ok = True
+    for session in getattr(form, '_resolved_sessions', []) or []:
+        if not session.get('table'):
+            continue  # sessão 1:1 já é gravada por `_save_single_sessions`
+        for f in session.get('fields') or []:
+            if getattr(f, 'calc', None):
+                continue
+            if f.input == 'image':
+                continue
+            if f.input == 'multi':
+                raw = request.form.getlist(f.input_name or f.name)
+            else:
+                raw = request.form.get(f.input_name or f.name)
+            if raw is None:
+                continue
+            val = _coerce(raw, f)
+            if f.required and _empty_value(val):
+                flash(f'{f.label or f.name} é obrigatório.', 'warning')
+                fields_ok = False
+                continue
+            old_vals[f.name] = getattr(instance, f.name, None) if not is_new else None
+            setattr(instance, f.name, val)
+    return fields_ok
 
 
 _CROW_RE = re.compile(r'^(n-?\d+|\d+)_(.+)$')
@@ -333,7 +368,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
         old_vals = {}
         fields_ok = True
         for f in _flat_fields(form):
-            if f.pos_form != 1:
+            if getattr(f, '_pos_managed', True) and f.pos_form != 1:
                 continue
             if f.calc:
                 continue
@@ -370,6 +405,10 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
             setattr(instance, f.name, val)
 
         if not fields_ok:
+            db.session.rollback()
+            return redirect(url_for(form._redirect))
+
+        if not _save_session_masters(form, instance, old_vals, is_new):
             db.session.rollback()
             return redirect(url_for(form._redirect))
 
