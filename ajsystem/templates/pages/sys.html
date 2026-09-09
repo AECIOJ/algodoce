@@ -530,12 +530,22 @@ function syncChildInputs() {
 }
 
 /* ── totais genéricos (data-total-expr) + on_set (data-onset-*) + calc (data-calc) ── */
+function itFn(name, args) {
+  if (name === 'divide') {
+    var b = args[1] || 0;
+    if (!b) return 0;
+    var a = args[0] || 0;
+    return a / b;
+  }
+  return 0;
+}
 function itEval(expr, vars) {
-  var toks = (expr || '').replace(/\s+/g, '').match(/\d+\.?\d*|[A-Za-z_][A-Za-z0-9_]*|[+\-*/()]/g) || [];
+  var toks = (expr || '').replace(/\s+/g, '').match(/\d+\.?\d*|[A-Za-z_][A-Za-z0-9_]*|[+\-*/(),]/g) || [];
   var pos = 0;
   function peek() { return toks[pos]; }
   function next() { return toks[pos++]; }
   function num(t) {
+    if (t === undefined) return NaN;
     var v = vars[t];
     if (v !== undefined) return parseFloat(v) || 0;
     return parseFloat(t) || 0;
@@ -543,6 +553,19 @@ function itEval(expr, vars) {
   function atom() {
     var t = next();
     if (t === '(') { var v = expr1(); next(); return v; }
+    if (t && peek() === '(' && (t === 'divide')) {
+      next();
+      var args = [];
+      if (peek() !== ')') {
+        for (;;) {
+          args.push(expr1());
+          if (peek() === ',') { next(); continue; }
+          break;
+        }
+      }
+      next();
+      return itFn(t, args);
+    }
     return num(t);
   }
   function mul() {
@@ -930,15 +953,14 @@ function itCalcRefresh(wrap) {
     cell.textContent = cur ? itFmtMoney(sum, cur) : String(sum);
   });
 }
-function formCalcRefresh() {
-  var form = document.getElementById('aj-form');
-  if (!form) return;
-  form.querySelectorAll('input.aj-calc[data-calc]').forEach(function(inp) {
+function formCalcRefresh(scope) {
+  scope = scope || document.getElementById('main-form') || document;
+  scope.querySelectorAll('input.aj-calc[data-calc]').forEach(function(inp) {
     if (inp.closest('.child-table-wrap')) return;
     var expr = inp.getAttribute('data-calc');
     var vars = {};
     (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach(function(f) {
-      var el = form.querySelector('[name="' + f + '"]');
+      var el = scope.querySelector('[name="' + f + '"]');
       vars[f] = el ? parseNum(el.value) : 0;
     });
     var v = itEval(expr, vars);
