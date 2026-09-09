@@ -40,8 +40,8 @@ Schema = {
     'OrcamentoItem': {
         'produto_id': {
             'on_set': {'replaces': {
-                'quantidade': 'qtd_minima',
-                'preco_unitario': 'preco',
+                'qtd': 'qtd_minima',
+                'preco': 'preco',
             }},
         },
     },
@@ -90,7 +90,7 @@ Page = {
                     ],
                     'table': {
                         'columns': ['OrcamentoItem'],
-                        'totals': ['quantidade', {'valor': 'eTotal'}],
+                        'totals': ['qtd', {'valor': 'eTotal'}],
                     },
                 },
                 'Evento': {
@@ -311,15 +311,15 @@ def aprovar(id):
         order_item = PedidoItem(
             pedido_id=order.id,
             produto_id=item.produto_id,
-            quantidade=item.quantidade,
-            preco_unitario=item.preco_unitario,
+            qtd=item.qtd,
+            preco=item.preco,
             observacao=item.observacao,
         )
         db.session.add(order_item)
 
     db.session.flush()
     order.total = sum(
-        (i.preco_unitario or 0) * i.quantidade for i in order.items
+        (i.preco or 0) * i.qtd for i in order.items
     )
     if quote.evento:
         order.evento = quote.evento

@@ -222,8 +222,8 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 > 'pai_id': {'type': 'FK', 'label': 'Superior',
 >            'lookup': {'display': 'nome', 'fields': ['nome'], 'value': 'id'}},
 > 'produto_id': {'type': 'FK', 'label': 'Produto', 'required': True,
->                'on_set': {'replaces': {'quantidade': 'qtd_minima',
->                                        'preco_unitario': 'preco'}}},
+>                'on_set': {'replaces': {'qtd': 'qtd_minima',
+>                                        'preco': 'preco'}}},
 > ```
 
 > **Agregação (soma de coleção/agrupamento) não é prop de campo.** Valores
@@ -235,11 +235,11 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 > - `replaces`: preenchimento `{campo_alvo: campo_fonte}` (modo fonte),
 >   `{campo_alvo: {valor_opcao: literal}}` (modo por-opção, p/ LISTA) ou
 >   `{campo_alvo: literal}` (modo constante). Exemplo — ao escolher o produto,
->   traz `quantidade` (da `qtd_minima`) e `preco_unitario` (do `preco`):
+>   traz `qtd` (da `qtd_minima`) e `preco` (do `preco` do produto):
 > ```python
 > 'produto_id': {'type': 'FK', 'label': 'Produto', 'required': True,
->                'on_set': {'replaces': {'quantidade': 'qtd_minima',
->                                        'preco_unitario': 'preco'}}},
+>                'on_set': {'replaces': {'qtd': 'qtd_minima',
+>                                        'preco': 'preco'}}},
 > ```
 > - `disables`: lista de campos desabilitados enquanto este tiver valor
 >   (reabilita ao limpar). Guarda anti-deadlock: alvo com valor nunca é
@@ -516,7 +516,7 @@ podendo ser definida **uma, duas ou todas**, conforme o caso:
 - `table.totals`: lista que define a **linha de totais** no rodapé da tabela
   editável. Aceita item string (só totaliza) ou dict `{coluna: input_name}`
   (totaliza **e** grava no input do master cujo `input_name` é o valor). Ex.:
-  `['quantidade', {'valor': 'eTotal'}]` — soma `quantidade` e soma `valor`
+  `['qtd', {'valor': 'eTotal'}]` — soma `qtd` e soma `valor`
   propagando ao campo do master com `input_name: 'eTotal'`. Sem `totals`, nenhuma
   linha de totais é exibida. Campos com `calc` podem ser totalizados — o total
   soma, para cada linha, o valor calculado (não apenas o campo cru). O rótulo
@@ -540,7 +540,7 @@ podendo ser definida **uma, duas ou todas**, conforme o caso:
   `totals` client-side continuem calculando.
 
 Exemplo (orçamento com Evento 1:1 e Itens em tabela editável, totalizando a
-coluna `valor` — um campo `calc` = `quantidade * preco_unitario`):
+coluna `valor` — um campo `calc` = `qtd * preco`):
 
 ```python
 'form': {

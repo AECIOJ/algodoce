@@ -36,8 +36,8 @@ Schema = {
     'PedidoItem': {
         'produto_id': {
             'on_set': {'replaces': {
-                'quantidade': 'qtd_minima',
-                'preco_unitario': 'preco',
+                'qtd': 'qtd_minima',
+                'preco': 'preco',
             }},
         },
     },
@@ -69,7 +69,7 @@ Page = {
                 'Itens do Pedido': {
                     'table': {
                         'columns': ['PedidoItem'],
-                        'totals': ['quantidade', {'valor': 'eTotal'}],
+                        'totals': ['qtd', {'valor': 'eTotal'}],
                     },
                 },
                 'Evento': {

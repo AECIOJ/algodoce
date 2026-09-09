@@ -11,8 +11,8 @@ class OrcamentoItem(db.Model):
     produto_id = db.Column(
         db.Integer, db.ForeignKey("produtos.id"), nullable=False
     )
-    quantidade = db.Column(db.Integer, nullable=False)
-    preco_unitario = db.Column(db.Numeric(10, 2), nullable=True)
+    qtd = db.Column(db.Integer, nullable=False)
+    preco = db.Column(db.Numeric(10, 2), nullable=True)
     observacao = db.Column(db.Text, nullable=True)
 
     produto = db.relationship("Produto", lazy="joined")
@@ -26,9 +26,9 @@ Entity = {
     'id':              {'type': 'ID'},
     'orcamento_id':        {'type': 'DK'},
     'produto_id':      {'type': 'FK', 'label': 'Produto', 'required': True},
-    'quantidade':      {'type': 'INT', 'label': 'Qtd', 'required': True},
-    'preco_unitario':  {'type': 'NUM', 'label': 'Preço', 'currency': 1},
+    'qtd':             {'type': 'INT', 'label': 'Qtd', 'required': True},
+    'preco':           {'type': 'NUM', 'label': 'Preço', 'currency': 1},
     'valor':           {'type': 'NUM', 'label': 'Valor', 'currency': 1,
-                        'pos_form': 0, 'calc': 'quantidade * preco_unitario'},
+                        'pos_form': 0, 'calc': 'qtd * preco'},
     'observacao':      {'type': 'TEXT', 'label': 'Obs'},
 }

@@ -58,8 +58,8 @@ ORCAMENTO = {
         'table': {
             'columns': {
                 'produto_id':     {'width': 44},   # FK → label 'Produto'; valor via produto.nome
-                'quantidade':     {'width': 10},   # INT → center (mínimo do motor: 15mm)
-                'preco_unitario': {'width': 14},   # NUM currency → right/brl
+                'qtd':            {'width': 10},   # INT → center (mínimo do motor: 15mm)
+                'preco':          {'width': 14},   # NUM currency → right/brl
                 'valor':          {'width': 14, 'agg': 'sum'},   # calc da Entity
             },
             'footer': True,

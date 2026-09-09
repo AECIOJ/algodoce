@@ -324,7 +324,7 @@ def send_cart(mod):
         t = tmodel(
             **{table['parent_fk']: quote.id},
             **{item_id: i.get(item_id)},
-            quantidade=i.get('quantidade'),
+            qtd=i.get('quantidade'),
             observacao=i.get('observacao') or None,
         )
         db.session.add(t)

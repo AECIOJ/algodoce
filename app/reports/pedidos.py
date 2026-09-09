@@ -2,7 +2,7 @@ from app.constantes import FORMINHAS
 
 
 def _valor_item(item):
-    return (item.preco_unitario or 0) * item.quantidade
+    return (item.preco or 0) * item.qtd
 
 
 def _cliente_nome(order):
@@ -70,8 +70,8 @@ PEDIDO = {
         'table': {
             'columns': {
                 'produto.nome':   {'label': 'Produto', 'width': 50},
-                'quantidade':     {'label': 'Qtd.', 'width': 10, 'align': 'center'},
-                'preco_unitario': {'label': 'Preço', 'width': 20, 'align': 'right'},
+                'qtd':            {'label': 'Qtd.', 'width': 10, 'align': 'center'},
+                'preco':          {'label': 'Preço', 'width': 20, 'align': 'right'},
                 'valor':          {'label': 'Valor', 'width': 20, 'align': 'right',
                                    'function': _valor_item, 'agg': 'sum'},
             },

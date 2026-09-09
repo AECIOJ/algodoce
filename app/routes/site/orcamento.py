@@ -28,8 +28,8 @@ Entity = {
     },
     'OrcamentoItem': {
         'produto_id': {'type': 'FK'},
-        'quantidade': {'type': 'INT', 'required': True},
-        'preco_unitario': {'type': 'NUM', 'currency': 'brl'},
+        'qtd': {'type': 'INT', 'required': True},
+        'preco': {'type': 'NUM', 'currency': 'brl'},
         'observacao': {'type': 'TEXT'},
     },
     'Evento': {
@@ -57,7 +57,7 @@ def _notificar_orcamento(quote):
     items = []
     for item in quote.items:
         nome = item.produto.nome if item.produto else "?"
-        items.append(f"- {item.quantidade}x {nome}")
+        items.append(f"- {item.qtd}x {nome}")
 
     event = quote.evento
     extra = ""
