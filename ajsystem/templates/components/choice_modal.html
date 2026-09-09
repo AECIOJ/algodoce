@@ -1,28 +1,24 @@
 <dialog id="choiceModal_{{ uid }}" class="modal">
-  <div class="modal-box p-0 overflow-hidden" style="max-width:min(32rem,calc(100vw - 2rem))">
+  <div class="modal-box p-0 overflow-hidden" style="max-width:min(32rem,calc(100vw - 2rem));border:1px solid {{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }}">
     <div class="flex items-center gap-2" style="background:{{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }};color:{{ TEMA.modal.tons.primary.texto|default('#FFFFFF', true) }};padding:.75rem 1.5rem">
       <h3 class="font-bold text-lg">{{ title }}</h3>
     </div>
     <div style="padding:1rem 1.5rem">
-    <form method="get" action="{{ url_target }}">
-      {% for k, v in hidden_params.items() %}
-      <input type="hidden" name="{{ k }}" value="{{ v }}">
-      {% endfor %}
-      <label class="form-control w-full mt-3">
-        <span class="label-text mb-1">{{ label }}</span>
-        <select name="{{ param }}" class="select select-bordered w-full"
-                onchange="this.form.submit()">
-          <option value="">— Todos —</option>
-          {% for value, opt_label in options.items() %}
-          <option value="{{ value }}">{{ opt_label }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <div class="modal-action justify-between">
-        <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">{{ confirm_label or 'Ok' }}</button>
-      </div>
-    </form>
+    <label class="form-control w-full">
+      <span class="label-text mb-1">{{ label }}</span>
+      <select id="choiceSelect_{{ uid }}" name="{{ param }}" class="select select-bordered w-full">
+        <option value="">— Todos —</option>
+        {% for value, opt_label in options.items() %}
+        <option value="{{ value }}">{{ opt_label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    </div>
+    <div style="background-color:oklch(var(--b2,91.887% 0 0)/1)">
+    <div class="modal-action justify-between" style="margin:0;padding:.5rem 1.5rem">
+      <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn btn-primary" onclick="var s=document.getElementById('choiceSelect_{{ uid }}');if(s.value){var f=document.createElement('form');f.method='get';f.action='{{ url_target }}';{% for k,v in hidden_params.items() %}var h=document.createElement('input');h.type='hidden';h.name='{{ k }}';h.value='{{ v }}';f.appendChild(h);{% endfor %}var p=document.createElement('input');p.type='hidden';p.name='{{ param }}';p.value=s.value;f.appendChild(p);document.body.appendChild(f);f.submit();}">{{ confirm_label or 'Ok' }}</button>
+    </div>
     </div>
   </div>
 </dialog>

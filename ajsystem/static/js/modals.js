@@ -39,8 +39,9 @@
     var d = document.createElement('dialog');
     d.className = 'modal';
     var box = document.createElement('div');
-    box.className = 'modal-box p-0 overflow-hidden';
-    box.style.maxWidth = opts.wide ? 'min(48rem,calc(100vw - 2rem))' : 'min(32rem,calc(100vw - 2rem))';
+  box.className = 'modal-box p-0 overflow-hidden';
+  box.style.maxWidth = opts.wide ? 'min(48rem,calc(100vw - 2rem))' : 'min(32rem,calc(100vw - 2rem))';
+  box.style.border = '1px solid ' + tc.bg;
     var bar = document.createElement('div');
     bar.className = 'flex items-center gap-2';
     bar.setAttribute('style', 'background:' + tc.bg + ';color:' + tc.fg + ';padding:.75rem 1.5rem');
@@ -84,10 +85,13 @@
     });
     var cbs = {};
     var btns = opts.buttons || [{label: 'OK', cls: 'btn-primary', value: 'ok'}];
-    if (btns.length) {
-      var form = document.createElement('form');
-      form.method = 'dialog';
-      form.className = 'modal-action';
+  if (btns.length) {
+    var foot = document.createElement('div');
+    foot.setAttribute('style', 'background-color:oklch(var(--b2,91.887% 0 0)/1);padding:.5rem 0');
+    var form = document.createElement('form');
+    form.method = 'dialog';
+    form.className = 'modal-action';
+    form.setAttribute('style', 'margin:0;padding:0 1.5rem');
       btns.forEach(function(b) {
         b = b || {};
         var btn = document.createElement('button');
@@ -100,12 +104,13 @@
           btn.appendChild(bi);
         }
         btn.appendChild(document.createTextNode(b.label || 'OK'));
-        if (typeof b.onClick === 'function') cbs[val] = b.onClick;
-        form.appendChild(btn);
-      });
-      bodyEl.appendChild(form);
-    }
+      if (typeof b.onClick === 'function') cbs[val] = b.onClick;
+      form.appendChild(btn);
+    });
+    foot.appendChild(form);
+  }
     box.appendChild(bodyEl);
+    if (btns.length) box.appendChild(foot);
     d.appendChild(box);
     d.addEventListener('close', function() {
       var v = d.returnValue;
@@ -154,8 +159,8 @@
   function confirmSair() {
     if (window._formModified || window.modified) {
       ajModal({
-        kind: 'sair', title: 'Descartar alterações?',
-        lines: ['Há alterações não salvas. Deseja sair mesmo assim?'],
+        kind: 'sair', title: 'Há alterações não salvas.',
+        lines: ['Sair e descartar alterações?'],
         buttons: [
           {label: 'Cancelar', cls: 'btn-ghost', value: 'cancel'},
           {label: 'Sair', cls: 'btn-error', icon: 'logout', value: 'sair',

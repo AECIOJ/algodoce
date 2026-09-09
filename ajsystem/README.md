@@ -469,6 +469,25 @@ Botões com `endpoint`/`action` são ocultos em registro novo (sem instância).
 > — confirmação com ação segue via `confirm_msg`/JS); para HTML arbitrário use
 > `html=` (já sanitizado, por sua conta).
 
+##### Estrutura visual dos modais (3 zonas)
+
+Todo modal segue a mesma estrutura visual, tanto os gerados por `ajModal()`
+quanto os estáticos (`choice_modal`, `modalCrop`, `timeoutModal`):
+
+```
+modal-box (p-0, border:1px solid cor_do_tom)
+  ├── barra   (cor do tom, padding:.75rem 1.5rem — título + ícone)
+  ├── corpo   (padding:1rem 1.5rem — conteúdo)
+  └── rodapé  (cinza oklch(var(--b2)) — botões, encosta nas bordas)
+       └── modal-action (margin:0, padding:.5rem 1.5rem)
+```
+
+Regras de texto:
+- **Título** (barra): informativo, sem `?` (ex.: `Há alterações não salvas.`)
+- **Mensagem** (corpo): pode conter `?` quando for pergunta ao usuário
+- **Botões** (rodapé): ação direta (`OK`, `Fechar`, `Sair`, `Salvar`...
+  nunca `Sim`/`Não` isolados — o contexto vem na mensagem)
+
 ##### `sessions` — seções filhas
 
 Uma sessão é uma seção do formulário que trata um **filho** (outra entidade

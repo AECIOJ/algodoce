@@ -3,7 +3,7 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
 
 <dialog id="modalCrop" class="modal">
-  <div class="modal-box p-0 overflow-hidden" style="max-width:min(48rem,calc(100vw - 2rem))">
+  <div class="modal-box p-0 overflow-hidden" style="max-width:min(48rem,calc(100vw - 2rem));border:1px solid {{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }}">
     <div class="flex items-center gap-2" style="background:{{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }};color:{{ TEMA.modal.tons.primary.texto|default('#FFFFFF', true) }};padding:.75rem 1.5rem">
       <form method="dialog">
         <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" style="color:inherit" aria-label="Fechar" onclick="fecharCrop()">
@@ -23,7 +23,9 @@
       <img id="crop-image" style="max-width:100%;display:none;">
       <input type="file" id="crop-input" accept="image/*" style="display:none">
     </div>
-    <div class="modal-action justify-between items-center">
+    </div>
+    <div style="background-color:oklch(var(--b2,91.887% 0 0)/1)">
+    <div class="modal-action justify-between items-center" style="margin:0;padding:.5rem 1.5rem">
       <div class="flex gap-2 items-center">
         <button type="button" class="btn btn-error btn-outline btn-sm inline-flex items-center gap-1" id="crop-excluir" style="display:none" onclick="excluirImagem(_iw.ns)">
           <i class="bi bi-trash"></i> Excluir

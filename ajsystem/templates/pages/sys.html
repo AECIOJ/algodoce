@@ -203,7 +203,7 @@
 </dialog>
 
 <dialog id="timeoutModal" class="modal" x-data="{ open: false }" x-show="open" @keydown.escape="open = false">
-  <div class="modal-box p-0 overflow-hidden" style="max-width:min(32rem,calc(100vw - 2rem))">
+  <div class="modal-box p-0 overflow-hidden" style="max-width:min(32rem,calc(100vw - 2rem));border:1px solid {{ TEMA.modal.tons.warning.fundo|default('#FB8C00', true) }}">
     <div class="flex items-center gap-2" style="background:{{ TEMA.modal.tons.warning.fundo|default('#FB8C00', true) }};color:{{ TEMA.modal.tons.warning.texto|default('#000000', true) }};padding:.75rem 1.5rem">
       <h3 class="font-bold text-lg flex items-center gap-2"><span><svg style="width:2rem;height:2rem;display:block" aria-hidden="true"><use href="#i-clock"/></svg></span><span>Sessão expirando</span></h3>
     </div>
@@ -212,7 +212,9 @@
       <p>Sua sessão expira em breve por inatividade. Deseja continuar logado?</p>
       <p class="text-3xl font-bold my-3" id="timeout-countdown"></p>
     </div>
-    <div class="modal-action justify-center">
+    </div>
+    <div style="background-color:oklch(var(--b2,91.887% 0 0)/1)">
+    <div class="modal-action justify-center" style="margin:0;padding:.5rem 1.5rem">
       <button class="btn btn-ghost" @click="open = false">
         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-xmark"/></svg> Não
       </button>
@@ -230,7 +232,7 @@
 <script src="{{ _js }}"></script>
 {% endfor %}
 <script src="{{ url_for('ajsystem.static', filename='js/validators.js') }}?v=1"></script>
-<script src="{{ url_for('ajsystem.static', filename='js/modals.js') }}?v=2"></script>
+<script src="{{ url_for('ajsystem.static', filename='js/modals.js') }}?v=6"></script>
 {# validacoes do app (app/static/js/validacoes.js): incluir aqui quando criado, APÓS validators.js — ver README #}
 {% include 'components/auth_triggers.html' %}
 <script>
