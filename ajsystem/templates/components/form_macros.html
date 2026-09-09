@@ -19,7 +19,7 @@
 {% endif %}
 {% if field.calc %}
 {% set _calc_txt = render_label(field, data)|trim %}
-<input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _calc_txt if _calc_txt and _calc_txt != '—' else '' }}" disabled tabindex="-1">
+<input type="text" name="{{ ns }}" class="input input-bordered input-sm aj-calc" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _calc_txt if _calc_txt and _calc_txt != '—' else '' }}" data-calc="{{ field.calc }}"{% if field.currency %} data-calc-currency="{{ field.currency }}"{% endif %} disabled tabindex="-1">
 {% elif _ro_msg %}
 {% if field.input == 'image' %}
 {{ render_label(field, data) }}

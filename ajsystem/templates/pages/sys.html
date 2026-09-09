@@ -930,6 +930,23 @@ function itCalcRefresh(wrap) {
     cell.textContent = cur ? itFmtMoney(sum, cur) : String(sum);
   });
 }
+function formCalcRefresh() {
+  var form = document.getElementById('aj-form');
+  if (!form) return;
+  form.querySelectorAll('input.aj-calc[data-calc]').forEach(function(inp) {
+    if (inp.closest('.child-table-wrap')) return;
+    var expr = inp.getAttribute('data-calc');
+    var vars = {};
+    (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach(function(f) {
+      var el = form.querySelector('[name="' + f + '"]');
+      vars[f] = el ? parseNum(el.value) : 0;
+    });
+    var v = itEval(expr, vars);
+    var cur = inp.getAttribute('data-calc-currency');
+    var formatted = isNaN(v) ? '' : (cur ? itFmtMoney(v, cur) : String(v));
+    inp.value = formatted;
+  });
+}
 function itSessionTotals(wrap) {
   if (!wrap) return;
   var relEl = wrap.querySelector('.it-desktop tbody[data-rel]');
@@ -1203,6 +1220,8 @@ document.addEventListener('DOMContentLoaded', function() {
         itCalcRefresh(_w);
         itSessionTotals(_w);
         itTotalsRefresh(_w);
+      } else if (e.target && e.target.name) {
+        formCalcRefresh();
       }
     });
     form.addEventListener('change', function(e) {
@@ -1213,10 +1232,13 @@ document.addEventListener('DOMContentLoaded', function() {
         itCalcRefresh(_w);
         itSessionTotals(_w);
         itTotalsRefresh(_w);
+      } else if (e.target && e.target.name) {
+        formCalcRefresh();
       }
     });
   }
   syncChildInputs();
+  formCalcRefresh();
   document.querySelectorAll('.child-table-wrap').forEach(function(wrap) {
     itOnSetBind(wrap);
     itCalcRefresh(wrap);
