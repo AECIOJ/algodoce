@@ -318,7 +318,24 @@
 {% else %}
 {% set _display_fields = child.fields %}
 {% endif %}
-{% set _edit_fields = _display_fields|rejectattr('hidden')|select('field_row')|list %}
+{% set _q = child.get('query') if child is mapping else child.query %}
+{% set _tbl = child.get('table') if child is mapping else child.table %}
+{% set _gnames = [] %}
+{% if _q is mapping and _q.get('groups') %}
+  {% set _qg = _q.get('groups') %}
+  {% if _qg is not iterable or _qg is string %}{% set _gnames = [_qg] if _qg else [] %}{% else %}{% set _gnames = _qg %}{% endif %}
+{% endif %}
+{% if not _gnames and _tbl is mapping and _tbl.get('group_by') %}
+  {% set _tblg = _tbl.get('group_by') %}
+  {% if _tblg is not iterable or _tblg is string %}{% set _gnames = [_tblg] if _tblg else [] %}{% else %}{% set _gnames = _tblg %}{% endif %}
+{% endif %}
+{% set _raw_edit_fields = _display_fields|rejectattr('hidden')|select('field_row')|list %}
+{% set _edit_fields = [] %}
+{% for f in _raw_edit_fields %}
+  {% if f.name not in _gnames %}
+    {% set _ = _edit_fields.append(f) %}
+  {% endif %}
+{% endfor %}
 {% set _totals = child.totals %}
 {% if child.table and child.table.total is mapping %}
 {% set _totals_spec = child.table.total %}

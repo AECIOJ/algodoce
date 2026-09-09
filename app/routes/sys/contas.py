@@ -16,7 +16,7 @@ Page = {
             'order': ['nome'],
         },
         'form': {
-            'max_width': 80,
+            'max_width': 85,
             'fields': 'Conta',
             'sessions': {
                 'Pedidos': {
