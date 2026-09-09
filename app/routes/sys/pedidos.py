@@ -37,7 +37,7 @@ Schema = {
         'produto_id': {
             'on_set': {'replaces': {
                 'quantidade': 'qtd_minima',
-                'preco_unitario': 'preco_unitario',
+                'preco_unitario': 'preco',
             }},
         },
     },
