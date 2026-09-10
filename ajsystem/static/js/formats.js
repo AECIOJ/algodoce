@@ -57,21 +57,21 @@ function _maskTokenSpec(tok) {
   if (tok === 'A') return { key: 'A', w: 1 };
   if (tok === 'N') return { key: 'N', w: 1 };
   if (tok === '#') return { key: 'x', w: 1 };
-  if (tok === 'dd' || tok === 'mm' || tok === 'hh' || tok === 'ii' || tok === 'ss' || tok === 'aa' || tok === 'yy') return { key: tok === 'mm' || tok === 'ii' ? 'm' : tok === 'dd' ? 'd' : tok === 'hh' ? 'h' : tok === 'ss' ? 's' : 'y', w: 2 };
+  if (tok === 'dd' || tok === 'mm' || tok === 'hh' || tok === 'ii' || tok === 'ss' || tok === 'aa' || tok === 'yy') return { key: tok === 'mm' ? 'M' : tok === 'ii' ? 'm' : tok === 'dd' ? 'd' : tok === 'hh' ? 'h' : tok === 'ss' ? 's' : 'y', w: 2 };
   if (tok === 'aaaa' || tok === 'yyyy') return { key: 'Y', w: 4 };
   if (tok === 'ddd' || tok === 'mmm') return { key: tok, w: 0 };
   return null;
 }
 function _maskTokOk(c, spec) {
-  if (spec.key === 'd') return /[0-9]/.test(c);
+  if (spec.key === 'd' || spec.key === 'M' || spec.key === 'm' || spec.key === 'h' || spec.key === 's' || spec.key === 'y' || spec.key === 'Y') return /[0-9]/.test(c);
   if (spec.key === 'A') return /[A-Za-z]/.test(c);
   if (spec.key === 'N') return /[A-Za-z0-9]/.test(c);
   if (spec.key === 'x') return !/[A-Za-z]/.test(c);
   return false;
 }
 function _maskDerived(tok, f) {
-  if (f.d && f.d.length === 2 && f.m && f.m.length === 2 && f.Y && f.Y.length === 4) {
-    var d = parseInt(f.d, 10), m = parseInt(f.m, 10), y = parseInt(f.Y, 10);
+  if (f.d && f.d.length === 2 && f.M && f.M.length === 2 && f.Y && f.Y.length === 4) {
+    var d = parseInt(f.d, 10), m = parseInt(f.M, 10), y = parseInt(f.Y, 10);
     var dt = new Date(y, m - 1, d);
     if (dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d) {
       if (tok === 'ddd') return _PT_DOW[(dt.getDay() + 6) % 7];
@@ -109,16 +109,17 @@ function _applyMask(text, mask) {
 function _maskEl(el) {
   var mask = el.getAttribute('data-mask');
   if (!mask) return;
-  el.value = _applyMask(el.value, mask);
+  if (!el.value) { el.value = ''; return; }
+  el.value = _applyMask(_maskStrip(el.value, mask), mask);
 }
 function _maskStrip(text, mask) {
-  var toks = _maskTokenize(mask || ''), s = String(text || ''), out = '', si = 0, i, spec;
+  var toks = _maskTokenize(mask || ''), s = String(text || ''), out = '', si = 0, i, spec, n;
   for (i = 0; i < toks.length && si < s.length; i++) {
     spec = _maskTokenSpec(toks[i]);
     if (!spec || !spec.w) continue;
     while (si < s.length && !_maskTokOk(s[si], spec)) si++;
-    if (si >= s.length) break;
-    out += s[si]; si++;
+    n = 0;
+    while (n < spec.w && si < s.length && _maskTokOk(s[si], spec)) { out += s[si]; si++; n++; }
   }
   return out;
 }
