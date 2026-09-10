@@ -496,17 +496,24 @@ podendo ser definida **uma, duas ou todas**, conforme o caso:
 
 | Propriedade | Tipo | O que configura |
 |---|---|---|
-| `fields` | list | Formulário **1:1 editável** — o child único renderizado como campos (aparece mesmo sem dados, p/ inclusão) |
+| `fields` | list | Formulário editável — se o 1º item é **Entity** do filho (`['Evento']`), sessão 1:1 child; se é **campo do pai** (`['total','carteira_id']`), sessão de campos do pai (sem child) |
 | `table` | dict | Tabela **editável** (detalhe) — com `columns`; persiste as linhas do relacionamento |
 | `query` | dict | Exibição **somente leitura** — com `columns`, `groups`, `order` |
 | `buttons` | list | Botões de rodapé da tabela editável — cada um como um `Button` (ver `buttons`); uso comum: ação client-side via `js` |
 
-- **`fields` sozinho** = child **único (1:1)** renderizado como formulário de
-  campos dentro do form. O primeiro item nomeia a **Entity** do filho (ex.
-  `['Evento']`); os demais, se houver, restringem as colunas exibidas. A seção
-  aparece **mesmo quando o registro ainda não tem filho** (campos vazios), para
-  permitir a inclusão; o motor persiste o child (criar/atualizar) no submit,
-  vinculando a FK do pai.
+- **`fields` sozinho** — detecta automaticamente o tipo de sessão:
+  - **Child 1:1**: o 1º item é um **nome de Entity** (ex. `['Evento']`) — renderiza
+    o child único como formulário; aparece mesmo sem dados para permitir a
+    inclusão; o motor persiste o child (criar/atualizar) no submit vinculando a
+    FK do pai. Itens subsequentes restringem as colunas.
+  - **Campos do pai**: o 1º item é um **campo da própria Entity** (ex.
+    `['total', 'carteira_id']`) — renderiza campos do registro pai agrupados numa
+    seção; útil para expor campos ocultos (`pos_form: 0`) numa área dedicada.
+    O motor grava esses campos no pai durante o submit. Ex.:
+    ```python
+    'Financeiro': {'fields': ['total', 'carteira_id']},   # campos do pai
+    'Evento':     {'fields': ['Evento']},                   # child 1:1
+    ```
 - `query` e `table` são **mutuamente exclusivos**. A coluna de uma sessão aceita
   o nome da entidade (expande todos os campos) ou lista de campos específicos; o
   vetor de colunas é resolvido contra o `Entity` + `Schema` da entidade filha,

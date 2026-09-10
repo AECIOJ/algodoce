@@ -147,16 +147,25 @@ class Form:
             resolved_cols = []
             resolved_fields = []
             child_model = None
-            # Sessão 1:1 — só `fields` (sem query/table): formula o child único
-            # (ex. o Evento de um orçamento). O primeiro item de `fields` nomeia
-            # a Entity do child; os demais restringem as colunas.
+            # Sessão só com `fields` (sem query/table). O primeiro item nomeia a
+            # Entity do child (sessão 1:1, ex. `['Evento', 'data']`); quando o
+            # item é um campo do próprio pai (ex. `['total', 'carteira_id']`), a
+            # sessão agrupa campos do pai para exibição/edição (sem child).
             is_form = spec_fields is not None and spec_query is None and spec_table is None
+            is_parent = False
             if is_form:
                 col_specs = spec_fields if isinstance(spec_fields, list) else [spec_fields]
-                child_ent = col_specs[0] if col_specs else name
-                if isinstance(child_ent, str):
-                    child_merged, child_model = self._child_merged(child_ent)
-                    resolved_fields = self._resolve_session_cols(child_merged, col_specs, child_ent)
+                parent_schema = self._schema or {}
+                first = col_specs[0] if col_specs else None
+                if isinstance(first, str) and first in parent_schema:
+                    is_parent = True
+                    resolved_fields = resolve_column_configs(
+                        parent_schema, col_specs, principal=parent_schema)
+                else:
+                    child_ent = col_specs[0] if col_specs else name
+                    if isinstance(child_ent, str):
+                        child_merged, child_model = self._child_merged(child_ent)
+                        resolved_fields = self._resolve_session_cols(child_merged, col_specs, child_ent)
             elif spec_query:
                 q_cols = spec_query.get('columns') if isinstance(spec_query, dict) else getattr(spec_query, 'columns', None)
                 child_ent = q_cols[0] if isinstance(q_cols, list) and q_cols else name
@@ -211,7 +220,11 @@ class Form:
                         t_dict['total'] = total_map
                 resolved_table = t_dict
 
-            attr, child_cols = self._resolve_parent_link(child_model, resolved_cols, fallback=name.lower())
+            if is_parent:
+                attr = None
+                child_cols = []
+            else:
+                attr, child_cols = self._resolve_parent_link(child_model, resolved_cols, fallback=name.lower())
 
             resolved.append({
                 'name': name,

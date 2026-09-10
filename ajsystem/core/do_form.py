@@ -61,8 +61,11 @@ def _save_single_sessions(form, instance):
 
 
 def _save_session_masters(form, instance, old_vals, is_new):
-    """Persiste campos-master declarados em `session.fields` de sessões de
-    TABELA (ex.: `sessions.Insumos.fields=['qtd_receita']` do Produto).
+    """Persiste campos-master declarados em `session.fields` do pai.
+
+    Cobre dois casos: sessões de TABELA (ex.: `sessions.Insumos.fields=
+    ['qtd_receita']` do Produto) e sessões de campos do pai (só `fields`,
+    sem child — ex.: `sessions.Financeiro.fields=['total','carteira_id']`).
 
     Lista explícita → autoritativa: o campo é renderizado/editado acima da
     tabela child (mesmo com `pos_form: 0` na Schema). Validação igual à do
@@ -70,8 +73,10 @@ def _save_session_masters(form, instance, old_vals, is_new):
     """
     fields_ok = True
     for session in getattr(form, '_resolved_sessions', []) or []:
-        if not session.get('table'):
-            continue  # sessão 1:1 já é gravada por `_save_single_sessions`
+        if session.get('query'):
+            continue  # sessões query são readonly
+        if not session.get('table') and session.get('model') is not None:
+            continue  # sessão 1:1 child já é gravada por `_save_single_sessions`
         for f in session.get('fields') or []:
             if getattr(f, 'calc', None):
                 continue
@@ -321,6 +326,10 @@ def _build_lookup(form, extra_lookup=None, instance=None):
         child_model = session.get('model')
         for f in (session.get('columns') or []) or []:
             fill(f, child_model, _union=False)
+        if child_model is None:
+            # sessão de campos do pai: lookup resolvido contra o model do pai
+            for f in (session.get('fields') or []):
+                fill(f, form._model, _union=False)
     return lookup
 
 
@@ -352,10 +361,16 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
             f.lookup = resolved
     for session in getattr(form, '_resolved_sessions', []) or []:
         child_model = session.get('model')
-        for f in (session.get('columns') or []) or []:
-            resolved = resolve_lookup(f, child_model)
-            if resolved is not None:
-                f.lookup = resolved
+        if child_model is not None:
+            for f in (session.get('columns') or []) or []:
+                resolved = resolve_lookup(f, child_model)
+                if resolved is not None:
+                    f.lookup = resolved
+        else:
+            for f in (session.get('fields') or []):
+                resolved = resolve_lookup(f, form._model)
+                if resolved is not None:
+                    f.lookup = resolved
 
     if request.method == "POST":
         if is_new:

@@ -606,7 +606,7 @@ def choice_modal(title, options, param='tipo', label='Escolha',
     Default de `url_target` é `request.path` (sem query) — os parâmetros vêm do
     próprio form (select + hiddens), evitando arrastar query antiga da URL.
     """
-    url = url_target or request.path
+    url = url_target or getattr(request, 'choice_url_target', None) or request.path
     return render_template(
         'components/choice_modal.html',
         uid=uuid.uuid4().hex[:8],

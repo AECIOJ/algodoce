@@ -59,4 +59,59 @@ def lookup_search():
     return jsonify(_search.run_search(spec, params))
 
 
+@ajsystem.route('/list-action')
+@login_required
+def list_action():
+    """Gera HTML fresco de ação de botão de listagem (via fetch).
+
+    Resolve a action do botão e retorna o HTML (ex.: modal de escolha de
+    impressão com rid novo), evitando caching do template estático.
+    Parâmetros: page (slug), btn (índice do botão), id (opcional, instance).
+    """
+    import importlib
+    from flask import Blueprint as _BP
+    from ajsystem.defs.data import module_page, page_list_cfg
+
+    page = request.args.get('page', '')
+    btn_idx = request.args.get('btn', type=int)
+    instance_id = request.args.get('id', type=int)
+    if not page or btn_idx is None:
+        return jsonify(error='parâmetros inválidos'), 400
+    if not re.fullmatch(r'[A-Za-z0-9_]+', page):
+        return jsonify(error='parâmetro page inválido'), 400
+    try:
+        from ajsystem.core.adapter import ROUTES_BASE
+        mod = importlib.import_module(f'{ROUTES_BASE}.sys.{page}')
+    except ImportError:
+        return jsonify(error='página desconhecida'), 404
+    page_spec = module_page(mod)
+    lista = page_list_cfg(page_spec)
+    bp = next((getattr(mod, a) for a in dir(mod)
+                if isinstance(getattr(mod, a, None), _BP)), None)
+    bp_name = bp.name if bp else None
+    from ajsystem.defs.buttons import resolve_buttons
+    btns = resolve_buttons(lista.get('buttons'), bp_name)
+    if btn_idx < 0 or btn_idx >= len(btns):
+        return jsonify(error='botão inválido'), 400
+    btn = btns[btn_idx]
+    # O modal (filter_select) usa `request.path` como url_target por padrão;
+    # aqui o path é /ajsystem/list-action, então apontamos para a listagem real.
+    try:
+        request.choice_url_target = url_for(f'{bp_name}.list')
+    except Exception:
+        pass
+    instance = None
+    if instance_id and btn.action:
+        entity = None
+        for a in dir(mod):
+            obj = getattr(mod, a, None)
+            if hasattr(obj, 'query'):
+                entity = obj
+                break
+        if entity:
+            instance = entity.query.get(instance_id)
+    html = btn.action(instance) if btn.action else ''
+    return jsonify(html=html or '')
+
+
 from ajsystem.init import init_app  # noqa: E402  (wiring do framework)

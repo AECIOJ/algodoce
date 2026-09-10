@@ -17,7 +17,7 @@
     <div style="background-color:oklch(var(--b2,91.887% 0 0)/1)">
     <div class="modal-action justify-between" style="margin:0;padding:.5rem 1.5rem">
       <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="button" class="btn btn-primary" onclick="var s=document.getElementById('choiceSelect_{{ uid }}');if(s.value){var f=document.createElement('form');f.method='get';f.action='{{ url_target }}';{% for k,v in hidden_params.items() %}var h=document.createElement('input');h.type='hidden';h.name='{{ k }}';h.value='{{ v }}';f.appendChild(h);{% endfor %}var p=document.createElement('input');p.type='hidden';p.name='{{ param }}';p.value=s.value;f.appendChild(p);document.body.appendChild(f);f.submit();}">{{ confirm_label or 'Ok' }}</button>
+      <button type="button" class="btn btn-primary" onclick="var s=document.getElementById('choiceSelect_{{ uid }}');var f=document.createElement('form');f.method='get';f.action='{{ url_target }}';{% for k,v in hidden_params.items() %}var h=document.createElement('input');h.type='hidden';h.name='{{ k }}';h.value='{{ v }}';f.appendChild(h);{% endfor %}var p=document.createElement('input');p.type='hidden';p.name='{{ param }}';p.value=s.value;f.appendChild(p);document.body.appendChild(f);f.submit();">{{ confirm_label or 'Ok' }}</button>
     </div>
     </div>
   </div>

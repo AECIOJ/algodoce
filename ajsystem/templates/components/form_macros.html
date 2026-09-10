@@ -19,7 +19,7 @@
 {% endif %}
 {% if field.calc %}
 {% set _calc_txt = render_label(field, data)|trim %}
-<input type="text" name="{{ ns }}" class="input input-bordered input-sm aj-calc" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _calc_txt if _calc_txt and _calc_txt != '—' else '' }}" data-calc="{{ field.calc }}"{% if field.currency %} data-calc-currency="{{ field.currency }}"{% endif %} disabled tabindex="-1">
+<input type="text" name="{{ ns }}" class="input input-bordered input-sm{% if field.calc is string %} aj-calc{% endif %}" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _calc_txt if _calc_txt and _calc_txt != '—' else '' }}"{% if field.calc is string %} data-calc="{{ field.calc }}"{% endif %}{% if field.currency %} data-calc-currency="{{ field.currency }}"{% endif %} disabled tabindex="-1">
 {% elif _ro_msg %}
 {% if field.input == 'image' %}
 {{ render_label(field, data) }}
@@ -282,16 +282,18 @@
 {% endif %}
 {% endmacro %}
 
-{% macro render_list_button(btn) %}
+{% macro render_list_button(btn, btn_idx=none) %}
 {# Botão de cabeçalho de listagem (sem instância). `on_off` é botão de linha e não renderiza.
-   `action` retornando HTML → injeta no container exclusivo padrão de relatório do meio
-   (`reportRender`), desacoplado do app; com `render` explícito usa injectHTML no seletor. #}
+   `action` retornando HTML → busca HTML fresco via endpoint (evita cache de template
+   estático com rid consumido) e injeta no container exclusivo de relatório (`reportRender`);
+   com `render` explícito usa injectHTML no seletor. #}
 {% if not btn.on_off %}
 {% if btn.action and btn.render is none %}
-{% set _html = btn.action(None) %}
-<template>{{ _html|safe }}</template>
 <a href="#" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1"
-   onclick="event.preventDefault();reportRender(this.previousElementSibling.innerHTML)">
+   data-action="{{ url_for('ajsystem.list_action') }}"
+   data-idx="{{ btn_idx }}"
+   data-page="{{ request.blueprint }}"
+   onclick="event.preventDefault();var u=this;fetch(u.dataset.action+'?page='+encodeURIComponent(u.dataset.page)+'&btn='+u.dataset.idx).then(function(r){return r.json()}).then(function(d){if(d&&d.html)reportRender(d.html)})">
   {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
   {{ btn.label }}
 </a>
@@ -433,7 +435,12 @@
 {% else %}
 {# Sessão 1:1 — só `fields` (sem query/table): formula o child único editável.
    Existe mesmo sem dados, para permitir a inclusão. #}
-{% set _is_form = (session.get('fields') if session is mapping else session.fields) and (session.get('model') if session is mapping else session.model) and not (session.get('query') if session is mapping else session.query) and not (session.get('table') if session is mapping else session.table) %}
+{% set _has_fields = session.get('fields') if session is mapping else session.fields %}
+{% set _sess_model = session.get('model') if session is mapping else session.model %}
+{% set _has_table = session.get('table') if session is mapping else session.table %}
+{% set _has_query = session.get('query') if session is mapping else session.query %}
+{% set _is_form = _has_fields and _sess_model and _has_query is none and _has_table is none %}
+{% set _is_parent = _has_fields and _sess_model is none and _has_query is none and _has_table is none %}
 {% endif %}
 {% if _is_form %}
 {% set _attr = session.get('attr') if session is mapping else session.attr %}
@@ -442,8 +449,13 @@
   {{ section_title(session.get('label') if session is mapping else session.label) }}
   {{ render_fields(session.get('fields') if session is mapping else session.fields, data=_child, ro=_ro, name_prefix='child_' + _attr + '_', ro_fields=ro_fields) }}
 </div>
+{% elif _is_parent %}
+<div class="mt-3">
+  {{ section_title(session.get('label') if session is mapping else session.label) }}
+  {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields) }}
+</div>
 {% else %}
-{% if (session.get('fields') if session is mapping else session.fields) and (session.get('table') if session is mapping else session.table) %}
+{% if _has_fields and _has_table %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
   {{ render_fields(session.get('fields') if session is mapping else session.fields, data=data, ro=_ro, ro_fields=ro_fields) }}
