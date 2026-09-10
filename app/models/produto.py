@@ -34,7 +34,7 @@ class Produto(db.Model):
 
 Entity = {
     'id':          {'type': 'ID', 'width': 6},
-    'nome':        {'type': 'TEXT', 'width': 20, 'transform': 'title'},
+    'nome':        {'type': 'TEXT', 'width': 20, 'mask': '@T'},
     'qtd_minima':  {'type': 'INT', 'label': 'Qtd. Mínima', 'min': 0, 'step': 1, 'default': 1},
     'qtd_receita': {'type': 'INT', 'label': 'Qtd. Receita', 'min': 0, 'step': 1, 'default': 1},
     'valor':       {'type': 'NUM', 'label': 'Valor', 'required': True, 'currency': 1},

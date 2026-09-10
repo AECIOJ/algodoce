@@ -6,13 +6,13 @@
 
 {% macro _det_cell(item, idx, col) %}
   {% set _raw = item|deep_attr(col.card_path or col.field) %}
-    {% if col.calc %}{{ calc_value(col.calc, item) }}
+    {% if col.calc %}{% set _cv = calc_value(col.calc, item) %}{% if _cv.strftime is defined and col.mask is datemask %}{{ _cv|mask(col.mask) }}{% elif _cv.strftime is defined %}{{ _cv|fmtdate }}{% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) %}{{ _cv|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _cv|mask(col.mask) }}{% else %}{{ _cv }}{% endif %}
     {% elif col.lookup and col.lookup.path %}{% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}
     {% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">
     {% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}
-    {% elif col.currency and _raw is not none %}{{ _raw|money(col.currency) }}
+    {% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) and _raw is not none %}{{ _raw|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.currency and _raw is not none %}{{ _raw|money(col.currency) }}
     
-    {% elif _raw is not none %}{% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—
+    {% elif _raw is not none %}{% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—
     {% endif %}
 {% endmacro %}
 
@@ -116,7 +116,8 @@
                   {% else %}—
                   {% endif %}
                 {% elif col.calc %}
-                  {{ calc_value(col.calc, item) }}
+                  {% set _cv = calc_value(col.calc, item) %}
+                  {% if _cv.strftime is defined and col.mask is datemask %}{{ _cv|mask(col.mask) }}{% elif _cv.strftime is defined %}{{ _cv|fmtdate }}{% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) %}{{ _cv|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _cv|mask(col.mask) }}{% else %}{{ _cv }}{% endif %}
                 {% elif col.lookup and col.lookup.path %}
                   {% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}
                 {% elif col.options and _raw is not none %}
@@ -130,7 +131,7 @@
                 {% elif col.input in ('boolean', 'checkbox') and _raw is not none %}
                   {{ 'Sim' if _raw else 'Não' }}
                 {% elif _raw is not none %}
-                  {% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}
+                  {% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}
                 {% else %}—
                 {% endif %}
               </td>
@@ -155,7 +156,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.calc %}{{ calc_value(col.calc, item) }}{% elif col.lookup and col.lookup.path %}{% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|money(col.currency) }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif _raw is not none %}{% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.calc %}{% set _cv = calc_value(col.calc, item) %}{% if _cv.strftime is defined and col.mask is datemask %}{{ _cv|mask(col.mask) }}{% elif _cv.strftime is defined %}{{ _cv|fmtdate }}{% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) %}{{ _cv|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _cv|mask(col.mask) }}{% else %}{{ _cv }}{% endif %}{% elif col.lookup and col.lookup.path %}{% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) and _raw is not none %}{{ _raw|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.currency and _raw is not none %}{{ _raw|money(col.currency) }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif _raw is not none %}{% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endif %}
@@ -164,7 +165,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field card-only{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.calc %}{{ calc_value(col.calc, item) }}{% elif col.lookup and col.lookup.path %}{% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|money(col.currency) }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif _raw is not none %}{% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.calc %}{% set _cv = calc_value(col.calc, item) %}{% if _cv.strftime is defined and col.mask is datemask %}{{ _cv|mask(col.mask) }}{% elif _cv.strftime is defined %}{{ _cv|fmtdate }}{% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) %}{{ _cv|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _cv|mask(col.mask) }}{% else %}{{ _cv }}{% endif %}{% elif col.lookup and col.lookup.path %}{% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) and _raw is not none %}{{ _raw|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.currency and _raw is not none %}{{ _raw|money(col.currency) }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif _raw is not none %}{% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endfor %}
@@ -172,7 +173,7 @@
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{%- if col.calc %}{{ calc_value(col.calc, item) }}{% elif col.lookup and col.lookup.path %}{% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.currency and _raw is not none %}{{ _raw|money(col.currency) }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif _raw is not none %}{% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask and col.digits_only %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
+                    <div class="overflow-value">{%- if col.calc %}{% set _cv = calc_value(col.calc, item) %}{% if _cv.strftime is defined and col.mask is datemask %}{{ _cv|mask(col.mask) }}{% elif _cv.strftime is defined %}{{ _cv|fmtdate }}{% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) %}{{ _cv|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _cv|mask(col.mask) }}{% else %}{{ _cv }}{% endif %}{% elif col.lookup and col.lookup.path %}{% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:40px;cursor:pointer;" onclick="previewImagem(this.src)">{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.mask_cmds is defined and ('B' in col.mask_cmds or 'X' in col.mask_cmds) and _raw is not none %}{{ _raw|mask_cmd(col.mask, col.decimals, col.currency) }}{% elif col.currency and _raw is not none %}{{ _raw|money(col.currency) }}{% elif col.percent and _raw is not none %}{{ _raw|percent }}{% elif _raw is not none %}{% if _raw.strftime is defined and col.mask is datemask %}{{ _raw|mask(col.mask) }}{% elif _raw.strftime is defined %}{{ _raw|fmtdate }}{% elif col.mask_cmds is defined and 'R' in col.mask_cmds %}{{ _raw|mask(col.mask) }}{% else %}{{ _raw }}{% endif %}{% else %}—{% endif -%}
                     </div>
                   </div>
                   {% endfor %}

@@ -14,7 +14,7 @@ from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens
 from ajsystem.core.list import fields_to_columns
 from ajsystem.core.utils import (
     deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, fmt_num, item_ref,
-    field_value, calc_value,
+    field_value, calc_value, fmt_mask_cmd,
 )
 from ajsystem.defs.tags import _resolve_tag_color
 
@@ -49,6 +49,7 @@ def init_app(app):
     app.jinja_env.filters['fmtdate'] = fmt_date
     app.jinja_env.filters['fmtdatetime'] = fmt_datetime
     app.jinja_env.filters['mask'] = fmt_mask
+    app.jinja_env.filters['mask_cmd'] = fmt_mask_cmd
     app.jinja_env.tests['datemask'] = has_date_tokens
     _jinja_field_body = (lambda f: ((getattr(f, 'pos_form', 1) or 0) != 4 and bool(getattr(f, 'pos_form', 1)))
                          if getattr(f, '_pos_managed', True) else True)

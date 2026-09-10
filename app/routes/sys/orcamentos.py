@@ -34,7 +34,7 @@ def _btn_enviar_action(instance):
 Schema = {
     'Orcamento': {
         'status': {'pos_form': 4},
-        'total': {'input_name': 'eTotal'},
+        'total': {'input_name': 'eTotal','pos_form':0},
         'pedido_id': {'pos_form': 4},
     },
     'OrcamentoItem': {
@@ -60,6 +60,7 @@ Page = {
             'order': ['id'],
         },
         'form': {
+            'max_width':115,
             'fields': 'Orcamento',
             'readonly': lambda q: q is not None and q.pedido_id is not None,
             'delete': {
@@ -92,6 +93,9 @@ Page = {
                         'columns': ['OrcamentoItem'],
                         'totals': ['qtd', {'valor': 'eTotal'}],
                     },
+                },
+                'Financeiro': {
+                    'fields':['total','carteira_id'],
                 },
                 'Evento': {
                     'fields': ['Evento'],

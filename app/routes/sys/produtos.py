@@ -6,7 +6,7 @@ from app.models.orcamento_item import OrcamentoItem
 Schema = {
     'Produto': { 
         'qtd_receita': {'pos_form' : 0 },
-        }
+        },
 }
 
 Page = {
@@ -33,7 +33,7 @@ Page = {
             'sessions': {
                 'Insumos': {
                     'fields': ['qtd_receita'],
-                    'table': {
+                    'query': {
                         'columns': ['ProdutoInsumo'],
                     }
                 },

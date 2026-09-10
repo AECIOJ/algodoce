@@ -20,7 +20,7 @@ class Insumo(db.Model):
 
 Entity = {
     'id':              {'type': 'ID', 'width': 6},
-    'nome':            {'type': 'TEXT', 'width': 18, 'transform': 'title'},
+    'nome':            {'type': 'TEXT', 'width': 18, 'mask': '@T'},
     'tipo':            {'type': 'LIST', 'width': 12, 'options': TIPO_INGREDIENTE},
     'und':             {'type': 'LIST', 'label': 'Und', 'width': 8, 'options': UND_LIST, 'required': True},
 }

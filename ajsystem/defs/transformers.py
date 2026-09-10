@@ -1,52 +1,36 @@
 """TRANSFORMERS — transformações puras de texto aplicadas a campos.
 
-Sem efeito colateral (não tocam request/DB/render). Reúne a aplicação de
-`transform` (`'title' | 'upper' | 'lower' | 'cap' | callable`) e a inferência
-de transform default a partir de um `Field` resolvido.
+Sem efeito colateral (não tocam request/DB/render). A aplicação de `transform`
+vive em `core/formats.py`; aqui fica a inferência do transform a partir de um
+`Field` resolvido (comando `@U/L/C/T` da máscara) e a aplicação sobre
+instâncias. Sem comando na máscara → `None` (salva como veio).
 """
-from ajsystem.core.utils import _title_case
+from ajsystem.core.formats import _title_case, apply_transform_value  # noqa: F401
 
 __all__ = ['apply_transform_value', 'infer_transform', 'apply_field_transforms']
 
 
-def apply_transform_value(val, transform, field=None):
-    """Aplica `transform` a `val` (string). Tolerante a não-string/None."""
-    if not val or not isinstance(val, str):
-        return val
-    if transform == 'upper':
-        return val.strip().upper()
-    if transform == 'lower':
-        return val.strip().lower()
-    if transform == 'cap':
-        s = val.strip()
-        return s[:1].upper() + s[1:] if s else s
-    if transform == 'title':
-        return _title_case(val.strip())
-    if callable(transform):
-        return transform(val, field)
-    return val
+# transform: 'title' | 'upper' | 'lower' | 'cap' | None
+#   comando `@?` da máscara | sem comando → None (sem transform)
+#   'title' → primeira letra de cada palavra maiúscula (respeita CONECTORES)
+#   'cap'   → apenas o 1º caractere em maiúsculo
+_MASK_TRANSFORM = {'U': 'upper', 'L': 'lower', 'C': 'cap', 'T': 'title'}
 
 
-# transform: None | 'none' | 'title' | 'upper' | 'lower' | 'cap' | callable(val, field)
-#   None     → auto-inferido (ver `infer_transform`)
-#   'none'   → sem transformação (number/boolean/options/readonly/hidden/default)
-#   'title'  → primeira letra de cada palavra maiúscula (respeita CONECTORES)
-#   'cap'    → apenas o 1º caractere em maiúsculo
-def infer_transform(f) -> str:
-    """Transform default de um `Field` resolvido (None → auto)."""
-    if f.transform is not None:
-        return f.transform
+def infer_transform(f):
+    """Transform de texto de um `Field` resolvido (None → sem transform)."""
     if f.pos_form != 1 or f.readonly or f.hidden:
-        return 'none'
+        return None
     if f.input in ('number', 'boolean', 'checkbox', 'date', 'time', 'image'):
-        return 'none'
+        return None
     if f.options:
-        return 'none'
-    return 'title'
+        return None
+    return _MASK_TRANSFORM.get(f.mask_text_command)
 
 
 def apply_field_transforms(instance, fields):
-    """Aplica `transform` sobre os campos (dict {nome: cfg} ou lista de Field)."""
+    """Aplica o transform (comando de máscara `@U/L/C/T`) sobre os campos
+    (dict {nome: cfg} ou lista de Field)."""
     from ajsystem.defs.data import Field
 
     field_list = fields
@@ -62,6 +46,6 @@ def apply_field_transforms(instance, fields):
         if val is None or not isinstance(val, str):
             continue
         tr = infer_transform(f)
-        if tr == 'none':
+        if not tr:
             continue
         setattr(instance, f.name, apply_transform_value(val, tr, f))

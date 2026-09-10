@@ -145,8 +145,8 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 | `NUM` | Numérico decimal |
 | `LIST` | Seleção a partir de `options` (select) |
 | `BOOL` | Booleano (checkbox) |
-| `FONE` | Telefone (máscara) |
-| `CPF` / `CNPJ` | Documento (máscara de formatação) |
+| `FONE` | Telefone com máscara já definida: `'@R (99) 99999-9999'` |
+| `CPF` / `CNPJ` | Documento com máscara já definida: `'@R 999.999.999-99'` / `'@R 99.999.999/9999-99'` |
 | `FK` | Chave estrangeira — gera select com as opções do relacionamento |
 | `DK` | Chave da linha-pai (campo oculto gerenciado pelo motor em sessões filhas) |
 | `DATA` / `DATA_HORA` | Data / data e hora (input de calendário) |
@@ -161,14 +161,14 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 | `label` | str | Rótulo exibido (senão usa o nome do campo) |
 | `width` | int | Largura da coluna/campo em caracteres (`ch`) |
 | `required` | bool | Impede salvar sem valor |
-| `transform` | str | Transformação de exibição (`'title'`, etc.) |
+| `transform` | str | ~~Removido~~ — use `mask` com comando de texto (`'@T'`, `'@U'`, `'@L'`, `'@C'`) para transformação de exibição |
 | `options` | dict | Opções de `LIST` e de `MULT10` `{valor: rótulo}` |
 | `currency` | int | Moeda pelo código `CURRENCY` (`0` = sem moeda; `1` = padrão). `True`/`'brl'` legados equivalem ao padrão. Formatação e símbolo vêm do motor (filtro `money`) |
 | `input_name` | str | Nome do input no HTML (default: o nome do campo). Usado como alvo de escrita dos totais; o save lê `input_name or name` |
 | `tag` | dict | Badge do valor — `{'colors': {...}, 'color': ..., 'link': ...}` (ver `tag` abaixo) |
 | `min` / `max` | int/float | Limites do valor |
 | `step` | int | Passo do input numérico |
-| `mask` | str | Máscara de formatação (ex.: `'999'`) |
+| `mask` | str | Máscara de formatação/exibição. **Tokens de caractere**: `9` = dígito; `A` = letra (A-Z, caixa como digitada); `N` = alfanumérico (letra/dígito, caixa como digitada); `#` = dígito/ espaço/ sinal (letra é bloqueada); demais caracteres são literais. Em campos de data/hora usa **tokens de data**: `dd`/`mm`/`aaaa` (ou `yyyy`)/`aa` (ou `yy`)/`mmm`/`ddd` p/ data, `hh`/`ii`/`ss` p/ hora (`ii` = minuto; `mm` = mês em máscaras com data). Ex.: `'dd/mm/aaaa'`, `'dd/mm/aaaa hh:ii'`, `'hh:ii'`. `ddd` (dia da semana) e `mmm` (mês abreviado, PT) são **derivados**: não se digita, o motor calcula da data e o save os ignora — ex.: `'ddd dd/mm/aaaa'` exibe `sáb 27/06/2026`. Com tokens, o campo vira input texto mascarado (em vez do picker nativo); na listagem/readonly o valor é exibido pela máscara. **Comandos** (`@X`, contíguos após `@`): `@R` = não gravar separadores (save guarda só os caracteres de token — ex.: CPF); `@U`/`@L`/`@C`/`@T` = transform do texto salvo (maiúscula/ minúscula/ inicial maiúscula/ Title; valido só em TEXT/MEMO, no máx. um); `@B` = exibir vazio quando zero; `@X` = sufixo exibido `'C'`/`'D'` conforme o sinal (`@B`/`@X` valem só p/ número e geram o texto de exibição, ex.: `'@BX 999,999.99'` → `1.234,50 C`). Sem comando de texto, o valor é salvo **como digitado**. Ex.: `'@UR AAA-9A99'` (placa maiúscula), `'@R AAA-9A99'` (placa como digitada), `'@R 999.999.999-99'` (CPF), `'@R (99) 99999-9999'` (telefone), `'@T'` (campo de nome: só o transform title, sem corpo) |
 | `rows` | int | Altura (número de linhas) para campo de texto |
 | `decimals` | int | Casas decimais (inputs numéricos exibem pt-BR com essas casas; `0` = inteiro; com decimais, a digitação é modo calculadora: dígitos à direita, vírgula alterna p/ fração, Backspace desfaz) |
 | `pos_list` | int | Visibilidade na lista: `0` oculta; `2` vai para o card; `1`/`None` exibe |
@@ -295,10 +295,23 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 > framework, app), com `?v=N` e bump a cada mudança (sem build; bind-mount
 > reflete na hora, navegador cacheia). Regra: arquivo sem wiring e sem teste
 > apodrece (precedente: `multi-ctl.js`, hoje sem inclusão) — todo `.js` novo
-> entra já incluído e testado. `modals.js` (diálogos) e `validators.js`
-> (validações) seguem o padrão. Candidatos futuros, **propositalmente ainda
-> inline**: `numbers.js` (parse/format pt-BR), `totals.js` (cálculos e somas),
-> `items.js` (linhas filhas), `search.js` (fluxo de busca), `shell.js`
+> entra já incluído e testado.
+>
+> **`formats.js`** — formatação e parse de valores no cliente (máscaras com
+> tokens de caractere `9`/`A`/`N`/`#`, tokens de data/hora (`ddd`/`mmm`
+> derivados), comandos `@R`/`@U`/`@L`/`@C`/`@T`/`@B`/`@X`; números/moeda pt-BR;
+> data). Espelho do backend `core/formats.py`: **mesma ordem de tokens, mesmos
+> comandos, mesmos `_PT_DOW`/`_PT_MES`** — ao adicionar/ajustar token ou comando,
+> atualizar nos DOIS lados e conferir paridade (smoke na listagem/form).
+> `_applyMask`/`_maskStrip`/`fmtMask`/`format`/`parseNum`/`fmtNumBR`/
+> `fmtFieldInput`/`itFmtMoney`/`parseDate` vivem aqui e são usados pelo inline
+> JS do `sys.html` (carregado ANTES do inline). `format(value, mask)` (idêntico
+> no backend) formata número/data/string por qualquer máscara de uma vez só.
+>
+> **`modals.js`** (diálogos) e **`validators.js`** (validações CPF/CNPJ,
+> `window.FieldValidators`) seguem o padrão. Candidatos futuros,
+> **propositalmente ainda inline**: `totals.js` (cálculos e somas), `items.js`
+> (linhas filhas), `search.js` (fluxo de busca), `shell.js`
 > (menus/timeout/QR) — extrair um por vez, cada um com teste, nunca big-bang.
 
 > **`tag`** — badge semântico do valor do campo (texto + cor), com
@@ -783,9 +796,17 @@ O marcador interno (`_r`) e o registro em memória são transparentes para o app
 o botão devolve sempre o modal e a tag do PDF embutido são gerados pelo motor.
 Reutilizável em qualquer página: basta trocar o relatório e o campo na Entity.
 
----
-
-## 4. Globals e convenções
+> **Formatação centralizada** — `core/formats.py` é a fonte única (backend) de
+> máscaras (exibição + parse, incluindo derivados `ddd`/`mmm`), número/moeda/
+> percentual pt-BR, data/hora, transforms de texto e validadores CPF/CNPJ. Os
+> módulos `defs.data`, `core.utils`, `core.form`, `defs.validators` e
+> `defs.transformers` re-exportam dela (shims) — consumidores seguem importando
+> de onde importavam. Espelho no cliente em `static/js/formats.js` (ver seção
+> de JS abaixo): tokens e locais PT devem permanecer idênticos nos dois lados.
+>
+> ---
+>
+> ## 4. Globals e convenções
 
 - Labels de menu e rótulos são derivados automaticamente do slug/nome quando não
   informados explicitamente.

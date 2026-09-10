@@ -84,16 +84,21 @@ def _cell_width_ch(text):
 def _mask_width_ch(mask):
     """Largura estimada do maior conteúdo que a máscara pode formar.
 
-    Substitui os curingas `9`/`A`/`a` pelos glifos mais largos possíveis e soma a
-    largura dos literais. Máscaras com texto (datas longas, nome de mês, dia da
-    semana) são cobertas genericamente aqui.
+    Substitui os curingas `9`/`A`/`N`/`#` pelos glifos mais largos possíveis e
+    soma a largura dos literais. Máscaras com texto (datas longas, nome de mês,
+    dia da semana) são cobertas genericamente aqui. Deve receber o corpo da
+    máscara (`Field.mask_display`), sem o prefixo de comandos.
     """
     out = []
     for c in mask:
         if c == '9':
             out.append('8')
-        elif c in 'Aa':
-            out.append('W' if c == 'A' else 'w')
+        elif c == 'A':
+            out.append('W')
+        elif c == 'N':
+            out.append('W')
+        elif c in 'a#':
+            out.append('w')
         elif c == 'X':
             out.append('W')
         else:
@@ -103,8 +108,8 @@ def _mask_width_ch(mask):
 
 def _content_width_ch(f):
     """Largura em `ch` do conteúdo da célula, sem considerar o cabeçalho."""
-    if f.mask and f.digits_only:
-        return _mask_width_ch(f.mask)
+    if f.mask_display and f.input not in ('number', 'date', 'time', 'datetime-local'):
+        return _mask_width_ch(f.mask_display)
     if f.options:
         labs = [str(v) for v in f.options.values()]
         return max((_cell_width_ch(ln) for ln in labs), default=0)
@@ -156,9 +161,9 @@ def field_to_column(f: Field) -> dict:
         col['filter_options'] = fo
     if f.mask:
         col['mask'] = f.mask
-    if f.digits_only:
-        col['digits_only'] = True
-    if f.mask and f.digits_only:
+    if f.mask_cmds:
+        col['mask_cmds'] = ''.join(sorted(f.mask_cmds))
+    if f.mask_display and 'R' in f.mask_cmds:
         col['nowrap'] = True
     if f.decimals is not None:
         col['decimals'] = f.decimals

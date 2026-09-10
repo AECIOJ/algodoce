@@ -28,10 +28,10 @@ Schema = {
         'conta_id': {'label': 'Cliente',
                       'lookup': {'display': 'nome', 'fields': ['nome', 'telefone'],
                                  'when': {'ativo': True, 'tipo': [0, 1]}}},
-        'carteira_id': {'label': 'Pagamento',
+        'carteira_id': {'label': 'Pagamento', 'pos_form': 0,
                         'lookup': {'display': 'nome'}},
+        'total': {'input_name': 'eTotal', 'pos_form': 0,},
         'status': {'pos_form': 4},
-        'total': {'input_name': 'eTotal'},
     },
     'PedidoItem': {
         'produto_id': {
@@ -74,6 +74,9 @@ Page = {
                 },
                 'Evento': {
                     'fields': ['Evento'],
+                },
+                'Financeiro': {
+                    'fields':['total','carteira_id'],
                 },
             },
         },

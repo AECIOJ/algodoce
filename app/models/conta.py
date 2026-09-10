@@ -24,7 +24,7 @@ class Conta(db.Model):
 
 Entity = {
     'id':             {'type': 'ID', 'width': 7},
-    'nome':           {'type': 'TEXT', 'width': 20, 'transform': 'title'},
+    'nome':           {'type': 'TEXT', 'width': 20, 'mask': '@T'},
     'tipo':           {'type': 'LIST', 'width': 12, 'options': TIPO_CONTA},
     'telefone':       {'type': 'FONE', 'required': True},
     'email':          {'type': 'TEXT', 'input': 'email', 'width': 50},

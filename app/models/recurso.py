@@ -16,7 +16,7 @@ class Recurso(db.Model):
 
 Entity = {
     'id':    {'type': 'ID', 'width': 7},
-    'nome':  {'type': 'TEXT', 'width': 20, 'required': True, 'transform': 'title'},
+    'nome':  {'type': 'TEXT', 'width': 20, 'required': True, 'mask': '@T'},
     'tipo':  {'type': 'LIST', 'width': 12, 'options': TIPO_RECURSO, 'required': True},
     'saldo': {'type': 'NUM', 'label': 'Saldo Inicial', 'width': 12, 'currency': 1},
     'data':  {'type': 'DATA', 'label': 'Balanço', 'width': 12},

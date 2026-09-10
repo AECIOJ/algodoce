@@ -62,7 +62,7 @@ Entity = {
     'indice': {'type': 'TEXT', 'label': 'Índice', 'width': 6,
                'pos_list': 1, 'pos_filter': 0, 'pos_form': 0,
                'calc': _indice},
-    'nome':   {'type': 'TEXT', 'width': 25, 'transform': 'title'},
+    'nome':   {'type': 'TEXT', 'width': 25, 'mask': '@T'},
     'tipo':   {'type': 'LIST', 'width': 12, 'options': TIPO_OPERACAO},
     'fator':  {'type': 'INT', 'width': 8},
     'pai_id': {'type': 'FK', 'label': 'Superior', 'width': 30,

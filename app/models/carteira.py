@@ -18,7 +18,7 @@ class Carteira(db.Model):
 
 Entity = {
     'id':                {'type': 'ID', 'width': 6},
-    'nome':              {'type': 'TEXT', 'width': 30, 'transform': 'title'},
+    'nome':              {'type': 'TEXT', 'width': 30, 'mask': '@T'},
     'uso':               {'type': 'LIST', 'width': 12, 'options': CARTEIRA_USO},
     'gerar':             {'type': 'LIST', 'width': 12, 'options': CARTEIRA_GERAR},
     'prazo_recebimento': {'type': 'TEXT', 'label': 'Prazo', 'width': 12},

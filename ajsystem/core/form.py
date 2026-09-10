@@ -123,6 +123,13 @@ def _empty_value(val):
     return False
 
 
+# Parse de máscaras de data/hora centralizado em `core/formats.py`.
+from ajsystem.core.formats import (  # noqa: F401
+    _coerce_masked_datetime, _MASK_TOKENS, _MASK_TEXT_TOKENS, _MASK_TOKEN_ORDER,
+    mask_strip,
+)
+
+
 def _coerce(value, f):
     """Converte o valor bruto de um input para o tipo do campo."""
     if value is None:
@@ -130,7 +137,9 @@ def _coerce(value, f):
     if f.input in ('checkbox', 'boolean'):
         return value in ('on', '1', 1, True)
     if f.input == 'number':
-        s = str(value).strip()
+        s = str(value).strip().replace('\u00A0', ' ')
+        # sufixo de lista/readonly (`1234,56 D`) — sinal de débito/crédito
+        s = re.sub(r'\s+[CD]\s*$', '', s)
         if not s:
             return None
         if ',' in s:
@@ -143,21 +152,27 @@ def _coerce(value, f):
             return int(s)
         except (ValueError, TypeError):
             return None
-    if f.input == 'date':
+    if f.input in ('date', 'time', 'datetime-local'):
         s = str(value).strip()
-        return datetime.strptime(s, '%Y-%m-%d').date() if s else None
-    if f.input == 'time':
-        s = str(value).strip()
-        return datetime.strptime(s, '%H:%M').time() if s else None
-    if f.input == 'datetime-local':
-        s = str(value).strip()
-        return datetime.fromisoformat(s) if s else None
+        if not s:
+            return None
+        mask = getattr(f, 'mask', None)
+        if mask:
+            res = _coerce_masked_datetime(s, mask, f.input)
+            if res is not None:
+                return res
+            return None
+        if f.input == 'date':
+            return datetime.strptime(s, '%Y-%m-%d').date()
+        if f.input == 'time':
+            return datetime.strptime(s, '%H:%M').time()
+        return datetime.fromisoformat(s)
     if f.input == 'multi':
         s = ''.join(sorted(value)) or None
         return s
     val = str(value).strip() or None
-    if val and f.digits_only:
-        val = re.sub(r'\D', '', val) or None
+    if val and 'R' in getattr(f, 'mask_cmds', frozenset()):
+        val = mask_strip(val, f.mask_display or '') or None
     if f.input == 'select' and isinstance(f.options, dict):
         for key in f.options:
             if str(key) == val:

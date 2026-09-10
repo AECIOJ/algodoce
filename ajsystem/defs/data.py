@@ -15,7 +15,6 @@ Esta camada NÃO importa `Query` (a espec de busca/FK entra depois, quando uma
 página precisar).
 """
 import importlib
-import re
 from dataclasses import dataclass, fields as dc_fields
 from typing import Any, Callable, Optional, Union
 
@@ -33,9 +32,9 @@ FIELD_TYPES = {
     'DATA_HORA': {'input': 'datetime-local'},
     'HORA':      {'input': 'time'},
     'BOOL':      {'input': 'boolean'},
-    'FONE':      {'input': 'text', 'mask': '(99) 99999-9999', 'digits_only': True},
-    'CPF':       {'input': 'text', 'mask': '999.999.999-99', 'digits_only': True, 'validate': 'cpf'},
-    'CNPJ':      {'input': 'text', 'mask': '99.999.999/9999-99', 'digits_only': True, 'validate': 'cnpj'},
+    'FONE':      {'input': 'text', 'mask': '@R (99) 99999-9999'},
+    'CPF':       {'input': 'text', 'mask': '@R 999.999.999-99', 'validate': 'cpf'},
+    'CNPJ':      {'input': 'text', 'mask': '@R 99.999.999/9999-99', 'validate': 'cnpj'},
     'FK':        {'input': 'select'},
     'LIST':      {'input': 'select'},
     'MULT10':    {'input': 'multi', 'pos_filter': 0},
@@ -44,77 +43,13 @@ FIELD_TYPES = {
 
 # `required` é sempre opt-in: declarado na Entity/Schema via 'required': True.
 
-
-_DOW_PT = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']
-_MES_PT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
-           'jul', 'ago', 'set', 'out', 'nov', 'dez']
-_DATE_TOKENS_RE = re.compile(r'ddd|mmm|aaaa|yyyy|aa|yy|dd|mm')
-
-
-def has_date_tokens(mask):
-    """Diz se a máscara tem tokens de data (`dd`/`mm`/`mmm`/`aa`/`yy`/`aaaa`/`yyyy`/`ddd`)."""
-    return bool(mask) and _DATE_TOKENS_RE.search(str(mask)) is not None
-
-
-def fmt_mask(value, mask):
-    """Aplica `mask` a `value`. Tolerante: extrai dígitos antes de formatar.
-
-    Com tokens de data e valor data/hora: `dd`/`mm`/`aaaa` (ou `yyyy`)/
-    `aa` (ou `yy`) do dia/mês/ano, `ddd` dia da semana e `mmm` mês abreviado
-    (PT, sem locale); `9`s preenchidos dos dígitos DDMMYYYY; literais passam
-    direto. Sem tokens (ou valor sem data): caminho original de dígitos.
-    """
-    if value is None:
-        return ''
-    if has_date_tokens(mask) and hasattr(value, 'strftime') and hasattr(value, 'year'):
-        return _fmt_mask_data(value, mask)
-    digits = re.sub(r'\D', '', str(value))
-    if not mask:
-        return digits
-    out = []
-    di = 0
-    for ch in mask:
-        if ch == '9':
-            if di < len(digits):
-                out.append(digits[di])
-                di += 1
-            else:
-                break
-        else:
-            out.append(ch)
-    return ''.join(out)
-
-
-def _fmt_mask_data(value, mask):
-    """Formata data/hora pela máscara com tokens (ver `fmt_mask`)."""
-    y, m, d = value.year, value.month, value.day
-    rep = {
-        'aaaa': f'{y:04d}',
-        'yyyy': f'{y:04d}',
-        'aa': f'{y % 100:02d}',
-        'yy': f'{y % 100:02d}',
-        'mmm': _MES_PT[m - 1],
-        'mm': f'{m:02d}',
-        'ddd': _DOW_PT[value.weekday()],
-        'dd': f'{d:02d}',
-    }
-    digits = f'{d:02d}{m:02d}{y:04d}'
-    out = []
-    di = 0
-    for ch in mask:
-        if ch == '9':
-            if di < len(digits):
-                out.append(digits[di])
-                di += 1
-            else:
-                break
-        else:
-            out.append(ch)
-    text = ''.join(out)
-    for tok in ('aaaa', 'yyyy', 'aa', 'yy', 'mmm', 'mm', 'ddd', 'dd'):
-        if tok in text:
-            text = text.replace(tok, rep[tok])
-    return text
+# Formatação/parse de máscara, número, moeda, data, transforms e validadores
+# centralizados em `core/formats.py` (ver lá). Re-export para compat.
+from ajsystem.core.formats import (  # noqa: F401
+    has_date_tokens, fmt_mask, _fmt_mask_data,
+    parse_mask_commands,
+    _DOW_PT, _MES_PT, _DATE_TOKENS_RE,
+)
 
 
 def _auto_label(name: str) -> str:
@@ -225,11 +160,9 @@ class Field:
     required: bool = False
     placeholder: Optional[str] = None
     help: Any = None
-    transform: Any = None
     disabled: bool = False
     readonly: bool = False
     hidden: bool = False
-    digits_only: bool = False
     pos_form: int = 1
     pos_list: int = 1
     default: Any = None
@@ -260,9 +193,21 @@ class Field:
         if self.tag is not None:
             from ajsystem.defs.tags import parse_tag
             self.tag = parse_tag(self.tag)
+        # Comandos de máscara `@X` e corpo (display) derivados; fail-fast.
+        self.mask_cmds, self.mask_display = (
+            parse_mask_commands(self.mask) if self.mask else (frozenset(), ''))
+        if self.mask_cmds & {'B', 'X'} and self.input != 'number':
+            raise ValueError(
+                f"FIELD '{self.name}': comandos @B/@X só para input 'number'")
+        if self.mask_cmds & {'U', 'L', 'C', 'T', 'R'} and self.input not in ('text', 'textarea'):
+            raise ValueError(
+                f"FIELD '{self.name}': comandos @U/@L/@C/@T/@R só para input text/textarea")
+        if len(self.mask_cmds & {'U', 'L', 'C', 'T'}) > 1:
+            raise ValueError(
+                f"FIELD '{self.name}': comandos de transform @U/@L/@C/@T são exclusivos")
         if self.width is None and self.mask:
-            self.width = len(self.mask)
-            if self.input == 'number' and not self.mask.startswith('-'):
+            self.width = len(self.mask_display)
+            if self.input == 'number' and not self.mask_display.startswith('-'):
                 self.width += 1
         if self.width is None:
             self.width = {'number': 12, 'date': 12, 'time': 10,
@@ -270,6 +215,15 @@ class Field:
                           'image': 12}.get(self.input, 18)
         if self.input == 'number' and self.align == 'left':
             self.align = 'right'
+
+    @property
+    def mask_text_command(self) -> str:
+        """Letra do comando de transform de texto presente na máscara
+        (`U`/`L`/`C`/`T`), '' se ausente."""
+        for c in ('U', 'L', 'C', 'T'):
+            if c in self.mask_cmds:
+                return c
+        return ''
 
     @property
     def display_label(self) -> str:

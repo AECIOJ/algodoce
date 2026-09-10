@@ -6,119 +6,21 @@ Não dependem de modelos nem da aplicação host.
 import re
 from datetime import datetime, timedelta
 
-from ajsystem.defs.constants import CONECTORES, CURRENCY, DEFAULT_CURRENCY
+# Formatação/parse de máscara, número, moeda, data, transforms e validadores
+# centralizados em `core/formats.py` (ver lá). Re-export para compat.
+from ajsystem.core.formats import (  # noqa: F401
+    parse_brl, fmt_id, fmt_brl, _fmt_number, normalize_currency, currency_symbol,
+    fmt_money, fmt_percent, fmt_num, fmt_zero, fmt_date, fmt_zero_int,
+    fmt_datetime, _title_case, apply_transform,
+    mask_strip, fmt_mask_cmd, parse_mask_commands,
+)
+from ajsystem.defs.constants import CONECTORES, CURRENCY, DEFAULT_CURRENCY  # noqa: F401
 
 
 def as_options(items):
     """Converte um iterável em dict de opções {valor: rótulo} idênticos
     para fields `LIST` (ex.: ['Kg', 'G'] -> {'Kg': 'Kg', 'G': 'G'})."""
     return {i: i for i in items}
-
-
-def parse_brl(value):
-    if not value:
-        return None
-    if ',' in value:
-        return float(value.replace('.', '').replace(',', '.'))
-    return float(value)
-
-
-def fmt_id(value):
-    if value is None:
-        return '0'
-    formatted = f'{value:,}'.replace(',', '.')
-    return ('%7s' % formatted).replace(' ', '\u00A0')
-
-
-def fmt_brl(value):
-    """Filtro legado `brl` (sem símbolo; None → '0,00')."""
-    if value is None:
-        return '0,00'
-    return _fmt_number(value, 'pt-BR')
-
-
-def _fmt_number(value, locale):
-    """Número com 2 decimais no agrupamento do locale (sem símbolo)."""
-    if value is None:
-        return '0,00' if locale == 'pt-BR' else '0.00'
-    try:
-        num = f'{float(value):,.2f}'
-    except (TypeError, ValueError):
-        return str(value)
-    if locale == 'pt-BR':
-        num = num.replace(',', 'X').replace('.', ',').replace('X', '.')
-    return num
-
-
-def normalize_currency(cur):
-    """Normaliza a prop `Field.currency` para código de `CURRENCY`.
-
-    `True`/`'brl'` legados e `1` → padrão; `0`/`None`/`False` → desligado
-    (None); código desconhecido → desligado (nunca quebra, nunca mente
-    símbolo). Retorna o código int ou None.
-    """
-    if cur is None or cur is False or cur == 0:
-        return None
-    if cur is True:
-        return DEFAULT_CURRENCY
-    if isinstance(cur, str):
-        if cur.strip().lower() == 'brl':
-            return DEFAULT_CURRENCY
-        return None
-    try:
-        code = int(cur)
-    except (TypeError, ValueError):
-        return None
-    return code if CURRENCY.get(code) else None
-
-
-def currency_symbol(cur):
-    """Símbolo da moeda (`'R$'`) a partir do código/legado; '' se desligado."""
-    code = normalize_currency(cur)
-    info = CURRENCY.get(code) if code is not None else None
-    return info['symbol'] if info else ''
-
-
-def fmt_money(value, cur=DEFAULT_CURRENCY):
-    """Formata valor monetário pelo código de `CURRENCY` (filtro `money`).
-
-    `fmt_money(v)` sem código = padrão (BRL), idêntico ao antigo `fmt_brl`.
-    """
-    code = normalize_currency(cur)
-    if code is None:
-        code = DEFAULT_CURRENCY
-    info = CURRENCY.get(code) or CURRENCY[DEFAULT_CURRENCY]
-    num = _fmt_number(value, info['locale'])
-    return f"{info['symbol']} {num}" if info['symbol'] else num
-
-
-def fmt_percent(value):
-    """Formata percentual com 1 decimal e sufixo '%' (ex.: 12.5 → '12,5%')."""
-    if value is None:
-        return '—'
-    return f'{value:,.1f}'.replace(',', 'X').replace('.', ',').replace('X', '.') + '%'
-
-
-def fmt_num(value, decimals=None):
-    """Número pt-BR p/ inputs (filtro `fmt_num`): casas de `decimals`, sem símbolo.
-
-    `None`/'' → ''. Sem `decimals` (ou 0) → inteiro sem agrupar ('1000'), para
-    que a leitura de volta seja inequívoca (ponto = decimal só com vírgula).
-    Com `decimals` > 0 → agrupa milhar e fixa as casas ('1.234,56').
-    """
-    if value is None or (isinstance(value, str) and not value.strip()):
-        return ''
-    try:
-        dec = int(decimals) if decimals is not None else 0
-    except (TypeError, ValueError):
-        dec = 0
-    try:
-        num = float(value)
-    except (TypeError, ValueError):
-        return str(value)
-    if dec <= 0:
-        return str(int(num)) if num.is_integer() else str(num)
-    return f'{num:,.{dec}f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
 
 
 def deep_attr(obj, path):
@@ -224,44 +126,6 @@ def preco_unit(valor, qtd):
     return float(valor) / float(qtd)
 
 
-def fmt_zero(value):
-    if not value:
-        return ''
-    return "%.1f" % value
-
-
-def fmt_date(value):
-    if not value:
-        return ""
-    return value.strftime("%d/%m/%Y")
-
-
-def fmt_zero_int(value):
-    if not value:
-        return ''
-    return "%.0f" % value
-
-
-def fmt_datetime(value):
-    if not value:
-        return ''
-    try:
-        return value.strftime('%d/%m/%Y %H:%M')
-    except AttributeError:
-        return str(value)
-
-
-def _title_case(text):
-    words = text.strip().split()
-    result = []
-    for i, w in enumerate(words):
-        if i > 0 and w.lower() in CONECTORES:
-            result.append(w.lower())
-        else:
-            result.append(w[0].upper() + w[1:].lower() if w else w)
-    return " ".join(result)
-
-
 def query_label(cfg, key):
     """Rótulo padrão de uma Query: `label` explícito ou nome da chave."""
     if cfg is None:
@@ -281,20 +145,3 @@ def list_table(valores: dict):
         for k, v in valores.items()
     ]
     return union_all(*ctes).cte('list_table')
-
-
-import re
-
-
-def apply_transform(text, mode):
-    """Efeito de texto: 'upper' | 'title' | 'lower' (None/other = intacto)."""
-    if not text or not mode:
-        return text
-    mode = mode.lower()
-    if mode == 'upper':
-        return str(text).upper()
-    if mode == 'lower':
-        return str(text).lower()
-    if mode == 'title':
-        return str(text).title()
-    return text

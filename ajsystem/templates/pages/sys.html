@@ -231,6 +231,7 @@
 {% for _js in _editor_js if _editor_js is defined %}
 <script src="{{ _js }}"></script>
 {% endfor %}
+<script src="{{ url_for('ajsystem.static', filename='js/formats.js') }}?v=2"></script>
 <script src="{{ url_for('ajsystem.static', filename='js/validators.js') }}?v=1"></script>
 <script src="{{ url_for('ajsystem.static', filename='js/modals.js') }}?v=6"></script>
 {# validacoes do app (app/static/js/validacoes.js): incluir aqui quando criado, APÓS validators.js — ver README #}
@@ -587,60 +588,6 @@ function itEval(expr, vars) {
     return v;
   }
   return expr1();
-}
-function itFmtMoney(v, cur) {
-  var m = itMoneyInfo(cur);
-  var num = Number(v) || 0;
-  return m.symbol + ' ' + num.toLocaleString(m.locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-}
-function itMoneyInfo(cur) {
-  var map = {1: {symbol: 'R$', locale: 'pt-BR'}, 2: {symbol: '$', locale: 'en-US'}, 3: {symbol: '€', locale: 'pt-BR'}};
-  return map[itNormalizeCurrency(cur)] || map[1];
-}
-function itNormalizeCurrency(cur) {
-  if (cur === undefined || cur === null) return 1;
-  var s = String(cur).trim().toLowerCase();
-  if (s === '' || s === 'brl' || s === 'true' || s === 'sim' || s === '1') return 1;
-  var n = parseInt(s, 10);
-  return (n === 2 || n === 3) ? n : 1;
-}
-/* ── numéricos pt-BR (inputs com data-num-decimals) ───────────────────────
-   Leitura: parseNum aceita '1.234,56' e '1.5' (vírgula presente ⇒ pt-BR).
-   Escrita: fmtFieldInput formata pela casa do field no blur e após
-   preenchimentos (replaces/totais); vazio/inválido não é tocado. */
-function parseNum(v) {
-  if (v === null || v === undefined) return NaN;
-  var s = String(v).replace(/\s/g, '');
-  if (s === '') return NaN;
-  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
-  var n = parseFloat(s);
-  return isNaN(n) ? NaN : n;
-}
-function numDecimals(el) {
-  if (!el || el.disabled) return null;
-  var d = el.getAttribute('data-num-decimals');
-  if (d === null || d === '') return null;
-  var n = parseInt(d, 10);
-  return isNaN(n) ? null : n;
-}
-function fmtNumBR(v, dec) {
-  var n = Number(v);
-  if (isNaN(n)) return null;
-  if (!dec) return String(Math.round(n));
-  return n.toLocaleString('pt-BR', {minimumFractionDigits: dec, maximumFractionDigits: dec});
-}
-function fmtFieldInput(el) {
-  var dec = numDecimals(el);
-  if (dec === null) return false;
-  var raw = el.value;
-  if (raw === null || raw === undefined || String(raw).trim() === '') return false;
-  var s = String(raw);
-  var f = (!dec) ? s.trim() : fmtNumBR(parseNum(s), dec);
-  if (f === null || f === undefined || f === s) return false;
-  el.value = f;
-  el.dispatchEvent(new Event('input', {bubbles: true}));
-  el.dispatchEvent(new Event('change', {bubbles: true}));
-  return true;
 }
 /* ── entrada calculadora p/ numéricos com decimais ────────────────────────
    Dígitos entram à direita deslocando p/ esquerda; vírgula alterna p/ fração;
@@ -1139,26 +1086,12 @@ function itmPagerInit() {
 }
 
 
-/* ── máscara de inputs + validação (CPF/CNPJ) no browser ── */
-function _maskDigits(v) {
-  return (v || '').replace(/\D/g, '');
-}
-function _applyMask(digits, mask) {
-  var out = '', di = 0;
-  for (var i = 0; i < mask.length && di < digits.length; i++) {
-    if (mask[i] === '9') { out += digits[di]; di++; } else { out += mask[i]; }
-  }
-  return out;
-}
-function _maskEl(el) {
-  var mask = el.getAttribute('data-mask');
-  if (!mask) return;
-  el.value = _applyMask(_maskDigits(el.value), mask);
-}
+/* ── máscara de inputs: lógica em js/formats.js (_applyMask/_maskStrip) ── */
 function _validateEl(el) {
   var rule = el.getAttribute('data-validate');
   if (!rule) return true;
-  var digits = _maskDigits(el.value);
+  var mask = el.getAttribute('data-mask');
+  var digits = mask ? _maskStrip(el.value, mask) : _maskDigits(el.value);
   if (!digits) return true;
   var ok = window.FieldValidators ? window.FieldValidators.validate(rule, digits) : true;
   el.classList.toggle('input-error', !ok);
@@ -1195,6 +1128,15 @@ document.addEventListener('DOMContentLoaded', function() {
       showErrorModal([p ? p.textContent : 'Verifique o campo destacado.'], el);
     });
     el.addEventListener('change', function() { _validateEl(el); });
+  });
+  // Transform de texto declarado na máscara (`data-mask-cmds`: U/L/C/T).
+  document.querySelectorAll('input[data-mask-cmds]').forEach(function(el) {
+    var applyCmds = function() {
+      el.value = _maskCmdTransform(el.value, el.getAttribute('data-mask-cmds'));
+    };
+    el.addEventListener('input', applyCmds);
+    el.addEventListener('blur', applyCmds);
+    applyCmds();
   });
   // Entrada calculadora p/ decimais (delegado: cobre linhas dinâmicas).
   // focus = init + select-all; keydown/paste = máquina; input sem keydown
@@ -1324,11 +1266,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 });
-function parseDate(str) {
-  var m = str.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
-  return null;
-}
 </script>
 <script>
 {% if qr_enabled %}

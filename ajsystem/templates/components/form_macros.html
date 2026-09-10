@@ -88,13 +88,25 @@
   {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
+  {% if field.mask and field.mask is datemask %}
+  <input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if val else '' }}" placeholder="{{ ph }}" data-mask="{{ field.mask_display }}" maxlength="{{ field.mask_display|length }}" {{ req }} {{ dis }}{{ num_str }}>
+  {% else %}
   <div class="inline-flex items-center w-full it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+  {% endif %}
 {% elif field.input == 'time' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
+  {% if field.mask and field.mask is datemask %}
+  <input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if val else '' }}" placeholder="{{ ph }}" data-mask="{{ field.mask_display }}" maxlength="{{ field.mask_display|length }}" {{ req }} {{ dis }}{{ num_str }}>
+  {% else %}
   <div class="inline-flex items-center w-full it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir relógio"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
+  {% endif %}
 {% elif field.input == 'datetime-local' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
+  {% if field.mask and field.mask is datemask %}
+  <input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if val else '' }}" placeholder="{{ ph }}" data-mask="{{ field.mask_display }}" maxlength="{{ field.mask_display|length }}" {{ req }} {{ dis }}{{ num_str }}>
+  {% else %}
   <div class="inline-flex items-center w-full it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+  {% endif %}
 {% elif field.input == 'image' %}
 {% set _img_has = val %}
 <div class="image-widget" data-ns="{{ ns }}" data-tem-imagem="{{ '1' if _img_has else '0' }}">
@@ -121,7 +133,7 @@
 {% elif field.input == 'multi' %}
 {{ render_multi_ctl(field, data, name_prefix, ro) }}
 {% else %}
-  <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if field.mask and field.digits_only and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask %}data-mask="{{ field.mask }}" maxlength="{{ field.mask|length }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}>{% if field.validate %}<p class="text-error text-xs mt-0.5" data-err-for="{{ ns }}" style="display:none">{{ field.display_label }} inválido.</p>{% endif %}
+  <input type="{{ field.input }}" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if (field.mask_display or field.mask_text_command) and val else val or '' }}" placeholder="{{ ph }}" {% if field.mask_display %}data-mask="{{ field.mask_display }}" maxlength="{{ field.mask_display|length }}"{% endif %} {% if field.mask_text_command %}data-mask-cmds="{{ field.mask_text_command }}"{% endif %} {% if field.validate %}data-validate="{{ field.validate }}"{% endif %} {{ req }} {{ dis }}{% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}>{% if field.validate %}<p class="text-error text-xs mt-0.5" data-err-for="{{ ns }}" style="display:none">{{ field.display_label }} inválido.</p>{% endif %}
 {% endif %}
 {% endmacro %}
 
@@ -159,7 +171,7 @@
     {{ _ns.nome if _ns.nome else val }}
   {% endif %}
 {% elif val is not none %}
-  {% if field.currency %}{{ val|money(field.currency) }}{% elif field.percent %}{{ val|percent }}{% elif val.strftime is defined and field.mask is datemask %}{{ val|mask(field.mask) }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask and field.digits_only %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
+  {% if field.mask_cmds and ('B' in field.mask_cmds or 'X' in field.mask_cmds) %}{{ val|mask_cmd(field.mask, field.decimals, field.currency) }}{% elif field.currency %}{{ val|money(field.currency) }}{% elif field.percent %}{{ val|percent }}{% elif val.strftime is defined and field.mask is datemask %}{{ val|mask(field.mask) }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask_display and 'R' in field.mask_cmds %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
 {% else %}—
 {% endif %}
 {% endmacro %}
