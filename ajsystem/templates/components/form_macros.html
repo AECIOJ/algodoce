@@ -1,9 +1,36 @@
-{% macro render_field(field, data=none, ro=false, name_prefix='', show_label=true, ro_fields=none) %}
+{% macro render_footer_field(field, data=none) %}
 {% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
-{% set ns = (name_prefix or '') + (field.input_name or field.name) %}
+{% set ns = field.name %}
+{% if field.input == 'date' %}
+<div class="inline-flex items-center it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
+       value="{{ val.strftime('%Y-%m-%d') if val else '' }}"
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+{% elif field.input == 'datetime-local' %}
+<div class="inline-flex items-center it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
+       value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}"
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+{% elif field.input == 'time' %}
+<div class="inline-flex items-center it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
+       value="{{ val.strftime('%H:%M') if val else '' }}"
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir relógio"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
+{% elif field.input == 'number' %}
+<input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
+       value="{{ val|fmt_num(field.decimals) if val is not none else '' }}"
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()">
+{% else %}
+<input type="text" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
+       value="{{ val or '' }}"
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()">
+{% endif %}
+{% endmacro %}
+
+{% macro render_field(field, data=none, ro=false, name_prefix='', show_label=true, ro_fields=none) %}
+{% set val = (calc_value(field.calc, data) if (field.calc is defined and field.calc and data is not none) else (data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default))) %}
+{% set ns = (name_prefix or '') + field.name %}
 {% set label = field.display_label %}
 {% set req = 'required' if field.required else '' %}
-{% set dis = 'disabled' if (field.disabled or ro) else '' %}
+{% set _dis = field.disabled(data) if field.disabled is callable else field.disabled %}
+{% set dis = 'disabled' if (_dis or ro) else '' %}
 {% set ph = field.placeholder or '' %}
 {% set _ro_msg = ro_fields.get(field.name) if ro_fields else none %}
 {% set num_str = '' %}
@@ -13,6 +40,8 @@
 {% set _iwidth = (field.width + 3) ~ 'ch' %}
 {% if field.hidden %}
 <input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
+{% elif field.page %}
+<a href="{{ page_url(field.page) }}" class="btn btn-outline btn-primary btn-sm inline-flex items-center gap-1">{{ label }}</a>
 {% elif field.pos_form == 2 or field.pos_form == 3 or field.readonly or field.calc or _ro_msg %}
 {% if not field.calc and field.pos_form != 2 and field.pos_form != 3 %}
 <input type="hidden" name="{{ ns }}" value="{{ val or ('0' if field.input == 'number' else '') }}">
@@ -88,25 +117,13 @@
   {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  {% if field.mask and field.mask is datemask %}
-  <input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if val else '' }}" placeholder="{{ ph }}" data-mask="{{ field.mask_display }}" maxlength="{{ field.mask_display|length }}" {{ req }} {{ dis }}{{ num_str }}>
-  {% else %}
   <div class="inline-flex items-center w-full it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
-  {% endif %}
 {% elif field.input == 'time' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  {% if field.mask and field.mask is datemask %}
-  <input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if val else '' }}" placeholder="{{ ph }}" data-mask="{{ field.mask_display }}" maxlength="{{ field.mask_display|length }}" {{ req }} {{ dis }}{{ num_str }}>
-  {% else %}
   <div class="inline-flex items-center w-full it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir relógio"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
-  {% endif %}
 {% elif field.input == 'datetime-local' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  {% if field.mask and field.mask is datemask %}
-  <input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val|mask(field.mask) if val else '' }}" placeholder="{{ ph }}" data-mask="{{ field.mask_display }}" maxlength="{{ field.mask_display|length }}" {{ req }} {{ dis }}{{ num_str }}>
-  {% else %}
   <div class="inline-flex items-center w-full it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
-  {% endif %}
 {% elif field.input == 'image' %}
 {% set _img_has = val %}
 <div class="image-widget" data-ns="{{ ns }}" data-tem-imagem="{{ '1' if _img_has else '0' }}">
@@ -138,8 +155,10 @@
 {% endmacro %}
 
 {% macro render_label(field, data=none, ro=false) %}
-{% set val = (calc_value(field.calc, data) if (field.calc is defined and field.calc) else (data|deep_attr(field.name))) if data is not none else (field.default() if field.default is callable else field.default) %}
-{% if field.input == 'image' and val %}
+{% set val = (calc_value(field.calc, data) if (field.calc is defined and field.calc and data is not none) else (data|deep_attr(field.name))) if data is not none else (field.default() if field.default is callable else field.default) %}
+{% if field.page %}
+<a href="{{ page_url(field.page) }}" class="btn btn-outline btn-primary btn-xs inline-flex items-center gap-1">{{ field.display_label }}</a>
+{% elif field.input == 'image' and val %}
 <img src="{{ url_for(aj_uploads_endpoint(), filename=val) }}" style="max-height:60px;" class="border rounded" onclick="previewImagem(this.src)">
 {% elif field.input in ('boolean', 'checkbox') %}
 {{ 'Sim' if val else 'Não' }}
@@ -178,8 +197,9 @@
 
 {% macro render_multi_ctl(field, data=none, name_prefix='', ro=false) %}
 {% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
-{% set ns = (name_prefix or '') + (field.input_name or field.name) %}
-{% set dis = 'disabled' if (field.disabled or ro) else '' %}
+{% set ns = (name_prefix or '') + field.name %}
+{% set _dis = field.disabled(data) if field.disabled is callable else field.disabled %}
+{% set dis = 'disabled' if (_dis or ro) else '' %}
 {% set req = 'required' if field.required else '' %}
 <div class="multi-ctl" data-multi-options='{{ field.options|tojson }}' data-multi-title="{{ field.display_label }}"{% if dis %} data-multi-disabled="1"{% endif %}>
   <input type="hidden" name="{{ ns }}" value="{{ val or '' }}" {{ req }} {{ dis }}>
@@ -243,6 +263,7 @@
   {% if not instance and (btn.endpoint or btn.action) %}{% set show = false %}{% endif %}
   {% if btn.show_if %}{% set show = show and instance|attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
   {% if btn.when and instance and not btn.when(instance) %}{% set show = false %}{% endif %}
+  {% if btn.endpoint and instance and (instance|attr(btn.url_var)) is none %}{% set show = false %}{% endif %}
 {% endif %}
 {% if show %}
   {% if btn.render and btn.action %}
@@ -291,6 +312,69 @@
     {{ btn.label }}
   </a>
   {% endif %}
+{% endif %}
+{% endmacro %}
+
+{% macro render_session_button(btn, instance, fields=none) %}
+{# Botão dentro de sessão (dentro do form principal): POST via JS `postTo`
+   p/ não aninhar <form>. Lógica de exibição igual à do `render_button`.
+   `enable_when` (lista de nomes de campo) → mapeia p/ `name`, emite
+   `data-enable-when` (habilitado client-side quando todos tiverem valor) e
+   renderiza `disabled` inicial se algum campo do instance estiver vazio. #}
+{% if not btn.on_off %}
+{% set show = true %}
+{% if not instance and (btn.endpoint or btn.action) %}{% set show = false %}{% endif %}
+{% if btn.show_if %}{% set show = show and instance|attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
+{% if btn.when and instance and not btn.when(instance) %}{% set show = false %}{% endif %}
+{% if btn.endpoint and instance and (instance|attr(btn.url_var)) is none %}{% set show = false %}{% endif %}
+{% set _ew = [] %}
+{% set _ew_empty = [] %}
+{% if btn.enable_when %}
+  {% for _f in (fields or []) %}
+    {% if _f.name in btn.enable_when %}
+      {% if not _ew.append(_f.name) %}{% endif %}
+    {% endif %}
+  {% endfor %}
+  {% if instance %}
+    {% for _f in (fields or []) %}
+      {% if _f.name in btn.enable_when and not instance|attr(_f.name) %}{% if not _ew_empty.append(1) %}{% endif %}{% endif %}
+    {% endfor %}
+  {% endif %}
+{% endif %}
+{% set _ew_disabled = _ew_empty|length > 0 %}
+{% if show %}
+{% if btn.endpoint %}
+{% set _params = {btn.url_var: instance|attr(btn.url_var) if instance else none} %}
+{% if btn.extra_params %}{% set _ = _params.update(btn.extra_params) %}{% endif %}
+{% set url = url_for(btn.endpoint, **(_params if instance else {})) %}
+{% else %}
+{% set url = btn.action(instance) if btn.action else '#' %}
+{% endif %}
+{% if btn.method == 'POST' %}
+{% if btn.serialize or btn.carry %}
+<button type="button" class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
+  {% if _ew %}data-enable-when="{{ _ew|join(',') }}"{% endif %}{% if _ew_disabled %} disabled{% endif %}
+  {% if btn.carry and btn.carry.map %}data-carry-map="{{ btn.carry.map|tojson|forceescape }}"{% endif %}
+  {% if btn.confirm_msg %}onclick="var _b=this;showConfirm('{{ btn.confirm_msg }}', function(){ postToCarry('{{ url }}', _b); });"{% else %}onclick="postToCarry('{{ url }}', this);"{% endif %}>
+  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+  {{ btn.label }}
+</button>
+{% else %}
+<button type="button" class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
+  {% if _ew %}data-enable-when="{{ _ew|join(',') }}"{% endif %}{% if _ew_disabled %} disabled{% endif %}
+  {% if btn.confirm_msg %}onclick="showConfirm('{{ btn.confirm_msg }}', function(){ postTo('{{ url }}'); });"{% else %}onclick="postTo('{{ url }}');"{% endif %}>
+  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+  {{ btn.label }}
+</button>
+{% endif %}
+{% else %}
+<a href="{{ url }}" class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
+  {% if btn.confirm_msg %}onclick="event.preventDefault();showConfirm('{{ btn.confirm_msg }}', function(){ window.location.href='{{ url }}'; });"{% endif %}>
+  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+  {{ btn.label }}
+</a>
+{% endif %}
+{% endif %}
 {% endif %}
 {% endmacro %}
 
@@ -375,7 +459,7 @@
 </div>
 {% endmacro %}
 
-{% macro render_fields(fields, data=none, ro=false, spacing=none, name_prefix='', ro_fields=none) %}
+{% macro render_fields(fields, data=none, ro=false, spacing=none, name_prefix='', ro_fields=none, tail=none, bottom=none) %}
 {% if fields._resolved_fields is defined %}
 {% set _fields = fields._resolved_fields %}
 {% if spacing is none %}{% set spacing = fields.spacing %}{% endif %}
@@ -392,7 +476,7 @@
 {% endif %}
 {% endif %}
 {% endfor %}
-<div class="flex flex-wrap items-start" style="gap:{{ spacing }}ch; padding-left:{{ spacing }}ch;">
+<div class="flex flex-wrap items-start" style="gap:{{ spacing }}ch; padding-left:{{ spacing }}ch;{% if bottom %}margin-bottom:{{ spacing }}ch;{% endif %}">
 {% set _widths = [] %}
 {% for _f in _visible %}
 {% set _dw = 100 if _f.input == 'textarea' else 12 %}
@@ -425,6 +509,7 @@
 </div>
 {% endif %}
 {% endfor %}
+  {% if tail %}{{ tail }}{% endif %}
 </div>
 {% endmacro %}
 
@@ -454,27 +539,49 @@
 {% set _is_form = _has_fields and _sess_model and _has_query is none and _has_table is none %}
 {% set _is_parent = _has_fields and _sess_model is none and _has_query is none and _has_table is none %}
 {% endif %}
+{# Botões da sessão, posicionados por `position`:
+   fields_left / fields_right (em volta dos fields) e
+   table_before / table_after (em volta da tabela filha).
+   Sem um dos 4 valores, assume fields_right (fica à direita dos fields). #}
+{% set _btns = session.get('buttons') if session is mapping else session.buttons %}
+{% set _btns = _btns or [] %}
+{% set _fields_left = _btns|selectattr('position', 'equalto', 'fields_left')|list %}
+{% set _table_before = _btns|selectattr('position', 'equalto', 'table_before')|list %}
+{% set _table_after = _btns|selectattr('position', 'equalto', 'table_after')|list %}
+{% set _fields_right = _btns|rejectattr('position', 'equalto', 'fields_left')|rejectattr('position', 'equalto', 'table_before')|rejectattr('position', 'equalto', 'table_after')|list %}
 {% if _is_form %}
 {% set _attr = session.get('attr') if session is mapping else session.attr %}
 {% set _child = data|deep_attr(_attr) if data is not none else none %}
+{% set _tail %}{% if _fields_right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _fields_right %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=_child, ro=_ro, name_prefix='child_' + _attr + '_', ro_fields=ro_fields) }}
+  {% if _fields_left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _fields_left %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
+  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=_child, ro=_ro, name_prefix='child_' + _attr + '_', ro_fields=ro_fields, tail=_tail) }}
 </div>
 {% elif _is_parent %}
+{% set _tail %}{% if _fields_right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _fields_right %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields) }}
+  {% if _fields_left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _fields_left %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
+  {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields, tail=_tail) }}
 </div>
 {% else %}
-{% if _has_fields and _has_table %}
+{% if _has_fields and (_has_table or _has_query) %}
+{% set _tail %}{% if _fields_right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _fields_right %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=data, ro=_ro, ro_fields=ro_fields) }}
+  {% if _fields_left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _fields_left %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
+  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=data, ro=_ro, ro_fields=ro_fields, tail=_tail, bottom=true) }}
 </div>
-{{ render_child_table(data, session, _ro, title=false) }}
+{% set _sess_table = dict(session, buttons=_btns|rejectattr('position', 'equalto', 'table_before')|rejectattr('position', 'equalto', 'table_after')|list) if session is mapping else session %}
+{% if _table_before %}<div class="flex flex-wrap gap-2 my-2">{% for btn in _table_before %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
+{{ render_child_table(data, _sess_table, _ro, title=false) }}
+{% if _table_after %}<div class="flex flex-wrap justify-end gap-2 mt-2">{% for btn in _table_after %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
 {% else %}
-{{ render_child_table(data, session, _ro) }}
+{% set _sess_table = dict(session, buttons=_btns|rejectattr('position', 'equalto', 'table_before')|rejectattr('position', 'equalto', 'table_after')|list) if session is mapping else session %}
+{% if _table_before %}<div class="flex flex-wrap gap-2 my-2">{% for btn in _table_before %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
+{{ render_child_table(data, _sess_table, _ro) }}
+{% if _table_after %}<div class="flex flex-wrap justify-end gap-2 mt-2">{% for btn in _table_after %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
 {% endif %}
 {% endif %}
 {% endif %}

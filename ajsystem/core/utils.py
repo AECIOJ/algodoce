@@ -71,17 +71,119 @@ def add_dias(dta, dias):
     return ref + timedelta(days=dias)
 
 
+def _agg_children(item, child_entity):
+    """Iterável de filhos de `item` cujo model é o da entidade `child_entity`.
+
+    Resolve a entidade (ex.: `'PedidoItem'`) para o model via `_resolve_model`
+    e devolve o atributo de relationship do pai cujo mapper aponta para ele.
+    """
+    from sqlalchemy.orm import MANYTOONE
+    try:
+        from ajsystem.core.list import _resolve_model
+        child_model = _resolve_model(child_entity)
+    except Exception:
+        return None
+    mapper = getattr(item.__class__, '__mapper__', None)
+    if mapper is None:
+        return None
+    for name, rel in mapper.relationships.items():
+        try:
+            if (rel.mapper.class_ == child_model
+                    and rel.direction is not MANYTOONE):
+                return getattr(item, name, None) or []
+        except Exception:
+            continue
+    return None
+
+
+_AGG_RE = re.compile(r'^(sum|avg|count|max|min)\(([A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?)?\)$')
+
+
+def _agg_value(spec, item):
+    """Agregação de filhos a partir de `spec['source']` tipo `sum(Entity.field)`.
+
+    Suporta `sum/avg/count/max/min`. `count()` conta os filhos; as demais
+    agregam o campo (caminho com `.` resolvido por `deep_attr`). Filtra opcional
+    com `spec['when']` (dict de igualdade sobre atributos do filho).
+    """
+    m = _AGG_RE.match((spec.get('source') or '').strip())
+    if m is None:
+        return None
+    fn, target = m.group(1), m.group(2)
+    if target is None:
+        # `count()` sem campo → precisa da entidade via `spec['entity']`
+        children = _agg_children(item, spec.get('entity')) if spec.get('entity') else None
+    else:
+        entity, _, field = target.partition('.')
+        children = _agg_children(item, entity)
+    if children is None:
+        return None
+    when = spec.get('when') or {}
+    vals = []
+    for it in children:
+        if when and any(deep_attr(it, k) != v for k, v in when.items()):
+            continue
+        if fn == 'count':
+            vals.append(1)
+            continue
+        v = deep_attr(it, field)
+        try:
+            vals.append(float(v))
+        except (TypeError, ValueError):
+            continue
+    if fn == 'sum':
+        return sum(vals)
+    if fn == 'avg':
+        return sum(vals) / len(vals) if vals else 0
+    if fn == 'count':
+        return len(vals)
+    if fn == 'max':
+        return max(vals) if vals else 0
+    if fn == 'min':
+        return min(vals) if vals else 0
+    return None
+
+
+def _call_value(spec, item):
+    """Chamada única no pai a partir de `spec['source']` (método ou callable)."""
+    source = spec.get('source')
+    if callable(source):
+        return source(item)
+    if isinstance(source, str):
+        fn = getattr(item, source, None)
+        if callable(fn):
+            return fn()
+    return None
+
+
+def _spec_value(spec, item):
+    """Resolve um dict `calc` (`{'type': 'call'|'agg', ...}`)."""
+    if not isinstance(spec, dict):
+        return None
+    kind = spec.get('type')
+    if kind == 'call':
+        return _call_value(spec, item)
+    if kind == 'agg':
+        return _agg_value(spec, item)
+    return None
+
+
 def calc_value(calc, item):
     """Valor de um campo `calc` (virtual, não persistido) para `item`.
 
     - callable → `calc(item)`;
     - string → expressão aritmética avaliada com namespace restrito aos
-      atributos de `item` (mesmo padrão do `_apply_aggs`).
+      atributos de `item` (mesmo padrão do `_apply_aggs`);
+    - dict → `{'type': 'call'}` (método/callable no pai) ou
+      `{'type': 'agg', 'source': 'sum(Entity.campo)'}` (agregação de filhos);
+    - outro valor (constante) → o próprio valor.
     """
+    if isinstance(calc, dict):
+        return _spec_value(calc, item)
     if callable(calc):
         return calc(item)
     if not isinstance(calc, str):
-        return None
+        return calc
     names = set(re.findall(r'[A-Za-z_][A-Za-z0-9_]*', calc or ''))
     ns = {n: (getattr(item, n, None) or 0) for n in names}
     ns['divide'] = divide

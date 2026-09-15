@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import TIPO_TRANSACAO
+from app.constantes import TIPO_TRANSACAO, PREVISAO_STATUS
 
 
 class Transacao(db.Model):
@@ -15,14 +15,20 @@ class Transacao(db.Model):
     historico = db.Column(db.Text, nullable=True)
     cancelado = db.Column(db.Date, nullable=True)
     total_previsto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    status = db.Column(db.Integer, nullable=False, default=0)
+    pedido_id = db.Column(db.Integer, db.ForeignKey("pedidos.id"), nullable=True, unique=True)
+    compra_id = db.Column(db.Integer, db.ForeignKey("compras.id"), nullable=True, unique=True)
 
     conta = db.relationship("Conta", backref="transacoes")
     operacao = db.relationship("Operacao", backref="transacoes")
+    pedido = db.relationship("Pedido", uselist=False,
+                             backref=db.backref("transacao", uselist=False))
+    compra = db.relationship("Compra", uselist=False,
+                             backref=db.backref("transacao", uselist=False))
     previsoes = db.relationship("Previsao", backref="transacao",
                                 order_by="Previsao.vencimento, Previsao.id")
 
-    @property
-    def status(self):
+    def calc_status(self):
         if self.cancelado:
             return 8
         if not self.previsoes or abs(float(self.total_previsto or 0) - float(self.valor)) > 0.005:
@@ -31,18 +37,7 @@ class Transacao(db.Model):
 
     @property
     def status_label(self):
-        from app.constantes import PREVISAO_STATUS
-        return PREVISAO_STATUS.get(self.status, "")
-
-    @property
-    def compra(self):
-        from app.models.compra import Compra
-        return Compra.query.filter_by(transacao_id=self.id).first()
-
-    @property
-    def pedido(self):
-        from app.models.pedido import Pedido
-        return Pedido.query.filter_by(transacao_id=self.id).first()
+        return PREVISAO_STATUS.get(self.calc_status(), "")
 
 
 Entity = {
@@ -57,4 +52,11 @@ Entity = {
     'cancelado':    {'type': 'DATA', 'width': 12, 'pos_list': 0},
     'total_previsto': {'type': 'NUM', 'label': 'Total Previsto', 'width': 12,
                        'currency': 1, 'readonly': True, 'pos_list': 0},
+    'status':       {'type': 'LIST', 'width': 10, 'options': PREVISAO_STATUS,
+                     'tag': {'colors': {0: 'warning', 1: 'warning', 2: 'info', 8: 'error', 9: 'success'}},
+                     'pos_list': 0},
+    'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9,
+                     'tag': {'link': 'pedidos.form', 'color': 'info'}, 'pos_list': 0},
+    'compra_id':    {'type': 'FK', 'label': 'Compra', 'width': 9,
+                     'tag': {'link': 'compras.form', 'color': 'info'}, 'pos_list': 0},
 }

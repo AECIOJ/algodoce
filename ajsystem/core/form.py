@@ -156,17 +156,25 @@ def _coerce(value, f):
         s = str(value).strip()
         if not s:
             return None
+        # Edição envia valor nativo ISO (o input nativo com calendário); a
+        # máscara datemask segue válida p/ exibição e p/ valores legados.
+        try:
+            if f.input == 'date':
+                res = datetime.strptime(s, '%Y-%m-%d').date()
+            elif f.input == 'time':
+                res = datetime.strptime(s, '%H:%M').time()
+            else:
+                res = datetime.fromisoformat(s)
+        except ValueError:
+            res = None
+        if res is not None:
+            return res
         mask = getattr(f, 'mask', None)
         if mask:
             res = _coerce_masked_datetime(s, mask, f.input)
             if res is not None:
                 return res
-            return None
-        if f.input == 'date':
-            return datetime.strptime(s, '%Y-%m-%d').date()
-        if f.input == 'time':
-            return datetime.strptime(s, '%H:%M').time()
-        return datetime.fromisoformat(s)
+        return None
     if f.input == 'multi':
         s = ''.join(sorted(value)) or None
         return s

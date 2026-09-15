@@ -137,7 +137,7 @@ class Form:
             if spec_template:
                 resolved.append({'name': name, 'template': spec_template})
                 continue
-            if spec_query and spec_table:
+            if spec_query is not None and spec_table:
                 raise ValueError(
                     f"Session '{name}': 'query' e 'table' são mutuamente exclusivos."
                 )
@@ -167,12 +167,15 @@ class Form:
                         child_merged, child_model = self._child_merged(child_ent)
                         resolved_fields = self._resolve_session_cols(child_merged, col_specs, child_ent)
             elif spec_query:
-                q_cols = spec_query.get('columns') if isinstance(spec_query, dict) else getattr(spec_query, 'columns', None)
-                child_ent = q_cols[0] if isinstance(q_cols, list) and q_cols else name
-                if isinstance(child_ent, str):
-                    child_merged, child_model = self._child_merged(child_ent)
-                    resolved_cols = self._resolve_session_cols(child_merged, q_cols, child_ent)
-                resolved_query = {**spec_query, 'columns': resolved_cols}
+                if callable(spec_query):
+                    resolved_query = spec_query
+                else:
+                    q_cols = spec_query.get('columns') if isinstance(spec_query, dict) else getattr(spec_query, 'columns', None)
+                    child_ent = q_cols[0] if isinstance(q_cols, list) and q_cols else name
+                    if isinstance(child_ent, str):
+                        child_merged, child_model = self._child_merged(child_ent)
+                        resolved_cols = self._resolve_session_cols(child_merged, q_cols, child_ent)
+                    resolved_query = {**spec_query, 'columns': resolved_cols}
             elif spec_table:
                 t_cols = spec_table.get('columns') if isinstance(spec_table, dict) else getattr(spec_table, 'columns', None)
                 child_ent = t_cols[0] if isinstance(t_cols, list) and t_cols else name
@@ -183,10 +186,10 @@ class Form:
                 t_dict['columns'] = resolved_cols
                 # `totals` define a linha de totais do detalhe. Aceita:
                 #   - lista de nomes:            ['qtd', 'valor']
-                #   - lista mista:               ['qtd', {'valor': 'eTotal'}]
+                #   - lista mista:               ['qtd', {'valor': 'total'}]
                 #     item string → totaliza a coluna (sem destino);
-                #     item dict {coluna: input_name} → totaliza E grava no input
-                #     do master (celula `data-total-target`).
+                #     item dict {coluna: campo_master} → totaliza E grava no
+                #     input do master (celula `data-total-target`).
                 #   - string única:              'valor'
                 # Sem `totals` nenhuma coluna é totalizada.
                 spec_totals = spec_table.get('totals') if isinstance(spec_table, dict) else getattr(spec_table, 'totals', None)
@@ -195,7 +198,7 @@ class Form:
                     total_map = {}
                     for entry in entries:
                         if isinstance(entry, dict):
-                            for col, input_name in entry.items():
+                            for col, target in entry.items():
                                 f = next((x for x in resolved_cols if getattr(x, 'name', None) == col), None)
                                 if f is None:
                                     continue
@@ -204,7 +207,7 @@ class Form:
                                     'calc': f.calc if getattr(f, 'calc', None) else None,
                                     'currency': getattr(f, 'currency', None) or None,
                                     'decimals': _total_decimals(f, child_model, child_merged),
-                                    'target': input_name or None,
+                                    'target': target or None,
                                 }
                         else:
                             f = next((x for x in resolved_cols if getattr(x, 'name', None) == entry), None)
@@ -325,6 +328,44 @@ class Form:
 
     def _resolve_buttons(self):
         return resolve_buttons(self.buttons, self._bp_name)
+
+    def resolve_query_sessions(self, instance=None):
+        """Resolve sessões com `query` callable, no render (com o instance).
+
+        A query callable recebe o instance e devolve o spec do query (dict) ou
+        `None` (sessão sem tabela — só fields). Preenche no dict da sessão os
+        mesmos campos que `_resolve_sessions` resolveria (columns/model/attr)
+        para que macros/template funcionem igual à query estática."""
+        for session in getattr(self, '_resolved_sessions', []) or []:
+            q = session.get('query')
+            if not callable(q):
+                continue
+            spec = q(instance) if instance is not None else None
+            if not spec:
+                session['query'] = None
+                session['columns'] = []
+                session['model'] = None
+                session['attr'] = None
+                continue
+            if isinstance(spec, dict):
+                q_cols = spec.get('columns')
+            else:
+                q_cols = getattr(spec, 'columns', None)
+            child_ent = q_cols[0] if isinstance(q_cols, list) and q_cols else session.get('name')
+            child_model = None
+            cols = []
+            if isinstance(child_ent, str):
+                child_merged, child_model = self._child_merged(child_ent)
+                cols = self._resolve_session_cols(child_merged, q_cols, child_ent)
+            session['query'] = spec
+            session['columns'] = cols
+            session['model'] = child_model
+            if isinstance(spec, dict) and spec.get('attr'):
+                session['attr'] = spec['attr']
+            else:
+                attr, _ = self._resolve_parent_link(child_model, cols, fallback=(session.get('name') or '').lower())
+                session['attr'] = attr
+        return self
 
 
 _FORM_KEYS = frozenset(f.name for f in dc_fields(Form))

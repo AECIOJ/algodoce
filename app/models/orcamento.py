@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
-from app.constantes import QUOTE_STATUS, FORMINHAS
+from app.constantes import ORCAMENTO_STATUS, FORMINHAS
 from ajsystem.core.utils import add_dias
 
 
@@ -48,7 +48,7 @@ Entity = {
     'cliente_nome':     {'type': 'TEXT', 'label': 'Cliente', 'required': True, 'width': 20},
     'cliente_telefone': {'type': 'FONE', 'label': 'Telefone', 'required': True},
     'data_pedido':      {'type': 'DATA_HORA', 'label': 'Data',},
-    'status':           {'type': 'LIST', 'width': 12, 'options': QUOTE_STATUS,
+    'status':           {'type': 'LIST', 'width': 12, 'options': ORCAMENTO_STATUS,
                          'tag': {'colors': {0: 'warning', 1: 'info', 6: 'success'}}},
     'validade':         {'type': 'INT', 'label': 'Validade (dias)', 'min': 1},
     'validade_data':    {'type': 'DATA_HORA', 'label': 'Válido até', 'calc': _validade_data, 

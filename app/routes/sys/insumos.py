@@ -1,11 +1,11 @@
 from app.models.insumo import Insumo
-from app.models.conversao_unidade import ConversaoUnidade
+from app.models.insumo_conversao import InsumoConversao
 from app.models.produto_insumo import ProdutoInsumo
 from app.models.producao_insumo import ProducaoInsumo
 from app.models.compra_item import CompraItem
 
 Schema = {
-    'ConversaoUnidade': {
+    'InsumoConversao': {
         'und': {'on_set': {'replaces': {'fator': 0}}},
     },
 }
@@ -25,11 +25,11 @@ Page = {
         'form': {
             'max_width': 70,
             'fields': 'Insumo',
-            'delete': {ProdutoInsumo, ProducaoInsumo, CompraItem, ConversaoUnidade},
+            'delete': {ProdutoInsumo, ProducaoInsumo, CompraItem, InsumoConversao},
             'sessions': {
                 'Conversões': {
                     'table': {
-                        'columns': ['ConversaoUnidade'],
+                        'columns': ['InsumoConversao'],
                     }
                 },
                 'Produtos': {

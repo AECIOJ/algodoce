@@ -13,15 +13,20 @@ class Movimento(db.Model):
     documento = db.Column(db.String(50), nullable=True)
     valor = db.Column(db.Numeric(12, 2), nullable=False)
     variacao = db.Column(db.Numeric(12, 2), nullable=True, default=0)
-    sincronizar = db.Column(db.Boolean, nullable=False, default=True)
     operacao_id = db.Column(db.Integer, db.ForeignKey("operacao.id"), nullable=True)
     transferencia_id = db.Column(db.Integer, db.ForeignKey("transferencias.id"), nullable=True)
     historico = db.Column(db.Text, nullable=True)
+    pedido_id = db.Column(db.Integer, db.ForeignKey("pedidos.id"), nullable=True, unique=True)
+    compra_id = db.Column(db.Integer, db.ForeignKey("compras.id"), nullable=True, unique=True)
 
     recurso = db.relationship("Recurso", backref="movtos")
     conta = db.relationship("Conta", backref="movtos")
     previsao = db.relationship("Previsao", backref="movtos")
     operacao = db.relationship("Operacao", backref="movtos")
+    pedido = db.relationship("Pedido", uselist=False,
+                             backref=db.backref("movto", uselist=False))
+    compra = db.relationship("Compra", uselist=False,
+                             backref=db.backref("movto", uselist=False))
 
     @property
     def historico_display(self):
@@ -46,6 +51,9 @@ Entity = {
     'valor':        {'type': 'NUM', 'width': 10, 'currency': 1, 'required': True},
     'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15},
     'variacao':     {'type': 'NUM', 'label': 'Variação', 'width': 10},
-    'sincronizar':  {'type': 'BOOL', 'label': 'Sincronizar', 'default': True},
     'historico':    {'type': 'MEMO', 'label': 'Histórico', 'width': 30, 'pos_list': 2},
+    'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9, 'readonly': True,
+                     'tag': {'link': 'pedidos.form', 'color': 'info'}, 'pos_list': 0},
+    'compra_id':    {'type': 'FK', 'label': 'Compra', 'width': 9, 'readonly': True,
+                     'tag': {'link': 'compras.form', 'color': 'info'}, 'pos_list': 0},
 }

@@ -20,6 +20,10 @@ class CompraItem(db.Model):
     def __repr__(self):
         return f"<CompraItem c={self.compra_id} i={self.insumo_id}>"
 
+    @property
+    def valor(self):
+        return (self.qtd or 0) * (self.preco or 0)
+
 
 Entity = {
     'id':           {'type': 'ID'},

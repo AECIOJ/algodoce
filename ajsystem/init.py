@@ -9,7 +9,7 @@ from ajsystem.core.menu import modulo_atual
 from ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguranca
 from ajsystem.core.auto import registrar_modulos
 from ajsystem.core.form import _empty_value
-from ajsystem.core.menu import url_do_item
+from ajsystem.core.menu import url_do_item, url_do_pagina
 from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens
 from ajsystem.core.list import fields_to_columns
 from ajsystem.core.utils import (
@@ -51,7 +51,7 @@ def init_app(app):
     app.jinja_env.filters['mask'] = fmt_mask
     app.jinja_env.filters['mask_cmd'] = fmt_mask_cmd
     app.jinja_env.tests['datemask'] = has_date_tokens
-    _jinja_field_body = (lambda f: ((getattr(f, 'pos_form', 1) or 0) != 4 and bool(getattr(f, 'pos_form', 1)))
+    _jinja_field_body = (lambda f: ((getattr(f, 'pos_form', 1) or 0) not in (4, 5) and bool(getattr(f, 'pos_form', 1)))
                          if getattr(f, '_pos_managed', True) else True)
     _jinja_field_row = (lambda f: bool(getattr(f, 'pos_form', 1))
                         if getattr(f, '_pos_managed', True) else True)
@@ -62,6 +62,7 @@ def init_app(app):
     app.jinja_env.filters['heroicon'] = heroicon_filter
     app.jinja_env.globals['get_field'] = get_field
     app.jinja_env.globals['menu_url'] = url_do_item
+    app.jinja_env.globals['page_url'] = url_do_pagina
     app.jinja_env.globals['aj_uploads_endpoint'] = lambda: get_uploads_endpoint(app)
     app.jinja_env.globals['field_value'] = field_value
     app.jinja_env.globals['calc_value'] = calc_value

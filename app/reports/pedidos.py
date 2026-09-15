@@ -53,6 +53,30 @@ def _forminhas_carteira(order):
     return f"Forminhas: {f} | Forma de Pagamento: {c}"
 
 
+def _brl(v):
+    if v is None:
+        return "R$ 0,00"
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _report_after(order):
+    lines = []
+    acrescimo = float(order.acrescimo or 0)
+    desconto = float(order.desconto or 0)
+    total = float(order.total or 0)
+    if acrescimo:
+        lines.append({'text': f'Acréscimo: {_brl(acrescimo)}', 'align': 'R'})
+    if desconto:
+        lines.append({'text': f'Desconto: {_brl(desconto)}', 'align': 'R'})
+    if acrescimo or desconto:
+        lines.append({'text': ''})
+    lines.append({'text': f'Total: {_brl(total)}', 'align': 'R',
+                  'font_size': 11, 'font_style': 'B'})
+    lines.append({'text': ''})
+    lines += _event_after(order)
+    return lines
+
+
 PEDIDO = {
     'label': 'Pedido',
     'print_fragment_template': 'components/print_overlay.html',
@@ -61,7 +85,7 @@ PEDIDO = {
         'title': 'Pedido #{id}',
         'fields': [
             {'function': _cliente_nome, 'label': 'Cliente'},
-            {'field': 'data_pedido', 'label': 'Data', 'align': 'right', 'format': 'datetime'},
+            {'field': 'pedido_em', 'label': 'Data', 'align': 'right', 'format': 'date'},
             {'function': _cliente_telefone, 'label': 'Telefone'},
             {'field': 'data_previsao_entrega', 'label': 'Previsão', 'align': 'right', 'format': 'datetime'},
         ],
@@ -76,9 +100,9 @@ PEDIDO = {
                                    'function': _valor_item, 'agg': 'sum'},
             },
             'footer': True,
-            'footer_label': 'Total',
+            'footer_label': 'Subtotal',
             'after': _forminhas_carteira,
         },
-        'after': _event_after,
+        'after': _report_after,
     },
 }

@@ -140,6 +140,9 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
     card_fields = card_configs or None
 
     all_fields = line_fields + cardonly_fields + (card_fields or [])
+    stored_cols = {c.name for c in model.__table__.columns}
+    for f in all_fields:
+        f.stored = f.name in stored_cols
     fields_master = list(range(1, len(line_fields) + 1))
 
     linha_names = lista.get('linha') or []

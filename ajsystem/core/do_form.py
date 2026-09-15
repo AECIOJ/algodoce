@@ -9,16 +9,28 @@ import re
 from flask import flash, redirect, render_template, request, url_for
 
 from ajsystem.core.adapter import db
+from ajsystem.core.utils import calc_value
 from ajsystem.core.form import (
     _empty_value, _coerce, _is_readonly, _flat_fields,
     _build_nav, _resolve_delete, _when_allows,
 )
 from ajsystem.core.do_upload import process_image_fields as _process_image_fields
+from ajsystem.core.memory import carry_get
 from ajsystem.defs.data import fk_target_model, resolve_max_width
 from ajsystem.defs.tags import parse_tag, resolve_tag
 from ajsystem.defs.validators import resolve_validator
 from ajsystem.defs.transformers import apply_field_transforms
 from ajsystem.core.query import group_items, order_items
+
+
+def _calc_virtual(f):
+    """`calc` virtual (constante/string/callable) → não persiste, skip no save.
+
+    `calc` dict (agg/call) vive num campo REAL (ex.: `total`) e é persistido
+    normalmente — não é excluído do save.
+    """
+    calc = getattr(f, 'calc', None)
+    return calc is not None and not isinstance(calc, dict)
 
 
 def _save_single_sessions(form, instance):
@@ -53,7 +65,7 @@ def _save_single_sessions(form, instance):
             setattr(instance, attr, child)   # vincula via relationship (seta FK do pai)
             db.session.add(child)
         for f in fields:
-            raw = request.form.get(prefix + (f.input_name or f.name))
+            raw = request.form.get(prefix + f.name)
             if raw is None:
                 continue
             setattr(child, f.name, _coerce(raw, f))
@@ -73,19 +85,19 @@ def _save_session_masters(form, instance, old_vals, is_new):
     """
     fields_ok = True
     for session in getattr(form, '_resolved_sessions', []) or []:
-        if session.get('query'):
+        if session.get('query') and not callable(session.get('query')):
             continue  # sessões query são readonly
         if not session.get('table') and session.get('model') is not None:
             continue  # sessão 1:1 child já é gravada por `_save_single_sessions`
         for f in session.get('fields') or []:
-            if getattr(f, 'calc', None):
+            if _calc_virtual(f):
                 continue
             if f.input == 'image':
                 continue
             if f.input == 'multi':
-                raw = request.form.getlist(f.input_name or f.name)
+                raw = request.form.getlist(f.name)
             else:
-                raw = request.form.get(f.input_name or f.name)
+                raw = request.form.get(f.name)
             if raw is None:
                 continue
             val = _coerce(raw, f)
@@ -150,11 +162,11 @@ def _save_table_sessions(form, instance):
                     break
         columns = session.get('columns') or []
         savable = [f for f in columns
-                   if not getattr(f, 'calc', None)
+                   if not _calc_virtual(f)
                    and f.input != 'image'
                    and f.name not in pk_names
                    and f.name != dk_name]
-        by_input = {(f.input_name or f.name): f for f in savable}
+        by_input = {f.name: f for f in savable}
         posted_ids = set()
         posted_crows = set()
         new_children = []
@@ -333,6 +345,15 @@ def _build_lookup(form, extra_lookup=None, instance=None):
     return lookup
 
 
+def _valores_diferem(a, b):
+    """True se dois valores de campo diferem em magnitude, normalizando
+    None → 0 e trigger type para alinhar int/Decimal de status e somas."""
+    try:
+        return float((a or 0)) != float((b or 0))
+    except (TypeError, ValueError):
+        return a != b
+
+
 def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
     """GET: renderiza o form (novo/editar). POST: valida, salva e redireciona.
 
@@ -341,6 +362,9 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
     instance = instance or (form._model.query.get(id) if id is not None else None)
     is_new = instance is None
     ro = _is_readonly(form, instance)
+    footer_fields = [f for f in _flat_fields(form) if getattr(f, 'pos_form', 1) == 5]
+    if request.method != "POST":
+        form.resolve_query_sessions(instance)
 
     from ajsystem.core.filters import fixed_filters as _fixed_filters
     _fixed = _fixed_filters(form._resolved_fields, form._model)
@@ -361,16 +385,33 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
             f.lookup = resolved
     for session in getattr(form, '_resolved_sessions', []) or []:
         child_model = session.get('model')
-        if child_model is not None:
-            for f in (session.get('columns') or []) or []:
-                resolved = resolve_lookup(f, child_model)
-                if resolved is not None:
-                    f.lookup = resolved
-        else:
-            for f in (session.get('fields') or []):
-                resolved = resolve_lookup(f, form._model)
-                if resolved is not None:
-                    f.lookup = resolved
+        for f in (session.get('columns') or []) or []:
+            resolved = resolve_lookup(f, child_model or form._model)
+            if resolved is not None:
+                f.lookup = resolved
+        for f in (session.get('fields') or []):
+            resolved = resolve_lookup(f, form._model)
+            if resolved is not None:
+                f.lookup = resolved
+
+    # `pre_get` pode ocultar campos via extra_ctx['hidden'] (lista de nomes):
+    # vira `<input type="hidden">` (continua no POST, sem edição visual).
+    if extra_ctx and isinstance(extra_ctx.get('hidden'), (list, tuple, set)):
+        _ocultos = set(extra_ctx['hidden'])
+        for f in _flat_fields(form):
+            if f.name in _ocultos:
+                f.hidden = True
+
+    if request.method != "POST" and instance is not None:
+        for f in _flat_fields(form):
+            calc = getattr(f, 'calc', None)
+            if not isinstance(calc, dict) or not calc.get('diff'):
+                continue
+            gravado = getattr(instance, f.name, None)
+            calculado = calc_value(calc, instance)
+            if _valores_diferem(gravado, calculado):
+                flash(calc['diff'], 'warning')
+                form._inconsistent = True
 
     if request.method == "POST":
         if is_new:
@@ -383,16 +424,18 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
         old_vals = {}
         fields_ok = True
         for f in _flat_fields(form):
-            if getattr(f, '_pos_managed', True) and f.pos_form != 1:
+            if getattr(f, '_pos_managed', True) and f.pos_form != 1 and f.pos_form != 5:
                 continue
-            if f.calc:
+            if ro and f.pos_form != 5:
+                continue
+            if _calc_virtual(f):
                 continue
             if f.input == 'image':
                 continue
             if f.input == 'multi':
-                raw = request.form.getlist(f.input_name or f.name)
+                raw = request.form.getlist(f.name)
             else:
-                raw = request.form.get(f.input_name or f.name)
+                raw = request.form.get(f.name)
             val = _coerce(raw, f)
             if f.required and _empty_value(val):
                 flash(f'{f.label or f.name} é obrigatório.', 'warning')
@@ -471,7 +514,10 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
         for f in _flat_fields(form):
             if not getattr(f, 'tag', None) or f.pos_form != 4:
                 continue
-            _val = getattr(instance, f.name, None)
+            _val = (calc_value(f.calc, instance)
+                    if getattr(f, 'calc', None) else None)
+            if _val is None:
+                _val = getattr(instance, f.name, None)
             if _val is None:
                 continue
             r = resolve_tag(f.tag, _val, f.options)
@@ -487,6 +533,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
         nav=nav,
         ro=ro,
         is_new=is_new,
+        footer_fields=footer_fields,
         _lookup=_build_lookup(form, extra_ctx.get('_lookup') if extra_ctx else None,
                             instance),
         can_delete=_can_delete,
@@ -499,4 +546,14 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
                 ctx.setdefault('_lookup', {}).update(v)
             else:
                 ctx[k] = v
+    if is_new and request.args.get('carry'):
+        _carry = carry_get(request.args.get('carry')) or {}
+        if _carry and ctx.get('instance') is not None:
+            for f in _flat_fields(form):
+                prop = getattr(f, 'carry', None)
+                if not prop or prop not in _carry:
+                    continue
+                cur = getattr(ctx['instance'], f.name, None)
+                if _empty_value(cur):
+                    setattr(ctx['instance'], f.name, _coerce(_carry[prop], f))
     return render_template(template, **ctx)

@@ -1,5 +1,7 @@
 from app.models.movimento import Movimento
-from app.routes.sys.movto import sync_movto_save, excluir_movto
+from app.routes.sys.movtos import (
+    post_save_movto_link, _pre_get_movto, excluir_movto, _validar_origem_exclusiva,
+)
 
 
 def excluir(id):
@@ -20,11 +22,14 @@ Schema = {
         'tipo': {'pos_filter': 9, 'default': 'E'},
         'recurso_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
         'conta_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
-                                'when': {'ativo': True, 'tipo': [0, 1]}}},
+                                'when': {'ativo': True, 'tipo': [0, 1]}},
+                     'carry': 'conta_id'},
+        'valor': {'carry': 'valor'},
         'previsao_id': {'lookup': {'display': 'id', 'query': 'PREVISOES'},
                         'on_set': {'replaces': {'valor': 'saldo'}}},
         'operacao_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
                                    'when': 'tipo = 1 AND ativa = true AND pai_id IS NOT NULL'}},
+        'pedido_id':{'carry':'id'},
     },
 }
 
@@ -43,7 +48,9 @@ Page = {
         'form': {
             'fields': 'Movimento',
             'delete': False,
-            'post_save': sync_movto_save,
+            'pre_get': _pre_get_movto,
+            'pre_save': _validar_origem_exclusiva,
+            'post_save': post_save_movto_link,
             'buttons': [
                 {'label': 'Excluir', 'icon': 'trash', 'color': 'danger', 'outline': False,
                  'endpoint': 'recebimentos.excluir', 'url_var': 'id', 'method': 'POST',

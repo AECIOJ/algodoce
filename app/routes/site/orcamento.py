@@ -11,7 +11,7 @@ from ajsystem.core.cart import (
 )
 from ajsystem.core.ntfy import notificar as aj_notificar
 from ajsystem.defs.cart import CART_SESSION_KEY, CLIENT_SESSION_KEY
-from app.constantes import FORMINHAS, QUOTE_STATUS, tipos_evento
+from app.constantes import FORMINHAS, ORCAMENTO_STATUS, tipos_evento
 from app.models.configuracao import Configuracao
 
 Entity = {
@@ -19,7 +19,7 @@ Entity = {
         'cliente_nome': {'label': 'Cliente', 'required': True},
         'cliente_telefone': {'label': 'Telefone', 'required': True},
         'data_pedido': {'type': 'DATA_HORA'},
-        'status': {'type': 'LIST', 'options': QUOTE_STATUS},
+        'status': {'type': 'LIST', 'options': ORCAMENTO_STATUS},
         'validade': {'type': 'INT', 'default': 3},
         'carteira_id': {'type': 'FK'},
         'forminhas': {'type': 'LIST', 'options': FORMINHAS},

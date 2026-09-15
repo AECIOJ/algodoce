@@ -175,6 +175,8 @@ def field_to_column(f: Field) -> dict:
         col['options'] = f.options
     if f.calc:
         col['calc'] = f.calc
+    if getattr(f, 'stored', False):
+        col['stored'] = True
     if f.lookup:
         col['lookup'] = f.lookup
     if f.tag:

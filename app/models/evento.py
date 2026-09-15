@@ -34,7 +34,7 @@ Entity = {
     'pedido_id':    {'type': 'DK'},
     'tipo':        {'type': 'LIST', 'label': 'Tipo', 'options': tipos_evento},
     'tema':        {'type': 'TEXT', 'width': 22},
-    'data':        {'type': 'DATA', 'label': 'Data do evento'},
+    'data':        {'type': 'DATA', 'label': 'Data'},
     'hora':        {'type': 'HORA', 'label': 'Horário'},
     'local':       {'type': 'TEXT', 'width': 24},
     'convidados':  {'type': 'INT', 'label': 'Convidados'},

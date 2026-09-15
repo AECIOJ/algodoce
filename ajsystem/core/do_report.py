@@ -95,13 +95,21 @@ def _entity_for(entity_name):
 
 
 def _module_entity(report=None):
-    """Variável Entity do módulo corrente — como List/Form enxergam.
+    """Entity merged (Schema ∪ Entity do model) do módulo corrente.
 
     Descoberta pela dupla padrão do Flask: request.blueprint →
     current_app.blueprints[...].import_name (= caminho do módulo, gravado
-    por montar_blueprint). Fora de um request de blueprint, tenta a Entity
-    declarada em `body.source` (via `_entity_for`).
+    por montar_blueprint). Como List/Form, cada entidade do `Schema` da rota
+    é resolvida via `resolve_entity_fields` (Entity do model ∪ Schema), e o
+    resultado é exposto no formato aninhado `{NomeEntidade: campos_merged}`
+    que o `_apply_entity` consume.
+
+    Fallbacks, em ordem: `Entity` declarada no próprio módulo (rotas legadas
+    e de site) e a Entity do model declarada em `body.source` (via
+    `_entity_for`).
     """
+    from ajsystem.core.list import _resolve_model
+    from ajsystem.defs.data import resolve_entity_fields
     from flask import request
     try:
         bp_name = request.blueprint
@@ -115,6 +123,17 @@ def _module_entity(report=None):
             except ImportError:
                 mod = None
             if mod is not None:
+                schema = getattr(mod, 'Schema', None) or {}
+                if schema:
+                    merged = {}
+                    for ent in schema:
+                        try:
+                            model = _resolve_model(ent)
+                        except Exception:
+                            continue
+                        merged[ent] = resolve_entity_fields(schema, model, ent)
+                    if merged:
+                        return merged
                 ent = getattr(mod, 'Entity', None)
                 if ent:
                     return ent
@@ -253,7 +272,8 @@ def _apply_entity(raw, entity):
                 # calc da Entity → function(row) quando não informada
                 if raw_cfg.get('calc') and 'function' not in spec:
                     calc = raw_cfg['calc']
-                    spec['function'] = calc if callable(calc) else _calc_fn(calc)
+                    if isinstance(calc, (str,)) or callable(calc):
+                        spec['function'] = calc if callable(calc) else _calc_fn(calc)
                 # BOOL → Sim/Não · LIST → label das options
                 if raw_cfg.get('type') == 'BOOL' and 'function' not in spec:
                     spec['function'] = lambda row, f=fld: (
@@ -323,7 +343,8 @@ def _apply_entity(raw, entity):
                             sp['options'] = opts
                         if raw_cfg.get('calc') and 'function' not in sp:
                             calc = raw_cfg['calc']
-                            sp['function'] = calc if callable(calc) else _calc_fn(calc)
+                            if isinstance(calc, (str,)) or callable(calc):
+                                sp['function'] = calc if callable(calc) else _calc_fn(calc)
                         if raw_cfg.get('type') == 'FK':
                             sp['fk_path'] = f'{field[:-3] if field.endswith("_id") else field}.nome'
                     else:
@@ -517,6 +538,22 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
         return _print_erro(msg)
 
 
+def _field_cfg(entity, field):
+    """Config de um campo dentro de uma Entity (flat ou aninhada).
+
+    Entity flat (`{campo: cfg}`) → a própria entrada; Entity aninhada
+    (`{Model: {campo: cfg}}`) → busca dentro de cada modelo. `None` se
+    ausente ou ambígua.
+    """
+    if not entity:
+        return None
+    if field in entity and isinstance(entity.get(field), dict):
+        return entity[field]
+    hits = [cfg[field] for cfg in entity.values()
+            if isinstance(cfg, dict) and field in cfg]
+    return hits[0] if len(hits) == 1 else None
+
+
 def _print_with_choice(report, fs, msg=None):
     """Monta o modal de escolha para `FilterSelect` e registra a impressão.
 
@@ -528,8 +565,8 @@ def _print_with_choice(report, fs, msg=None):
     entity = _entity_for(entity_name) or _module_entity(report)
     options = {}
     label = _auto_label(fs.field)
-    if entity and fs.field in entity:
-        cfg = entity[fs.field] if isinstance(entity[fs.field], dict) else {}
+    cfg = _field_cfg(entity, fs.field)
+    if cfg:
         options = cfg.get('options') or cfg.get('list') or {}
         label = cfg.get('label') or label
     rid = uuid.uuid4().hex[:12]

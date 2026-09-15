@@ -7,16 +7,7 @@ from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
 from app.models.orcamento import Orcamento
 from app.models.orcamento_item import OrcamentoItem
-from app.models.orcamento import Entity as OrcamentoEntity
-from app.models.orcamento_item import Entity as OrcamentoItemEntity
 from app.reports.orcamentos import ORCAMENTO
-
-# Entity aninhada para o motor de relatórios (`_module_entity`): labels,
-# formatos, FK e calc resolvidos a partir das Entities dos models.
-Entity = {
-    'Orcamento': OrcamentoEntity,
-    'OrcamentoItem': OrcamentoItemEntity,
-}
 
 
 def _btn_enviar_action(instance):
@@ -34,7 +25,8 @@ def _btn_enviar_action(instance):
 Schema = {
     'Orcamento': {
         'status': {'pos_form': 4},
-        'total': {'input_name': 'eTotal','pos_form':0},
+        'total': {'calc': {'type': 'agg', 'source': 'sum(OrcamentoItem.valor)'},
+                  'pos_form': 0},
         'pedido_id': {'pos_form': 4},
     },
     'OrcamentoItem': {
@@ -91,14 +83,14 @@ Page = {
                     ],
                     'table': {
                         'columns': ['OrcamentoItem'],
-                        'totals': ['qtd', {'valor': 'eTotal'}],
+                        'totals': ['qtd', {'valor': 'total'}],
                     },
-                },
-                'Financeiro': {
-                    'fields':['total','carteira_id'],
                 },
                 'Evento': {
                     'fields': ['Evento'],
+                },
+                'Financeiro': {
+                    'fields':['total','carteira_id'],
                 },
             },
         },
@@ -302,7 +294,7 @@ def aprovar(id):
 
     order = Pedido(
         conta_id=conta.id,
-        data_entrega=None,
+        entregue_em=None,
         observacao=quote.observacao,
         carteira_id=quote.carteira_id,
         forminhas=quote.forminhas,
@@ -322,7 +314,7 @@ def aprovar(id):
         db.session.add(order_item)
 
     db.session.flush()
-    order.total = sum(
+    order.valor = sum(
         (i.preco or 0) * i.qtd for i in order.items
     )
     if quote.evento:

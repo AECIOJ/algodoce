@@ -3,7 +3,11 @@ from app.models.transferencia import Transferencia
 from app.models.movimento import Movimento
 
 Schema = {
-    'Transferencia': {},
+    'Transferencia': {
+        'status': {'calc': {'type': 'call', 'source': 'calc_status',
+                            'diff': 'Aviso de Inconsistência: Status registrado desta transferência difere do status calculado.'},
+                   'pos_form': 4},
+    },
     'Movimento': {
         'recurso_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
         'conta_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
@@ -12,7 +16,6 @@ Schema = {
         'previsao_id': {'pos_form': 0},
         'operacao_id': {'pos_form': 0},
         'variacao': {'pos_form': 0},
-        'sincronizar': {'pos_form': 0},
     },
 }
 

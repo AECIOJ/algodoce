@@ -48,12 +48,11 @@ def create_app():
 
     with app.app_context():
         # Import all models FIRST so mapper init resolves correctly
-        from app.models import conta as conta_model, produto, insumo, produto_insumo, conversao_unidade, pedido, categoria, orcamento, operacao, transacao, previsao  # noqa
+        from app.models import conta as conta_model, produto, insumo, produto_insumo, insumo_conversao, pedido, categoria, orcamento, operacao, transacao, previsao  # noqa
         from app.models.evento import Evento  # noqa
         from app.models.orcamento_item import OrcamentoItem  # noqa
         from app.models.compra import Compra  # noqa
         from app.models.compra_item import CompraItem  # noqa
-        from app.models.compra_historico import CompraHistorico  # noqa
         from app.models.pedido_item import PedidoItem  # noqa
         from app.models.configuracao import Configuracao  # noqa
         from app.models.producao import Producao  # noqa
@@ -74,7 +73,7 @@ def create_app():
         from app.models.pedido_item import PedidoItem
         from app.models.previsao import Previsao
         from app.models.produto_insumo import ProdutoInsumo
-        from app.models.conversao_unidade import ConversaoUnidade
+        from app.models.insumo_conversao import InsumoConversao
 
         from ajsystem.defs.data import register_model
 
@@ -102,6 +101,14 @@ def create_app():
                          methods=('POST',))
         app.add_url_rule('/pagamentos/<int:id>/excluir', endpoint='pagamentos.excluir',
                          view_func=login_required(_mod_pagamentos.excluir),
+                         methods=('POST',))
+        from app.routes.sys import pedidos as _mod_pedidos
+        from app.routes.sys import compras as _mod_compras
+        app.add_url_rule('/pedidos/<int:id>/gerar-financeiro', endpoint='pedidos.gerar_financeiro',
+                         view_func=login_required(_mod_pedidos.gerar_financeiro),
+                         methods=('POST',))
+        app.add_url_rule('/compras/<int:id>/gerar-financeiro', endpoint='compras.gerar_financeiro',
+                         view_func=login_required(_mod_compras.gerar_financeiro),
                          methods=('POST',))
 
         from ajsystem.core import adapter
@@ -133,8 +140,9 @@ def create_app():
         register_model('evento', Evento)
         register_model('product_ingredient', ProdutoInsumo)
         register_model('produto_insumo', ProdutoInsumo)
-        register_model('unit_conversion', ConversaoUnidade)
-        register_model('conversao_unidade', ConversaoUnidade)
+        register_model('unit_conversion', InsumoConversao)
+        register_model('conversao_unidade', InsumoConversao)
+        register_model('insumo_conversao', InsumoConversao)
         register_model('pedido', Pedido)
         register_model('pedido_item', PedidoItem)
 

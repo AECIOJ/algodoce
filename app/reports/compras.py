@@ -2,20 +2,6 @@ def _fornecedor_nome(compra):
     return compra.fornecedor.nome if compra and compra.fornecedor else '-'
 
 
-def _responsavel_atual(compra):
-    for h in compra.historicos or []:
-        if h.status == compra.status and h.responsavel:
-            return h.responsavel
-    return ''
-
-
-def _motivo_atual(compra):
-    for h in compra.historicos or []:
-        if h.status == compra.status and h.motivo:
-            return h.motivo
-    return ''
-
-
 def _report_title(compra):
     t = {0: 'Orçamento', 1: 'Pedido', 6: 'Cancelamento de Pedido', 9: 'Devolução de Pedido'}
     return f'{t.get(compra.status, "Compra")} #{compra.id}'
@@ -24,11 +10,12 @@ def _report_title(compra):
 def _report_before(compra):
     if compra.status not in (0, 1, 6, 9):
         return []
+    obs = compra.observacao or '(não informado)'
     txt = {
         0: 'Solicitamos o orçamento referente aos seguintes itens:',
         1: 'Conforme negociação anterior, solicitamos o fornecimento dos seguintes itens:',
-        6: f'Conforme conversado anteriormente, por motivo de {_motivo_atual(compra) or "(não informado)"}, solicitamos o cancelamento do pedido com os seguintes itens:',
-        9: f'Conforme conversado anteriormente, por motivo de {_motivo_atual(compra) or "(não informado)"}, estamos devolvendo os seguintes itens:',
+        6: f'Conforme conversado anteriormente, por motivo de {obs}, solicitamos o cancelamento do pedido com os seguintes itens:',
+        9: f'Conforme conversado anteriormente, por motivo de {obs}, estamos devolvendo os seguintes itens:',
     }.get(compra.status)
     return [
         {'text': ''},
@@ -38,12 +25,28 @@ def _report_before(compra):
     ]
 
 
+def _brl(v):
+    if v is None:
+        return "R$ 0,00"
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _report_after(compra):
-    return [
+    lines = [
         {'text': ''},
         {'text': '_' * 40, 'align': 'C'},
-        {'text': _responsavel_atual, 'align': 'C'},
     ]
+    acrescimo = float(compra.acrescimo or 0)
+    desconto = float(compra.desconto or 0)
+    total = float(compra.total or 0)
+    if acrescimo:
+        lines.append({'text': f'Acréscimo: {_brl(acrescimo)}', 'align': 'R'})
+    if desconto:
+        lines.append({'text': f'Desconto: {_brl(desconto)}', 'align': 'R'})
+    lines.append({'text': ''})
+    lines.append({'text': f'Total: {_brl(total)}', 'align': 'R',
+                  'font_size': 11, 'font_style': 'B'})
+    return lines
 
 
 COMPRA = {
@@ -63,14 +66,14 @@ COMPRA = {
             'columns': {
                 'insumo.nome':   {'label': 'Insumo', 'width': 50},
                 'qtd':         {'label': 'Qtd.', 'width': 10, 'align': 'center',
-                                  'format': None},   # NUM sem currency: sem formato (heurística NUM→brl do motor)
+                                  'format': None},
                 'preco':         {'label': 'Preço', 'width': 20, 'align': 'right'},
                 'CompraItem.valor': {'label': 'Valor', 'width': 20, 'align': 'right',
                                      'function': lambda i: (i.preco or 0) * i.qtd,
-                                     'agg': 'sum'},   # 'valor' existe em Compra e CompraItem: forma pontilhada desambigua
+                                     'agg': 'sum'},
             },
             'footer': True,
-            'footer_label': 'Total',
+            'footer_label': 'Subtotal',
         },
         'after': _report_after,
     },

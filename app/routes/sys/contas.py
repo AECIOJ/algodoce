@@ -23,7 +23,7 @@ Page = {
                     'query': {
                         'columns': ['Pedido'],
                         'groups': 'status',
-                        'order': 'data_pedido desc',
+                        'order': 'pedido_em desc',
                     },
                 },
             },

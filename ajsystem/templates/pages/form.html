@@ -97,6 +97,16 @@
   <div class="app-bar form-footer shrink-0"
        style="background:var(--bar-bg-form);color:var(--bar-txt-form);">
     <div class="app-bar-left">
+      {% if footer_fields %}
+      <div class="inline-flex items-end gap-2 mr-2">
+        {% for f in footer_fields %}
+        <label class="flex flex-col gap-0.5">
+          <span class="text-xs opacity-70">{{ f.display_label }}</span>
+          {{ fm.render_footer_field(f, instance) }}
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if form.delete and can_delete and instance and instance.id and not ro %}
       <form method="POST" action="{{ url_for(edit_endpoint.rsplit('.', 1)[0] + '.delete', id=instance.id) }}" class="inline">
         <button type="submit" class="btn btn-danger inline-flex items-center gap-1" onclick="return confirm('Excluir este registro?')">
@@ -112,7 +122,7 @@
       {% for btn in form._resolved_buttons if btn.position == 'footer_right' %}
       {{ fm.render_button(btn, instance) }}
       {% endfor %}
-      {% if not ro %}<button type="submit" form="main-form" id="btn-salvar" class="btn btn-success inline-flex items-center gap-1" {% if not is_new %}disabled{% endif %}>
+      {% if not ro or footer_fields %}<button type="submit" form="main-form" id="btn-salvar" class="btn btn-success inline-flex items-center gap-1" {% if not is_new and not form._inconsistent %}disabled{% endif %}>
         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-check"/></svg> Salvar
       </button>{% endif %}
       <button type="button" class="btn btn-outline btn-secondary inline-flex items-center gap-1" onclick="confirmSair()">

@@ -24,6 +24,7 @@ class Button:
     method: str = 'GET'
     show_if: Optional[tuple] = None
     when: Optional[Callable] = None
+    enable_when: Optional[list] = None
     url_var: str = 'id'
     extra_params: Optional[dict] = None
     position: str = 'nav_right'
@@ -33,6 +34,8 @@ class Button:
     label_off: Optional[str] = None
     icon_off: Optional[str] = None
     render: Optional[str] = None
+    serialize: bool = False
+    carry: Optional[dict] = None
 
     def btn_cls(self) -> str:
         return self.cls or btn_style(self.color, self.outline, self.size)

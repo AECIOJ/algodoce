@@ -26,8 +26,10 @@ FIELD_TYPES = {
     'INT':       {'input': 'number', 'align': 'right', 'width': 5, 'decimals': 0},
     'NUM':       {'input': 'number', 'align': 'right', 'width': 10, 'decimals': 2},
     'PERCENT':   {'input': 'number', 'align': 'right', 'width': 6, 'decimals': 1, 'min': 0, 'max': 100, 'percent': True},
+    'PK':        {'input': 'number', 'label': '#'},
     'ID':        {'input': 'number', 'pos_form': 0, 'label': '#'},
     'DK':        {'input': 'number', 'pos_form': 0, 'pos_filter': 0},
+    'FK':        {'input': 'select'},
     'DATA':      {'input': 'date'},
     'DATA_HORA': {'input': 'datetime-local'},
     'HORA':      {'input': 'time'},
@@ -35,7 +37,6 @@ FIELD_TYPES = {
     'FONE':      {'input': 'text', 'mask': '@R (99) 99999-9999'},
     'CPF':       {'input': 'text', 'mask': '@R 999.999.999-99', 'validate': 'cpf'},
     'CNPJ':      {'input': 'text', 'mask': '@R 99.999.999/9999-99', 'validate': 'cnpj'},
-    'FK':        {'input': 'select'},
     'LIST':      {'input': 'select'},
     'MULT10':    {'input': 'multi', 'pos_filter': 0},
     'IMAGE':     {'input': 'image', 'pos_filter': 0, 'required': False},
@@ -146,11 +147,8 @@ class Field:
     align: str = 'left'
     input: str = 'text'
     options: Optional[dict] = None
-    pos_filter: Optional[int] = None
     mask: Optional[str] = None
-    input_name: Optional[str] = None  # nome do input no HTML (default: field.name); o save lê `input_name or name`
-    lookup: Any = None         # complemento de escolha/exibição (dict | Lookup | True)
-    validate: Optional[Union[str, list, Callable]] = None
+    placeholder: Optional[str] = None
     decimals: Optional[int] = None
     min: Optional[Union[int, float]] = None
     max: Optional[Union[int, float]] = None
@@ -158,18 +156,22 @@ class Field:
     currency: Optional[Union[int, str, bool]] = None  # código CURRENCY (0=off); True/'brl' legados = padrão
     percent: bool = False
     required: bool = False
-    placeholder: Optional[str] = None
-    help: Any = None
     disabled: bool = False
     readonly: bool = False
     hidden: bool = False
     pos_form: int = 1
     pos_list: int = 1
+    pos_filter: Optional[int] = None
     default: Any = None
     rows: int = 1
+    lookup: Any = None         # complemento de escolha/exibição (dict | Lookup | True)
+    validate: Optional[Union[str, list, Callable]] = None
+    help: Any = None
     on_set: Optional[dict] = None  # efeitos ao setar: {'replaces': {...},
         # 'disables': [...]} (ver README)
-    calc: Optional[Union[str, Callable]] = None
+    calc: Any = None  # valor calculado: constante | string expr | callable | dict {'type','source','diff'}
+    carry: Optional[str] = None  # campo serializado (pós-map) da página origem; o motor preenche o valor no GET
+    page: Optional[str] = None  # página alvo: transforma o campo num botão outline de navegação
     tag: Any = None
 
     def __post_init__(self):

@@ -79,6 +79,47 @@ def url_do_item(item, label=None):
     return url_for(endpoint)
 
 
+def url_do_pagina(page):
+    """Resolve a URL de uma referência de página (rótulo/slug/endpoint/caminho).
+
+    Usada por `Field.page` para transformar o campo num botão de navegação e
+    por templates que precisem de URL de uma página declarada. Aceita:
+    - caminho literal (`'/sobre'`, `'https://…'`) → usado como está;
+    - endpoint registrado (`'produtos.list'`, `'site_produtos.list'`) → `url_for`;
+    - rótulo/slug de menu (`'Categorias'`, `'receber'`) → módulo do blueprint
+      (`app.routes.sys.<slug>`) → endpoint `.list`.
+    Sem resolução → página 'em construção' (`ajsystem.construcao`).
+    """
+    page = (page or '').strip()
+    if not page:
+        return '#'
+    if page.startswith('/') or '://' in page:
+        return page
+    if '.' in page or page in current_app.view_functions:
+        try:
+            return url_for(page)
+        except Exception:
+            pass
+    slug = _normalizar_slug(page)
+    mod = _modulo_pagina(slug)
+    if mod is not None:
+        bp = _blueprint_do_modulo(mod)
+        if bp is not None:
+            endpoint = _endpoint_lista(bp)
+            if endpoint is not None:
+                try:
+                    return url_for(endpoint)
+                except Exception:
+                    pass
+    for cand in (f'{slug}.list', f'site_{slug}.list'):
+        if cand in current_app.view_functions:
+            try:
+                return url_for(cand)
+            except Exception:
+                pass
+    return url_for('ajsystem.construcao', pagina=slug)
+
+
 def item_ativo(item, path):
     href = url_do_item(item)
     return path.rstrip('/') == href.rstrip('/') or path.startswith(href.rstrip('/') + '/')

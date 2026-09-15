@@ -128,7 +128,10 @@ Entity = {
 > `Entity` é definida no **model** e agrupa **uma** entidade por módulo (a do
 > próprio módulo). Para migrar, mova a `Entity` para o model do módulo e restrinja
 > o dicionário à entidade principal — as entidades auxiliares/filhas passam a ser
-> resolvidas via relacionamento e sessões `table`/`query`.
+> resolvidas via relacionamento e sessões `table`/`query`. Relatórios que
+> referenciam campos de entidades auxiliares (ex.: itens de um pedido) resolvem
+> automaticamente via fusão `Entity(model) ∪ Schema` — não é necessário declarar
+> `Entity` aninhada na rota.
 
 Cada entidade é uma classe `db.Model` seguida de um dicionário `Entity` com a
 definição base dos campos. É a **única fonte** de definição dos campos; o
@@ -164,7 +167,7 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 | `transform` | str | ~~Removido~~ — use `mask` com comando de texto (`'@T'`, `'@U'`, `'@L'`, `'@C'`) para transformação de exibição |
 | `options` | dict | Opções de `LIST` e de `MULT10` `{valor: rótulo}` |
 | `currency` | int | Moeda pelo código `CURRENCY` (`0` = sem moeda; `1` = padrão). `True`/`'brl'` legados equivalem ao padrão. Formatação e símbolo vêm do motor (filtro `money`) |
-| `input_name` | str | Nome do input no HTML (default: o nome do campo). Usado como alvo de escrita dos totais; o save lê `input_name or name` |
+| `calc` | str/dict/callable | Campo calculado (ver `calc` abaixo) |
 | `tag` | dict | Badge do valor — `{'colors': {...}, 'color': ..., 'link': ...}` (ver `tag` abaixo) |
 | `min` / `max` | int/float | Limites do valor |
 | `step` | int | Passo do input numérico |
@@ -177,6 +180,8 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 | `align` | str | Alinhamento da célula (`'left'`, `'center'`, `'right'`...) |
 | `lookup` | dict/`Lookup` | Complemento de FK para escolha/exibição por busca (ver abaixo) |
 | `on_set` | dict | **Efeitos ao setar**: `{'replaces': {...}, 'disables': [...]}` — preenchimento (`{campo_alvo: fonte}`) e desabilitação mútua (lista de alvos) |
+| `carry` | str | **Importação de origem**: nome do campo-fonte no dict `carry` serializado (`request.args`). Em form novo, o valor é importado automaticamente se o campo estiver vazio. `carry_get` aplica os renames do `map` do botão Gerar — valor da prop é o nome **após** o mapa (ex.: `'conta_id'` em receber é `'conta_id'` direto; em compras é `'fornecedor_id'` no model mas o botão renomeia para `'conta_id'`) |
+| `page` | str | **Link para página**: transforma o campo num botão outline (`btn btn-outline btn-primary`) que, ao clicar, navega para a página referida. Aceita caminho literal (`'/sobre'`), endpoint registrado (`'produtos.list'`, `'site_produtos.list'`) ou rótulo/slug de menu (`'Categorias'`, `'receber'`). O texto do botão vem do `label` (senão do nome do campo); o campo não é enviado no save |
 
 > **`lookup`** aplica-se a campos FK e substitui o `query`-de-campo. O motor infere
 > da FK o model a pesquisar e o valor gravado é o da prop `value` (default `'id'`).
@@ -226,10 +231,27 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 >                                        'preco': 'preco'}}},
 > ```
 
-> **Agregação (soma de coleção/agrupamento) não é prop de campo.** Valores
-> calculados por linha a partir de atributos do próprio registro usam `calc`
-> (callable ou expressão string). Agregações sobre relacionamentos (ex.: soma
-> dos itens de um pedido) pertencem à sessão/`Query`, não ao `field`.
+> **`calc`** (campo calculado) aceita quatro formas:
+> - **constante**: `True`/número/string — o valor exibido é fixo (excluído do save).
+> - **expressão string**: `'qtd * preco'` — expressão Python avaliada com os
+>   atributos do registro (campos do próprio registro; virtual, não persistido).
+> - **callable**: `f(row) -> valor` — função por linha (virtual, não persistido).
+> - **dict — `{'type': 'agg', 'source': 'sum(PedidoItem.valor)'}`**: agregação
+>   sobre relacionamento. `source` é `func(Entity.campo)` com `func` em
+>   `sum`/`avg`/`count`/`max`/`min` (ou `count()` sem campo, countando as
+>   linhas). O motor resolve a entity filha, navega a relationship do pai e
+>   aplica a função. O campo **é persistido** — recalculado a cada submit.
+> - **dict — `{'type': 'call', 'source': 'metodo'}`**: invoca um método do
+>   registro (nome da prop) ou callable `f(row) -> valor` (virtual, não
+>   persistido). Ex.: `status` calculado por `calc_status`. Em ambos os dicts,
+>   uma chave `diff` (str) habilita a **checagem de inconsistência** no form:
+>   ao abrir um registro existente, o valor gravado é comparado ao recalculado;
+>   se divergirem, corta o form com o aviso `diff` e marca o ajuste manual.
+>
+> > **Agregação (soma de coleção/agrupamento) é suportada por `calc`-dict.**
+> > Valores calculados por linha a partir de atributos do próprio registro usam
+> > `calc` (callable ou expressão string). Agregações sobre relacionamentos
+> > (ex.: soma dos itens de um pedido) usam `calc`-dict com `agg`.
 
 > **`on_set`** (dict) — **efeitos ao setar** o campo, com as chaves:
 > - `replaces`: preenchimento `{campo_alvo: campo_fonte}` (modo fonte),
@@ -339,6 +361,13 @@ definição base dos campos. É a **única fonte** de definição dos campos; o
 Dicionário de **overrides** de campos sobre a `Entity` do model. Está **vazio**
 (`Schema = {}`) por padrão: quando vazio, os campos vêm integralmente da
 `Entity`. Preencha apenas para sobrescrever/ajustar campos pontuais.
+
+O Schema é consumido por **List, Form e relatórios** — todos resolvem a mesma
+fusão `Entity(model) ∪ Schema` via `resolve_entity_fields`. Quando um
+relatório referencia campos de entidades auxiliares (ex.: `qtd` em
+`PedidoItem`), basta declarar a entidade no Schema da rota — o motor monta
+automaticamente o mapa `{entidade: campos_merged}` para os campos de
+apresentação (label, formato, calc).
 
 ### `Page`
 
@@ -534,10 +563,10 @@ podendo ser definida **uma, duas ou todas**, conforme o caso:
 - `table.columns`: colunas da tabela editável; o motor persiste as linhas
   (adicionar/remover) do relacionamento.
 - `table.totals`: lista que define a **linha de totais** no rodapé da tabela
-  editável. Aceita item string (só totaliza) ou dict `{coluna: input_name}`
-  (totaliza **e** grava no input do master cujo `input_name` é o valor). Ex.:
-  `['qtd', {'valor': 'eTotal'}]` — soma `qtd` e soma `valor`
-  propagando ao campo do master com `input_name: 'eTotal'`. Sem `totals`, nenhuma
+  editável. Aceita item string (só totaliza) ou dict `{coluna: campo_master}`
+  (totaliza **e** grava no input do master cujo **nome do campo** é o valor). Ex.:
+  `['qtd', {'valor': 'total'}]` — soma `qtd` e soma `valor`
+  propagando ao campo do master com nome `'total'`. Sem `totals`, nenhuma
   linha de totais é exibida. Campos com `calc` podem ser totalizados — o total
   soma, para cada linha, o valor calculado (não apenas o campo cru). O rótulo
   `Total` ocupa as colunas até a primeira coluna totalizada. A célula do total
@@ -639,7 +668,11 @@ Page = {
 ## 5. Report — relatório PDF declarativo
 
 Um relatório é declarado como `dict` puro e renderizado pelo motor
-`ajsystem.core.pdf.gerar_pdf_relatorio(report, ...)`.
+`ajsystem.core.pdf.gerar_pdf_relatorio(report, ...)`. A resolução de
+labels e formatação das colunas usa a mesma fusão `Entity(model) ∪ Schema`
+que List e Form — quando o relatório referencia campos de entidades
+auxiliares (ex.: `qtd`/`preco` de `PedidoItem`), declare a entidade no
+`Schema` da rota e o motor resolve automaticamente.
 
 ### Sintaxe
 

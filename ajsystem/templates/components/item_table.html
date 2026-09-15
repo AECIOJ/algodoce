@@ -76,7 +76,7 @@
             {% if ro %}
             {{ fm.render_label(f, item) }}
             {% set _rv = item|deep_attr(f.name) if item is not none else none %}
-            <input type="hidden" name="{{ _prefix + _rid + '_' + (f.input_name or f.name) }}" value="{{ _rv if _rv is not none else '' }}">
+            <input type="hidden" name="{{ _prefix + _rid + '_' + f.name }}" value="{{ _rv if _rv is not none else '' }}">
             {% elif _is_query %}
             {{ fm.render_label(f, item) }}
             {% elif f.readonly %}

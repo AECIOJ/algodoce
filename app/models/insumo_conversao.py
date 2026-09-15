@@ -2,7 +2,7 @@ from ajsystem.core.extensions import db
 from app.constantes import UND_LIST
 
 
-class ConversaoUnidade(db.Model):
+class InsumoConversao(db.Model):
     __tablename__ = "insumo_conversoes"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -15,7 +15,7 @@ class ConversaoUnidade(db.Model):
     insumo = db.relationship("Insumo", backref="conversoes")
 
     def __repr__(self):
-        return f"<ConversaoUnidade i={self.insumo_id} {self.und}={self.fator}>"
+        return f"<InsumoConversao i={self.insumo_id} {self.und}={self.fator}>"
 
 
 Entity = {

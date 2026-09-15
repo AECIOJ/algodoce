@@ -57,6 +57,22 @@
     border-radius: 4px;
     z-index: -1;
   }
+
+  /* Inputs de data nativos: quando vazios, o navegador mostra "dd/mm/aaaa".
+     Escondendo apenas os campos de dia/mês/ano (e hh/mm), sobram só as barras
+     separadoras. A classe dt-empty é controlada por JS (data-filled). */
+  input[type="date"]:not([data-filled])::-webkit-datetime-edit-day-field,
+  input[type="date"]:not([data-filled])::-webkit-datetime-edit-month-field,
+  input[type="date"]:not([data-filled])::-webkit-datetime-edit-year-field,
+  input[type="datetime-local"]:not([data-filled])::-webkit-datetime-edit-day-field,
+  input[type="datetime-local"]:not([data-filled])::-webkit-datetime-edit-month-field,
+  input[type="datetime-local"]:not([data-filled])::-webkit-datetime-edit-year-field,
+  input[type="datetime-local"]:not([data-filled])::-webkit-datetime-edit-hour-field,
+  input[type="datetime-local"]:not([data-filled])::-webkit-datetime-edit-minute-field,
+  input[type="time"]:not([data-filled])::-webkit-datetime-edit-hour-field,
+  input[type="time"]:not([data-filled])::-webkit-datetime-edit-minute-field {
+    color: transparent;
+  }
 </style>
 {% endblock %}
 
@@ -247,6 +263,49 @@ function injectHTML(selector, html) {
     s.textContent = old.textContent;
     old.parentNode.replaceChild(s, old);
   });
+}
+
+/* Publica um POST vazio para `url` (botões dentro do form principal — evita
+   <form> aninhado em #main-form). */
+function postTo(url) {
+  var f = document.createElement('form');
+  f.method = 'POST';
+  f.action = url;
+  document.body.appendChild(f);
+  f.submit();
+}
+
+/* Publica um POST para `url` serializando o #main-form inteiro em hidden
+   inputs (botões com `serialize: true`/`carry` — leva o estado alterado da
+   página p/ o próximo endpoint). `btnEl` (opcional) traz `data-carry-map`
+   (`{dest: 'source_input_name'}`) que também é enviado como `__carry_map`. */
+function postToCarry(url, btnEl) {
+  var f = document.createElement('form');
+  f.method = 'POST';
+  f.action = url;
+  var main = document.getElementById('main-form');
+  if (main) {
+    main.querySelectorAll('input, select, textarea').forEach(function(el) {
+      var name = el.name;
+      if (!name) return;
+      var skip = (el.type === 'checkbox' || el.type === 'radio');
+      if (skip && !el.checked) return;
+      var h = document.createElement('input');
+      h.type = 'hidden';
+      h.name = name;
+      h.value = el.value;
+      f.appendChild(h);
+    });
+  }
+  if (btnEl && btnEl.dataset.carryMap) {
+    var h = document.createElement('input');
+    h.type = 'hidden';
+    h.name = '__carry_map';
+    h.value = btnEl.dataset.carryMap;
+    f.appendChild(h);
+  }
+  document.body.appendChild(f);
+  f.submit();
 }
 
 /* Rota padrão de render de relatório: injeta no container exclusivo do meio
@@ -513,6 +572,7 @@ function syncChildInputValue(el) {
   if (other && other !== el) {
     if (el.type === 'checkbox') other.checked = el.checked;
     else other.value = el.value;
+    if (window.dtSyncFilled) window.dtSyncFilled();
   }
 }
 function syncChildInputs() {
@@ -804,6 +864,25 @@ function itDisablesBase(src) {
   }
   return '';
 }
+/* ── enable_when declarativo (data-enable-when, de Button.enable_when) ──
+   Botão com `data-enable-when="camp1,camp2"` inicia disabled; a cada
+   input/change no form, habilita quando TODOS os campos tiverem valor
+   (valor não-nulo/vazio) e desabilita caso contrário. */
+function itEnableWhenEval(root) {
+  var scope = (root && root.closest) ? (root.closest('form') || document) : document;
+  if (!scope.querySelector('[data-enable-when]')) return;
+  scope.querySelectorAll('button[data-enable-when]').forEach(function(btn) {
+    var names = (btn.getAttribute('data-enable-when') || '').split(',');
+    var all = true;
+    names.forEach(function(nm) {
+      nm = nm.trim();
+      if (!nm) return;
+      var el = scope.querySelector('[name="' + nm + '"]');
+      if (!el || el.value === null || el.value === undefined || String(el.value).trim() === '') all = false;
+    });
+    btn.disabled = !all;
+  });
+}
 /* ── disables declarativo (data-disables, de `on_set.disables`) ─────────
    Origem com valor desabilita os alvos; origem limpa reabilita. Guarda
    anti-deadlock: alvo com valor nunca é desabilitado (resta sempre um lado
@@ -975,6 +1054,7 @@ function itSessionTotals(wrap) {
           ? String(Number(num).toFixed(2))
           : (cur ? itFmtMoney(num, cur) : String(num));
         fmtFieldInput(inp);
+        inp.dispatchEvent(new Event('input', {bubbles: true}));
       });
     }
   });
@@ -1110,6 +1190,27 @@ document.addEventListener('DOMContentLoaded', function() {
       el.setAttribute('disabled', 'disabled');
     });
   });
+  // Inputs de data nativos: marca `data-filled` conforme o valor atual para o
+  // CSS esconder o "dd/mm/aaaa" (via shadow '::-webkit-datetime-edit-*') e
+  // mostrar apenas as barras quando o campo está vazio.
+  function dtSyncFilled(root) {
+    (root || document).querySelectorAll('input[type="date"], input[type="datetime-local"], input[type="time"]').forEach(function(el) {
+      if (el.value) el.setAttribute('data-filled', '1');
+      else el.removeAttribute('data-filled');
+    });
+  }
+  window.dtSyncFilled = dtSyncFilled;
+  dtSyncFilled();
+  document.addEventListener('input', function(e) {
+    var t = e.target;
+    if (!t || !t.matches || !t.matches('input[type="date"], input[type="datetime-local"], input[type="time"]')) return;
+    dtSyncFilled();
+  });
+  document.addEventListener('change', function(e) {
+    var t = e.target;
+    if (!t || !t.matches || !t.matches('input[type="date"], input[type="datetime-local"], input[type="time"]')) return;
+    dtSyncFilled();
+  });
   document.querySelectorAll('input[data-mask]').forEach(function(el) {
     _maskEl(el);
     el.addEventListener('input', function() {
@@ -1152,16 +1253,21 @@ document.addEventListener('DOMContentLoaded', function() {
     var t = e.target;
     if (t && t.matches && t.matches('input[data-num-decimals]')) fmtFieldInput(t);
   });
-  // Disables declarativo: qualquer edição no form reavalia os alvos.
+  // Disables declarativo + enable_when: qualquer edição no form reavalia.
   document.addEventListener('input', function(e) {
     var f = e.target && e.target.form ? e.target.form : null;
-    if (f && f.querySelector('[data-disables]')) itDisablesEval(f);
+    if (!f) return;
+    if (f.querySelector('[data-disables]')) itDisablesEval(f);
+    if (f.querySelector('[data-enable-when]')) itEnableWhenEval(f);
   });
   document.addEventListener('change', function(e) {
     var f = e.target && e.target.form ? e.target.form : null;
-    if (f && f.querySelector('[data-disables]')) itDisablesEval(f);
+    if (!f) return;
+    if (f.querySelector('[data-disables]')) itDisablesEval(f);
+    if (f.querySelector('[data-enable-when]')) itEnableWhenEval(f);
   });
   itDisablesEval(document);
+  itEnableWhenEval(document);
   var form = document.getElementById('main-form');
   if (form) {
     form.addEventListener('submit', function(e) {
@@ -1210,7 +1316,7 @@ document.addEventListener('DOMContentLoaded', function() {
     itTotalsRefresh(wrap);
     var body = wrap.querySelector('.it-desktop tbody[data-rel]');
     if (body && 'MutationObserver' in window) {
-      new MutationObserver(function() { itOnSetBind(wrap); itCalcRefresh(wrap); itSessionTotals(wrap); itTotalsRefresh(wrap); itDisablesEval(wrap); })
+      new MutationObserver(function() { itOnSetBind(wrap); itCalcRefresh(wrap); itSessionTotals(wrap); itTotalsRefresh(wrap); itDisablesEval(wrap); itEnableWhenEval(wrap); })
         .observe(body, {childList: true});
     }
   });
