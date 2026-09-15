@@ -35,6 +35,14 @@ class Compra(db.Model):
     def total(self):
         return (self.valor or 0) + (self.acrescimo or 0) - (self.desconto or 0)
 
+    @property
+    def transacao_id(self):
+        return self.transacao.id if self.transacao else None
+
+    @property
+    def movto_id(self):
+        return self.movto.id if self.movto else None
+
     def calc_status(self):
         if self.devolvido_em:
             return 9
@@ -66,6 +74,10 @@ Entity = {
     'status':       {'type': 'LIST', 'width': 11, 'options': COMPRA_STATUS,
                      'tag': {'colors': {0: 'warning', 1: 'info', 2: 'info',
                                         6: 'warning', 8: 'success', 9: 'error'}}},
+    'transacao_id': {'type': 'INT', 'label': 'Transação', 'calc': 'transacao_id',
+                     'pos_form': 4, 'pos_list': 0},
+    'movto_id':     {'type': 'INT', 'label': 'Movimento', 'calc': 'movto_id',
+                     'pos_form': 4, 'pos_list': 0},
     'pedido_em':    {'type': 'DATA', 'label': 'Pedido em'},
     'faturado_em':  {'type': 'DATA', 'label': 'Faturado em'},
     'cancelado_em': {'type': 'DATA', 'label': 'Cancelado em'},

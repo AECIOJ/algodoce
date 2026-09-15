@@ -49,6 +49,14 @@ class Pedido(db.Model):
     def total(self):
         return (self.valor or 0) + (self.acrescimo or 0) - (self.desconto or 0)
 
+    @property
+    def transacao_id(self):
+        return self.transacao.id if self.transacao else None
+
+    @property
+    def movto_id(self):
+        return self.movto.id if self.movto else None
+
     def calc_status(self):
         if self.entregue_em:
             return 9
@@ -77,5 +85,9 @@ Entity = {
                               'calc': 'valor + acrescimo - desconto'},
     'status':                {'type': 'LIST', 'width': 11, 'options': PEDIDO_STATUS,
                               'tag': {'colors': {0: 'warning', 1: 'success', 2: 'info', 3: 'info', 8: 'error', 9: 'success'}}},
+    'transacao_id':          {'type': 'INT', 'label': 'Transação', 'calc': 'transacao_id',
+                              'pos_form': 4, 'pos_list': 0},
+    'movto_id':              {'type': 'INT', 'label': 'Movimento', 'calc': 'movto_id',
+                              'pos_form': 4, 'pos_list': 0},
     'observacao':            {'type': 'MEMO', 'label': 'Observação', 'pos_list': 0, 'width': 40},
 }
