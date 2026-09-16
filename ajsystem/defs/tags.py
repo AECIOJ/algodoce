@@ -65,13 +65,15 @@ class Tag:
     `link` (endpoint, ex.: 'pedidos.form') torna o badge navegável
     (`url_for(link, id=valor)`). `color` fixa a cor do badge, com precedência
     abaixo de `colors[valor]` e acima da heurística.
+    `link` pode ser callable `lambda row: endpoint` para resolver dinamicamente
+    conforme a instância (ex.: transacao tipo R/P).
     """
     colors: Optional[dict] = None
     preset: Optional[str] = None
     size: str = 'sm'
     outline: bool = False
     text_field: Optional[str] = None
-    link: Optional[str] = None
+    link: Optional[Any] = None
     color: Optional[str] = None
     cls: str = ''
 
@@ -80,6 +82,16 @@ class Tag:
             return self.cls
         base = f'badge badge-{color} badge-{self.size}'
         return base + (' badge-outline' if self.outline else '')
+
+    def resolve_link(self, instance: Any = None) -> Optional[str]:
+        if self.link is None:
+            return None
+        if callable(self.link):
+            try:
+                return self.link(instance)
+            except Exception:
+                return None
+        return self.link
 
 
 _TAG_KEYS = frozenset(Tag.__dataclass_fields__)
@@ -115,14 +127,22 @@ def tag_text(value, options=None):
     return '' if value is None else str(value)
 
 
-def resolve_tag(spec: Any, value, options=None, text_value=None):
+def resolve_tag(spec: Any, value, options=None, text_value=None, instance: Any = None):
     """Resolve `Field.tag` + valor do instance → dict `{text, color}` renderizável.
 
     É o núcleo compartilhado por form (`pos_form: 4`) e listagem (`pos_list: 4`).
+    Se `tag.link` for callable, resolve com `instance`.
     """
     tag = parse_tag(spec) if not isinstance(spec, Tag) else spec
     if tag is None:
         return None
     text = text_value if text_value is not None else tag_text(value, options)
     color = _resolve_tag_color(value, options, tag.colors, tag.color)
-    return {'text': text, 'color': color, 'link': tag.link, 'tag': tag}
+    link = tag.resolve_link(instance) if instance is not None else tag.link if not callable(tag.link) else None
+    # fallback: se link é callable mas sem instance, tenta sem arg
+    if callable(getattr(tag, 'link', None)) and link is None and instance is None:
+        try:
+            link = tag.link(None)  # type: ignore
+        except Exception:
+            link = None
+    return {'text': text, 'color': color, 'link': link, 'tag': tag}

@@ -40,13 +40,14 @@
 {% set _iwidth = (field.width + 3) ~ 'ch' %}
 {% if field.hidden %}
 <input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
-{% elif field.page %}
-<a href="{{ page_url(field.page) }}" class="btn btn-outline btn-primary btn-sm inline-flex items-center gap-1">{{ label }}</a>
-{% elif field.pos_form == 2 or field.pos_form == 3 or field.readonly or field.calc or _ro_msg %}
-{% if not field.calc and field.pos_form != 2 and field.pos_form != 3 %}
-<input type="hidden" name="{{ ns }}" value="{{ val or ('0' if field.input == 'number' else '') }}">
+{% elif field.tag or field.pos_form == 2 or field.pos_form == 3 or field.readonly or field.calc or _ro_msg %}
+{% if field.tag %}
+{% if val is not none %}
+{% set _tlink = field.tag.resolve_link(data) %}{% if _tlink %}<a href="{{ url_for(_tlink, id=val) }}" class="no-underline">{% endif %}<span class="{{ field.tag.badge_cls(val|tag_color(field.options, field.tag.colors, field.tag.color)) }} tag-pill" style="width:{{ _iwidth }}">{{ field.options.get(val, val) if field.options else val }}</span>{% if _tlink %}</a>{% endif %}
+{% if not field.calc %}<input type="hidden" name="{{ ns }}" value="{{ val or '' }}">{% endif %}
+{% else %}—
 {% endif %}
-{% if field.calc %}
+{% elif field.calc %}
 {% set _calc_txt = render_label(field, data)|trim %}
 <input type="text" name="{{ ns }}" class="input input-bordered input-sm{% if field.calc is string %} aj-calc{% endif %}" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _calc_txt if _calc_txt and _calc_txt != '—' else '' }}"{% if field.calc is string %} data-calc="{{ field.calc }}"{% endif %}{% if field.currency %} data-calc-currency="{{ field.currency }}"{% endif %} disabled tabindex="-1">
 {% elif _ro_msg %}
@@ -156,9 +157,7 @@
 
 {% macro render_label(field, data=none, ro=false) %}
 {% set val = (calc_value(field.calc, data) if (field.calc is defined and field.calc and data is not none) else (data|deep_attr(field.name))) if data is not none else (field.default() if field.default is callable else field.default) %}
-{% if field.page %}
-<a href="{{ page_url(field.page) }}" class="btn btn-outline btn-primary btn-xs inline-flex items-center gap-1">{{ field.display_label }}</a>
-{% elif field.input == 'image' and val %}
+{% if field.input == 'image' and val %}
 <img src="{{ url_for(aj_uploads_endpoint(), filename=val) }}" style="max-height:60px;" class="border rounded" onclick="previewImagem(this.src)">
 {% elif field.input in ('boolean', 'checkbox') %}
 {{ 'Sim' if val else 'Não' }}
@@ -471,7 +470,8 @@
 {% for _f in _fields %}
 {% if _f is field_body %}
 {% set _fv = (calc_value(_f.calc, data) if (_f.calc is defined and _f.calc and data is not none) else (data|deep_attr(_f.name) if data is not none else none)) %}
-{% if not (_f.pos_form == 3 and _fv|is_empty) %}
+{# visibilidade exclusivamente via Schema: pos_form int ou dict {pos,when}; when avalia fv/data #}
+{% if _f.is_visible_by_pos(_fv, data, not _f._pos_managed) %}
 {% if _visible.append(_f) %}{% endif %}
 {% endif %}
 {% endif %}

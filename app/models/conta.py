@@ -34,6 +34,6 @@ Entity = {
                        'on_set': {'disables': ['cpf']}},
     'insc_estadual':  {'type': 'TEXT', 'label': 'Insc. Estadual',
                        'on_set': {'disables': ['cpf']}},
-    'endereco':       {'type': 'TEXT', 'label': 'Endereço', 'input': 'textarea', 'pos_list': 2},
+    'endereco':       {'type': 'TEXT', 'label': 'Endereço', 'input': 'textarea'},
     'ativo':          {'type': 'BOOL'},
 }

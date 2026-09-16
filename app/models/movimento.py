@@ -51,9 +51,7 @@ Entity = {
     'valor':        {'type': 'NUM', 'width': 10, 'currency': 1, 'required': True},
     'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15},
     'variacao':     {'type': 'NUM', 'label': 'Variação', 'width': 10},
-    'historico':    {'type': 'MEMO', 'label': 'Histórico', 'width': 30, 'pos_list': 2},
-    'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9, 'readonly': True,
-                     'tag': {'link': 'pedidos.form', 'color': 'info'}, 'pos_list': 0},
-    'compra_id':    {'type': 'FK', 'label': 'Compra', 'width': 9, 'readonly': True,
-                     'tag': {'link': 'compras.form', 'color': 'info'}, 'pos_list': 0},
+    'historico':    {'type': 'MEMO', 'label': 'Histórico', 'width': 30},
+    'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9, 'readonly': True},
+    'compra_id':    {'type': 'FK', 'label': 'Compra', 'width': 9, 'readonly': True},
 }

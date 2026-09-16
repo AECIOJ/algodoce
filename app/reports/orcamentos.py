@@ -48,19 +48,19 @@ ORCAMENTO = {
         'layout': 'logo_left',
         'title': 'Orçamento #{id}',
         'fields': [
-            'cliente_nome',       # tudo da Entity
-            {'name': 'data_pedido', 'format': 'datetime'},
+            'cliente_nome',
+            'data_pedido',
             'cliente_telefone',
-            {'name': 'validade_data', 'format': 'datetime'},   # calc da Entity (label 'Válido até')
+            'validade_data',
         ],
     },
     'body': {
         'table': {
             'columns': {
-                'produto_id':     {'width': 44},   # FK → label 'Produto'; valor via produto.nome
-                'qtd':            {'width': 10},   # INT → center (mínimo do motor: 15mm)
-                'preco':          {'width': 14},   # NUM currency → right/brl
-                'valor':          {'width': 14, 'agg': 'sum'},   # calc da Entity
+                'produto_id':     {'width': 44},
+                'qtd':            {'width': 10},
+                'preco':          {'width': 14},
+                'OrcamentoItem.valor': {'width': 14, 'agg': 'sum'},
             },
             'footer': True,
             'footer_label': 'Total',

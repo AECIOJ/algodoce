@@ -1144,3 +1144,14 @@ input[type="datetime-local"]::-moz-calendar-picker-indicator {
 @media (max-width: 767px) {
   .mw-bound { max-width: none; }
 }
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  min-height: 2rem;
+}

@@ -33,6 +33,6 @@ Entity = {
     'qtd':             {'type': 'INT', 'label': 'Qtd', 'required': True},
     'preco':           {'type': 'NUM', 'label': 'Preço', 'currency': 1},
     'valor':           {'type': 'NUM', 'label': 'Valor', 'currency': 1,
-                        'pos_form': 0, 'calc': 'qtd * preco'},
+                        'calc': 'qtd * preco'},
     'observacao':      {'type': 'TEXT', 'label': 'Obs'},
 }

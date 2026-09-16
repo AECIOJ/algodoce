@@ -30,6 +30,9 @@ Schema = {
                         'on_set': {'replaces': {'valor': 'saldo'}}},
         'operacao_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
                                    'when': 'tipo = 2 AND ativa = true AND pai_id IS NOT NULL'}},
+        'pedido_id': {'pos_list': 0, 'tag': {'link': 'pedidos.form', 'color': 'info'}},
+        'compra_id': {'pos_list': 0, 'tag': {'link': 'compras.form', 'color': 'info'}},
+        'historico': {'pos_list': 2},
     },
 }
 

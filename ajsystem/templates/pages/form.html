@@ -75,7 +75,7 @@
     {% endif %}
     <div class="app-bar-right">
       {% for tag in form._resolved_tags %}
-      {% if tag.link %}<a href="{{ url_for(tag.link, id=tag.id) }}" class="no-underline">{% endif %}<span class="text-sm">{{ tag.label }}:</span> <span class="badge badge-{{ tag.color }} badge-sm">{{ tag.text }}</span>{% if tag.link %}</a>{% endif %}
+      {% if tag.link %}<a href="{{ url_for(tag.link, id=tag.id) }}" class="no-underline">{% endif %}<span class="text-sm">{{ tag.label }}:</span> <span class="badge badge-{{ tag.color }} badge-sm tag-pill" style="width:{{ tag.width }}ch">{{ tag.text }}</span>{% if tag.link %}</a>{% endif %}
       {% endfor %}
       {% for btn in form._resolved_buttons if btn.position == 'nav_right' %}
       {{ fm.render_button(btn, instance) }}

@@ -9,7 +9,7 @@ from ajsystem.core.menu import modulo_atual
 from ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguranca
 from ajsystem.core.auto import registrar_modulos
 from ajsystem.core.form import _empty_value
-from ajsystem.core.menu import url_do_item, url_do_pagina
+from ajsystem.core.menu import url_do_item
 from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens
 from ajsystem.core.list import fields_to_columns
 from ajsystem.core.utils import (
@@ -62,7 +62,6 @@ def init_app(app):
     app.jinja_env.filters['heroicon'] = heroicon_filter
     app.jinja_env.globals['get_field'] = get_field
     app.jinja_env.globals['menu_url'] = url_do_item
-    app.jinja_env.globals['page_url'] = url_do_pagina
     app.jinja_env.globals['aj_uploads_endpoint'] = lambda: get_uploads_endpoint(app)
     app.jinja_env.globals['field_value'] = field_value
     app.jinja_env.globals['calc_value'] = calc_value

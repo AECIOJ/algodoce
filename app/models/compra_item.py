@@ -32,5 +32,5 @@ Entity = {
     'qtd':          {'type': 'NUM', 'label': 'Qtd', 'required': True},
     'preco':        {'type': 'NUM', 'label': 'Preço', 'required': True, 'currency': 1},
     'valor':        {'type': 'NUM', 'label': 'Valor', 'currency': 1,
-                     'pos_form': 0, 'calc': 'qtd * preco'},
+                     'calc': 'qtd * preco'},
 }

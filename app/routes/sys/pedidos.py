@@ -1,5 +1,6 @@
 from flask import flash, redirect, url_for
 from ajsystem.core.do_report import print_report
+from ajsystem.defs.constants import POS_EXPLICIT_NOT_EMPTY
 from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
 from app.models.carteira import Carteira
@@ -140,7 +141,8 @@ Schema = {
                       'lookup': {'display': 'nome', 'fields': ['nome', 'telefone'],
                                  'when': {'ativo': True, 'tipo': [0, 1]}}},
         'carteira_id': {'label': 'Pagamento', 'pos_form': 0,
-                        'lookup': {'display': 'nome'}},
+                        'lookup': {'display': 'nome'},
+                        'disabled': _financeiro_gerado},
         'pedido_em': {'pos_form': 0},
         'faturado_em': {'pos_form': 0},
         'cancelado_em': {'pos_form': 5},
@@ -153,16 +155,24 @@ Schema = {
         'total': {'calc': 'valor + acrescimo - desconto', 'pos_form': 0},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado deste pedido difere do status calculado.'},
-                   'pos_form': 4},
+                   'pos_form': 4, 'tag': {'colors': {0: 'warning', 1: 'success', 2: 'info', 3: 'info', 8: 'error', 9: 'success'}}},
+        'transacao_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,
+                         'tag': {'link': 'receber.form', 'color': 'info'}},
+        'movto_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,
+                     'tag': {'link': 'recebimentos.form', 'color': 'info'}},
+        'observacao': {'pos_list': 0},
     },
     'PedidoItem': {
-        'transacao_id': {'label':'Transação', 'page':'Recebimentos'},
         'produto_id': {
             'on_set': {'replaces': {
                 'qtd': 'qtd_minima',
                 'preco': 'preco',
             }},
         },
+        'valor': {'pos_form': 0},
+    },
+    'Evento': {
+        'obs': {'pos_list': 2},
     },
 }
 
@@ -204,7 +214,7 @@ Page = {
                 },
                 'Financeiro': {
                     'fields': ['valor', 'acrescimo', 'desconto', 'total',
-                               {'name': 'carteira_id', 'disabled': _financeiro_gerado}],
+                               'carteira_id', 'transacao_id', 'movto_id'],
                     'query': _query_financeiro,
                     'buttons': [
                         {'label': 'Gerar', 'icon': 'banknotes', 'color': 'success', 'outline': True,

@@ -112,7 +112,7 @@
                 {% if col.tag %}
                   {% if _raw is not none %}
                   {% set _opts = col.options if col.options is defined else none %}
-                  {% if col.tag.link %}<a href="{{ url_for(col.tag.link, id=_raw) }}">{% endif %}<span class="{{ col.tag.badge_cls(_raw|tag_color(_opts, col.tag.colors, col.tag.color)) }}">{{ _opts.get(_raw, _raw) if _opts else _raw }}</span>{% if col.tag.link %}</a>{% endif %}
+                  {% set _tlink = col.tag.resolve_link(item) %}{% if _tlink %}<a href="{{ url_for(_tlink, id=_raw) }}">{% endif %}<span class="{{ col.tag.badge_cls(_raw|tag_color(_opts, col.tag.colors, col.tag.color)) }} tag-pill" style="width:{{ col.width }}ch">{{ _opts.get(_raw, _raw) if _opts else _raw }}</span>{% if _tlink %}</a>{% endif %}
                   {% else %}—
                   {% endif %}
                 {% elif col.calc and not col.stored %}

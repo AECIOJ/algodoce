@@ -1,6 +1,7 @@
 from datetime import date
 from flask import flash, redirect, url_for
 from ajsystem.core.do_report import print_report
+from ajsystem.defs.constants import POS_EXPLICIT_NOT_EMPTY
 from app.models.compra import Compra
 from app.models.compra_item import CompraItem
 from app.reports.compras import COMPRA
@@ -141,13 +142,18 @@ Schema = {
     'Compra': {
         'data': {'default': date.today},
         'fornecedor_id': {'label': 'Fornecedor',
-                          'lookup': {'display': 'nome', 'fields': ['nome', 'telefone'],
-                                     'when': {'ativo': True, 'tipo': [1, 2]}}},
+                           'lookup': {'display': 'nome', 'fields': ['nome', 'telefone'],
+                                      'when': {'ativo': True, 'tipo': [1, 2]}}},
         'carteira_id': {'label': 'Pagamento', 'pos_form':0,
-                        'lookup': {'display': 'nome'}},
+                        'lookup': {'display': 'nome'},
+                        'disabled': _financeiro_gerado},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta compra difere do status calculado.'},
-                   'pos_form': 4},
+                   'pos_form': 4, 'tag': {'colors': {0: 'warning', 1: 'info', 2: 'info', 6: 'warning', 8: 'success', 9: 'error'}}},
+        'transacao_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,
+                         'tag': {'link': 'pagar.form', 'color': 'info'}},
+        'movto_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,
+                     'tag': {'link': 'pagamentos.form', 'color': 'info'}},
 'valor': {'calc': {'type': 'agg', 'source': 'sum(CompraItem.valor)',
                             'diff': 'Aviso de Inconsistência: Total registrado desta compra difere da soma dos itens atuais.'},
                    'readonly': True, 'pos_form': 0},
@@ -164,6 +170,7 @@ Schema = {
         'insumo_id': {
             'lookup': {'display': 'nome', 'fields': ['nome']},
         },
+        'valor': {'pos_form': 0},
     },
 }
 
@@ -200,7 +207,7 @@ Page = {
                 },
                 'Financeiro': {
                     'fields': ['valor', 'acrescimo', 'desconto', 'total',
-                               {'name': 'carteira_id', 'disabled': _financeiro_gerado}],
+                               'carteira_id', 'transacao_id', 'movto_id'],
                     'query': _query_financeiro,
                     'buttons': [
                         {'label': 'Gerar', 'icon': 'banknotes', 'color': 'success', 'outline': True,

@@ -396,6 +396,9 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
 
     # `pre_get` pode ocultar campos via extra_ctx['hidden'] (lista de nomes):
     # vira `<input type="hidden">` (continua no POST, sem edição visual).
+    # NOTA: este é um mecanismo dinâmico por request (ex.: movtos via origem),
+    # não um override estático de field; overrides estáticos devem ser
+    # exclusivamente via Schema (Entity+Schema). Mantido para fluxos condicionais.
     if extra_ctx and isinstance(extra_ctx.get('hidden'), (list, tuple, set)):
         _ocultos = set(extra_ctx['hidden'])
         for f in _flat_fields(form):
@@ -520,11 +523,12 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
                 _val = getattr(instance, f.name, None)
             if _val is None:
                 continue
-            r = resolve_tag(f.tag, _val, f.options)
+            r = resolve_tag(f.tag, _val, f.options, instance=instance)
             if r is not None:
                 _resolved_tags.append({'label': f.display_label, 'text': r['text'],
                                        'color': r['color'],
-                                       'link': r.get('link'), 'id': _val})
+                                       'link': r.get('link'), 'id': _val,
+                                       'width': (getattr(f, 'width', None) or 0) + 3})
     form._resolved_tags = _resolved_tags
 
     ctx = dict(

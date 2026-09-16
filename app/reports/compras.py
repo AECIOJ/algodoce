@@ -57,7 +57,7 @@ COMPRA = {
         'title': _report_title,
         'fields': [
             {'function': _fornecedor_nome, 'label': 'Fornecedor'},
-            {'field': 'data', 'label': 'Data', 'align': 'right', 'format': 'date'},
+            {'field': 'data', 'align': 'right'},
         ],
     },
     'body': {
@@ -65,12 +65,9 @@ COMPRA = {
         'table': {
             'columns': {
                 'insumo.nome':   {'label': 'Insumo', 'width': 50},
-                'qtd':         {'label': 'Qtd.', 'width': 10, 'align': 'center',
-                                  'format': None},
-                'preco':         {'label': 'Preço', 'width': 20, 'align': 'right'},
-                'CompraItem.valor': {'label': 'Valor', 'width': 20, 'align': 'right',
-                                     'function': lambda i: (i.preco or 0) * i.qtd,
-                                     'agg': 'sum'},
+                'qtd':           {'width': 10},
+                'preco':         {'width': 20},
+                'CompraItem.valor': {'width': 20, 'agg': 'sum'},
             },
             'footer': True,
             'footer_label': 'Subtotal',

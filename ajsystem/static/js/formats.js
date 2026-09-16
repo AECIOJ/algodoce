@@ -275,6 +275,9 @@ function parseNum(v) {
   if (v === null || v === undefined) return NaN;
   var s = String(v).replace(/\s/g, '');
   if (s === '') return NaN;
+  // Remove currency symbols (R$, $, €) e outros não-numéricos exceto dígitos, ponto, vírgula, sinal
+  s = s.replace(/[^0-9\-,\.]/g, '');
+  if (s === '' || s === '-' || s === '.' || s === ',') return NaN;
   if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
   var n = parseFloat(s);
   return isNaN(n) ? NaN : n;

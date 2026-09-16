@@ -38,10 +38,10 @@ Entity = {
     'qtd_minima':  {'type': 'INT', 'label': 'Qtd. Mínima', 'min': 0, 'step': 1, 'default': 1},
     'qtd_receita': {'type': 'INT', 'label': 'Qtd. Receita', 'min': 0, 'step': 1, 'default': 1},
     'valor':       {'type': 'NUM', 'label': 'Valor', 'required': True, 'currency': 1},
-    'preco':       {'type': 'NUM', 'label': 'Preço', 'currency': 1, 'pos_list': 1,
+    'preco':       {'type': 'NUM', 'label': 'Preço', 'currency': 1,
                     'calc': 'divide(valor, qtd_minima)'},
     'categoria_id': {'type': 'FK', 'label': 'Categoria', 'width': 12},
-    'ativo':       {'type': 'BOOL', 'tag': 'boolean'},
+    'ativo':       {'type': 'BOOL'},
     'imagem':      {'type': 'IMAGE'},
-    'descricao':   {'type': 'MEMO', 'label': 'Descrição', 'rows': 4, 'pos_list': 2},
+    'descricao':   {'type': 'MEMO', 'label': 'Descrição', 'rows': 4},
 }

@@ -260,28 +260,33 @@ def _apply_entity(raw, entity):
                 fld = key
             if model and model in entity:
                 # Entity flat ({campo: cfg}): model == fld → a própria entrada é a config.
+                # overrides de field exclusivamente via Schema/Entity: base (Entity+Schema) tem precedência
+                # sobre inline do report para label/format/align (report mantém apenas width/agg/report-specific)
                 raw_cfg = entity[model] if model == fld else entity[model].get(fld, {})
                 base = {'label': raw_cfg.get('label') or _auto_label(fld),
                         **_infer_presentation(raw_cfg)}
-                spec = {**{k: v for k, v in base.items() if v is not None},
-                        **extra}
+                # base (Schema) vence para label/format/align; extra (report) mantém width/agg etc.
+                _base_filtered = {k: v for k, v in base.items() if v is not None}
+                spec = {**extra, **_base_filtered}
                 # FK → caminho de exibição via relacionamento ('<base>.nome')
                 if (raw_cfg.get('type') == 'FK' and 'field' not in spec
                         and key.endswith('_id')):
                     spec['field'] = f'{key[:-3]}.nome'
-                # calc da Entity → function(row) quando não informada
-                if raw_cfg.get('calc') and 'function' not in spec:
+                # calc da Entity → function(row) - exclusivamente via Schema/Entity
+                # (report não deve redefinir function quando Entity já tem calc)
+                if raw_cfg.get('calc'):
                     calc = raw_cfg['calc']
                     if isinstance(calc, (str,)) or callable(calc):
                         spec['function'] = calc if callable(calc) else _calc_fn(calc)
-                # BOOL → Sim/Não · LIST → label das options
-                if raw_cfg.get('type') == 'BOOL' and 'function' not in spec:
+                # BOOL → Sim/Não · LIST → label das options - exclusivamente via Entity
+                elif raw_cfg.get('type') == 'BOOL':
                     spec['function'] = lambda row, f=fld: (
                         'Sim' if getattr(row, f, None) else 'Não')
-                if raw_cfg.get('type') == 'LIST' and 'function' not in spec:
+                elif raw_cfg.get('type') == 'LIST':
                     opts = raw_cfg.get('list') or raw_cfg.get('options') or {}
-                    spec['function'] = lambda row, f=fld, o=opts: (
-                        o.get(getattr(row, f, None), getattr(row, f, '')))
+                    if opts:
+                        spec['function'] = lambda row, f=fld, o=opts: (
+                            o.get(getattr(row, f, None), getattr(row, f, '')))
                 resolved[key] = spec
                 continue
             # não resolvido na Entity: exige identidade p/ descartar typo
@@ -336,20 +341,29 @@ def _apply_entity(raw, entity):
                     model = _locate(field)
                     if model:
                         # Entity flat ({campo: cfg}): model == field → a própria entrada.
+                        # overrides exclusivamente via Schema/Entity: label/options/calc da Entity vencem
                         raw_cfg = entity[model] if model == field else entity[model].get(field, {})
                         sp['label'] = raw_cfg.get('label') or _auto_label(field)
                         opts = raw_cfg.get('list') or raw_cfg.get('options')
                         if opts:
                             sp['options'] = opts
-                        if raw_cfg.get('calc') and 'function' not in sp:
+                        if raw_cfg.get('calc'):
                             calc = raw_cfg['calc']
                             if isinstance(calc, (str,)) or callable(calc):
                                 sp['function'] = calc if callable(calc) else _calc_fn(calc)
                         if raw_cfg.get('type') == 'FK':
                             sp['fk_path'] = f'{field[:-3] if field.endswith("_id") else field}.nome'
+                        # report não sobrescreve label/options/function da Entity
+                        for _k in ('label', 'options', 'function', 'fk_path'):
+                            if _k in o and _k in sp and sp[_k] != o[_k]:
+                                # mantém Entity, descarta override do report
+                                pass
                     else:
                         sp['label'] = o.pop('label', _auto_label(field))
-                    sp.update(o)
+                    # não re-aplica o dict do report por cima da Entity para label/function
+                    for _k, _v in o.items():
+                        if _k not in ('label', 'options', 'function', 'fk_path'):
+                            sp[_k] = _v
                     ttxt = sp.get('text')
                     if ttxt:
                         fo = {}

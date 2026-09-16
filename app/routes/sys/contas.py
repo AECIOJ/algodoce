@@ -1,7 +1,11 @@
 from app.models.conta import Conta
 from app.models.pedido import Pedido
 
-Schema = {}
+Schema = {
+    'Conta': {
+        'endereco': {'pos_list': 2},
+    }
+}
 
 Page = {
     'label': 'Conta',

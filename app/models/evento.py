@@ -39,5 +39,5 @@ Entity = {
     'local':       {'type': 'TEXT', 'width': 24},
     'convidados':  {'type': 'INT', 'label': 'Convidados'},
     'cerimonial':  {'type': 'TEXT', 'width': 22},
-    'obs':         {'type': 'MEMO', 'label': 'Observações', 'pos_list': 2},
+    'obs':         {'type': 'MEMO', 'label': 'Observações'},
 }

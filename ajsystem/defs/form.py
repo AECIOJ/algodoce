@@ -298,11 +298,9 @@ class Form:
             if not attr and fallback:
                 attr = fallback
 
-        if fk_name:
-            for f in cols:
-                if getattr(f, 'name', None) == fk_name:
-                    f.pos_form = 0
-
+        # overrides de field exclusivamente via Schema: FK do pai deve ser
+        # declarado como `pos_form: 0` na Entity (DK) ou no Schema da página.
+        # Removido patch automático `f.pos_form=0` que mascarava falta de declaração.
         return attr, cols
 
     def _child_merged(self, child_ent):

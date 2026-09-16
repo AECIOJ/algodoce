@@ -304,6 +304,9 @@ def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True)
     for label, item in _iterar_itens_menus(modulo_menu):
         if item.url:
             continue
+        # grupos de menu (com submenus) não têm página própria – não criar blueprint
+        if getattr(item, 'submenus', None):
+            continue
         slug = _normalizar_slug(item.page or label)
         if slug in vistos:
             continue

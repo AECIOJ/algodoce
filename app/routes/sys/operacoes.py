@@ -4,7 +4,11 @@ from ajsystem.core.do_report import print_report, filter_select
 from app.models.operacao import Operacao
 from app.reports import PLANO
 
-Schema = {}
+Schema = {
+    'Operacao': {
+        'indice': {'pos_list': 1, 'pos_filter': 0, 'pos_form': 0},
+    }
+}
 
 
 def _transformar_nome(nome, pai_id):

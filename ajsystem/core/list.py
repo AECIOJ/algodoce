@@ -295,10 +295,14 @@ def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_manage
             name = (item.get('name') or '').split('.', 1)[-1]
             if not name:
                 continue
-            rest = {k: v for k, v in item.items() if k != 'name'}
+            # overrides de field exclusivamente via Schema – inline dict deve conter apenas 'name'
+            # (legado: {**base, **rest} permitia override pontual; removido p/ garantir Schema como única fonte)
+            if len(item) > 1:
+                import warnings
+                warnings.warn(f"Override inline ignorado para campo '{name}': use Schema (Entity+Schema) como única fonte. Keys extras: {list(k for k in item if k!='name')}")
             base = config.get(name, {}) or {}
             base = base if isinstance(base, dict) else {}
-            f = build_field(name, {**base, **rest})
+            f = build_field(name, base)
             f._pos_managed = managed
             cols.append(f)
             continue

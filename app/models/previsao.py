@@ -42,5 +42,5 @@ Entity = {
     'realizado':    {'type': 'NUM', 'label': 'Realizado', 'currency': 1},
     'variacao':     {'type': 'NUM', 'label': 'Variação', 'currency': 1},
     'saldo':        {'type': 'NUM', 'label': 'Saldo', 'currency': 1,
-                     'pos_form': 0, 'calc': 'previsto - realizado + variacao'},
+                     'calc': 'previsto - realizado + variacao'},
 }

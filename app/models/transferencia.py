@@ -34,11 +34,9 @@ class Transferencia(db.Model):
 Entity = {
     'id':        {'type': 'ID', 'width': 7},
     'data':      {'type': 'DATA', 'width': 10, 'required': True},
-    'historico': {'type': 'MEMO', 'label': 'Histórico', 'width': 30, 'pos_list': 2},
+    'historico': {'type': 'MEMO', 'label': 'Histórico', 'width': 30},
     'total':     {'type': 'NUM', 'label': 'Total', 'width': 12, 'currency': 1, 'readonly': True},
     'status':    {'type': 'TEXT', 'label': 'Status', 'width': 12,
                   'calc': {'type': 'call', 'source': 'calc_status',
-                           'diff': 'Aviso de Inconsistência: Status registrado desta transferência difere do status calculado.'},
-                  'tag': {'colors': {'Editando': 'neutral', 'Pendente': 'warning',
-                                     'Fechada': 'success'}}},
+                           'diff': 'Aviso de Inconsistência: Status registrado desta transferência difere do status calculado.'}},
 }

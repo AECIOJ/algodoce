@@ -6,6 +6,9 @@ from app.models.orcamento_item import OrcamentoItem
 Schema = {
     'Produto': { 
         'qtd_receita': {'pos_form' : 0 },
+        'preco': {'pos_list': 1},
+        'ativo': {'tag': 'boolean'},
+        'descricao': {'pos_list': 2},
         },
 }
 

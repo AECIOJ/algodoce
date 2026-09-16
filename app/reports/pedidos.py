@@ -85,19 +85,18 @@ PEDIDO = {
         'title': 'Pedido #{id}',
         'fields': [
             {'function': _cliente_nome, 'label': 'Cliente'},
-            {'field': 'pedido_em', 'label': 'Data', 'align': 'right', 'format': 'date'},
+            {'field': 'pedido_em', 'align': 'right'},
             {'function': _cliente_telefone, 'label': 'Telefone'},
-            {'field': 'data_previsao_entrega', 'label': 'Previsão', 'align': 'right', 'format': 'datetime'},
+            {'field': 'data_previsao_entrega', 'align': 'right'},
         ],
     },
     'body': {
         'table': {
             'columns': {
                 'produto.nome':   {'label': 'Produto', 'width': 50},
-                'qtd':            {'label': 'Qtd.', 'width': 10, 'align': 'center'},
-                'preco':          {'label': 'Preço', 'width': 20, 'align': 'right'},
-                'valor':          {'label': 'Valor', 'width': 20, 'align': 'right',
-                                   'function': _valor_item, 'agg': 'sum'},
+                'qtd':            {'width': 10},
+                'preco':          {'width': 20},
+                'PedidoItem.valor': {'width': 20, 'agg': 'sum'},
             },
             'footer': True,
             'footer_label': 'Subtotal',

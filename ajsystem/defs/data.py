@@ -159,7 +159,7 @@ class Field:
     disabled: bool = False
     readonly: bool = False
     hidden: bool = False
-    pos_form: int = 1
+    pos_form: Union[int, dict] = 1  # int ou dict {pos:int, when:cond} (exclusivamente via Schema)
     pos_list: int = 1
     pos_filter: Optional[int] = None
     default: Any = None
@@ -171,10 +171,23 @@ class Field:
         # 'disables': [...]} (ver README)
     calc: Any = None  # valor calculado: constante | string expr | callable | dict {'type','source','diff'}
     carry: Optional[str] = None  # campo serializado (pós-map) da página origem; o motor preenche o valor no GET
-    page: Optional[str] = None  # página alvo: transforma o campo num botão outline de navegação
     tag: Any = None
 
+    # interno: condição `when` de `pos_form` dict (None | dict | callable | str)
+    _pos_form_when: Any = None
+
     def __post_init__(self):
+        # pos_form pode ser dict {pos, when} para visibilidade condicional exclusivamente via Schema
+        if isinstance(self.pos_form, dict):
+            d = self.pos_form
+            self._pos_form_when = d.get('when')
+            # pos pode ser int, True/False
+            pos = d.get('pos', 1)
+            if pos is True:
+                pos = 1
+            elif pos is False:
+                pos = 0
+            self.pos_form = pos
         if self.pos_filter is True:
             self.pos_filter = 1
         elif self.pos_filter is False:
@@ -234,6 +247,107 @@ class Field:
     @property
     def width_ch(self) -> int:
         return self.width
+
+    def _eval_pos_when(self, fv, data) -> bool:
+        """Avalia `when` de `pos_form` dict. Retorna True se deve exibir."""
+        when = getattr(self, '_pos_form_when', None)
+        if when is None:
+            return True
+        # helper is_empty local (evita import circular)
+        def _is_empty(v):
+            if v is None:
+                return True
+            if isinstance(v, str):
+                return v == ''
+            if isinstance(v, (list, tuple, dict, set)):
+                return len(v) == 0
+            return False
+        if isinstance(when, dict):
+            # {'not_empty': True} → só quando valor não vazio
+            if 'not_empty' in when:
+                want_not_empty = bool(when['not_empty'])
+                is_empty = _is_empty(fv)
+                return (not is_empty) == want_not_empty
+            if 'empty' in when:
+                want_empty = bool(when['empty'])
+                is_empty = _is_empty(fv)
+                return is_empty == want_empty
+            # {'field': 'outro', 'op': 'not_empty'} → avalia outro campo
+            if 'field' in when:
+                f_name = when.get('field')
+                op = when.get('op', 'not_empty')
+                other_val = getattr(data, f_name, None) if data is not None else None
+                # se other_val é None e data tem deep_attr? tenta calc_value?
+                is_empty = _is_empty(other_val)
+                if op == 'not_empty':
+                    return not is_empty
+                if op == 'empty':
+                    return is_empty
+                if op == 'eq':
+                    return other_val == when.get('value')
+                if op == 'neq':
+                    return other_val != when.get('value')
+            return True
+        if callable(when):
+            try:
+                import inspect
+                sig = inspect.signature(when)
+                n = len(sig.parameters)
+                if n >= 2:
+                    return bool(when(data, fv))
+                if n == 1:
+                    try:
+                        return bool(when(data))
+                    except Exception:
+                        return bool(when(fv))
+                return bool(when())
+            except Exception:
+                return True
+        if isinstance(when, str):
+            if when == 'not_empty':
+                return not _is_empty(fv)
+            if when == 'empty':
+                return _is_empty(fv)
+        return True
+
+    def is_visible_by_pos(self, fv, data, is_explicit: bool) -> bool:
+        """Visibilidade por `pos_form` + `when` para uso em `render_fields`.
+
+        - `pos_form 0` em expansão (`_pos_managed=True`) → oculto (field_body False)
+        - `pos_form 0` em lista explícita (`is_explicit=True`) → visível só se `when` permitir (default: `not_empty`)
+        - `pos_form 3` → some quando vazio (legado) – mantido via `when` ou direto
+        """
+        # pos_form 3 legado: some quando vazio
+        if self.pos_form == 3:
+            # _is_empty inline para evitar import
+            def _is_empty(v):
+                if v is None:
+                    return True
+                if isinstance(v, str):
+                    return v == ''
+                if isinstance(v, (list, tuple, dict, set)):
+                    return len(v) == 0
+                return False
+            if _is_empty(fv):
+                return False
+        # pos_form dict com when: avalia condição
+        if getattr(self, '_pos_form_when', None) is not None:
+            return self._eval_pos_when(fv, data)
+        # pos_form 0 explícito com tag: historicamente escondia quando vazio via tag patch
+        # agora o `when` acima cobre; fallback para compat: se pos 0 explícito e tag e vazio → esconde
+        # (mantido para campos legados sem `when` mas com tag)
+        if self.pos_form == 0 and is_explicit and self.tag is not None:
+            def _is_empty(v):
+                if v is None:
+                    return True
+                if isinstance(v, str):
+                    return v == ''
+                if isinstance(v, (list, tuple, dict, set)):
+                    return len(v) == 0
+                return False
+            if _is_empty(fv):
+                return False
+        return True
 
 
 def get_field(fields: list[Field], name: str) -> Optional[Field]:

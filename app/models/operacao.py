@@ -60,7 +60,6 @@ def _caminhar(mapa, node, filhos, partes):
 Entity = {
     'id':     {'type': 'ID', 'width': 6},
     'indice': {'type': 'TEXT', 'label': 'Índice', 'width': 6,
-               'pos_list': 1, 'pos_filter': 0, 'pos_form': 0,
                'calc': _indice},
     'nome':   {'type': 'TEXT', 'width': 25, 'mask': '@T'},
     'tipo':   {'type': 'LIST', 'width': 12, 'options': TIPO_OPERACAO},
