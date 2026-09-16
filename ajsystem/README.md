@@ -1,104 +1,102 @@
-# AJSYSTEM v1.25.3-1 — Manual do Framework
+# AJSYSTEM 1.26.09.16.0001 — Manual do Framework
 
-> Documentação vinculada ao código em `app/config.py:APP['version']` (`v1.25.3-1`). Atualize a versão a cada release para evitar descompasso.
+> Vinculado a `ajsystem/version` (`1.26.09.16.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` a cada alteração no framework. Histórico em `README.old`. Versão do app hospedeiro em `app/config.py:APP['version']`.
 
 ---
 
 ## 1. Introdução e Conceitos Básicos
 
-1. **Propósito.** Framework Flask declarativo para apps de gestão. Você descreve dados e telas. O framework monta rotas, telas e menu.
+1. **Propósito.** Framework Flask declarativo para gestão. Descreva `Entity`/`Schema`/`Page` em dicts. O motor monta `Blueprint`, rotas, telas e menu.
 2. **Problemas que resolve.**
-   1. Elimina boilerplate de CRUD (lista, formulário, filtros).
-   2. Centraliza definição de campos (`Entity`).
-   3. Permite customização por página via `Schema` sem duplicar código.
-   4. Gera relatórios PDF e validações com a mesma fonte.
-3. **Conceitos centrais.**
-   1. `Entity` — dicionário base de campos no `model` (única fonte).
-   2. `Schema` — dicionário de overrides por página na `route` (`Entity ∪ Schema`).
+   1. Elimina boilerplate de CRUD.
+   2. Centraliza campos em `Entity` (única fonte).
+   3. Customiza por página via `Schema` (`Entity ∪ Schema`, Schema vence).
+   4. Gera PDF com a mesma fonte de campos.
+3. **Conceitos.**
+   1. `Entity` — base de campos no `model` (`app/models/*.py`).
+   2. `Schema` — overrides por página na `route` (`app/routes/sys/*.py`).
    3. `Page` — tipo de página (`crud`, `custom`, `showcase`, `cart`, `contacts`).
-   4. `Field` — `type`, `label`, `width`, `pos_form/pos_list/pos_filter`, `tag`, `calc`, `lookup`.
-4. **Pré-requisitos de linguagem.**
+   4. `Field` — `type`, `pos_form/pos_list/pos_filter`, `tag`, `calc`, `lookup`.
+4. **Pré-requisitos.**
    1. Python 3.11+.
-   2. Python básico: `dict`, `class`, `lambda`, `decorator`.
-   3. Flask básico: `Blueprint`, `request`, `url_for`.
-   4. SQLAlchemy básico: `db.Model`, `db.Column`, `relationship`.
-   5. Jinja2 básico: `{{ }}`, `{% %}`.
+   2. `dict`, `class`, `lambda`, `decorator`.
+   3. Flask: `Blueprint`, `request`, `url_for`.
+   4. SQLAlchemy: `db.Model`, `db.Column`, `relationship`.
+   5. Jinja2: `{{ }}`, `{% %}`.
 
 ---
 
 ## 2. Guia de Instalação (Getting Started)
 
-1. Clone o repositório.
+1. Clone.
    ```bash
-   git clone <repo> && cd algodoce
+   git clone <repo> && cd <seu-projeto>
    ```
-2. Crie ambiente Python.
+2. Ambiente.
    ```bash
    python3 -m venv .venv && source .venv/bin/activate
    ```
-3. Instale dependências Python.
+3. Dependências Python.
    ```bash
-   pip install -r requirements.txt  # Flask==3.0.0, Flask-SQLAlchemy==3.1.1, psycopg2-binary==2.9.9, fpdf2==2.8.7
+   pip install -r requirements.txt  # Flask==3.0.0, Flask-SQLAlchemy==3.1.1, psycopg2-binary, fpdf2==2.8.7
    ```
-4. Instale dependências CSS.
+4. Dependências CSS.
    ```bash
-   npm install  # tailwindcss + daisyUI
-   npm run build:css  # gera tailwind.daisyui.json a partir de app/config.py
+   npm install && npm run build:css  # gera tailwind.daisyui.json de app/config.py
    ```
-5. Configure ambiente.
+5. Env.
    ```bash
-   cp .env.example .env  # ajuste DATABASE_URL, SECRET_KEY
+   cp .env.example .env  # DATABASE_URL, SECRET_KEY
    ```
-6. Suba o banco.
+6. Banco.
    ```bash
-   docker compose up -d db  # ou use Postgres local
+   docker compose up -d db
    flask db upgrade
    ```
-7. Rode o app.
+7. Rode.
    ```bash
    flask run  # http://localhost:5000/categorias
    ```
-8. Crie o primeiro CRUD.
-   1. `app/models/tarefa.py` — crie `class Tarefa(db.Model)` + `Entity`.
-   2. `app/routes/sys/tarefas.py` — crie `Schema = {}` + `Page = {'type':'crud','props':{'list':{'columns':'Tarefa'},'form':{'fields':'Tarefa'}}}`.
-   3. `app/config.py` — adicione `'Tarefas': {'icon':'bi-check'}` em `SYS.menus.Cadastro.submenus`.
-   4. Reinicie: `GET /tarefas/`, `/tarefas/novo`, `/tarefas/<id>/editar`.
+8. Crie um CRUD.
+   1. `app/models/tarefa.py` — `class Tarefa(db.Model)` + `Entity`.
+   2. `app/routes/sys/tarefas.py` — `Schema={}` + `Page={'type':'crud','props':{'list':{'columns':'Tarefa'},'form':{'fields':'Tarefa'}}}`.
+   3. `app/config.py` — `SYS.menus.Cadastro.submenus['Tarefas']={'icon':'bi-check'}`.
+   4. Reinicie. Acesse `GET /tarefas/`, `/tarefas/novo`, `/tarefas/<id>/editar`.
 
 ---
 
 ## 3. Arquitetura e Padrões
 
-1. **Padrão principal: Declarativo sobre MVC.**
-   1. `Model` (`app/models/*.py`) define dados + `Entity`.
-   2. `View` (`ajsystem/templates/pages/*.html` + `components/form_macros.html`) renderiza a partir de `Field`.
-   3. `Controller` (`ajsystem/core/auto.py` + `do_list.py` + `do_form.py`) monta `Blueprint` a partir de `Page`/`Schema`.
+1. **Padrão: Declarativo sobre MVC.**
+   1. `Model` (`app/models/*.py` + `Entity`) → dados.
+   2. `View` (`ajsystem/templates/pages/*.html` + `form_macros.html`) → renderiza `Field`.
+   3. `Controller` (`ajsystem/core/auto.py` + `do_list.py` + `do_form.py`) → monta `Blueprint` de `Page`/`Schema`.
 2. **Injeção via registro.**
    1. `app/__init__.py:register_model('pedido',Pedido)` → `ajsystem/defs/data.py:MODEL_MAP`.
-   2. `ajsystem/defs/data.py:resolve_entity_fields(schema, model, entity)` faz `Entity ∪ Schema` (Schema vence).
-3. **Fluxo de resolução.**
+   2. `resolve_entity_fields(schema, model, entity)` → `{**Entity, **Schema}`.
+3. **Fluxo.**
    ```
    config.py:menus → auto.py:registrar_modulos → Page/Schema → resolve_entity_fields → Field → form/list/report
    ```
-4. **Diagrama visual: camadas.**
+4. **Camadas.**
    ```
    ┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-   │  app/models │────▶│ ajsystem/defs│────▶│ ajsystem/core│
-   │  Entity     │     │ Field/Schema │     │ do_list/form │
+   │ app/models  │────▶│ ajsystem/defs│────▶│ ajsystem/core│
+   │ Entity      │     │ Field/Schema │     │ do_list/form │
    └─────────────┘     └──────────────┘     └──────┬───────┘
           ▲                    ▲                    │
           │                    │                    ▼
    app/routes/sys/Page+Schema──┘            ┌──────────────┐
                                             │  templates   │
-                                            │ form/list/pdf│
                                             └──────────────┘
    ```
-5. **Diagrama: merge de campos.**
+5. **Merge.**
    ```
-   Entity (model) ──┐
-                    ├─► {**Entity, **Schema} ──► Field ──► column/form/report
-   Schema (route) ──┘          (Schema vence)
+   Entity ──┐
+            ├─► {**Entity, **Schema} ──► Field ──► column/form/report
+   Schema ──┘          (Schema vence)
    ```
-6. **Diagrama: ciclo de form.**
+6. **Ciclo form.**
    ```
    GET /novo ──▶ Page.fields='Entidade' ──▶ resolve_column_configs ──▶ render_fields
        ▲                                                              │
@@ -109,124 +107,160 @@
 
 ## 4. Exemplos Práticos (Snippets)
 
-1. **Model + Entity mínima.**
+1. **Model + Entity.**
    ```python
-   # app/models/tarefa.py
    class Tarefa(db.Model):
        id = db.Column(db.Integer, primary_key=True)
        titulo = db.Column(db.String(100), nullable=False)
-       feito = db.Column(db.Boolean, default=False)
-   Entity = {
-       'id': {'type':'ID'},
-       'titulo': {'type':'TEXT','required':True,'width':20},
-       'feito': {'type':'BOOL'},
-   }
+   Entity = {'id':{'type':'ID'},'titulo':{'type':'TEXT','required':True,'width':20},'feito':{'type':'BOOL'}}
    ```
 
-2. **Schema override (exclusivamente via Schema).**
+2. **Schema override exclusivo.**
    ```python
-   # app/routes/sys/tarefas.py
    from ajsystem.defs.constants import POS_EXPLICIT_NOT_EMPTY
-   Schema = {
-       'Tarefa': {
-           'feito': {'tag': {'colors':{True:'success',False:'ghost'}}},
-           'titulo': {'pos_list':1},
-       }
-   }
+   Schema = {'Tarefa':{'feito':{'tag':{'colors':{True:'success'}}},'transacao_id':{'pos_form':POS_EXPLICIT_NOT_EMPTY}}}
+   # POS_EXPLICIT_NOT_EMPTY = {'pos':0,'when':{'not_empty':True}} → pos:0 explícito só quando valor<>null (só form)
    ```
 
-3. **Page CRUD com sessão filha.**
+3. **Page CRUD com sessão.**
    ```python
-   Page = {
-       'type':'crud',
-       'props':{
-           'list':{'columns':'Tarefa','order':['titulo']},
-           'form':{
-               'fields':'Tarefa',
-               'sessions':{
-                   'Itens':{'table':{'columns':['TarefaItem'],'totals':['qtd']}},
-                   'Financeiro':{'fields':['total','carteira_id']}  # pos_form:0 explícito só quando valor<>null via POS_EXPLICIT_NOT_EMPTY no Schema
-               }
-           }
-       }
-   }
+   Page={'type':'crud','props':{'list':{'columns':'Tarefa','order':['titulo']},'form':{'fields':'Tarefa','sessions':{'Financeiro':{'fields':['total','carteira_id']}}}}}
    ```
 
-4. **Campo calculado e tag com link dinâmico.**
+4. **Calc + tag com link.**
    ```python
-   # Entity
-   'transacao_id': {'type':'INT','label':'Transação','calc':lambda row: row.transacao_id}
-   # Schema (pos_form dict com when)
-   'transacao_id': {'pos_form':POS_EXPLICIT_NOT_EMPTY,'pos_list':0,'tag':{'link':'receber.form','color':'info'}}
-   # total
-   'total': {'type':'NUM','calc':'valor + acrescimo - desconto','pos_form':0}
+   # Entity: 'transacao_id':{'type':'INT','calc':lambda row: row.transacao_id}
+   # Schema: 'transacao_id':{'pos_form':POS_EXPLICIT_NOT_EMPTY,'pos_list':0,'tag':{'link':'receber.form','color':'info'}}
+   # total: 'total':{'type':'NUM','calc':'valor + acrescimo - desconto','pos_form':0}
    ```
 
-5. **Menu.**
+5. **Pos condicional dict.**
    ```python
-   # app/config.py
-   SYS = {'menus':{'Cadastro':{'icon':'bi-journal','submenus':{'Tarefas':{'icon':'bi-check'}}}}}
+   'pedido_id':{'pos_form':{'pos':0,'when':{'not_empty':True}},'tag':{'link':'pedidos.form'}}
+   # when: {'not_empty':True} | {'empty':True} | {'field':'valor','op':'not_empty'} | callable(row,val) | 'not_empty'/'empty'
    ```
 
-6. **Relatório PDF.**
+6. **Menu.**
    ```python
-   # app/reports/tarefas.py
-   REL = {'label':'Tarefas','body':{'source':'Tarefa','table':{'columns':{'titulo':{'width':50},'feito':{'width':10}}}}}
-   # botão
+   SYS={'menus':{'Cadastro':{'icon':'bi-journal','submenus':{'Tarefas':{'icon':'bi-check'}}}}}
+   ```
+
+7. **Relatório.**
+   ```python
+   REL={'label':'Tarefas','body':{'source':'Tarefa','table':{'columns':{'titulo':{'width':50},'PedidoItem.valor':{'width':20,'agg':'sum'}}}}}
    {'label':'Imprimir','action':lambda _: print_report(REL, filter_select('feito'))}
-   ```
-
-7. **Pos condicional.**
-   ```python
-   # pos_form dict (novo) – só form, só quando valor não vazio
-   'pedido_id': {'pos_form':{'pos':0,'when':{'not_empty':True}},'tag':{'link':'pedidos.form'}}
    ```
 
 ---
 
 ## 5. Referência de API
 
-1. **Defs: `ajsystem/defs/data.py`**
-   1. `class Field(name, type, label, width, pos_form, pos_list, pos_filter, tag, calc, lookup, ...)` — `pos_form` aceita `int` ou `dict{pos,when}`; `_pos_form_when` interno.
-   2. `FIELD_TYPES: dict` — `TEXT, MEMO, INT, NUM, ID, DK, FK, LIST, BOOL, DATA, IMAGE, MULT10`.
-   3. `build_field(name,cfg) -> Field` — aplica `FIELD_TYPES` + `mask→decimals`.
-   4. `resolve_entity_fields(schema, model, entity) -> dict` — merge `Entity ∪ Schema`.
-   5. `resolve_lookup(field, model) -> dict` — resolve `lookup` FK.
+### 5.1 `Field` — `ajsystem/defs/data.py:143` `class Field`
 
-2. **Defs: `ajsystem/defs/constants.py`**
-   1. `CURRENCY: dict` — `0:None, 1:R$ pt-BR`.
-   2. `POS_EXPLICIT_NOT_EMPTY = {'pos':0,'when':{'not_empty':True}}` — `pos:0` explícito só quando valor não vazio (form).
+| Prop | Tipo | Valores possíveis | Impacto visual | Impacto processamento |
+|---|---|---|---|---|
+| `name` | `str` | nome da coluna | — | chave do `Field` |
+| `type` | `str` | `TEXT,MEMO,INT,NUM,PERCENT,ID,DK,FK,DATA,DATA_HORA,HORA,BOOL,FONE,CPF,CNPJ,LIST,MULT10,IMAGE` (`FIELD_TYPES:23`) | define `input`, `width` default, máscara | `build_field_config` aplica `FIELD_TYPES`; `DK` força `pos_form:0 pos_filter:0` |
+| `label` | `str` | texto ou `None` → `_auto_label(name)` | cabeçalho lista/form/report | — |
+| `width` | `int` | `ch` (ex: `6` para `ID`, `12` para `NUM`) | largura input/coluna (`field.width+3 ch`, report mm) | `field_to_column` (`core/list.py:143`) calcula |
+| `align` | `str` | `left,center,right` (`NUM`→`right` automático `data.py:217`) | `text-align` célula/input | — |
+| `input` | `str` | `text,number,date,select,textarea,boolean,image,multi` | tipo de `<input>` | `_coerce` (`core/form.py:133`) converte |
+| `options` | `dict` | `{k:label}` para `LIST/MULT10` | `select` options, `tag` texto | `field_filter_options` |
+| `mask` | `str` | `@R 999.999.999-99` (CPF), `dd/mm/aaaa`, `@T` title | máscara display/edição (`formats.js:fmtMask`) | `parse_mask_commands`, `width` derivado |
+| `placeholder` | `str` | texto | `placeholder` input | — |
+| `decimals` | `int` | `0` int, `2` moeda | `data-num-decimals`, `fmtNumBR` | `parseNum` |
+| `min`/`max`/`step` | `num` | limites | `input min/max/step` | validação `required` |
+| `currency` | `int` | `0` off, `1` R$ pt-BR, `2` $ , `3` € (`constants.py:CURRENCY`) | `itFmtMoney`, `R$` | `parseNum` remove `R$` antes de `itEval` |
+| `percent` | `bool` | `True` → `12%` | ` %` sufixo | — |
+| `required` | `bool` | `True` → `*` | `*` no label, `required` attr | bloqueia `POST` se vazio |
+| `disabled` | `bool\|callable` | `True` ou `callable(row)->bool` (`_financeiro_gerado`) | `disabled` attr | `form_macros.html:32` avalia `callable` |
+| `readonly` | `bool` | `True` → sempre readonly | branch `pos_form==2/3/readonly` (`form_macros.html:43`) | `do_form.py:430` skip no `POST` se `readonly` |
+| `hidden` | `bool` | `True` → `<input type=hidden>` | oculto mas enviado | `do_form.py:397` `extra_ctx['hidden']` |
+| `pos_form` | `int\|dict` | `0` oculto body (visível só em `fields` explícito), `1` visível, `2` readonly sempre, `3` readonly some quando vazio, `4` barra/tag, `5` footer, `dict{pos,when}` (`when:{not_empty,empty,field,callable}`) | `init.py:54` `field_body`, `form_macros.html:473` `is_visible_by_pos` | `do_form.py:430` só `pos_form==1/5` salva |
+| `pos_list` | `int` | `0` oculto lista, `1` coluna, `2` card, `4` barra lista | `list.py:274` `_pos_managed` | `do_list.py` filtra `pos_list` |
+| `pos_filter` | `int` | `0` sem filtro, `1` texto, `2` select, `3` checklist, `9` fixo (`WHERE default`, força `pos_form0/pos_list0` `data.py:184`) | sem UI quando `9` | `filters.py:117` `fixed_filters` injeta `WHERE` |
+| `default` | `any\|callable` | `date.today`, `lambda:1` | valor inicial | `do_form.py:419` aplica se `None` |
+| `rows` | `int` | altura textarea | `rows` attr | — |
+| `lookup` | `dict\|Lookup` | `{display,fields,value,when,query,replaces}` | `select` vs modal `lookup-search` | `resolve_lookup` (`data.py:574`) + `apply_lookup_when` |
+| `validate` | `str` | `cpf,cnpj,placa` (`validators.js`) | erro client `data-err-for` | `core/validators.py` espelha no `POST` |
+| `help` | `str\|list` | texto | botão `?` | — |
+| `on_set` | `dict` | `{replaces:{campo:fonte},disables:[...]}` | `data-replaces-map`, `data-disables` | `itOnSetBind` copia `data-*` da option |
+| `calc` | `str\|callable\|dict` | `'qtd*preco'`, `lambda row:`, `{'type':'agg','source':'sum(Item.valor)'}`, `{'type':'call','source':'calc_status'}` | `aj-calc` (`data-calc`) ou `readonly` | `calc_value` (`do_form.py:406` `diff` flash), `itEval`/`formCalcRefresh` JS |
+| `carry` | `str` | nome campo origem (`carry` map do botão `Gerar`) | — | `do_form.py:550` `carry_get` importa |
+| `tag` | `dict\|Tag` | `{colors, color, link, size}` | `tag-pill` (`width:width+3ch`, `badge`) ou `badge` lista | `tags.py:74` `resolve_link` (`callable` ok) |
 
-3. **Defs: `ajsystem/defs/tags.py`**
-   1. `class Tag(link, color, colors, size)` — `badge_cls(color)`, `resolve_link(instance)`.
-   2. `parse_tag(spec)`, `resolve_tag(spec,value,options,instance)`.
+### 5.2 `Tag` — `ajsystem/defs/tags.py:62` `class Tag`
 
-4. **Defs: `ajsystem/defs/report.py`**
-   1. `class Report(label, header, body, footer, page_size)` — `parse_report(spec)`.
-   2. `class ReportColumn(field,label,width,agg,function)`.
+| Prop | Tipo | Valores | Visual | Processamento |
+|---|---|---|---|---|
+| `colors` | `dict` | `{valor:cor}` cor `ghost/primary/success/warning/error/info` ou `0-9` (`COLORS_0_to_9`) | `badge-{cor}` | `_resolve_tag_color` |
+| `color` | `str` | cor fixa | idem | — |
+| `link` | `str\|callable` | `'pedidos.form'` ou `lambda row:'pagar.form' if tipo=='P'` | `<a href=url_for(link,id)>` | `resolve_link(instance)` |
+| `size` | `str` | `sm` (default) | `badge-sm` | — |
+| `outline` | `bool` | `True` → outline | `badge-outline` | — |
+| `preset` | `str` | `boolean,ativo,status` | — | `parse_tag` aplica `PRESETS` |
 
-5. **Core: `ajsystem/core/auto.py`**
-   1. `registrar_modulos(app, menu)` — monta `Blueprint` por `Page`.
-   2. `montar_blueprint(mod, slug)` — gera `list/form/delete/toggle` (`list:GET /`, `form:GET/POST /novo e /<id>/editar`).
-   3. `rota(path, endpoint)` — decorator para rotas custom (`orcamentos.aprovar`).
+### 5.3 `Lookup` — `ajsystem/defs/data.py:102` `class Lookup`
 
-6. **Core: `ajsystem/core/do_form.py` / `do_list.py` / `do_report.py`**
-   1. `do_form(form, id, extra_ctx)` — respeita `pos_form`, `calc`, `tag`, `POS_EXPLICIT_NOT_EMPTY`.
-   2. `do_list(entity, mod)` — respeita `pos_list`, `pos_filter==9` (`fixed_filters`).
-   3. `print_report(report, instance, filter_select)` — `Entity∪Schema` para colunas.
+| Prop | Tipo | Valores | Impacto |
+|---|---|---|---|
+| `display` | `str` | campo exibido (`nome`) | `resolve_lookup` `path: relacao.display` |
+| `fields` | `list[str]` | `['nome','telefone']` | `1`→`select`, `>1`→modal busca |
+| `value` | `str` | `id` | valor gravado |
+| `when` | `dict\|str` | `{'ativo':True}`, `'tipo IN (0,1)'` | `apply_lookup_when` filtra options |
+| `query` | `str` | `'PREVISOES'` | modal `lookup-search` (`ajsystem.lookup_search`) |
 
-7. **Templates: `ajsystem/templates/components/form_macros.html`**
-   1. `render_field(field, data)` — `field.tag` → `tag-pill` (`width: field.width+3 ch`, `border-radius:9999px`).
-   2. `render_fields(fields, data)` — filtra via `field.is_visible_by_pos(fv, data, is_explicit)`.
+### 5.4 `Page` — `ajsystem/defs/pages.py:17` `class Page`
 
-8. **JS: `ajsystem/static/js/formats.js`**
-   1. `parseNum(v)` — aceita `R$ 1.234,56` → `1234.56`.
-   2. `itEval(expr, vars)` — avalia `valor + acrescimo - desconto`, `divide(a,b)`.
-   3. `formCalcRefresh()` — atualiza `input.aj-calc[data-calc]`.
+| Prop | Tipo | Valores | Impacto |
+|---|---|---|---|
+| `label` | `str` | `'Orçamento'` | título, `flash_ok` |
+| `type` | `str` | `crud` (lista+form), `custom` (`template`), `showcase`, `cart`, `contacts`, `redirect` | `auto.py:_generated_crud` vs `_page_single` |
+| `crud` | `bool` | `False` desliga CRUD | não gera `list/form/delete/toggle` |
+| `route` | `str` | subpasta `custom` | `do_page` prefix |
+| `template` | `dict` | `{'type':'markdown','file':'nome'}` | `do_page` render |
+| `props` | `dict` | `form/list/tabs` | resolvido em `Form`/`List` |
+| `upload` | `dict` | `{'path':'','max_size':5MB}` | herda `APP['upload']` |
 
-9. **Configuração: `app/config.py`**
-   1. `APP['version']` — vincule docs a `git tag` (ex: `v1.25.3-1`).
-   2. `APP['modules'] = [SITE, SYS, ADMIN]` — `menus` com `icon`, `page`, `submenus`.
-   3. `Temas['algodoce']` — `marca/neutras/feedback/barras` → `npm run build:css`.
+### 5.5 `Form` — `ajsystem/defs/form.py:37` `class Form`
 
-> **Versionamento:** toda mudança em `Field`/`Schema`/`Page` exige bump em `APP['version']` e neste README. Histórico anterior em `README.old`.
+| Prop | Tipo | Valores | Impacto |
+|---|---|---|---|
+| `fields` | `str\|list` | `'Entidade'` (expande `pos_managed=True`) ou `['campo1','campo2']` (`False`) | `resolve_column_configs` + `_pos_managed` |
+| `sessions` | `dict` | `{Nome:{fields,table,query,buttons}}` (`fields` 1:1 child vs pai, `table` editável, `query` readonly) | `form.html: sessions` + `item_table.html` |
+| `template` | `str` | path | se setado, ignora `fields` |
+| `readonly` | `bool\|callable` | `lambda q: q.pedido_id is not None` | `do_form.py:79` `_is_readonly` desabilita tudo |
+| `delete` | `bool\|dict\|callable` | `True`, `{'when':[Model]}`, `lambda` | `_resolve_delete` + `_when_allows` |
+| `pre_save/post_save` | `callable` | `f(instance,request,is_new)` | `do_form.py:446` valida/salva |
+| `buttons` | `list` | `['on_off']` ou `{label,endpoint,when,render,js}` | `form.html:nav`/`footer` |
+| `spacing/max_width` | `num` | `2`, `130` | `render_fields` gap, `resolve_max_width` |
+
+### 5.6 `Report` — `ajsystem/defs/report.py:114` `class Report`
+
+| Prop | Tipo | Valores | Impacto |
+|---|---|---|---|
+| `label` | `str` | título | cabeçalho PDF |
+| `header` | `dict` | `{logo, title, fields:[...]}` | `do_report.py:_apply_entity` resolve `label` via `Entity` |
+| `body.source` | `str\|dict` | `'Tarefa'` ou `{'entity':'Operacao','order':'indice'}` | `_infer_source` + `_auto_data` query |
+| `body.table.columns` | `dict` | `{'titulo':{'width':50},'PedidoItem.valor':{'width':20,'agg':'sum'}}` | `_apply_entity` herda `label`/`calc` da `Entity` (Schema vence); `width` do report |
+| `body.table.hierarchy` | `list` | `[{'indice':{'left':1,'pos':2,'text':'{indice}. {tipo}'}}]` | `pos:2` título fora tabela, `1` linha, `0` oculto |
+| `filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` |
+
+### 5.7 `ReportColumn` — `defs/report.py:35`
+
+| Prop | Tipo | Valores | Impacto |
+|---|---|---|---|
+| `field` | `str` | `'qtd'` ou `'produto.nome'` | `data_key` |
+| `width` | `float` | `ch`/`mm` | coluna PDF |
+| `align` | `str` | `left,center,right` | `Form` `align` herdado (`NUM→right`) |
+| `agg` | `str` | `sum` | totaliza |
+| `function` | `callable` | `lambda row:` | usa `Entity.calc` se ausente |
+
+### 5.8 Constantes `ajsystem/defs/constants.py`
+
+| Constante | Valor | Impacto |
+|---|---|---|
+| `CURRENCY {0:None,1:R$}` | `currency:1` | `itFmtMoney`/`money` |
+| `POS_EXPLICIT_NOT_EMPTY` | `{'pos':0,'when':{'not_empty':True}}` | `pos:0` explícito só quando valor≠vazio (só `form`, `ajsystem/defs/data.py:234` `is_visible_by_pos`) |
+
+> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `app/config.py:APP['version']` e neste README. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:286`) valida chaves (`FieldConfigError`).
