@@ -25,7 +25,8 @@ def _btn_enviar_action(instance):
 
 Schema = {
     'Orcamento': {
-        'status': {'pos_form': 4, 'tag': {'colors': {0: 'warning', 1: 'info', 6: 'success'}}},
+        'status': {'pos_form': 4, 'pos_filter':3,
+                    'tag': {'colors': {0: 'warning', 1: 'info', 6: 'success'}}},
         'total': {'calc': {'type': 'agg', 'source': 'sum(OrcamentoItem.valor)'},
                   'pos_form': 0},
         'validade': {'pos_list':0}, 
@@ -79,7 +80,7 @@ Page = {
                  'endpoint': 'orcamentos.aprovar', 'url_var': 'id',
                  'position': 'nav_right',
                  'when': lambda q: q is not None and q.pedido_id is None and q.status < 7},
-                {'label': 'Renovar', 'icon': 'arrow-path', 'color': 'info', 'outline': False,
+                {'label': 'Renovar', 'icon': 'arrow-path', 'color': 'secondary', 'outline': True,
                  'endpoint': 'orcamentos.renovar', 'url_var': 'id', 'method': 'POST',
                  'position': 'nav_right',
                  'when': lambda q: q is not None and q.pedido_id is None and q.status == 7},

@@ -31,7 +31,9 @@ def resolve_filters(config, request_args):
     active = {}
     for name, cfg in config.items():
         ftype = cfg.get('type')
-        if ftype in ('select', 'checklist', 'boolean'):
+        if ftype == 'checklist':
+            initial[name] = []
+        elif ftype in ('select', 'boolean'):
             initial[name] = ''
         elif ftype == 'date':
             initial[name] = {'preset': ''}
@@ -42,7 +44,15 @@ def resolve_filters(config, request_args):
 
         av = request_args.get(name)
         if av not in (None, ''):
-            if ftype in ('boolean', 'select'):
+            if ftype == 'checklist':
+                # checklist: comma-separated string → list para Alpine x-model
+                if isinstance(av, str):
+                    active[name] = [v.strip() for v in av.split(',') if v.strip() != '']
+                elif isinstance(av, (list, tuple)):
+                    active[name] = [str(v) for v in av if str(v).strip() != '']
+                else:
+                    active[name] = [str(av)]
+            elif ftype in ('boolean', 'select'):
                 active[name] = av
             else:
                 active[name] = av
@@ -148,18 +158,53 @@ def _filter_conditions(model_field, ftype, cfg_value):
         return []
     if ftype in ('select', 'checklist'):
         is_int = isinstance(getattr(model_field, 'type', None), _Integer)
+        from sqlalchemy import Boolean as _Boolean
+        is_bool = isinstance(getattr(model_field, 'type', None), _Boolean)
+        # checklist pode vir como list (do resolve_filters) ou string "0,1"
+        if isinstance(cfg_value, (list, tuple)):
+            vals = []
+            for v in cfg_value:
+                # boolean checklist: "true"/"false" → True/False
+                if is_bool and isinstance(v, str):
+                    lv = v.strip().lower()
+                    if lv == 'true':
+                        vals.append(True)
+                        continue
+                    if lv == 'false':
+                        vals.append(False)
+                        continue
+                v = _key(str(v).strip()) if isinstance(v, str) else _key(v)
+                if is_int and isinstance(v, str):
+                    continue
+                vals.append(v)
+            return [model_field.in_(vals)] if vals else []
         if isinstance(cfg_value, str) and ',' in cfg_value:
             vals = []
             for v in cfg_value.split(','):
                 v = v.strip()
                 if not v:
                     continue
+                if is_bool:
+                    lv = v.lower()
+                    if lv == 'true':
+                        vals.append(True)
+                        continue
+                    if lv == 'false':
+                        vals.append(False)
+                        continue
                 v = _key(v)
                 if is_int and isinstance(v, str):
                     continue  # rótulo/lixo em coluna int: ignora em vez de 500
                 vals.append(v)
             return [model_field.in_(vals)] if vals else []
-        if cfg_value:
+        if cfg_value or cfg_value == 0 or cfg_value is False:
+            # para checklist com um único valor (string sem vírgula) ou select
+            if is_bool and isinstance(cfg_value, str):
+                lv = cfg_value.strip().lower()
+                if lv == 'true':
+                    return [model_field == True]  # noqa: E712
+                if lv == 'false':
+                    return [model_field == False]  # noqa: E712
             v = _key(cfg_value)
             if is_int and isinstance(v, str):
                 return []

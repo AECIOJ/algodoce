@@ -226,11 +226,11 @@
                      x-model="filters['{{ name }}'].val2" placeholder="Valor 2" step="any">
             </div>
             {% elif ftype == 'boolean' %}
-            <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}']">
-              {% for val, label_mode in cfg.get('modes', [('','Todos'),('true','Sim'),('false','Não')]) %}
-              <option value="{{ val }}">{{ label_mode }}</option>
-              {% endfor %}
-            </select>
+            <div class="flex gap-1">
+              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === '' ? 'btn-primary text-primary-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = ''">Todos</button>
+              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === 'true' ? 'btn-success text-success-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = 'true'">Sim</button>
+              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === 'false' ? 'btn-error text-error-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = 'false'">Não</button>
+            </div>
             {% elif ftype == 'select' %}
             {% set _opts = cfg.get('options', {}) %}
             <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}']">
@@ -297,7 +297,7 @@
           {% endfor %}
         </div>
         <div class="flex gap-2 mt-3 bg-white p-2 border-t" id="page-filter-actions">
-          <button type="button" class="btn btn-outline btn-danger flex-1 inline-flex items-center gap-1" @click="clearFilters()">
+          <button type="button" class="btn btn-outline btn-danger flex-1 inline-flex items-center gap-1" @click="clearFilters()" :disabled="!hasActiveFilters">
             {{ heroicon('xmark', 'w-4 h-4') }} Limpar
           </button>
           <button type="button" class="btn btn-primary flex-1 inline-flex items-center gap-1" @click="submitFilters()">
@@ -321,6 +321,7 @@
 <script>
 function listPage() {
   return {
+    _defaults: {{ initial_filters | tojson | safe }},
     filters: (function() {
       var defaults = {{ initial_filters | tojson | safe }};
       var active = {{ active_filters | tojson | safe }};
@@ -331,6 +332,25 @@ function listPage() {
       }
       return filters;
     })(),
+    get hasActiveFilters() {
+      var d = this._defaults;
+      for (var k in d) {
+        var cur = this.filters[k];
+        var def = d[k];
+        var isEmpty = function(v) {
+          if (v === null || v === undefined) return true;
+          if (Array.isArray(v)) return v.length === 0;
+          if (typeof v === 'object') return Object.values(v).every(function(x){ return x === '' || x === null || x === undefined; });
+          return String(v).trim() === '';
+        };
+        if (!isEmpty(cur) || !isEmpty(def)) {
+          // compara cur vs def
+          if (JSON.stringify(cur) !== JSON.stringify(def)) return true;
+        }
+      }
+      // também considera se URL tem filtro ativo (active_filters diferente de defaults)
+      return false;
+    },
     submitFilters() {
       var params = new URLSearchParams();
       for (var field in this.filters) {
@@ -363,7 +383,14 @@ function listPage() {
       window.location.href = window.location.pathname + (qs ? '?' + qs : '');
     },
     clearFilters() {
-      window.location.href = window.location.pathname;
+      // limpa apenas os inputs e permanece na página; só limpa o filtro ao clicar em Aplicar
+      var d = this._defaults;
+      for (var k in d) {
+        var v = d[k];
+        if (Array.isArray(v)) this.filters[k] = [];
+        else if (typeof v === 'object' && v !== null) this.filters[k] = JSON.parse(JSON.stringify(v));
+        else this.filters[k] = v;
+      }
     }
   };
 }

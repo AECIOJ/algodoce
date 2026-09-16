@@ -149,7 +149,7 @@ Schema = {
                         'disabled': _financeiro_gerado},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta compra difere do status calculado.'},
-                   'pos_form': 4, 'tag': {'colors': {0: 'warning', 1: 'info', 2: 'info', 6: 'warning', 8: 'success', 9: 'error'}}},
+                   'pos_form': 4, 'pos_filter': 3, 'tag': {'colors': {0: 'warning', 1: 'info', 2: 'info', 6: 'warning', 8: 'success', 9: 'error'}}},
         'transacao_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,
                          'tag': {'link': 'pagar.form', 'color': 'info'}},
         'movto_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,

@@ -155,7 +155,7 @@ Schema = {
         'total': {'calc': 'valor + acrescimo - desconto', 'pos_form': 0},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado deste pedido difere do status calculado.'},
-                   'pos_form': 4, 'tag': {'colors': {0: 'warning', 1: 'success', 2: 'info', 3: 'info', 8: 'error', 9: 'success'}}},
+                   'pos_form': 4, 'pos_filter': 3, 'tag': {'colors': {0: 'warning', 1: 'success', 2: 'info', 3: 'info', 8: 'error', 9: 'success'}}},
         'transacao_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,
                          'tag': {'link': 'receber.form', 'color': 'info'}},
         'movto_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,

@@ -47,6 +47,9 @@ def field_filter_options(f: Field):
         if isinstance(f.options, dict):
             return dict(f.options)  # preserva chaves: o filtro submete a chave
         return list(f.options)
+    # boolean sem options, mas checklist precisa Sim/Não
+    if f.input in ('boolean', 'checkbox'):
+        return {'true': 'Sim', 'false': 'Não'}
     return None
 
 

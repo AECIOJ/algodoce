@@ -18,7 +18,7 @@ Schema = {
                            'readonly': True, 'pos_list': 0},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta conta difere do status calculado.'},
-                   'pos_form': 4, 'pos_list': 0,
+                   'pos_form': 4, 'pos_filter': 3, 'pos_list': 0,
                    'tag': {'colors': {0: 'warning', 1: 'warning', 2: 'info', 8: 'error', 9: 'success'}}},
         'valor': {'carry': 'valor'},
         'tipo': {'pos_filter': 9, 'default': 'P'},

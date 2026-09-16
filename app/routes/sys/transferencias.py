@@ -6,7 +6,7 @@ Schema = {
     'Transferencia': {
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta transferência difere do status calculado.'},
-                   'pos_form': 4, 'tag': {'colors': {'Editando': 'neutral', 'Pendente': 'warning', 'Fechada': 'success'}}},
+                   'pos_form': 4, 'pos_filter': 3, 'tag': {'colors': {'Editando': 'neutral', 'Pendente': 'warning', 'Fechada': 'success'}}},
         'historico': {'pos_list': 2},
     },
     'Movimento': {
