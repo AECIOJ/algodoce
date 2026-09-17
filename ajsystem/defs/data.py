@@ -315,21 +315,8 @@ class Field:
 
         - `pos_form 0` em expansão (`_pos_managed=True`) → oculto (field_body False)
         - `pos_form 0` em lista explícita (`is_explicit=True`) → visível só se `when` permitir (default: `not_empty`)
-        - `pos_form 3` → some quando vazio (legado) – mantido via `when` ou direto
+        - `pos_form dict {pos, when}` → avalia `when` (ex.: `POS_EXPLICIT_NOT_EMPTY`)
         """
-        # pos_form 3 legado: some quando vazio
-        if self.pos_form == 3:
-            # _is_empty inline para evitar import
-            def _is_empty(v):
-                if v is None:
-                    return True
-                if isinstance(v, str):
-                    return v == ''
-                if isinstance(v, (list, tuple, dict, set)):
-                    return len(v) == 0
-                return False
-            if _is_empty(fv):
-                return False
         # pos_form dict com when: avalia condição
         if getattr(self, '_pos_form_when', None) is not None:
             return self._eval_pos_when(fv, data)

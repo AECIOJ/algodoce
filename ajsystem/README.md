@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.09.16.0005 — Manual do Framework
+# AJSYSTEM 1.26.09.16.0009 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.09.16.0005`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` a cada alteração no framework. Histórico em `README.old`. Versão do app hospedeiro em `app/config.py:APP['version']`.
+> Vinculado a `ajsystem/version` (`1.26.09.16.0009`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico em `README.old`. Versão do app hospedeiro em `app/config.py:APP['version']`.
 
 ---
 
@@ -176,8 +176,8 @@
 | `disabled` | `bool\|callable` | `True` ou `callable(row)->bool` (`_financeiro_gerado`) | `disabled` attr | `form_macros.html:32` avalia `callable` |
 | `readonly` | `bool` | `True` → sempre readonly | branch `pos_form==2/3/readonly` (`form_macros.html:43`) | `do_form.py:430` skip no `POST` se `readonly` |
 | `hidden` | `bool` | `True` → `<input type=hidden>` | oculto mas enviado | `do_form.py:397` `extra_ctx['hidden']` |
-| `pos_form` | `int\|dict` | `0` oculto body (visível só em `fields` explícito), `1` visível, `2` readonly sempre, `3` readonly some quando vazio, `4` barra/tag, `5` footer, `dict{pos,when}` (`when:{not_empty,empty,field,callable}`) | `init.py:54` `field_body`, `form_macros.html:473` `is_visible_by_pos` | `do_form.py:430` só `pos_form==1/5` salva |
-| `pos_list` | `int` | `0` oculto lista, `1` coluna, `2` card, `4` barra lista | `list.py:274` `_pos_managed` | `do_list.py` filtra `pos_list` |
+| `pos_form` | `int\|dict` | `0` oculto body (visível só em `fields` explícito), `1` visível, `2` readonly sempre, `3` barra/tag, `5` footer, `dict{pos,when}` (`when:{not_empty,empty,field,callable}`) | `init.py:54` `field_body`, `form_macros.html:473` `is_visible_by_pos` | `do_form.py:430` skip no `POST` se barra/readonly |
+| `pos_list` | `int` | `0` oculto lista, `1` coluna, `2` card, `3` barra lista | `list.py:274` `_pos_managed` | `do_list.py` filtra `pos_list` |
 | `pos_filter` | `int` | `0` sem filtro, `1` texto, `2` select, `3` checklist, `9` fixo (`WHERE default`, força `pos_form0/pos_list0` `data.py:184`) | sem UI quando `9` | `filters.py:117` `fixed_filters` injeta `WHERE` |
 | `default` | `any\|callable` | `date.today`, `lambda:1` | valor inicial | `do_form.py:419` aplica se `None` |
 | `rows` | `int` | altura textarea | `rows` attr | — |

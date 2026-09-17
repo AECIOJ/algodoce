@@ -12,11 +12,12 @@
     min-height: var(--bar-h);
     gap: var(--bar-gap);
     padding: 0 var(--bar-px);
+    flex-wrap: wrap;
   }
   .app-bar-left   { flex: 1; display: flex; align-items: center; gap: var(--bar-gap); min-width: 0; }
   #mobileMenuTitle { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .app-bar-center { flex: 2; display: flex; align-items: center; justify-content: center; gap: var(--bar-gap); }
-  .app-bar-right  { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--bar-gap); }
+  .app-bar-center { flex: 2; display: flex; align-items: center; justify-content: center; gap: var(--bar-gap); flex-wrap: wrap; }
+  .app-bar-right  { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--bar-gap); flex-wrap: wrap; }
 
   .app-bar .btn,
   .app-bar .btn-group .btn,
@@ -32,8 +33,15 @@
   }
   @media (max-width: 991.98px) {
     .submenu-section { display: none !important; }
-    .app-bar-center { display: none; }
+    /* form: linha 1 com Lista/Nav/tags que couberem; linha 2 overflow centralizado */
+    .form-block .app-bar { justify-content: flex-start; }
+    .form-block .app-bar-left { flex: 0 0 auto; }
+    .form-block .app-bar-center { display: flex; flex: 0 1 auto; order: 1; justify-content: center; flex-wrap: nowrap; }
+    .form-block .app-bar-right { flex: 1 1 auto; order: 1; justify-content: flex-end; flex-wrap: nowrap; min-width: 0; }
+    .form-block .app-bar-line2 { order: 10; }
   }
+  .app-bar-form { gap: 4px; }
+  .app-bar-line2:empty { display: none !important; }
   .app-bar-right { padding-top: 4px; padding-bottom: 4px; }
 
   .submenu-section .bar-link-lg {

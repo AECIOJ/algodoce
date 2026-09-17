@@ -25,7 +25,7 @@ def _btn_enviar_action(instance):
 
 Schema = {
     'Orcamento': {
-        'status': {'pos_form': 4, 'pos_filter':3,
+        'status': {'pos_form': 3, 'pos_filter':3,
                     'tag': {'colors': {0: 'warning', 1: 'info', 6: 'success'}}},
         'total': {'calc': {'type': 'agg', 'source': 'sum(OrcamentoItem.valor)'},
                   'pos_form': 0},

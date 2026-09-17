@@ -18,7 +18,7 @@ Schema = {
                            'readonly': True, 'pos_list': 0},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta conta difere do status calculado.'},
-                   'pos_form': 4, 'pos_filter': 3, 'pos_list': 0,
+                   'pos_form': 3, 'pos_filter': 3, 'pos_list': 0,
                    'tag': {'colors': {0: 'warning', 1: 'warning', 2: 'info', 8: 'error', 9: 'success'}}},
         'valor': {'carry': 'valor'},
         'tipo': {'pos_filter': 9, 'default': 'P'},
@@ -26,6 +26,7 @@ Schema = {
         'compra_id': {'pos_form': 2, 'readonly': True, 'pos_list': 0, 'tag': {'link': 'compras.form', 'color': 'info'}},
     },
     'Previsao': {
+        'id': {'pos_form': 1, 'readonly': True, 'label': 'Previsão', 'mask': '999,999'},
         'carteira_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
         'saldo': {'pos_form': 0},
     },
@@ -47,6 +48,7 @@ Page = {
                        'data': 'previsoes'},
         },
         'form': {
+            'max_width':110,
             'fields': 'Transacao',
             'pre_get': pre_get_transacao,
             'post_save': post_save_transacao,

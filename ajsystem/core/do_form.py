@@ -51,7 +51,7 @@ def _save_single_sessions(form, instance):
         fields = session.get('fields') or []
         editable = [f for f in fields
                     if getattr(f, '_pos_managed', True) is False
-                    or getattr(f, 'pos_form', None) not in (0, 4)]
+                    or getattr(f, 'pos_form', None) not in (0, 3)]
         if not editable:
             continue
         prefix = 'child_' + attr + '_'
@@ -515,7 +515,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
     _resolved_tags = []
     if instance:
         for f in _flat_fields(form):
-            if not getattr(f, 'tag', None) or f.pos_form != 4:
+            if not getattr(f, 'tag', None) or f.pos_form != 3:
                 continue
             _val = (calc_value(f.calc, instance)
                     if getattr(f, 'calc', None) else None)

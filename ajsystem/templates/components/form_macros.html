@@ -189,7 +189,7 @@
     {{ _ns.nome if _ns.nome else val }}
   {% endif %}
 {% elif val is not none %}
-  {% if field.mask_cmds and ('B' in field.mask_cmds or 'X' in field.mask_cmds) %}{{ val|mask_cmd(field.mask, field.decimals, field.currency) }}{% elif field.currency %}{{ val|money(field.currency) }}{% elif field.percent %}{{ val|percent }}{% elif val.strftime is defined and field.mask is datemask %}{{ val|mask(field.mask) }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask_display and 'R' in field.mask_cmds %}{{ val|mask(field.mask) }}{% else %}{{ val }}{% endif %}
+  {% if field.mask_cmds and ('B' in field.mask_cmds or 'X' in field.mask_cmds) %}{{ val|mask_cmd(field.mask, field.decimals, field.currency) }}{% elif field.currency %}{{ val|money(field.currency) }}{% elif field.percent %}{{ val|percent }}{% elif val.strftime is defined and field.mask is datemask %}{{ val|mask(field.mask) }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask_display and 'R' in field.mask_cmds %}{{ val|mask(field.mask) }}{% elif field.input == 'number' and field.mask_display and not field.mask_cmds %}{{ val|fmtid }}{% else %}{{ val }}{% endif %}
 {% else %}—
 {% endif %}
 {% endmacro %}
