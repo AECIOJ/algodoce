@@ -12,7 +12,7 @@ Schema = {
         'operacao_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
                                 'when': 'tipo = 2 AND pai_id IS NOT NULL'}},
         'historico': {'pos_list': 2},
-        'cancelado': {'pos_list': 0},
+        'cancelado': {'pos_list': 0, 'pos_form': 5},
         'total_previsto': {'calc': {'type': 'agg', 'source': 'sum(Previsao.previsto)',
                                     'diff': 'Aviso de Inconsistência: Total previsto difere da soma das previsões atuais.'},
                            'readonly': True, 'pos_list': 0},

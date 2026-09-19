@@ -3,8 +3,9 @@ from app.models.pedido import Pedido
 
 Schema = {
     'Conta': {
+        'email': {'pos_list': 2},
         'endereco': {'pos_list': 2},
-    }
+    },
 }
 
 Page = {
@@ -20,12 +21,12 @@ Page = {
             'order': ['nome'],
         },
         'form': {
-            'max_width': 85,
+            'max_width': 90,
             'fields': 'Conta',
             'sessions': {
                 'Pedidos': {
                     'query': {
-                        'columns': ['Pedido'],
+                        'columns': {'Pedido': ['id','pedido_em','total','status'] },
                         'groups': 'status',
                         'order': 'pedido_em desc',
                     },
