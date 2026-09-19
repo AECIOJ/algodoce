@@ -8,13 +8,17 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 from ajsystem.defs.buttons import resolve_buttons as _resolve_buttons
-from ajsystem.defs.data import Field, _entidade_fields, _resolve_fieldset
+from ajsystem.defs.data import Field
 
 
 @dataclass
 class List:
-    """Config de listagem — objeto consumido por `pages/list.html`."""
-    fields: Union[list, dict]
+    """Config de listagem — objeto consumido por `pages/list.html`.
+
+    `fields` deve ser lista de `Field` já resolvidos (o motor resolve via
+    `normalize_fieldspec` antes de criar o List).
+    """
+    fields: list
     fields_master: Optional[list] = None
     edit_endpoint: Optional[str] = None
     edit_id_field: str = 'id'
@@ -23,13 +27,6 @@ class List:
     template: Optional[str] = None
     linha: Optional[list] = None
     card_idx: Optional[list] = None
-
-    def __post_init__(self):
-        if isinstance(self.fields, dict):
-            if 'fields' in self.fields:
-                self.fields = _resolve_fieldset(self.fields)
-            else:
-                self.fields = [Field(name=k, **v) for k, v in _entidade_fields(self.fields).items()]
 
     def resolve_buttons(self, bp_name=None):
         return _resolve_buttons(self.buttons, bp_name)

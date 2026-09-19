@@ -8,6 +8,7 @@ import re
 
 from ajsystem.defs.data import (
     Field, _resolve_fieldset, _entidade_fields, build_field,
+    normalize_fieldspec,
 )
 from ajsystem.core.utils import currency_symbol
 from ajsystem.defs.list import List, parse_list  # re-export (dataclass em `defs`)
@@ -268,51 +269,77 @@ def _resolve_model(entity_name: str):
 
 
 def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_managed=None) -> list:
-    """Resolve `spec` (str/de lista) para configs de campo a partir da entity
-    merged `{campo: cfg}` (mesma semântica de `_resolve_cols` do legado).
+    """Resolve `spec` para lista de Field usando normalização unificada.
 
-    `str` bare = nome de uma entidade → expande todos os campos da entity
-    merged (config = principal ou merged). `str`/item com `.` → campo específico.
-
-    `pos_managed` marca cada `Field` com `_pos_managed` (pos_form/pos_list só
-    atuam quando o conjunto foi definido pelo NOME DO MODEL/entidade — expansão;
-    em lista explícita de campos, a lista é autoritativa e `pos_*` não filtra).
-    Parâmetro explícito vence a detecção (ex.: sessão com `['OrcamentoItem']`).
+    Mantém compatibilidade: recebe merged_entity single-entity e converte
+    para full_schema esperado por normalize_fieldspec.
     """
-    config = principal or merged_entity
+    # Detecta se principal é multi-entity: chaves são nomes de entidade (PascalCase)
+    # vs single-entity: chaves são nomes de campo (snake_case)
+    is_multi_entity_principal = False
+    if principal and isinstance(principal, dict):
+        first_key = next(iter(principal.keys())) if principal else None
+        if first_key and isinstance(principal.get(first_key), dict):
+            # Heurística: se primeira chave parece nome de entidade (PascalCase)
+            # E o valor tem chaves que parecem campos (snake_case)
+            first_val = principal[first_key]
+            if first_val and isinstance(first_val, dict):
+                first_field_key = next(iter(first_val.keys())) if first_val else None
+                # Verifica se first_key é PascalCase (entidade) E first_field_key é snake_case (campo)
+                is_entity_key = first_key[0].isupper() if first_key else False
+                is_field_key = first_field_key and ('_' in first_field_key or first_field_key.islower())
+                if is_entity_key and is_field_key:
+                    is_multi_entity_principal = True
+
+    if is_multi_entity_principal:
+        return normalize_fieldspec(spec, principal, principal)
+
+    # Single-entity: merged_entity é {field: config}
     if isinstance(spec, str):
-        if spec in config:
+        if spec in merged_entity:
+            # Campo específico
             spec = [spec]
-            managed = False   # nome de campo específico → explícito
+            pos_m = False
         else:
-            # Mantém a ordem em que os campos foram definidos no dicionário (Python 3.7+ dict preserva ordem)
-            spec = list((config or {}).keys())
-            managed = True    # nome de model/entidade → expansão (pos vale)
+            # Nome de entidade → expansão de todos os campos
+            spec = list(merged_entity.keys())
+            pos_m = True
+        if pos_managed is not None:
+            pos_m = bool(pos_managed)
+        fields = _build_fields_from_merged(spec, merged_entity, pos_m)
     else:
-        managed = False       # lista explícita de campos
-    if pos_managed is not None:
-        managed = bool(pos_managed)
-    cols = []
-    for item in spec or []:
-        if isinstance(item, dict):
-            name = (item.get('name') or '').split('.', 1)[-1]
-            if not name:
-                continue
-            # overrides de field exclusivamente via Schema – inline dict deve conter apenas 'name'
-            # (legado: {**base, **rest} permitia override pontual; removido p/ garantir Schema como única fonte)
-            if len(item) > 1:
-                import warnings
-                warnings.warn(f"Override inline ignorado para campo '{name}': use Schema (Entity+Schema) como única fonte. Keys extras: {list(k for k in item if k!='name')}")
-            base = config.get(name, {}) or {}
-            base = base if isinstance(base, dict) else {}
-            f = build_field(name, base)
-            f._pos_managed = managed
-            cols.append(f)
-            continue
-        field_name = item.split('.', 1)[-1]
-        base = config.get(field_name, {}) or {}
+        # Lista ou dict (pode ser multi-entity no spec mas single no merged)
+        # Tenta usar normalize_fieldspec com full_schema se spec for multi-entity dict
+        if isinstance(spec, dict):
+            first_val = next(iter(spec.values())) if spec else None
+            if isinstance(first_val, list):
+                # Spec é multi-entity dict {'Entity': ['f1']} mas merged é single
+                # Para compat, trata como lista explícita no merged default
+                # Achatamos todas as listas de campos
+                all_fields = []
+                for field_list in spec.values():
+                    all_fields.extend(field_list)
+                spec = all_fields
+        
+        # Usa normalize_fieldspec com entity 'default'
+        full_schema = {'default': merged_entity}
+        principal_dict = {'default': principal} if principal else {}
+        fields = normalize_fieldspec(spec, full_schema, principal_dict)
+        if pos_managed is not None:
+            for f in fields:
+                f._pos_managed = bool(pos_managed)
+
+    return fields
+
+
+def _build_fields_from_merged(field_names: list, merged: dict, pos_managed: bool) -> list:
+    """Helper para construir Fields de merged single-entity."""
+    from ajsystem.defs.data import build_field
+    fields = []
+    for name in field_names:
+        base = merged.get(name, {}) or {}
         base = base if isinstance(base, dict) else {}
-        f = build_field(field_name, base)
-        f._pos_managed = managed
-        cols.append(f)
-    return cols
+        f = build_field(name, base)
+        f._pos_managed = pos_managed
+        fields.append(f)
+    return fields

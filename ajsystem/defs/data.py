@@ -821,3 +821,116 @@ def apply_lookup_when(query, target_model, when):
     for c in conds:
         query = query.filter(c)
     return query
+
+
+# ── Normalização unificada de fields/columns ───────────────────────────────────
+def normalize_fieldspec(spec, full_schema: dict, principal: dict = None) -> list[Field]:
+    """Normaliza spec de campos para lista de Field resolvidos.
+
+    Formatos suportados:
+      - 'Entity'                    → expande todos os campos da entidade (pos_managed=True)
+      - ['f1', 'f2']                → campos explícitos (pos_managed=False)
+      - ['Entity.f1', 'Entity.f2']  → campos com prefixo de entidade (pos_managed=False)
+      - {'Entity': ['f1','f2'],      → multi-entidade: agrupa por entidade,
+         'Other': ['f3']}                resolve cada uma contra seu Schema (pos_managed=False)
+
+    `full_schema`: {entity_name: {field_name: merged_config}} - Schema completo da página
+    `principal`:   {entity_name: {field_name: config}} - overrides principais (opcional)
+    """
+    if spec is None:
+        return []
+
+    principal = principal or {}
+
+    # 1. String = nome de entidade única (expansão)
+    if isinstance(spec, str):
+        entity_name = spec
+        entity_schema = full_schema.get(entity_name, {}) or {}
+        entity_principal = principal.get(entity_name, {}) or {}
+        # Mescla principal sobre schema para esta entidade
+        merged = {**entity_schema, **entity_principal}
+        field_names = list(merged.keys())
+        pos_managed = True
+        return _build_fields_from_names(field_names, merged, pos_managed)
+
+    # 2. Lista = campos explícitos (pode ter 'Entity.field')
+    if isinstance(spec, list):
+        return _resolve_field_list(spec, full_schema, principal)
+
+    # 3. Dict = multi-entidade {Entity: [fields]} ou Schema-style {field: config}
+    if isinstance(spec, dict):
+        first_val = next(iter(spec.values())) if spec else None
+        if isinstance(first_val, list):
+            # Multi-entidade: {'Orcamento': ['data', 'total'], 'Cliente': ['nome']}
+            all_fields = []
+            for entity_name, field_names in spec.items():
+                entity_schema = full_schema.get(entity_name, {}) or {}
+                entity_principal = principal.get(entity_name, {}) or {}
+                merged = {**entity_schema, **entity_principal}
+                fields = _build_fields_from_names(field_names, merged, pos_managed=False)
+                all_fields.extend(fields)
+            return all_fields
+        else:
+            # Schema-style {field: config} - trata como lista de nomes
+            field_names = list(spec.keys())
+            # Para compat, usa primeira entidade do full_schema ou merged vazio
+            entity_name = next(iter(full_schema.keys())) if full_schema else ''
+            merged = full_schema.get(entity_name, {}) or {}
+            # Aplica overrides do spec
+            for fname, fcfg in spec.items():
+                if fname in merged:
+                    merged[fname] = {**merged[fname], **fcfg}
+                else:
+                    merged[fname] = fcfg
+            return _build_fields_from_names(field_names, merged, pos_managed=False)
+
+    raise TypeError(f"fields/columns deve ser str, list ou dict, recebeu {type(spec).__name__}")
+
+
+def _resolve_field_list(spec: list, full_schema: dict, principal: dict) -> list[Field]:
+    """Resolve lista de campos: ['f1', 'Entity.f2', ...]."""
+    # Agrupa por entidade detectada no prefixo
+    by_entity = {}
+    no_prefix = []
+
+    for item in spec:
+        if not isinstance(item, str):
+            continue
+        if '.' in item:
+            entity, field = item.split('.', 1)
+            by_entity.setdefault(entity, []).append(field)
+        else:
+            no_prefix.append(item)
+
+    all_fields = []
+
+    # Campos com prefixo: resolve contra entidade específica
+    for entity_name, field_names in by_entity.items():
+        entity_schema = full_schema.get(entity_name, {}) or {}
+        entity_principal = principal.get(entity_name, {}) or {}
+        merged = {**entity_schema, **entity_principal}
+        fields = _build_fields_from_names(field_names, merged, pos_managed=False)
+        all_fields.extend(fields)
+
+    # Campos sem prefixo: resolve contra primeira entidade disponível
+    if no_prefix:
+        entity_name = next(iter(full_schema.keys())) if full_schema else ''
+        entity_schema = full_schema.get(entity_name, {}) or {}
+        entity_principal = principal.get(entity_name, {}) or {}
+        merged = {**entity_schema, **entity_principal}
+        fields = _build_fields_from_names(no_prefix, merged, pos_managed=False)
+        all_fields.extend(fields)
+
+    return all_fields
+
+
+def _build_fields_from_names(field_names: list[str], merged: dict, pos_managed: bool) -> list[Field]:
+    """Constrói lista de Field a partir de nomes e config merged."""
+    fields = []
+    for name in field_names:
+        base = merged.get(name, {}) or {}
+        base = base if isinstance(base, dict) else {}
+        f = build_field(name, base)
+        f._pos_managed = pos_managed
+        fields.append(f)
+    return fields

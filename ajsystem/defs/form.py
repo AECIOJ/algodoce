@@ -8,9 +8,27 @@ associadas. Não manipula request/DB nem engine.
 from dataclasses import dataclass, field, fields as dc_fields
 from typing import Callable, Optional, Union
 
-from ajsystem.core.list import resolve_column_configs, _resolve_model
+from ajsystem.core.list import resolve_column_configs, _resolve_model, _build_fields_from_merged
 from ajsystem.defs.buttons import resolve_buttons
-from ajsystem.defs.data import _auto_label, resolve_entity_fields
+from ajsystem.defs.data import _auto_label, resolve_entity_fields, normalize_fieldspec
+
+
+def _extract_entity_from_cols(cols, fallback_name: str) -> str:
+    """Extrai o nome da entidade de `cols` suportando ambos formatos:
+    - Old: ['Entity', 'field1', 'field2'] -> 'Entity'
+    - New: {'Entity': ['field1', 'field2']} -> 'Entity'
+    """
+    if not cols:
+        return fallback_name
+    if isinstance(cols, list) and cols:
+        first = cols[0]
+        if isinstance(first, str) and first[0].isupper():
+            return first
+    elif isinstance(cols, dict):
+        first_key = next(iter(cols.keys()))
+        if first_key and first_key[0].isupper():
+            return first_key
+    return fallback_name
 
 
 def _total_decimals(f, child_model, child_merged=None):
@@ -90,20 +108,40 @@ class Form:
         spec = self.fields if self.fields is not None else (self._entity_name or ['id'])
         merged = self._schema or {}
         if isinstance(spec, str):
-            # nome de entidade → resolve model casa não haja e expande entity
-            if spec in merged:
-                return resolve_column_configs(merged, [spec], principal=merged)
-            if self._model is None:
-                self._model = _resolve_model(spec)
-            self._entity_name = spec
-            if not merged:
-                # sem Schema da página → expande a própria Entity (com overrides se houver)
-                self._schema = resolve_entity_fields({}, self._model, spec)
-            if not self._label:
-                self._label = _auto_label(spec)
-                self._apply_flash_defaults()
-            return resolve_column_configs(self._schema, spec, principal=self._schema)
-        return resolve_column_configs(merged, spec, principal=merged)
+            # Se merged já é single-entity (chaves são campos), expande direto
+            # Se merged é multi-entity (chaves são entidades), usa normalize_fieldspec
+            is_multi_entity = False
+            if merged:
+                first_key = next(iter(merged.keys()))
+                # Heurística: chave de entidade começa com maiúscula
+                if first_key and first_key[0].isupper():
+                    is_multi_entity = True
+            
+            if is_multi_entity:
+                # Schema multi-entity: usa normalize_fieldspec
+                if spec in merged:
+                    return normalize_fieldspec(spec, merged, merged)
+                if self._model is None:
+                    self._model = _resolve_model(spec)
+                self._entity_name = spec
+                if not merged:
+                    self._schema = resolve_entity_fields({}, self._model, spec)
+                if not self._label:
+                    self._label = _auto_label(spec)
+                    self._apply_flash_defaults()
+                return normalize_fieldspec(spec, self._schema, self._schema)
+            else:
+                # Schema single-entity: spec é nome da entidade, expande merged direto
+                if self._model is None:
+                    self._model = _resolve_model(spec)
+                self._entity_name = spec
+                if not self._label:
+                    self._label = _auto_label(spec)
+                    self._apply_flash_defaults()
+                # Expansão de entidade → pos_managed=True
+                field_names = list(merged.keys())
+                return _build_fields_from_merged(field_names, merged, pos_managed=True)
+        return normalize_fieldspec(spec, merged, merged)
 
     def _apply_flash_defaults(self):
         if not self.flash_ok:
@@ -157,12 +195,18 @@ class Form:
                 col_specs = spec_fields if isinstance(spec_fields, list) else [spec_fields]
                 parent_schema = self._schema or {}
                 first = col_specs[0] if col_specs else None
-                if isinstance(first, str) and first in parent_schema:
-                    is_parent = True
+                # Parent fields grouping: first item is a field name (snake_case) in parent schema
+                # Child entity: first item is entity name (PascalCase) or not in parent schema
+                is_parent = (
+                    isinstance(first, str)
+                    and first.islower()  # field names are snake_case
+                    and first in parent_schema
+                )
+                if is_parent:
                     resolved_fields = resolve_column_configs(
                         parent_schema, col_specs, principal=parent_schema)
                 else:
-                    child_ent = col_specs[0] if col_specs else name
+                    child_ent = _extract_entity_from_cols(col_specs, name)
                     if isinstance(child_ent, str):
                         child_merged, child_model = self._child_merged(child_ent)
                         resolved_fields = self._resolve_session_cols(child_merged, col_specs, child_ent)
@@ -171,14 +215,14 @@ class Form:
                     resolved_query = spec_query
                 else:
                     q_cols = spec_query.get('columns') if isinstance(spec_query, dict) else getattr(spec_query, 'columns', None)
-                    child_ent = q_cols[0] if isinstance(q_cols, list) and q_cols else name
+                    child_ent = _extract_entity_from_cols(q_cols, name)
                     if isinstance(child_ent, str):
                         child_merged, child_model = self._child_merged(child_ent)
                         resolved_cols = self._resolve_session_cols(child_merged, q_cols, child_ent)
                     resolved_query = {**spec_query, 'columns': resolved_cols}
             elif spec_table:
                 t_cols = spec_table.get('columns') if isinstance(spec_table, dict) else getattr(spec_table, 'columns', None)
-                child_ent = t_cols[0] if isinstance(t_cols, list) and t_cols else name
+                child_ent = _extract_entity_from_cols(t_cols, name)
                 if isinstance(child_ent, str):
                     child_merged, child_model = self._child_merged(child_ent)
                     resolved_cols = self._resolve_session_cols(child_merged, t_cols, child_ent)
@@ -311,18 +355,25 @@ class Form:
     def _resolve_session_cols(self, child_merged, cols, child_ent):
         # Nome do model/entidade → expansão da Entity: pos_form/pos_list atuam
         # (`_pos_managed=True`). Lista explícita de campos → autoritativa.
+        # Passa o schema no formato multi-entidade esperado por normalize_fieldspec
+        full_schema = {child_ent: child_merged}
+        principal = {child_ent: child_merged}
         if cols is None:
-            return resolve_column_configs(child_merged, child_ent,
-                                          principal=child_merged, pos_managed=True)
+            return normalize_fieldspec(child_ent, full_schema, principal)
         if isinstance(cols, str):
             if cols == child_ent:
-                return resolve_column_configs(child_merged, child_ent,
-                                              principal=child_merged, pos_managed=True)
+                return normalize_fieldspec(child_ent, full_schema, principal)
             cols = [cols]
-        elif isinstance(cols, list) and len(cols) == 1 and cols[0] == child_ent:
-            return resolve_column_configs(child_merged, child_ent,
-                                          principal=child_merged, pos_managed=True)
-        return resolve_column_configs(child_merged, cols, principal=child_merged)
+        elif isinstance(cols, list):
+            # Formato: ['Entity'] -> expansão de todos os campos da entidade
+            if cols and isinstance(cols[0], str) and cols[0][0].isupper() and cols[0] == child_ent:
+                if len(cols) == 1:
+                    # Apenas o nome da entidade -> expande tudo (passa string para normalize_fieldspec)
+                    return normalize_fieldspec(child_ent, full_schema, principal)
+                else:
+                    # ['Entity', 'field1', 'field2'] -> remove nome da entidade
+                    cols = cols[1:]
+        return normalize_fieldspec(cols, full_schema, principal)
 
     def _resolve_buttons(self):
         return resolve_buttons(self.buttons, self._bp_name)
@@ -349,7 +400,7 @@ class Form:
                 q_cols = spec.get('columns')
             else:
                 q_cols = getattr(spec, 'columns', None)
-            child_ent = q_cols[0] if isinstance(q_cols, list) and q_cols else session.get('name')
+            child_ent = _extract_entity_from_cols(q_cols, session.get('name'))
             child_model = None
             cols = []
             if isinstance(child_ent, str):

@@ -226,7 +226,7 @@
 
 | Prop | Tipo | Valores | Impacto |
 |---|---|---|---|
-| `fields` | `str\|list` | `'Entidade'` (expande `pos_managed=True`) ou `['campo1','campo2']` (`False`) | `resolve_column_configs` + `_pos_managed` |
+| `fields` | `str\|list\|dict` | Formatos unificados (resolvidos por `normalize_fieldspec`):<br/>`'Entidade'` — expande todos (pos_managed=True)<br/>`['campo1','campo2']` — explícitos (pos_managed=False)<br/>`['Entidade.campo1','Outra.campo2']` — multi-entidade com prefixo<br/>`{'Entidade':['c1','c2'],'Outra':['c3']}` — **NOVO**: multi-entidade agrupado | `normalize_fieldspec` centraliza resolução; `_pos_managed` controla se `pos_form/pos_list` filtram |
 | `sessions` | `dict` | `{Nome:{fields,table,query,buttons}}` (`fields` 1:1 child vs pai, `table` editável, `query` readonly) | `form.html: sessions` + `item_table.html` |
 | `template` | `str` | path | se setado, ignora `fields` |
 | `readonly` | `bool\|callable` | `lambda q: q.pedido_id is not None` | `do_form.py:79` `_is_readonly` desabilita tudo |
@@ -256,7 +256,67 @@
 | `agg` | `str` | `sum` | totaliza |
 | `function` | `callable` | `lambda row:` | usa `Entity.calc` se ausente |
 
-### 5.8 Constantes `ajsystem/defs/constants.py`
+### 5.8 `normalize_fieldspec` — Especificação Unificada de Fields/Columns
+
+**Localização:** `ajsystem/defs/data.py`
+
+Função interna que centraliza a resolução de `fields`/`columns` em **todos** os componentes (List, Form, Query, Report body). O usuário declara o formato bruto; o motor normaliza internamente.
+
+#### Formatos Suportados
+
+| Formato | Exemplo | Comportamento | `pos_managed` |
+|---|---|---|---|
+| **Entidade única** | `'Orcamento'` | Expande todos os campos da entidade (respeita `pos_form/pos_list` da Entity) | `True` |
+| **Lista explícita** | `['data', 'total', 'cliente_id']` | Inclui exatamente os campos listados (ignora `pos_*`) | `False` |
+| **Lista com prefixo** | `['Orcamento.data', 'Cliente.nome']` | Campos de entidades diferentes via prefixo `Entidade.campo` | `False` |
+| **Multi-entidade (novo)** | `{'Orcamento': ['data', 'total'], 'Cliente': ['nome', 'telefone']}` | Agrupa por entidade; resolve cada grupo contra seu Schema merged | `False` |
+
+#### Regras
+
+1. **Schema é fonte única de overrides** — Entity (model) + Schema (rota) = merged config. Inline dicts em lista são ignorados (warning).
+2. **`pos_managed=True`** (expansão por entidade) → `pos_form=0`/`pos_list=0` ocultam o campo.
+3. **`pos_managed=False`** (lista explícita) → campos aparecem mesmo com `pos_*=0`; a declaração é autoritativa.
+4. **Multi-entidade** — cada entidade resolve contra seu próprio `full_schema[entidade]`. Requer que o Schema da página tenha as entidades declaradas.
+
+#### Exemplo Prático
+
+```python
+# routes/orcamento.py
+Schema = {
+    'Orcamento': {'data': {'label': 'Data'}, 'total': {}},
+    'Cliente': {'nome': {'width': 30}, 'telefone': {}},
+    'OrcamentoItem': {'produto': {}, 'qtd': {}, 'valor': {}},
+}
+
+Page = {
+    'type': 'crud',
+    'props': {
+        'form': {
+            'fields': {                    # NOVO: multi-entidade no form
+                'Orcamento': ['data', 'total', 'cliente_id'],
+                'Cliente': ['nome', 'telefone'],
+            },
+            'sessions': {
+                'Itens': {
+                    'table': {
+                        'columns': {       # Multi-entidade na tabela de sessão
+                            'OrcamentoItem': ['produto', 'qtd', 'valor']
+                        }
+                    }
+                }
+            }
+        },
+        'list': {
+            'columns': {                   # Multi-entidade na listagem
+                'Orcamento': ['data', 'total'],
+                'Cliente': ['nome'],
+            }
+        }
+    }
+}
+```
+
+### 5.9 Constantes `ajsystem/defs/constants.py`
 
 | Constante | Valor | Impacto |
 |---|---|---|
