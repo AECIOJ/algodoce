@@ -88,6 +88,7 @@ class Query:
     when: Optional[Union[str, dict, Callable]] = None
     groups: Optional[Union[str, list[str]]] = None
     order: Optional[Union[str, list[str]]] = None
+    totals: Optional[list] = None  # lista de totais: ['qtd', {'valor': 'total'}]
 
 
 @dataclass
@@ -95,6 +96,7 @@ class Table:
     """Especificação de tabela editável (Master-Detail) em sessões de formulário."""
     columns: Union[str, list, dict, None] = None
     order: Optional[Union[str, list[str]]] = None
+    totals: Optional[list] = None  # lista de totais: ['qtd', {'valor': 'total'}]
 
 
 @dataclass

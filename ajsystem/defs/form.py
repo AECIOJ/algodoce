@@ -214,14 +214,19 @@ class Form:
                 if callable(spec_query):
                     resolved_query = spec_query
                 else:
-                    q_cols = spec_query.get('columns') if isinstance(spec_query, dict) else getattr(spec_query, 'columns', None)
+                    # Converte dataclass para dict se necessário
+                    if isinstance(spec_query, dict):
+                        q_dict = dict(spec_query)
+                    else:
+                        q_dict = {k: v for k, v in spec_query.__dict__.items() if not k.startswith('_')}
+                    q_cols = q_dict.get('columns')
                     child_ent = _extract_entity_from_cols(q_cols, name)
                     if isinstance(child_ent, str):
                         child_merged, child_model = self._child_merged(child_ent)
                         resolved_cols = self._resolve_session_cols(child_merged, q_cols, child_ent)
-                    resolved_query = {**spec_query, 'columns': resolved_cols}
+                    q_dict['columns'] = resolved_cols
                     # `totals` para query session (readonly) - mesmo formato da table
-                    spec_totals = spec_query.get('totals') if isinstance(spec_query, dict) else getattr(spec_query, 'totals', None)
+                    spec_totals = q_dict.get('totals')
                     if spec_totals:
                         entries = spec_totals if isinstance(spec_totals, list) else [spec_totals]
                         total_map = {}
@@ -249,14 +254,15 @@ class Form:
                                     'decimals': _total_decimals(f, child_model, child_merged),
                                 }
                         if total_map:
-                            resolved_query['total'] = total_map
+                            q_dict['total'] = total_map
+                    resolved_query = q_dict
             elif spec_table:
                 t_cols = spec_table.get('columns') if isinstance(spec_table, dict) else getattr(spec_table, 'columns', None)
                 child_ent = _extract_entity_from_cols(t_cols, name)
                 if isinstance(child_ent, str):
                     child_merged, child_model = self._child_merged(child_ent)
                     resolved_cols = self._resolve_session_cols(child_merged, t_cols, child_ent)
-                t_dict = dict(spec_table) if isinstance(spec_table, dict) else {k: v for k, v in spec.__dict__.items() if not k.startswith('_')}
+                t_dict = dict(spec_table) if isinstance(spec_table, dict) else {k: v for k, v in spec_table.__dict__.items() if not k.startswith('_')}
                 t_dict['columns'] = resolved_cols
                 # `totals` define a linha de totais do detalhe. Aceita:
                 #   - lista de nomes:            ['qtd', 'valor']
@@ -266,7 +272,7 @@ class Form:
                 #     input do master (celula `data-total-target`).
                 #   - string única:              'valor'
                 # Sem `totals` nenhuma coluna é totalizada.
-                spec_totals = spec_table.get('totals') if isinstance(spec_table, dict) else getattr(spec_table, 'totals', None)
+                spec_totals = t_dict.get('totals')
                 if spec_totals:
                     entries = spec_totals if isinstance(spec_totals, list) else [spec_totals]
                     total_map = {}
@@ -290,8 +296,8 @@ class Form:
                             total_map[f.name] = {
                                 'fn': 'sum',
                                 'calc': f.calc if getattr(f, 'calc', None) else None,
-                                    'currency': bool(getattr(f, 'currency', None)),
-                                    'decimals': _total_decimals(f, child_model, child_merged),
+                                'currency': bool(getattr(f, 'currency', None)),
+                                'decimals': _total_decimals(f, child_model, child_merged),
                             }
                     if total_map:
                         t_dict['total'] = total_map
