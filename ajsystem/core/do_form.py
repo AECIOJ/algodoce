@@ -263,8 +263,7 @@ def _build_session_groups(session, instance):
     Sessão `query` com `groups` renderiza como tabela readonly agrupada: os
     itens do relacionamento (`attr`) são agrupados pelo campo, na ordem das
     options da Entity. Preenche `session['groups']` para o macro
-    `item_table_grouped`. Totais (`totals`/`group_totals`) ficam para quando
-    o contrato for alinhado."""
+    `item_table_grouped`."""
     if instance is None or not isinstance(session, dict):
         return
     q = session.get('query')
@@ -278,7 +277,18 @@ def _build_session_groups(session, instance):
     items = list(getattr(instance, session.get('attr') or session.get('name', '').lower(), None) or [])
     if q.get('order'):
         items = order_items(items, q.get('order'), columns)
-    groups = group_items(items, g_field, None, columns)
+    # Passa o spec de totais original (q.get('totals') é a lista declarada pelo usuário)
+    # aggregate_rows espera: {label: 'count' | {'sum': campo, ...}}
+    # Convertemos a lista para dict com labels baseados no nome do campo
+    totals_list = q.get('totals') or []
+    totals_spec = {}
+    for entry in totals_list:
+        if isinstance(entry, dict):
+            for col, target in entry.items():
+                totals_spec[col] = {'sum': col}
+        else:
+            totals_spec[entry] = {'sum': entry}
+    groups = group_items(items, g_field, totals_spec, columns)
     if groups:
         session['groups'] = groups
 
