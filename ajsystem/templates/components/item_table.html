@@ -113,7 +113,7 @@
         </tr>
         {% endfor %}
       </tbody>
-      {% if _can_edit or (child.table and child.table.total is mapping) %}
+      {% if _can_edit or (child.table and child.table.total is mapping) or (child.query and child.query.total is mapping) %}
       <tfoot>
         {% if _can_edit %}
         <tr id="{{ _rel }}RowTemplate" style="display:none" data-crow="__IDX__">
@@ -150,6 +150,8 @@
         {% endif %}
         {% if child.table and child.table.total is mapping %}
         {% set _total_fields = child.table.total %}
+        {% elif child.query and child.query.total is mapping %}
+        {% set _total_fields = child.query.total %}
         {% set _first_total = namespace(i=0, found=false) %}
         {% for _f in _edit_fields + _calc_fields %}
         {% if _f.name in _total_fields and not _first_total.found %}{% set _first_total.i = loop.index0 %}{% set _first_total.found = true %}{% endif %}
@@ -342,6 +344,8 @@
 {% set _totals = child.totals %}
 {% if child.table and child.table.total is mapping %}
 {% set _totals_spec = child.table.total %}
+{% elif child.query and child.query.total is mapping %}
+{% set _totals_spec = child.query.total %}
 {% else %}
 {% set _totals_spec = child.group_totals or {} %}
 {% endif %}
