@@ -349,7 +349,7 @@
 {% else %}
 {% set _totals_spec = child.group_totals or {} %}
 {% endif %}
-{% set _ncols = _edit_fields|length + _totals_spec|length %}
+{% set _ncols = _edit_fields|length %}
 <div class="mb-3 child-table-wrap it-grouped">
   {% if title %}{{ fm.section_title(child.label) }}{% endif %}
 
@@ -361,31 +361,27 @@
           {% for f in _edit_fields %}
           <th class="text-sm"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>{{ f.display_label }}{% if f.required %} <span class="text-error">*</span>{% endif %}</th>
           {% endfor %}
-          {% for _tlabel in _totals_spec.keys() %}
-          {% set _tl = _edit_fields|selectattr('name', 'equalto', _tlabel)|first %}
-          <th class="text-sm text-right">{{ _tl.display_label if _tl else _tlabel }}</th>
-          {% endfor %}
         </tr>
       </thead>
       <tbody>
         {% for _g in _groups %}
         <tr class="it-group-row">
-          <td class="it-group-label" colspan="{{ _ncols }}">{{ _g['label'] }}</td>
+          <td class="it-group-label" colspan="{{ _edit_fields|length }}">{{ _g['label'] }}</td>
         </tr>
         {% for item in _g['items'] %}
         <tr>
           {% for f in _edit_fields %}
           <td{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %}>{{ fm.render_label(f, item) }}</td>
           {% endfor %}
-          {% for _tlabel in _totals_spec.keys() %}
-          <td class="text-right"></td>
-          {% endfor %}
         </tr>
         {% endfor %}
         <tr class="it-subtotal-row">
-          <td class="itm-label" colspan="{{ _edit_fields|length }}">Subtotal</td>
-          {% for _tlabel in _totals_spec.keys() %}
-          <td class="text-right font-semibold">{{ render_agg_total(_g['totals'].get(_tlabel)) }}</td>
+          {% for f in _edit_fields %}
+          {% if f.name in _totals_spec %}
+          <td class="text-right font-semibold">{{ render_agg_total(_g['totals'].get(f.name)) }}</td>
+          {% else %}
+          <td></td>
+          {% endif %}
           {% endfor %}
         </tr>
         {% endfor %}
@@ -393,9 +389,12 @@
       {% if _totals %}
       <tfoot>
         <tr class="it-total-row">
-          <td class="itm-label" colspan="{{ _edit_fields|length }}">Total</td>
-          {% for _tlabel in _totals_spec.keys() %}
-          <td class="text-right">{{ render_agg_total(_totals.get(_tlabel)) }}</td>
+          {% for f in _edit_fields %}
+          {% if f.name in _totals_spec %}
+          <td class="text-right font-semibold">{{ render_agg_total(_totals.get(f.name)) }}</td>
+          {% else %}
+          <td></td>
+          {% endif %}
           {% endfor %}
         </tr>
       </tfoot>
