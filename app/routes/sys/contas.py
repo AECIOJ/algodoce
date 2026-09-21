@@ -29,6 +29,7 @@ Page = {
                         'columns': {'Pedido': ['id','pedido_em','total','status'] },
                         'groups': 'status',
                         'order': 'pedido_em desc',
+                        'totals': ['total',],
                     },
                 },
             },

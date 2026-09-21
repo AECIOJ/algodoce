@@ -152,6 +152,10 @@
         {% set _total_fields = child.table.total %}
         {% elif child.query and child.query.total is mapping %}
         {% set _total_fields = child.query.total %}
+        {% else %}
+        {% set _total_fields = none %}
+        {% endif %}
+        {% if _total_fields %}
         {% set _first_total = namespace(i=0, found=false) %}
         {% for _f in _edit_fields + _calc_fields %}
         {% if _f.name in _total_fields and not _first_total.found %}{% set _first_total.i = loop.index0 %}{% set _first_total.found = true %}{% endif %}

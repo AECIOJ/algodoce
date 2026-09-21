@@ -20,7 +20,7 @@ from ajsystem.defs.data import fk_target_model, resolve_max_width
 from ajsystem.defs.tags import parse_tag, resolve_tag
 from ajsystem.defs.validators import resolve_validator
 from ajsystem.defs.transformers import apply_field_transforms
-from ajsystem.core.query import group_items, order_items
+from ajsystem.core.query import aggregate_rows, group_items, order_items
 
 
 def _calc_virtual(f):
@@ -262,8 +262,8 @@ def _build_session_groups(session, instance):
 
     Sessão `query` com `groups` renderiza como tabela readonly agrupada: os
     itens do relacionamento (`attr`) são agrupados pelo campo, na ordem das
-    options da Entity. Preenche `session['groups']` para o macro
-    `item_table_grouped`."""
+    options da Entity. Preenche `session['groups']` (subtotais por grupo) e
+    `session['totals']` (total geral) para o macro `item_table_grouped`."""
     if instance is None or not isinstance(session, dict):
         return
     q = session.get('query')
@@ -291,6 +291,8 @@ def _build_session_groups(session, instance):
     groups = group_items(items, g_field, totals_spec, columns)
     if groups:
         session['groups'] = groups
+    if totals_spec:
+        session['totals'] = aggregate_rows(items, totals_spec, columns)
 
 
 
