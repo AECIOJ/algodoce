@@ -26,9 +26,7 @@ Convenções (sem declaração):
 - mínimo de quantidade = coluna `qtd_minima` do modelo de origem (default 1);
 - `type` default = `'form'`.
 """
-import re
-
-from ajsystem.defs.showcase import CART_SESSION_KEY, CLIENT_SESSION_KEY
+from ajsystem.defs.showcase import CART_SESSION_KEY, CLIENT_SESSION_KEY, snake_case
 
 # Tipos de sessão do carrinho.
 CART_SESSION_TYPES = ('table', 'form')
@@ -45,7 +43,7 @@ CART_TITLE = 'Meu Orçamento'
 
 def field_prefix(entity_name: str) -> str:
     """`'Event'` → `'event_'` (snake_case do modelo + `_`)."""
-    key = re.sub(r'(?<!^)(?=[A-Z])', '_', entity_name or '').lower()
+    key = snake_case(entity_name)
     return f'{key}_' if key else ''
 
 

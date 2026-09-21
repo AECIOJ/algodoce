@@ -167,22 +167,6 @@ def _build_footer(report: Report) -> '_ReportFooter':
     )
 
 
-def _deep_attr(obj, path):
-    if obj is None:
-        return None
-    for part in path.split('.'):
-        if obj is None:
-            return None
-        try:
-            obj = getattr(obj, part)
-        except AttributeError:
-            try:
-                obj = obj[part]
-            except (TypeError, KeyError, IndexError):
-                return None
-    return obj
-
-
 class DocPDF(FPDF):
     def header(self):
         pass

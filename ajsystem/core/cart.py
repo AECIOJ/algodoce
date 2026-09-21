@@ -19,6 +19,7 @@ from flask import flash, jsonify, redirect, request, session, url_for
 
 from ajsystem.core.adapter import db
 from ajsystem.core.list import _resolve_model
+from ajsystem.core.utils import fk_column_to, fk_target, has_back_rel, model_columns
 from ajsystem.defs.cart import (
     CART_CONFIRM_FLASH,
     CART_MORE_ITEMS_LINK,
@@ -53,53 +54,10 @@ def get_on_send(mod):
     return on_send if callable(on_send) else None
 
 
-def _columns(model):
-    table = getattr(model, '__table__', None)
-    return getattr(table, 'columns', None) or {}
-
-
 def _fk_columns(model):
     """Colunas com FK do modelo, em ordem."""
-    cols = _columns(model)
+    cols = model_columns(model)
     return [c.name for c in cols.values() if c.foreign_keys]
-
-
-def _fk_target(model, column_name):
-    """Modelo alvo da FK `column_name`, ou `None`."""
-    mapper = getattr(model, '__mapper__', None)
-    if mapper is None or not column_name:
-        return None
-    for rel in mapper.relationships.values():
-        for col in getattr(rel, 'local_columns', None) or []:
-            if col.name == column_name:
-                return rel.mapper.class_
-    return None
-
-
-def _has_back_rel(model, target):
-    """True quando `model` tem relação de volta (uselist ou não) p/ `target`."""
-    mapper = getattr(model, '__mapper__', None)
-    if mapper is None:
-        return False
-    for rel in mapper.relationships.values():
-        try:
-            if rel.mapper.class_ is target:
-                return True
-        except Exception:
-            continue
-    return False
-
-
-def _parent_fk_column(model, parent_model):
-    """Coluna FK de `model` que aponta para `parent_model`, ou `None`."""
-    mapper = getattr(model, '__mapper__', None)
-    if mapper is None or parent_model is None:
-        return None
-    for rel in mapper.relationships.values():
-        if getattr(rel, 'mapper', None) is not None and rel.mapper.class_ is parent_model:
-            for col in getattr(rel, 'local_columns', None) or []:
-                return col.name
-    return None
 
 
 def _first_session(sc, stype):
@@ -143,14 +101,14 @@ def resolve_cart(mod):
 
     tmodel = table['model']
     fks = _fk_columns(tmodel)
-    parents = [c for c in fks if _has_back_rel(_fk_target(tmodel, c), tmodel)]
+    parents = [c for c in fks if has_back_rel(fk_target(tmodel, c), tmodel)]
     if len(parents) != 1:
         raise ValueError(
             f"CART: {table['fields']} precisa de exatamente uma FK pai "
             f"(encontradas: {len(parents)} em {fks})"
         )
     parent_col = parents[0]
-    parent_model = _fk_target(tmodel, parent_col)
+    parent_model = fk_target(tmodel, parent_col)
     origin_cols = [c for c in fks if c != parent_col]
     if len(origin_cols) != 1:
         raise ValueError(
@@ -158,7 +116,7 @@ def resolve_cart(mod):
             f"(além do pai), encontradas: {len(origin_cols)} em {fks}"
         )
     origin_col = origin_cols[0]
-    origin_model = _fk_target(tmodel, origin_col)
+    origin_model = fk_target(tmodel, origin_col)
 
     sc['parent_entity'] = parent_model.__name__
     sc['parent_model'] = parent_model
@@ -168,7 +126,7 @@ def resolve_cart(mod):
 
     for s in sc['sessions']:
         s['prefix'] = field_prefix(s['fields'])
-        s['parent_fk'] = _parent_fk_column(s['model'], parent_model)
+        s['parent_fk'] = fk_column_to(s['model'], parent_model)
 
     forms = [s for s in sc['sessions'] if s['type'] == 'form']
     if len(forms) > 1:
@@ -205,7 +163,7 @@ def _form_fields(sc, mod, session):
     fields_cfg = ent_cfg.get(session['fields']) or {}
     if not isinstance(fields_cfg, dict):
         fields_cfg = {}
-    cols = _columns(session['model'])
+    cols = model_columns(session['model'])
     result = []
     for name, cfg in fields_cfg.items():
         if name.startswith('__'):
@@ -284,7 +242,7 @@ def _make_event(sc, mod, quote):
     instance = model()
     if form_session['parent_fk']:
         setattr(instance, form_session['parent_fk'], quote.id)
-    cols = _columns(model)
+    cols = model_columns(model)
     for f in _form_fields(sc, mod, form_session):
         raw = request.form.get(f['input_name'])
         col = cols.get(f['name'])

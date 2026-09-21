@@ -8,13 +8,12 @@ from ajsystem.core.adapter import APP, TEMAS, get_uploads_endpoint
 from ajsystem.core.menu import modulo_atual
 from ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguranca
 from ajsystem.core.auto import registrar_modulos
-from ajsystem.core.form import _empty_value
 from ajsystem.core.menu import url_do_item
 from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens
 from ajsystem.core.list import fields_to_columns
 from ajsystem.core.utils import (
     deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, fmt_num, item_ref,
-    field_value, calc_value, fmt_mask_cmd,
+    field_value, calc_value, fmt_mask_cmd, is_empty,
 )
 from ajsystem.defs.tags import _resolve_tag_color
 
@@ -37,7 +36,7 @@ def init_app(app):
 
     # 4. filtros/globals Jinja
     app.jinja_env.filters['deep_attr'] = deep_attr
-    app.jinja_env.filters['is_empty'] = _empty_value
+    app.jinja_env.filters['is_empty'] = is_empty
     app.jinja_env.filters['item_ref'] = item_ref
     app.jinja_env.filters['brl'] = fmt_brl
     app.jinja_env.filters['money'] = fmt_money

@@ -7,7 +7,7 @@ declarativos) do módulo de rota e resolve os campos via `defs.data`
 """
 import importlib
 
-from flask import Blueprint, render_template, request, url_for
+from flask import render_template, request, url_for
 
 from ajsystem.defs.data import (
     _auto_label, build_field, page_list_cfg, resolve_entity_fields, module_page,
@@ -18,6 +18,7 @@ from ajsystem.core.list import (
     fields_to_columns, _resolve_model,
 )
 from ajsystem.core.filters import resolve_filters
+from ajsystem.core.utils import module_blueprint
 
 TAB_TYPES = ('List', 'Filter', 'Report', 'Custom')
 
@@ -57,7 +58,7 @@ def list_max_width(entity_name: str, module_name: str) -> str:
     schema = getattr(mod, 'Schema', None) or {}
     page = module_page(mod)
     lista = page_list_cfg(page)
-    bp_name = _module_blueprint(mod).name if _module_blueprint(mod) else None
+    bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
     model = _resolve_model(entity_name)
     merged = resolve_entity_fields(schema, model, entity_name)
     fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged)
@@ -97,14 +98,6 @@ def build_tabs(page: dict):
     return tabs, (tabs[0]['id'] if tabs else '')
 
 
-def _module_blueprint(mod):
-    for name in dir(mod):
-        obj = getattr(mod, name, None)
-        if isinstance(obj, Blueprint):
-            return obj
-    return None
-
-
 def _resolve_endpoint(lista, key, bp_name):
     if key in lista:
         return lista.get(key)
@@ -117,7 +110,7 @@ def do_list(entity_name: str, module_name: str, data=None, **extra):
     page = module_page(mod)
     tabs, active_tab = build_tabs(page)
     lista = page_list_cfg(page)
-    bp_name = _module_blueprint(mod).name if _module_blueprint(mod) else None
+    bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
 
     model = _resolve_model(entity_name)
     merged = resolve_entity_fields(schema, model, entity_name)

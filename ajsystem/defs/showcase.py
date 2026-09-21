@@ -48,10 +48,15 @@ SHOWCASE_POSITIONS = ('title', 'left', 'right', 'qty')
 CART_SESSION_KEY = 'cart_items'
 CLIENT_SESSION_KEY = 'client'
 
+def snake_case(name: str) -> str:
+    """`'Event'` → `'event'` (snake_case de um nome de entidade)."""
+    return re.sub(r'(?<!^)(?=[A-Z])', '_', name or '').lower()
+
+
 # Default de `item_id` dentro de cada item do carrinho (deriva da entidade).
 def item_id_default(entity_name: str) -> str:
     """`'Product'` → `'product_id'` (chave do id dentro do item do carrinho)."""
-    key = re.sub(r'(?<!^)(?=[A-Z])', '_', entity_name or '').lower()
+    key = snake_case(entity_name)
     return f'{key}_id' if key else 'id'
 
 

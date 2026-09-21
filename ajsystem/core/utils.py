@@ -4,7 +4,11 @@ Reutilizados por templates (filtros Jinja) e pelo motor de listagem/formulário.
 Não dependem de modelos nem da aplicação host.
 """
 import re
+import unicodedata
 from datetime import datetime, timedelta
+
+from flask import Blueprint
+from flask_login import login_required
 
 # Formatação/parse de máscara, número, moeda, data, transforms e validadores
 # centralizados em `core/formats.py` (ver lá). Re-export para compat.
@@ -42,6 +46,102 @@ def deep_attr(obj, path):
 def field_value(field, item):
     """Valor de um campo para `item`: acesso aninhado pelo nome."""
     return deep_attr(item, getattr(field, 'name', '') or '')
+
+
+def normalizar_slug(label: str) -> str:
+    """Slug de um rótulo/entidade: ASCII, minúsculo e sem espaços nas pontas."""
+    s = unicodedata.normalize('NFKD', label or '')
+    s = ''.join(c for c in s if not unicodedata.combining(c))
+    return s.lower().strip()
+
+
+def snake_case(name) -> str:
+    """`'Event'` → `'event'` (snake_case de um nome de entidade)."""
+    return re.sub(r'(?<!^)(?=[A-Z])', '_', name or '').lower()
+
+
+def is_empty(val):
+    """True para `None`, string vazia ou coleção vazia (falso para 0)."""
+    if val is None:
+        return True
+    if isinstance(val, str):
+        return val == ''
+    if isinstance(val, (list, tuple, dict, set)):
+        return len(val) == 0
+    return False
+
+
+def module_blueprint(mod):
+    """Primeiro objeto `Blueprint` exposto pelo módulo, ou `None`."""
+    for name in dir(mod):
+        obj = getattr(mod, name, None)
+        if isinstance(obj, Blueprint):
+            return obj
+    return None
+
+
+def model_columns(model):
+    """Dict de colunas do modelo (pela `__table__`), ou `{}`."""
+    table = getattr(model, '__table__', None)
+    return getattr(table, 'columns', None) or {}
+
+
+def fk_column_to(model, target_model):
+    """Nome da coluna FK em `model` cujo alvo é `target_model`, ou `None`."""
+    mapper = getattr(model, '__mapper__', None)
+    if mapper is None or target_model is None:
+        return None
+    for rel in mapper.relationships.values():
+        if getattr(rel, 'mapper', None) is not None and rel.mapper.class_ is target_model:
+            for col in getattr(rel, 'local_columns', None) or []:
+                return col.name
+    return None
+
+
+def fk_target(model, column_name):
+    """Modelo alvo da FK `column_name`, ou `None`."""
+    mapper = getattr(model, '__mapper__', None)
+    if mapper is None or not column_name:
+        return None
+    for rel in mapper.relationships.values():
+        for col in getattr(rel, 'local_columns', None) or []:
+            if col.name == column_name:
+                return rel.mapper.class_
+    return None
+
+
+def rel_for_column(model, column_name):
+    """Nome da relationship cuja coluna local é `column_name`, ou `None`."""
+    mapper = getattr(model, '__mapper__', None)
+    if mapper is None or not column_name:
+        return None
+    for rel in mapper.relationships.values():
+        for col in getattr(rel, 'local_columns', None) or []:
+            if col.name == column_name:
+                return rel.key
+    return None
+
+
+def has_back_rel(model, target):
+    """True quando `model` tem relação de volta (uselist ou não) p/ `target`."""
+    mapper = getattr(model, '__mapper__', None)
+    if mapper is None:
+        return False
+    for rel in mapper.relationships.values():
+        try:
+            if rel.mapper.class_ is target:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def protect_blueprint(bp):
+    """Aplica `@login_required` a todas as rotas de um blueprint."""
+    @bp.before_request
+    @login_required
+    def _guard():
+        pass
 
 
 def divide(a, b):

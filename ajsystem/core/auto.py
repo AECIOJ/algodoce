@@ -5,10 +5,8 @@ o módulo de rota e, se declarativo (`Page`/`Schema`), monta o blueprint CRUD
 via `core.do_list`/`core.do_form`. Módulos ausentes → `pages/construcao.html`.
 """
 import importlib
-import unicodedata
 
 from flask import Blueprint, flash, redirect, render_template, url_for
-from flask_login import login_required
 
 from ajsystem.defs.data import (
     page_list_cfg as _lista_config, module_page, module_page_label,
@@ -18,6 +16,7 @@ from ajsystem.core.adapter import db
 from ajsystem.core.do_list import do_list
 from ajsystem.core.do_form import do_form
 from ajsystem.core.form import _resolve_delete, _when_allows
+from ajsystem.core.utils import module_blueprint, normalizar_slug, protect_blueprint
 
 
 _ROTAS = {}
@@ -62,20 +61,6 @@ def _page_single(mod):
     props = get('props') or {}
     tabs = props.get('tabs') if isinstance(props, dict) else None
     return bool(tabs is not None and not tabs)
-
-
-def _normalizar_slug(label: str) -> str:
-    s = unicodedata.normalize('NFKD', label or '')
-    s = ''.join(c for c in s if not unicodedata.combining(c))
-    return s.lower().strip()
-
-
-def _blueprint_no_modulo(mod):
-    for name in dir(mod):
-        obj = getattr(mod, name, None)
-        if isinstance(obj, Blueprint):
-            return obj
-    return None
 
 
 def _form_config(mod):
@@ -214,22 +199,19 @@ def _generated_crud(mod, slug):
 
 
 def montar_blueprint(mod, slug=None, url_prefix=None, login=True, label=None):
-    existente = _blueprint_no_modulo(mod)
+    existente = module_blueprint(mod)
     if existente is not None:
         return existente
 
     if label:
         setattr(mod, '_label', label)
     if not slug:
-        slug = _normalizar_slug(mod.__name__.rsplit('.', 1)[-1])
+        slug = normalizar_slug(mod.__name__.rsplit('.', 1)[-1])
     prefix = url_prefix or f"/{slug}"
 
     bp = Blueprint(slug, mod.__name__, url_prefix=prefix)
     if login:
-        @bp.before_request
-        @login_required
-        def protect():
-            pass
+        protect_blueprint(bp)
 
     generated = _generated_crud(mod, slug)
     custom = _rotas_do_modulo(mod)
@@ -283,10 +265,7 @@ def _iterar_itens_menus(modulo_menu):
 def _blueprint_construcao(slug, label=None, login=True, url_prefix=None):
     bp = Blueprint(slug, f'{__name__}.{slug}', url_prefix=url_prefix or f'/{slug}')
     if login:
-        @bp.before_request
-        @login_required
-        def protect():
-            pass
+        protect_blueprint(bp)
 
     def _construcao():
         return render_template('pages/construcao.html', pagina=label or slug)
@@ -307,7 +286,7 @@ def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True)
         # grupos de menu (com submenus) não têm página própria – não criar blueprint
         if getattr(item, 'submenus', None):
             continue
-        slug = _normalizar_slug(item.page or label)
+        slug = normalizar_slug(item.page or label)
         if slug in vistos:
             continue
         vistos.add(slug)
@@ -321,12 +300,12 @@ def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True)
                 app.register_blueprint(bp)
                 registrados.append(bp.name)
             continue
-        if _blueprint_no_modulo(mod) is not None:
+        if module_blueprint(mod) is not None:
             continue
         if para_site:
             page_cfg = getattr(mod, 'Page', None)
             route = page_cfg.get('route') if isinstance(page_cfg, dict) else None
-            base = _normalizar_slug(route) if route is not None else slug
+            base = normalizar_slug(route) if route is not None else slug
             prefix = f'/{base}'
             if not route and any(r.rule == f'/{base}/' for r in app.url_map.iter_rules()):
                 prefix = f'/site{prefix}'

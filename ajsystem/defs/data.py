@@ -18,6 +18,8 @@ import importlib
 from dataclasses import dataclass, fields as dc_fields
 from typing import Any, Callable, Optional, Union
 
+from ajsystem.core.utils import is_empty
+
 
 # ── Tipos base de campo ──────────────────────────────────────────────────────
 FIELD_TYPES = {
@@ -255,36 +257,27 @@ class Field:
         when = getattr(self, '_pos_form_when', None)
         if when is None:
             return True
-        # helper is_empty local (evita import circular)
-        def _is_empty(v):
-            if v is None:
-                return True
-            if isinstance(v, str):
-                return v == ''
-            if isinstance(v, (list, tuple, dict, set)):
-                return len(v) == 0
-            return False
         if isinstance(when, dict):
             # {'not_empty': True} → só quando valor não vazio
             if 'not_empty' in when:
                 want_not_empty = bool(when['not_empty'])
-                is_empty = _is_empty(fv)
-                return (not is_empty) == want_not_empty
+                empty = is_empty(fv)
+                return (not empty) == want_not_empty
             if 'empty' in when:
                 want_empty = bool(when['empty'])
-                is_empty = _is_empty(fv)
-                return is_empty == want_empty
+                empty = is_empty(fv)
+                return empty == want_empty
             # {'field': 'outro', 'op': 'not_empty'} → avalia outro campo
             if 'field' in when:
                 f_name = when.get('field')
                 op = when.get('op', 'not_empty')
                 other_val = getattr(data, f_name, None) if data is not None else None
                 # se other_val é None e data tem deep_attr? tenta calc_value?
-                is_empty = _is_empty(other_val)
+                empty = is_empty(other_val)
                 if op == 'not_empty':
-                    return not is_empty
+                    return not empty
                 if op == 'empty':
-                    return is_empty
+                    return empty
                 if op == 'eq':
                     return other_val == when.get('value')
                 if op == 'neq':
@@ -307,9 +300,9 @@ class Field:
                 return True
         if isinstance(when, str):
             if when == 'not_empty':
-                return not _is_empty(fv)
+                return not is_empty(fv)
             if when == 'empty':
-                return _is_empty(fv)
+                return is_empty(fv)
         return True
 
     def is_visible_by_pos(self, fv, data, is_explicit: bool) -> bool:
@@ -326,15 +319,7 @@ class Field:
         # agora o `when` acima cobre; fallback para compat: se pos 0 explícito e tag e vazio → esconde
         # (mantido para campos legados sem `when` mas com tag)
         if self.pos_form == 0 and is_explicit and self.tag is not None:
-            def _is_empty(v):
-                if v is None:
-                    return True
-                if isinstance(v, str):
-                    return v == ''
-                if isinstance(v, (list, tuple, dict, set)):
-                    return len(v) == 0
-                return False
-            if _is_empty(fv):
+            if is_empty(fv):
                 return False
         return True
 

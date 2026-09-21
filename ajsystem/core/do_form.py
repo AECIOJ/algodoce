@@ -9,9 +9,9 @@ import re
 from flask import flash, redirect, render_template, request, url_for
 
 from ajsystem.core.adapter import db
-from ajsystem.core.utils import calc_value
+from ajsystem.core.utils import calc_value, is_empty
 from ajsystem.core.form import (
-    _empty_value, _coerce, _is_readonly, _flat_fields,
+    _coerce, _is_readonly, _flat_fields,
     _build_nav, _resolve_delete, _when_allows,
 )
 from ajsystem.core.do_upload import process_image_fields as _process_image_fields
@@ -101,7 +101,7 @@ def _save_session_masters(form, instance, old_vals, is_new):
             if raw is None:
                 continue
             val = _coerce(raw, f)
-            if f.required and _empty_value(val):
+            if f.required and is_empty(val):
                 flash(f'{f.label or f.name} é obrigatório.', 'warning')
                 fields_ok = False
                 continue
@@ -215,10 +215,10 @@ def _save_table_sessions(form, instance):
             for f in savable:
                 if f.name not in vals and f.input in ('checkbox', 'boolean'):
                     vals[f.name] = False
-            if is_new_row and all(_empty_value(v) for v in vals.values()):
+            if is_new_row and all(is_empty(v) for v in vals.values()):
                 continue  # linha adicionada mas não preenchida
             for f in savable:
-                if f.name in vals and f.required and _empty_value(vals[f.name]):
+                if f.name in vals and f.required and is_empty(vals[f.name]):
                     flash(f'{f.label or f.name} é obrigatório.', 'warning')
                     return False
             touched = False
@@ -450,7 +450,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
             else:
                 raw = request.form.get(f.name)
             val = _coerce(raw, f)
-            if f.required and _empty_value(val):
+            if f.required and is_empty(val):
                 flash(f'{f.label or f.name} é obrigatório.', 'warning')
                 fields_ok = False
                 continue
@@ -568,6 +568,6 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
                 if not prop or prop not in _carry:
                     continue
                 cur = getattr(ctx['instance'], f.name, None)
-                if _empty_value(cur):
+                if is_empty(cur):
                     setattr(ctx['instance'], f.name, _coerce(_carry[prop], f))
     return render_template(template, **ctx)

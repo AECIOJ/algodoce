@@ -17,6 +17,7 @@ from flask import jsonify, request, session, url_for
 
 from ajsystem.core.adapter import db, get_uploads_endpoint
 from ajsystem.core.list import _resolve_model
+from ajsystem.core.utils import fk_column_to, model_columns, rel_for_column
 from ajsystem.defs.data import resolve_max_width
 from ajsystem.defs.showcase import (
     CART_SESSION_KEY,
@@ -49,47 +50,18 @@ def get_page_max_width(mod):
     return None
 
 
-def _model_columns(model):
-    table = getattr(model, '__table__', None)
-    return getattr(table, 'columns', None) or {}
-
-
 def _active_field(model):
     """Nome da coluna de ativo/desativado (`ativo`/`active`) ou `None`."""
-    cols = _model_columns(model)
+    cols = model_columns(model)
     for cand in ('ativo', 'active'):
         if cand in cols:
             return cand
     return None
 
 
-def _fk_field_to(model, target_model):
-    """Nome da coluna FK em `model` cujo alvo é `target_model`, ou `None`."""
-    mapper = getattr(model, '__mapper__', None)
-    if mapper is None or target_model is None:
-        return None
-    for rel in mapper.relationships.values():
-        if getattr(rel, 'mapper', None) is not None and rel.mapper.class_ is target_model:
-            for col in getattr(rel, 'local_columns', None) or []:
-                return col.name
-    return None
-
-
-def _rel_for_column(model, column_name):
-    """Nome da relationship cuja coluna local é `column_name`, ou `None`."""
-    mapper = getattr(model, '__mapper__', None)
-    if mapper is None or not column_name:
-        return None
-    for rel in mapper.relationships.values():
-        for col in getattr(rel, 'local_columns', None) or []:
-            if col.name == column_name:
-                return rel.key
-    return None
-
-
 def _validate_show_fields(sc, model):
     """Valida que os campos de `show` existem na entidade/modelo."""
-    cols = _model_columns(model)
+    cols = model_columns(model)
     for campo, _pos in sc['show']:
         if campo not in cols:
             raise ValueError(
@@ -158,8 +130,8 @@ def resolve_showcase(mod):
     sc['filter_entity'] = filter_name
     sc['filter_model'] = filter_model
     sc['filter_active_field'] = filter_active
-    sc['category_field'] = _fk_field_to(model, filter_model) if filter_model else None
-    sc['category_rel'] = _rel_for_column(model, sc['category_field'])
+    sc['category_field'] = fk_column_to(model, filter_model) if filter_model else None
+    sc['category_rel'] = rel_for_column(model, sc['category_field'])
 
     client_fields = resolve_client_fields(cfg.get('client_fields'))
     sc['client_fields'] = client_fields

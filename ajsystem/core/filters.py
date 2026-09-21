@@ -12,19 +12,6 @@ from sqlalchemy import Integer as _Integer
 from sqlalchemy import extract
 
 
-def _deep_attr(obj, path):
-    if path is None:
-        return None
-    for part in path.split('.'):
-        if obj is None:
-            return None
-        if not isinstance(obj, dict):
-            obj = getattr(obj, part, None)
-        else:
-            obj = obj.get(part)
-    return obj
-
-
 def resolve_filters(config, request_args):
     """Gera (initial_filters, active_filters) a partir do config e query args."""
     initial = {}

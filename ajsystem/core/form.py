@@ -113,16 +113,6 @@ def _build_nav(model, current_id, fixed=None):
     }
 
 
-def _empty_value(val):
-    if val is None:
-        return True
-    if isinstance(val, str):
-        return val == ''
-    if isinstance(val, (list, tuple, dict, set)):
-        return len(val) == 0
-    return False
-
-
 # Parse de máscaras de data/hora centralizado em `core/formats.py`.
 from ajsystem.core.formats import (  # noqa: F401
     _coerce_masked_datetime, _MASK_TOKENS, _MASK_TEXT_TOKENS, _MASK_TOKEN_ORDER,

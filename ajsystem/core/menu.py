@@ -5,18 +5,12 @@ Reescrito do zero observando `core/old/menu.py`. Consome a estrutura
 página `ajsystem.construcao`.
 """
 import importlib
-import unicodedata
 
-from flask import Blueprint, url_for, request, current_app
+from flask import url_for, request, current_app
 from flask_login import current_user
 
 from ajsystem.core.adapter import APP
-
-
-def _normalizar_slug(label: str) -> str:
-    s = unicodedata.normalize('NFKD', label or '')
-    s = ''.join(c for c in s if not unicodedata.combining(c))
-    return s.lower().strip()
+from ajsystem.core.utils import module_blueprint, normalizar_slug
 
 
 def _modulo_pagina(slug: str, modulo_ini=None):
@@ -25,14 +19,6 @@ def _modulo_pagina(slug: str, modulo_ini=None):
         return importlib.import_module(f'{modulo_ini or ROUTES_BASE + ".sys"}.{slug}')
     except ImportError:
         return None
-
-
-def _blueprint_do_modulo(mod):
-    for name in dir(mod):
-        obj = getattr(mod, name, None)
-        if isinstance(obj, Blueprint):
-            return obj
-    return None
 
 
 def _endpoint_lista(bp):
@@ -64,13 +50,13 @@ def url_do_item(item, label=None):
         try:
             return url_for(item.url)
         except Exception:
-            slug = _normalizar_slug(item.page or label or '')
+            slug = normalizar_slug(item.page or label or '')
             return url_for('ajsystem.construcao', pagina=slug)
-    slug = _normalizar_slug(item.page or label or '')
+    slug = normalizar_slug(item.page or label or '')
     mod = _modulo_pagina(slug)
     if mod is None:
         return url_for('ajsystem.construcao', pagina=slug)
-    bp = _blueprint_do_modulo(mod)
+    bp = module_blueprint(mod)
     if bp is None:
         return url_for('ajsystem.construcao', pagina=slug)
     endpoint = _endpoint_lista(bp)
@@ -104,7 +90,7 @@ def menus_para_json():
 
 def _achar_por_slug(itens, slug):
     for label, item in itens.items():
-        if _normalizar_slug(item.page or label) == slug:
+        if normalizar_slug(item.page or label) == slug:
             return label, item
     return None
 

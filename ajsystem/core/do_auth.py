@@ -20,6 +20,7 @@ from flask_login import (
 )
 
 from ajsystem.core.adapter import db, Usuario, Configuracao, APP, login_manager
+from ajsystem.core.utils import protect_blueprint
 
 bp = Blueprint("auth", __name__)
 bp_seguranca = Blueprint("seguranca", __name__, url_prefix="/seguranca")
@@ -243,10 +244,7 @@ def logout():
     return resp
 
 
-@bp_seguranca.before_request
-@login_required
-def protect():
-    pass
+protect_blueprint(bp_seguranca)
 
 
 @bp_seguranca.route("/", methods=["GET", "POST"])
