@@ -20,8 +20,6 @@ class Previsao(db.Model):
     def status(self):
         if self.transacao and self.transacao.cancelado:
             return 8
-        if self.transacao and sum(float(p.previsto) for p in self.transacao.previsoes) < float(self.transacao.valor):
-            return 0
         if self.realizado is None:
             return 1
         base = float(self.previsto) + float(self.variacao or 0)

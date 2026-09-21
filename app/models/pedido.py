@@ -18,13 +18,13 @@ class Pedido(db.Model):
     faturado_em = db.Column(db.Date, nullable=True)
     cancelado_em = db.Column(db.Date, nullable=True)
     entregue_em = db.Column(db.Date, nullable=True)
-    status = db.Column(db.Integer, nullable=False, default=0)
     observacao = db.Column(db.Text)
     valor = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     acrescimo = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     desconto = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     carteira_id = db.Column(db.Integer, db.ForeignKey("carteira.id"), nullable=True)
     forminhas = db.Column(db.Integer, nullable=False, default=0)
+    status = db.Column(db.Integer, nullable=False, default=0)
 
     producao_id = db.Column(
         db.Integer, db.ForeignKey("producao.id"), nullable=True

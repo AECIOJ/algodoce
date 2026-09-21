@@ -109,10 +109,20 @@ def pre_get_transacao(mod, id):
 
 
 def post_save_transacao(instance, changed, old_vals):
-    """`post_save` de receber/pagar: vincula a transação ao pedido/compra."""
+    """`post_save` de receber/pagar: vincula a transação ao pedido/compra.
+
+    Persiste os agregados físicos calculados a partir das previsões
+    (valor = Σ previsto, prazo = resumo dos vencimentos, variacao e saldo
+    como no list), além do status — mesmo no fluxo manual (sem origem).
+    """
     from ajsystem.core.memory import carry_take
     carry = carry_take(request.args.get('carry')) or {}
-    instance.total_previsto = sum(_valor(v.previsto) for v in (instance.previsoes or []))
+    previsoes = instance.previsoes or []
+    instance.valor = sum(_valor(v.previsto) for v in previsoes)
+    instance.prazo = instance.calc_prazo()
+    instance.variacao = sum(_valor(v.variacao) for v in previsoes)
+    instance.saldo = sum(_valor(v.previsto) + _valor(v.variacao)
+                         - _valor(v.realizado) for v in previsoes)
     instance.status = instance.calc_status()
     pid = request.args.get('origem_pedido', type=int)
     if pid:
@@ -141,3 +151,5 @@ def post_save_transacao(instance, changed, old_vals):
             db.session.commit()
             c.status = c.calc_status()
             db.session.commit()
+        return
+    db.session.commit()
