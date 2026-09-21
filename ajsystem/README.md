@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.09.16.0009 — Manual do Framework
+# AJSYSTEM 1.26.09.21.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.09.16.0009`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico em `README.old`. Versão do app hospedeiro em `app/config.py:APP['version']`.
+> Vinculado a `ajsystem/version` (`1.26.09.21.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico em `README.old`. Versão do app hospedeiro em `app/config.py:APP['version']`.
 
 ---
 
@@ -227,7 +227,36 @@
 | Prop | Tipo | Valores | Impacto |
 |---|---|---|---|
 | `fields` | `str\|list\|dict` | Formatos unificados (resolvidos por `normalize_fieldspec`):<br/>`'Entidade'` — expande todos (pos_managed=True)<br/>`['campo1','campo2']` — explícitos (pos_managed=False)<br/>`['Entidade.campo1','Outra.campo2']` — multi-entidade com prefixo<br/>`{'Entidade':['c1','c2'],'Outra':['c3']}` — **NOVO**: multi-entidade agrupado | `normalize_fieldspec` centraliza resolução; `_pos_managed` controla se `pos_form/pos_list` filtram |
-| `sessions` | `dict` | `{Nome:{fields,table,query,buttons}}` (`fields` 1:1 child vs pai, `table` editável, `query` readonly) | `form.html: sessions` + `item_table.html` |
+| `sessions` | `dict` | `{Nome:{fields,table,query,totals,buttons}}` (`fields` 1:1 child vs pai, `table` editável, `query` readonly, `totals` em `table`/`query`) | `form.html: sessions` + `item_table.html` |
+
+### 5.5.1 `totals` em sessões `table`/`query`
+
+Totalização opcional da tabela da sessão — editável (`table`) ou readonly (`query`). Aceita:
+
+- **lista de nomes** `['qtd', 'valor']` — soma as colunas na linha de totais;
+- **lista mista** `['qtd', {'valor': 'total'}]` — o item string soma só a coluna; o item `dict {coluna: campo_master}` soma **e** grava no `<input name="campo_master">` do master (ex.: `total`);
+- **string única** `'valor'` — soma a coluna.
+
+A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` (ex.: `valor = qtd * preco`) usam a própria expressão no total; campos monetários usam a moeda da coluna (`data-total-currency`).
+
+```python
+# Orcamento — sessão 'Itens do Orçamento' (table editável)
+'Itens do Orçamento': {
+    'table': {
+        'columns': ['OrcamentoItem'],          # qtd, preco editáveis; valor = calc
+        'totals': ['qtd', {'valor': 'total'}], # qtd soma; valor soma e grava no master `total`
+    },
+},
+
+# Conta — sessão 'Pedidos' (query readonly com grupos)
+'Pedidos': {
+    'query': {
+        'columns': {'Pedido': ['id', 'pedido_em', 'total', 'status']},
+        'groups': 'status',                    # agrupa por status (subtotais)
+        'totals': ['total',],                  # + total geral no rodapé
+    },
+},
+```
 | `template` | `str` | path | se setado, ignora `fields` |
 | `readonly` | `bool\|callable` | `lambda q: q.pedido_id is not None` | `do_form.py:79` `_is_readonly` desabilita tudo |
 | `delete` | `bool\|dict\|callable` | `True`, `{'when':[Model]}`, `lambda` | `_resolve_delete` + `_when_allows` |
@@ -324,3 +353,13 @@ Page = {
 | `POS_EXPLICIT_NOT_EMPTY` | `{'pos':0,'when':{'not_empty':True}}` | `pos:0` explícito só quando valor≠vazio (só `form`, `ajsystem/defs/data.py:234` `is_visible_by_pos`) |
 
 > **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `app/config.py:APP['version']` e neste README. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:286`) valida chaves (`FieldConfigError`).
+
+---
+
+## 6. Histórico de versões
+
+### 1.26.09.21.0001
+- **`totals` em sessões `table`/`query`:** linha de totais no `<tfoot>` da tabela editável (corrige regressão em que só sessões `query` renderizavam) e **total geral** na tabela agrupada (`session['totals']` via `aggregate_rows`).
+- **Refactor de duplicação:** helpers de slug/blueprint/mapper/FK centralizados em `ajsystem/core/utils.py` (`normalizar_slug`, `snake_case`, `is_empty`, `module_blueprint`, `model_columns`, `fk_column_to`, `fk_target`, `rel_for_column`, `has_back_rel`, `protect_blueprint`) — eliminadas cópias em `auto.py`, `menu.py`, `do_list.py`, `do_auth.py`, `cart.py`, `showcase.py`, `form.py`, `pdf.py`, `filters.py`, `defs/cart.py`, `defs/showcase.py`, `defs/data.py`, `do_form.py`, `init.py`. Rede **−66 linhas** (158+/224−).
+- **`is_empty` unificado** em `core/utils.py` (substitui `_empty_value`/`_is_empty` locais de `form.py`, `do_form.py` e `defs/data.py`); `protect` → `protect_blueprint` (3×).
+- Dead code removido: `_deep_attr` sem uso em `pdf.py` e `filters.py`.
