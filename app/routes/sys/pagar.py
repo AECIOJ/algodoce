@@ -13,12 +13,8 @@ Schema = {
                                 'when': 'tipo = 2 AND pai_id IS NOT NULL'}},
         'historico': {'pos_list': 2},
         'cancelado': {'pos_list': 0, 'pos_form': 5},
-        'valor': {'calc': {'type': 'agg', 'source': 'sum(Previsao.previsto)',
-                           'diff': 'Aviso de Inconsistência: Valor difere da soma das previsões atuais.'},
-                  'readonly': True, 'pos_form': 0},
-        'prazo': {'calc': {'type': 'call', 'source': 'calc_prazo',
-                           'diff': 'Aviso de Inconsistência: Prazo difere do resumo dos vencimentos atuais.'},
-                  'readonly': True, 'pos_form': 0},
+        'valor': {'readonly': False, 'pos_form': 1, 'carry': 'valor'},
+        'prazo': {'readonly': False, 'pos_form': 1},
         'variacao': {'calc': {'type': 'agg', 'source': 'sum(Previsao.variacao)',
                               'diff': 'Aviso de Inconsistência: Variação difere da soma das variações das previsões atuais.'},
                      'readonly': True, 'pos_form': 0},
@@ -62,11 +58,15 @@ Page = {
             'post_save': post_save_transacao,
             'sessions': {
                 'Previsões': {
-                    'fields': ['prazo', 'valor', 'variacao', 'saldo'],
                     'table': {
                         'columns': ['Previsao'],
-                        'totals': [{'previsto': 'valor'}, 'realizado', 'variacao', 'saldo'],
+                        'totals': ['previsto', 'realizado', 'variacao', 'saldo'],
                     },
+                    'buttons': [
+                        {'label': 'Gerar', 'icon': 'arrow-path',
+                         'cls': 'btn-gerar-previsoes btn-success btn-sm',
+                         'js': 'gerarPrevisoes(this)'},
+                    ],
                 },
             },
         },

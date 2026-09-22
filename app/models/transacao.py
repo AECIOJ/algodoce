@@ -12,9 +12,9 @@ class Transacao(db.Model):
     operacao_id = db.Column(db.Integer, db.ForeignKey("operacao.id"), nullable=True)
     fatura = db.Column(db.String(50), nullable=True)
     valor = db.Column(db.Numeric(12, 2), nullable=False, default=0)
-    prazo = db.Column(db.String(50), nullable=False, default='')
     variacao = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     saldo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    prazo = db.Column(db.String(100), nullable=False, default='')
     historico = db.Column(db.Text, nullable=True)
     cancelado = db.Column(db.Date, nullable=True)
     status = db.Column(db.Integer, nullable=False, default=0)
@@ -55,7 +55,7 @@ Entity = {
     'conta_id':     {'type': 'FK', 'label': 'Conta', 'width': 15, 'required': True,},
     'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15, 'required': True,},
     'fatura':       {'type': 'TEXT', 'width': 12},
-    'prazo':        {'type': 'TEXT', 'width': 10, 'readonly': True},
+    'prazo':        {'type': 'TEXT', 'width': 20, 'readonly': True},
     'valor':        {'type': 'NUM', 'width': 12, 'currency': 1, 'readonly': True},
     'variacao':     {'type': 'NUM', 'width': 10, 'currency': 1, 'readonly': True},
     'saldo':        {'type': 'NUM', 'width': 10, 'currency': 1, 'readonly': True},
