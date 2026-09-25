@@ -10,7 +10,7 @@ var _PT_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
 var _MASK_TOKENS = ['aaaa', 'yyyy', 'mmm', 'ddd', 'aa', 'yy', 'dd', 'mm', 'hh', 'ii', 'ss', '9', 'A', 'N', '#'];
 var _MASK_COMMANDS = ['B', 'C', 'L', 'R', 'T', 'U', 'X'];
 var _TEXT_COMMANDS = ['U', 'L', 'C', 'T'];
-var _MASK_CONECTORES = ['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem',
+var _MASK_CONNECTORS = ['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem',
                         'em', 'no', 'na', 'nos', 'nas', 'por', 'ao', 'aos', 'às', 'e',
                         'ou', 'a', 'o', 'as', 'os', 'um', 'uma', 'uns', 'umas', 'num',
                         'numa', 'dum', 'duma', 'pelo', 'pela', 'pelos', 'pelas', 'pro',
@@ -129,7 +129,7 @@ function _maskTitleCase(text) {
     w = words[i];
     if (!w) continue;
     lw = w.toLowerCase();
-    if (i > 0 && _MASK_CONECTORES.indexOf(lw) >= 0) out.push(lw);
+    if (i > 0 && _MASK_CONNECTORS.indexOf(lw) >= 0) out.push(lw);
     else out.push(w.charAt(0).toUpperCase() + lw.slice(1));
   }
   return out.join(' ');

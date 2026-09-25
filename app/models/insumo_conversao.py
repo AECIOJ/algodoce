@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import UND_LIST
+from app.constantes import UND_INSUMO
 
 
 class InsumoConversao(db.Model):
@@ -21,6 +21,6 @@ class InsumoConversao(db.Model):
 Entity = {
     'id':            {'type': 'ID'},
     'insumo_id': {'type': 'DK', 'label': 'Insumo'},
-    'und':         {'type': 'LIST', 'options': UND_LIST, 'required': True},
+    'und':         {'type': 'LIST', 'options': UND_INSUMO, 'required': True},
     'fator':         {'type': 'NUM', 'required': True, 'decimals': 6},
 }

@@ -490,7 +490,7 @@ function removeRow(btn) {
   if (window.marcarFormAlterado) marcarFormAlterado();
 }
 function addChildRow(btn) {
-  var wrap = btn.closest('.child-table-wrap');
+  var wrap = btn.closest('.child-table-wrap') || document.querySelector('.child-table-wrap');
   if (!wrap) return;
   var tbody = wrap.querySelector('.it-desktop tbody[data-rel]');
   if (!tbody) return;

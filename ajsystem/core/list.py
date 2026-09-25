@@ -51,7 +51,53 @@ def field_filter_options(f: Field):
     # boolean sem options, mas checklist precisa Sim/Não
     if f.input in ('boolean', 'checkbox'):
         return {'true': 'Sim', 'false': 'Não'}
-    return None
+    _cached = getattr(f, '_fopts', _NO_OPTIONS)
+    if _cached is not _NO_OPTIONS:
+        return _cached
+    opts = _lookup_filter_options(f)
+    f._fopts = opts
+    return opts
+
+
+_NO_OPTIONS = object()
+
+
+def _lookup_filter_options(f: Field):
+    """Options de filtro para campo FK com lookup: consulta a tabela alvo.
+
+    `f.lookup` é o dict resolvido por `resolve_lookup` (inclui `target`,
+    `display`, `value` e opcional `when`). O `when` filtra a lista — o valor
+    selecionado é a CHAVE (`value`, normalmente `id`); o filtro aplica sobre a
+    coluna FK. `pos_filter: 1` força texto e `pos_filter: 0` retira do painel.
+    """
+    lk = getattr(f, 'lookup', None)
+    if not isinstance(lk, dict):
+        return None
+    tgt = lk.get('target')
+    if tgt is None or getattr(tgt, '__table__', None) is None:
+        return None
+    display = lk.get('display') or 'id'
+    value = lk.get('value') or 'id'
+    try:
+        opts = getattr(tgt, 'query', None)
+        if opts is None:
+            return None
+        when = lk.get('when')
+        if when:
+            from ajsystem.defs.data import apply_lookup_when
+            opts = apply_lookup_when(opts, tgt, when)
+        out = {}
+        for row in opts.all():
+            key = getattr(row, value, None)
+            if key is None:
+                continue
+            label = getattr(row, display, None)
+            if label is None:
+                label = key
+            out[str(key)] = str(label)
+        return out
+    except Exception:
+        return None
 
 
 def _cell_width_ch(text):
@@ -143,6 +189,8 @@ def _content_width_ch(f):
 
 def field_to_column(f: Field) -> dict:
     col = {'label': f.label or f.name, 'field': f.name, 'input': f.input}
+    if getattr(f, 'card_path', None):
+        col['card_path'] = f.card_path
     DEFAULT_WIDTHS = {'boolean': 6, 'number': 8, 'date': 12, 'select': 15}
     if f.width:
         w = f.width
@@ -339,6 +387,8 @@ def _build_fields_from_merged(field_names: list, merged: dict, pos_managed: bool
     for name in field_names:
         base = merged.get(name, {}) or {}
         base = base if isinstance(base, dict) else {}
+        if pos_managed and base.get('memory'):
+            continue  # campo `memory`: só onde citado explicitamente
         f = build_field(name, base)
         f._pos_managed = pos_managed
         fields.append(f)

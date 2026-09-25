@@ -176,6 +176,7 @@ class Field:
     calc: Any = None  # valor calculado: constante | string expr | callable | dict {'type','source','diff'}
     carry: Optional[str] = None  # campo serializado (pós-map) da página origem; o motor preenche o valor no GET
     tag: Any = None
+    memory: bool = False  # campo apenas de memória: renderiza/editável, mas nunca persiste e não entra em expansão automática
 
     # interno: condição `when` de `pos_form` dict (None | dict | callable | str)
     _pos_form_when: Any = None
@@ -310,7 +311,7 @@ class Field:
 
         - `pos_form 0` em expansão (`_pos_managed=True`) → oculto (field_body False)
         - `pos_form 0` em lista explícita (`is_explicit=True`) → visível só se `when` permitir (default: `not_empty`)
-        - `pos_form dict {pos, when}` → avalia `when` (ex.: `POS_EXPLICIT_NOT_EMPTY`)
+        - `pos_form dict {pos, when}` → avalia `when` (ex.: `POS_0_NOT_EMPTY`)
         """
         # pos_form dict com when: avalia condição
         if getattr(self, '_pos_form_when', None) is not None:
@@ -399,8 +400,16 @@ def validate_field_config(cfg: dict, where: str, campo: str) -> None:
 
 # ── Resolução Entity (model) / Schema (rota) ────────────────────────────────
 def _entidade_fields(ent_cfg) -> dict:
-    """Campos de uma entrada de `Entity`, ignorando chaves reservadas `__*`."""
-    return {k: v for k, v in (ent_cfg or {}).items() if not k.startswith('__')}
+    """Campos de uma entrada de `Entity`, ignorando chaves reservadas `__*` e
+    campos `memory` (só de memória: não entram na expansão automática)."""
+    out = {}
+    for k, v in (ent_cfg or {}).items():
+        if k.startswith('__'):
+            continue
+        if isinstance(v, dict) and v.get('memory'):
+            continue
+        out[k] = v
+    return out
 
 
 def entity_fields(model_cls) -> dict:
@@ -566,21 +575,30 @@ def page_entity_name(page: dict, default: str = '') -> str:
     return default
 
 
-def resolve_entity_fields(schema: dict, model_cls, entity_name: str) -> dict:
-    """Resolve os campos de uma entidade (merge Entity(model) ∪ Schema) já
-    validando as chaves de cada config contra os conjuntos aceitos.
-    Preserva a ordem original definida no model (Entity).
+def resolve_entity_fields(schema: dict, model_cls, entity_name: str, layer=None) -> dict:
+    """Resolve os campos de uma entidade já validando as chaves de cada config
+    contra os conjuntos aceitos. Preserva a ordem original definida no model
+    (Entity).
+
+    Precedência por campo (camadas crescentes vencem):
+      `{**Entity, **layer, **Schema}`
+    `layer` é um dict opcional `{entiade: {campo: cfg}}` (ex. defaults de `card`
+    vindos do Page) aplicado entre Entity e Schema.
     """
     base = entity_fields(model_cls)
     delta = (schema or {}).get(entity_name, {}) or {}
+    mid = (layer or {}).get(entity_name, {}) or {}
     out = {}
     # Primeiro adiciona todos da base na ordem exata em que foram definidos
     for n in base:
         b = base.get(n, {}) or {}
+        m = mid.get(n, {}) or {}
         d = delta.get(n, {}) or {}
-        merged = {**b, **d}
+        merged = {**b, **m, **d}
         if b:
             validate_field_config(b, 'Entity', n)
+        if m:
+            validate_field_config(m, 'Page (card)', n)
         if d:
             validate_field_config(d, 'Schema', n)
         out[n] = merged
@@ -588,8 +606,11 @@ def resolve_entity_fields(schema: dict, model_cls, entity_name: str) -> dict:
     for n in delta:
         if n not in out:
             d = delta.get(n, {}) or {}
+            m = mid.get(n, {}) or {}
+            if m:
+                validate_field_config(m, 'Page (card)', n)
             validate_field_config(d, 'Schema', n)
-            out[n] = d
+            out[n] = {**m, **d}
     return out
 
 
@@ -688,6 +709,9 @@ def resolve_lookup(field, source_model):
     cfg['replaces'] = _os.get('replaces') if isinstance(_os, dict) else None
 
     target = fk_target_model(source_model, field.name) if source_model else None
+    if target is None and cfg.get('model'):
+        # campo `memory` (ou FK sem coluna no pai): alvo vem do próprio lookup
+        target = MODEL_MAP.get(str(cfg['model']).lower())
     display = cfg.get('display')
     if not display:
         if target is not None:
@@ -710,6 +734,8 @@ def resolve_lookup(field, source_model):
         'when': cfg.get('when'),
         'replaces': cfg.get('replaces'),
         'query': cfg.get('query'),
+        'model': cfg.get('model'),
+        'target': target,
         'path': f'{relation}.{display}',
     }
 
@@ -917,6 +943,8 @@ def _build_fields_from_names(field_names: list[str], merged: dict, pos_managed: 
     for name in field_names:
         base = merged.get(name, {}) or {}
         base = base if isinstance(base, dict) else {}
+        if pos_managed and base.get('memory'):
+            continue  # campo `memory`: só onde citado explicitamente
         f = build_field(name, base)
         f._pos_managed = pos_managed
         fields.append(f)

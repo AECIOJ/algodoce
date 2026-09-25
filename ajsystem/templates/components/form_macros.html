@@ -342,6 +342,12 @@
 {% endif %}
 {% set _ew_disabled = _ew_empty|length > 0 %}
 {% if show %}
+{% if btn.js %}
+<button type="button" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1" onclick="{{ btn.js }}">
+  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+  {{ btn.label }}
+</button>
+{% else %}
 {% if btn.endpoint %}
 {% set _params = {btn.url_var: instance|attr(btn.url_var) if instance else none} %}
 {% if btn.extra_params %}{% set _ = _params.update(btn.extra_params) %}{% endif %}
@@ -372,6 +378,7 @@
   {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
   {{ btn.label }}
 </a>
+{% endif %}
 {% endif %}
 {% endif %}
 {% endif %}

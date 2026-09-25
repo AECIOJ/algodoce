@@ -26,7 +26,7 @@ def upgrade():
     op.add_column('pedidos', sa.Column('faturado_em', sa.Date(), nullable=True))
     op.add_column('pedidos', sa.Column('cancelado_em', sa.Date(), nullable=True))
 
-    # Reordenar vocabulário PEDIDO_STATUS: legado 1(Produzindo)->2, 2(Pronto)->3
+    # Reordenar vocabulário STATUS_PEDIDO: legado 1(Produzindo)->2, 2(Pronto)->3
     # (produção é fase futura; sem datas, os valores são preservados raw).
     conn = op.get_bind()
     conn.execute(sa.text("UPDATE pedidos SET status = 2 WHERE status = 1"))

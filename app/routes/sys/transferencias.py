@@ -1,9 +1,10 @@
-from datetime import date
+from ajsystem.defs.constants import TODAY
 from app.models.transferencia import Transferencia
 from app.models.movimento import Movimento
 
 Schema = {
     'Transferencia': {
+        'data': {'default': TODAY},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta transferência difere do status calculado.'},
                    'pos_form': 3, 'pos_filter': 3, 'tag': {'colors': {'Editando': 'neutral', 'Pendente': 'warning', 'Fechada': 'success'}}},
@@ -13,7 +14,7 @@ Schema = {
         'recurso_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
         'conta_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
                                 'when': {'ativo': True}}},
-        'data': {'default': date.today},
+        'data': {'default': TODAY},
         'previsao_id': {'pos_form': 0},
         'operacao_id': {'pos_form': 0},
         'variacao': {'pos_form': 0},

@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from ajsystem.core.utils import CONECTORES
+from ajsystem.core.utils import CONNECTORS
 from ajsystem.core.do_report import print_report, filter_select
 from app.models.operacao import Operacao
 from app.reports import PLANO
@@ -17,7 +17,7 @@ def _transformar_nome(nome, pai_id):
     words = nome.strip().split()
     resultado = []
     for i, w in enumerate(words):
-        if i > 0 and w.lower() in CONECTORES:
+        if i > 0 and w.lower() in CONNECTORS:
             resultado.append(w.lower())
         else:
             resultado.append(w[0].upper() + w[1:].lower() if w else w)

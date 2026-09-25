@@ -1,4 +1,5 @@
 from app.models.movimento import Movimento
+from ajsystem.defs.constants import TODAY
 from app.routes.sys.movtos import (
     post_save_movto_link, _pre_get_movto, excluir_movto, _validar_origem_exclusiva,
 )
@@ -19,6 +20,7 @@ PREVISOES = {
 
 Schema = {
     'Movimento': {
+        'data': {'default': TODAY},
         'tipo': {'pos_filter': 9, 'default': 'E'},
         'recurso_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
         'conta_id': {'lookup': {'display': 'nome', 'fields': ['nome'],

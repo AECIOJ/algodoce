@@ -11,10 +11,10 @@ class Previsao(db.Model):
     previsto = db.Column(db.Numeric(12, 2), nullable=False)
     realizado = db.Column(db.Numeric(12, 2), nullable=True)
     variacao = db.Column(db.Numeric(12, 2), nullable=True, server_default="0")
-    carteira_id = db.Column(db.Integer, db.ForeignKey("carteira.id"), nullable=True)
+    recurso_id = db.Column(db.Integer, db.ForeignKey("recurso.id"), nullable=True)
     taxa = db.Column(db.Numeric(5, 2), nullable=False, default=0)
 
-    carteira = db.relationship("Carteira", uselist=False)
+    recurso = db.relationship("Recurso", uselist=False)
 
     @property
     def status(self):
@@ -35,7 +35,7 @@ Entity = {
     'transacao_id': {'type': 'DK'},
     'documento':    {'type': 'TEXT', 'label': 'Documento'},
     'vencimento':   {'type': 'DATA', 'label': 'Vencimento', 'required': True},
-    'carteira_id':  {'type': 'FK', 'label': 'Carteira'},
+    'recurso_id':   {'type': 'FK', 'label': 'Recurso'},
     'previsto':     {'type': 'NUM', 'label': 'Previsto', 'required': True, 'currency': 1},
     'realizado':    {'type': 'NUM', 'label': 'Realizado', 'currency': 1},
     'variacao':     {'type': 'NUM', 'label': 'Variação', 'currency': 1},

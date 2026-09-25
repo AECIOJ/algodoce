@@ -18,13 +18,26 @@ from ajsystem.core.formats import (  # noqa: F401
     fmt_datetime, _title_case, apply_transform,
     mask_strip, fmt_mask_cmd, parse_mask_commands,
 )
-from ajsystem.defs.constants import CONECTORES, CURRENCY, DEFAULT_CURRENCY  # noqa: F401
+from ajsystem.defs.constants import CONNECTORS, CURRENCY, DEFAULT_CURRENCY  # noqa: F401
 
 
-def as_options(items):
-    """Converte um iterável em dict de opções {valor: rótulo} idênticos
-    para fields `LIST` (ex.: ['Kg', 'G'] -> {'Kg': 'Kg', 'G': 'G'})."""
-    return {i: i for i in items}
+def as_options(*itens, slug=True):
+    """Dict de opções {valor: rótulo} para fields `LIST` (varargs, sem `[]`).
+
+    Cada item é um rótulo — a chave deriva do rótulo via `normalizar_slug`
+    com espaço convertido em `_` (ex.: 'Chá de Bebê' → 'cha_de_bebe') — ou um
+    par `(chave, rótulo)` quando a chave não deriva do rótulo.
+    `slug=False` usa o próprio rótulo como chave (identidade).
+    """
+    opts = {}
+    for item in itens:
+        if isinstance(item, (tuple, list)):
+            key, label = item
+        else:
+            label = item
+            key = label if not slug else re.sub(r'\s+', '_', normalizar_slug(label))
+        opts[key] = label
+    return opts
 
 
 def deep_attr(obj, path):

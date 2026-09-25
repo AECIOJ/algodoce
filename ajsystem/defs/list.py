@@ -25,6 +25,7 @@ class List:
     detail_data: Optional[str] = None
     buttons: Optional[list] = None
     template: Optional[str] = None
+    master: Optional[str] = None
     linha: Optional[list] = None
     card_idx: Optional[list] = None
 

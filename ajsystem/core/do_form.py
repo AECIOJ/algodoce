@@ -92,6 +92,8 @@ def _save_session_masters(form, instance, old_vals, is_new):
         for f in session.get('fields') or []:
             if _calc_virtual(f):
                 continue
+            if getattr(f, 'memory', False):
+                continue  # campo só de memória: não persiste no pai
             if f.input == 'image':
                 continue
             if f.input == 'multi':
@@ -315,10 +317,14 @@ def _build_lookup(form, extra_lookup=None, instance=None):
         if f.name in lookup:
             return
         tgt = fk_target_model(src_model, f.name)
+        resolved = getattr(f, 'lookup', None)
+        if tgt is None and getattr(f, 'memory', False) and isinstance(resolved, dict) and resolved.get('model'):
+            # campo `memory`: model alvo declarado no próprio lookup
+            from ajsystem.defs.data import MODEL_MAP
+            tgt = MODEL_MAP.get(str(resolved['model']).lower())
         if tgt is None or getattr(tgt, '__table__', None) is None:
             return
         opts = tgt.query
-        resolved = getattr(f, 'lookup', None)
         has_when = isinstance(resolved, dict) and resolved.get('when')
         if isinstance(resolved, dict) and resolved.get('query'):
             lookup[f.name] = []  # busca em modal: sem options, widget próprio

@@ -1,7 +1,6 @@
-from datetime import date
 from flask import flash, redirect, url_for
 from ajsystem.core.do_report import print_report
-from ajsystem.defs.constants import POS_EXPLICIT_NOT_EMPTY
+from ajsystem.defs.constants import TODAY, POS_0_NOT_EMPTY
 from app.models.compra import Compra
 from app.models.compra_item import CompraItem
 from app.reports.compras import COMPRA
@@ -140,7 +139,7 @@ def _btn_enviar_action(instance):
 
 Schema = {
     'Compra': {
-        'data': {'default': date.today},
+        'data': {'default': TODAY},
         'fornecedor_id': {'label': 'Fornecedor',
                            'lookup': {'display': 'nome', 'fields': ['nome', 'telefone'],
                                       'when': {'ativo': True, 'tipo': [1, 2]}}},
@@ -150,9 +149,9 @@ Schema = {
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta compra difere do status calculado.'},
                    'pos_form': 3, 'pos_filter': 3, 'tag': {'colors': {0: 'warning', 1: 'info', 2: 'info', 6: 'warning', 8: 'success', 9: 'error'}}},
-        'transacao_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,
+        'transacao_id': {'pos_form': POS_0_NOT_EMPTY, 'pos_list': 0,
                          'tag': {'link': 'pagar.form', 'color': 'info'}},
-        'movto_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY, 'pos_list': 0,
+        'movto_id': {'pos_form': POS_0_NOT_EMPTY, 'pos_list': 0,
                      'tag': {'link': 'pagamentos.form', 'color': 'info'}},
 'valor': {'calc': {'type': 'agg', 'source': 'sum(CompraItem.valor)',
                             'diff': 'Aviso de Inconsistência: Total registrado desta compra difere da soma dos itens atuais.'},

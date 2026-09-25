@@ -1,7 +1,10 @@
 /* Botão "Gerar" das previsões em Contas a Receber/Pagar.
  *
- * Client-side: monta as linhas na tabela de previsões a partir do `prazo`
- * (campo do mestre) e do `valor`; o Salvar do form persiste tudo junto.
+ * Client-side: monta as linhas na tabela de previsões distribuindo o `ratear`
+ * (valor a ratear, campo só-exibição do mestre) conforme o `prazo`; preenche
+ * vencimento, previsto, recurso e documento (fatura/P#/C# + parcela); o Salvar
+ * do form persiste tudo junto. Mantém ao vivo os agregados só-exibição
+ * (previsto/realizado/variacao/saldo) e o `ratear` (= valor − previsto).
  * Espelha app/utils.parse_prazo_recebimento (sem data de entrega).
  *
  * Carregado em receber/pagar pelo hook `_editor_js` (ver transacoes.py).
@@ -89,30 +92,49 @@
   }
   function gerarBtn() { return document.querySelector('.btn-gerar-previsoes'); }
 
-  function somaPrevisto(w) {
+  function vinculada() {
+    if (val('pedido_id') || val('compra_id')) return true;
+    var qs = new URLSearchParams(window.location.search);
+    return qs.has('origem_pedido') || qs.has('origem_compra');
+  }
+
+  /* Soma de um campo só nas linhas da tabela desktop (evita contar também as
+   * duplicadas mobile e o total). `[[data-rel]]` aponta para o tbody desktop. */
+  function somaDesktop(w, field) {
+    var body = w.querySelector('.it-desktop tbody[data-rel="previsoes"]');
+    if (!body) return 0;
     var total = 0;
-    w.querySelectorAll('input[name^="child_previsoes_"][name$="_previsto"]').forEach(function (el) {
+    body.querySelectorAll('input[name$="_' + field + '"]').forEach(function (el) {
       total += num(el.value);
     });
     return round2(total);
   }
 
-  function limparLinhas(w) {
-    var tbody = w.querySelector('.it-desktop tbody[data-rel="previsoes"]');
-    if (tbody) {
-      tbody.querySelectorAll('tr[data-crow]').forEach(function (tr) {
-        if (tr.id) return;              // preserva *RowTemplate
-        tr.remove();
-      });
-    }
-    w.querySelectorAll('.it-mobile .itm-item[data-crow], .it-mobile .itm-cell[data-crow]')
-     .forEach(function (el) { el.remove(); });
+  function setNumField(el, n) {
+    if (!el) return;
+    n = round2(n);
+    if (Math.abs(num(el.value) - n) < 0.005) return;
+    el.value = fmt(n);
+    if (window.fmtFieldInput) fmtFieldInput(el);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  function vinculada() {
-    if (val('pedido_id') || val('compra_id')) return true;
-    var qs = new URLSearchParams(window.location.search);
-    return qs.has('origem_pedido') || qs.has('origem_compra');
+  /* Só é "manual" quando o próprio usuário edita `ratear` (evento trusted);
+   * síntese/script não marca — assim `Gerar`/`Zerar` retomam a observância. */
+  var ratearManual = false;
+
+  function atualizarAgregados() {
+    var w = wrap();
+    if (!w) return;
+    var sP = somaDesktop(w, 'previsto');
+    var sR = somaDesktop(w, 'realizado');
+    var sV = somaDesktop(w, 'variacao');
+    setNumField(q('previsto'), sP);
+    setNumField(q('realizado'), sR);
+    setNumField(q('variacao'), sV);
+    setNumField(q('saldo'), sP + sV - sR);
+    if (!ratearManual) setNumField(q('ratear'), num(val('valor')) - sP);
   }
 
   function atualizarBtn() {
@@ -120,9 +142,8 @@
     var btn = gerarBtn();
     if (!w || !btn) return;
     var ok = val('conta_id') !== '' && val('operacao_id') !== '' &&
-             val('prazo') !== '' && num(val('valor')) > 0;
-    var divergente = Math.abs(num(val('valor')) - somaPrevisto(w)) > 0.005;
-    btn.disabled = !(ok && divergente);
+             val('prazo') !== '' && val('recurso_id') !== '' && num(val('valor')) > 0;
+    btn.disabled = !(ok && num(val('ratear')) > 0.005);
   }
 
   function atualizarValor() {
@@ -140,46 +161,138 @@
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  /* Base do `documento` das parcelas: fatura informada → fatura/parcela; de
+   * pedido/compra → P#<id>/parcela ou C#<id>/parcela; avulsa sem fatura → '' */
+  function baseDocumento() {
+    var fatura = String(val('fatura') || '').trim();
+    if (fatura) return fatura;
+    var qs = new URLSearchParams(window.location.search);
+    var pid = val('pedido_id') || qs.get('origem_pedido') || '';
+    if (pid) return 'P#' + pid;
+    var cid = val('compra_id') || qs.get('origem_compra') || '';
+    if (cid) return 'C#' + cid;
+    return '';
+  }
+
   window.gerarPrevisoes = function (btn) {
-    var w = btn.closest('.child-table-wrap');
+    var w = wrap() || (btn && btn.closest('.child-table-wrap'));
     if (!w) return;
 
     var base = val('data') || todayIso();
     var prazo = val('prazo');
-    var total = num(val('valor'));
+    var total = num(val('ratear'));
+    var recurso = val('recurso_id');
     if (!prazo) {
       if (window.itToasts) itToasts('Informe o prazo para gerar as previsões.', 'error');
       return;
     }
     if (!(total > 0)) {
-      if (window.itToasts) itToasts('Informe o valor para gerar as previsões.', 'error');
+      if (window.itToasts) itToasts('Informe o valor a ratear para gerar as previsões.', 'error');
+      return;
+    }
+    if (!recurso) {
+      if (window.itToasts) itToasts('Selecione o recurso para gerar as previsões.', 'error');
       return;
     }
 
     var parcelas = parsePrazo(prazo, base, total);
-    limparLinhas(w);
+    var docBase = baseDocumento();
 
     var tbody = w.querySelector('.it-desktop tbody[data-rel="previsoes"]');
-    parcelas.forEach(function (p) {
-      addChildRow(btn);
-      var tr = tbody ? tbody.lastElementChild : null;
+    var zeros = [];
+    if (tbody) {
+      tbody.querySelectorAll('tr[data-crow]').forEach(function (tr) {
+        if (tr.id) return;                    // preserva *RowTemplate
+        var crow = tr.getAttribute('data-crow');
+        if (!crow || crow === '__IDX__') return;
+        var prev = tr.querySelector('input[name$="_previsto"]');
+        if (!prev || num(prev.value) > 0.005) return;
+        zeros.push(tr);
+      });
+    }
+
+    var zi = 0;
+    parcelas.forEach(function (p, i) {
+      var n = i + 1;
+      var doc = docBase ? docBase + '/' + n : '';
+      var tr = null;
+      if (zi < zeros.length) {
+        tr = zeros[zi++];
+      } else {
+        addChildRow(btn);
+        tr = tbody ? tbody.lastElementChild : null;
+      }
       if (!tr || !tr.querySelector) return;
       setField(tr.querySelector('input[name$="_vencimento"]'), p.vencimento);
       setField(tr.querySelector('input[name$="_previsto"]'), fmt(p.previsto));
+      setField(tr.querySelector('[name$="_recurso_id"]'), recurso);
+      if (docBase) setField(tr.querySelector('input[name$="_documento"]'), doc);
     });
 
+    ratearManual = false;
+    atualizarAgregados();
     if (window.itToasts) itToasts(parcelas.length + ' previsão(ões) gerada(s).', 'success');
     atualizarBtn();
   };
 
-  document.addEventListener('DOMContentLoaded', function () {
-    if (!wrap()) return;
-    atualizarValor();
+  window.zerarPrevisoes = function (btn) {
+    var w = wrap() || (btn && btn.closest('.child-table-wrap'));
+    if (!w) return;
+
+    var tbody = w.querySelector('.it-desktop tbody[data-rel="previsoes"]');
+    if (!tbody) {
+      if (window.itToasts) itToasts('Não há previsões para zerar.', 'info');
+      return;
+    }
+
+    var count = 0;
+    tbody.querySelectorAll('tr[data-crow]').forEach(function (tr) {
+      var crow = tr.getAttribute('data-crow');
+      if (!crow || crow === '__IDX__') return;
+      var prefix = 'child_previsoes_' + crow + '_';
+      var realizado = tr.querySelector('[name="' + prefix + 'realizado"]');
+      var variacao = tr.querySelector('[name="' + prefix + 'variacao"]');
+      if (num(realizado && realizado.value) || num(variacao && variacao.value)) return;
+      var prev = tr.querySelector('[name="' + prefix + 'previsto"]');
+      if (!prev) return;
+      setField(prev, '0,00');
+      count++;
+    });
+
+    ratearManual = false;
+    atualizarAgregados();
+    if (count === 0) {
+      if (window.itToasts) itToasts('Nenhuma previsão zerada.', 'info');
+    } else {
+      if (window.itToasts) itToasts(count + ' previsão(ões) zerada(s).', 'success');
+    }
     atualizarBtn();
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var w = wrap();
+    if (!w) return;
+    atualizarValor();
+    atualizarAgregados();
+    atualizarBtn();
+
+    var tbody = w.querySelector('.it-desktop tbody[data-rel="previsoes"]');
+    if (tbody && 'MutationObserver' in window) {
+      new MutationObserver(function () {
+        atualizarAgregados();
+        atualizarBtn();
+      }).observe(tbody, { childList: true });
+    }
+
     var form = document.getElementById('main-form');
     if (form) {
-      form.addEventListener('input', atualizarBtn);
-      form.addEventListener('change', atualizarBtn);
+      var sinc = function (e) {
+        if (e.isTrusted && e.target && e.target.name === 'ratear') ratearManual = true;
+        atualizarAgregados();
+        atualizarBtn();
+      };
+      form.addEventListener('input', sinc);
+      form.addEventListener('change', sinc);
     }
   });
 })();

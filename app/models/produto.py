@@ -1,6 +1,6 @@
 from ajsystem.core.extensions import db
 from ajsystem.core.utils import divide
-from app.constantes import UND_LIST, TIPO_INGREDIENTE
+from app.constantes import TIPO_INGREDIENTE
 
 
 class Produto(db.Model):

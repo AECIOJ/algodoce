@@ -19,7 +19,7 @@ import re
 from datetime import date, datetime, time
 from decimal import Decimal
 
-from ajsystem.defs.constants import CONECTORES, CURRENCY, DEFAULT_CURRENCY
+from ajsystem.defs.constants import CONNECTORS, CURRENCY, DEFAULT_CURRENCY
 
 __all__ = [
     # mask display + tokens
@@ -550,7 +550,7 @@ def _title_case(text):
     words = text.strip().split()
     result = []
     for i, w in enumerate(words):
-        if i > 0 and w.lower() in CONECTORES:
+        if i > 0 and w.lower() in CONNECTORS:
             result.append(w.lower())
         else:
             result.append(w[0].upper() + w[1:].lower() if w else w)

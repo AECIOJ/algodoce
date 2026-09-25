@@ -12,7 +12,7 @@ __all__ = ['apply_transform_value', 'infer_transform', 'apply_field_transforms']
 
 # transform: 'title' | 'upper' | 'lower' | 'cap' | None
 #   comando `@?` da máscara | sem comando → None (sem transform)
-#   'title' → primeira letra de cada palavra maiúscula (respeita CONECTORES)
+#   'title' → primeira letra de cada palavra maiúscula (respeita CONNECTORS)
 #   'cap'   → apenas o 1º caractere em maiúsculo
 _MASK_TRANSFORM = {'U': 'upper', 'L': 'lower', 'C': 'cap', 'T': 'title'}
 

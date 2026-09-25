@@ -1,5 +1,6 @@
 from ajsystem.core.extensions import db
-from app.constantes import TIPO_TRANSACAO, PREVISAO_STATUS
+from ajsystem.defs.constants import POS_0_NOT_EMPTY
+from app.constantes import TIPO_TRANSACAO, STATUS_PREVISAO
 
 
 class Transacao(db.Model):
@@ -41,11 +42,15 @@ class Transacao(db.Model):
             return 8
         if not self.previsoes:
             return 0
+        restante = float(self.valor or 0) - sum(float(p.previsto or 0)
+                                               for p in self.previsoes)
+        if restante > 0.005:
+            return 0
         return max(p.status for p in self.previsoes)
 
     @property
     def status_label(self):
-        return PREVISAO_STATUS.get(self.calc_status(), "")
+        return STATUS_PREVISAO.get(self.calc_status(), "")
 
 
 Entity = {
@@ -60,8 +65,12 @@ Entity = {
     'variacao':     {'type': 'NUM', 'width': 10, 'currency': 1, 'readonly': True},
     'saldo':        {'type': 'NUM', 'width': 10, 'currency': 1, 'readonly': True},
     'cancelado':    {'type': 'DATA', 'width': 12},
-    'status':       {'type': 'LIST', 'width': 10, 'options': PREVISAO_STATUS},
-    'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9},
-    'compra_id':    {'type': 'FK', 'label': 'Compra', 'width': 9},
+    'status':       {'type': 'LIST', 'width': 10, 'options': STATUS_PREVISAO},
+    'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9,
+                     'pos_form': POS_0_NOT_EMPTY, 'readonly': True,
+                     'pos_list': 0, 'tag': {'link': 'pedidos.form', 'color': 'info'}},
+    'compra_id':    {'type': 'FK', 'label': 'Compra', 'width': 9,
+                     'pos_form': POS_0_NOT_EMPTY, 'readonly': True,
+                     'pos_list': 0, 'tag': {'link': 'compras.form', 'color': 'info'}},
     'historico':    {'type': 'MEMO', 'width': 40},
 }

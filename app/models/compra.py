@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import COMPRA_STATUS
+from app.constantes import STATUS_COMPRA
 
 
 class Compra(db.Model):
@@ -71,7 +71,7 @@ Entity = {
     'desconto':     {'type': 'NUM', 'currency': 1, 'width': 12},
     'total':        {'type': 'NUM', 'currency': 1, 'readonly': True, 'width': 12,
                      'calc': 'valor + acrescimo - desconto'},
-    'status':       {'type': 'LIST', 'width': 11, 'options': COMPRA_STATUS},
+    'status':       {'type': 'LIST', 'width': 11, 'options': STATUS_COMPRA},
     'transacao_id': {'type': 'INT', 'label': 'Transação', 'calc': lambda row: row.transacao_id},
     'movto_id':     {'type': 'INT', 'label': 'Movimento', 'calc': lambda row: row.movto_id},
     'pedido_em':    {'type': 'DATA', 'label': 'Pedido em'},

@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import TIPO_INGREDIENTE, UND_LIST
+from app.constantes import TIPO_INGREDIENTE, UND_INSUMO
 
 
 class Insumo(db.Model):
@@ -22,5 +22,5 @@ Entity = {
     'id':              {'type': 'ID', 'width': 6},
     'nome':            {'type': 'TEXT', 'width': 18, 'mask': '@T'},
     'tipo':            {'type': 'LIST', 'width': 12, 'options': TIPO_INGREDIENTE},
-    'und':             {'type': 'LIST', 'label': 'Und', 'width': 8, 'options': UND_LIST, 'required': True},
+    'und':             {'type': 'LIST', 'label': 'Und', 'width': 8, 'options': UND_INSUMO, 'required': True},
 }

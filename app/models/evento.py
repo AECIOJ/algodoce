@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import tipos_evento
+from app.constantes import TIPO_EVENTO
 
 
 class Evento(db.Model):
@@ -32,7 +32,7 @@ Entity = {
     'id':          {'type': 'ID'},
     'orcamento_id':    {'type': 'DK'},
     'pedido_id':    {'type': 'DK'},
-    'tipo':        {'type': 'LIST', 'label': 'Tipo', 'options': tipos_evento},
+    'tipo':        {'type': 'LIST', 'label': 'Tipo', 'options': TIPO_EVENTO},
     'tema':        {'type': 'TEXT', 'width': 22},
     'data':        {'type': 'DATA', 'label': 'Data'},
     'hora':        {'type': 'HORA', 'label': 'Horário'},

@@ -50,8 +50,15 @@ def init_app(app):
     app.jinja_env.filters['mask'] = fmt_mask
     app.jinja_env.filters['mask_cmd'] = fmt_mask_cmd
     app.jinja_env.tests['datemask'] = has_date_tokens
-    _jinja_field_body = (lambda f: ((getattr(f, 'pos_form', 1) or 0) not in (3, 5) and bool(getattr(f, 'pos_form', 1)))
-                         if getattr(f, '_pos_managed', True) else True)
+    def _is_field_body(f):
+        if not getattr(f, '_pos_managed', True):
+            return True
+        if getattr(f, '_pos_form_when', None) is not None:
+            # visibilidade condicional via `when` (ex.: POS_0_NOT_EMPTY);
+            # o `when` decide (is_visible_by_pos), independente do pos_form da expansão
+            return True
+        return (getattr(f, 'pos_form', 1) or 0) not in (3, 5) and bool(getattr(f, 'pos_form', 1))
+    _jinja_field_body = _is_field_body
     _jinja_field_row = (lambda f: bool(getattr(f, 'pos_form', 1))
                         if getattr(f, '_pos_managed', True) else True)
     app.jinja_env.tests['field_body'] = _jinja_field_body

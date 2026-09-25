@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
-from app.constantes import PEDIDO_STATUS, FORMINHAS
+from app.constantes import STATUS_PEDIDO, FORMINHAS
 
 
 class Pedido(db.Model):
@@ -83,7 +83,7 @@ Entity = {
     'desconto':              {'type': 'NUM', 'currency': 1, 'width': 10},
     'total':                 {'type': 'NUM', 'currency': 1, 'readonly': True, 'width': 10,
                               'calc': 'valor + acrescimo - desconto'},
-    'status':                {'type': 'LIST', 'width': 11, 'options': PEDIDO_STATUS},
+    'status':                {'type': 'LIST', 'width': 11, 'options': STATUS_PEDIDO},
     'transacao_id':          {'type': 'INT', 'label': 'Transação', 'calc': lambda row: row.transacao_id},
     'movto_id':              {'type': 'INT', 'label': 'Movimento', 'calc': lambda row: row.movto_id},
     'observacao':            {'type': 'MEMO', 'label': 'Observação', 'width': 40},

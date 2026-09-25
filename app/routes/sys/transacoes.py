@@ -10,11 +10,10 @@ motor). A origem (`origem_pedido`/`origem_compra`) permanece na query string
 — a `<form>` principal não tem `action` e reenvia os args no POST, usados por
 `post_save_transacao`.
 """
-from datetime import date
-
 from flask import request, url_for
 
 from ajsystem.core.extensions import db
+from ajsystem.defs.constants import TODAY
 from app.models.transacao import Transacao
 
 _GERAR_JS = 'js/gerar_previsoes.js'
@@ -23,6 +22,17 @@ _GERAR_JS = 'js/gerar_previsoes.js'
 def _valor(v):
     try:
         return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _num_pt(v):
+    """Numérico no formato pt-BR (1.234,56). Espelha o `num()` em gerar_previsoes.js."""
+    try:
+        s = str(v).strip()
+        if ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+        return float(s or 0)
     except (TypeError, ValueError):
         return 0.0
 
@@ -56,7 +66,7 @@ def pre_get_transacao(mod, id):
     O JS do "Gerar" é injetado via `_editor_js` (hook do layout) em todo form
     de receber/pagar (novo ou edição), inclusive manual.
     """
-    extra = {'_editor_js': [url_for('static', filename=_GERAR_JS) + '?v=1']}
+    extra = {'_editor_js': [url_for('static', filename=_GERAR_JS) + '?v=3']}
     if id is not None:
         return extra
     if not (request.args.get('origem_pedido') or request.args.get('origem_compra')):
@@ -73,7 +83,7 @@ def pre_get_transacao(mod, id):
         cart_id_carry = _carry_int(carry, 'carteira_id')
         prazo, _ = _prazo_carteira(cart_id_carry or pedido.carteira_id)
         extra['instance'] = Transacao(
-            data=date.today(),
+            data=TODAY(),
             tipo="R",
             prazo=prazo or '',
             historico=pedido.observacao or f"Venda Pedido #{pedido.id}",
@@ -91,7 +101,7 @@ def pre_get_transacao(mod, id):
         cart_id_carry = _carry_int(carry, 'carteira_id')
         prazo, _ = _prazo_carteira(cart_id_carry or compra.carteira_id)
         extra['instance'] = Transacao(
-            data=date.today(),
+            data=TODAY(),
             tipo="P",
             prazo=prazo or '',
             historico=compra.observacao or f"Compra #{compra.id}",
@@ -106,22 +116,34 @@ def post_save_transacao(instance, changed, old_vals):
 
     Recalcula os agregados derivados das previsões (variacao, saldo e status).
     `valor` e `prazo` são alvo/entrada do usuário (vêm do form ou do `carry`)
-    e não são sobrescritos aqui.
+    e não são sobrescritos aqui — exceto em conta vinculada, onde `valor` é
+    read-only: novo (origem) mantém o valor do `carry`; edição reverte o
+    valor alterado via POST.
     """
     from ajsystem.core.memory import carry_take
     carry = carry_take(request.args.get('carry')) or {}
+    pid = request.args.get('origem_pedido', type=int)
+    cid = request.args.get('origem_compra', type=int)
+
+    if pid or cid:
+        if 'valor' in carry:
+            instance.valor = _num_pt(carry['valor'])
+            changed.discard('valor')
+    elif (instance.pedido_id or instance.compra_id) and 'valor' in changed:
+        instance.valor = old_vals.get('valor')
+        changed.discard('valor')
+
     previsoes = instance.previsoes or []
     instance.variacao = sum(_valor(v.variacao) for v in previsoes)
     instance.saldo = sum(_valor(v.previsto) + _valor(v.variacao)
                          - _valor(v.realizado) for v in previsoes)
     instance.status = instance.calc_status()
-    pid = request.args.get('origem_pedido', type=int)
     if pid:
         from app.models.pedido import Pedido
         p = Pedido.query.get(pid)
         if p and not p.transacao and not p.movto:
             instance.pedido_id = p.id
-            p.faturado_em = date.today()
+            p.faturado_em = TODAY()
             if not p.carteira_id and carry.get('carteira_id'):
                 p.carteira_id = int(carry['carteira_id'])
                 p.status = p.calc_status()
@@ -129,13 +151,12 @@ def post_save_transacao(instance, changed, old_vals):
             p.status = p.calc_status()
             db.session.commit()
         return
-    cid = request.args.get('origem_compra', type=int)
     if cid:
         from app.models.compra import Compra
         c = Compra.query.get(cid)
         if c and not c.transacao and not c.movto:
             instance.compra_id = c.id
-            c.faturado_em = date.today()
+            c.faturado_em = TODAY()
             if not c.carteira_id and carry.get('carteira_id'):
                 c.carteira_id = int(carry['carteira_id'])
                 c.status = c.calc_status()

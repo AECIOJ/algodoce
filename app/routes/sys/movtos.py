@@ -10,6 +10,7 @@ from decimal import Decimal
 from flask import flash, redirect, url_for
 
 from ajsystem.core.extensions import db
+from ajsystem.defs.constants import TODAY
 from app.models.previsao import Previsao
 
 
@@ -92,7 +93,6 @@ def _pre_get_movto(mod, id):
 
 
 def _link_movto_origem(instance):
-    from datetime import date
     from flask import request
     from ajsystem.core.memory import carry_take
     if instance.previsao_id:
@@ -104,7 +104,7 @@ def _link_movto_origem(instance):
         p = Pedido.query.get(pid)
         if p and not p.transacao and not p.movto:
             instance.pedido_id = p.id
-            p.faturado_em = date.today()
+            p.faturado_em = TODAY()
             if not p.carteira_id and carry.get('carteira_id'):
                 p.carteira_id = int(carry['carteira_id'])
                 p.status = p.calc_status()
@@ -118,7 +118,7 @@ def _link_movto_origem(instance):
         c = Compra.query.get(cid)
         if c and not c.transacao and not c.movto:
             instance.compra_id = c.id
-            c.faturado_em = date.today()
+            c.faturado_em = TODAY()
             if not c.carteira_id and carry.get('carteira_id'):
                 c.carteira_id = int(carry['carteira_id'])
                 c.status = c.calc_status()

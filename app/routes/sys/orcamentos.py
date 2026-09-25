@@ -2,7 +2,7 @@ from flask import request, redirect, url_for, flash, render_template
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
 from ajsystem.core.do_report import print_report
-from ajsystem.defs.constants import POS_EXPLICIT_NOT_EMPTY
+from ajsystem.defs.constants import POS_0_NOT_EMPTY
 from app.models.conta import Conta
 from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
@@ -33,7 +33,7 @@ Schema = {
         'validade_data': {'pos_form': 2},
         'carteira_id': { 'lookup': {'display': 'nome'}, 'pos_form': 0},
         'observacao': {'pos_list': 2},
-        'pedido_id': {'pos_form': POS_EXPLICIT_NOT_EMPTY,
+        'pedido_id': {'pos_form': POS_0_NOT_EMPTY,
                 'tag': {'link': 'pedidos.form', 'color': 'info'}},
     },
     'OrcamentoItem': {

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
-from app.constantes import ORCAMENTO_STATUS, FORMINHAS
+from app.constantes import STATUS_ORCAMENTO, FORMINHAS
 from ajsystem.core.utils import add_dias
 
 
@@ -54,7 +54,7 @@ Entity = {
     'forminhas':        {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12},
     'total':            {'type': 'NUM', 'currency': 1, 'width': 12, 'readonly': True},
     'carteira_id':      {'type': 'FK', 'label': 'Pagamento', 'width': 15},
-    'status':           {'type': 'LIST', 'width': 12, 'options': ORCAMENTO_STATUS},
+    'status':           {'type': 'LIST', 'width': 12, 'options': STATUS_ORCAMENTO},
     'pedido_id':        {'type': 'FK', 'label': 'Pedido', 'width': 9,},
     'observacao':       {'type': 'MEMO', 'width': 40},
 }

@@ -111,7 +111,11 @@ def _key(value):
     return value
 
 
-def fixed_filters(fields, model):
+def fixed_filters(fields, model, attr_resolver=None):
+    """Filtros fixos (`pos_filter == 9`)... Se `attr_resolver` é dado (inversão
+    `master`), atravessa a relação para campos do pai (ex.: `tipo` no `pagar`
+    invertido); senão usa `getattr` direto — comportamento original intacto."""
+    _resolve = attr_resolver if attr_resolver is not None else (lambda m, f: getattr(m, f, None))
     """Filtros fixos (`pos_filter == 9`): lista `[(campo_model, valor)]`.
 
     Valor = `default` do field (chamado se callable); `None` → ignora.
@@ -126,7 +130,7 @@ def fixed_filters(fields, model):
         value = default() if callable(default) else default
         if value is None:
             continue
-        mf = getattr(model, getattr(f, 'name', None), None)
+        mf = _resolve(model, getattr(f, 'name', None))
         if mf is None:
             continue
         out.append((mf, _key(value)))

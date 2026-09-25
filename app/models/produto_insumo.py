@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import UND_LIST, PRODUCAO_ETAPAS
+from app.constantes import PRODUCAO_ETAPAS, UND_INSUMO
 
 
 class ProdutoInsumo(db.Model):
@@ -23,6 +23,6 @@ Entity = {
     'produto_id':  {'type': 'FK', 'label': 'Produto', 'required': True},
     'insumo_id':   {'type': 'FK', 'label': 'Insumo', 'required': True},
     'qtd':         {'type': 'NUM'},
-    'und':         {'type': 'LIST', 'options': UND_LIST},
+    'und':         {'type': 'LIST', 'options': UND_INSUMO},
     'etapas':      {'type': 'MULT10', 'list': PRODUCAO_ETAPAS, 'align': 'center'},
 }

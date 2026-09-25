@@ -187,6 +187,7 @@
 | `on_set` | `dict` | `{replaces:{campo:fonte},disables:[...]}` | `data-replaces-map`, `data-disables` | `itOnSetBind` copia `data-*` da option |
 | `calc` | `str\|callable\|dict` | `'qtd*preco'`, `lambda row:`, `{'type':'agg','source':'sum(Item.valor)'}`, `{'type':'call','source':'calc_status'}` | `aj-calc` (`data-calc`) ou `readonly` | `calc_value` (`do_form.py:406` `diff` flash), `itEval`/`formCalcRefresh` JS |
 | `carry` | `str` | nome campo origem (`carry` map do botão `Gerar`) | — | `do_form.py:550` `carry_get` importa |
+| `memory` | `bool` | `True` → campo só de memória: renderiza/editável, **não persiste** e não entra em expansão automática (form principal/list/filtro); só aparece onde citado explicitamente (ex.: `session.fields`) | select FK normal | `_save_session_masters` skip; alvo via `lookup.model` em `resolve_lookup`/`_build_lookup` |
 | `tag` | `dict\|Tag` | `{colors, color, link, size}` | `tag-pill` (`width:width+3ch`, `badge`) ou `badge` lista | `tags.py:74` `resolve_link` (`callable` ok) |
 
 ### 5.2 `Tag` — `ajsystem/defs/tags.py:62` `class Tag`
@@ -209,6 +210,7 @@
 | `value` | `str` | `id` | valor gravado |
 | `when` | `dict\|str` | `{'ativo':True}`, `'tipo IN (0,1)'` | `apply_lookup_when` filtra options |
 | `query` | `str` | `'PREVISOES'` | modal `lookup-search` (`ajsystem.lookup_search`) |
+| `model` | `str` | `'Recurso'` | alvo explícito quando não há FK no model do campo (ex.: campo `memory`) |
 
 ### 5.4 `Page` — `ajsystem/defs/pages.py:17` `class Page`
 
