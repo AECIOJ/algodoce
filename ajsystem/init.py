@@ -9,13 +9,15 @@ from ajsystem.core.menu import modulo_atual
 from ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguranca
 from ajsystem.core.auto import registrar_modulos
 from ajsystem.core.menu import url_do_item
-from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens
+from ajsystem.defs.buttons import Button, ConfirmModal
+from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens, internal_scripts
 from ajsystem.core.list import fields_to_columns
 from ajsystem.core.utils import (
     deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, fmt_num, item_ref,
     field_value, calc_value, fmt_mask_cmd, is_empty,
 )
 from ajsystem.defs.tags import _resolve_tag_color
+from ajsystem.defs.buttons import _empty as btn_empty, _filled as btn_filled
 
 
 def init_app(app):
@@ -37,6 +39,9 @@ def init_app(app):
     # 4. filtros/globals Jinja
     app.jinja_env.filters['deep_attr'] = deep_attr
     app.jinja_env.filters['is_empty'] = is_empty
+    # Predicados de `Button.enabled` (numéricos, espelham itEnabledEval).
+    app.jinja_env.filters['btn_filled'] = btn_filled
+    app.jinja_env.filters['btn_empty'] = btn_empty
     app.jinja_env.filters['item_ref'] = item_ref
     app.jinja_env.filters['brl'] = fmt_brl
     app.jinja_env.filters['money'] = fmt_money
@@ -71,6 +76,21 @@ def init_app(app):
     app.jinja_env.globals['aj_uploads_endpoint'] = lambda: get_uploads_endpoint(app)
     app.jinja_env.globals['field_value'] = field_value
     app.jinja_env.globals['calc_value'] = calc_value
+    # Manifesto de scripts internos do framework (ver defs/data.INTERNAL_JS):
+    # sai do template, que só itera o resultado.
+    app.jinja_env.globals['internal_scripts'] = internal_scripts
+
+    # Presets de botão como globals Jinja, descobertos por prefixo — assim um
+    # preset novo em defs/buttons.py chega nos templates sem tocar em lista de
+    # importação. As factories BTN_PRINT/BTN_SEND ficam de fora de propósito:
+    # precisam do dict do relatório, então são chamadas em Python, não em Jinja.
+    from ajsystem.defs import buttons as _buttons
+    for _name in dir(_buttons):
+        if not _name.startswith(('BTN_', 'CONFIRM_')):
+            continue
+        _value = getattr(_buttons, _name)
+        if isinstance(_value, (Button, ConfirmModal)):
+            app.jinja_env.globals[_name] = _value
 
     # 5. registra módulos CRUD a partir dos menus do módulo 'system'
     system = APP.module('system')
@@ -102,32 +122,3 @@ def init_app(app):
             'modulo_menus_json': json.dumps(menus_para_json()),
         }
 
-    @app.context_processor
-    def aj_framework_buttons():
-        from ajsystem.defs.buttons import (
-            Button, ConfirmModal, CONFIRM_EXCLUIR, CONFIRM_REMOVER_ITEM,
-            BTN_SALVAR, BTN_ENVIAR, BTN_EXCLUIR, BTN_NOVO, BTN_VOLTAR,
-            BTN_EDITAR, BTN_CANCELAR, BTN_CONVERTER, BTN_LISTA,
-            BTN_IMPRIMIR, BTN_DETALHES, BTN_ADICIONAR, BTN_ADICIONAR_ITEM,
-            BTN_FINALIZAR, BTN_ATUALIZAR, BTN_REMOVER, BTN_SIM, BTN_NAO,
-            BTN_LIMPAR, BTN_APLICAR, BTN_OK, BTN_SAIR, BTN_RENOVAR,
-            BTN_RELATORIO, BTN_GERAR, BTN_CONFIRMAR, BTN_EDITAR_PRODUTO,
-            BTN_ENTRAR, BTN_ACESSAR,
-        )
-        return {
-            'Button': Button, 'ConfirmModal': ConfirmModal,
-            'CONFIRM_EXCLUIR': CONFIRM_EXCLUIR, 'CONFIRM_REMOVER_ITEM': CONFIRM_REMOVER_ITEM,
-            'BTN_SALVAR': BTN_SALVAR, 'BTN_ENVIAR': BTN_ENVIAR, 'BTN_EXCLUIR': BTN_EXCLUIR,
-            'BTN_NOVO': BTN_NOVO, 'BTN_VOLTAR': BTN_VOLTAR, 'BTN_EDITAR': BTN_EDITAR,
-            'BTN_CANCELAR': BTN_CANCELAR, 'BTN_CONVERTER': BTN_CONVERTER,
-            'BTN_LISTA': BTN_LISTA, 'BTN_IMPRIMIR': BTN_IMPRIMIR,
-            'BTN_DETALHES': BTN_DETALHES, 'BTN_ADICIONAR': BTN_ADICIONAR,
-            'BTN_ADICIONAR_ITEM': BTN_ADICIONAR_ITEM, 'BTN_FINALIZAR': BTN_FINALIZAR,
-            'BTN_ATUALIZAR': BTN_ATUALIZAR, 'BTN_REMOVER': BTN_REMOVER,
-            'BTN_SIM': BTN_SIM, 'BTN_NAO': BTN_NAO,
-            'BTN_LIMPAR': BTN_LIMPAR, 'BTN_APLICAR': BTN_APLICAR,
-            'BTN_OK': BTN_OK, 'BTN_SAIR': BTN_SAIR, 'BTN_RENOVAR': BTN_RENOVAR,
-            'BTN_RELATORIO': BTN_RELATORIO, 'BTN_GERAR': BTN_GERAR,
-            'BTN_CONFIRMAR': BTN_CONFIRMAR, 'BTN_EDITAR_PRODUTO': BTN_EDITAR_PRODUTO,
-            'BTN_ENTRAR': BTN_ENTRAR, 'BTN_ACESSAR': BTN_ACESSAR,
-        }

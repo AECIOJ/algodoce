@@ -30,7 +30,7 @@
          style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));background:var(--bar-bg-form);color:var(--bar-txt-form); flex-wrap: wrap; align-items: center;">
     <div class="app-bar-left" style="flex:0 0 auto;">
       {% from "pages/macros.html" import btn %}
-      {{ btn(BTN_LISTA, back_url|default('#')) }}
+      {{ btn(BTN_LIST, back_url|default('#')) }}
     </div>
     {% if entity_id is defined and entity_id %}
     <div class="app-bar-center" style="flex:1 1 auto; display:flex; align-items:center; justify-content:center; gap:var(--bar-gap); margin:0 auto;">
@@ -78,7 +78,7 @@
       <span class="app-bar-tag" style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap;">{% if tag.link %}<a href="{{ url_for(tag.link, id=tag.id) }}" class="no-underline">{% endif %}<span class="text-sm">{{ tag.label }}:</span> <span class="badge badge-{{ tag.color }} badge-sm tag-pill" style="width:{{ tag.width }}ch">{{ tag.text }}</span>{% if tag.link %}</a>{% endif %}</span>
       {% endfor %}
       {% for btn in form._resolved_buttons if btn.position == 'nav_right' %}
-      <span class="app-bar-btn">{{ fm.render_button(btn, instance) }}</span>
+      <span class="app-bar-btn">{{ fm.render_button(btn, instance, form._resolved_fields) }}</span>
       {% endfor %}
     </div>
     <div id="appBarLine2" class="app-bar-line2" style="display:none; width:100%; justify-content:center; flex-wrap:wrap; gap:var(--bar-gap); padding:4px 0; order:10;"></div>
@@ -90,7 +90,7 @@
       {% if instance %}{% endif %}
 
       {{ fm.render_fields(form._resolved_fields, data=instance, ro=ro, spacing=form.spacing, ro_fields=ro_fields|default(none)) }}
-      {% if form._resolved_sessions %}{{ fm.render_sessions(form._resolved_sessions, data=instance, ro=ro, ro_fields=ro_fields|default(none)) }}{% endif %}
+      {% if form._resolved_sessions %}{{ fm.render_sessions(form._resolved_sessions, data=instance, ro=ro, ro_fields=ro_fields|default(none), master_fields=form._resolved_fields) }}{% endif %}
     </form>
   </div>
 
@@ -116,12 +116,12 @@
       </form>
       {% endif %}
       {% for btn in form._resolved_buttons if btn.position == 'footer_left' %}
-      {{ fm.render_button(btn, instance) }}
+      {{ fm.render_button(btn, instance, form._resolved_fields) }}
       {% endfor %}
     </div>
     <div class="app-bar-right">
       {% for btn in form._resolved_buttons if btn.position == 'footer_right' %}
-      {{ fm.render_button(btn, instance) }}
+      {{ fm.render_button(btn, instance, form._resolved_fields) }}
       {% endfor %}
       {% if not ro or footer_fields %}<button type="submit" form="main-form" id="btn-salvar" class="btn btn-success inline-flex items-center gap-1" {% if not is_new and not form._inconsistent %}disabled{% endif %}>
         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-check"/></svg> Salvar

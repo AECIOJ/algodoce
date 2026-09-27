@@ -412,11 +412,27 @@ def _coerce_masked_datetime(value, mask, input_type):
 
 # ── Números / moeda ──────────────────────────────────────────────────────────
 def parse_brl(value):
-    if not value:
+    """Texto monetário/numérico → float. Devolve None quando não há número.
+
+    Aceita o que o formulário realmente envia: símbolo de moeda
+    ('R$ 29,70'), milhar pt-BR ('1.234,56'), espaço/NBSP como separador,
+    o sufixo D/C de débito/crédito e número já pronto (int/float/Decimal).
+    Sem vírgula o ponto é decimal ('1.5'); com vírgula, ponto é milhar.
+    Espelha o `parseNum` de `static/js/formats.js`.
+    """
+    if value is None:
         return None
-    if ',' in value:
-        return float(value.replace('.', '').replace(',', '.'))
-    return float(value)
+    if isinstance(value, (int, float, Decimal)):
+        return float(value)
+    s = str(value).strip().replace('\u00A0', ' ')
+    s = re.sub(r'\s+[CD]\s*$', '', s)   # '1.234,56 D'
+    s = re.sub(r'[^0-9,.+-]', '', s)     # 'R$ ', '$', '€', 'US$'
+    if ',' in s:
+        s = s.replace('.', '').replace(',', '.')
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return None
 
 
 def _fmt_number(value, locale):

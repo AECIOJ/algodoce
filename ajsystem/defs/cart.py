@@ -28,17 +28,22 @@ Convenções (sem declaração):
 """
 from ajsystem.defs.showcase import CART_SESSION_KEY, CLIENT_SESSION_KEY, snake_case
 
+# `CART_ITEMS` fica disponível no catálogo para o app usar como chave; aqui o
+# nome da sessão de itens é do app (vem do spec `cart`), não do framework.
+from ajsystem.locales.en import CART_SENT, CART_TITLE as CART_TITLE_KEY
+
+
 # Tipos de sessão do carrinho.
 CART_SESSION_TYPES = ('table', 'form')
 
 # Confirmação pós-envio (flash renderizado como overlay pelo shell do site).
-CART_CONFIRM_FLASH = 'Orçamento enviado! Aguarde contato no WhatsApp.'
+CART_CONFIRM_FLASH = CART_SENT          # chave: traduzir no render (ver core/cart.py)
 
 # Link de "incluir mais itens" / estado vazio (convenção: volta à vitrine).
 CART_MORE_ITEMS_LINK = '/vitrine/'
 
 # Título padrão da página do carrinho.
-CART_TITLE = 'Meu Orçamento'
+CART_TITLE = CART_TITLE_KEY          # chave: traduzir no render
 
 
 def field_prefix(entity_name: str) -> str:

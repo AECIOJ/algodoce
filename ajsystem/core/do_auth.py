@@ -19,6 +19,12 @@ from flask_login import (
     current_user, login_user, logout_user, login_required,
 )
 
+from ajsystem.locales import t
+from ajsystem.locales.en import (
+    ERR_BAD_CREDENTIALS, ERR_BAD_KEY, ERR_USER_NOT_FOUND, ERR_USER_REQUIRED,
+    MSG_ACCESS_DENIED, MSG_ACCESS_OK, MSG_BAD_CREDENTIALS_FLASH,
+    MSG_LOGIN_BACKOFF, MSG_LOGIN_RETRY, MSG_SESSION_ENDED, MSG_SETTINGS_SAVED,
+)
 from ajsystem.core.adapter import db, Usuario, Configuracao, APP, login_manager
 from ajsystem.core.utils import protect_blueprint
 
@@ -127,11 +133,11 @@ def login():
 
     _record_failure()
     count, _ = FAILED_ATTEMPTS.get(_get_ip(), (0, 0))
-    error = "Usuário ou senha inválidos"
+    error = t(ERR_BAD_CREDENTIALS)
     if delay > 0:
-        error += f". Tentativa {count}, aguarde {delay}s."
+        error += t(MSG_LOGIN_RETRY).format(count=count, delay=delay)
     elif count == THRESHOLD + 1:
-        error += ". Próximas tentativas terão atraso progressivo."
+        error += t(MSG_LOGIN_BACKOFF)
     return jsonify(error=error), 401
 
 
@@ -148,13 +154,13 @@ def login_sistema():
     expected_chave_code = Configuracao.get("painel_chave")
 
     if u != expected_u or p != expected_p:
-        return jsonify(error="Credenciais inválidas"), 401
+        return jsonify(error=t(MSG_BAD_CREDENTIALS_FLASH)), 401
     if expected_chave_code in PERMUTACOES and c != _gerar_chave(expected_chave_code):
-        return jsonify(error="Chave inválida"), 401
+        return jsonify(error=t(ERR_BAD_KEY)), 401
 
     user = Usuario.query.filter_by(username=u).first()
     if not user:
-        return jsonify(error="Usuário não encontrado"), 401
+        return jsonify(error=t(ERR_USER_NOT_FOUND)), 401
     session.permanent = True
     login_user(user, remember=True)
     _clear_attempts()
@@ -174,15 +180,15 @@ def login_admin():
     expected_chave_code = os.getenv("ADMIN_KEY", "HMA")
 
     if not u:
-        return jsonify(error="Usuário obrigatório"), 401
+        return jsonify(error=t(ERR_USER_REQUIRED)), 401
     if u != expected_u:
-        return jsonify(error="Credenciais inválidas"), 401
+        return jsonify(error=t(MSG_BAD_CREDENTIALS_FLASH)), 401
     if expected_p and p != expected_p:
-        return jsonify(error="Credenciais inválidas"), 401
+        return jsonify(error=t(MSG_BAD_CREDENTIALS_FLASH)), 401
     if expected_chave_code not in PERMUTACOES:
         expected_chave_code = "HMA"
     if c != _gerar_chave(expected_chave_code):
-        return jsonify(error="Chave inválida"), 401
+        return jsonify(error=t(ERR_BAD_KEY)), 401
 
     admin = Usuario.query.first()
     if admin:
@@ -258,9 +264,9 @@ def painel():
             expected_p = Configuracao.get("painel_senha") or os.getenv("ADMIN_PASSWORD", "doceira")
             if u == expected_u and p == expected_p:
                 session["seguranca_autenticado"] = True
-                flash("Acesso autorizado.", "success")
+                flash(t(MSG_ACCESS_OK), "success")
                 return redirect(url_for(f"{bp_seguranca.name}.painel"))
-            flash("Credenciais inválidas.", "danger")
+            flash(t(MSG_BAD_CREDENTIALS_FLASH), "danger")
         return render_template("pages/auth/login.html")
 
     settings = Configuracao.query.order_by(Configuracao.key).all()
@@ -275,18 +281,18 @@ def painel():
 @bp_seguranca.route("/salvar", methods=["POST"])
 def salvar():
     if not session.get("seguranca_autenticado"):
-        flash("Acesso negado.", "danger")
+        flash(t(MSG_ACCESS_DENIED), "danger")
         return redirect(url_for(f"{bp_seguranca.name}.painel"))
     for key in Configuracao.KEYS:
         val = request.form.get(key, "")
         Configuracao.set(key, val)
     db.session.commit()
-    flash("Configurações salvas com sucesso.", "success")
+    flash(t(MSG_SETTINGS_SAVED), "success")
     return redirect(url_for(f"{bp_seguranca.name}.painel"))
 
 
 @bp_seguranca.route("/sair")
 def sair():
     session.pop("seguranca_autenticado", None)
-    flash("Sessão encerrada.", "info")
+    flash(t(MSG_SESSION_ENDED), "info")
     return redirect(url_for(f"{bp_seguranca.name}.painel"))

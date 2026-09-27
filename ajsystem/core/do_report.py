@@ -24,11 +24,14 @@ from io import BytesIO
 
 from flask import Response, current_app, render_template, request
 
+from ajsystem.locales import t
+from ajsystem.locales.en import (
+    CANCEL, CHOOSE, FILTER_ALL, FILTER_YES, NO, OK, PRINT, REPORT_ERROR,
+)
 from ajsystem.core.pdf import gerar_pdf_relatorio
 from ajsystem.defs.data import _auto_label
 from ajsystem.defs.report import parse_report
 
-ERRO_MSG_PADRAO = 'Erro na impressão do Relatório'
 ERRO_TEMPLATE = 'components/print_erro.html'
 
 # Registro em memória de impressões com escolha pendente (filter_select).
@@ -72,7 +75,7 @@ def filter_select(field):
 
 def _print_erro(msg=None):
     """View padrão de erro de impressão (fragmento/página interna)."""
-    return render_template(ERRO_TEMPLATE, msg=msg or ERRO_MSG_PADRAO)
+    return render_template(ERRO_TEMPLATE, msg=msg or t(REPORT_ERROR))
 
 
 def _entity_for(entity_name):
@@ -279,9 +282,11 @@ def _apply_entity(raw, entity):
                     if isinstance(calc, (str,)) or callable(calc):
                         spec['function'] = calc if callable(calc) else _calc_fn(calc)
                 # BOOL → Sim/Não · LIST → label das options - exclusivamente via Entity
+                # `t()` fica dentro do lambda: roda por célula, no render, então
+                # acompanha o locale ativo; `t()` é cacheado.
                 elif raw_cfg.get('type') == 'BOOL':
                     spec['function'] = lambda row, f=fld: (
-                        'Sim' if getattr(row, f, None) else 'Não')
+                        t(FILTER_YES) if getattr(row, f, None) else t(NO))
                 elif raw_cfg.get('type') == 'LIST':
                     opts = raw_cfg.get('list') or raw_cfg.get('options') or {}
                     if opts:
@@ -585,13 +590,13 @@ def _print_with_choice(report, fs, msg=None):
         label = cfg.get('label') or label
     rid = uuid.uuid4().hex[:12]
     _PENDING_PRINTS[rid] = {'report': report, 'field': fs.field}
-    title = report.get('label') if isinstance(report, dict) else 'Imprimir'
+    title = report.get('label') if isinstance(report, dict) else t(PRINT)
     return choice_modal(
         title=title,
         label=label,
         options=options,
         param=fs.field,
-        confirm_label='Imprimir',
+        confirm_label=t(PRINT),
         hidden_params={'_r': rid},
     )
 
@@ -643,20 +648,27 @@ def do_report(report, data=None, instance=None, filename="relatorio.pdf",
     )
 
 
-def choice_modal(title, options, param='tipo', label='Escolha',
-                 confirm_label='Ok', hidden_params=None, url_target=None):
+def choice_modal(title, options, param='tipo', label=None,
+                 confirm_label=None, hidden_params=None, url_target=None):
     """Modal genérico de escolha (fragmento injetado via reportRender).
 
     Devoluível por qualquer action de botão: aberto ao injetar; um `<select>`
-    com `options` ({valor: rótulo}) + opção implícita 'Todos' (vazio). Ao
-    escolher, o form faz GET para `url_target` (padrão: a URL atual) com
-    `?<param>=<valor>` + `hidden_params`.
+    com `options` ({valor: rótulo}) + opção implícita vazia (que o filtro
+    trata como "Todos"). Ao escolher, o form faz GET para `url_target` (padrão:
+    a URL atual) com `?<param>=<valor>` + `hidden_params`.
 
     Como o submit re-renderiza a própria página, a função da Page deve, no
     render seguinte, detectar `request.args.get('param')` e gerar o relatório.
     Default de `url_target` é `request.path` (sem query) — os parâmetros vêm do
     próprio form (select + hiddens), evitando arrastar query antiga da URL.
+
+    `label`/`confirm_label` são `None` por padrão e resolvidos aqui, não no
+    `def`: default de argumento é avaliado uma vez, na importação, o que
+    congelaria o texto no locale daquele momento. Um chamador que já tem texto
+    pronto (ex.: `t(PRINT)`) só precisa repassá-lo.
     """
+    label = label if label is not None else t(CHOOSE)
+    confirm_label = confirm_label if confirm_label is not None else t(OK)
     url = url_target or getattr(request, 'choice_url_target', None) or request.path
     return render_template(
         'components/choice_modal.html',
@@ -666,6 +678,8 @@ def choice_modal(title, options, param='tipo', label='Escolha',
         options=options,
         param=param,
         confirm_label=confirm_label,
+        all_label=t(FILTER_ALL),
+        cancel_label=t(CANCEL),
         url_target=url,
         hidden_params=(hidden_params or {}),
     )

@@ -101,7 +101,14 @@ class Form:
             self.flash_update = f'{self._label} atualizado!'
         self._resolved_fields = self._resolve_fields()
         self._resolved_sessions = self._resolve_sessions()
-        self._resolved_buttons = resolve_buttons(self.buttons, self._bp_name)
+        self._resolved_buttons = resolve_buttons(
+            self.buttons, self._bp_name, where='form',
+            valid_fields=self._master_field_names)
+
+    @property
+    def _master_field_names(self):
+        """Nomes de campo do form principal (base p/ validar `enabled`)."""
+        return {getattr(f, 'name', None) for f in (self._resolved_fields or [])} - {None}
 
     # ── Resolução de campos ──
     def _resolve_fields(self):
@@ -309,18 +316,30 @@ class Form:
             else:
                 attr, child_cols = self._resolve_parent_link(child_model, resolved_cols, fallback=name.lower())
 
+            # `fields` da sessão: as já resolvidas, senão as do Schema do form.
+            sess_fields = resolved_fields or (
+                resolve_column_configs(self._schema or {}, spec_fields,
+                                       principal=self._schema or {}) if spec_fields else [])
+            # Botões da sessão: `enabled` pode citar campos do mestre ou da
+            # própria sessão (ambos renderizam `name=` no mesmo form), e
+            # `position` precisa bater com o formato da sessão.
+            _sess_names = {getattr(f, 'name', None) for f in (sess_fields or [])} - {None}
             resolved.append({
                 'name': name,
                 'label': name,
                 'attr': attr,
                 'model': child_model,
                 'columns': child_cols,
-                'fields': resolved_fields or (
-                    resolve_column_configs(self._schema or {}, spec_fields,
-                                           principal=self._schema or {}) if spec_fields else []),
+                'fields': sess_fields,
                 'query': resolved_query,
                 'table': resolved_table,
-                'buttons': resolve_buttons(spec_buttons, self._bp_name) if spec_buttons else [],
+                'buttons': resolve_buttons(
+                    spec_buttons, self._bp_name,
+                    where=f"session '{name}'",
+                    valid_fields=self._master_field_names | _sess_names,
+                    sess={'has_fields': bool(spec_fields),
+                          'has_table': bool(spec_table or spec_query)},
+                ) if spec_buttons else [],
             })
         return resolved
 

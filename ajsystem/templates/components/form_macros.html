@@ -233,192 +233,124 @@
 {% endif %}
 {% endmacro %}
 
-{% macro render_extra_button(btn, instance) %}
-{% if btn.render %}
-{% set _html = btn.action(instance) if btn.action else '' %}
-<template>{{ _html|safe }}</template>
-<button type="button"
-        onclick="injectHTML('{{ btn.render }}', this.previousElementSibling.innerHTML)"
-        class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1">
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</button>
-{% else %}
-{% set url = btn.action(instance) if btn.action else '#' %}
-<button type="button"
-        onclick="window.location.href='{{ url }}'"
-        class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1">
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</button>
-{% endif %}
-{% endmacro %}
+{# ══ Botões ════════════════════════════════════════════════════════════════
+   Um renderizador só (`render_button_el`) para os três contextos:
+     ctx='form'    botão de form (app bar/rodapé) — pode abrir <form> próprio;
+     ctx='session' botão dentro de #main-form — POST via postTo/postToCarry;
+     ctx='list'    botão de cabeçalho de listagem (sem instância).
+   O destino é sempre um de: `action` (função JS), `url` (endpoint/URL) ou
+   `render` (HTML do servidor, injetado em `into`). `enabled` emite
+   `data-enabled` e o `disabled` inicial; `itEnabledEval` reavalia no cliente. ══ #}
 
-{% macro render_button(btn, instance) %}
-{% set show = true %}
-{% if btn.on_off %}
-  {% if not instance %}{% set show = false %}{% endif %}
-{% else %}
-  {% if not instance and (btn.endpoint or btn.action) %}{% set show = false %}{% endif %}
-  {% if btn.show_if %}{% set show = show and instance|attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
-  {% if btn.when and instance and not btn.when(instance) %}{% set show = false %}{% endif %}
-  {% if btn.endpoint and instance and (instance|attr(btn.url_var)) is none %}{% set show = false %}{% endif %}
-{% endif %}
-{% if show %}
-  {% if btn.render and btn.action %}
-  {% set _html = btn.action(instance) %}
-  {% elif btn.action %}
-  {% set url = btn.action(instance) %}
-  {% elif btn.endpoint %}
-  {% set _params = {btn.url_var: instance|attr(btn.url_var) if instance else none} %}
-  {% if btn.extra_params %}{% set _ = _params.update(btn.extra_params) %}{% endif %}
-  {% set url = url_for(btn.endpoint, **(_params if instance else {})) %}
-  {% else %}
-  {% set url = '#' %}
-  {% endif %}
-  {% if btn.on_off %}
-    {% set _val = instance|attr(btn.field or 'ativo') %}
-    <span class="inline-flex items-center gap-1 mr-2">
-      {% if not _val %}<span class="badge badge-warning badge-sm">Inativo</span>{% endif %}
-      <input type="checkbox" class="toggle toggle-success" {% if _val %}checked{% endif %}
-             title="Ativar/Desativar" aria-label="Ativar/Desativar"
-             onclick="window.location.href='{{ url }}'">
-    </span>
-  {% elif btn.method == 'POST' and url %}
+{% macro btn_label(btn) %}
+{%- if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
+{{ btn.text() }}
+{%- endmacro %}
+
+{% macro btn_enabled_init(btn, instance, dom_fields=none) %}
+{# `'1'` se o botão nasce habilitado, `''` se nasce desabilitado.
+   `dom_fields` = campos do mestre + da sessão NA ORDEM DO DOM: o primeiro
+   match é exatamente o que o `querySelector` do `itEnabledEval` pega no
+   cliente, então servidor e cliente decidem sobre o mesmo input.
+   O valor inicial sai do próprio field config (calc), igual ao `render_fields`. #}
+{%- set _names, _mode = btn.enabled_spec() -%}
+{%- if not _names -%}{%- if btn.enabled is not false -%}1{%- endif -%}{%- else -%}
+{%- set _ns = namespace(ok=(btn.enabled is not false)) -%}
+{%- for _n in _names -%}
+  {%- set _f = (dom_fields|selectattr('name', 'equalto', _n)|list|first) if dom_fields else none -%}
+  {%- if _f is not none and _f.calc is defined and _f.calc and instance is not none -%}
+    {%- set _v = calc_value(_f.calc, instance) -%}
+  {%- else -%}
+    {%- set _v = instance|deep_attr(_n) if instance is not none else none -%}
+  {%- endif -%}
+  {%- if _mode == 'all_zero' -%}
+    {%- if _v|btn_empty %}{% else %}{% set _ns.ok = false %}{% endif -%}
+  {%- else -%}
+    {%- if _v|btn_filled %}{% else %}{% set _ns.ok = false %}{% endif -%}
+  {%- endif -%}
+{%- endfor -%}
+{%- if _ns.ok -%}1{%- endif -%}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro render_button_el(btn, instance, ctx='form', url='', html='', dom_fields=none, btn_idx=none) %}
+{%- set _names, _mode = btn.enabled_spec() -%}
+{%- set _on = btn_enabled_init(btn, instance, dom_fields) -%}
+{%- set _ed = (' data-enabled="' ~ _names|join(',') ~ '" data-enabled-mode="' ~ _mode ~ '"') if _names else '' -%}
+{%- set _cls = 'btn btn-sm ' ~ btn.btn_cls() ~ ' inline-flex items-center gap-1' ~ (' btn-disabled' if not _on and (btn.url or btn.render) else '') -%}
+{%- if btn.on_off -%}
+  {%- set _val = instance|attr(btn.field or 'ativo') -%}
+  <span class="inline-flex items-center gap-1 mr-2">
+    {% if not _val %}<span class="badge badge-warning badge-sm">Inativo</span>{% endif %}
+    <input type="checkbox" class="toggle toggle-success" {% if _val %}checked{% endif %}
+           title="Ativar/Desativar" aria-label="Ativar/Desativar"
+           onclick="window.location.href='{{ url }}'">
+  </span>
+{%- elif btn.render -%}
+  {%- if not _on -%}
+  {# inativo: <span> sem href e sem onclick, como no ramo `url` — assim nem
+     script injetado em página reativa consegue dispará-lo. #}
+  <span class="{{ _cls }}" aria-disabled="true"{{ _ed|safe }}>{{ btn_label(btn) }}</span>
+  {%- elif ctx == 'list' -%}
+  <a href="#" class="{{ _cls }}" data-action="{{ url_for('ajsystem.list_action') }}"
+     data-idx="{{ btn_idx }}" data-page="{{ request.blueprint }}" data-into="{{ btn.target_into() }}"
+     onclick="event.preventDefault();itListRender(this)">{{ btn_label(btn) }}</a>
+  {%- else -%}
+  <template>{{ html|safe }}</template>
+  <a href="#" class="{{ _cls }}"{{ _ed|safe }} onclick="event.preventDefault();injectHTML('{{ btn.target_into() }}', this.previousElementSibling.innerHTML)">{{ btn_label(btn) }}</a>
+  {%- endif -%}
+{%- elif btn.action -%}
+  <button type="button" class="{{ _cls }}" onclick="{{ btn.action }}(this)"{{ _ed|safe }}{% if not _on %} disabled{% endif %}>{{ btn_label(btn) }}</button>
+{%- elif btn.method == 'POST' -%}
+  {# POST — dentro de #main-form não aninha <form>: usa postTo/postToCarry. #}
+  {%- if ctx == 'form' and not (btn.carry or btn.serialize) -%}
   <form method="POST" action="{{ url }}" class="inline mr-2">
-    <button type="submit" class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
-      {% if btn.confirm_msg %}onclick="event.preventDefault();showConfirm('{{ btn.confirm_msg }}', function(){ this.closest('form').submit(); });"{% endif %}>
-      {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-      {{ btn.label }}
-    </button>
+    <button type="submit" class="{{ _cls }}"{{ _ed|safe }}{% if not _on %} disabled{% endif %}
+      {% if btn.confirm_msg %}onclick='event.preventDefault();showConfirm({{ btn.confirm_text()|tojson }}, function(){ this.closest("form").submit(); });'{% endif %}>{{ btn_label(btn) }}</button>
   </form>
-  {% elif btn.render and btn.action %}
-  <template>{{ _html|safe }}</template>
-  <a href="#" class="btn btn-sm mr-2 btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
-     onclick="event.preventDefault();injectHTML('{{ btn.render }}', this.previousElementSibling.innerHTML)">
-    {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-    {{ btn.label }}
-  </a>
-  {% elif btn.confirm_msg %}
-  <a href="{{ url }}" class="btn btn-sm mr-2 btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
-     onclick="event.preventDefault();showConfirm('{{ btn.confirm_msg }}', function(){ window.location.href='{{ url }}'; });">
-    {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-    {{ btn.label }}
-  </a>
-  {% else %}
-  <a href="{{ url }}" class="btn btn-sm mr-2 btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1">
-    {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-    {{ btn.label }}
-  </a>
-  {% endif %}
+  {%- else -%}
+  <button type="button" class="{{ _cls }}"{{ _ed|safe }}{% if not _on %} disabled{% endif %}
+    {%- if btn.carry and btn.carry.map %} data-carry-map="{{ btn.carry.map|tojson|forceescape }}"{% endif %}
+    {%- if btn.carry or btn.serialize %}{% set _post = 'postToCarry' %}{% else %}{% set _post = 'postTo' %}{% endif %}
+    {%- if btn.confirm_msg %} onclick='var _b=this;showConfirm({{ btn.confirm_text()|tojson }}, function(){ {{ _post }}({{ url|tojson }}, _b); });'
+    {%- else %} onclick='{{ _post }}({{ url|tojson }}, this);'{% endif %}>{{ btn_label(btn) }}</button>
+  {%- endif -%}
+{%- elif btn.url -%}
+  {%- if _on -%}
+  <a href="{{ url }}" class="{{ _cls }}"{{ _ed|safe }}
+    {%- if btn.confirm_msg %} onclick='event.preventDefault();showConfirm({{ btn.confirm_text()|tojson }}, function(){ window.location.href={{ url|tojson }}; });'{% endif %}>{{ btn_label(btn) }}</a>
+  {%- else -%}
+  {# inativo: sem href e sem onclick — <a> sem href não é navegável #}
+  <span class="{{ _cls }}" aria-disabled="true"{{ _ed|safe }}>{{ btn_label(btn) }}</span>
+  {%- endif -%}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro render_button(btn, instance, dom_fields=none) %}
+{# Botão de form: respeita `visible` e `url_ready` (form de criação esconde
+   botão cujo destino é endpoint por `id`); desabilitado quando `enabled` não
+   bate. `dom_fields` são os campos do mestre, para o `calc` do form principal
+   ser avaliado como o `querySelector` do `itEnabledEval` faz no cliente. #}
+{% if btn.visible_ok(instance) and btn.url_ready(instance) %}
+{{ render_button_el(btn, instance, ctx='form', url=btn.target_url(instance), html=btn.target_html(instance), dom_fields=dom_fields) }}
 {% endif %}
 {% endmacro %}
 
-{% macro render_session_button(btn, instance, fields=none) %}
-{# Botão dentro de sessão (dentro do form principal): POST via JS `postTo`
-   p/ não aninhar <form>. Lógica de exibição igual à do `render_button`.
-   `enable_when` (lista de nomes de campo) → mapeia p/ `name`, emite
-   `data-enable-when` (habilitado client-side quando todos tiverem valor) e
-   renderiza `disabled` inicial se algum campo do instance estiver vazio. #}
-{% if not btn.on_off %}
-{% set show = true %}
-{% if not instance and (btn.endpoint or btn.action) %}{% set show = false %}{% endif %}
-{% if btn.show_if %}{% set show = show and instance|attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
-{% if btn.when and instance and not btn.when(instance) %}{% set show = false %}{% endif %}
-{% if btn.endpoint and instance and (instance|attr(btn.url_var)) is none %}{% set show = false %}{% endif %}
-{% set _ew = [] %}
-{% set _ew_empty = [] %}
-{% if btn.enable_when %}
-  {% for _f in (fields or []) %}
-    {% if _f.name in btn.enable_when %}
-      {% if not _ew.append(_f.name) %}{% endif %}
-    {% endif %}
-  {% endfor %}
-  {% if instance %}
-    {% for _f in (fields or []) %}
-      {% if _f.name in btn.enable_when and not instance|attr(_f.name) %}{% if not _ew_empty.append(1) %}{% endif %}{% endif %}
-    {% endfor %}
-  {% endif %}
-{% endif %}
-{% set _ew_disabled = _ew_empty|length > 0 %}
-{% if show %}
-{% if btn.js %}
-<button type="button" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1" onclick="{{ btn.js }}">
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</button>
-{% else %}
-{% if btn.endpoint %}
-{% set _params = {btn.url_var: instance|attr(btn.url_var) if instance else none} %}
-{% if btn.extra_params %}{% set _ = _params.update(btn.extra_params) %}{% endif %}
-{% set url = url_for(btn.endpoint, **(_params if instance else {})) %}
-{% else %}
-{% set url = btn.action(instance) if btn.action else '#' %}
-{% endif %}
-{% if btn.method == 'POST' %}
-{% if btn.serialize or btn.carry %}
-<button type="button" class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
-  {% if _ew %}data-enable-when="{{ _ew|join(',') }}"{% endif %}{% if _ew_disabled %} disabled{% endif %}
-  {% if btn.carry and btn.carry.map %}data-carry-map="{{ btn.carry.map|tojson|forceescape }}"{% endif %}
-  {% if btn.confirm_msg %}onclick="var _b=this;showConfirm('{{ btn.confirm_msg }}', function(){ postToCarry('{{ url }}', _b); });"{% else %}onclick="postToCarry('{{ url }}', this);"{% endif %}>
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</button>
-{% else %}
-<button type="button" class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
-  {% if _ew %}data-enable-when="{{ _ew|join(',') }}"{% endif %}{% if _ew_disabled %} disabled{% endif %}
-  {% if btn.confirm_msg %}onclick="showConfirm('{{ btn.confirm_msg }}', function(){ postTo('{{ url }}'); });"{% else %}onclick="postTo('{{ url }}');"{% endif %}>
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</button>
-{% endif %}
-{% else %}
-<a href="{{ url }}" class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1"
-  {% if btn.confirm_msg %}onclick="event.preventDefault();showConfirm('{{ btn.confirm_msg }}', function(){ window.location.href='{{ url }}'; });"{% endif %}>
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</a>
-{% endif %}
-{% endif %}
-{% endif %}
+{% macro render_session_button(btn, instance, dom_fields=none) %}
+{# Botão dentro de sessão (dentro do form principal) — ver `render_button_el`. #}
+{% if btn.visible_ok(instance) and btn.url_ready(instance) %}
+{{ render_button_el(btn, instance, ctx='session', url=btn.target_url(instance), html=btn.target_html(instance), dom_fields=dom_fields) }}
 {% endif %}
 {% endmacro %}
 
 {% macro render_list_button(btn, btn_idx=none) %}
-{# Botão de cabeçalho de listagem (sem instância). `on_off` é botão de linha e não renderiza.
-   `action` retornando HTML → busca HTML fresco via endpoint (evita cache de template
-   estático com rid consumido) e injeta no container exclusivo de relatório (`reportRender`);
-   com `render` explícito usa injectHTML no seletor. #}
-{% if not btn.on_off %}
-{% if btn.action and btn.render is none %}
-<a href="#" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1"
-   data-action="{{ url_for('ajsystem.list_action') }}"
-   data-idx="{{ btn_idx }}"
-   data-page="{{ request.blueprint }}"
-   onclick="event.preventDefault();var u=this;fetch(u.dataset.action+'?page='+encodeURIComponent(u.dataset.page)+'&btn='+u.dataset.idx).then(function(r){return r.json()}).then(function(d){if(d&&d.html)reportRender(d.html)})">
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</a>
-{% elif btn.render and btn.action %}
-{% set _html = btn.action(None) %}
-<template>{{ _html|safe }}</template>
-<a href="#" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1"
-   onclick="event.preventDefault();injectHTML('{{ btn.render }}', this.previousElementSibling.innerHTML)">
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</a>
-{% else %}
-{% set url = btn.action(None) if btn.action else (url_for(btn.endpoint) if btn.endpoint else '#') %}
-{% if btn.confirm_msg %}
-<a href="{{ url }}" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1"
-   onclick="event.preventDefault();showConfirm('{{ btn.confirm_msg }}', function(){ window.location.href='{{ url }}'; });">
-{% else %}
-<a href="{{ url }}" class="btn btn-sm {{ btn.btn_cls() }} inline-flex items-center gap-1">
-{% endif %}
-  {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-  {{ btn.label }}
-</a>
-{% endif %}
+{# Botão de cabeçalho de listagem (sem instância). `on_off` é botão de linha e
+   não renderiza aqui. `render` busca HTML fresco em /list-action (evita o cache
+   do template de listagem com o `rid` já consumido) e entrega em `into`.
+   `url` de listagem é sempre callable (validado em `resolve_buttons`), então
+   `target_url(none)` é resolvido aqui. #}
+{% if not btn.on_off and btn.visible_ok(none) %}
+{{ render_button_el(btn, none, ctx='list', url=btn.target_url(none), btn_idx=btn_idx) }}
 {% endif %}
 {% endmacro %}
 
@@ -433,36 +365,6 @@
 {% else %}
 {{ itb.item_table_edit(instance, child, ro, title) }}
 {% endif %}
-{% endmacro %}
-
-{% macro render_action_buttons(actions, instance) %}
-<div class="flex gap-1">
-  {% for btn in actions %}
-  {% set show = true %}
-  {% if btn.show_if %}{% set show = instance|deep_attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
-  {% if btn.when and instance and not btn.when(instance) %}{% set show = false %}{% endif %}
-  {% if show %}
-  {% if btn.render and btn.action %}
-  {% set _html = btn.action(instance) %}
-  <template>{{ _html|safe }}</template>
-  <button type="button"
-          onclick="injectHTML('{{ btn.render }}', this.previousElementSibling.innerHTML)"
-          class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1">
-    {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-    {{ btn.label }}
-  </button>
-  {% else %}
-  {% set url = btn.action(instance) if btn.action else '#' %}
-  <button type="button"
-          onclick="window.location.href='{{ url }}'"
-          class="btn btn-sm btn-{{ btn.color or 'secondary' }} {{ 'btn-outline' if btn.outline }} inline-flex items-center gap-1">
-    {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-    {{ btn.label }}
-  </button>
-  {% endif %}
-  {% endif %}
-  {% endfor %}
-</div>
 {% endmacro %}
 
 {% macro render_fields(fields, data=none, ro=false, spacing=none, name_prefix='', ro_fields=none, tail=none, bottom=none) %}
@@ -525,7 +427,7 @@
 <div class="w-full mb-2" style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));"></div>
 {% endmacro %}
 
-{% macro render_sessions(sessions, data=none, ro=false, ro_fields=none) %}
+{% macro render_sessions(sessions, data=none, ro=false, ro_fields=none, master_fields=none) %}
 {% set _sessions = sessions._resolved_sessions if sessions._resolved_sessions is defined else sessions %}
 {% for session in _sessions %}
 {% set _when = session.get('when') if session is mapping else session.when %}
@@ -546,84 +448,58 @@
 {% set _is_form = _has_fields and _sess_model and _has_query is none and _has_table is none %}
 {% set _is_parent = _has_fields and _sess_model is none and _has_query is none and _has_table is none %}
 {% endif %}
-{# Botões da sessão, posicionados por `position`:
-   fields_left / fields_right (em volta dos fields) e
-   table_before / table_after (em volta da tabela filha).
-   Sem um dos 4 valores, assume fields_right (fica à direita dos fields). #}
+{# Posicionamento dos botões da sessão, relativo ao FORMATO da sessão:
+     fields_left / fields_right → em volta dos fields da sessão;
+     nav_* / table_before       → cabeçalho, acima da tabela (exige table/query);
+     footer_* / table_after     → rodapé, abaixo da tabela (exige table/query).
+   A lista completa é retirada de `_sess_table`, então `child.buttons` nunca
+   chega ao item_table (que não renderiza mais botões).
+   `dom_fields` = mestre + sessão na ordem do DOM — é o que o `itEnabledEval`
+   resolve por `querySelector`, então o `disabled` inicial bate com o cliente. #}
 {% set _btns = session.get('buttons') if session is mapping else session.buttons %}
 {% set _btns = _btns or [] %}
-{% set _fields_left = _btns|selectattr('position', 'equalto', 'fields_left')|list %}
-{% set _table_before = _btns|selectattr('position', 'equalto', 'table_before')|list %}
-{% set _table_after = _btns|selectattr('position', 'equalto', 'table_after')|list %}
-{% set _fields_right = _btns|rejectattr('position', 'equalto', 'fields_left')|rejectattr('position', 'equalto', 'table_before')|rejectattr('position', 'equalto', 'table_after')|list %}
+{% set _dom = (master_fields or []) + (_has_fields|list if _has_fields is not string and _has_fields else []) %}
+{% set _bk = namespace(left=[], right=[], head=[], foot=[]) %}
+{% for _b in _btns %}
+  {%- set _p = _b.position -%}
+  {%- if _p == 'fields_left' -%}{%- if _bk.left.append(_b) %}{%- endif -%}
+  {%- elif _p == 'fields_right' -%}{%- if _bk.right.append(_b) %}{%- endif -%}
+  {%- elif _p == 'table_before' or (_p is string and _p.startswith('nav_')) -%}{%- if _bk.head.append(_b) %}{%- endif -%}
+  {%- elif _p == 'table_after' or (_p is string and _p.startswith('footer_')) -%}{%- if _bk.foot.append(_b) %}{%- endif -%}
+  {%- endif -%}
+{% endfor %}
 {% if _is_form %}
 {% set _attr = session.get('attr') if session is mapping else session.attr %}
 {% set _child = data|deep_attr(_attr) if data is not none else none %}
-{% set _tail %}{% if _fields_right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _fields_right %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}{% endset %}
+{% set _tail %}{% if _bk.right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.right %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {% if _fields_left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _fields_left %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
+  {% if _bk.left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
   {{ render_fields(session.get('fields') if session is mapping else session.fields, data=_child, ro=_ro, name_prefix='child_' + _attr + '_', ro_fields=ro_fields, tail=_tail) }}
 </div>
 {% elif _is_parent %}
-{% set _tail %}{% if _fields_right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _fields_right %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}{% endset %}
+{% set _tail %}{% if _bk.right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.right %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {% if _fields_left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _fields_left %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
+  {% if _bk.left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
   {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields, tail=_tail) }}
 </div>
 {% else %}
+{% set _sess_table = dict(session, buttons=[]) if session is mapping else session %}
+{% set _ct_title = not (_has_fields and (_has_table or _has_query)) %}
 {% if _has_fields and (_has_table or _has_query) %}
-{% set _tail %}{% if _fields_right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _fields_right %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}{% endset %}
+{% set _tail %}{% if _bk.right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.right %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {% if _fields_left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _fields_left %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
-  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=data, ro=_ro, ro_fields=ro_fields, tail=_tail, bottom=true) }}
+  {% if _bk.left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
+  {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields, tail=_tail, bottom=true) }}
 </div>
-{% set _sess_table = dict(session, buttons=_btns|rejectattr('position', 'equalto', 'table_before')|rejectattr('position', 'equalto', 'table_after')|list) if session is mapping else session %}
-{% if _table_before %}<div class="flex flex-wrap gap-2 my-2">{% for btn in _table_before %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
-{{ render_child_table(data, _sess_table, _ro, title=false) }}
-{% if _table_after %}<div class="flex flex-wrap justify-end gap-2 mt-2">{% for btn in _table_after %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
-{% else %}
-{% set _sess_table = dict(session, buttons=_btns|rejectattr('position', 'equalto', 'table_before')|rejectattr('position', 'equalto', 'table_after')|list) if session is mapping else session %}
-{% if _table_before %}<div class="flex flex-wrap gap-2 my-2">{% for btn in _table_before %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
-{{ render_child_table(data, _sess_table, _ro) }}
-{% if _table_after %}<div class="flex flex-wrap justify-end gap-2 mt-2">{% for btn in _table_after %}{{ render_session_button(btn, data, fields=_has_fields) }}{% endfor %}</div>{% endif %}
 {% endif %}
+{% if _bk.head %}<div class="flex flex-wrap gap-2 my-2">{% for btn in _bk.head %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
+{{ render_child_table(data, _sess_table, _ro, title=_ct_title) }}
+{% if _bk.foot %}<div class="flex flex-wrap justify-end gap-2 mt-2">{% for btn in _bk.foot %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
 {% endif %}
 {% endif %}
 {% endfor %}
 {% endmacro %}
 
-{% macro render_card_list(items, fields, actions=none, instance=none) %}
-<div class="flex flex-col gap-2">
-  {% for item in items %}
-  <div class="border rounded p-2">
-    <div class="grid grid-cols-2 gap-1 text-sm">
-      {% for f in fields %}
-      <div>
-        <span class="font-semibold text-xs text-gray-500">{{ f.display_label }}:</span>
-        <span>{{ render_label(f, item) }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% if actions %}
-    <div class="mt-1 flex gap-1 justify-end">
-      {% for btn in actions %}
-      {% set show = true %}
-      {% if btn.show_if %}{% set show = item|deep_attr(btn.show_if[0]) == btn.show_if[1] %}{% endif %}
-      {% if btn.when and item and not btn.when(item) %}{% set show = false %}{% endif %}
-      {% if show %}
-      {% set url = btn.action(item) if btn.action else '#' %}
-      <a href="{{ url }}" class="btn btn-ghost btn-xs inline-flex items-center gap-1">
-        {% if btn.icon %}<svg class="w-3 h-3" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-        <span class="text-xs">{{ btn.label }}</span>
-      </a>
-      {% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-  {% endfor %}
-</div>
-{% endmacro %}

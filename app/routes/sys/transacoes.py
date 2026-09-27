@@ -10,13 +10,13 @@ motor). A origem (`origem_pedido`/`origem_compra`) permanece na query string
 — a `<form>` principal não tem `action` e reenvia os args no POST, usados por
 `post_save_transacao`.
 """
-from flask import request, url_for
+from flask import request
 
 from ajsystem.core.extensions import db
+from ajsystem.core.formats import parse_brl
 from ajsystem.defs.constants import TODAY
 from app.models.transacao import Transacao
 
-_GERAR_JS = 'js/gerar_previsoes.js'
 
 
 def _valor(v):
@@ -27,14 +27,9 @@ def _valor(v):
 
 
 def _num_pt(v):
-    """Numérico no formato pt-BR (1.234,56). Espelha o `num()` em gerar_previsoes.js."""
-    try:
-        s = str(v).strip()
-        if ',' in s:
-            s = s.replace('.', '').replace(',', '.')
-        return float(s or 0)
-    except (TypeError, ValueError):
-        return 0.0
+    """Numérico tolerante a 'R$ 1.234,56'. Espelha o `num()` em previsoes.js."""
+    n = parse_brl(v)
+    return 0.0 if n is None else n
 
 
 def _carry_int(carry, key):
@@ -63,10 +58,11 @@ def pre_get_transacao(mod, id):
     transferido de `carteira.prazo_recebimento`. Nada é persistido e nenhuma
     previsão é criada — o botão "Gerar" (JS) cuida disso no form.
 
-    O JS do "Gerar" é injetado via `_editor_js` (hook do layout) em todo form
-    de receber/pagar (novo ou edição), inclusive manual.
+    O JS do "Gerar" não entra aqui: vem da prop `scripts` do Page (ver
+    pagar.py/receber.py), que é injetada em todo form de receber/pagar, novo
+    ou de edição.
     """
-    extra = {'_editor_js': [url_for('static', filename=_GERAR_JS) + '?v=3']}
+    extra = {}
     if id is not None:
         return extra
     if not (request.args.get('origem_pedido') or request.args.get('origem_compra')):

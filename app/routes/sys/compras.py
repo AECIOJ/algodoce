@@ -1,5 +1,9 @@
+from dataclasses import replace
+
 from flask import flash, redirect, url_for
-from ajsystem.core.do_report import print_report
+
+from ajsystem.core.formats import parse_brl
+from ajsystem.defs.buttons import BTN_SEND
 from ajsystem.defs.constants import TODAY, POS_0_NOT_EMPTY
 from app.models.compra import Compra
 from app.models.compra_item import CompraItem
@@ -7,10 +11,9 @@ from app.reports.compras import COMPRA
 
 
 def _num(v):
-    try:
-        return float(v or 0)
-    except (TypeError, ValueError):
-        return 0.0
+    """Numérico tolerante a 'R$ 1.234,56' (o input calc manda formatado)."""
+    n = parse_brl(v)
+    return 0.0 if n is None else n
 
 
 def _child_soma(request, rel='items'):
@@ -21,10 +24,7 @@ def _child_soma(request, rel='items'):
         m = _match(r'^child_%s_(.+?)_(qtd|preco)$' % rel, key)
         if not m:
             continue
-        try:
-            rows.setdefault(m.group(1), {})[m.group(2)] = float(val or 0)
-        except (TypeError, ValueError):
-            continue
+        rows.setdefault(m.group(1), {})[m.group(2)] = _num(val)
     return sum((r.get('qtd') or 0) * (r.get('preco') or 0) for r in rows.values())
 
 
@@ -116,7 +116,7 @@ def gerar_financeiro(id):
     if cart.gerar == 1:
         return redirect(url_for("pagar.form", origem_compra=compra.id, carry=carry_token))
 
-    total = float(request.form.get('total') or compra.total or 0)
+    total = _num(request.form.get('total') or compra.total)
     return redirect(url_for(
         "pagamentos.form",
         origem_compra=compra.id,
@@ -124,17 +124,6 @@ def gerar_financeiro(id):
         conta_id=compra.fornecedor_id,
         carry=carry_token,
     ))
-
-
-def _btn_enviar_action(instance):
-    """Botão Enviar do form — pré-controle + impressão da compra.
-
-    Exibição no padrão das listagens (operações/PLANO): o fragmento vai para
-    o container exclusivo `#report-content` (via `render`).
-    """
-    if instance is None or not instance.items:
-        return ''
-    return print_report(COMPRA, instance)
 
 
 Schema = {
@@ -195,11 +184,7 @@ Page = {
             'pre_get': _pre_get,
             'pre_save': _pre_save,
             'post_save': _post_save,
-            'buttons': [
-                {'label': 'Enviar', 'icon': 'paper-airplane', 'color': 'success', 'outline': True,
-                 'action': _btn_enviar_action, 'render': '#report-content',
-                 'position': 'nav_right'},
-            ],
+            'buttons': [replace(BTN_SEND(COMPRA), position='nav_right')],
             'sessions': {
                 'Itens': {
                     'table': {
@@ -213,10 +198,10 @@ Page = {
                     'query': _query_financeiro,
                     'buttons': [
                         {'label': 'Gerar', 'icon': 'banknotes', 'color': 'success', 'outline': True,
-                         'endpoint': 'compras.gerar_financeiro', 'url_var': 'id', 'method': 'POST', 'position': 'fields_right',
+                         'url': 'compras.gerar_financeiro', 'method': 'POST', 'position': 'fields_right',
                          'confirm_msg': 'Gerar o financeiro desta compra?',
-                         'when': _sem_financeiro,
-                         'enable_when': ['valor', 'carteira_id'],
+                         'visible': _sem_financeiro,
+                         'enabled': ['valor', 'carteira_id'],
                          'carry': {'map': {'valor': 'valor', 'conta_id': 'fornecedor_id'}}},
                     ],
                 },

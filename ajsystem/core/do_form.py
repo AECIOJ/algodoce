@@ -8,6 +8,11 @@ import re
 
 from flask import flash, redirect, render_template, request, url_for
 
+from ajsystem.locales import t
+from ajsystem.locales.en import (
+    MSG_FIELD_INVALID, MSG_FIELD_MAX, MSG_FIELD_MIN, MSG_FIELD_REQUIRED,
+    MSG_OUT_OF_SCOPE,
+)
 from ajsystem.core.adapter import db
 from ajsystem.core.utils import calc_value, is_empty
 from ajsystem.core.form import (
@@ -104,7 +109,7 @@ def _save_session_masters(form, instance, old_vals, is_new):
                 continue
             val = _coerce(raw, f)
             if f.required and is_empty(val):
-                flash(f'{f.label or f.name} é obrigatório.', 'warning')
+                flash(t(MSG_FIELD_REQUIRED).format(field=f.label or f.name), 'warning')
                 fields_ok = False
                 continue
             old_vals[f.name] = getattr(instance, f.name, None) if not is_new else None
@@ -221,7 +226,7 @@ def _save_table_sessions(form, instance):
                 continue  # linha adicionada mas não preenchida
             for f in savable:
                 if f.name in vals and f.required and is_empty(vals[f.name]):
-                    flash(f'{f.label or f.name} é obrigatório.', 'warning')
+                    flash(t(MSG_FIELD_REQUIRED).format(field=f.label or f.name), 'warning')
                     return False
             touched = False
             for f in savable:
@@ -390,7 +395,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
         for _mf, _v in _fixed:
             _attr = getattr(_mf, 'key', None) or getattr(_mf, 'name', None)
             if _attr and getattr(instance, _attr, None) != _v:
-                flash('Registro fora do escopo da página.', 'warning')
+                flash(t(MSG_OUT_OF_SCOPE), 'warning')
                 _back = request.referrer
                 if _back and _back.split('?')[0].rstrip('/') != request.url.rstrip('/'):
                     return redirect(_back)
@@ -459,23 +464,23 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
                 raw = request.form.get(f.name)
             val = _coerce(raw, f)
             if f.required and is_empty(val):
-                flash(f'{f.label or f.name} é obrigatório.', 'warning')
+                flash(t(MSG_FIELD_REQUIRED).format(field=f.label or f.name), 'warning')
                 fields_ok = False
                 continue
             if val and f.validate:
                 validator = resolve_validator(f.validate)
                 if callable(validator) and not validator(val):
-                    flash(f'{f.label or f.name} inválido.', 'warning')
+                    flash(t(MSG_FIELD_INVALID).format(field=f.label or f.name), 'warning')
                     fields_ok = False
                     continue
             if val is not None and (f.min is not None or f.max is not None):
                 try:
                     if f.min is not None and val < f.min:
-                        flash(f'{f.label or f.name} deve ser maior ou igual a {f.min}.', 'warning')
+                        flash(t(MSG_FIELD_MIN).format(field=f.label or f.name, min=f.min), 'warning')
                         fields_ok = False
                         continue
                     if f.max is not None and val > f.max:
-                        flash(f'{f.label or f.name} deve ser menor ou igual a {f.max}.', 'warning')
+                        flash(t(MSG_FIELD_MAX).format(field=f.label or f.name, max=f.max), 'warning')
                         fields_ok = False
                         continue
                 except TypeError:

@@ -191,21 +191,6 @@
               <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
                 <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
               </button>
-              {% if child.buttons %}
-              {% for btn in child.buttons %}
-              {% if btn.js %}
-              <button type="button" class="{{ btn.btn_cls() }} inline-flex items-center gap-1" onclick="{{ btn.js }}">
-                {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-                {{ btn.label }}
-              </button>
-              {% else %}
-              <a href="{{ btn.action(instance) if btn.action else '#' }}" class="btn btn-outline btn-{{ btn.color or 'secondary' }} btn-sm inline-flex items-center gap-1">
-                {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-                {{ btn.label }}
-              </a>
-              {% endif %}
-              {% endfor %}
-              {% endif %}
             </div>
           </td>
         </tr>
@@ -275,14 +260,6 @@
       <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
       </button>
-      {% if child.buttons %}
-      {% for btn in child.buttons %}
-      <a href="{{ btn.action(instance) if btn.action else '#' }}" class="btn btn-outline btn-{{ btn.color or 'secondary' }} btn-sm inline-flex items-center gap-1">
-        {% if btn.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ btn.icon }}"/></svg>{% endif %}
-        {{ btn.label }}
-      </a>
-      {% endfor %}
-      {% endif %}
       <span class="itm-pager"></span>
     </div>
     <div id="{{ _rel }}ColumnTemplate" style="display:none">

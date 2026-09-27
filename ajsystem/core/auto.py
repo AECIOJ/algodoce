@@ -8,10 +8,13 @@ import importlib
 
 from flask import Blueprint, flash, redirect, render_template, url_for
 
+from ajsystem.locales import t
+from ajsystem.locales.en import MSG_UPDATED
 from ajsystem.defs.data import (
-    page_list_cfg as _lista_config, module_page, module_page_label,
+    page_list_cfg as _lista_config, module_page, module_page_label, page_scripts,
 )
 from ajsystem.defs.form import parse_form
+from ajsystem.defs.buttons import Button
 from ajsystem.core.adapter import db
 from ajsystem.core.do_list import do_list
 from ajsystem.core.do_form import do_form
@@ -116,6 +119,10 @@ def _toggle_field(form_cfg):
             return (b['on_off'] or {}).get('field') or 'ativo'
         if isinstance(b, dict) and b.get('on_off') is True and b.get('field'):
             return b['field']
+        # Instância `Button` pronta (mesmo caminho de `resolve_buttons`). Sem
+        # `field` explícito vale o mesmo default do outro lado: 'ativo'.
+        if isinstance(b, Button) and b.on_off:
+            return b.field or 'ativo'
     return None
 
 
@@ -161,10 +168,13 @@ def _generated_crud(mod, slug):
 
     def _form(id=None):
         form = _build_form(mod, entidade, model, slug=slug)
-        extra = None
+        # `page_scripts` entra pelo extra_ctx (que `do_form` mescla no ctx) em
+        # vez de entrar na assinatura: o motor já tem o módulo aqui, e o
+        # `pre_get` continua podendo acrescentar as próprias chaves.
+        extra = {'page_scripts': page_scripts(module_page(mod))}
         pre_get = _form_config(mod).get('pre_get')
         if callable(pre_get):
-            extra = pre_get(mod, id)
+            extra.update(pre_get(mod, id) or {})
         from ajsystem.core.do_list import list_max_width
         return do_form(form, id, extra_ctx=extra, list_max_width=list_max_width(entidade, mod.__name__))
     routes.append(('/novo', 'form', _form))
@@ -185,7 +195,7 @@ def _generated_crud(mod, slug):
 
     campo = _toggle_field(form_cfg)
     if model is not None and campo:
-        flash_toggle = 'Atualizado!'
+        flash_toggle = t(MSG_UPDATED)
 
         def _toggle(id):
             instance = model.query.get_or_404(id)

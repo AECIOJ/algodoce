@@ -57,7 +57,7 @@ Page = {
             'post_save': post_save_movto_link,
             'buttons': [
                 {'label': 'Excluir', 'icon': 'trash', 'color': 'danger', 'outline': False,
-                 'endpoint': 'recebimentos.excluir', 'url_var': 'id', 'method': 'POST',
+                 'url': 'recebimentos.excluir', 'method': 'POST',
                  'confirm_msg': 'Excluir este lançamento?', 'position': 'footer_left'},
             ],
         },

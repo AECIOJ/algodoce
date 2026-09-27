@@ -252,13 +252,12 @@
 {% endblock %}
 
 {% block scripts %}
-{% for _js in _editor_js if _editor_js is defined %}
-<script src="{{ _js }}"></script>
+{# Helpers internos: lista no motor (`defs/data.INTERNAL_JS`), com `?v=` pelo
+   mtime. Ficam no topo do bloco porque o `sys.html` inline abaixo depende deles
+   (`parseNum`, `showConfirm`). #}
+{% for _js in internal_scripts() %}
+<script src="{{ _js.url }}"></script>
 {% endfor %}
-<script src="{{ url_for('ajsystem.static', filename='js/formats.js') }}?v=3"></script>
-<script src="{{ url_for('ajsystem.static', filename='js/validators.js') }}?v=1"></script>
-<script src="{{ url_for('ajsystem.static', filename='js/modals.js') }}?v=6"></script>
-{# validacoes do app (app/static/js/validacoes.js): incluir aqui quando criado, APÓS validators.js — ver README #}
 {% include 'components/auth_triggers.html' %}
 <script>
 function injectHTML(selector, html) {
@@ -331,6 +330,22 @@ function reportRender(html) {
     s.textContent = old.textContent;
     old.parentNode.replaceChild(s, old);
   });
+}
+
+/* Botão de listagem com `render`: busca o HTML no servidor no clique (o
+   template de listagem é estático e já veio com o `rid` consumido, então
+   renderizar no servidor evita servir markup velho) e entrega em `data-into`.
+   `into` = '#report-content' usa o overlay de relatório; qualquer outro seletor
+   injeta direto. */
+function itListRender(el) {
+  fetch(el.dataset.action + '?page=' + encodeURIComponent(el.dataset.page) + '&btn=' + el.dataset.idx)
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d || !d.html) return;
+      var into = el.dataset.into || '#report-content';
+      if (into === '#report-content') reportRender(d.html);
+      else injectHTML(into, d.html);
+    });
 }
 
 /* Fecha o relatório e volta à página sem recarregar; limpa os parâmetros de
@@ -872,23 +887,47 @@ function itDisablesBase(src) {
   }
   return '';
 }
-/* ── enable_when declarativo (data-enable-when, de Button.enable_when) ──
-   Botão com `data-enable-when="camp1,camp2"` inicia disabled; a cada
-   input/change no form, habilita quando TODOS os campos tiverem valor
-   (valor não-nulo/vazio) e desabilita caso contrário. */
-function itEnableWhenEval(root) {
+/* ── enabled declarativo (data-enabled, de Button.enabled) ────────────────
+   Botão com `data-enabled="camp1,camp2"` nasce desabilitado e é reavaliado a
+   cada input/change do form. Mesma regra do `enabled_ok` (Python): número conta
+   como vazio se |v| <= 0.005 (0,00 = Decimal('0.00')), string vazia/nula como
+   vazia, checkbox pelo `checked`. `data-enabled-mode="all_zero"` inverte:
+   habilita só quando TODOS estão vazios. O campo é resolvido por
+   `querySelector`, ou seja, na ordem do DOM — a mesma ordem que o `dom_fields`
+   do servidor usa para o `disabled` inicial. */
+var IT_EPS = 0.005;
+function itValEmpty(el) {
+  if (!el) return true;
+  if (el.type === 'checkbox') return !el.checked;
+  var s = String(el.value == null ? '' : el.value).trim();
+  if (s === '') return true;
+  var n = parseNum(s);
+  if (!isNaN(n)) return Math.abs(n) <= IT_EPS;
+  return false;
+}
+function itValFilled(el) {
+  if (!el) return false;
+  if (el.type === 'checkbox') return !!el.checked;
+  var s = String(el.value == null ? '' : el.value).trim();
+  if (s === '') return false;
+  var n = parseNum(s);
+  if (!isNaN(n)) return Math.abs(n) > IT_EPS;
+  return true;
+}
+function itEnabledEval(root) {
   var scope = (root && root.closest) ? (root.closest('form') || document) : document;
-  if (!scope.querySelector('[data-enable-when]')) return;
-  scope.querySelectorAll('button[data-enable-when]').forEach(function(btn) {
-    var names = (btn.getAttribute('data-enable-when') || '').split(',');
-    var all = true;
-    names.forEach(function(nm) {
+  var btns = scope.querySelectorAll('[data-enabled]');
+  if (!btns.length) return;
+  btns.forEach(function(btn) {
+    var zero = btn.getAttribute('data-enabled-mode') === 'all_zero';
+    var ok = true;
+    (btn.getAttribute('data-enabled') || '').split(',').forEach(function(nm) {
       nm = nm.trim();
       if (!nm) return;
       var el = scope.querySelector('[name="' + nm + '"]');
-      if (!el || el.value === null || el.value === undefined || String(el.value).trim() === '') all = false;
+      if (zero ? !itValEmpty(el) : !itValFilled(el)) ok = false;
     });
-    btn.disabled = !all;
+    btn.disabled = !ok;
   });
 }
 /* ── disables declarativo (data-disables, de `on_set.disables`) ─────────
@@ -1261,21 +1300,21 @@ document.addEventListener('DOMContentLoaded', function() {
     var t = e.target;
     if (t && t.matches && t.matches('input[data-num-decimals]')) fmtFieldInput(t);
   });
-  // Disables declarativo + enable_when: qualquer edição no form reavalia.
+  // Disables declarativo + enabled: qualquer edição no form reavalia.
   document.addEventListener('input', function(e) {
     var f = e.target && e.target.form ? e.target.form : null;
     if (!f) return;
     if (f.querySelector('[data-disables]')) itDisablesEval(f);
-    if (f.querySelector('[data-enable-when]')) itEnableWhenEval(f);
+    if (f.querySelector('[data-enabled]')) itEnabledEval(f);
   });
   document.addEventListener('change', function(e) {
     var f = e.target && e.target.form ? e.target.form : null;
     if (!f) return;
     if (f.querySelector('[data-disables]')) itDisablesEval(f);
-    if (f.querySelector('[data-enable-when]')) itEnableWhenEval(f);
+    if (f.querySelector('[data-enabled]')) itEnabledEval(f);
   });
   itDisablesEval(document);
-  itEnableWhenEval(document);
+  itEnabledEval(document);
   var form = document.getElementById('main-form');
   if (form) {
     form.addEventListener('submit', function(e) {
@@ -1324,7 +1363,7 @@ document.addEventListener('DOMContentLoaded', function() {
     itTotalsRefresh(wrap);
     var body = wrap.querySelector('.it-desktop tbody[data-rel]');
     if (body && 'MutationObserver' in window) {
-      new MutationObserver(function() { itOnSetBind(wrap); itCalcRefresh(wrap); itSessionTotals(wrap); itTotalsRefresh(wrap); itDisablesEval(wrap); itEnableWhenEval(wrap); })
+      new MutationObserver(function() { itOnSetBind(wrap); itCalcRefresh(wrap); itSessionTotals(wrap); itTotalsRefresh(wrap); itDisablesEval(wrap); itEnabledEval(wrap); })
         .observe(body, {childList: true});
     }
   });
@@ -1367,8 +1406,8 @@ document.addEventListener('DOMContentLoaded', function () {
         groups.sort(function (a, b) {
           var aVal = (a.data.cells[col] ? a.data.cells[col].textContent.trim() : '');
           var bVal = (b.data.cells[col] ? b.data.cells[col].textContent.trim() : '');
-          var aNum = parseFloat(aVal.replace(/[R$\s]/g, '').replace(',', '.'));
-          var bNum = parseFloat(bVal.replace(/[R$\s]/g, '').replace(',', '.'));
+          var aNum = parseNum(aVal);
+          var bNum = parseNum(bVal);
           if (!isNaN(aNum) && !isNaN(bNum)) { return ascending ? aNum - bNum : bNum - aNum; }
           var aDate = parseDate(aVal);
           var bDate = parseDate(bVal);
@@ -1683,4 +1722,11 @@ function previewImagem(src) {
   img.closest('.modal').showModal();
 }
 </script>
+{# Scripts da página (`props.scripts` do Page) — por último de propósito: vêm
+   depois dos helpers inline deste bloco (`injectHTML`, `postTo`, `postToCarry`,
+   `reportRender`) e dos internos, que eles precisam poder chamar. Sem `defer`,
+   para executarem nesta ordem em vez de esperarem o fim do parse. #}
+{% for _js in page_scripts|default([], true) %}
+<script src="{{ _js.url }}"></script>
+{% endfor %}
 {% endblock %}

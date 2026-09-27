@@ -3,6 +3,12 @@ from flask import Blueprint, jsonify, request, render_template, url_for
 from markupsafe import Markup
 from flask_login import login_required
 
+from ajsystem.locales import t
+from ajsystem.locales.en import (
+    ERR_INVALID_BUTTON, ERR_INVALID_PAGE_PARAM, ERR_INVALID_PARAMS,
+    ERR_NO_RENDER, ERR_UNKNOWN_PAGE, ERR_UNKNOWN_SEARCH,
+)
+
 ajsystem = Blueprint('ajsystem', __name__,
     template_folder='templates',
     static_folder='static',
@@ -45,15 +51,15 @@ def lookup_search():
     page = request.args.get('page', '') or ''
     name = request.args.get('query', '') or ''
     if not re.fullmatch(r'[A-Za-z0-9_]+', page) or not re.fullmatch(r'[A-Za-z0-9_]+', name):
-        return jsonify(error='parâmetros inválidos'), 400
+        return jsonify(error=t(ERR_INVALID_PARAMS)), 400
     try:
         from ajsystem.core.adapter import ROUTES_BASE
         mod = importlib.import_module(f'{ROUTES_BASE}.sys.{page}')
     except ImportError:
-        return jsonify(error='página desconhecida'), 404
+        return jsonify(error=t(ERR_UNKNOWN_PAGE)), 404
     spec = getattr(mod, name, None)
     if not isinstance(spec, dict):
-        return jsonify(error='busca desconhecida'), 404
+        return jsonify(error=t(ERR_UNKNOWN_SEARCH)), 404
     from ajsystem.core import search as _search
     params = {k: v for k, v in request.args.items() if k not in ('page', 'query')}
     return jsonify(_search.run_search(spec, params))
@@ -76,24 +82,26 @@ def list_action():
     btn_idx = request.args.get('btn', type=int)
     instance_id = request.args.get('id', type=int)
     if not page or btn_idx is None:
-        return jsonify(error='parâmetros inválidos'), 400
+        return jsonify(error=t(ERR_INVALID_PARAMS)), 400
     if not re.fullmatch(r'[A-Za-z0-9_]+', page):
-        return jsonify(error='parâmetro page inválido'), 400
+        return jsonify(error=t(ERR_INVALID_PAGE_PARAM)), 400
     try:
         from ajsystem.core.adapter import ROUTES_BASE
         mod = importlib.import_module(f'{ROUTES_BASE}.sys.{page}')
     except ImportError:
-        return jsonify(error='página desconhecida'), 404
+        return jsonify(error=t(ERR_UNKNOWN_PAGE)), 404
     page_spec = module_page(mod)
     lista = page_list_cfg(page_spec)
     bp = next((getattr(mod, a) for a in dir(mod)
                 if isinstance(getattr(mod, a, None), _BP)), None)
     bp_name = bp.name if bp else None
     from ajsystem.defs.buttons import resolve_buttons
-    btns = resolve_buttons(lista.get('buttons'), bp_name)
+    btns = resolve_buttons(lista.get('buttons'), bp_name, where='list', ctx='list')
     if btn_idx < 0 or btn_idx >= len(btns):
-        return jsonify(error='botão inválido'), 400
+        return jsonify(error=t(ERR_INVALID_BUTTON)), 400
     btn = btns[btn_idx]
+    if btn.render is None:
+        return jsonify(error=t(ERR_NO_RENDER)), 400
     # O modal (filter_select) usa `request.path` como url_target por padrão;
     # aqui o path é /ajsystem/list-action, então apontamos para a listagem real.
     try:
@@ -101,7 +109,7 @@ def list_action():
     except Exception:
         pass
     instance = None
-    if instance_id and btn.action:
+    if instance_id:
         entity = None
         for a in dir(mod):
             obj = getattr(mod, a, None)
@@ -110,8 +118,7 @@ def list_action():
                 break
         if entity:
             instance = entity.query.get(instance_id)
-    html = btn.action(instance) if btn.action else ''
-    return jsonify(html=html or '')
+    return jsonify(html=btn.target_html(instance) or '')
 
 
 from ajsystem.init import init_app  # noqa: E402  (wiring do framework)

@@ -7,7 +7,15 @@
  * (previsto/realizado/variacao/saldo) e o `ratear` (= valor − previsto).
  * Espelha app/utils.parse_prazo_recebimento (sem data de entrega).
  *
- * Carregado em receber/pagar pelo hook `_editor_js` (ver transacoes.py).
+ * O estado dos botões NÃO é calculado aqui: vem de `Button.enabled` nas specs de
+ * app/routes/sys/{pagar,receber}.py (Gerar = 6 campos preenchidos; Zerar = só
+ * com realizado e varição agregados zerados) e é reavaliado por
+ * `itEnabledEval` (sys.html) — que dispara nos mesmos eventos `input`/`change`
+ * que esta arquivo escuta. Por isso `setField`/`setNumField` continuam
+ * disparando os dois eventos.
+ *
+ * Carregado em receber/pagar pela prop `scripts` do Page (ver pagar.py/receber.py);
+ * o motor resolve o caminho e o `?v=` sozinho.
  */
 (function () {
   'use strict';
@@ -21,7 +29,7 @@
   }
   function num(v) {
     if (v == null) return 0;
-    v = String(v).trim();
+    v = String(v).trim().replace(/[^0-9,.\-+]/g, '');
     if (!v) return 0;
     if (v.indexOf(',') >= 0) v = v.replace(/\./g, '').replace(',', '.');
     var n = parseFloat(v);
@@ -90,7 +98,6 @@
     var body = document.querySelector('[data-rel="previsoes"]');
     return body ? body.closest('.child-table-wrap') : null;
   }
-  function gerarBtn() { return document.querySelector('.btn-gerar-previsoes'); }
 
   function vinculada() {
     if (val('pedido_id') || val('compra_id')) return true;
@@ -121,7 +128,7 @@
   }
 
   /* Só é "manual" quando o próprio usuário edita `ratear` (evento trusted);
-   * síntese/script não marca — assim `Gerar`/`Zerar` retomam a observância. */
+   * síntese/script não marca — assim a soma volta a ser derivada. */
   var ratearManual = false;
 
   function atualizarAgregados() {
@@ -135,15 +142,6 @@
     setNumField(q('variacao'), sV);
     setNumField(q('saldo'), sP + sV - sR);
     if (!ratearManual) setNumField(q('ratear'), num(val('valor')) - sP);
-  }
-
-  function atualizarBtn() {
-    var w = wrap();
-    var btn = gerarBtn();
-    if (!w || !btn) return;
-    var ok = val('conta_id') !== '' && val('operacao_id') !== '' &&
-             val('prazo') !== '' && val('recurso_id') !== '' && num(val('valor')) > 0;
-    btn.disabled = !(ok && num(val('ratear')) > 0.005);
   }
 
   function atualizarValor() {
@@ -232,7 +230,6 @@
     ratearManual = false;
     atualizarAgregados();
     if (window.itToasts) itToasts(parcelas.length + ' previsão(ões) gerada(s).', 'success');
-    atualizarBtn();
   };
 
   window.zerarPrevisoes = function (btn) {
@@ -249,11 +246,7 @@
     tbody.querySelectorAll('tr[data-crow]').forEach(function (tr) {
       var crow = tr.getAttribute('data-crow');
       if (!crow || crow === '__IDX__') return;
-      var prefix = 'child_previsoes_' + crow + '_';
-      var realizado = tr.querySelector('[name="' + prefix + 'realizado"]');
-      var variacao = tr.querySelector('[name="' + prefix + 'variacao"]');
-      if (num(realizado && realizado.value) || num(variacao && variacao.value)) return;
-      var prev = tr.querySelector('[name="' + prefix + 'previsto"]');
+      var prev = tr.querySelector('[name="child_previsoes_' + crow + '_previsto"]');
       if (!prev) return;
       setField(prev, '0,00');
       count++;
@@ -266,7 +259,6 @@
     } else {
       if (window.itToasts) itToasts(count + ' previsão(ões) zerada(s).', 'success');
     }
-    atualizarBtn();
   };
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -274,13 +266,11 @@
     if (!w) return;
     atualizarValor();
     atualizarAgregados();
-    atualizarBtn();
 
     var tbody = w.querySelector('.it-desktop tbody[data-rel="previsoes"]');
     if (tbody && 'MutationObserver' in window) {
       new MutationObserver(function () {
         atualizarAgregados();
-        atualizarBtn();
       }).observe(tbody, { childList: true });
     }
 
@@ -289,7 +279,6 @@
       var sinc = function (e) {
         if (e.isTrusted && e.target && e.target.name === 'ratear') ratearManual = true;
         atualizarAgregados();
-        atualizarBtn();
       };
       form.addEventListener('input', sinc);
       form.addEventListener('change', sinc);

@@ -1,26 +1,13 @@
 from flask import request, redirect, url_for, flash, render_template
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
-from ajsystem.core.do_report import print_report
 from ajsystem.defs.constants import POS_0_NOT_EMPTY
 from app.models.conta import Conta
 from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
 from app.models.orcamento import Orcamento
 from app.models.orcamento_item import OrcamentoItem
-from app.reports.orcamentos import ORCAMENTO
-
-
-def _btn_enviar_action(instance):
-    """Botão Enviar do form — pré-controle + impressão do orçamento.
-
-    Exibição no padrão das listagens (operações/PLANO): o fragmento vai para
-    o container exclusivo `#report-content` (via `render`), cujo script
-    alterna com a página; o Voltar (`closeReport`) restaura sem recarregar.
-    """
-    if instance is None or not instance.items:
-        return ''
-    return print_report(ORCAMENTO, instance)
+from app.botoes import BTN_ORC_APROVAR, BTN_ORC_ENV, BTN_ORC_RENOVAR
 
 
 Schema = {
@@ -71,26 +58,13 @@ Page = {
                 'msg_ok': 'Orçamento excluído!',
                 'msg_no': 'Exclua o pedido vinculado antes de excluir o orçamento.',
             },
-            'buttons': [
-                {'label': 'Enviar', 'icon': 'paper-airplane', 'color': 'success', 'outline': True,
-                 'action': _btn_enviar_action, 'render': '#report-content',
-                 'position': 'nav_right',
-                 'when': lambda q: q is not None and q.pedido_id is None and q.status < 7},
-                {'label': 'Aprovar', 'icon': 'check', 'color': 'success', 'outline': False,
-                 'endpoint': 'orcamentos.aprovar', 'url_var': 'id',
-                 'position': 'nav_right',
-                 'when': lambda q: q is not None and q.pedido_id is None and q.status < 7},
-                {'label': 'Renovar', 'icon': 'arrow-path', 'color': 'secondary', 'outline': True,
-                 'endpoint': 'orcamentos.renovar', 'url_var': 'id', 'method': 'POST',
-                 'position': 'nav_right',
-                 'when': lambda q: q is not None and q.pedido_id is None and q.status == 7},
-            ],
+            'buttons': [BTN_ORC_ENV, BTN_ORC_APROVAR, BTN_ORC_RENOVAR],
             'sessions': {
                 'Itens do Orçamento': {
                     'buttons': [
                         {'label': 'Preços zerados',
                          'icon': 'currency-dollar', 'color': 'secondary',
-                         'js': 'itUpdateZerados(this)'},
+                         'action': 'itUpdateZerados'},
                     ],
                     'table': {
                         'columns': ['OrcamentoItem'],

@@ -10,8 +10,8 @@ import importlib
 from flask import render_template, request, url_for
 
 from ajsystem.defs.data import (
-    _auto_label, build_field, page_list_cfg, resolve_entity_fields, module_page,
-    resolve_max_width,
+    _auto_label, build_field, page_list_cfg, page_scripts, resolve_entity_fields,
+    module_page, resolve_max_width,
 )
 from ajsystem.core.list import (
     List, build_filter_config, build_field_context, resolve_column_configs,
@@ -394,6 +394,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         active_filters=active,
         initial_filters=initial_filters,
         FILTERS=filter_config,
+        page_scripts=page_scripts(page),
         ctx=ctx,
         title=title,
         new_url=new_url,
@@ -636,6 +637,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         active_filters=active,
         initial_filters=initial_filters,
         FILTERS=filter_config,
+        page_scripts=page_scripts(page),
         ctx=ctx,
         title=title,
         new_url=new_url,

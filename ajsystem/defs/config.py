@@ -106,6 +106,10 @@ class App:
     - `name`: nome do app exibido no cabeçalho/títulos.
     - `version`: versão exibida no rodapé. Se não informada, `build_app`
       procura o arquivo `versao.py` do app (YEAR/MONTH/SEQUENCE).
+    - `locale`: idioma do copy do framework, resolvido por `ajsystem.locales.t`.
+      Catálogos em `ajsystem/locales/` (`en`, `pt`); o framework os embarca,
+      então `pt` funciona sem nada do app. Não afeta número/moeda/data — ver
+      `ajsystem/locales/__init__.py`.
     - `upload`: política global de upload (`Page.upload` sobrescreve).
       Ausente (`None`) = `DEFAULT_UPLOAD` abaixo.
     """
@@ -114,6 +118,7 @@ class App:
     tema: str
     title: Optional[str] = None
     version: Optional[str] = None
+    locale: str = 'pt'
     upload: Optional[dict] = None
     modules: List[Module] = field(default_factory=list)
     def module(self, type):
@@ -208,6 +213,7 @@ def build_app(cfg, versao_path=None) -> App:
         logo=cfg['logo'],
         version=versao or None,
         tema=cfg['tema'],
+        locale=cfg.get('locale') or 'pt',
         upload=cfg.get('upload'),
         modules=mods,
     )

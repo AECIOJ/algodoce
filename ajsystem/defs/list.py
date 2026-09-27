@@ -30,7 +30,7 @@ class List:
     card_idx: Optional[list] = None
 
     def resolve_buttons(self, bp_name=None):
-        return _resolve_buttons(self.buttons, bp_name)
+        return _resolve_buttons(self.buttons, bp_name, where='list', ctx='list')
 
     @property
     def master_fields(self):

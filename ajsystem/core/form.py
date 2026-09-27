@@ -6,11 +6,12 @@ DB usados por `core.do_form`. Sessions/aggs/resque adiados (Categorias não usa)
 import re
 from datetime import datetime
 
+from ajsystem.locales import t
+from ajsystem.locales.en import (
+    MSG_CANNOT_DELETE, MSG_DELETED, MSG_ENTITY_DELETED,
+)
 from ajsystem.core.adapter import db
 from ajsystem.defs.validators import resolve_validator
-
-_DEFAULT_MSG_OK = 'Excluído!'
-_DEFAULT_MSG_NO = 'Não é possível excluir — está em uso.'
 
 
 def _has_references(instance, child_model):
@@ -67,8 +68,8 @@ def _resolve_delete(delete, label=None):
         msg_no = None
     return {
         'when': when,
-        'msg_ok': msg_ok or (f'{label} excluído!' if label else _DEFAULT_MSG_OK),
-        'msg_no': msg_no or _DEFAULT_MSG_NO,
+        'msg_ok': msg_ok or (t(MSG_ENTITY_DELETED).format(label=label) if label else t(MSG_DELETED)),
+        'msg_no': msg_no or t(MSG_CANNOT_DELETE),
     }
 
 
@@ -130,6 +131,9 @@ def _coerce(value, f):
         s = str(value).strip().replace('\u00A0', ' ')
         # sufixo de lista/readonly (`1234,56 D`) — sinal de débito/crédito
         s = re.sub(r'\s+[CD]\s*$', '', s)
+        # símbolo de moeda exibido no input (`R$ 29,70`); espelha o `parseNum`
+        # de static/js/formats.js
+        s = re.sub(r'[^0-9,.+-]', '', s)
         if not s:
             return None
         if ',' in s:

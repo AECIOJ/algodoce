@@ -5,9 +5,10 @@
 {% endmacro %}
 
 {% macro btn(button, url, extra_class='') %}
-{% set btn_cls = button.cls if button.cls else 'btn-' + button.color + ' btn-' + button.size + (' btn-outline' if button.outline else '') %}
-<a href="{{ url }}" class="btn {{ btn_cls }} {{ extra_class }} inline-flex items-center gap-1">
+{# Usa `button.btn_cls()`/`button.text()`: a cor e o texto traduzido saem da
+   mesma fonte dos presets, sem a cópia da regra de classe que vivia aqui. #}
+<a href="{{ url }}" class="btn {{ button.btn_cls() }} {{ extra_class }} inline-flex items-center gap-1">
   {% if button.icon %}{{ heroicon(button.icon, 'w-4 h-4') }}{% endif %}
-  {{ button.label }}
+  {{ button.text() }}
 </a>
 {% endmacro %}

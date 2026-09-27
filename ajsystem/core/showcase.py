@@ -15,6 +15,8 @@ filtro de ativos por coluna `ativo`/`active` quando existir, imagem via
 """
 from flask import jsonify, request, session, url_for
 
+from ajsystem.locales import t
+from ajsystem.locales.en import ERR_INVALID_QTY, ERR_NEED_IDENTIFY
 from ajsystem.core.adapter import db, get_uploads_endpoint
 from ajsystem.core.list import _resolve_model
 from ajsystem.core.utils import fk_column_to, model_columns, rel_for_column
@@ -245,7 +247,7 @@ def make_add(sc):
         observacao = data.get('observacao', '')
 
         if sc['client_fields'] and not session.get(sc['client_session_key']):
-            return jsonify(error='identificar'), 401
+            return jsonify(error=t(ERR_NEED_IDENTIFY)), 401
 
         for campo, pos in sc['show']:
             if pos == 'qty':
@@ -303,7 +305,7 @@ def make_update(sc):
             try:
                 quantidade = int(data['quantidade'])
             except (TypeError, ValueError):
-                return jsonify(error='Quantidade inválida.'), 400
+                return jsonify(error=t(ERR_INVALID_QTY)), 400
             if quantidade < minima:
                 titulo = next(
                     (getattr(produto, c, None) for c, p in sc['show'] if p == 'title'),

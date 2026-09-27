@@ -48,6 +48,9 @@ Page = {
     'label': 'Conta a Pagar',
     'type': 'crud',
     'props': {
+        # JS dos botões de previsão (Gerar/Zerar) — resolvido pelo motor em
+        # `static/js/previsoes.js`, com `?v=` automático pelo mtime.
+        'scripts': ['previsoes'],
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},
@@ -55,7 +58,7 @@ Page = {
         'list': {
             'columns': 'Transacao',
             'master': 'Previsao',
-            'order': ['vencimento'],
+            'order': ['vencimento','id'],
             'card': 'Transacao',
         },
         'form': {
@@ -75,11 +78,15 @@ Page = {
                         {'label': 'Gerar', 'icon': 'arrow-path',
                          'cls': 'btn-gerar-previsoes btn-success btn-sm',
                          'position': 'table_before',
-                         'js': 'gerarPrevisoes(this)'},
+                         'action': 'gerarPrevisoes',
+                         'enabled': ['conta_id', 'operacao_id', 'prazo',
+                                     'recurso_id', 'valor', 'ratear']},
                         {'label': 'Zerar', 'icon': 'x-circle',
                          'cls': 'btn-zerar-previsoes btn-warning btn-sm',
                          'position': 'table_before',
-                         'js': 'zerarPrevisoes(this)'},
+                         'action': 'zerarPrevisoes',
+                         'enabled': {'fields': ['realizado', 'variacao'],
+                                     'mode': 'all_zero'}},
                     ],
                 },
             },

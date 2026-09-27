@@ -167,7 +167,11 @@ APP = {
     'name': 'AlgoDoce',
     'title': 'Sistema Gerenciador de Doceria',
     'logo': 'icons/Logo.png',
-    'version': 'v1.25.3-1',
     'tema': 'algodoce',
+    # Idioma do copy do framework (catálogos em `ajsystem/locales/`). 'pt' já vem
+    # com o framework; 'en' entrega os rótulos em inglês sem mudar código.
+    # Não afeta número/moeda/data. Copy que o app escreve direto no spec fica
+    # em português de propósito — o app é quem decide o texto dele.
+    'locale': 'pt',
     'modules': [SITE, SYS, ADMIN],
 }

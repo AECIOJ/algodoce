@@ -1,6 +1,6 @@
 from ajsystem.core.extensions import db
 from ajsystem.core.utils import CONNECTORS
-from ajsystem.core.do_report import print_report, filter_select
+from ajsystem.defs.buttons import BTN_PRINT
 from app.models.operacao import Operacao
 from app.reports import PLANO
 
@@ -48,10 +48,7 @@ Page = {
         'list': {
             'columns': 'Operacao',
             'order': ['ordem', 'nome'],
-            'buttons': [
-                {'label': 'Plano', 'icon': 'printer', 'color': 'info',
-                 'action': lambda _: print_report(PLANO, filter_select('tipo'))},
-            ],
+            'buttons': [BTN_PRINT(PLANO, filter_field='tipo', label='Plano')],
         },
         'form': {
             'max_width': 80,

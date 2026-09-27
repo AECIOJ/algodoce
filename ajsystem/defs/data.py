@@ -16,6 +16,7 @@ página precisar).
 """
 import importlib
 from dataclasses import dataclass, fields as dc_fields
+from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
 from ajsystem.core.utils import is_empty
@@ -558,6 +559,95 @@ def page_form_cfg(page: dict) -> dict:
     props = page_props(page)
     fc = props.get('form')
     return fc if isinstance(fc, dict) else {}
+
+
+# Prefixo e sufixo que o motor aplica ao nome declarado em `props.scripts`.
+# O autor escreve só o nome ('previsoes'); o caminho da pasta e a extensão são
+# do motor, para o spec não carregar o layout de disco.
+SCRIPTS_DIR = 'js'
+SCRIPTS_EXT = '.js'
+
+# Helpers internos do framework, na ordem de dependência (formats antes de quem
+# formata, modals no fim porque expõe showConfirm). Substitui a lista que estava
+# hardcoded em `pages/sys.html`.
+INTERNAL_JS = ('formats', 'validators', 'modals')
+
+
+def _versioned_static(endpoint: str, rel: str, root: Path, rotulo: str) -> str:
+    """URL de um static com `?v=` tirado do mtime — cache-busting automático.
+
+    Ler o disco resolve dois problemas de uma vez: o `?v=` deixa de ser bump
+    manual em duas pontas (o spec e o template), e arquivo ausente vira erro de
+    construção em vez de 404 silencioso no `<script>` seguido de
+    `ReferenceError` no clique do botão.
+    """
+    from flask import url_for
+
+    path = root / rel
+    if not path.is_file():
+        raise ValueError(f"{rotulo}: {rel} não existe em {root}")
+    # mtime em segundos inteiros: resolução suficiente para bustar cache e
+    # estável entre requisições enquanto o arquivo não muda.
+    return f'{url_for(endpoint, filename=rel)}?v={int(path.stat().st_mtime)}'
+
+
+def internal_scripts() -> list:
+    """Scripts internos do framework (formatters, validadores, modais).
+
+    A raiz é derivada do próprio pacote, e não do `static_folder` do app: quem
+    consome é `ajsystem.static`, então é o disco do framework que vale.
+    """
+    root = Path(__file__).resolve().parent.parent / 'static'
+    return [{'name': n,
+             'url': _versioned_static('ajsystem.static',
+                                      f'{SCRIPTS_DIR}/{n}{SCRIPTS_EXT}',
+                                      root, 'internal_scripts')}
+            for n in INTERNAL_JS]
+
+
+def page_scripts(page: dict) -> list:
+    """Resolve `props.scripts` de um Page em `[{'name', 'url'}]`.
+
+    O spec declara só o nome do arquivo — `'previsoes'` — e o motor monta
+    `static/js/previsoes.js`. Subpastas são permitidas (`'rel/gerar'` vira
+    `js/rel/gerar.js`) porque é o mesmo caminho de código e evita uma prop
+    separada quando um grupo de helpers crescer.
+
+    O `?v=` sai do mtime (ver `_versioned_static`), então editar o JS já busta
+    o cache do browser.
+
+    O mesmo arquivo pode ser declarado por várias páginas (ex.: `previsoes` em
+    pagar e receber): cada uma recebe seu próprio `<script src>`.
+    """
+    props = page_props(page)
+    if 'scripts' not in props:
+        return []
+    specs = props['scripts']
+    if specs is None:
+        return []
+    if isinstance(specs, (str, bytes)):
+        specs = [specs]
+    if not isinstance(specs, (list, tuple)):
+        raise ValueError(
+            f"scripts: esperado lista de nomes (ex.: ['previsoes']), "
+            f"recebido {type(specs).__name__}")
+
+    from flask import current_app
+
+    out = []
+    for raw in specs:
+        if not isinstance(raw, str) or not raw.strip():
+            raise ValueError(f"scripts: nome inválido {raw!r} — use o nome do "
+                             f"arquivo, ex.: 'previsoes'")
+        name = raw.strip()
+        if name.startswith(('/', '\\')) or '..' in name.replace('\\', '/').split('/'):
+            raise ValueError(f"scripts: nome relativo esperado, recebido {raw!r}")
+        out.append({
+            'name': name,
+            'url': _versioned_static('static', f'{SCRIPTS_DIR}/{name}{SCRIPTS_EXT}',
+                                     Path(current_app.static_folder), 'scripts'),
+        })
+    return out
 
 
 def page_entity_name(page: dict, default: str = '') -> str:
