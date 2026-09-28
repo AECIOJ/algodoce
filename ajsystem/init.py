@@ -4,6 +4,7 @@ import os
 import jinja2
 
 from ajsystem import ajsystem, heroicon_filter
+from ajsystem import locales
 from ajsystem.core.adapter import APP, TEMAS, get_uploads_endpoint
 from ajsystem.core.menu import modulo_atual
 from ajsystem.core.do_auth import init_auth, bp as auth, bp_seguranca as seguranca
@@ -55,6 +56,10 @@ def init_app(app):
     app.jinja_env.filters['mask'] = fmt_mask
     app.jinja_env.filters['mask_cmd'] = fmt_mask_cmd
     app.jinja_env.tests['datemask'] = has_date_tokens
+    # Um único global `i18n` (o catálogo do locale ativo), em vez de ~100 nomes
+    # soltos: não polui o namespace do template nem sombreia variável de
+    # contexto. Acesso nos templates: `{{ i18n.SAVE }}`.
+    app.jinja_env.globals.update(locales.para_jinja())
     def _is_field_body(f):
         if not getattr(f, '_pos_managed', True):
             return True

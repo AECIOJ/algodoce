@@ -226,8 +226,8 @@
 <div class="showcase-layout"{% if showcase.max_width %} style="max-width: min({{ showcase.max_width }}, calc(100% - 2rem)); margin-inline: auto;"{% endif %}>
   {% if categorias %}
   <div class="showcase-cat-badges">
-    <div class="text-center mb-2" style="font-size:0.95rem; font-weight:600; color:var(--rosa, #e91e63);">Categorias</div>
-    <a href="{{ list_url }}" class="badge mb-1 {% if not categoria_id %}is-active{% endif %}">Todas</a>
+    <div class="text-center mb-2" style="font-size:0.95rem; font-weight:600; color:var(--rosa, #e91e63);">{{ i18n.CATEGORIES }}</div>
+    <a href="{{ list_url }}" class="badge mb-1 {% if not categoria_id %}is-active{% endif %}">{{ i18n.ALL }}</a>
     {% for cat in categorias %}
     <a href="{{ list_url }}?{{ filter_param }}={{ cat.id }}" class="badge mb-1 {% if categoria_id == cat.id %}is-active{% endif %}">{{ cat.nome }}</a>
     {% endfor %}
@@ -235,7 +235,7 @@
 
   <div class="showcase-cat-select-bar">
     <select onchange="window.location.href = this.value">
-      <option value="{{ list_url }}" {% if not categoria_id %}selected{% endif %}>Todas as categorias</option>
+      <option value="{{ list_url }}" {% if not categoria_id %}selected{% endif %}>{{ i18n.ALL_CATEGORIES }}</option>
       {% for cat in categorias %}
       <option value="{{ list_url }}?{{ filter_param }}={{ cat.id }}" {% if categoria_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
       {% endfor %}
@@ -273,7 +273,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-gray-500">Nenhum item disponível no momento.</p>
+      <p class="text-gray-500">{{ i18n.NO_ITEMS }}</p>
       {% endif %}
     </div>
   </div>
@@ -285,7 +285,7 @@
         <button class="showcase-qtd-btn" id="showcase-qtd-minus">−</button>
         <input type="number" class="showcase-qtd-input" id="showcase-qtd-value" value="1" min="0">
         <button class="showcase-qtd-btn" id="showcase-qtd-plus">+</button>
-        <button class="showcase-action-btn" id="showcase-action">Adicionar</button>
+        <button class="showcase-action-btn" id="showcase-action">{{ i18n.ADD }}</button>
       </div>
       <button id="showcase-next" class="showcase-nav showcase-nav-next">›</button>
     </div>
@@ -308,12 +308,12 @@
         {% if p.left %}<p class="showcase-card-text">{{ p.left }}</p>{% endif %}
         <div class="showcase-card-ctrl">
           <input type="number" class="showcase-qtd-input" value="{{ p.qty }}" min="{{ p.qty }}">
-          <button class="showcase-add-btn">Adicionar</button>
+          <button class="showcase-add-btn">{{ i18n.ADD }}</button>
         </div>
       </div>
       {% endfor %}
     {% else %}
-    <p class="text-gray-500">Nenhum item disponível no momento.</p>
+    <p class="text-gray-500">{{ i18n.NO_ITEMS }}</p>
     {% endif %}
   </div>
 
@@ -332,12 +332,12 @@
         </div>
         <div class="showcase-card-ctrl">
           <input type="number" class="showcase-qtd-input" value="{{ p.qty }}" min="{{ p.qty }}">
-          <button class="showcase-add-btn">Adicionar</button>
+          <button class="showcase-add-btn">{{ i18n.ADD }}</button>
         </div>
       </div>
       {% endfor %}
     {% else %}
-    <p class="text-gray-500">Nenhum item disponível no momento.</p>
+    <p class="text-gray-500">{{ i18n.NO_ITEMS }}</p>
     {% endif %}
   </div>
   {% endif %}
@@ -352,17 +352,17 @@
     <div class="auth-card-inner">
       <span class="auth-close" onclick="fecharClientPopup()">&times;</span>
       <div class="auth-icon">🧑‍🍳</div>
-      <h4>Identifique-se</h4>
-      <p class="text-gray-500 mb-3">Informe seus dados para continuar</p>
+      <h4>{{ i18n.IDENTIFY }}</h4>
+      <p class="text-gray-500 mb-3">{{ i18n.YOUR_DATA }}</p>
       <div id="client-fields"></div>
       <div id="client-error" class="auth-error"></div>
-      <button onclick="submitClient()" class="auth-btn">Continuar</button>
+      <button onclick="submitClient()" class="auth-btn">{{ i18n.CONTINUE }}</button>
     </div>
   </div>
 </div>
 <div id="showcase-lightbox" class="showcase-lightbox">
   <img id="showcase-lightbox-img" src="" alt="">
-  <button class="showcase-lightbox-close" onclick="fecharLightbox()" aria-label="Fechar">&times;</button>
+  <button class="showcase-lightbox-close" onclick="fecharLightbox()" aria-label="{{ i18n.CLOSE }}">&times;</button>
 </div>
 {% endblock %}
 

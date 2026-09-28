@@ -6,18 +6,18 @@
   <div class="modal-box p-0 overflow-hidden" style="max-width:min(48rem,calc(100vw - 2rem));border:1px solid {{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }}">
     <div class="flex items-center gap-2" style="background:{{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }};color:{{ TEMA.modal.tons.primary.texto|default('#FFFFFF', true) }};padding:.75rem 1.5rem">
       <form method="dialog">
-        <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" style="color:inherit" aria-label="Fechar" onclick="fecharCrop()">
+        <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" style="color:inherit" aria-label="{{ i18n.CLOSE }}" onclick="fecharCrop()">
           <svg class="w-4 h-4" aria-hidden="true"><use href="#i-xmark"/></svg>
         </button>
       </form>
-      <h3 class="font-bold text-lg">Editar Foto</h3>
+      <h3 class="font-bold text-lg">{{ i18n.EDIT_PHOTO }}</h3>
     </div>
     <div style="padding:1rem 1.5rem">
     <div class="text-center">
       <div id="crop-dropzone" class="border-2 border-dashed rounded p-5" tabindex="0"
            style="border-color:var(--fallback-b3, oklch(var(--b3)));cursor:pointer;min-height:250px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
         <div style="font-size:3rem;color:var(--fallback-b3, oklch(var(--b3)));">📷</div>
-        <p class="mb-0">Clique para escolher uma imagem</p>
+        <p class="mb-0">{{ i18n.PICK_PHOTO }}</p>
         <p class="text-sm mb-0" style="color:color-mix(in srgb, var(--fallback-bc, oklch(var(--bc))) 50%, transparent);">ou cole uma imagem da área de transferência (Ctrl+V)</p>
       </div>
       <img id="crop-image" style="max-width:100%;display:none;">
@@ -33,7 +33,7 @@
         <span id="crop-status" class="text-sm" style="color:color-mix(in srgb, var(--fallback-bc, oklch(var(--bc))) 50%, transparent);"></span>
       </div>
       <div class="flex gap-2">
-        <button type="button" class="btn btn-ghost" onclick="fecharCrop()">Cancelar</button>
+        <button type="button" class="btn btn-ghost" onclick="fecharCrop()">{{ i18n.CANCEL }}</button>
         <button type="button" class="btn btn-primary inline-flex items-center gap-1" id="crop-confirm" disabled onclick="salvarCrop()">
           <svg class="w-4 h-4" aria-hidden="true"><use href="#i-check"/></svg> Salvar
         </button>

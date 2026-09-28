@@ -24,10 +24,7 @@ from io import BytesIO
 
 from flask import Response, current_app, render_template, request
 
-from ajsystem.locales import t
-from ajsystem.locales.en import (
-    CANCEL, CHOOSE, FILTER_ALL, FILTER_YES, NO, OK, PRINT, REPORT_ERROR,
-)
+from ajsystem import locales as i18n
 from ajsystem.core.pdf import gerar_pdf_relatorio
 from ajsystem.defs.data import _auto_label
 from ajsystem.defs.report import parse_report
@@ -75,7 +72,7 @@ def filter_select(field):
 
 def _print_erro(msg=None):
     """View padrão de erro de impressão (fragmento/página interna)."""
-    return render_template(ERRO_TEMPLATE, msg=msg or t(REPORT_ERROR))
+    return render_template(ERRO_TEMPLATE, msg=msg or i18n.REPORT_ERROR)
 
 
 def _entity_for(entity_name):
@@ -282,11 +279,11 @@ def _apply_entity(raw, entity):
                     if isinstance(calc, (str,)) or callable(calc):
                         spec['function'] = calc if callable(calc) else _calc_fn(calc)
                 # BOOL → Sim/Não · LIST → label das options - exclusivamente via Entity
-                # `t()` fica dentro do lambda: roda por célula, no render, então
-                # acompanha o locale ativo; `t()` é cacheado.
+                # O rótulo vem do catálogo, já resolvido na importação — pode ser
+                # constante de módulo; o lambda aqui existe por `fld`/`opts`.
                 elif raw_cfg.get('type') == 'BOOL':
                     spec['function'] = lambda row, f=fld: (
-                        t(FILTER_YES) if getattr(row, f, None) else t(NO))
+                        i18n.FILTER_YES if getattr(row, f, None) else i18n.NO)
                 elif raw_cfg.get('type') == 'LIST':
                     opts = raw_cfg.get('list') or raw_cfg.get('options') or {}
                     if opts:
@@ -590,13 +587,13 @@ def _print_with_choice(report, fs, msg=None):
         label = cfg.get('label') or label
     rid = uuid.uuid4().hex[:12]
     _PENDING_PRINTS[rid] = {'report': report, 'field': fs.field}
-    title = report.get('label') if isinstance(report, dict) else t(PRINT)
+    title = report.get('label') if isinstance(report, dict) else i18n.PRINT
     return choice_modal(
         title=title,
         label=label,
         options=options,
         param=fs.field,
-        confirm_label=t(PRINT),
+        confirm_label=i18n.PRINT,
         hidden_params={'_r': rid},
     )
 
@@ -665,10 +662,10 @@ def choice_modal(title, options, param='tipo', label=None,
     `label`/`confirm_label` são `None` por padrão e resolvidos aqui, não no
     `def`: default de argumento é avaliado uma vez, na importação, o que
     congelaria o texto no locale daquele momento. Um chamador que já tem texto
-    pronto (ex.: `t(PRINT)`) só precisa repassá-lo.
+    pronto (ex.: `i18n.PRINT`) só precisa repassá-lo.
     """
-    label = label if label is not None else t(CHOOSE)
-    confirm_label = confirm_label if confirm_label is not None else t(OK)
+    label = label if label is not None else i18n.CHOOSE
+    confirm_label = confirm_label if confirm_label is not None else i18n.OK
     url = url_target or getattr(request, 'choice_url_target', None) or request.path
     return render_template(
         'components/choice_modal.html',
@@ -678,8 +675,8 @@ def choice_modal(title, options, param='tipo', label=None,
         options=options,
         param=param,
         confirm_label=confirm_label,
-        all_label=t(FILTER_ALL),
-        cancel_label=t(CANCEL),
+        all_label=i18n.FILTER_ALL,
+        cancel_label=i18n.CANCEL,
         url_target=url,
         hidden_params=(hidden_params or {}),
     )

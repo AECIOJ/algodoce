@@ -168,10 +168,12 @@ APP = {
     'title': 'Sistema Gerenciador de Doceria',
     'logo': 'icons/Logo.png',
     'tema': 'algodoce',
-    # Idioma do copy do framework (catálogos em `ajsystem/locales/`). 'pt' já vem
-    # com o framework; 'en' entrega os rótulos em inglês sem mudar código.
-    # Não afeta número/moeda/data. Copy que o app escreve direto no spec fica
-    # em português de propósito — o app é quem decide o texto dele.
+    # Idioma do copy do framework. Catálogos em `ajsystem/locales/` (`en`, `pt`).
+    # Consumido por `ajsystem.locales` no import — NÃO é prop do `App`: o catálogo
+    # é resolvido uma vez e congelado, então mudar aqui exige reiniciar o app.
+    # 'pt' já vem com o framework; 'en' entrega os rótulos em inglês sem mudar
+    # código. Não afeta número/moeda/data. Copy que o app escreve direto no spec
+    # fica em português de propósito — o app é quem decide o texto dele.
     'locale': 'pt',
     'modules': [SITE, SYS, ADMIN],
 }

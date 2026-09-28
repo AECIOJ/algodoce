@@ -17,15 +17,14 @@ from datetime import datetime, timezone
 
 from flask import flash, jsonify, redirect, request, session, url_for
 
-from ajsystem.locales import t
+from ajsystem import locales as i18n
+
 from ajsystem.core.adapter import db
 from ajsystem.core.list import _resolve_model
 from ajsystem.core.utils import fk_column_to, fk_target, has_back_rel, model_columns
 from ajsystem.defs.cart import (
-    CART_CONFIRM_FLASH,
     CART_MORE_ITEMS_LINK,
     CART_SESSION_KEY,
-    CART_TITLE,
     CLIENT_SESSION_KEY,
     field_prefix,
     resolve_sessions,
@@ -88,7 +87,7 @@ def resolve_cart(mod):
         'session_key': CART_SESSION_KEY,
         'client_session_key': CLIENT_SESSION_KEY,
         'more_items_link': CART_MORE_ITEMS_LINK,
-        'title': t(CART_TITLE),
+        'title': i18n.CART_TITLE,
     }
 
     for s in sessions_raw:
@@ -300,7 +299,7 @@ def send_cart(mod):
             # pós-commit: falha no handler não deve falhar o envio.
             pass
 
-    flash(t(CART_CONFIRM_FLASH), 'success')
+    flash(i18n.CART_SENT, 'success')
     return redirect(url_for(f'{_bp()}.list'))
 
 

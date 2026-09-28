@@ -6,8 +6,8 @@ Algodoce fica aqui, estendendo um preset com `replace` em vez de copiar o dict
 inteiro — assim uma mudança de aparência no framework chega aqui também.
 
 Nome em português (é o app) e texto em português também: literal é o idioma do
-app. Se um botão quiser o texto do framework, é `label=BTN_SAVE`/chave de
-`ajsystem.locales.en` que sai traduzido no render; ver `Button.text()`.
+app. Se um botão quiser o texto do framework, é `label=BTN_SAVE` ou
+`i18n.<NOME>` (`ajsystem.locales` — o catálogo do framework já inclui a storefront).
 
 Os botões de um form que se repetem em vários lugares (mesma regra de
 `visible`, mesmo form) moram aqui. Botão de uso único continua no route.

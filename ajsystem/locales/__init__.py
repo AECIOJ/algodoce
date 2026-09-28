@@ -1,62 +1,45 @@
-"""Locale do framework: textos do framework traduzidos por `App.locale`.
+"""Locale do framework: um único catálogo, resolvido uma vez na importação.
 
-O idioma vem do app, em `app/config.py` (`APP = {..., 'locale': 'pt'}`), e o
-framework já embarca os catálogos — copiar `ajsystem/` inteiro traz a tradução
-junto, sem dependência do app.
+O idioma é declarado pelo app em `app/config.py` (`APP = {..., 'locale': 'pt'}`) e
+este módulo importa o catálogo correspondente **no momento em que é importado**,
+reexportando as constantes no próprio namespace:
 
-Como o texto circula
---------------------
-`en.py` é a âncora: cada constante é a chave **e** o fallback. O código do
-framework usa a constante, não o texto:
+    from ajsystem import locales as i18n
+    i18n.SAVE          #-> 'Salvar' com locale 'pt', 'Save' com 'en'
 
-    from ajsystem.locales.en import SAVE
-    BTN_SAVE = Button(label=SAVE)     # label == 'Save' (inglês)
+Nos templates é o mesmo objeto, com um único global injetado em `init.py`:
 
-e a tradução acontece no render, em `Button.text()`:
+    {{ i18n.SAVE }}
 
-    'Salvar'
+Por que "no import" e não "na tradução"
+--------------------------------------
+Um catálogo importado é congelado na carga. Isso é o ponto: nenhum texto é
+traduzido durante a execução, então nada pode capturar a linguagem cedo demais e
+transformar num literal solto por accident. `Button(label=i18n.SAVE)` já recebe
+`'Salvar'` e a tradução acontece **no import**, uma vez, para todo o processo.
 
-Por isso nunca vaza chave para a tela e texto faltando no locale degrada para
-inglês — erro que se enxerga, não bug silencioso. Corrigir a redação de um texto
-é editar **uma linha do `pt.py`**, sem tocar em código.
+O preço é que o idioma não muda em runtime. O app é monolingue, e o custo de um
+trocar é uma linha em `app/config.py` — não um fork do projeto.
 
-O app não é obrigado a usar locale
-----------------------------------
-Ele pode escrever o texto direto no spec (`'Plurar'`), que é o idioma dele. Se
-quiser participar, usa a chave do framework (`label=SAVE`) ou traz o próprio
-catálogo: `t('Plurar', MEU_CATALOGO)` (dict `{'Plurar': 'Publicar'}`).
+`app/config.py` é importado aqui porque não importa nada (é um dicionário puro),
+o que torna impossível um ciclo de import. O `except ImportError` cobre o
+framework usado avulso, sem o app no path: nesse caso vale o `AJSYSTEM_LOCALE` do
+ambiente, ou 'pt'. Locale sem catálogo levanta `ValueError` na carga, com a lista
+do que existe — falha alto e com mensagem, em vez de cair no default e ninguém
+perceber.
 
-LIMITE DE ESCOPO — isto traduz TEXTO, não formatação
-----------------------------------------------------
-`locale` não mexe em número, moeda ou data. `core/formats.py` segue com
-`'pt-BR'`, `R$` e `dd/mm/yyyy`, e `defs/constants.py` já escolhe locale **por
-registro** (moeda 1→pt-BR, 2→en-US). Um global aqui para formatação seria
-factualmente errado. Placeholder: `{label}`.
+Escopo: só copy visível ao usuário final (rótulos, mensagens de confirmação,
+flash e `jsonify(error=...)`). Mensagem de `ValueError` é diagnóstico de
+desenvolvedor e fica em português no código, de propósito. Isto traduz TEXTO, não
+formatação: `core/formats.py` segue com 'pt-BR', 'R$' e 'dd/mm/yyyy', e
+`defs/constants.py` já escolhe locale **por registro**. Placeholder: `{label}`.
+
+O app não é obrigado a usar locale: basta escrever o texto direto no spec
+(`label='Plurar'`), que é o idioma dele.
 """
 import importlib
+import os
 import pkgutil
-from types import ModuleType
-
-from ajsystem.locales import en as _en
-
-# cache por locale: {locale: {chave_en: texto_traduzido}}
-_CACHE = {}
-
-
-def _nomes(mod: ModuleType) -> list:
-    """Constantes públicas de um catálogo (tudo que não começa com `_`)."""
-    return [n for n in vars(mod) if not n.startswith('_')]
-
-
-def locale_ativo() -> str:
-    """Locale declarado pelo app em `App.locale`.
-
-    Import tardio de propósito: `core.adapter` importa `app.config` e os models,
-    e os módulos de `defs/` (inclusive `buttons.py`) precisam deste pacote sem
-    puxar essa cadeia.
-    """
-    from ajsystem.core.adapter import APP
-    return getattr(APP, 'locale', 'pt') or 'pt'
 
 
 def disponiveis() -> list:
@@ -64,73 +47,60 @@ def disponiveis() -> list:
     return sorted(m.name for m in pkgutil.iter_modules(__path__))
 
 
-def _mapa_en() -> dict:
-    """Valores de `en.py` por nome, com valores únicos garantidos.
-
-    O valor é a chave de tradução, então dois nomes com o mesmo texto colidiriam
-    no dicionário e um sobrescreveria o outro em silêncio — foi o que aconteceu
-    com `NEW`/`ADD` quando ambos eram '+ Adicionar' em português. Melhor falhar
-    na carga.
-    """
-    por_nome = {}
-    vistos = {}
-    for nome in _nomes(_en):
-        valor = getattr(_en, nome)
-        if not isinstance(valor, str):
-            raise ValueError(
-                f"locales/en.py: {nome} deve ser str, é {type(valor).__name__}")
-        if valor in vistos:
-            raise ValueError(
-                f"locales/en.py: {nome!r} e {vistos[valor]!r} têm o mesmo valor "
-                f"({valor!r}) — o valor é a chave, então um sobrescreveria o "
-                f"outro. Escolha textos ingleses distintos.")
-        vistos[valor] = nome
-        por_nome[nome] = valor
-    return por_nome
-
-
-def catalogo(locale=None) -> dict:
-    """Mapa `{texto_en: texto_traduzido}` do locale, montado uma vez e cacheado.
-
-    Só as chaves que `en.py` declara entram: o catálogo de um idioma é um
-    *overlay*, então o app pode ter constantes próprias (que ninguém traduz) sem
-    quebrar o framework.
-    """
-    loc = locale or locale_ativo()
-    if loc in _CACHE:
-        return _CACHE[loc]
-
-    if loc == 'en':
-        _CACHE[loc] = {}          # fallback é a própria chave
-        return _CACHE[loc]
-
+def _declarado() -> str:
+    """Idioma declarado pelo app, ou o do ambiente se o app não está no path."""
     try:
-        mod = importlib.import_module(f'{__name__}.{loc}')
-    except ModuleNotFoundError:
-        raise ValueError(
-            f"App.locale={loc!r} sem catálogo em ajsystem/locales/. "
-            f"Disponíveis: {', '.join(disponiveis()) or '(nenhum)'}.") from None
-
-    en_por_nome = _mapa_en()
-    tabela = {}
-    for nome in _nomes(mod):
-        chave = en_por_nome.get(nome)     # None = chave que só o app tem
-        if chave is not None:
-            tabela[chave] = getattr(mod, nome)
-    _CACHE[loc] = tabela
-    return tabela
+        from app.config import APP as _cfg
+    except ImportError:
+        return os.environ.get('AJSYSTEM_LOCALE') or 'pt'
+    return _cfg.get('locale') or 'pt'
 
 
-def t(texto, catalogo_proprio=None):
-    """Traduz `texto` (um valor de `locales/en.py`) para o locale ativo.
+#: Idioma ativo. Resolvido na importação e congelado daí em diante.
+LOCALE = _declarado()
 
-    Devolve `texto` intacto quando não há tradução — inclusive quando `texto` não
-    é uma chave conhecida, o que torna seguro passar copy do app por aqui.
-    `catalogo_proprio` é um dict opcional do app, com o mesmo formato
-    (`{'Plurar': 'Publicar'}`), para o app traduzir as chaves dele.
+_erro = f"locale={LOCALE!r} sem catálogo em ajsystem/locales/. " \
+        f"Disponíveis: {', '.join(disponiveis()) or '(nenhum)'}."
+
+if LOCALE == 'en':
+    _catalogo = importlib.import_module(f'{__name__}.en')
+else:
+    if LOCALE not in disponiveis():
+        raise ValueError(_erro)
+    _catalogo = importlib.import_module(f'{__name__}.{LOCALE}')
+
+# Reexporta as constantes do catálogo como atributos deste módulo. Sem isso o
+# re-expresso seria apenas `_catalogo.SAVE`, e o ponto do desenho é o consumidor
+# escrever `i18n.SAVE`.
+globals().update({n: v for n, v in vars(_catalogo).items()
+                  if not n.startswith('_') and isinstance(v, str)})
+
+
+def para_jinja() -> dict:
+    """Globals do Jinja: um único `i18n` por template, não uma constante solta.
+
+    Injetar os ~100 nomes direto no `jinja_env.globals` poluiria o namespace do
+    template e poderia sombrear uma variável de contexto. `{{ i18n.SAVE }}` é
+    explícito sobre a origem do texto.
     """
-    if catalogo_proprio is not None:
-        if texto in catalogo_proprio:
-            return catalogo_proprio[texto]
-        return texto
-    return catalogo().get(texto, texto)
+    return {'i18n': _catalogo}
+
+
+def herdar_catalogo(globals_):
+    """Copia as constantes do catálogo ativo para o namespace de um módulo.
+
+    É o "superset" do host: o módulo que acrescenta o texto de domínio do app
+    começa herdando o do framework e declara o dele em seguida:
+
+        from ajsystem.locales import herdar_catalogo
+        herdar_catalogo(globals())
+        CART_TITLE = 'Meu Orçamento'
+
+    O laço (e a regra de filtro) mora aqui, no motor, para o host não duplicar
+    a rotina. O que é copiado é exatamente o que `ajsystem.locales` reexporta
+    do catálogo ativo — constantes do framework, sem `LOCALE` (que fica no
+    namespace do próprio framework) e sem functions/imports.
+    """
+    for nome, valor in vars(_catalogo).items():
+        if not nome.startswith('_') and isinstance(valor, str):
+            globals_[nome] = valor

@@ -12,7 +12,7 @@
       <i class="bi bi-lock"></i> Travar
     </a>
   </div>
-  <p class="text-sm mb-2">Os dados serão armazenados criptografados no banco de dados.</p>
+  <p class="text-sm mb-2">{{ i18n.ENCRYPTED_NOTE }}</p>
 
   <form method="post" action="{{ url_for('.salvar') }}" class="flex flex-col gap-4">
     {% set ns = namespace(painel_user='', painel_pass='', painel_chave_s='') %}
@@ -48,7 +48,7 @@
       </div>
     </div>
 
-    <h5 class="font-semibold">Notificações</h5>
+    <h5 class="font-semibold">{{ i18n.NOTIFICATIONS }}</h5>
     {% set ns2 = namespace(nome='', email='', fone='', topico='', token='') %}
     {% for s in settings %}
       {% if s.key == "doceira_nome" %}

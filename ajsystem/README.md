@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.09.27.0001 — Manual do Framework
+# AJSYSTEM 1.26.09.27.0004 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.09.27.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE`).
+> Vinculado a `ajsystem/version` (`1.26.09.27.0004`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE`).
 
 ---
 
@@ -357,13 +357,13 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 
 | Prop | Tipo | Default | Valores | Impacto |
 |---|---|---|---|---|
-| `label` | `str` | — | **chave de `locales/en.py`** | `btn.text()` traduz no render |
+| `label` | `str` | — | constante de `ajsystem.locales` | **texto final** do locale ativo; `btn.text()` é pass-through |
 | `icon` | `str` | `None` | nome de ícone | ícone do botão |
 | `color` | `str` | `'secondary'` | `primary/secondary/success/warning/error/info` | `btn-{color}` |
 | `outline` | `bool` | `True` | | `btn-outline` |
 | `size` | `str` | `'sm'` | `xs,sm,md…` | `btn-{size}` |
 | `cls` | `str` | `''` | classe extra; **anula** `color`/`outline`/`size` | `btn.btn_cls()` |
-| `label_off` | `str` | `None` | chave de locale | **não renderizado** — reservado ao toggle `on_off`; se for conectado, traduzir via `t()` como `text()` faz |
+| `label_off` | `str` | `None` | constante de `ajsystem.locales` | **não renderizado** — reservado ao toggle `on_off`; se for conectado, declarar com constante, como os outros rótulos |
 | `icon_off` | `str` | `None` | | idem, não renderizado |
 | `visible` | `bool\|callable\|tuple\|dict` | `True` | | decide a renderização, **no servidor, 1×** |
 | `enabled` | `bool\|list\|dict` | `True` | | decide o `disabled`; reavaliado **no cliente** a cada `input`/`change` |
@@ -375,7 +375,7 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 | `into` | `str` | `''` | seletor/alvo | vazio = `'#report-content'` (ver `target_into`) |
 | `url_params` | `dict\|callable` | `None` | query params | `url_for(..., **params)` |
 | `method` | `str` | `'GET'` | `GET`/`POST` | método do form gerado |
-| `confirm_msg` | `str` | `None` | chave de `locales/en.py` | modal de confirmação; `btn.confirm_text()` traduz |
+| `confirm_msg` | `str` | `None` | constante de `ajsystem.locales` | modal de confirmação; `btn.confirm_text()` é pass-through |
 | `carry` | `dict` | `None` | `{campo_destino: campo_origem}` | importa valores do form ao navegar |
 | `serialize` | `bool` | `False` | | serializa o form antes de enviar |
 | `position` | `str` | `'nav_right'` | `POS_FIELDS` (`fields_left/right`), `POS_TABLE` (`table_before/after`), `POS_TABLE_NAVS` (`nav_left/center/right/none`, `footer_left/center/right/none`) | posição na sessão |
@@ -386,7 +386,7 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 
 Presets são registrados automaticamente como globais Jinja por varredura de prefixo (`BTN_*`, `CONFIRM_*` em `ajsystem/init.py`).
 
-**`ConfirmModal`** (`:253`) — 6 props: `title` e `message` (chaves de `locales/en.py`, obrigatórios), `confirm_label` (`CONFIRM`), `confirm_color` (`'danger'`), `cancel_label` (`CANCEL`), `icon` (`'trash'`). Métodos de tradução: `text()`, `message_text()`, `confirm_button_text()`, `cancel_button_text()`. Presets: `CONFIRM_DELETE`, `CONFIRM_REMOVE_ITEM`.
+**`ConfirmModal`** (`:253`) — 6 props: `title` e `message` (constantes de `ajsystem.locales`, obrigatórios), `confirm_label` (`CONFIRM`), `confirm_color` (`'danger'`), `cancel_label` (`CANCEL`), `icon` (`'trash'`). Lectores: `text()`, `message_text()`, `confirm_button_text()`, `cancel_button_text()` — todos pass-through (ver 5.12). Presets: `CONFIRM_DELETE`, `CONFIRM_REMOVE_ITEM`.
 
 **Factories** — duas, mesma assinatura `(report, *, filter_field='', guard=None, **overrides)`:
 
@@ -425,7 +425,6 @@ Substituem o antigo `app/utils.btn_enviar_report` e a constante `REPORT_CONTENT`
 | `tema` | — | `Tema` |
 | `title` | `None` | título padrão de página |
 | `version` | `None` | **depreciado** — a versão do app é `app/versao.py` |
-| `locale` | `'pt'` | idioma dos textos do framework; `App.locale='en'` |
 | `upload` | `None` | política padrão de upload (páginas herdam) |
 | `modules` | `[]` | `Module`s do menu |
 
@@ -436,25 +435,34 @@ Substituem o antigo `app/utils.btn_enviar_report` e a constante `REPORT_CONTENT`
 
 ### 5.12 Locales — `ajsystem/locales/`
 
-Cada idioma é um módulo irmão com os **mesmos nomes** de constante; o valor em `en.py` é ao mesmo tempo a chave de tradução e o fallback.
+Cada idioma é um módulo irmão com os **mesmos nomes** de constante. O app declara o ativo e o pacote importa o catálogo **na carga**: não existe chave de tradução nem função de tradução no caminho.
 
 | Peça | Papel |
 |---|---|
-| `App.locale` | declara o idioma (`'pt'` por padrão) |
-| `t(chave)` | traduz; cai para inglês se o locale não definir a chave |
-| `locales/en.py` | **âncora**: 100 constantes, valores únicos garantidos (dois nomes com o mesmo valor colidiriam e levantam na carga) |
-| `locales/pt.py` | 100 constantes, mesmos nomes |
-| `locale_ativo()` / `disponiveis()` | consulta e lista os idiomas |
+| `APP['locale']` (`app/config.py`) | declara o idioma (`'pt'` por padrão); **não** é prop do `App` |
+| `locales/__init__.py` | lê a declaração, importa o catálogo e reexporta as constantes |
+| `locales/en.py` / `locales/pt.py` | 146 constantes, mesmos nomes, **mesma ordem** |
+| `i18n = locales` | o módulo: `i18n.SAVE` → `'Salvar'` |
+| `locales.LOCALE` | o idioma ativo, congelado na carga |
+| `locales.disponiveis()` | lista os catálogos que acompanham o framework |
+| `locales.herdar_catalogo(globals())` | API de "superset" do motor p/ host que quiser texto próprio: copia as constantes e permite redeclarar as que diferem (opcional) |
 
-`Button.label`, `ConfirmModal.title/message/confirm_label/cancel_label` e `Button.confirm_msg` guardam **sempre a chave de inglês**; a tradução acontece no render (`btn.text()`, `btn.confirm_text()`, …), então chave nunca vaza para a tela e texto faltando degrada para inglês.
+Nos templates, `init.py` injeta **um** global `i18n` (o catálogo): `{{ i18n.SAVE }}`. Um global só, em vez das ~146 constantes soltas, porque nomes em caixa alta no namespace do Jinja podem sombrear variável de contexto. A contagem de 158 da versão anterior flutuou: nomes repetidos foram mesclados (`UI_SIGN_OUT`→`EXIT`…), o prefixo `UI_` saiu, e a storefront (vitrine/carrinho/nav) entrou como parte do motor — o catálogo é a coisa única de texto do Page que o framework entrega.
 
-**Regras de `t()`** — porque tudo o que é texto de tela passa por aqui:
+**Por que "no import" e não "na tradução".** Um catálogo importado congela na carga. Nenhum texto é traduzido durante a execução, então nada pode capturar a linguagem cedo demais e virar literal solto por acidente — o bug de `t()` em nível de módulo, que a versão anterior proibia por regra. O preço é que **o idioma não muda em runtime**: o app é monolingue, e trocar é uma linha em `app/config.py` mais um reinício, não um fork.
 
-1. **Nunca no nível de módulo.** `t()` fora de função resolve **uma vez, na importação** e ignora `App.locale` depois. Use dentro de função, lambda ou método.
-2. **Nunca como default de `def`.** Default de argumento também é avaliado no `def`. Use `None` e resolva no corpo.
-3. **Constantes de dados: não traduzir.** `FILTER_MODES` virou `filter_modes()` por causa da regra 1; a primeira chave de cada par `(modo, rótulo)` é identificador de máquina e vai para o backend sem tradução.
+**Consequências práticas:**
 
-> **Limitação conhecida:** a migração cobre valores de retorno em Python. **Templates e JS do framework ainda têm ~62 trechos em português fixo** (ver 6). `t()` também não está exposto ao Jinja (`init.py:74-81` registra `get_field`, `menu_url`, `internal_scripts`…), então localizá-los exige antes `app.jinja_env.globals['t'] = t`.
+1. `Button.label`, `ConfirmModal.title/message/confirm_label/cancel_label` e `Button.confirm_msg` **já são o texto final** do locale ativo. `btn.text()` e `btn.confirm_text()` viraram pass-through (`return self.label`): o método sobrevive porque `label` é o contrato — o app pode escrever o texto dele direto (`label='Plular'`) e o template não precisa saber a diferença.
+2. **Paridade é obrigatória.** Nome que existe em `en.py` e falta em `pt.py` estoura `ImportError` na carga. É o comportamento desejado: erro alto, em vez de degradar silenciosamente.
+3. Locale sem catálogo levanta `ValueError` na carga, listando o que existe.
+4. `FILTER_MODES` voltou a ser **constante de módulo** (`core/list.py`): o catálogo já vem resolvido, então não há mais o que adiar. A primeira chave de cada par `(modo, rótulo)` continua sendo identificador de máquina e vai para o backend sem tradução.
+
+**Fora do catálogo, de propósito:** as mensagens de diagnóstico de developer (`ERR_INVALID_PARAMS`, `ERR_UNKNOWN_PAGE`, `ERR_INVALID_BUTTON`, `ERR_NO_RENDER`, `ERR_NEED_IDENTIFY`…) são literais em português no código. O leitor é quem desenvolve, não quem usa o app — traduzi-las só criaria uma constante que existe para ser lida uma vez. Já os `ERR_*` exibidos ao usuário (`ERR_BAD_CREDENTIALS`, `ERR_USER_NOT_FOUND`, `ERR_INVALID_FILE`…) **permanecem** no catálogo.
+
+**O app não é obrigado a usar locale:** basta escrever o texto direto no spec (`label='Plular'`), que é o idioma dele. O que **mudou** é que o catálogo customizado por dicionário (`t('Plurar', MEU_CATALOGO)`) não existe mais — o app que quiser texto próprio declara a constante dele.
+
+**A storefront é do motor — não depende do host.** Os textos da vitrine/do carrinho/da nav (`SITE_*`, `CART_TITLE`, `CART_SENT`, `ALL`, `ALL_CATEGORIES`, `CATEGORIES`, `IDENTIFY`, `YOUR_DATA`, `CONTINUE`, `EMPTY_BAG`, `SELECT`, `NO_ITEMS`, `SEND_QUOTE`, `ADD_MORE_ITEMS`, `VIEW_PRODUCTS`) estão no catálogo do framework, junto com o Page `type='showcase'`. Um host mínimo renderiza o carrossel e o carrinho __sem nenhum arquivo de i18n próprio__. Quem quiser voz própria reconstrói via `locales.herdar_catalogo(globals())`: o módulo do host herda o catálogo e redeclara só os nomes que diferem — sem duplicar a rotina de cópia (ela mora no motor). `core/cart.py` lê `i18n.CART_TITLE`/`i18n.CART_SENT` direto; não há ponte de superset. **Regra:** nomes novos de catálogo entram **na mesma posição alfabética** em `en.py` e `pt.py`, senão o diff fica ilegível.
 
 ### 5.13 `normalize_fieldspec` — Especificação Unificada de Fields/Columns
 
@@ -536,6 +544,25 @@ Page = {
 
 ## 6. Histórico de versões
 
+### 1.26.09.27.0004
+- **Storefront do motor não depende mais do host.** As 18 strings da vitrine/carrinho/nav (`SITE_*`, `CART_TITLE`, `CART_SENT`, `ALL`, `ALL_CATEGORIES`, `CATEGORIES`, `IDENTIFY`, `YOUR_DATA`, `CONTINUE`, `EMPTY_BAG`, `SELECT`, `NO_ITEMS`, `SEND_QUOTE`, `ADD_MORE_ITEMS`, `VIEW_PRODUCTS`) entraram no catálogo do framework (128 → **146**). `CART_ITEMS` saiu (era morto). O Page `type='showcase'` renderiza e o carrinho envia sem nenhum arquivo de i18n do host — um host mínimo funciona.
+- **Superset do host desativado no algodoce:** `app/templates/i18n.py` removido e o override em `app/__init__.py` junto; o global `i18n` volta a ser o catálogo do motor (`init.py`). O encaminhador perdeu a utilidade e saiu: `_cat()` em `core/cart.py` voltou a ser `i18n.CART_TITLE`/`i18n.CART_SENT` direto, e `adapter.set_i18n()/get_i18n()` foram removidos. A API de extensão permanece: `locales.herdar_catalogo(globals())` + redeclaração para host que quiser texto próprio.
+- **Pendência registrada (rotas da storefront):** `site.html` ainda quebra links `/sobre /vitrine /orcamento /contato`, faz polling no endpoint do app `/orcamento/api/orcamento-count` (badge) e `defs/cart.py` fixa `CART_MORE_ITEMS_LINK='/vitrine/'`. As strings não se prendem mais ao app; a estrutura de rotas/nav, sim — próxima iteração.
+
+### 1.26.09.27.0003
+- **Catálogo enxugado:** 154 → 128 constantes no framework, +19 no superset do host. Nomes repetidos mesclados (`UI_SIGN_OUT`→`EXIT`, `UI_SIGN_IN`→`LOGIN`, `UI_MONTH`→`FILTER_MONTH`, `UI_YEAR`→`FILTER_YEAR`, `UI_FILE_INVALID`→`ERR_INVALID_FILE`, `UI_YES`→`FILTER_YES`, `UI_TOGGLE`→`{{ i18n.ACTIVATE }}/{{ i18n.DEACTIVATE }}`), prefixo `UI_` removido, seções removidas: `en.py`/`pt.py` ficaram **alfabéticos na mesma ordem** (paridade agora checa ordem também).
+- **Textos de domínio moveram para o host:** `CART_TITLE`, `CART_SENT`, `CART_ITEMS` e os 16 da vitrine/storefront vivem agora em `app/templates/i18n.py` (superset que **herda** as 128 do framework via `locales.herdar_catalogo(globals())` — a rotina de cópia mora no motor). O app injeta o superset no global `i18n` do Jinja (depois de `init_app`) e registra no `adapter.set_i18n()`, que o motor Python usa (`core/cart.py` via `_cat()`). Dependência assumida: `site.html`, `showcase.html` e `cart.html` leem nomes do host (ver 5.12).
+- **Bug pré-existente corrigido:** `pages/list.html` referenciava `FILTER_MONTH_RANGE`/`FILTER_YEAR_RANGE` (inexistentes; renderizavam placeholder vazio) — agora `MONTH_RANGE`/`YEAR_RANGE`.
+
+### 1.26.09.27.0002
+- **Locale resolvido na importação, não na tradução.** `t()`, `catalogo()`, `locale_ativo()`, `_mapa_en()` e `_CACHE` saíram: `locales/__init__.py` agora lê `APP['locale']` de `app/config.py`, importa o catálogo e reexporta as constantes (`from ajsystem import locales as i18n`). 86 call sites em 11 arquivos migrados. O bug de `t()` congelado em nível de módulo deixa de existir por construção, em vez de ser proibido por regra.
+- **`App.locale` saiu do dataclass** (8 props → 7). A chave `'locale'` continua em `app/config.py` — única fonte. Lê-la de lá é seguro porque aquele módulo **não tem nenhum import** (dados puros), então não há ciclo possível. Trocar de idioma é uma linha + reinício, não um fork; o idioma é congelado no boot.
+- **Diagnóstico de developer fora do catálogo:** `ERR_INVALID_PARAMS`, `ERR_UNKNOWN_PAGE`, `ERR_UNKNOWN_SEARCH`, `ERR_INVALID_PAGE_PARAM`, `ERR_INVALID_BUTTON`, `ERR_NO_RENDER` e `ERR_NEED_IDENTIFY` viraram literais em português no código. Os `ERR_*` mostrados ao usuário (`ERR_BAD_CREDENTIALS`, `ERR_BAD_KEY`, `ERR_USER_NOT_FOUND`, `ERR_USER_REQUIRED`, `ERR_NO_IMAGE`, `ERR_INVALID_FORMAT`, `ERR_FORMAT_NOT_ALLOWED`, `ERR_INVALID_FILE`, `ERR_INVALID_QTY`) **permanecem** no catálogo.
+- **Templates migrados (limitação da 0001 encerrada):** 69 referências `i18n.*` em 13 templates, 58 constantes novas com prefixo `UI_` (rótulo de controle de tela), catálogo 100 → 158 pareados. `init.py` injeta **um** global `i18n` em vez de ~158 nomes soltos. Os 3 pontos delicados foram `components/auth_triggers.html` (HTML montado dentro de string JS, com escapes `\u00e1` → `|tojson`), `components/item_table.html` (`onclick` com `tojson`devolve aspas duplas: o atributo passou para aspas simples) e `components/site.html` (nav do algodoce hardcoded no template do framework — registrado abaixo, não corrigido).
+- **`Button.text()`/`confirm_text()` e os leitores do `ConfirmModal` viraram pass-through** (`return self.label`). O método sobrevive porque `label` é o contrato: o app pode escrever o texto dele direto e o template não precisa saber a diferença. `FILTER_MODES` voltou a ser constante de módulo em `core/list.py`.
+- **Falha agora é alta:** nome faltando em `pt.py` estoura `ImportError` na carga (antes degradava para inglês em silêncio) e locale sem catálogo levanta `ValueError` listando o que existe. A regra de unicidade dos valores em `en.py` saiu junto — ela só existia porque o texto inglês era chave de dicionário.
+- **Perdido de propósito:** o catálogo customizado por dicionário (`t('Plurar', MEU_CATALOGO)`) não existe mais. Nenhum call site usava; o app que quiser texto próprio declara a constante dele.
+
 ### 1.26.09.27.0001
 - **Locale fecha os furos que ainda ignoravam `App.locale`:** 24 constantes novas em `ajsystem/locales/{en,pt}.py` (23 de rótulo de filtro + `CHOOSE`), catálogo de 76 → 100 pareados, valores únicos garantidos.
 - **`t()` em nível de módulo descongelado** (3 pontos): `core/form.py` (`MSG_DELETED`, `MSG_CANNOT_DELETE`) e `core/do_report.py:33` (`ERRO_MSG_PADRAO`) resolviam o texto **uma vez, na importação**, e ignoravam `App.locale` depois. As três viraram chamada em tempo de render.
@@ -543,7 +570,7 @@ Page = {
 - **Defaults de `def` também congelavam:** `choice_modal(label='Escolha', confirm_label='Ok')` era avaliado no `def`, não na chamada. Viraram `None` + resolução interna; `choice_modal.html` recebeu `all_label`/`cancel_label` em vez de `'— Todos —'`, `'Cancelar'` e `{{ confirm_label or 'Ok' }}` fixos.
 - **Outros literais sem `t()`:** `core/list.py` (opções booleanas `Sim`/`Não`) e `core/do_report.py` (coluna `BOOL`).
 - **Documentação:** props auditadas contra as dataclasses. Corrigidos `POS_EXPLICIT_NOT_EMPTY` (constante que **só existia no README** — o nome real é `POS_0_NOT_EMPTY`), `Lookup.model` (prop inexistente: o model alvo é inferido do FK), `FIELD_TYPES` (23 → 19, `PK` faltando), `CURRENCY`, `Form.buttons` e as referências à versão do app. Seções novas para `Button`, `ConfirmModal`, `List`, `Query`, `Table`, `Session`, `App`/`Module`/`Tema`/`Layout*`, `locales`, `ReportGroup`/`ReportText`/`ReportField` e `Page.props.scripts`.
-- **Limitação registrada (não corrigida aqui):** a migração de locale cobre valores de retorno em Python, mas **templates e JS do framework ainda têm ~62 trechos em português fixo** em 13 arquivos — `pages/list.html` (15), `components/auth_triggers.html` (10), `components/site.html` (8), `pages/showcase.html` (7), `pages/cart.html` (5), `static/js/multi-ctl.js` (3), `pages/sys.html` (3) e mais 6. `t()` também **não está exposto ao Jinja** (`init.py:74-81` registra só `get_field`, `menu_url`, `internal_scripts`…), então localizá-los exige antes `app.jinja_env.globals['t'] = t`. Fica para entrega própria, com o app no ar para validar.
+- **Limitação registrada (corrigida em 0002):** nesta versão a migração de locale cobria valores de retorno em Python, e os **~62 trechos em português fixo nos templates** ficaram para entrega própria. Tudo migrado — ver 1.26.09.27.0002.
 
 ### 1.26.09.21.0001
 - **`totals` em sessões `table`/`query`:** linha de totais no `<tfoot>` da tabela editável (corrige regressão em que só sessões `query` renderizavam) e **total geral** na tabela agrupada (`session['totals']` via `aggregate_rows`).

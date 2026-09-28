@@ -6,19 +6,12 @@ renderização de `pages/list.html` (cujos contratos são mantidos).
 """
 import re
 
+from ajsystem import locales as i18n
 from ajsystem.defs.data import (
     Field, _resolve_fieldset, _entidade_fields, build_field,
     normalize_fieldspec,
 )
 from ajsystem.core.utils import currency_symbol
-from ajsystem.locales import t
-from ajsystem.locales.en import (
-    FILTER_ALL, FILTER_BETWEEN, FILTER_CONTAINS, FILTER_EQ, FILTER_FROM,
-    FILTER_GT, FILTER_GTE, FILTER_LAST_7, FILTER_LAST_MONTH, FILTER_LAST_YEAR,
-    FILTER_LT, FILTER_LTE, FILTER_MONTH, FILTER_MONTH_YEAR, FILTER_PERIOD,
-    FILTER_STARTS, FILTER_THIS_MONTH, FILTER_THIS_YEAR, FILTER_TODAY,
-    FILTER_UNTIL, FILTER_YEAR, FILTER_YES, FILTER_YESTERDAY, NO,
-)
 from ajsystem.defs.list import List, parse_list  # re-export (dataclass em `defs`)
 
 
@@ -58,7 +51,7 @@ def field_filter_options(f: Field):
         return list(f.options)
     # boolean sem options, mas checklist precisa Sim/Não
     if f.input in ('boolean', 'checkbox'):
-        return {'true': t(FILTER_YES), 'false': t(NO)}
+        return {'true': i18n.FILTER_YES, 'false': i18n.NO}
     _cached = getattr(f, '_fopts', _NO_OPTIONS)
     if _cached is not _NO_OPTIONS:
         return _cached
@@ -251,38 +244,35 @@ def fields_to_columns(fields: list[Field]) -> list[dict]:
 def filter_modes() -> dict:
     """Modos de filtro por tipo inferido, na forma `[(modo, rótulo), ...]`.
 
-    Função, e não constante de módulo, porque os rótulos passam por `t()`: um
-    dicionário de nível de módulo resolveria o locale uma única vez, na
-    importação, e ignoraria uma mudança posterior de `App.locale`. A primeira
-    chave é o identificador de máquina (vai para o backend e não é traduzido);
-    só o rótulo exibido sai do catálogo. `text` e `number` compartilham
-    `FILTER_EQ` de propósito — o valor inglês é a chave do catálogo e precisa
-    ser único.
+    A primeira chave é o identificador de máquina (vai para o backend e não é
+    traduzido); só o rótulo exibido sai do catálogo, que já vem resolvido na
+    importação (ver `ajsystem/locales/__init__.py`). `text` e `number`
+    compartilham `FILTER_EQ` de propósito — é o mesmo rótulo nos dois.
     """
     return {
-        'text': [('igual', t(FILTER_EQ)),
-                 ('contains', t(FILTER_CONTAINS)),
-                 ('starts', t(FILTER_STARTS))],
-        'number': [('igual', t(FILTER_EQ)),
-                   ('entre', t(FILTER_BETWEEN)),
-                   ('maior_que', t(FILTER_GT)),
-                   ('maior_igual', t(FILTER_GTE)),
-                   ('menor_que', t(FILTER_LT)),
-                   ('menor_igual', t(FILTER_LTE))],
-        'date': [('hoje', t(FILTER_TODAY)),
-                 ('ontem', t(FILTER_YESTERDAY)),
-                 ('ultimos_7_dias', t(FILTER_LAST_7)),
-                 ('mes_atual', t(FILTER_THIS_MONTH)),
-                 ('mes_anterior', t(FILTER_LAST_MONTH)),
-                 ('mes', t(FILTER_MONTH)),
-                 ('mes_ano', t(FILTER_MONTH_YEAR)),
-                 ('ano_atual', t(FILTER_THIS_YEAR)),
-                 ('ano_anterior', t(FILTER_LAST_YEAR)),
-                 ('ano', t(FILTER_YEAR)),
-                 ('ate_a_data_de', t(FILTER_UNTIL)),
-                 ('a_partir_de', t(FILTER_FROM)),
-                 ('periodo', t(FILTER_PERIOD))],
-        'boolean': [('', t(FILTER_ALL)), ('true', t(FILTER_YES)), ('false', t(NO))],
+        'text': [('igual', i18n.FILTER_EQ),
+                 ('contains', i18n.FILTER_CONTAINS),
+                 ('starts', i18n.FILTER_STARTS)],
+        'number': [('igual', i18n.FILTER_EQ),
+                   ('entre', i18n.FILTER_BETWEEN),
+                   ('maior_que', i18n.FILTER_GT),
+                   ('maior_igual', i18n.FILTER_GTE),
+                   ('menor_que', i18n.FILTER_LT),
+                   ('menor_igual', i18n.FILTER_LTE)],
+        'date': [('hoje', i18n.FILTER_TODAY),
+                 ('ontem', i18n.FILTER_YESTERDAY),
+                 ('ultimos_7_dias', i18n.FILTER_LAST_7),
+                 ('mes_atual', i18n.FILTER_THIS_MONTH),
+                 ('mes_anterior', i18n.FILTER_LAST_MONTH),
+                 ('mes', i18n.FILTER_MONTH),
+                 ('mes_ano', i18n.FILTER_MONTH_YEAR),
+                 ('ano_atual', i18n.FILTER_THIS_YEAR),
+                 ('ano_anterior', i18n.FILTER_LAST_YEAR),
+                 ('ano', i18n.FILTER_YEAR),
+                 ('ate_a_data_de', i18n.FILTER_UNTIL),
+                 ('a_partir_de', i18n.FILTER_FROM),
+                 ('periodo', i18n.FILTER_PERIOD)],
+        'boolean': [('', i18n.FILTER_ALL), ('true', i18n.FILTER_YES), ('false', i18n.NO)],
         'select': [],
         'checklist': [],
     }

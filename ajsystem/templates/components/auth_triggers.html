@@ -48,7 +48,7 @@
 
   {# ── Popup functions (sempre geradas; uso condicional via triggers) ── #}
   window.showSystemPopup = function(){
-    _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">&#128272;</div><h4>Acesso ao Sistema</h4><input type="text" id="popup-user" placeholder="Usu\u00e1rio" autofocus><input type="password" id="popup-pass" placeholder="Senha"><input type="password" id="popup-chave" placeholder="Chave" style="display:none"><div id="popup-error" class="auth-error"></div><button onclick="submitSystem()" class="auth-btn">Entrar</button></div></div>');
+    _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">&#128272;</div><h4>{{ i18n.SYSTEM_ACCESS|tojson }}</h4><input type="text" id="popup-user" placeholder="{{ i18n.USERNAME|tojson }}" autofocus><input type="password" id="popup-pass" placeholder="{{ i18n.PASSWORD|tojson }}"><input type="password" id="popup-chave" placeholder="{{ i18n.KEY|tojson }}" style="display:none"><div id="popup-error" class="auth-error"></div><button onclick="submitSystem()" class="auth-btn">{{ i18n.LOGIN|tojson }}</button></div></div>');
     _xhrGet('/api/check-chave', function(d){ if(d && d.tem) document.getElementById('popup-chave').style.display = ''; });
   };
   window.submitSystem = function(){
@@ -60,7 +60,7 @@
     });
   };
   window.showAdminPopup = function(){
-    _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">&#128273;</div><h4>Administrador</h4><input type="text" id="admin-user" placeholder="Usu\u00e1rio" autofocus><input type="password" id="admin-pass" placeholder="Senha" style="display:none"><input type="password" id="admin-chave" placeholder="Chave"><div id="admin-error" class="auth-error"></div><button onclick="submitAdmin()" class="auth-btn">Entrar</button></div></div>');
+    _criarPopup('<div class="auth-overlay" onclick="_fecharPopup()"></div><div class="auth-card"><div class="auth-card-inner"><span class="auth-close" onclick="_fecharPopup()">&times;</span><div class="auth-icon">&#128273;</div><h4>{{ i18n.ADMIN|tojson }}</h4><input type="text" id="admin-user" placeholder="{{ i18n.USERNAME|tojson }}" autofocus><input type="password" id="admin-pass" placeholder="{{ i18n.PASSWORD|tojson }}" style="display:none"><input type="password" id="admin-chave" placeholder="{{ i18n.KEY|tojson }}"><div id="admin-error" class="auth-error"></div><button onclick="submitAdmin()" class="auth-btn">{{ i18n.LOGIN|tojson }}</button></div></div>');
     _xhrGet('/api/admin-config', function(d){ if(d && d.tem_usuario) document.getElementById('admin-user').style.display = ''; if(d && d.tem_senha) document.getElementById('admin-pass').style.display = ''; });
   };
   window.submitAdmin = function(){

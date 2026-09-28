@@ -6,15 +6,7 @@ import re
 
 from flask import url_for
 
-from ajsystem.locales import t
-from ajsystem.locales.en import (
-    ACCESS, ACTIVATE, ADD, ADD_ITEM, APPLY, BACK, CANCEL, CLEAR, CM_DELETE_MSG,
-    CM_DELETE_TITLE, CM_REMOVE_MSG, CM_REMOVE_TITLE, CONFIRM, DEACTIVATE,
-    CONFIRM_DELETE as CONFIRM_DELETE_MSG, CONVERT, DELETE, DETAILS,
-    DISCARD_CHANGES, EDIT, EDIT_PRODUCT, EXIT, FINISH, GENERATE, LIST, LOGIN,
-    NEW, NO, OK, PRINT, REFRESH, REMOVE, REMOVE_ITEM, RENEW, REPORT, SAVE,
-    SEND, YES,
-)
+from ajsystem import locales as i18n
 
 # Tolerância numérica de `enabled`, espelhada em `itEnabledEval` (sys.html).
 # "0,00" e Decimal('0.00') contam como vazio; 0.01 conta como preenchido.
@@ -120,8 +112,8 @@ class Button:
     size: str = 'sm'
     cls: str = ''
     # `label_off`/`icon_off` não são renderizados por nenhum template ainda —
-    # declarados para o toggle `on_off` completo. Se for conectá-los, traduzir
-    # via `t()` como `text()` faz (hoje a chave sairia crua).
+    # declarados para o toggle `on_off` completo. Se for conectá-los, declarar
+    # com constante de `ajsystem.locales`, como os outros rótulos.
     label_off: Optional[str] = None
     icon_off: Optional[str] = None
 
@@ -153,14 +145,18 @@ class Button:
         return self.cls or btn_style(self.color, self.outline, self.size)
 
     def text(self) -> str:
-        """Rótulo no locale ativo. `label` guarda sempre o texto de `locales/en.py`
-        (a chave), traduzido só aqui no render — assim chave nunca vaza para a
-        tela e texto faltando no locale degrada para inglês."""
-        return t(self.label)
+        """Rótulo do botão. `label` JÁ é o texto do locale ativo (veja
+        `ajsystem/locales/__init__.py`), então aqui não há o que traduzir.
+
+        O método sobrevive como pass-through porque `label` é o contrato: um app
+        pode escrever o texto dele direto (`label='Plular'`), e `text()` continua
+        sendo a leitura correta sem que o template precise saber a diferença.
+        """
+        return self.label
 
     def confirm_text(self) -> str:
-        """Texto da confirmação, traduzido (vazio se o botão não confirma)."""
-        return t(self.confirm_msg) if self.confirm_msg else ''
+        """Texto da confirmação (vazio se o botão não confirma)."""
+        return self.confirm_msg or ''
 
     def visible_ok(self, instance) -> bool:
         """Visibilidade. `True`/`False` literal, callable, ou declarativa
@@ -252,77 +248,77 @@ class Button:
 
 @dataclass
 class ConfirmModal:
-    """Diálogo de confirmação. `title`/`message` guardam a chave de
-    `locales/en.py`; o texto final sai de `ConfirmModal.text()`/`confirm_text()`
-    (ver `Button.text()` para a regra)."""
+    """Diálogo de confirmação. `title`/`message` são o texto do locale ativo; os
+    `*_text()` são pass-through, pelo mesmo motivo de `Button.text()`."""
     title: str
     message: str
-    confirm_label: str = CONFIRM
+    confirm_label: str = i18n.CONFIRM
     confirm_color: str = 'danger'
-    cancel_label: str = CANCEL
+    cancel_label: str = i18n.CANCEL
     icon: Optional[str] = 'trash'
 
     def text(self) -> str:
-        return t(self.title)
+        return self.title
 
     def message_text(self) -> str:
-        return t(self.message)
+        return self.message
 
     def confirm_button_text(self) -> str:
-        return t(self.confirm_label)
+        return self.confirm_label
 
     def cancel_button_text(self) -> str:
-        return t(self.cancel_label)
+        return self.cancel_label
 
 
 CONFIRM_DELETE = ConfirmModal(
-    title=CM_DELETE_TITLE,
-    message=CM_DELETE_MSG,
+    title=i18n.CM_DELETE_TITLE,
+    message=i18n.CM_DELETE_MSG,
 )
 CONFIRM_REMOVE_ITEM = ConfirmModal(
-    title=CM_REMOVE_TITLE,
-    message=CM_REMOVE_MSG,
-    confirm_label=REMOVE,
+    title=i18n.CM_REMOVE_TITLE,
+    message=i18n.CM_REMOVE_MSG,
+    confirm_label=i18n.REMOVE,
 )
 
 
 # ── Presets de aparência ────────────────────────────────────────────────────
-# Só aparência: `label` é a chave de `locales/en.py` e `color`/`outline`/`size`
-# alimentam `btn_cls()`. Nenhum preset fixa `cls` — se fixasse, `cls` sombrearia
+# Só aparência: `label` vem de `ajsystem.locales` (já no idioma ativo) e
+# `color`/`outline`/`size` alimentam `btn_cls()`. Nenhum preset fixa `cls` — se
+# fixasse, `cls` sombrearia
 # `btn_style()` e trocar só a `color` não mudaria nada no render.
 #
 # Os dois botões de relatório (`BTN_PRINT`/`BTN_SEND`) não são presets: são
 # factories, porque precisam do dict de relatório. Ver mais abaixo.
-BTN_SAVE = Button(label=SAVE, icon='check', color='success', outline=False)
-BTN_DELETE = Button(label=DELETE, icon='trash', color='danger', outline=False,
-                    confirm_msg=CONFIRM_DELETE_MSG)
-BTN_NEW = Button(label=NEW, color='success', outline=False)
-BTN_BACK = Button(label=BACK, color='secondary', outline=True)
-BTN_EDIT = Button(label=EDIT, icon='pencil-square', color='primary', outline=True)
-BTN_CANCEL = Button(label=CANCEL, color='secondary', outline=True)
-BTN_CONVERT = Button(label=CONVERT, icon='arrow-path', color='success', outline=False)
-BTN_LIST = Button(label=LIST, icon='clipboard-document-list', color='secondary', outline=True)
-BTN_DETAILS = Button(label=DETAILS, icon='eye', color='info', outline=True)
-BTN_ADD = Button(label=ADD, color='success', outline=True)
-BTN_ADD_ITEM = Button(label=ADD_ITEM, color='success', outline=True)
-BTN_FINISH = Button(label=FINISH, color='success', outline=False)
-BTN_REFRESH = Button(label=REFRESH, icon='arrow-path', color='warning', outline=True)
-BTN_REMOVE = Button(label=REMOVE, icon='minus', color='danger', outline=True,
-                    confirm_msg=REMOVE_ITEM)
-BTN_YES = Button(label=YES, color='primary', outline=False)
-BTN_NO = Button(label=NO, color='secondary', outline=True)
-BTN_CLEAR = Button(label=CLEAR, color='danger', outline=True)
-BTN_APPLY = Button(label=APPLY, color='primary', outline=False)
-BTN_OK = Button(label=OK, color='danger', outline=False)
-BTN_EXIT = Button(label=EXIT, color='danger', outline=True, confirm_msg=DISCARD_CHANGES)
-BTN_RENEW = Button(label=RENEW, color='info', outline=False)
-BTN_REPORT = Button(label=REPORT, icon='document-text', color='info', outline=True)
-BTN_GENERATE = Button(label=GENERATE, color='success', outline=False)
-BTN_CONFIRM = Button(label=CONFIRM, color='success', outline=False)
-BTN_EDIT_PRODUCT = Button(label=EDIT_PRODUCT, icon='pencil-square', color='primary',
+BTN_SAVE = Button(label=i18n.SAVE, icon='check', color='success', outline=False)
+BTN_DELETE = Button(label=i18n.DELETE, icon='trash', color='danger', outline=False,
+                    confirm_msg=i18n.CONFIRM_DELETE)
+BTN_NEW = Button(label=i18n.NEW, color='success', outline=False)
+BTN_BACK = Button(label=i18n.BACK, color='secondary', outline=True)
+BTN_EDIT = Button(label=i18n.EDIT, icon='pencil-square', color='primary', outline=True)
+BTN_CANCEL = Button(label=i18n.CANCEL, color='secondary', outline=True)
+BTN_CONVERT = Button(label=i18n.CONVERT, icon='arrow-path', color='success', outline=False)
+BTN_LIST = Button(label=i18n.LIST, icon='clipboard-document-list', color='secondary', outline=True)
+BTN_DETAILS = Button(label=i18n.DETAILS, icon='eye', color='info', outline=True)
+BTN_ADD = Button(label=i18n.ADD, color='success', outline=True)
+BTN_ADD_ITEM = Button(label=i18n.ADD_ITEM, color='success', outline=True)
+BTN_FINISH = Button(label=i18n.FINISH, color='success', outline=False)
+BTN_REFRESH = Button(label=i18n.REFRESH, icon='arrow-path', color='warning', outline=True)
+BTN_REMOVE = Button(label=i18n.REMOVE, icon='minus', color='danger', outline=True,
+                    confirm_msg=i18n.REMOVE_ITEM)
+BTN_YES = Button(label=i18n.YES, color='primary', outline=False)
+BTN_NO = Button(label=i18n.NO, color='secondary', outline=True)
+BTN_CLEAR = Button(label=i18n.CLEAR, color='danger', outline=True)
+BTN_APPLY = Button(label=i18n.APPLY, color='primary', outline=False)
+BTN_OK = Button(label=i18n.OK, color='danger', outline=False)
+BTN_EXIT = Button(label=i18n.EXIT, color='danger', outline=True, confirm_msg=i18n.DISCARD_CHANGES)
+BTN_RENEW = Button(label=i18n.RENEW, color='info', outline=False)
+BTN_REPORT = Button(label=i18n.REPORT, icon='document-text', color='info', outline=True)
+BTN_GENERATE = Button(label=i18n.GENERATE, color='success', outline=False)
+BTN_CONFIRM = Button(label=i18n.CONFIRM, color='success', outline=False)
+BTN_EDIT_PRODUCT = Button(label=i18n.EDIT_PRODUCT, icon='pencil-square', color='primary',
                           outline=True)
-BTN_LOGIN = Button(label=LOGIN, color='danger', outline=False)
-BTN_ACCESS = Button(label=ACCESS, color='danger', outline=False)
+BTN_LOGIN = Button(label=i18n.LOGIN, color='danger', outline=False)
+BTN_ACCESS = Button(label=i18n.ACCESS, color='danger', outline=False)
 
 
 # ── Botões de relatório (factories: precisam do dict do relatório) ─────────
@@ -372,7 +368,7 @@ def BTN_PRINT(report, *, filter_field='', guard=None, **overrides) -> Button:
               else _render_relatorio(report, guard=guard or _has_items))
     opts = {'render': render, 'into': REPORT_CONTENT}
     opts.update(overrides)
-    return replace(Button(label=PRINT, icon='printer', color='info',
+    return replace(Button(label=i18n.PRINT, icon='printer', color='info',
                           outline=True), **opts)
 
 
@@ -384,7 +380,7 @@ def BTN_SEND(report, *, filter_field='', guard=None, **overrides) -> Button:
         'buttons': [BTN_SEND(PEDIDO)]
         'buttons': [BTN_SEND(COMPRA), BTN_SEND(ORCAMENTO, guard=lambda c: c.finalizado)]
     """
-    opts = {'label': SEND, 'icon': 'paper-airplane', 'color': 'success'}
+    opts = {'label': i18n.SEND, 'icon': 'paper-airplane', 'color': 'success'}
     opts.update(overrides)
     return replace(BTN_PRINT(report, filter_field=filter_field, guard=guard), **opts)
 
@@ -395,8 +391,8 @@ def BTN_SEND(report, *, filter_field='', guard=None, **overrides) -> Button:
 # (endpoint = '<blueprint>.toggle', campo default 'ativo').
 ACTIONS = {
     'on_off': Button(
-        label=ACTIVATE, icon='check',
-        label_off=DEACTIVATE, icon_off='xmark',
+        label=i18n.ACTIVATE, icon='check',
+        label_off=i18n.DEACTIVATE, icon_off='xmark',
         color='success', outline=True, position='nav_right', on_off=True,
     ),
 }

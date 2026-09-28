@@ -6,12 +6,9 @@ Substitui `app/routes/uploads.py`. Política resolvida em:
 import os
 
 from flask import Blueprint, current_app, jsonify, request, send_from_directory
-from ajsystem.locales import t
-from ajsystem.locales.en import (
-    ERR_FORMAT_NOT_ALLOWED, ERR_INVALID_FILE, ERR_INVALID_FORMAT, ERR_NO_IMAGE,
-    MSG_FIELD_FORMAT, MSG_TOO_LARGE,
-)
 from flask_login import login_required
+
+from ajsystem import locales as i18n
 
 bp = Blueprint("uploads", __name__)
 
@@ -61,13 +58,13 @@ def image_temp_upload():
     import uuid
     data = request.get_json(silent=True)
     if not data or 'imagem' not in data:
-        return jsonify(error=t(ERR_NO_IMAGE)), 400
+        return jsonify(error=i18n.ERR_NO_IMAGE), 400
     match = _re.match(r'data:image/(\w+);base64,(.+)', data['imagem'])
     if not match:
-        return jsonify(error=t(ERR_INVALID_FORMAT)), 400
+        return jsonify(error=i18n.ERR_INVALID_FORMAT), 400
     ext = match.group(1).lower()
     if ext not in ALLOWED_IMAGE_EXT:
-        return jsonify(error=t(ERR_FORMAT_NOT_ALLOWED)), 400
+        return jsonify(error=i18n.ERR_FORMAT_NOT_ALLOWED), 400
     raw = base64.b64decode(match.group(2))
     root = _upload_root()
     os.makedirs(root, exist_ok=True)
@@ -83,7 +80,7 @@ def image_temp_remove():
     data = request.get_json(silent=True)
     filename = (data or {}).get('filename', '')
     if not filename or not filename.startswith('temp_'):
-        return jsonify(error=t(ERR_INVALID_FILE)), 400
+        return jsonify(error=i18n.ERR_INVALID_FILE), 400
     path = os.path.join(_upload_root(), os.path.basename(filename))
     if os.path.exists(path):
         os.remove(path)
@@ -119,11 +116,11 @@ def process_image_fields(form, instance):
                     except OSError:
                         size = None
                     if size is not None and size > max_size:
-                        flash(t(MSG_TOO_LARGE).format(field=f.label or name), 'warning')
+                        flash(i18n.MSG_TOO_LARGE.format(field=f.label or name), 'warning')
                         continue
                 ext = temp.rsplit('.', 1)[-1].lower()
                 if allowed and ext not in allowed:
-                    flash(t(MSG_FIELD_FORMAT).format(field=f.label or name), 'warning')
+                    flash(i18n.MSG_FIELD_FORMAT.format(field=f.label or name), 'warning')
                     continue
                 final_dir = os.path.join(root, rel) if rel else root
                 os.makedirs(final_dir, exist_ok=True)

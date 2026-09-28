@@ -6,10 +6,7 @@ DB usados por `core.do_form`. Sessions/aggs/resque adiados (Categorias não usa)
 import re
 from datetime import datetime
 
-from ajsystem.locales import t
-from ajsystem.locales.en import (
-    MSG_CANNOT_DELETE, MSG_DELETED, MSG_ENTITY_DELETED,
-)
+from ajsystem import locales as i18n
 from ajsystem.core.adapter import db
 from ajsystem.defs.validators import resolve_validator
 
@@ -68,8 +65,8 @@ def _resolve_delete(delete, label=None):
         msg_no = None
     return {
         'when': when,
-        'msg_ok': msg_ok or (t(MSG_ENTITY_DELETED).format(label=label) if label else t(MSG_DELETED)),
-        'msg_no': msg_no or t(MSG_CANNOT_DELETE),
+        'msg_ok': msg_ok or (i18n.MSG_ENTITY_DELETED.format(label=label) if label else i18n.MSG_DELETED),
+        'msg_no': msg_no or i18n.MSG_CANNOT_DELETE,
     }
 
 

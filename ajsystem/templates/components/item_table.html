@@ -105,7 +105,7 @@
           {% endif %}
           {% if _can_edit %}
           <td class="text-center">
-            <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover linha">
+            <button type="button" class="btn btn-outline btn-error btn-xs" onclick='confirmRemoveRow(this, {{ i18n.REMOVE_ITEM|tojson }})' title="{{ i18n.ROW_REMOVE }}">
               <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
             </button>
           </td>
@@ -142,7 +142,7 @@
           {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
           {% endfor %}
           <td class="text-center">
-            <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover linha">
+            <button type="button" class="btn btn-outline btn-error btn-xs" onclick='confirmRemoveRow(this, {{ i18n.REMOVE_ITEM|tojson }})' title="{{ i18n.ROW_REMOVE }}">
               <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
             </button>
           </td>
@@ -162,9 +162,9 @@
         {% endfor %}
         <tr class="it-total-row">
           {% if _first_total.i > 0 %}
-          <th class="itm-label" colspan="{{ _first_total.i }}">Total</th>
+          <th class="itm-label" colspan="{{ _first_total.i }}">{{ i18n.TOTAL }}</th>
           {% else %}
-          <th class="itm-label">Total</th>
+          <th class="itm-label">{{ i18n.TOTAL }}</th>
           {% endif %}
           {% for _f in _edit_fields + _calc_fields %}
           {% if loop.index0 >= _first_total.i %}
@@ -214,7 +214,7 @@
               <div class="itm-item-head">
                 <span class="itm-item-num">{{ ('# ' ~ _ref) if _ref is not none else '# novo' }}</span>
                 {% if _can_edit %}
-                <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover">
+                <button type="button" class="btn btn-outline btn-error btn-xs" onclick='confirmRemoveRow(this, {{ i18n.REMOVE_ITEM|tojson }})' title="{{ i18n.REMOVE }}">
                   <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
                 </button>
                 {% endif %}
@@ -266,7 +266,7 @@
       <th class="itm-item" data-crow="__IDX__">
         <div class="itm-item-head">
           <span class="itm-item-num"># novo</span>
-          <button type="button" class="btn btn-outline btn-error btn-xs" onclick="confirmRemoveRow(this, 'Remover este item?')" title="Remover">
+          <button type="button" class="btn btn-outline btn-error btn-xs" onclick='confirmRemoveRow(this, {{ i18n.REMOVE_ITEM|tojson }})' title="{{ i18n.REMOVE }}">
             <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
           </button>
         </div>
@@ -399,7 +399,7 @@
       </div>
       {% endfor %}
       <div class="it-group-sub">
-        <span>Subtotal</span>
+        <span>{{ i18n.SUBTOTAL }}</span>
         {% for _tlabel in _totals_spec.keys() %}
         {% set _tl = _edit_fields|selectattr('name', 'equalto', _tlabel)|first %}
         <span class="it-group-sub-val">{{ _tl.display_label if _tl else _tlabel }}: {{ render_agg_total(_g['totals'].get(_tlabel)) }}</span>
@@ -409,7 +409,7 @@
     {% endfor %}
     {% if _totals %}
     <div class="it-group-total-line">
-      <span>Total</span>
+      <span>{{ i18n.TOTAL }}</span>
       {% for _tlabel in _totals_spec.keys() %}
       {% set _tl = _edit_fields|selectattr('name', 'equalto', _tlabel)|first %}
       <span>{{ _tl.display_label if _tl else _tlabel }}: {{ render_agg_total(_totals.get(_tlabel)) }}</span>

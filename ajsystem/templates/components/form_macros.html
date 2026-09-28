@@ -4,15 +4,15 @@
 {% if field.input == 'date' %}
 <div class="inline-flex items-center it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
        value="{{ val.strftime('%Y-%m-%d') if val else '' }}"
-       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_DATE }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
 {% elif field.input == 'datetime-local' %}
 <div class="inline-flex items-center it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
        value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}"
-       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_DATE }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
 {% elif field.input == 'time' %}
 <div class="inline-flex items-center it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
        value="{{ val.strftime('%H:%M') if val else '' }}"
-       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir relógio"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_TIME }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
 {% elif field.input == 'number' %}
 <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
        value="{{ val|fmt_num(field.decimals) if val is not none else '' }}"
@@ -74,7 +74,7 @@
 <div class="search-ctl inline-flex items-center gap-1 w-full" data-search-page="{{ request.blueprint or '' }}" data-search-query="{{ field.lookup.query }}" data-search-field="{{ field.name }}"{% set _rq = (field.on_set.get('replaces') if field.on_set is mapping else none) %}{% set _rmm = namespace(s='') %}{% if _rq %}{% for _k, _v in _rq.items() %}{% if _v is string %}{% if _rmm.s %}{% set _rmm.s = _rmm.s + ',' %}{% endif %}{% set _rmm.s = _rmm.s + _k ~ ':' ~ _v %}{% endif %}{% endfor %}{% endif %}{% if _rmm.s %} data-replaces-map="{{ _rmm.s }}"{% endif %}>
   <input type="hidden" name="{{ ns }}" value="{{ val or '' }}">
   <span class="search-val input input-bordered input-sm flex-1 overflow-hidden whitespace-nowrap">{{ val if val is not none else '—' }}</span>
-  <button type="button" class="btn btn-outline btn-sm px-2" onclick="searchOpen(this)" title="Buscar">
+  <button type="button" class="btn btn-outline btn-sm px-2" onclick="searchOpen(this)" title="{{ i18n.SEARCH }}">
     <svg class="w-4 h-4" aria-hidden="true"><use href="#i-magnifying-glass"/></svg>
   </button>
 </div>
@@ -118,13 +118,13 @@
   {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+  <div class="inline-flex items-center w-full it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_DATE }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
 {% elif field.input == 'time' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir relógio"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
+  <div class="inline-flex items-center w-full it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_TIME }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
 {% elif field.input == 'datetime-local' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="Abrir calendário"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+  <div class="inline-flex items-center w-full it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_DATE }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
 {% elif field.input == 'image' %}
 {% set _img_has = val %}
 <div class="image-widget" data-ns="{{ ns }}" data-tem-imagem="{{ '1' if _img_has else '0' }}">
@@ -132,7 +132,7 @@
     {% if _img_has %}
     <img id="foto-preview-{{ ns }}" src="{{ url_for(aj_uploads_endpoint(), filename=val) }}"
          class="rounded border object-cover cursor-pointer" style="width:144px;height:144px;"
-         onclick="previewImagem(this.src)" title="Clique para ampliar">
+         onclick="previewImagem(this.src)" title="{{ i18n.ENLARGE }}">
     {% else %}
     <div id="foto-placeholder-{{ ns }}" class="bg-base-200 rounded border flex items-center justify-center"
          style="width:144px;height:144px;color:var(--fallback-b3, oklch(var(--b3)));font-size:3rem;">📸</div>
@@ -281,9 +281,9 @@
 {%- if btn.on_off -%}
   {%- set _val = instance|attr(btn.field or 'ativo') -%}
   <span class="inline-flex items-center gap-1 mr-2">
-    {% if not _val %}<span class="badge badge-warning badge-sm">Inativo</span>{% endif %}
+    {% if not _val %}<span class="badge badge-warning badge-sm">{{ i18n.INACTIVE }}</span>{% endif %}
     <input type="checkbox" class="toggle toggle-success" {% if _val %}checked{% endif %}
-           title="Ativar/Desativar" aria-label="Ativar/Desativar"
+           title="{{ i18n.ACTIVATE }}/{{ i18n.DEACTIVATE }}" aria-label="{{ i18n.ACTIVATE }}/{{ i18n.DEACTIVATE }}"
            onclick="window.location.href='{{ url }}'">
   </span>
 {%- elif btn.render -%}
@@ -412,7 +412,7 @@
   <div class="pt-[1.35rem]">{{ render_field(field, data, ro, name_prefix=name_prefix, ro_fields=ro_fields) }}</div>
   {% else %}
   <label class="text-sm font-semibold mb-0.5 block">{{ field.display_label }}{% if field.required %} <span class="text-error">*</span>{% endif %}</label>
-  {% if field.help %}<div class="flex items-center gap-1">{{ render_field(field, data, ro, name_prefix=name_prefix, ro_fields=ro_fields) }}<button type="button" class="field-help-btn" title="Ajuda" onclick="showFieldHelp(this)" data-help-title="{{ field.display_label }}"{% if field.help is string %} data-help-text="{{ field.help }}"{% else %} data-help-items='{{ field.help|tojson }}'{% endif %}><svg aria-hidden="true"><use href="#i-information-circle"/></svg></button></div>
+  {% if field.help %}<div class="flex items-center gap-1">{{ render_field(field, data, ro, name_prefix=name_prefix, ro_fields=ro_fields) }}<button type="button" class="field-help-btn" title="{{ i18n.HELP }}" onclick="showFieldHelp(this)" data-help-title="{{ field.display_label }}"{% if field.help is string %} data-help-text="{{ field.help }}"{% else %} data-help-items='{{ field.help|tojson }}'{% endif %}><svg aria-hidden="true"><use href="#i-information-circle"/></svg></button></div>
   {% else %}{{ render_field(field, data, ro, name_prefix=name_prefix, ro_fields=ro_fields) }}{% endif %}
   {% endif %}
 </div>

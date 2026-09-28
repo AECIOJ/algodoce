@@ -67,20 +67,20 @@ main { overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 {% block before_content %}
 <nav class="flex-shrink-0 nav-site site-nav-wrap" style="background:var(--rosa);">
   <div class="mx-auto nav-site-inner flex justify-center gap-3 px-2 py-2 flex-wrap" style="max-width: 48rem;">
-    <a href="/sobre" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Sobre</a>
-    <a href="/vitrine" id="produtosNavLink" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Produtos</a>
-    <a href="/orcamento" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Orçamento</a>
-    <a href="/contato" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">Contato</a>
+    <a href="/sobre" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">{{ i18n.SITE_ABOUT }}</a>
+    <a href="/vitrine" id="produtosNavLink" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">{{ i18n.SITE_PRODUCTS }}</a>
+    <a href="/orcamento" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">{{ i18n.SITE_QUOTE }}</a>
+    <a href="/contato" class="nav-link-site" style="padding:0.25rem 0.5rem;border-radius:4px;">{{ i18n.SITE_CONTACT }}</a>
   </div>
 </nav>
 {% endblock %}
 
 {% block after_content %}
 <nav class="bottom-nav" id="bottomNav">
-  <a href="/sobre" class="bottom-nav-item" id="bnSobre"><span style="font-size:1.2rem;">ℹ️</span><span style="font-size:0.65rem;font-weight:600;">Sobre</span></a>
-  <a href="/vitrine/" class="bottom-nav-item" id="bnProdutos"><span style="font-size:1.2rem;">🧁</span><span style="font-size:0.65rem;font-weight:600;">Produtos</span></a>
-  <a href="/orcamento" class="bottom-nav-item" id="bnOrcamento"><span style="font-size:1.2rem;">📋<span id="bnOrcamentoBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:var(--rosa);color:#fff;font-size:0.6rem;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 4px;">0</span></span><span style="font-size:0.65rem;font-weight:600;">Orçamento</span></a>
-  <a href="/contato" class="bottom-nav-item" id="bnContato"><span style="font-size:1.2rem;"><i class="bi bi-whatsapp"></i></span><span style="font-size:0.65rem;font-weight:600;">Contato</span></a>
+  <a href="/sobre" class="bottom-nav-item" id="bnSobre"><span style="font-size:1.2rem;">ℹ️</span><span style="font-size:0.65rem;font-weight:600;">{{ i18n.SITE_ABOUT }}</span></a>
+  <a href="/vitrine/" class="bottom-nav-item" id="bnProdutos"><span style="font-size:1.2rem;">🧁</span><span style="font-size:0.65rem;font-weight:600;">{{ i18n.SITE_PRODUCTS }}</span></a>
+  <a href="/orcamento" class="bottom-nav-item" id="bnOrcamento"><span style="font-size:1.2rem;">📋<span id="bnOrcamentoBadge" style="display:none;position:absolute;top:-4px;right:-10px;background:var(--rosa);color:#fff;font-size:0.6rem;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 4px;">0</span></span><span style="font-size:0.65rem;font-weight:600;">{{ i18n.SITE_QUOTE }}</span></a>
+  <a href="/contato" class="bottom-nav-item" id="bnContato"><span style="font-size:1.2rem;"><i class="bi bi-whatsapp"></i></span><span style="font-size:0.65rem;font-weight:600;">{{ i18n.SITE_CONTACT }}</span></a>
 </nav>
 {% endblock %}
 

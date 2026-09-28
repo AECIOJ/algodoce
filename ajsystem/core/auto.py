@@ -8,8 +8,7 @@ import importlib
 
 from flask import Blueprint, flash, redirect, render_template, url_for
 
-from ajsystem.locales import t
-from ajsystem.locales.en import MSG_UPDATED
+from ajsystem import locales as i18n
 from ajsystem.defs.data import (
     page_list_cfg as _lista_config, module_page, module_page_label, page_scripts,
 )
@@ -195,7 +194,7 @@ def _generated_crud(mod, slug):
 
     campo = _toggle_field(form_cfg)
     if model is not None and campo:
-        flash_toggle = t(MSG_UPDATED)
+        flash_toggle = i18n.MSG_UPDATED
 
         def _toggle(id):
             instance = model.query.get_or_404(id)

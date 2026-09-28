@@ -1,147 +1,172 @@
 """Catálogo de textos do framework em inglês.
 
-ESTE MÓDULO É A ÂNCORA do mecanismo de locale. Cada constante aqui é, ao mesmo
-tempo, a **chave** de tradução e o **fallback** quando o locale ativo não define
-aquele texto. Por isso os valores precisam ser únicos: dois nomes com o mesmo
-valor colidiriam no dicionário, e um sobrescreveria o outro em silêncio. O
-carregador (`ajsystem.locales.t`) verifica isso na carga e levanta.
+Cada idioma vive num módulo irmão com os MESMOS nomes (`pt.py`). O app declara o
+ativo em `app/config.py` (`APP['locale']`) e `ajsystem/locales/__init__.py`
+importa o módulo correspondente **na carga**, reexportando as constantes. Não há
+chave de tradução nem função no meio do caminho: o texto em inglês não é
+identificador, é só o valor do catálogo `en`.
 
-Consequência prática de designar o valor em inglês como chave: `Button.label`
-guarda sempre o **inglês**, e a tradução acontece no render (`Button.text()`).
-Assim nunca vaza chave para a tela, e texto faltando no locale degrada para
-inglês — que é um erro que se enxerga, não um bug silencioso.
+    from ajsystem import locales as i18n
+    i18n.SAVE          #-> 'Save'
 
-Cada idioma vive num módulo irmão com os MESMOS nomes (`pt.py`), e o locale
-ativo é declarado pelo app em `App.locale` (`app/config.py`).
+Nos templates é o mesmo objeto (`{{ i18n.SAVE }}`, global único injetado em
+`init.py`). A storefront é do motor: os nomes da vitrine/carrinho/nav
+(`SITE_*`, `CART_*`, `ALL`, `IDENTIFY`, …) vivem AQUI, e o host que quiser texto
+próprio estende com `locales.herdar_catalogo(globals())` (overrides declarados
+em seguida) ou só escreve o texto direto no spec.
+
+Adicionar texto novo: declare aqui E em `pt.py`, na MESMA ordem alfabética,
+para o diff alinhar.
 
 Escopo: só copy visível ao usuário final (rótulos, mensagens de confirmação,
 flash e `jsonify(error=...)`). Mensagem de `ValueError` é diagnóstico de
-desenvolvedor e fica em português no código, de propósito.
+desenvolvedor e fica em português no código, de propósito — e por isso NÃO tem
+constante aqui.
 """
 
-# ── botões ──────────────────────────────────────────────────────────────────
-SAVE = 'Save'
-SEND = 'Send'
-DELETE = 'Delete'
-NEW = '+ Include'
-BACK = 'Back'
-EDIT = 'Edit'
-CANCEL = 'Cancel'
-CONVERT = 'Convert'
-LIST = 'List'
-PRINT = 'Print'
-DETAILS = 'Details'
+ACCESS = 'Access'
+ACTIONS = 'Actions'
+ACTIVATE = 'Activate'
 ADD = '+ Add'
 ADD_ITEM = '+ Add Item'
-FINISH = 'Finish'
-REFRESH = 'Refresh'
-REMOVE = 'Remove'
-YES = 'Yes, stay signed in'
-NO = 'No'
-CLEAR = 'Clear'
+ADD_MORE_ITEMS = '+ Add More Items'
+ADMIN = 'Administrator'
+ALL = 'All'
+ALL_CATEGORIES = 'All Categories'
 APPLY = 'Apply'
-OK = 'OK'
-EXIT = 'Exit'
-RENEW = 'Renew'
-REPORT = 'Report'
-GENERATE = 'Generate'
-CONFIRM = 'Confirm'
-EDIT_PRODUCT = 'Edit Product'
-LOGIN = 'Log in'
-ACCESS = 'Access'
-ACTIVATE = 'Activate'
-DEACTIVATE = 'Deactivate'
-
-# ── confirmações ───────────────────────────────────────────────────────────
-CONFIRM_DELETE = 'Confirm deletion?'
-REMOVE_ITEM = 'Remove this item?'
-DISCARD_CHANGES = 'Discard changes?'
-
-# ── ConfirmModal ───────────────────────────────────────────────────────────
-CM_DELETE_TITLE = 'Delete record'
+BACK = 'Back'
+CANCEL = 'Cancel'
+CART_SENT = "Quote sent! We'll contact you on WhatsApp."
+CART_TITLE = 'My Quote'
+CATEGORIES = 'Categories'
+CHOOSE = 'Choose'
+CLEAR = 'Clear'
+CLOSE = 'Close'
 CM_DELETE_MSG = 'Are you sure you want to delete?'
-CM_REMOVE_TITLE = 'Remove item'
+CM_DELETE_TITLE = 'Delete record'
 CM_REMOVE_MSG = 'Remove this item from the list?'
-
-# ── flash / mensagens de formulário ────────────────────────────────────────
-MSG_DELETED = 'Deleted!'
-MSG_ENTITY_DELETED = '{label} deleted!'
-MSG_CANNOT_DELETE = 'Cannot delete — it is in use.'
-MSG_UPDATED = 'Updated!'
-
-# Validação: o texto é do framework, o `{field}` é o label do app (português).
-MSG_FIELD_REQUIRED = '{field} is required.'
-MSG_FIELD_INVALID = '{field} is invalid.'
-MSG_FIELD_MIN = '{field} must be greater than or equal to {min}.'
-MSG_FIELD_MAX = '{field} must be less than or equal to {max}.'
-MSG_OUT_OF_SCOPE = 'Record outside the page scope.'
-MSG_TOO_LARGE = '{field} exceeds the maximum size.'
-MSG_FIELD_FORMAT = '{field} in a disallowed format.'
-
-# ── sessão / acesso ────────────────────────────────────────────────────────
-MSG_ACCESS_OK = 'Access authorized.'
-MSG_ACCESS_DENIED = 'Access denied.'
-# A resposta de login (`ERR_BAD_CREDENTIALS`) e o flash pós-submit são textos
-# diferentes de propósito: um é UI do form de login, o outro é aviso de sessão.
-MSG_BAD_CREDENTIALS_FLASH = 'Invalid credentials.'
-MSG_SETTINGS_SAVED = 'Settings saved successfully.'
-MSG_SESSION_ENDED = 'Session ended.'
-MSG_LOGIN_RETRY = '. Attempt {count}, wait {delay}s.'
-MSG_LOGIN_BACKOFF = '. Subsequent attempts will have a progressive delay.'
-
-# ── erros de API (jsonify(error=...)) ──────────────────────────────────────
-ERR_INVALID_PARAMS = 'invalid parameters'
-ERR_UNKNOWN_PAGE = 'unknown page'
-ERR_UNKNOWN_SEARCH = 'unknown search'
-ERR_INVALID_PAGE_PARAM = 'invalid page parameter'
-ERR_INVALID_BUTTON = 'invalid button'
-ERR_NO_RENDER = 'button without `render`'
+CM_REMOVE_TITLE = 'Remove item'
+COMING_SOON = 'It will be available soon.'
+CONFIRM = 'Confirm'
+CONFIRM_DELETE = 'Confirm deletion?'
+CONTACTS_SOON = 'More contact channels coming soon.'
+CONTINUE = 'Continue'
+CONVERT = 'Convert'
+DEACTIVATE = 'Deactivate'
+DELETE = 'Delete'
+DETAILS = 'Details'
+DISCARD_CHANGES = 'Discard changes?'
+EDIT = 'Edit'
+EDIT_PHOTO = 'Edit Photo'
+EDIT_PRODUCT = 'Edit Product'
+EMPTY_BAG = 'Your quote is empty.'
+ENCRYPTED_NOTE = 'The data will be stored encrypted in the database.'
+ENLARGE = 'Click to enlarge'
 ERR_BAD_CREDENTIALS = 'Invalid username or password'
 ERR_BAD_KEY = 'Invalid key'
-ERR_USER_NOT_FOUND = 'User not found'
-ERR_USER_REQUIRED = 'User required'
-ERR_NO_IMAGE = 'No image'
-ERR_INVALID_FORMAT = 'Invalid format'
 ERR_FORMAT_NOT_ALLOWED = 'Format not allowed'
 ERR_INVALID_FILE = 'Invalid file'
+ERR_INVALID_FORMAT = 'Invalid format'
 ERR_INVALID_QTY = 'Invalid quantity.'
-ERR_NEED_IDENTIFY = 'identify'
-REPORT_ERROR = 'Error printing the report'
-
-# ── carrinho / vitrine ─────────────────────────────────────────────────────
-CART_SENT = 'Quote sent! Awaiting contact via WhatsApp.'
-CART_TITLE = 'My Quote'
-CART_ITEMS = 'Quote Items'
-
-# ── modais de escolha / impressão ──────────────────────────────────────────
-CHOOSE = 'Choose'
-
-# ── modos de filtro de listagem ─────────────────────────────────────────────
-# Rótulo visível de cada modo de `List` (`core/list.py:filter_modes`). A chave
-# `(valor, rótulo)` é gerada em tempo de render, então o rótulo sai daqui —
-# antes ficava em português dentro do dicionário e ignorava `App.locale`.
-# `text` e `number` compartilham FILTER_EQ de propósito: o valor inglês é a
-# chave do catálogo e precisa ser único.
-FILTER_EQ = 'Equal to'
-FILTER_CONTAINS = 'Contains'
-FILTER_STARTS = 'Starts with'
+ERR_NO_IMAGE = 'No image'
+ERR_USER_NOT_FOUND = 'User not found'
+ERR_USER_REQUIRED = 'User required'
+EXIT = 'Exit'
+FILTER_ALL = 'All'
 FILTER_BETWEEN = 'Between'
+FILTER_CONTAINS = 'Contains'
+FILTER_EQ = 'Equal to'
+FILTER_FROM = 'From date'
 FILTER_GT = 'Greater than'
 FILTER_GTE = 'Greater than or equal to'
+FILTER_LAST_7 = 'Last 7 days'
+FILTER_LAST_MONTH = 'Previous month'
+FILTER_LAST_YEAR = 'Previous year'
 FILTER_LT = 'Less than'
 FILTER_LTE = 'Less than or equal to'
-FILTER_TODAY = 'Today'
-FILTER_YESTERDAY = 'Yesterday'
-FILTER_LAST_7 = 'Last 7 days'
-FILTER_THIS_MONTH = 'Current month'
-FILTER_LAST_MONTH = 'Previous month'
 FILTER_MONTH = 'Month'
 FILTER_MONTH_YEAR = 'Month/Year'
-FILTER_THIS_YEAR = 'Current year'
-FILTER_LAST_YEAR = 'Previous year'
-FILTER_YEAR = 'Year'
-FILTER_UNTIL = 'Up to date'
-FILTER_FROM = 'From date'
 FILTER_PERIOD = 'Period'
-FILTER_ALL = 'All'
+FILTER_STARTS = 'Starts with'
+FILTER_THIS_MONTH = 'Current month'
+FILTER_THIS_YEAR = 'Current year'
+FILTER_TODAY = 'Today'
+FILTER_UNTIL = 'Up to date'
+FILTER_YEAR = 'Year'
 FILTER_YES = 'Yes'
+FILTER_YESTERDAY = 'Yesterday'
+FINISH = 'Finish'
+FIRST = 'First'
+FROM = 'From'
+GENERATE = 'Generate'
+HELP = 'Help'
+IDENTIFY = 'Identify yourself'
+INACTIVE = 'Inactive'
+IN_CONSTRUCTION = 'Under construction'
+KEY = 'Key'
+LAST = 'Last'
+LIST = 'List'
+LOGIN = 'Log in'
+MONTH_RANGE = 'Month (1-12)'
+MSG_ACCESS_DENIED = 'Access denied.'
+MSG_ACCESS_OK = 'Access authorized.'
+MSG_BAD_CREDENTIALS_FLASH = 'Invalid credentials.'
+MSG_CANNOT_DELETE = 'Cannot delete — it is in use.'
+MSG_DELETED = 'Deleted!'
+MSG_ENTITY_DELETED = '{label} deleted!'
+MSG_FIELD_FORMAT = '{field} in a disallowed format.'
+MSG_FIELD_INVALID = '{field} is invalid.'
+MSG_FIELD_MAX = '{field} must be less than or equal to {max}.'
+MSG_FIELD_MIN = '{field} must be greater than or equal to {min}.'
+MSG_FIELD_REQUIRED = '{field} is required.'
+MSG_LOGIN_BACKOFF = '. Subsequent attempts will have a progressive delay.'
+MSG_LOGIN_RETRY = '. Attempt {count}, wait {delay}s.'
+MSG_OUT_OF_SCOPE = 'Record outside the page scope.'
+MSG_SESSION_ENDED = 'Session ended.'
+MSG_SETTINGS_SAVED = 'Settings saved successfully.'
+MSG_TOO_LARGE = '{field} exceeds the maximum size.'
+MSG_UPDATED = 'Updated!'
+NEW = '+ Include'
+NEXT = 'Next'
+NO = 'No'
+NONE_FOUND = 'No record found.'
+NOTE = 'Note'
+NOTIFICATIONS = 'Notifications'
+NO_FILTERS = 'No filter available.'
+NO_ITEMS = 'No items available right now.'
+OK = 'OK'
+PASSWORD = 'Password'
+PICK_DATE = 'Open calendar'
+PICK_PHOTO = 'Click to choose an image'
+PICK_TIME = 'Open clock'
+PREVIOUS = 'Previous'
+PRINT = 'Print'
+REFRESH = 'Refresh'
+REMOVE = 'Remove'
+REMOVE_ITEM = 'Remove this item?'
+RENEW = 'Renew'
+REPORT = 'Report'
+REPORT_ERROR = 'Error printing the report'
+ROW_REMOVE = 'Remove row'
+SAVE = 'Save'
+SEARCH = 'Search'
+SELECT = 'Select'
+SEND = 'Send'
+SEND_QUOTE = 'Send Quote'
+SESSION_EXPIRING = 'Session expiring'
+SITE_ABOUT = 'About'
+SITE_CONTACT = 'Contact'
+SITE_PRODUCTS = 'Products'
+SITE_QUOTE = 'Quote'
+SUBTOTAL = 'Subtotal'
+SYSTEM_ACCESS = 'System Access'
+TO = 'To'
+TOTAL = 'Total'
+USERNAME = 'Username'
+VALUE = 'Value'
+VALUE_1 = 'Value 1'
+VALUE_2 = 'Value 2'
+VIEW_PRODUCTS = 'View Products'
+YEAR_RANGE = 'Year (ex: 2026)'
+YES = 'Yes, stay signed in'
+YOUR_DATA = 'Enter your details to continue'

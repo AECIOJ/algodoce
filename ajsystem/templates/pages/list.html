@@ -94,7 +94,7 @@
               {% for col in cols %}
               <th style="width:{{ col.width }}ch;{% if col.align is defined and col.align != 'left' %}text-align:{{ col.align }};{% endif %}{% if col.nowrap %}white-space:nowrap;{% endif %}" data-field="{{ col.field }}">{{ col.label }}</th>
               {% endfor %}
-              {% if edit_endpoint %}<th class="col-actions" style="width:{{ act_ch }}ch;">Ações</th>{% endif %}
+              {% if edit_endpoint %}<th class="col-actions" style="width:{{ act_ch }}ch;">{{ i18n.ACTIONS }}</th>{% endif %}
             </tr>
           </thead>
           <tbody>
@@ -142,7 +142,7 @@
                 <a href="{{ url_for(edit_endpoint, id=_item_id) }}"
                    class="no-underline inline-flex items-center gap-1 text-nowrap action-edit-link">
                   {{ heroicon('pencil-square', 'w-4 h-4') }}
-                  <span class="text-xs">Editar</span>
+                  <span class="text-xs">{{ i18n.EDIT }}</span>
                 </a>
               </td>
               {% endif %}
@@ -189,7 +189,7 @@
               </td>
             </tr>
             {% else %}
-            <tr><td colspan="{{ cols|length + (1 if edit_endpoint else 0) + 1 }}" class="text-center text-gray-500 py-3">Nenhum registro encontrado.</td></tr>
+            <tr><td colspan="{{ cols|length + (1 if edit_endpoint else 0) + 1 }}" class="text-center text-gray-500 py-3">{{ i18n.NONE_FOUND }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -211,7 +211,7 @@
                 <option value="{{ val }}">{{ label_mode }}</option>
                 {% endfor %}
               </select>
-              <input type="text" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].value" placeholder="Valor">
+              <input type="text" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].value" placeholder="{{ i18n.VALUE }}">
             </div>
             {% elif ftype == 'number' %}
             <div class="flex gap-1 flex-nowrap">
@@ -221,20 +221,20 @@
                 <option value="{{ val }}">{{ label_mode }}</option>
                 {% endfor %}
               </select>
-              <input type="number" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].val1" placeholder="Valor 1" step="any">
+              <input type="number" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].val1" placeholder="{{ i18n.VALUE_1 }}" step="any">
               <input type="number" class="input input-bordered input-sm flex-1" x-show="filters['{{ name }}'].mode === 'entre'"
-                     x-model="filters['{{ name }}'].val2" placeholder="Valor 2" step="any">
+                     x-model="filters['{{ name }}'].val2" placeholder="{{ i18n.VALUE_2 }}" step="any">
             </div>
             {% elif ftype == 'boolean' %}
             <div class="flex gap-1">
-              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === '' ? 'btn-primary text-primary-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = ''">Todos</button>
-              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === 'true' ? 'btn-success text-success-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = 'true'">Sim</button>
-              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === 'false' ? 'btn-error text-error-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = 'false'">Não</button>
+              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === '' ? 'btn-primary text-primary-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = ''">{{ i18n.FILTER_ALL }}</button>
+              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === 'true' ? 'btn-success text-success-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = 'true'">{{ i18n.FILTER_YES }}</button>
+              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === 'false' ? 'btn-error text-error-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = 'false'">{{ i18n.NO }}</button>
             </div>
             {% elif ftype == 'select' %}
             {% set _opts = cfg.get('options', {}) %}
             <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}']">
-              <option value="">Todos</option>
+              <option value="">{{ i18n.FILTER_ALL }}</option>
               {% if _opts is mapping %}
               {% for val, opt_label in _opts.items() %}
               <option value="{{ val }}">{{ opt_label }}</option>
@@ -268,32 +268,32 @@
               <input type="number" class="input input-bordered input-sm w-full"
                      x-show="filters['{{ name }}'].preset === 'mes'"
                      x-model="filters['{{ name }}'].mes"
-                     min="1" max="12" placeholder="Mês (1-12)">
+                     min="1" max="12" placeholder="{{ i18n.MONTH_RANGE }}">
               <div class="flex gap-1" x-show="filters['{{ name }}'].preset === 'mes_ano'">
                 <input type="number" class="input input-bordered input-sm flex-1"
-                       x-model="filters['{{ name }}'].mes" min="1" max="12" placeholder="Mês">
+                       x-model="filters['{{ name }}'].mes" min="1" max="12" placeholder="{{ i18n.FILTER_MONTH }}">
                 <input type="number" class="input input-bordered input-sm flex-1"
-                       x-model="filters['{{ name }}'].ano" min="2000" max="2099" placeholder="Ano">
+                       x-model="filters['{{ name }}'].ano" min="2000" max="2099" placeholder="{{ i18n.FILTER_YEAR }}">
               </div>
               <input type="number" class="input input-bordered input-sm w-full"
                      x-show="filters['{{ name }}'].preset === 'ano'"
                      x-model="filters['{{ name }}'].ano"
-                     min="2000" max="2099" placeholder="Ano (ex: 2026)">
+                     min="2000" max="2099" placeholder="{{ i18n.YEAR_RANGE }}">
               <div class="flex gap-1" x-show="filters['{{ name }}'].preset === 'periodo'">
-                <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].from" placeholder="De">
-                <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].to" placeholder="Até">
+                <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].from" placeholder="{{ i18n.FROM }}">
+                <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].to" placeholder="{{ i18n.TO }}">
               </div>
               <input type="date" class="input input-bordered input-sm w-full"
                      x-show="filters['{{ name }}'].preset === 'a_partir_de'"
-                     x-model="filters['{{ name }}'].from" placeholder="A partir de">
+                     x-model="filters['{{ name }}'].from" placeholder="{{ i18n.FILTER_FROM }}">
               <input type="date" class="input input-bordered input-sm w-full"
                      x-show="filters['{{ name }}'].preset === 'ate_a_data_de'"
-                     x-model="filters['{{ name }}'].to" placeholder="Até a data de">
+                     x-model="filters['{{ name }}'].to" placeholder="{{ i18n.FILTER_UNTIL }}">
             </div>
             {% endif %}
           </div>
           {% else %}
-          <div class="text-gray-500 text-sm p-2">Nenhum filtro disponível.</div>
+          <div class="text-gray-500 text-sm p-2">{{ i18n.NO_FILTERS }}</div>
           {% endfor %}
         </div>
         <div class="flex gap-2 mt-3 bg-white p-2 border-t" id="page-filter-actions">

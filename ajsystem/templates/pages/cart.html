@@ -70,12 +70,12 @@
             <div class="flex w-full items-center" style="justify-content:space-between;">
               <span class="item-nome">{{ i.produto.nome }}</span>
               <form method="POST" action="{{ base_url }}/remover/{{ i.item_id }}" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-outline-danger px-2 inline-flex items-center" title="Remover"><i class="bi bi-trash"></i></button>
+                <button type="submit" class="btn btn-sm btn-outline-danger px-2 inline-flex items-center" title="{{ i18n.REMOVE }}"><i class="bi bi-trash"></i></button>
               </form>
             </div>
             <div class="item-obs">
               <input type="text" class="form-control form-control-sm campo-obs"
-                     value="{{ i.observacao or '' }}" placeholder="Observação">
+                     value="{{ i.observacao or '' }}" placeholder="{{ i18n.NOTE }}">
             </div>
             <div class="item-ctrl">
               <button type="button" class="btn btn-sm btn-outline-secondary qty-minus px-1">−</button>
@@ -91,7 +91,7 @@
     </div>
 
     <div class="flex flex-col items-center gap-2 mb-3">
-      <a href="{{ more_items_link }}" class="btn btn-verde w-full inline-flex items-center gap-1"><i class="bi bi-plus-lg"></i> Incluir mais itens</a>
+      <a href="{{ more_items_link }}" class="btn btn-verde w-full inline-flex items-center gap-1"><i class="bi bi-plus-lg"></i> {{ i18n.ADD_MORE_ITEMS }}</a>
     </div>
 
     {% if form_sessions %}
@@ -104,7 +104,7 @@
               <label {% if f.input == 'textarea' %}class="full-width" style="margin-top: 0.25rem;"{% endif %}>{{ f.label }}</label>
               {% if f.input == 'select' and f.options %}
                 <select class="form-select form-select-sm" name="{{ f.input_name }}">
-                  <option value="">Selecione</option>
+                  <option value="">{{ i18n.SELECT }}</option>
                   {% for value, text in f.options.items() %}
                     <option value="{{ value }}">{{ text }}</option>
                   {% endfor %}
@@ -117,14 +117,14 @@
             {% endfor %}
           </div>
 
-          <button type="submit" class="btn btn-rosa btn-lg w-full mt-3 inline-flex items-center justify-center gap-1"><i class="bi bi-send"></i> Enviar Orçamento</button>
+          <button type="submit" class="btn btn-rosa btn-lg w-full mt-3 inline-flex items-center justify-center gap-1"><i class="bi bi-send"></i> {{ i18n.SEND_QUOTE }}</button>
         </form>
       {% endfor %}
     {% endif %}
   {% else %}
     <div class="text-center py-5">
-      <p class="text-gray-500">Seu orçamento está vazio.</p>
-      <a href="{{ more_items_link }}" class="btn btn-rosa inline-flex items-center gap-1"><i class="bi bi-eye"></i> Ver Produtos</a>
+      <p class="text-gray-500">{{ i18n.EMPTY_BAG }}</p>
+      <a href="{{ more_items_link }}" class="btn btn-rosa inline-flex items-center gap-1"><i class="bi bi-eye"></i> {{ i18n.VIEW_PRODUCTS }}</a>
     </div>
   {% endif %}
 </div>
