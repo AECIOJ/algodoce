@@ -959,36 +959,47 @@ function itDisablesEval(root) {
   });
 }
 function itUpdateZerados(btn) {
-  var wrap = btn ? btn.closest('.child-table-wrap') : null;
+  // Botão fica na faixa de ação embaixo da tabela (`bottom_left`/`bottom_right`),
+  // dentro de `.child-table-wrap`; o fallback cobre chamada avulsa.
+  var wrap = (btn ? btn.closest('.child-table-wrap') : null) || document.querySelector('.child-table-wrap');
   if (!wrap) return;
+  // Mesma fonte do `itOnSetBind`: o mapa `{campoAlvo: campoFonte}` do select FK
+  // (`on_set.replaces`) e `data-<campoFonte>` da opção escolhida. Só preenche o
+  // que está zerado — preço já lançado não é sobrescrito.
   var count = 0;
-  wrap.querySelectorAll('.it-desktop tbody[data-rel] tr[data-crow]').forEach(function(tr) {
-    var crow = tr.getAttribute('data-crow');
-    if (crow === null || crow === '__IDX__') return;
-    tr.querySelectorAll('select[data-replaces-map], select[data-onset-map]').forEach(function(sel) {
-      if (!sel.value) return;
-      var opt = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
-      if (!opt) return;
-      var map = sel.getAttribute('data-replaces-map') || sel.getAttribute('data-onset-map') || '';
-      (map || '').split(',').forEach(function(pair) {
-        var parts = pair.split(':');
-        if (parts.length < 2) return;
-        var targetEl = tr.querySelector('[name="' + sel.name.slice(0, sel.name.lastIndexOf('_') + 1)
-                        + parts[0].trim() + '"]');
-        if (!targetEl) return;
-        var v = parseNum(opt.getAttribute('data-' + parts[1].trim()));
-        if (isNaN(v)) return;
-        var cur = parseNum(targetEl.value);
-        if (isNaN(cur) || cur === 0) {
-          targetEl.value = String(Math.round(v * 100) / 100);
-          fmtFieldInput(targetEl);
-          targetEl.dispatchEvent(new Event('input', {bubbles: true}));
-          count++;
-        }
-      });
+  wrap.querySelectorAll('select[data-onset-map], select[data-replaces-map]').forEach(function(sel) {
+    if (!sel.value) return;
+    var opt = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+    if (!opt) return;
+    var fk = sel.getAttribute('data-onset-fk') || sel.getAttribute('data-replaces-fk')
+          || sel.name.split('_').pop();
+    var map = sel.getAttribute('data-onset-map') || sel.getAttribute('data-replaces-map') || '';
+    var base = sel.name.slice(0, sel.name.length - fk.length - 1);
+    (map || '').split(',').forEach(function(pair) {
+      var parts = pair.split(':');
+      if (parts.length < 2) return;
+      var target = wrap.querySelector('[name="' + base + '_' + parts[0].trim() + '"]');
+      if (!target) return;
+      var v = parseNum(opt.getAttribute('data-' + parts[1].trim()));
+      if (isNaN(v)) return;
+      var cur = parseNum(target.value);
+      if (!isNaN(cur) && cur !== 0) return;
+      target.value = String(Math.round(v * 100) / 100);
+      fmtFieldInput(target);
+      target.dispatchEvent(new Event('input', {bubbles: true}));
+      target.dispatchEvent(new Event('change', {bubbles: true}));
+      count++;
     });
   });
-  if (count > 0 && window.itToasts) itToasts('Valores atualizados', 'success');
+  if (count > 0) {
+    itCalcRefresh(wrap);
+    itSessionTotals(wrap);
+    itTotalsRefresh(wrap);
+    if (window.marcarFormAlterado) marcarFormAlterado();
+    if (window.itToasts) itToasts('Preços zerados atualizados: ' + count, 'success');
+  } else if (window.itToasts) {
+    itToasts('Nenhum preço zerado para atualizar', 'info');
+  }
 }
 function itCalcRefresh(wrap) {
   if (!wrap) return;

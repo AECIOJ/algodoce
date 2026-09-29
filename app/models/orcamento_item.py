@@ -21,6 +21,10 @@ class OrcamentoItem(db.Model):
     def __repr__(self):
         return f"<OrcamentoItem q={self.orcamento_id} p={self.produto_id}>"
 
+    @property
+    def valor(self):
+        return (self.qtd or 0) * (self.preco or 0)
+
 
 Entity = {
     'id':              {'type': 'ID'},

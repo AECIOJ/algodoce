@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.09.27.0004 — Manual do Framework
+# AJSYSTEM 1.26.09.29.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.09.27.0004`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE`).
+> Vinculado a `ajsystem/version` (`1.26.09.29.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE`).
 
 ---
 
@@ -378,11 +378,26 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 | `confirm_msg` | `str` | `None` | constante de `ajsystem.locales` | modal de confirmação; `btn.confirm_text()` é pass-through |
 | `carry` | `dict` | `None` | `{campo_destino: campo_origem}` | importa valores do form ao navegar |
 | `serialize` | `bool` | `False` | | serializa o form antes de enviar |
-| `position` | `str` | `'nav_right'` | `POS_FIELDS` (`fields_left/right`), `POS_TABLE` (`table_before/after`), `POS_TABLE_NAVS` (`nav_left/center/right/none`, `footer_left/center/right/none`) | posição na sessão |
+| `position` | `str` | `'top_right'` | `POSITION_CONTEXT` — `left`, `right`, `before`, `after`, `top_left`, `top_right`, `bottom_left`, `bottom_right` | ver abaixo |
 | `on_off` | `bool` | `False` | | vira toggle; `field` diz de qual campo |
 | `field` | `str` | `None` | nome do campo | usado por `on_off` |
 
 `resolve_buttons(specs, bp_name, *, where, valid_fields, sess, ctx)` recebe uma **lista** de specs; cada item pode ser instância `Button` (presets e `BTN_PRINT`/`BTN_SEND` já são `Button`), nome em `ACTIONS` (hoje só `on_off`), `{nome: {overrides}}` ou dict custom. Toda chave é validada — chave desconhecida, destino ambíguo (`action`+`url`) ou campo inexistente em `enabled` **levanta erro** em vez de ser descartado em silêncio. Instâncias são copiadas com `replace()` porque a validação normaliza `enabled`/`field`/`url` in-place: sem a cópia, o preset compartilhado seria contaminado pelo primeiro registro que o usasse.
+
+**`position`** — são 8 nomes, e o *mesmo* nome se comporta de forma diferente conforme o contexto que vai renderizar o botão. `_check_position` valida contra a tabela do contexto e **levanta erro** em valor fora dela (nada de sumir em silêncio). O contexto da sessão é decidido pelo formato dela: havendo `fields`, o botão pertence ao bloco de `fields` (mesmo que a sessão também traga `table`/`query`, como em `Financeiro`); sem `fields`, pertence à tabela.
+
+| `position` | form | sessão com `fields` | sessão só com `table`/`query` |
+|---|---|---|---|
+| `left` | erro | mesma linha, à esquerda dos fields | erro |
+| `right` | erro | mesma linha, à direita dos fields | erro |
+| `before` | erro | faixa acima dos fields | faixa acima da tabela |
+| `after` | erro | faixa abaixo dos fields | faixa abaixo da tabela |
+| `top_left` | barra de cima, à esquerda | faixa acima, à esquerda | faixa acima da tabela, à esquerda |
+| `top_right` | barra de cima, à direita | faixa acima, à direita | faixa acima da tabela, à direita |
+| `bottom_left` | rodapé do form, à esquerda | faixa abaixo, à esquerda | **faixa de ação: `+ Adicionar` primeiro, depois o botão** |
+| `bottom_right` | rodapé do form, à direita | faixa abaixo, à direita | faixa de ação, encostado à direita |
+
+`before`/`after` são os atalhos sem alinhamento de `top_left`/`bottom_left`. A **faixa de ação** fica dentro do `.child-table-wrap` e **fora** do `<tfoot>` (a tabela pode ter linha de totais, e a largura de colunas do Adicionar não é a delas) e **fora** de `.it-desktop`/`.it-mobile` — por isso o `Adicionar` é renderizado uma vez só e `btn.closest('.child-table-wrap')` funciona nos dois tamanhos de tela. Listagem não usa `position`.
 
 Presets são registrados automaticamente como globais Jinja por varredura de prefixo (`BTN_*`, `CONFIRM_*` em `ajsystem/init.py`).
 
@@ -543,6 +558,12 @@ Page = {
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.09.29.0001
+- **`Button.position` virou vocabulário de 8 nomes** (`left`, `right`, `before`, `after`, `top_left`, `top_right`, `bottom_left`, `bottom_right`), com default `top_right`. O mesmo nome muda de sentido conforme o contexto, e `_check_position` **levanta erro** fora dele — nada de sumir em silêncio no render. Contexto: form (só as 4 barras), sessão que tem `fields` (o `fields` decide, mesmo com `table`/`query` junto, como em `Financeiro`), sessão só com `table`/`query` (a faixa da tabela), listagem (ignora `position`).
+- **`Adicionar` saiu do `<tfoot>`:** a tabela pode ter linha de totais e a largura de colunas do botão não é a delas. Virou faixa única de ação embaixo da tabela, dentro do `.child-table-wrap` e **fora** de `.it-desktop`/`.it-mobile` (por isso renderiza uma vez só e `closest('.child-table-wrap')` funciona nos dois tamanhos). `bottom_left` põe o botão depois dele; o pager continua dentro de `.it-mobile` porque `itmApplyPage` o resolve por `closest('.it-mobile, .it-display')`.
+- **Bug pré-existente corrigido em `btn_enabled_init`:** o `{% macro %}` não tinha `-%}`, então o `\n` do comentário seguinte entrava no corpo e a macro devolvia `'\n'` — que é *truthy* em Python. Ou seja, **nenhum** botão ficava desabilitado no primeiro render, e `enabled=False` também era ignorado. O `disabled` inicial só aparecia depois que o JS rodava. Affectava `Gerar` (pedidos/compras) e o gate de `Aprovar` (orçamento).
+- **Bugs de render corrigidos junto:** no ramo `fields` + `table`/`query` de `render_sessions`, os botões `left`/`right` eram montados no namespace e nunca renderizados (some silencioso) — agora recebem `head`/`tail`, como nos outros ramos.
 
 ### 1.26.09.27.0004
 - **Storefront do motor não depende mais do host.** As 18 strings da vitrine/carrinho/nav (`SITE_*`, `CART_TITLE`, `CART_SENT`, `ALL`, `ALL_CATEGORIES`, `CATEGORIES`, `IDENTIFY`, `YOUR_DATA`, `CONTINUE`, `EMPTY_BAG`, `SELECT`, `NO_ITEMS`, `SEND_QUOTE`, `ADD_MORE_ITEMS`, `VIEW_PRODUCTS`) entraram no catálogo do framework (128 → **146**). `CART_ITEMS` saiu (era morto). O Page `type='showcase'` renderiza e o carrinho envia sem nenhum arquivo de i18n do host — um host mínimo funciona.

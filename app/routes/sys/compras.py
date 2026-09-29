@@ -184,7 +184,7 @@ Page = {
             'pre_get': _pre_get,
             'pre_save': _pre_save,
             'post_save': _post_save,
-            'buttons': [replace(BTN_SEND(COMPRA), position='nav_right')],
+            'buttons': [replace(BTN_SEND(COMPRA), position='top_right')],
             'sessions': {
                 'Itens': {
                     'table': {
@@ -198,7 +198,7 @@ Page = {
                     'query': _query_financeiro,
                     'buttons': [
                         {'label': 'Gerar', 'icon': 'banknotes', 'color': 'success', 'outline': True,
-                         'url': 'compras.gerar_financeiro', 'method': 'POST', 'position': 'fields_right',
+                         'url': 'compras.gerar_financeiro', 'method': 'POST', 'position': 'right',
                          'confirm_msg': 'Gerar o financeiro desta compra?',
                          'visible': _sem_financeiro,
                          'enabled': ['valor', 'carteira_id'],

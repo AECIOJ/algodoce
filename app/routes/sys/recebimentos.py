@@ -58,7 +58,7 @@ Page = {
             'buttons': [
                 {'label': 'Excluir', 'icon': 'trash', 'color': 'danger', 'outline': False,
                  'url': 'recebimentos.excluir', 'method': 'POST',
-                 'confirm_msg': 'Excluir este lançamento?', 'position': 'footer_left'},
+                 'confirm_msg': 'Excluir este lançamento?', 'position': 'bottom_left'},
             ],
         },
     },

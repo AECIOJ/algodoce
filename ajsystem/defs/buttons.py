@@ -21,11 +21,42 @@ REPORT_CONTENT = f'#{REPORT_ID}'
 # Nomes de função JS globais aceitos em `action` (sem argumentos, sem statement).
 _ACTION_RE = re.compile(r'^[A-Za-z_$][\w$]*$')
 
-# Posições de botão dentro de uma sessão, por formato da sessão.
-POS_FIELDS = ('fields_left', 'fields_right')
-POS_TABLE = ('table_before', 'table_after')
-POS_TABLE_NAVS = ('nav_left', 'nav_center', 'nav_right', 'nav_none',
-                  'footer_left', 'footer_center', 'footer_right', 'footer_none')
+# ── Posições de botão ──
+# São 8 nomes, e o MESMO nome se comporta de forma diferente conforme o
+# contexto que vai renderizar o botão (ver `POSITION_CONTEXT`):
+#
+#   form  → as barras do form inteiro (topo e rodapé)
+#   sessão com `fields`      → o bloco de fields (o `fields` decide, mesmo
+#                              quando a sessão também tem `table`/`query`)
+#   sessão só com `table/query` → a tabela/query (faixa acima e faixa de ação
+#                              embaixo), não o rótulo da sessão
+#
+# `before`/`after` são os atalhos sem alinhamento de `top_left`/`bottom_left`;
+# `left`/`right` só existem junto de `fields` (mesma linha do bloco).
+POS_LEFT = 'left'
+POS_RIGHT = 'right'
+POS_BEFORE = 'before'
+POS_AFTER = 'after'
+POS_TOP_LEFT = 'top_left'
+POS_TOP_RIGHT = 'top_right'
+POS_BOTTOM_LEFT = 'bottom_left'
+POS_BOTTOM_RIGHT = 'bottom_right'
+
+POSITIONS = (POS_LEFT, POS_RIGHT, POS_BEFORE, POS_AFTER,
+             POS_TOP_LEFT, POS_TOP_RIGHT, POS_BOTTOM_LEFT, POS_BOTTOM_RIGHT)
+
+POSITION_CONTEXT = {
+    # form: só as barras do form inteiro.
+    'form': (POS_TOP_LEFT, POS_TOP_RIGHT, POS_BOTTOM_LEFT, POS_BOTTOM_RIGHT),
+    # sessão só de fields: tudo — `left`/`right` na mesma linha, o resto
+    # acima/abaixo do bloco.
+    'fields': POSITIONS,
+    # sessão com table/query e SEM fields: `left`/`right` não têm onde ficar,
+    # porque não existe um bloco de fields para alinhar. Havendo `fields`, o
+    # contexto é 'fields' e o botão vai para o head/tail desse bloco.
+    'table': (POS_BEFORE, POS_AFTER, POS_TOP_LEFT, POS_TOP_RIGHT,
+              POS_BOTTOM_LEFT, POS_BOTTOM_RIGHT),
+}
 
 
 def btn_style(color: str, outline: bool, size: str = 'sm') -> str:
@@ -136,8 +167,9 @@ class Button:
     carry: Optional[dict] = None
     serialize: bool = False
 
-    # ── posicionamento ──
-    position: str = 'nav_right'
+    # ── posicionamento (8 valores; o mesmo nome muda de sentido conforme o
+    #    contexto — ver `POSITION_CONTEXT`) ──
+    position: str = POS_TOP_RIGHT
     on_off: bool = False
     field: Optional[str] = None
 
@@ -393,7 +425,7 @@ ACTIONS = {
     'on_off': Button(
         label=i18n.ACTIVATE, icon='check',
         label_off=i18n.DEACTIVATE, icon_off='xmark',
-        color='success', outline=True, position='nav_right', on_off=True,
+        color='success', outline=True, position=POS_TOP_RIGHT, on_off=True,
     ),
 }
 
@@ -476,18 +508,39 @@ def _check_enabled(btn, where, valid_fields):
                        f'{", ".join(unknown)}.')
 
 
-def _check_position(btn, where, has_fields, has_table):
-    """`fields_*` exige fields na sessão; `nav_*`/`footer_*` exigem table/query."""
+def _check_position(btn, where, ctx, has_fields=None, has_table=None):
+    """Valida `position` contra o contexto que vai renderizar o botão.
+
+    `ctx` é `'form'` (barras do form inteiro) ou `'session'`. Na sessão o
+    `fields` é o que decide: havendo `fields`, o botão é desenhado no bloco de
+    campos — mesmo que a sessão também traga `table`/`query`, como em
+    `Financeiro` (fields + query). Sem `fields`, o botão pertence à tabela.
+    Valor fora do contexto levanta erro em vez de sumir em silêncio no render.
+    """
     pos = btn.position
-    if pos in POS_FIELDS:
-        if not has_fields:
-            raise _err(where, btn.label,
-                       f"position '{pos}' exige uma sessão com `fields`.")
-    elif pos.startswith('nav_') or pos.startswith('footer_'):
-        if not has_table:
-            raise _err(where, btn.label,
-                       f"position '{pos}' exige uma sessão com `table`/`query`; "
-                       f"em sessão só de fields use fields_left/fields_right.")
+    if pos not in POSITIONS:
+        raise _err(where, btn.label,
+                   f"position '{pos}' não existe. Use: {', '.join(POSITIONS)}.")
+    if ctx == 'form':
+        key = 'form'
+    elif has_table and not has_fields:
+        key = 'table'
+    elif has_fields:
+        key = 'fields'
+    else:
+        raise _err(where, btn.label,
+                   "position só faz sentido em sessão com `fields` e/ou "
+                   "`table`/`query`; esta sessão não tem nenhum dos dois.")
+    if pos not in POSITION_CONTEXT[key]:
+        if key == 'table':
+            dica = ("em sessão com `table`/`query` use before/after ou "
+                    "top_*/bottom_*.")
+        elif key == 'form':
+            dica = "no form use top_left/top_right/bottom_left/bottom_right."
+        else:
+            dica = "em sessão use top_*/bottom_* ou before/after."
+        raise _err(where, btn.label,
+                   f"position '{pos}' não vale {dica}")
 
 
 def _check_list(btn, where):
@@ -570,9 +623,11 @@ def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
         _check_enabled(btn, where, valid_fields)
         if ctx == 'list':
             _check_list(btn, where)
-        if sess is not None:
-            _check_position(btn, where, sess.get('has_fields'),
+        elif sess is not None:
+            _check_position(btn, where, 'session', sess.get('has_fields'),
                             sess.get('has_table'))
+        else:
+            _check_position(btn, where, 'form')
         resolved.append(btn)
     return resolved
 

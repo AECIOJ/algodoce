@@ -89,7 +89,8 @@
         <p class="text-sm opacity-60 mt-3 mb-0">O status do orçamento será alterado para <strong>Aprovado</strong> e um novo pedido será gerado.</p>
         <div class="flex justify-end gap-2 mt-3">
           <a href="{{ url_for('orcamentos.form', id=quote.id) }}" class="btn btn-ghost btn-sm">Cancelar</a>
-          <button type="submit" class="btn btn-success btn-sm inline-flex items-center gap-1">
+          <button type="submit" class="btn btn-success btn-sm inline-flex items-center gap-1"
+                  {% if not total or total <= 0 %}disabled title="Orçamento sem valor — adicione itens com quantidade e preço."{% endif %}>
             <svg class="w-4 h-4" aria-hidden="true"><use href="#i-arrow-right"/></svg> Confirmar Conversão
           </button>
         </div>

@@ -189,7 +189,7 @@ Page = {
             'post_save': _post_save,
             'flash_ok': 'Pedido criado!',
             'flash_update': 'Pedido atualizado!',
-            'buttons': [replace(BTN_SEND(PEDIDO), position='nav_right')],
+            'buttons': [replace(BTN_SEND(PEDIDO), position='top_right')],
             'sessions': {
                 'Itens do Pedido': {
                     'table': {
@@ -206,7 +206,7 @@ Page = {
                     'query': _query_financeiro,
                     'buttons': [
                         {'label': 'Gerar', 'icon': 'banknotes', 'color': 'success', 'outline': True,
-                         'url': 'pedidos.gerar_financeiro', 'method': 'POST', 'position': 'fields_right',
+                         'url': 'pedidos.gerar_financeiro', 'method': 'POST', 'position': 'right',
                          'confirm_msg': 'Gerar o financeiro deste pedido?',
                          'visible': _sem_financeiro,
                          'enabled': ['total', 'carteira_id'],

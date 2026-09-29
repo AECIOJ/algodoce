@@ -247,7 +247,7 @@
 {{ btn.text() }}
 {%- endmacro %}
 
-{% macro btn_enabled_init(btn, instance, dom_fields=none) %}
+{% macro btn_enabled_init(btn, instance, dom_fields=none) -%}
 {# `'1'` se o botão nasce habilitado, `''` se nasce desabilitado.
    `dom_fields` = campos do mestre + da sessão NA ORDEM DO DOM: o primeiro
    match é exatamente o que o `querySelector` do `itEnabledEval` pega no
@@ -354,7 +354,7 @@
 {% endif %}
 {% endmacro %}
 
-{% macro render_child_table(instance, child, ro=false, title=true) %}
+{% macro render_child_table(instance, child, ro=false, title=true, top_left=[], top_right=[], bottom_left=[], bottom_right=[], dom_fields=none) %}
 {% import "components/item_table.html" as itb with context %}
 {% set _q = child.get('query') if child is mapping else child.query %}
 {% set _tbl = child.get('table') if child is mapping else child.table %}
@@ -363,11 +363,11 @@
 {% if _grouped %}
 {{ itb.item_table_grouped(instance, child, ro, title) }}
 {% else %}
-{{ itb.item_table_edit(instance, child, ro, title) }}
+{{ itb.item_table_edit(instance, child, ro, title, top_left, top_right, bottom_left, bottom_right, dom_fields) }}
 {% endif %}
 {% endmacro %}
 
-{% macro render_fields(fields, data=none, ro=false, spacing=none, name_prefix='', ro_fields=none, tail=none, bottom=none) %}
+{% macro render_fields(fields, data=none, ro=false, spacing=none, name_prefix='', ro_fields=none, head=none, tail=none, bottom=none) %}
 {% if fields._resolved_fields is defined %}
 {% set _fields = fields._resolved_fields %}
 {% if spacing is none %}{% set spacing = fields.spacing %}{% endif %}
@@ -386,6 +386,7 @@
 {% endif %}
 {% endfor %}
 <div class="flex flex-wrap items-start" style="gap:{{ spacing }}ch; padding-left:{{ spacing }}ch;{% if bottom %}margin-bottom:{{ spacing }}ch;{% endif %}">
+{% if head %}{{ head }}{% endif %}
 {% set _widths = [] %}
 {% for _f in _visible %}
 {% set _dw = 100 if _f.input == 'textarea' else 12 %}
@@ -427,6 +428,16 @@
 <div class="w-full mb-2" style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));"></div>
 {% endmacro %}
 
+{# Faixa de botões acima/abaixo de um bloco (fields da sessão ou tabela).
+   `align='right'` encosta a faixa na direita; o padrão é à esquerda. #}
+{% macro render_band(buttons, data, dom_fields=none, align='left', cls='') %}
+{% if buttons %}
+<div class="flex flex-wrap gap-2 {{ cls }}{{ ' justify-end' if align == 'right' else '' }}">
+  {% for btn in buttons %}{{ render_session_button(btn, data, dom_fields=dom_fields) }}{% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
 {% macro render_sessions(sessions, data=none, ro=false, ro_fields=none, master_fields=none) %}
 {% set _sessions = sessions._resolved_sessions if sessions._resolved_sessions is defined else sessions %}
 {% for session in _sessions %}
@@ -448,10 +459,16 @@
 {% set _is_form = _has_fields and _sess_model and _has_query is none and _has_table is none %}
 {% set _is_parent = _has_fields and _sess_model is none and _has_query is none and _has_table is none %}
 {% endif %}
-{# Posicionamento dos botões da sessão, relativo ao FORMATO da sessão:
-     fields_left / fields_right → em volta dos fields da sessão;
-     nav_* / table_before       → cabeçalho, acima da tabela (exige table/query);
-     footer_* / table_after     → rodapé, abaixo da tabela (exige table/query).
+{# Posicionamento dos botões da sessão. São 8 nomes e o mesmo nome muda de
+   sentido com o FORMATO da sessão (validado em `_check_position`):
+     left / right              → mesma linha dos fields (sessão que tem `fields`);
+     before / after            → faixa acima/abaixo, sem alinhamento;
+     top_left / top_right      → faixa acima (alinhada);
+     bottom_left / bottom_right→ faixa abaixo (alinhada).
+   Havendo `fields`, os botões `left`/`right` entram no bloco de campos
+   (`head`/`tail`), mesmo em sessão que também traz `table`/`query` — é o caso
+   de `Financeiro` em pedidos/compras. Sem `fields`, o botão pertence à
+   tabela. `before`/`after` caem nas mesmas faixas de `top_left`/`bottom_left`.
    A lista completa é retirada de `_sess_table`, então `child.buttons` nunca
    chega ao item_table (que não renderiza mais botões).
    `dom_fields` = mestre + sessão na ordem do DOM — é o que o `itEnabledEval`
@@ -459,45 +476,54 @@
 {% set _btns = session.get('buttons') if session is mapping else session.buttons %}
 {% set _btns = _btns or [] %}
 {% set _dom = (master_fields or []) + (_has_fields|list if _has_fields is not string and _has_fields else []) %}
-{% set _bk = namespace(left=[], right=[], head=[], foot=[]) %}
+{% set _bk = namespace(left=[], right=[], top_l=[], top_r=[], bot_l=[], bot_r=[]) %}
 {% for _b in _btns %}
   {%- set _p = _b.position -%}
-  {%- if _p == 'fields_left' -%}{%- if _bk.left.append(_b) %}{%- endif -%}
-  {%- elif _p == 'fields_right' -%}{%- if _bk.right.append(_b) %}{%- endif -%}
-  {%- elif _p == 'table_before' or (_p is string and _p.startswith('nav_')) -%}{%- if _bk.head.append(_b) %}{%- endif -%}
-  {%- elif _p == 'table_after' or (_p is string and _p.startswith('footer_')) -%}{%- if _bk.foot.append(_b) %}{%- endif -%}
+  {%- if _p == 'left' -%}{%- if _bk.left.append(_b) %}{%- endif -%}
+  {%- elif _p == 'right' -%}{%- if _bk.right.append(_b) %}{%- endif -%}
+  {%- elif _p in ('top_left', 'before') -%}{%- if _bk.top_l.append(_b) %}{%- endif -%}
+  {%- elif _p == 'top_right' -%}{%- if _bk.top_r.append(_b) %}{%- endif -%}
+  {%- elif _p in ('bottom_left', 'after') -%}{%- if _bk.bot_l.append(_b) %}{%- endif -%}
+  {%- elif _p == 'bottom_right' -%}{%- if _bk.bot_r.append(_b) %}{%- endif -%}
   {%- endif -%}
 {% endfor %}
 {% if _is_form %}
 {% set _attr = session.get('attr') if session is mapping else session.attr %}
 {% set _child = data|deep_attr(_attr) if data is not none else none %}
+{% set _head %}{% if _bk.left %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 {% set _tail %}{% if _bk.right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.right %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {% if _bk.left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
-  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=_child, ro=_ro, name_prefix='child_' + _attr + '_', ro_fields=ro_fields, tail=_tail) }}
+  {{ render_band(_bk.top_l, data, _dom, cls='mb-2') }}
+  {{ render_fields(session.get('fields') if session is mapping else session.fields, data=_child, ro=_ro, name_prefix='child_' + _attr + '_', ro_fields=ro_fields, head=_head, tail=_tail) }}
+  {{ render_band(_bk.bot_l, data, _dom, cls='mt-2') }}
+  {{ render_band(_bk.bot_r, data, _dom, align='right', cls='mt-2') }}
 </div>
 {% elif _is_parent %}
+{% set _head %}{% if _bk.left %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 {% set _tail %}{% if _bk.right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.right %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {% if _bk.left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
-  {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields, tail=_tail) }}
+  {{ render_band(_bk.top_l, data, _dom, cls='mb-2') }}
+  {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields, head=_head, tail=_tail) }}
+  {{ render_band(_bk.bot_l, data, _dom, cls='mt-2') }}
+  {{ render_band(_bk.bot_r, data, _dom, align='right', cls='mt-2') }}
 </div>
 {% else %}
 {% set _sess_table = dict(session, buttons=[]) if session is mapping else session %}
 {% set _ct_title = not (_has_fields and (_has_table or _has_query)) %}
 {% if _has_fields and (_has_table or _has_query) %}
+{% set _head %}{% if _bk.left %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 {% set _tail %}{% if _bk.right %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _bk.right %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}{% endset %}
 <div class="mt-3">
   {{ section_title(session.get('label') if session is mapping else session.label) }}
-  {% if _bk.left %}<div class="flex flex-wrap items-start gap-2 mb-2">{% for btn in _bk.left %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
-  {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields, tail=_tail, bottom=true) }}
+  {{ render_fields(_has_fields, data=data, ro=_ro, ro_fields=ro_fields, head=_head, tail=_tail, bottom=true) }}
 </div>
 {% endif %}
-{% if _bk.head %}<div class="flex flex-wrap gap-2 my-2">{% for btn in _bk.head %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
-{{ render_child_table(data, _sess_table, _ro, title=_ct_title) }}
-{% if _bk.foot %}<div class="flex flex-wrap justify-end gap-2 mt-2">{% for btn in _bk.foot %}{{ render_session_button(btn, data, dom_fields=_dom) }}{% endfor %}</div>{% endif %}
+{{ render_child_table(data, _sess_table, _ro, title=_ct_title,
+                       top_left=_bk.top_l, top_right=_bk.top_r,
+                       bottom_left=_bk.bot_l, bottom_right=_bk.bot_r,
+                       dom_fields=_dom) }}
 {% endif %}
 {% endif %}
 {% endfor %}

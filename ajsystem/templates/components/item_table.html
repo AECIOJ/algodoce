@@ -17,7 +17,7 @@
 #}
 {% import "components/form_macros.html" as fm with context %}
 
-{% macro item_table_edit(instance, child, ro=false, title=true) %}
+{% macro item_table_edit(instance, child, ro=false, title=true, top_left=[], top_right=[], bottom_left=[], bottom_right=[], dom_fields=none) %}
 {% set _rel = child.attr or child.name %}
 {% set _raw = instance|deep_attr(_rel) %}
 {% if child.single %}
@@ -48,8 +48,17 @@
 {% set _calc_fields = _display_fields|selectattr('calc')|list %}
 {% set _prefix = 'child_' + _rel + '_' %}
 {% set _totals = _session_totals.get(_rel) if _session_totals is defined else none %}
+{# Faixa de ação embaixo da tabela: `bottom_left`/`bottom_right` e o Adicionar.
+   Ela fica DEPOIS dos dois layouts (desktop e mobile) e DENTRO do wrap, então
+   o `Adicionar` é renderizado uma vez só e `closest('.child-table-wrap')`
+   funciona nos dois tamanhos de tela. Fora do `<tfoot>` de propósito: a tabela
+   pode ter linha de totais e a largura de colunas do Adicionar não é a
+   delas. `bottom_left` vem logo depois do Adicionar (prioridade). #}
+{% set _action = _can_edit or bottom_left or bottom_right %}
 <div class="mb-3 child-table-wrap" {% if _totals and not _calc_fields %}data-total-expr="{{ _totals.expr }}" data-total-currency="{{ _totals.currency or '' }}"{% endif %}>
   {% if title %}{{ fm.section_title(child.label) }}{% endif %}
+  {{ fm.render_band(top_left, instance, dom_fields, cls='mb-2') }}
+  {{ fm.render_band(top_right, instance, dom_fields, align='right', cls='mb-2') }}
 
   {# ── Desktop: tabela inline-edit ── #}
   <div class="it-desktop">
@@ -184,17 +193,6 @@
           {% if _can_edit %}<td></td>{% endif %}
         </tr>
         {% endif %}
-        {% if _can_edit %}
-        <tr>
-          <td colspan="{{ _edit_fields|length + _calc_fields|length + 1 }}" class="py-2">
-            <div class="flex items-center gap-2 flex-wrap">
-              <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
-                <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
-              </button>
-            </div>
-          </td>
-        </tr>
-        {% endif %}
       </tfoot>
       {% endif %}
     </table>
@@ -254,13 +252,13 @@
           {% endif %}
         </tbody>
       </table>
-    </div>
-    {% if _can_edit %}
-    <div class="mt-1 flex items-center gap-2 flex-wrap">
-      <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
-        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
-      </button>
-      <span class="itm-pager"></span>
+      {# O pager precisa ficar DENTRO de `.it-mobile`: o `itmApplyPage` o acha por
+         `table.closest('.it-mobile, .it-display')` (sys.html). O ColumnTemplate
+         logo abaixo compartilha este mesmo `_can_edit`. #}
+      {% if _can_edit %}
+      <div class="mt-1 flex items-center gap-2 flex-wrap">
+        <span class="itm-pager"></span>
+      </div>
     </div>
     <div id="{{ _rel }}ColumnTemplate" style="display:none">
       <th class="itm-item" data-crow="__IDX__">
@@ -283,6 +281,20 @@
     </div>
     {% endif %}
   </div>
+  {# Faixa de ação — FORA de `.it-desktop`/`.it-mobile` (portanto visível nos
+     dois) e dentro do wrap. Adicionar sempre primeiro, depois `bottom_left`;
+     `bottom_right` encosta na direita. #}
+  {% if _action %}
+  <div class="it-action flex items-center gap-2 flex-wrap" style="margin-top:0.5rem;">
+    {% if _can_edit %}
+    <button type="button" class="btn btn-outline btn-success btn-sm inline-flex items-center gap-1" onclick="addChildRow(this)">
+      <svg class="w-4 h-4" aria-hidden="true"><use href="#i-plus"/></svg> Adicionar
+    </button>
+    {% endif %}
+    {{ fm.render_band(bottom_left, instance, dom_fields) }}
+    {{ fm.render_band(bottom_right, instance, dom_fields, cls='ml-auto') }}
+  </div>
+  {% endif %}
 </div>
 {% endmacro %}
 

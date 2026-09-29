@@ -58,11 +58,11 @@ Page = {
                 'msg_ok': 'Orçamento excluído!',
                 'msg_no': 'Exclua o pedido vinculado antes de excluir o orçamento.',
             },
-            'buttons': [BTN_ORC_ENV, BTN_ORC_APROVAR, BTN_ORC_RENOVAR],
+            'buttons': [BTN_ORC_ENV, BTN_ORC_RENOVAR],
             'sessions': {
                 'Itens do Orçamento': {
                     'buttons': [
-                        {'label': 'Preços zerados',
+                        {'label': 'Preços zerados', 'position': 'bottom_left',
                          'icon': 'currency-dollar', 'color': 'secondary',
                          'action': 'itUpdateZerados'},
                     ],
@@ -75,6 +75,7 @@ Page = {
                     'fields': ['Evento'],
                 },
                 'Financeiro': {
+                    'buttons' : [BTN_ORC_APROVAR],
                     'fields':['total','carteira_id','pedido_id'],
                 },
             },
@@ -108,6 +109,11 @@ def _converter_context(quote):
     return ctx
 
 
+def _sem_total(quote):
+    """True quando o orçamento não tem itens valorizados (total <= 0)."""
+    return (quote.total or 0) <= 0
+
+
 def aprovar(id):
     """Aprova o orçamento e gera o pedido a partir dele (antigo botão Converter).
 
@@ -121,6 +127,11 @@ def aprovar(id):
     if quote.status >= 7:
         flash("Orçamento não pode ser convertido — expirado ou rejeitado.", "warning")
         return redirect(url_for("orcamentos.list"))
+    if _sem_total(quote):
+        # Espelha o `enabled=['total']` do botão: um orçamento sem itens
+        # valorizados viraria um pedido de valor zero.
+        flash("Orçamento sem valor — adicione itens com quantidade e preço.", "warning")
+        return redirect(url_for("orcamentos.form", id=id))
 
     if request.method == "GET":
         return render_template(

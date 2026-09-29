@@ -32,12 +32,16 @@ def _expirado(q):
 
 # `BTN_SEND` já vem com render/into/guard do relatório; aqui só a posição e a
 # regra de visibilidade. Textos 'Enviar'/'Aprovar'/'Renovar' são do app.
-BTN_ORC_ENV = replace(BTN_SEND(ORCAMENTO), position='nav_right', visible=_editavel)
+BTN_ORC_ENV = replace(BTN_SEND(ORCAMENTO), position='top_right', visible=_editavel)
+# `enabled=['total']`: só habilita com total > 0. `Orcamento.total` é property
+# (soma dos itens) e `_filled` trata número ≠ 0 como preenchido — mesma regra
+# roda no servidor (`enabled_ok`) e no JS (`itEnabledEval`). O botão fica na
+# sessão Financeiro, junto do campo `total`, porque é ele que o habilita.
 BTN_ORC_APROVAR = replace(BTN_CONFIRM, label='Aprovar', icon='check',
-                          url='orcamentos.aprovar', position='nav_right',
-                          visible=_editavel)
+                          url='orcamentos.aprovar', position='right',
+                          enabled=['total'], visible=_editavel)
 # Cor diferente do `BTN_RENEW` do framework (que é info/cheio) — de propósito, é
 # a ação secundária do form.
 BTN_ORC_RENOVAR = replace(BTN_RENEW, color='secondary', outline=True,
                           url='orcamentos.renovar', method='POST',
-                          position='nav_right', visible=_expirado)
+                          position='top_right', visible=_expirado)

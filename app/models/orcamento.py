@@ -23,7 +23,6 @@ class Orcamento(db.Model):
     cliente_telefone = db.Column(db.String(20), nullable=False)
     status = db.Column(db.Integer, nullable=False, default=0)
     pedido_id = db.Column(db.Integer, db.ForeignKey("pedidos.id"), nullable=True)
-    total = db.Column(db.Numeric(10, 2), nullable=True)
     observacao = db.Column(db.Text)
     validade = db.Column(db.Integer, nullable=False, default=3)
     carteira_id = db.Column(db.Integer, db.ForeignKey("carteira.id"), nullable=True)
@@ -41,6 +40,10 @@ class Orcamento(db.Model):
 
     def __repr__(self):
         return f"<Orcamento {self.id}>"
+
+    @property
+    def total(self):
+        return sum((item.valor or 0) for item in self.items)
 
 
 Entity = {
