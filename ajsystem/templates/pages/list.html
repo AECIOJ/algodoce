@@ -74,10 +74,13 @@
         {% for btn in buttons %}{{ fm.render_list_button(btn, loop.index0) }}{% endfor %}
         {% if new_url %}
         {# `new_label` (quando a listagem declara outro texto) ainda manda; o
-           padrão passa a ser `BTN_NEW`, que já é o botão de `new` do CRUD. #}
+           padrão passa a ser `BTN_NEW`, que já é o botão de `new` do CRUD.
+           O `true` do `default` é o que faz o `None` (listagem que não
+           declarou) cair no rótulo do botão — sem ele o Jinja só cairia no
+           default quando a chave estivesse ausente, e None sairia "None". #}
         <a href="{{ new_url }}" class="btn {{ BTN_NEW.btn_cls() }} inline-flex items-center gap-1 shrink-0"
-           title="{{ new_label|default(BTN_NEW.text()) }}">
-          {{ heroicon(BTN_NEW.icon or 'plus', 'w-4 h-4') }} {{ new_label|default(BTN_NEW.text()) }}
+           title="{{ new_label|default(BTN_NEW.text(), true) }}">
+          {{ heroicon(BTN_NEW.icon or 'plus', 'w-4 h-4') }} {{ new_label|default(BTN_NEW.text(), true) }}
         </a>
         {% endif %}
       </div>

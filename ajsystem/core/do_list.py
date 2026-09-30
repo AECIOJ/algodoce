@@ -379,7 +379,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     title = lista.get('title') or _auto_label(entity_name)
     new_endpoint = _resolve_endpoint(lista, 'new_endpoint', bp_name)
     new_url = url_for(new_endpoint) if new_endpoint else None
-    new_label = 'Incluir ' + _auto_label(entity_name)
+    new_label = lista.get('new_label') or None
 
     template = (lista.get('template') or "pages/list.html")
 
@@ -622,7 +622,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     title = lista.get('title') or _auto_label(entity_name)
     new_endpoint = _resolve_endpoint(lista, 'new_endpoint', bp_name)
     new_url = url_for(new_endpoint) if new_endpoint else None
-    new_label = 'Incluir ' + _auto_label(entity_name)
+    new_label = lista.get('new_label') or None
 
     template = (lista.get('template') or "pages/list.html")
 
