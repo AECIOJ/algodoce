@@ -7,7 +7,7 @@ Schema = {
     'Produto': { 
         'qtd_receita': {'pos_form' : 0 },
         'preco': {'pos_list': 1},
-        'ativo': {'tag': 'boolean'},
+        'ativo': {'tag': 'boolean', 'pos_form': 0},
         'descricao': {'pos_list': 2},
         },
 }
@@ -36,7 +36,7 @@ Page = {
             'sessions': {
                 'Insumos': {
                     'fields': ['qtd_receita'],
-                    'query': {
+                    'table': {
                         'columns': ['ProdutoInsumo'],
                     }
                 },
