@@ -376,17 +376,24 @@ BUTTON_TYPES = {
     'edit_product': {'label': i18n.EDIT_PRODUCT, 'icon': 'pencil-square', 'color': 'primary'},
 }
 
-# Derivados: o mesmo catálogo como constantes, gerados em loop. A constante de
-# um tipo é o preset EXATO desse tipo — o par de preset/tipo não pode divergir, porque a
-# linha abaixo é a única que os dois constroem. `dir()` no módulo enxerga os
-# nomes criados aqui, então `init.py` publica as globals Jinja sem lista.
-#
-# `print` vira `BTN_PRINT_STYLE` e não `BTN_PRINT`: o nome `BTN_PRINT` pertence à
-# factory de relatório, que precisa do dict do relatório para funcionar.
+# Derivados: o mesmo catálogo como constantes, geradas em loop. A constante de um
+# tipo é o preset EXATO desse tipo — par de preset/tipo não pode divergir, porque os
+# dois leem o mesmo `BUTTON_TYPES[...]`. `dir()` no módulo enxerga os nomes criados
+# aqui, então `init.py` publica as globals Jinja sem lista.
 for _nome, _spec in BUTTON_TYPES.items():
-    _const = 'BTN_' + _nome.upper() + ('_STYLE' if _nome == 'print' else '')
-    globals()[_const] = Button(**_spec)
-del _nome, _spec, _const
+    if _nome == 'print':
+        continue
+    globals()['BTN_' + _nome.upper()] = Button(**_spec)
+del _nome, _spec
+
+# `print` é o único tipo cujo nome colide com uma factory deste arquivo, então o
+# preset sai do loop: `BTN_PRINT` é a factory de relatório (precisa do dict) e
+# `BTN_PRINT_STYLE` é o preset puro. Atribuição de verdade, e não `globals()[...]`,
+# porque a factory `BTN_PRINT` é a única a referenciar uma constante daqui por nome
+# — e `globals()` some da análise estática, o que fazia o editor acusar "não
+# definido" na linha da factory. Os outros 40 presets só são consumidos de
+# template, onde `dir()` acha do mesmo jeito.
+BTN_PRINT_STYLE = Button(**BUTTON_TYPES['print'])
 
 
 # ── Botões de relatório (factories: precisam do dict do relatório) ─────────
@@ -429,8 +436,10 @@ def BTN_PRINT(report, *, filter_field='', guard=None, **overrides) -> Button:
         'buttons': [BTN_PRINT(PEDIDO)]
         'buttons': [BTN_PRINT(PLANO, filter_field='tipo', label='Plano')]
 
-    `print_report` entra por import tardio dentro da closure para este módulo não
-    depender de `core/` — é o que mantém `defs/buttons.py` importável isolado.
+    `print_report` entra por import tardio dentro da closure para manter `defs/`
+    livre do motor de renderização (`core/do_report`, `core/pdf`) no import de
+    módulo. Não é para `defs/` não depender de `core/`: `core.utils` já entra no
+    topo e `defs/__init__.py` permite a dependência.
     """
     render = (_render_relatorio_filtro(report, filter_field) if filter_field
               else _render_relatorio(report, guard=guard or _has_items))
