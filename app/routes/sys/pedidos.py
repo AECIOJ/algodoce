@@ -1,15 +1,23 @@
-from dataclasses import replace
-
 from flask import flash, redirect, url_for
 
 from ajsystem.core.formats import parse_brl
-from ajsystem.defs.buttons import BTN_SEND
 from ajsystem.defs.constants import POS_0_NOT_EMPTY
+from ajsystem import locales as i18n
 from app.models.pedido import Pedido
 from app.botoes import _sem_financeiro
 from app.models.pedido_item import PedidoItem
 from app.models.carteira import Carteira
 from app.reports.pedidos import PEDIDO
+
+
+# `report` + `type: 'print'` declara o botão de relatório: `render`, `into` e o
+# `guard` padrão (`_has_items`) saem sozinhos, e o que fica escrito é a
+# aparência de envio (papagaio/verde) em vez do documento azul do `print`.
+Buttons = {
+    'enviar_pedido': {'type': 'print', 'report': PEDIDO, 'label': i18n.SEND,
+                      'icon': 'paper-airplane', 'color': 'success',
+                      'position': 'top_right'},
+}
 
 
 def _num(v):
@@ -186,7 +194,7 @@ Page = {
             'post_save': _post_save,
             'flash_ok': 'Pedido criado!',
             'flash_update': 'Pedido atualizado!',
-            'buttons': [replace(BTN_SEND(PEDIDO), position='top_right')],
+            'buttons': ['enviar_pedido'],
             'sessions': {
                 'Itens do Pedido': {
                     'table': {

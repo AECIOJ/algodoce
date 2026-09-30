@@ -7,7 +7,7 @@ declarativos) do módulo de rota e resolve os campos via `defs.data`
 """
 import importlib
 
-from flask import render_template, request, url_for
+from flask import current_app, render_template, request, url_for
 
 from ajsystem.defs.data import (
     _auto_label, build_field, page_list_cfg, page_scripts, resolve_entity_fields,
@@ -211,6 +211,25 @@ def _card_layer(card_spec, merged, row_entity):
     return {k: v for k, v in out.items() if v}
 
 
+def _camadas_botoes(module_name):
+    """Catálogos de botão da listagem: o do app e o do módulo da rota.
+
+    A listagem resolve botão pelo mesmo caminho do form, então precisa das mesmas
+    duas camadas — sem elas, um nome declarado em `app.botoes.Buttons` ou no
+    `Buttons` do módulo não resolveria aqui (e a página de listagem quebraria
+    num botão que a de form mostra).
+    """
+    from ajsystem.defs.buttons import module_buttons
+    botoes = current_app.extensions.get('botoes')
+    pagina = {}
+    if module_name:
+        try:
+            pagina = module_buttons(importlib.import_module(module_name))
+        except ImportError:
+            pagina = {}
+    return botoes, pagina
+
+
 def do_list(entity_name: str, module_name: str, data=None, **extra):
     """Entrada da listagem — roteia para `do_list_normal` (sem inversão) ou
     `do_list_master` (inversão de relacionamento, prop `master`)."""
@@ -281,7 +300,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
                   if len(all_fields) > len(line_fields) else None),
         buttons=lista.get('buttons'),
     )
-    buttons = list_obj.resolve_buttons(bp_name)
+    buttons = list_obj.resolve_buttons(bp_name, *_camadas_botoes(module_name))
 
     detail_fields = None
     detail_data = None
@@ -517,7 +536,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
                   if len(all_fields) > len(line_fields) else None),
         buttons=lista.get('buttons'),
     )
-    buttons = list_obj.resolve_buttons(bp_name)
+    buttons = list_obj.resolve_buttons(bp_name, *_camadas_botoes(module_name))
 
     detail_fields = None
     detail_data = None

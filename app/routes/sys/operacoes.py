@@ -1,8 +1,16 @@
 from ajsystem.core.extensions import db
 from ajsystem.core.utils import CONNECTORS
-from ajsystem.defs.buttons import BTN_PRINT
 from app.models.operacao import Operacao
 from app.reports import PLANO
+
+
+# `filter_field: 'tipo'` imprime o relatório da seleção de filtro corrente (o
+# shape de listagem), não o documento — e nesse caso o `guard` não se aplica,
+# que é o que a factory `BTN_PRINT` já fazia.
+Buttons = {
+    'imprimir_plano': {'type': 'print', 'report': PLANO, 'filter_field': 'tipo',
+                       'label': 'Plano'},
+}
 
 Schema = {
     'Operacao': {
@@ -48,7 +56,7 @@ Page = {
         'list': {
             'columns': 'Operacao',
             'order': ['ordem', 'nome'],
-            'buttons': [BTN_PRINT(PLANO, filter_field='tipo', label='Plano')],
+            'buttons': ['imprimir_plano'],
         },
         'form': {
             'max_width': 80,

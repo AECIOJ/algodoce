@@ -388,7 +388,7 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 **Catálogo de tipos** — a aparência mora num só lugar, e `resolve_buttons` monta o resultado em camadas:
 
 ```
-GENERICOS[base]  <  entrada do host (sem 'type')  <  spec do uso
+GENERICOS[base]  <  app.botoes.Buttons  <  Buttons da rota  <  spec do uso
 ```
 
 - **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:337`) tem 40 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
@@ -396,7 +396,9 @@ GENERICOS[base]  <  entrada do host (sem 'type')  <  spec do uso
 - **`type`** — a entrada do host declara de qual genérico diverge. Sem `type`, a base é o tipo de **mesmo nome** (o caso de sobrescrever `delete`); com `type`, o app nomeia um botão seu e declara só o que muda. A base pode ser um tipo do motor, então `{'type': 'on_off'}` funciona. `type` apontando para tipo inexistente **levanta erro dizendo o nome** — não vira `label faltando` mais tarde.
 - **override parcial** — a entrada do host é parcial de propósito. `{'delete': {'color': 'warning'}}` troca a cor e **mantém** o `label`/`icon`/`confirm_msg` do tipo.
 - **`build_catalogo(*camadas)`** é a função que faz o merge, e é a mesma para `resolve_buttons` e para o `_toggle_field` do motor — dois merges divergem no dia seguinte em que um deles ganha uma regra. Um argumento por camada do host, cada uma sobrepondo a anterior; `None`/`{}` são ignorados. Nenhuma camada muta `GENERICOS`.
-- **`enabled`/`carry`/`url`/`position` não moram no catálogo**: dependem do form e do registro, então ficam no ponto de uso.
+- **`Buttons` da rota** é a variável de módulo que a rota declara, lida por `module_buttons` — o mesmo papel que o `Schema` dela tem sobre os campos. É onde vive o botão que só aquela rota usa, e é o que permite a spec ser **uma lista de nomes**. A camada entra depois do app, então a rota também pode sobrescrever um botão do app só naquele form.
+- **`report` + `filter_field`** na entrada do catálogo substituem as factories `BTN_PRINT`/`BTN_SEND` no ponto de uso: `render`, `into` e o `guard` padrão (`_has_items`) saem sozinhos, e o que fica escrito é só a aparência que diverge do tipo `print`. `BTN_PRINT`/`BTN_SEND` continuam existindo para o `guard` customizado e para compatibilidade.
+- **`enabled`/`carry`/`url`/`position` não moram no catálogo genérico nem no do app**: dependem do form e do registro, então ficam no ponto de uso. No `Buttons` da rota eles podem — a rota já é o ponto de uso.
 
 ```python
 # framework — só genéricos
@@ -405,11 +407,18 @@ BUTTON_TYPES = {'generate': {'label': i18n.GENERATE, 'color': 'success', 'varian
 # framework — o que o motor procura pelo nome (hoje: o toggle)
 Buttons = {'on_off': {'label': i18n.ACTIVATE, 'icon': 'check', 'on_off': True, …}}
 
-# app/botoes.py — só o que diverge
+# app/botoes.py — o que o app repete em 2+ forms
 Buttons = {'gerar_financeiro': {'type': 'generate', 'icon': 'currency-dollar', 'variant': 'outline'}}
 
-# route — só o que depende do form e do registro
-'buttons': [{'gerar_financeiro': {'url': 'pedidos.gerar_financeiro', 'method': 'POST'}}]
+# route — o `Buttons` dela (mesmo papel do `Schema` dela)
+Buttons = {
+    'enviar_orcamento': {'type': 'print', 'report': ORCAMENTO, 'label': i18n.SEND,
+                         'icon': 'paper-airplane', 'color': 'success',
+                         'position': 'top_right', 'visible': _editavel},
+}
+
+# route — e a spec vira só a lista dos nomes que este form usa
+'buttons': ['enviar_orcamento', 'renovar_orcamento']
 ```
 
 Toda entrada de `GENERICOS` ganha sua constante `BTN_<NOME>` por loop, e as globais Jinja saem daí por varredura de prefixo (`BTN_*`, `CONFIRM_*` em `ajsystem/init.py`) — por isso um tipo novo não toca lista de importação. `print` vira `BTN_PRINT_STYLE`, porque `BTN_PRINT` é nome da factory de relatório.

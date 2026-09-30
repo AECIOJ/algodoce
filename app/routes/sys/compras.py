@@ -1,14 +1,21 @@
-from dataclasses import replace
-
 from flask import flash, redirect, url_for
 
 from ajsystem.core.formats import parse_brl
-from ajsystem.defs.buttons import BTN_SEND
 from ajsystem.defs.constants import TODAY, POS_0_NOT_EMPTY
+from ajsystem import locales as i18n
 from app.models.compra import Compra
 from app.botoes import _sem_financeiro
 from app.models.compra_item import CompraItem
 from app.reports.compras import COMPRA
+
+
+# Mesma declaração de `pedidos.py`: `report` + `type: 'print'` e a aparência de
+# envio por cima.
+Buttons = {
+    'enviar_compra': {'type': 'print', 'report': COMPRA, 'label': i18n.SEND,
+                      'icon': 'paper-airplane', 'color': 'success',
+                      'position': 'top_right'},
+}
 
 
 def _num(v):
@@ -181,7 +188,7 @@ Page = {
             'pre_get': _pre_get,
             'pre_save': _pre_save,
             'post_save': _post_save,
-            'buttons': [replace(BTN_SEND(COMPRA), position='top_right')],
+            'buttons': ['enviar_compra'],
             'sessions': {
                 'Itens': {
                     'table': {

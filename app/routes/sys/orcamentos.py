@@ -2,12 +2,50 @@ from flask import request, redirect, url_for, flash, render_template
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
 from ajsystem.defs.constants import POS_0_NOT_EMPTY
+from ajsystem import locales as i18n
 from app.models.conta import Conta
 from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
 from app.models.orcamento import Orcamento
 from app.models.orcamento_item import OrcamentoItem
-from app.botoes import BTN_ORC_APROVAR, BTN_ORC_ENV, BTN_ORC_RENOVAR
+from app.reports.orcamentos import ORCAMENTO
+
+
+# ── Botões deste form (o `Buttons` da rota, mesmo papel do `Schema` dela) ───
+# Regra do domínio: só um orçamento avulso, ainda não aprovado, pode ser
+# enviado/aprovado; renovar só faz sentido depois de expirado (status 7).
+def _editavel(q):
+    return q is not None and q.pedido_id is None and q.status < 7
+
+
+def _expirado(q):
+    return q is not None and q.pedido_id is None and q.status == 7
+
+
+Buttons = {
+    # `report` + `type: 'print'` é a declaração do botão de relatório: o
+    # `render` e o `into` saem sozinhos, e o `guard` padrão (`_has_items`) é o
+    # mesmo que a factory `BTN_SEND` aplicava. O que sobra declarado é a
+    # aparência de envio (papagaio/verde, em vez do documento azul do `print`).
+    'enviar_orcamento': {'type': 'print', 'report': ORCAMENTO,
+                         'label': i18n.SEND, 'icon': 'paper-airplane',
+                         'color': 'success', 'position': 'top_right',
+                         'visible': _editavel},
+    # `enabled=['total']`: só habilita com total > 0. `Orcamento.total` é property
+    # (soma dos itens) e `is_zero_or_empty` trata número ≠ 0 como preenchido —
+    # mesma regra roda no servidor (`enabled_ok`) e no JS (`itEnabledEval`). O
+    # botão fica na sessão Financeiro, junto do campo `total`, porque é ele que o
+    # habilita. O tipo `approve` já é "Aprovar" com `check` verde.
+    'aprovar_orcamento': {'type': 'approve', 'url': 'orcamentos.aprovar',
+                          'position': 'right', 'enabled': ['total'],
+                          'visible': _editavel},
+    # Cor diferente do tipo `renew` do framework (que é info/cheio) — de propósito,
+    # é a ação secundária do form.
+    'renovar_orcamento': {'type': 'renew', 'color': 'secondary',
+                          'variant': 'outline', 'url': 'orcamentos.renovar',
+                          'method': 'POST', 'position': 'top_right',
+                          'visible': _expirado},
+}
 
 
 Schema = {
@@ -58,7 +96,7 @@ Page = {
                 'msg_ok': 'Orçamento excluído!',
                 'msg_no': 'Exclua o pedido vinculado antes de excluir o orçamento.',
             },
-            'buttons': [BTN_ORC_ENV, BTN_ORC_RENOVAR],
+            'buttons': ['enviar_orcamento', 'renovar_orcamento'],
             'sessions': {
                 'Itens do Orçamento': {
                     'buttons': [
@@ -77,7 +115,7 @@ Page = {
                     'fields': ['Evento'],
                 },
                 'Financeiro': {
-                    'buttons' : [BTN_ORC_APROVAR],
+                    'buttons' : ['aprovar_orcamento'],
                     'fields':['total','carteira_id','pedido_id'],
                 },
             },

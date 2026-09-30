@@ -722,8 +722,36 @@ def build_catalogo(*camadas) -> dict:
     return catalogo
 
 
+def _camadas(types):
+    """`types` como tupla de camadas do host.
+
+    Aceita um catálogo só (dict) e uma cadeia já montada (tuple/list de dicts),
+    para o mesmo parâmetro servir ao `Form` — que tem o catálogo do app e o da
+    página — sem o call site ter de fazer o spread.
+    """
+    if not types:
+        return ()
+    return (types,) if isinstance(types, dict) else tuple(t for t in types if t)
+
+
+def module_buttons(mod) -> dict:
+    """Lê o `Buttons` de um módulo de rota ({} se ausente/inválido).
+
+    O mesmo papel que `Schema` tem sobre os campos: o catálogo genérico do
+    motor resolve a chave, o `app.botoes.Buttons` descreve o que o app diverge,
+    e o `Buttons` do módulo descreve o que só aquele form precisa. Por isso a
+    spec pode ser só uma lista de nomes:
+
+        Buttons = {'enviar_orcamento': {'type': 'print', 'icon': 'paper-airplane'}}
+        ...
+        'buttons': ['enviar_orcamento']
+    """
+    b = getattr(mod, 'Buttons', None)
+    return b if isinstance(b, dict) else {}
+
+
 def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
-                    sess=None, ctx='form', types=None):
+                    sess=None, ctx='form', types=None, types_page=None):
     """Resolve specs de botão para `Button` (Form.buttons / List.buttons).
 
     Cada spec aceita: instância `Button` pronta (os `BTN_*` e as factories
@@ -737,15 +765,17 @@ def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
     `has_fields`/`has_table`, para `position` de sessão) e `ctx` (`'form'` ou
     `'list'`).
 
-    `types` é o catálogo do host (`app.botoes.Buttons`), mesclado sobre o
-    catálogo genérico do motor — o mesmo papel que o `Schema` do módulo tem
-    sobre a entity em `resolve_entity_fields`. O merge é o de `build_catalogo`:
-    o app declara de qual tipo genérico diverge (`type`) e só o que muda, e a
-    spec declara sobre o app. Nenhuma camada muta os catálogos.
+    `types` é o catálogo do host (`app.botoes.Buttons`) e `types_page` o da
+    página (a variável `Buttons` do módulo de rota, lida por `module_buttons`),
+    mesclados nessa ordem sobre o catálogo genérico do motor — o mesmo papel que
+    o `Schema` do módulo tem sobre a entity em `resolve_entity_fields`. Cada um
+    aceita um dict ou uma cadeia de camadas. O merge é o de `build_catalogo`: o
+    app declara de qual tipo genérico diverge (`type`) e só o que muda, e a spec
+    declara sobre o app. Nenhuma camada muta os catálogos.
     """
     if not specs:
         return []
-    catalogo = build_catalogo(types)
+    catalogo = build_catalogo(*(_camadas(types) + _camadas(types_page)))
     resolved = []
     for spec in specs:
         name = None

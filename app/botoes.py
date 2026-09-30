@@ -20,15 +20,11 @@ então cada botão declara só o que muda. Nenhuma camada muta o catálogo.
 Nome em português (é o app) e texto em português também: literal é o idioma do
 app. Se um botão quiser o texto do framework, é `i18n.<NOME>` (`ajsystem.locales`).
 
-Os botões de um form que se repetem em vários lugares (mesma regra de `visible`,
-mesmo form) moram aqui. Botão de uso único continua no route.
+O que é de UMA rota não mora aqui: a rota declara o `Buttons` dela, no mesmo
+papel que o `Schema` dela tem sobre os campos, e o `form.buttons` vira só uma
+lista de nomes. Aqui fica o que volta em dois ou mais forms — como
+`_sem_financeiro`, que é a mesma regra em compras e pedidos.
 """
-from dataclasses import replace
-
-from ajsystem.defs.buttons import BTN_SEND
-
-from app.reports.orcamentos import ORCAMENTO
-
 
 # ── Regras de visibilidade do domínio ────────────────────────────────────────
 # `_sem_financeiro` mora aqui porque é a MESMA regra nos dois forms (compras e
@@ -36,14 +32,6 @@ from app.reports.orcamentos import ORCAMENTO
 # contra a regra que este arquivo já enunciava.
 def _sem_financeiro(instance):
     return instance is not None and not instance.transacao and not instance.movto
-
-
-def _editavel(q):
-    return q is not None and q.pedido_id is None and q.status < 7
-
-
-def _expirado(q):
-    return q is not None and q.pedido_id is None and q.status == 7
 
 
 # ── Aparência que é do app ───────────────────────────────────────────────────
@@ -72,28 +60,3 @@ Buttons = {
     'precos_zerados':   {'type': 'execute', 'label': 'Preços zerados',
                          'icon': 'currency-dollar'},
 }
-
-
-# ── Form de Orçamento ───────────────────────────────────────────────────────
-# Regra do domínio: só um orçamento avulso, ainda não aprovado, pode ser
-# enviado/aprovado; renovar só faz sentido depois de expirado (status 7).
-# Textos 'Enviar'/'Aprovar'/'Renovar' são do app.
-#
-# `BTN_SEND` já vem com render/into/guard do relatório; aqui só a posição e a
-# regra de visibilidade.
-BTN_ORC_ENV = replace(BTN_SEND(ORCAMENTO), position='top_right', visible=_editavel)
-
-# `enabled=['total']`: só habilita com total > 0. `Orcamento.total` é property
-# (soma dos itens) e `is_zero_or_empty` trata número ≠ 0 como preenchido — mesma
-# regra roda no servidor (`enabled_ok`) e no JS (`itEnabledEval`). O botão fica
-# na sessão Financeiro, junto do campo `total`, porque é ele que o habilita.
-# O tipo `approve` já é "Aprovar" com `check` verde — antes o botão sobrescrevia
-# `label` e `icon` à mão para chegar no mesmo lugar.
-BTN_ORC_APROVAR = {'approve': {'url': 'orcamentos.aprovar', 'position': 'right',
-                               'enabled': ['total'], 'visible': _editavel}}
-
-# Cor diferente do tipo `renew` do framework (que é info/cheio) — de propósito, é
-# a ação secundária do form.
-BTN_ORC_RENOVAR = {'renew': {'color': 'secondary', 'variant': 'outline',
-                             'url': 'orcamentos.renovar', 'method': 'POST',
-                             'position': 'top_right', 'visible': _expirado}}

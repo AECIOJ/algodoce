@@ -77,31 +77,45 @@ class Form:
         self._redirect = None
         self._label = None
         self._botoes_tipos = None
+        self._botoes_page = None
+        self._camadas = ()
         self._resolved_fields = []
         self._resolved_sessions = []
-        self._resolved_buttons = resolve_buttons(self.buttons, None,
-                                                 types=self._botoes_tipos)
+        # Botões NÃO são resolvidos aqui. Esta dataclass é construída antes de o
+        # motor saber os catálogos do host e da página, então um nome declarado
+        # em `Buttons` (da rota) ainda não existe para o `resolve_buttons` deste
+        # ponto — resolver aqui estouraria em todo form com botão de página. A
+        # resolução (e a validação fail-fast do nome) fica em `resolve()`, que é
+        # chamado pelo motor antes de qualquer render.
+        self._resolved_buttons = []
         self._resolved_tags = []
 
     def resolve(self, entity_name: str, model, schema: dict, blueprint=None,
-                botoes_tipos=None):
+                botoes_tipos=None, botoes_page=None):
         """Motor: a partir da entity nomeada, do model e do Schema da página,
         deriva campos/colunas, label, redirect e sessões.
 
         `schema` é o Schema original da página (chaveado por entidade); dele é
         derivado o merged do form principal e aplicados os overrides aos filhos.
 
-        `botoes_tipos` é o catálogo de botões do host (`app.botoes.Buttons`),
-        com o mesmo papel que `schema` tem sobre os campos: o catálogo base do
-        framework resolve a chave e o app descreve o que diverge. Vem por
-        parâmetro, e não de um import dentro de `defs/`, para `defs` continuar
-        importável isolado."""
+        `botoes_tipos` é o catálogo de botões do host (`app.botoes.Buttons`) e
+        `botoes_page` o da própria página (a variável `Buttons` do módulo), com o
+        mesmo papel que `schema` tem sobre os campos: o catálogo genérico do
+        motor resolve a chave e cada camada descreve o que diverge. É por isso
+        que `self.buttons` pode ser só uma lista de nomes. Vêm por parâmetro, e
+        não de um import dentro de `defs/`, para `defs` continuar importável
+        isolado."""
         self._entity_name = entity_name
         self._model = model
         self._schema_orig = schema or {}
         self._schema = resolve_entity_fields(self._schema_orig, model, entity_name)
         if botoes_tipos is not None:
             self._botoes_tipos = botoes_tipos
+        if botoes_page is not None:
+            self._botoes_page = botoes_page
+        # Cadeia de camadas do host, na ordem: app, depois página. Fica num
+        # atributo só para os 4 pontos de resolução lerem a mesma coisa.
+        self._camadas = (self._botoes_tipos, self._botoes_page)
         if blueprint is not None:
             self._bp_name = blueprint
         if self.template:
@@ -114,7 +128,7 @@ class Form:
         self._resolved_sessions = self._resolve_sessions()
         self._resolved_buttons = resolve_buttons(
             self.buttons, self._bp_name, where='form',
-            valid_fields=self._master_field_names, types=self._botoes_tipos)
+            valid_fields=self._master_field_names, types=self._camadas)
 
     @property
     def _master_field_names(self):
@@ -345,7 +359,7 @@ class Form:
                 'query': resolved_query,
                 'table': resolved_table,
                 'buttons': resolve_buttons(
-                    spec_buttons, self._bp_name, types=self._botoes_tipos,
+                    spec_buttons, self._bp_name, types=self._camadas,
                     where=f"session '{name}'",
                     valid_fields=self._master_field_names | _sess_names,
                     sess={'has_fields': bool(spec_fields),
@@ -442,7 +456,7 @@ class Form:
         return normalize_fieldspec(cols, full_schema, principal)
 
     def _resolve_buttons(self):
-        return resolve_buttons(self.buttons, self._bp_name, types=self._botoes_tipos)
+        return resolve_buttons(self.buttons, self._bp_name, types=self._camadas)
 
     def resolve_query_sessions(self, instance=None):
         """Resolve sessões com `query` callable, no render (com o instance).

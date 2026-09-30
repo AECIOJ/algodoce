@@ -13,7 +13,7 @@ from ajsystem.defs.data import (
     page_list_cfg as _lista_config, module_page, module_page_label, page_scripts,
 )
 from ajsystem.defs.form import parse_form
-from ajsystem.defs.buttons import Button
+from ajsystem.defs.buttons import Button, module_buttons as _module_buttons
 from ajsystem.core.adapter import db
 from ajsystem.core.do_list import do_list
 from ajsystem.core.do_form import do_form
@@ -110,15 +110,17 @@ def _get_model(mod):
     return None
 
 
-def _toggle_field(form_cfg, botoes_tipos=None):
+def _toggle_field(form_cfg, botoes_tipos=None, botoes_page=None):
     """Nome do campo booleano que o toggle da página liga/desliga.
 
     O nome do tipo não é literal aqui: um app pode declarar o seu próprio
     (`'ligar_desligar': {'on_off': True, ...}`), então o que decide é a entrada
-    do CATÁLOGO ter `on_off`, e não a string se chamar `on_off` ou não.
+    do CATÁLOGO ter `on_off`, e não a string se chamar `on_off` ou não. Por isso
+    o catálogo é montado com a camada da página também — um tipo de toggle
+    declarado no módulo só existe aí.
     """
     from ajsystem.defs.buttons import build_catalogo
-    catalogo = build_catalogo(botoes_tipos)
+    catalogo = build_catalogo(botoes_tipos, botoes_page)
     for b in form_cfg.get('buttons') or []:
         if isinstance(b, str) and catalogo.get(b, {}).get('on_off'):
             return 'ativo'
@@ -142,6 +144,7 @@ def _build_form(mod, entidade, model, slug=None, botoes_tipos=None):
     cfg.setdefault('fields', entidade)
     form = parse_form(cfg)
     schema = getattr(mod, 'Schema', None) or {}
+    botoes_page = _module_buttons(mod)
     label = module_page_label(module_page(mod))
     if label:
         form._label = label
@@ -150,7 +153,7 @@ def _build_form(mod, entidade, model, slug=None, botoes_tipos=None):
     if _pu:
         form.upload = _pu
     form.resolve(entidade, model, schema, blueprint=slug,
-                 botoes_tipos=botoes_tipos)
+                 botoes_tipos=botoes_tipos, botoes_page=botoes_page)
     if slug:
         form._redirect = f"{slug}.list"
     if hasattr(mod, '_label') and not form._label:
@@ -204,7 +207,7 @@ def _generated_crud(mod, slug, botoes_tipos=None):
             return redirect(url_for(f'{slug}.list'))
         routes.append(('/<int:id>/excluir', 'delete', _delete))
 
-    campo = _toggle_field(form_cfg, botoes_tipos)
+    campo = _toggle_field(form_cfg, botoes_tipos, _module_buttons(mod))
     if model is not None and campo:
         flash_toggle = i18n.MSG_UPDATED
 

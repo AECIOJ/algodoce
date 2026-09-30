@@ -29,9 +29,9 @@ class List:
     linha: Optional[list] = None
     card_idx: Optional[list] = None
 
-    def resolve_buttons(self, bp_name=None, botoes_tipos=None):
+    def resolve_buttons(self, bp_name=None, botoes_tipos=None, botoes_page=None):
         return _resolve_buttons(self.buttons, bp_name, where='list', ctx='list',
-                                types=botoes_tipos)
+                                types=(botoes_tipos, botoes_page))
 
     @property
     def master_fields(self):
