@@ -119,6 +119,14 @@ class Button:
     action: str = ''
     url: Union[str, Callable[[Any], str]] = ''
     render: Optional[Callable[[Any], str]] = None
+    # `report` declara o relatório a imprimir, e `__post_init__` tira o `render`
+    # de dentro — sem isso, um botão de relatório só existe como chamada
+    # (`BTN_PRINT(ORCAMENTO)`), e o app não consegue declará-lo num catálogo.
+    # `filter_field` imprime a seleção de filtro em vez da instância (shape
+    # listagem), com o nome do campo em vez do registro. `render` explícito tem
+    # precedência: quem passa os dois está dizendo qual render usar.
+    report: Any = None
+    filter_field: str = ''
     into: str = ''          # vazio = REPORT_CONTENT (ver `target_into`)
     url_params: Union[dict, Callable, None] = None
     method: str = 'GET'
@@ -131,6 +139,24 @@ class Button:
     position: str = POS_TOP_RIGHT
     on_off: bool = False
     field: Optional[str] = None
+
+    def __post_init__(self):
+        """`report` vira `render`. Só quando `report` existe e `render` não —
+        o guarda de idempotência é o que faz `replace()` poder reexecutar isto
+        sem re-envelopar a closure (a validação de `resolve_buttons` normaliza
+        com `replace`, então um botão compartilhado passa por aqui várias vezes).
+        """
+        if self.filter_field and self.report is None:
+            raise ValueError(
+                f"botão {self.label!r}: `filter_field` ({self.filter_field!r}) só "
+                "existe com `report` — ele nomeia o filtro do relatório a "
+                "imprimir, não produz destino sozinho."
+            )
+        if self.report is None or self.render is not None:
+            return
+        self.render = (_render_relatorio_filtro(self.report, self.filter_field)
+                       if self.filter_field
+                       else _render_relatorio(self.report, guard=_has_items))
 
     def btn_cls(self) -> str:
         return self.cls or btn_style(self.color, self.variant, self.size)
