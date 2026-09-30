@@ -91,8 +91,13 @@ def list_action():
                 if isinstance(getattr(mod, a, None), _BP)), None)
     bp_name = bp.name if bp else None
     from ajsystem.defs.buttons import resolve_buttons
+    # As MESMAS camadas que `do_list` usou para desenhar a listagem. Sem a do
+    # módulo, um botão de listagem declarado no `Buttons` da rota não resolveria
+    # aqui — a página desenhava o botão e o clique dava 500.
+    from ajsystem.core.do_list import _camadas_botoes
+    _app_cat, _page_cat = _camadas_botoes(mod.__name__)
     btns = resolve_buttons(lista.get('buttons'), bp_name, where='list', ctx='list',
-                           types=current_app.extensions.get('botoes'))
+                           types=_app_cat, types_page=_page_cat)
     if btn_idx < 0 or btn_idx >= len(btns):
         return jsonify(error='botão inválido'), 400
     btn = btns[btn_idx]
