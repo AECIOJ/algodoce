@@ -62,9 +62,11 @@ Page = {
             'sessions': {
                 'Itens do Orçamento': {
                     'buttons': [
-                        {'label': 'Preços zerados', 'position': 'bottom_left',
-                         'icon': 'currency-dollar', 'color': 'secondary',
-                         'action': 'itUpdateZerados'},
+                        # Tipo `precos_zerados` do app (app/botoes.py), que
+                        # deriva do genérico neutro `execute`. A cor, o ícone e
+                        # o texto saem de lá; a posição e a ação são deste uso.
+                        {'precos_zerados': {'position': 'bottom_left',
+                                            'action': 'itUpdateZerados'}},
                     ],
                     'table': {
                         'columns': ['OrcamentoItem'],

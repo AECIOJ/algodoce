@@ -76,21 +76,32 @@ class Form:
         self._schema_orig = None
         self._redirect = None
         self._label = None
+        self._botoes_tipos = None
         self._resolved_fields = []
         self._resolved_sessions = []
-        self._resolved_buttons = resolve_buttons(self.buttons, None)
+        self._resolved_buttons = resolve_buttons(self.buttons, None,
+                                                 types=self._botoes_tipos)
         self._resolved_tags = []
 
-    def resolve(self, entity_name: str, model, schema: dict, blueprint=None):
+    def resolve(self, entity_name: str, model, schema: dict, blueprint=None,
+                botoes_tipos=None):
         """Motor: a partir da entity nomeada, do model e do Schema da página,
         deriva campos/colunas, label, redirect e sessões.
 
         `schema` é o Schema original da página (chaveado por entidade); dele é
-        derivado o merged do form principal e aplicados os overrides aos filhos."""
+        derivado o merged do form principal e aplicados os overrides aos filhos.
+
+        `botoes_tipos` é o catálogo de botões do host (`app.botoes.Buttons`),
+        com o mesmo papel que `schema` tem sobre os campos: o catálogo base do
+        framework resolve a chave e o app descreve o que diverge. Vem por
+        parâmetro, e não de um import dentro de `defs/`, para `defs` continuar
+        importável isolado."""
         self._entity_name = entity_name
         self._model = model
         self._schema_orig = schema or {}
         self._schema = resolve_entity_fields(self._schema_orig, model, entity_name)
+        if botoes_tipos is not None:
+            self._botoes_tipos = botoes_tipos
         if blueprint is not None:
             self._bp_name = blueprint
         if self.template:
@@ -103,7 +114,7 @@ class Form:
         self._resolved_sessions = self._resolve_sessions()
         self._resolved_buttons = resolve_buttons(
             self.buttons, self._bp_name, where='form',
-            valid_fields=self._master_field_names)
+            valid_fields=self._master_field_names, types=self._botoes_tipos)
 
     @property
     def _master_field_names(self):
@@ -334,7 +345,7 @@ class Form:
                 'query': resolved_query,
                 'table': resolved_table,
                 'buttons': resolve_buttons(
-                    spec_buttons, self._bp_name,
+                    spec_buttons, self._bp_name, types=self._botoes_tipos,
                     where=f"session '{name}'",
                     valid_fields=self._master_field_names | _sess_names,
                     sess={'has_fields': bool(spec_fields),
@@ -431,7 +442,7 @@ class Form:
         return normalize_fieldspec(cols, full_schema, principal)
 
     def _resolve_buttons(self):
-        return resolve_buttons(self.buttons, self._bp_name)
+        return resolve_buttons(self.buttons, self._bp_name, types=self._botoes_tipos)
 
     def resolve_query_sessions(self, instance=None):
         """Resolve sessões com `query` callable, no render (com o instance).

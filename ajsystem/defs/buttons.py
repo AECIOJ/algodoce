@@ -59,9 +59,20 @@ POSITION_CONTEXT = {
 }
 
 
-def btn_style(color: str, outline: bool, size: str = 'sm') -> str:
+def btn_style(color: str, variant: str = 'outline', size: str = 'sm') -> str:
+    """Classe CSS do botão a partir da cor, do estilo e do tamanho.
+
+    'ghost' não carrega cor: é o estilo da navegação de registro
+    (⏮ ← → ⏭), que precisa sumir no fundo em vez de competir com as ações.
+    """
+    if variant == 'ghost':
+        return f'btn-ghost btn-{size}'
     base = f'btn-{color} btn-{size}'
-    return f'{base} btn-outline' if outline else base
+    return f'{base} btn-outline' if variant == 'outline' else base
+
+
+# Estilos aceitos em `Button.variant`. `ghost` é o único que ignora `color`.
+BUTTON_VARIANTS = ('solid', 'outline', 'ghost')
 
 
 def _get(obj, path, default=None):
@@ -139,9 +150,16 @@ class Button:
     label: str
     icon: Optional[str] = None
     color: str = 'secondary'
-    outline: bool = True
+    # `variant` é o eixo de estilo: 'solid' (preenchido), 'outline' (contorno) ou
+    # 'ghost' (sem fundo, sem cor — é o que a barra de navegação de registro usa).
+    # `ghost` descarta `color`: o que ele emite é `btn-ghost btn-sm`, igual ao
+    # markup que os templates escreviam à mão antes do catálogo.
+    variant: str = 'outline'
     size: str = 'sm'
     cls: str = ''
+    # Nome acessível. Vazio = cai no `label`; com `label=''` (botão só-ícone) é
+    # o `title` que dá nome ao botão e o tooltip do mouse.
+    title: str = ''
     # `label_off`/`icon_off` não são renderizados por nenhum template ainda —
     # declarados para o toggle `on_off` completo. Se for conectá-los, declarar
     # com constante de `ajsystem.locales`, como os outros rótulos.
@@ -174,7 +192,7 @@ class Button:
     field: Optional[str] = None
 
     def btn_cls(self) -> str:
-        return self.cls or btn_style(self.color, self.outline, self.size)
+        return self.cls or btn_style(self.color, self.variant, self.size)
 
     def text(self) -> str:
         """Rótulo do botão. `label` JÁ é o texto do locale ativo (veja
@@ -185,6 +203,14 @@ class Button:
         sendo a leitura correta sem que o template precise saber a diferença.
         """
         return self.label
+
+    def title_or_label(self) -> str:
+        """Nome acessível: `title` quando declarado, senão o `label`.
+
+        Botão só-ícone (`label=''`) depende disto — sem `title`, os quatro botões
+        de navegação de registro não teriam nome acessível nenhum.
+        """
+        return self.title or self.label
 
     def confirm_text(self) -> str:
         """Texto da confirmação (vazio se o botão não confirma)."""
@@ -313,44 +339,113 @@ CONFIRM_REMOVE_ITEM = ConfirmModal(
 )
 
 
-# ── Presets de aparência ────────────────────────────────────────────────────
-# Só aparência: `label` vem de `ajsystem.locales` (já no idioma ativo) e
-# `color`/`outline`/`size` alimentam `btn_cls()`. Nenhum preset fixa `cls` — se
-# fixasse, `cls` sombrearia
-# `btn_style()` e trocar só a `color` não mudaria nada no render.
+# ── Catálogo de tipos ────────────────────────────────────────────────────────
+# O que antes eram 27 `Button(...)` avulsos e o dict `ACTIONS`. Cada entrada é a
+# APARÊNCIA de um botão padrão: `label` vem de `ajsystem.locales` (já no idioma
+# ativo) e `color`/`variant`/`size` alimentam `btn_cls()`. Nenhuma entrada fixa
+# `cls` — se fixasse, `cls` sombrearia `btn_style()` e trocar só a `color` não
+# mudaria nada no render.
 #
-# Os dois botões de relatório (`BTN_PRINT`/`BTN_SEND`) não são presets: são
-# factories, porque precisam do dict de relatório. Ver mais abaixo.
-BTN_SAVE = Button(label=i18n.SAVE, icon='check', color='success', outline=False)
-BTN_DELETE = Button(label=i18n.DELETE, icon='trash', color='danger', outline=False,
-                    confirm_msg=i18n.CONFIRM_DELETE)
-BTN_NEW = Button(label=i18n.NEW, color='success', outline=False)
-BTN_BACK = Button(label=i18n.BACK, color='secondary', outline=True)
-BTN_EDIT = Button(label=i18n.EDIT, icon='pencil-square', color='primary', outline=True)
-BTN_CANCEL = Button(label=i18n.CANCEL, color='secondary', outline=True)
-BTN_CONVERT = Button(label=i18n.CONVERT, icon='arrow-path', color='success', outline=False)
-BTN_LIST = Button(label=i18n.LIST, icon='clipboard-document-list', color='secondary', outline=True)
-BTN_DETAILS = Button(label=i18n.DETAILS, icon='eye', color='info', outline=True)
-BTN_ADD = Button(label=i18n.ADD, color='success', outline=True)
-BTN_ADD_ITEM = Button(label=i18n.ADD_ITEM, color='success', outline=True)
-BTN_FINISH = Button(label=i18n.FINISH, color='success', outline=False)
-BTN_REFRESH = Button(label=i18n.REFRESH, icon='arrow-path', color='warning', outline=True)
-BTN_REMOVE = Button(label=i18n.REMOVE, icon='minus', color='danger', outline=True,
-                    confirm_msg=i18n.REMOVE_ITEM)
-BTN_YES = Button(label=i18n.YES, color='primary', outline=False)
-BTN_NO = Button(label=i18n.NO, color='secondary', outline=True)
-BTN_CLEAR = Button(label=i18n.CLEAR, color='danger', outline=True)
-BTN_APPLY = Button(label=i18n.APPLY, color='primary', outline=False)
-BTN_OK = Button(label=i18n.OK, color='danger', outline=False)
-BTN_EXIT = Button(label=i18n.EXIT, color='danger', outline=True, confirm_msg=i18n.DISCARD_CHANGES)
-BTN_RENEW = Button(label=i18n.RENEW, color='info', outline=False)
-BTN_REPORT = Button(label=i18n.REPORT, icon='document-text', color='info', outline=True)
-BTN_GENERATE = Button(label=i18n.GENERATE, color='success', outline=False)
-BTN_CONFIRM = Button(label=i18n.CONFIRM, color='success', outline=False)
-BTN_EDIT_PRODUCT = Button(label=i18n.EDIT_PRODUCT, icon='pencil-square', color='primary',
-                          outline=True)
-BTN_LOGIN = Button(label=i18n.LOGIN, color='danger', outline=False)
-BTN_ACCESS = Button(label=i18n.ACCESS, color='danger', outline=False)
+# As chaves são o contrato público: é por elas que um app escreve
+# `{'generate': {...}}` e `{'delete': {...}}` na spec, sem importar nada. Os
+# `BTN_*` abaixo são o mesmo catálogo em forma de constante, derivados daqui —
+# nenhum dos dois lados pode divergir do outro, porque todos nascem desta dict.
+#
+# Props de comportamento (`visible`, `enabled`, `carry`, `url`…) NÃO moram aqui:
+# elas dependem do form e do registro, e ficam no ponto de uso.
+BUTTON_TYPES = {
+    # ── CRUD e persistência ──
+    'save':        {'label': i18n.SAVE, 'icon': 'check', 'color': 'success', 'variant': 'solid'},
+    'delete':      {'label': i18n.DELETE, 'icon': 'trash', 'color': 'danger', 'variant': 'solid',
+                    'confirm_msg': i18n.CONFIRM_DELETE},
+    'new':         {'label': i18n.NEW, 'color': 'success', 'variant': 'solid'},
+    'edit':        {'label': i18n.EDIT, 'icon': 'pencil-square', 'color': 'primary'},
+    'add':         {'label': i18n.ADD, 'color': 'success'},
+    'add_item':    {'label': i18n.ADD_ITEM, 'color': 'success'},
+    'remove':      {'label': i18n.REMOVE, 'icon': 'minus', 'color': 'danger',
+                    'confirm_msg': i18n.REMOVE_ITEM},
+    'details':     {'label': i18n.DETAILS, 'icon': 'eye', 'color': 'info'},
+    'list':        {'label': i18n.LIST, 'icon': 'clipboard-document-list', 'color': 'secondary'},
+
+    # ── Navegação e controle de fluxo ──
+    # `back` tem texto; `first`/`previous`/`next`/`last` são os 4 da barra de
+    # registro e são usados só-ícone (`label=''` na spec). Por isso trazem
+    # `title` próprio: se dependessem do `label` do catálogo, a spec que esvazia
+    # o texto levaria junto o nome acessível.
+    'back':        {'label': i18n.BACK, 'icon': 'arrow-left', 'color': 'secondary'},
+    'first':       {'label': i18n.FIRST, 'icon': 'chevron-bar-left', 'variant': 'ghost',
+                    'title': i18n.FIRST},
+    'previous':    {'label': i18n.PREVIOUS, 'icon': 'chevron-left', 'variant': 'ghost',
+                    'title': i18n.PREVIOUS},
+    'next':        {'label': i18n.NEXT, 'icon': 'chevron-right', 'variant': 'ghost',
+                    'title': i18n.NEXT},
+    'last':        {'label': i18n.LAST, 'icon': 'chevron-bar-right', 'variant': 'ghost',
+                    'title': i18n.LAST},
+    'cancel':      {'label': i18n.CANCEL, 'color': 'secondary'},
+    'ok':          {'label': i18n.OK, 'color': 'success', 'variant': 'solid'},
+    'close':       {'label': i18n.CLOSE, 'icon': 'xmark', 'variant': 'ghost'},
+    'apply':       {'label': i18n.APPLY, 'icon': 'funnel', 'color': 'primary', 'variant': 'solid'},
+    'clear':       {'label': i18n.CLEAR, 'icon': 'xmark', 'color': 'danger'},
+    'exit':        {'label': i18n.EXIT, 'color': 'danger',
+                    'confirm_msg': i18n.DISCARD_CHANGES},
+    'yes':         {'label': i18n.YES, 'color': 'primary', 'variant': 'solid'},
+    'no':          {'label': i18n.NO, 'color': 'secondary'},
+
+    # ── Transição de estado e processos ──
+    # "Aprovar/Validar" e "Faturar/Processar" da lista de padrões são uma entrada
+    # cada: o rótulo do catálogo é o nome da ação, e quem quiser o sinônimo
+    # sobrescreve `label` no ponto de uso.
+    'approve':     {'label': i18n.APPROVE, 'icon': 'check', 'color': 'success', 'variant': 'solid'},
+    'bill':        {'label': i18n.BILL, 'icon': 'document-text', 'color': 'primary',
+                    'variant': 'solid'},
+    'reverse':     {'label': i18n.REVERSE, 'icon': 'xmark', 'color': 'danger',
+                    'variant': 'solid'},
+    'finish':      {'label': i18n.FINISH, 'color': 'success', 'variant': 'solid'},
+    'renew':       {'label': i18n.RENEW, 'color': 'info', 'variant': 'solid'},
+    'confirm':     {'label': i18n.CONFIRM, 'color': 'success', 'variant': 'solid'},
+    'convert':     {'label': i18n.CONVERT, 'icon': 'arrow-path', 'color': 'success',
+                    'variant': 'solid'},
+    'generate':    {'label': i18n.GENERATE, 'color': 'success', 'variant': 'solid'},
+    # Genérico neutro para "executar uma ação do app" sem cor que carregue
+    # significado (success/danger). Base de tipos específicos que não são CRUD,
+    # fluxo nem estado — ex.: `precos_zerados` no Algodoce.
+    'execute':     {'label': i18n.EXECUTE, 'color': 'secondary', 'variant': 'outline'},
+
+    # ── Utilitários e ações secundárias ──
+    'print':       {'label': i18n.PRINT, 'icon': 'printer', 'color': 'info'},
+    # `chevron-bar-right` é o glifo mais próximo de "baixar" no sprite atual
+    # (`arrow-down-tray` não existe). Ver `HEROICONS` no teste de ícones.
+    'export':      {'label': i18n.EXPORT, 'icon': 'chevron-bar-right', 'color': 'info'},
+    'search':      {'label': i18n.SEARCH, 'icon': 'magnifying-glass', 'color': 'info'},
+    # Sem ícone: o sprite não tem `clipboard-document`/`document-duplicate`, e
+    # "Copiar" já se explica sozinho pelo rótulo.
+    'copy':        {'label': i18n.COPY, 'color': 'secondary'},
+    'report':      {'label': i18n.REPORT, 'icon': 'document-text', 'color': 'info'},
+    'refresh':     {'label': i18n.REFRESH, 'icon': 'arrow-path', 'color': 'warning'},
+    'on_off':      {'label': i18n.ACTIVATE, 'icon': 'check', 'label_off': i18n.DEACTIVATE,
+                    'icon_off': 'xmark', 'color': 'success', 'position': POS_TOP_RIGHT,
+                    'on_off': True},
+
+    # ── Específicos de auth e de domínio ──
+    # Não são CRUD genérico, mas ficam no mesmo catálogo para não espalhar a
+    # aparência do botão de login por três arquivos diferentes. Um app que
+    # sobrescrever este catálogo pode removê-los sem tocar no framework.
+    'login':       {'label': i18n.LOGIN, 'color': 'danger', 'variant': 'solid'},
+    'access':      {'label': i18n.ACCESS, 'color': 'danger', 'variant': 'solid'},
+    'edit_product': {'label': i18n.EDIT_PRODUCT, 'icon': 'pencil-square', 'color': 'primary'},
+}
+
+# Derivados: o mesmo catálogo como constantes, gerados em loop. A constante de
+# um tipo é o preset EXATO desse tipo — o par de preset/tipo não pode divergir, porque a
+# linha abaixo é a única que os dois constroem. `dir()` no módulo enxerga os
+# nomes criados aqui, então `init.py` publica as globals Jinja sem lista.
+#
+# `print` vira `BTN_PRINT_STYLE` e não `BTN_PRINT`: o nome `BTN_PRINT` pertence à
+# factory de relatório, que precisa do dict do relatório para funcionar.
+for _nome, _spec in BUTTON_TYPES.items():
+    _const = 'BTN_' + _nome.upper() + ('_STYLE' if _nome == 'print' else '')
+    globals()[_const] = Button(**_spec)
+del _nome, _spec, _const
 
 
 # ── Botões de relatório (factories: precisam do dict do relatório) ─────────
@@ -400,8 +495,7 @@ def BTN_PRINT(report, *, filter_field='', guard=None, **overrides) -> Button:
               else _render_relatorio(report, guard=guard or _has_items))
     opts = {'render': render, 'into': REPORT_CONTENT}
     opts.update(overrides)
-    return replace(Button(label=i18n.PRINT, icon='printer', color='info',
-                          outline=True), **opts)
+    return replace(BTN_PRINT_STYLE, **opts)
 
 
 def BTN_SEND(report, *, filter_field='', guard=None, **overrides) -> Button:
@@ -417,17 +511,10 @@ def BTN_SEND(report, *, filter_field='', guard=None, **overrides) -> Button:
     return replace(BTN_PRINT(report, filter_field=filter_field, guard=guard), **opts)
 
 
-# ── Registro nomeado de ações (Form.buttons / List) ──
-# Resolução em ajsystem.core.form: um nome resolve para o default abaixo.
-# Endpoint e campo booleano são derivados por convenção
-# (endpoint = '<blueprint>.toggle', campo default 'ativo').
-ACTIONS = {
-    'on_off': Button(
-        label=i18n.ACTIVATE, icon='check',
-        label_off=i18n.DEACTIVATE, icon_off='xmark',
-        color='success', outline=True, position=POS_TOP_RIGHT, on_off=True,
-    ),
-}
+# O antigo registro `ACTIONS` virou a entrada `'on_off'` de `BUTTON_TYPES`. O
+# resolução por nome continua igual: um nome resolve para o tipo do catálogo, e
+# endpoint/campo booleano são derivados por convenção (endpoint =
+# '<blueprint>.toggle', campo default 'ativo'). Ver `resolve_buttons`.
 
 
 def _err(where, label, msg):
@@ -558,23 +645,82 @@ def _check_list(btn, where):
                    'callable): o endpoint receberia o `id`, que a listagem não tem.')
 
 
+def build_catalogo(types=None) -> dict:
+    """Junta o catálogo do framework com o do host e devolve o efetivo.
+
+    É a MESMA função para `resolve_buttons` e para o `_toggle_field` do motor
+    (que precisa ler `on_off` sem passar por um `Button`), porque dois merges
+    divergem no dia seguinte em que um deles ganha uma regra.
+
+    Quatro camadas, na ordem:
+
+        BUTTON_TYPES[tipo-base]  <  entrada do host (sem 'type')  <  spec
+
+    - **A chave é o nome do tipo**, e a entrada do host é um override *parcial*
+      da entrada de base. Sem isso, `{'delete': {'color': 'warning'}}` trocaria a
+      entrada inteira e perderia o `label`/`icon`/`confirm_msg` dela.
+    - **`type` diz de qual tipo genérico o tipo do host diverge.** Sem ele a base
+      é o tipo de *mesmo nome* (o caso de sobrescrever `delete`). Com ele, o app
+      nomeia um tipo novo que declara só o que muda:
+      `{'type': 'generate', 'icon': 'currency-dollar'}`.
+    - `type` aponta para tipo que não existe é erro aqui, com o nome — senão o
+      `Button(**...)` lá embaixo reclama de `label` faltando e não diz que o
+      problema é o tipo base declarado.
+    - Nenhuma camada muta `BUTTON_TYPES`: o merge é sempre por dict nova.
+    """
+    catalogo = dict(BUTTON_TYPES)
+    for chave, entrada in (types or {}).items():
+        if not isinstance(entrada, dict):
+            raise TypeError(f"entrada de botoes[{chave!r}] não é dict: "
+                            f"{type(entrada).__name__}.")
+        base = entrada.get('type', chave)
+        if base not in BUTTON_TYPES:
+            # Duas causas bem diferentes com a mesma consequência (a entrada
+            # ficaria sem `label` e o `Button(**...)` reclamaria depois), então a
+            # mensagem diz qual das duas é — senão `type='gerate'` (digitação) e
+            # "esqueci de declarar a base" viram o mesmo erro.
+            if 'type' in entrada:
+                raise KeyError(
+                    f"botoes[{chave!r}] declara type={base!r}, que não existe em "
+                    f"ajsystem.defs.buttons.BUTTON_TYPES. Disponíveis: "
+                    f"{', '.join(BUTTON_TYPES)}"
+                )
+            raise KeyError(
+                f"botoes[{chave!r}] não existe em BUTTON_TYPES e não declara "
+                f"'type'. Todo tipo do app diverge de um genérico: ponha "
+                f"'type': '<genérico>' em botoes[{chave!r}], ou sobrescreva um "
+                f"tipo que já tenha o nome. Genéricos: {', '.join(BUTTON_TYPES)}"
+            )
+        # `type` sai do merge: é metadado de qual base usar, não prop de Button.
+        catalogo[chave] = {**BUTTON_TYPES[base],
+                           **{k: v for k, v in entrada.items() if k != 'type'}}
+    return catalogo
+
+
 def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
-                    sess=None, ctx='form'):
+                    sess=None, ctx='form', types=None):
     """Resolve specs de botão para `Button` (Form.buttons / List.buttons).
 
-    Cada spec aceita: instância `Button` pronta (presets e `BTN_PRINT`/
-    `BTN_SEND`), nome de preset em `ACTIONS` (ex.: `'on_off'`),
-    `{nome: {overrides}}` (preset com ajustes) ou dict custom. Toda chave é
-    validada — chave desconhecida, destino ambíguo ou campo inexistente em
-    `enabled` levanta erro em vez de ser descartado em silêncio.
+    Cada spec aceita: instância `Button` pronta (os `BTN_*` e as factories
+    `BTN_PRINT`/`BTN_SEND`), nome de tipo do catálogo (ex.: `'on_off'`,
+    `'delete'`), `{tipo: {overrides}}` ou dict custom. Toda chave é validada —
+    chave desconhecida, destino ambíguo ou campo inexistente em `enabled` levanta
+    erro em vez de ser descartado em silêncio.
 
     Parâmetros de validação: `where` (rótulo do contexto, p/ mensagens),
     `valid_fields` (nomes de campo válidos para `enabled`), `sess` (dict com
     `has_fields`/`has_table`, para `position` de sessão) e `ctx` (`'form'` ou
     `'list'`).
+
+    `types` é o catálogo do host (`app.botoes.Buttons`), mesclado sobre
+    `BUTTON_TYPES` — o mesmo papel que o `Schema` do módulo tem sobre a entity
+    em `resolve_entity_fields`. O merge é o de `build_catalogo`: o app declara
+    de qual tipo genérico diverge (`type`) e só o que muda, e a spec declara
+    sobre o app. Nenhuma camada muta `BUTTON_TYPES`.
     """
     if not specs:
         return []
+    catalogo = build_catalogo(types)
     resolved = []
     for spec in specs:
         name = None
@@ -587,29 +733,38 @@ def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
             btn = replace(spec)
         elif isinstance(spec, str):
             name = spec
-            base = ACTIONS.get(name)
+            base = catalogo.get(name)
             if base is None:
                 raise KeyError(
-                    f"Botão padrão '{name}' não existe em ajsystem.defs.buttons.ACTIONS. "
-                    f"Disponíveis: {', '.join(ACTIONS)}"
+                    f"Botão padrão '{name}' não existe em ajsystem.defs.buttons.BUTTON_TYPES. "
+                    f"Disponíveis: {', '.join(catalogo)}"
                 )
-            btn = replace(base)
-        elif isinstance(spec, dict) and 'label' not in spec and len(spec) == 1:
+            btn = replace(Button(**base))
+        elif (isinstance(spec, dict) and 'label' not in spec and len(spec) == 1
+                and next(iter(spec)) in catalogo):
+            # `{'tipo': {overrides}}` — merge raso: catálogo base < catálogo do
+            # host < spec. O gate `next(iter(spec)) in catalogo` é o que separa
+            # este ramo do dict custom: `{'enabled': {...}}` tem uma chave só e
+            # um dict como valor, mas 'enabled' não é tipo, então cai no `else`
+            # e vira `Button` normal.
             name, overrides = next(iter(spec.items()))
-            base = ACTIONS.get(name)
-            if base is None:
-                raise KeyError(
-                    f"Botão padrão '{name}' não existe em ajsystem.defs.buttons.ACTIONS. "
-                    f"Disponíveis: {', '.join(ACTIONS)}"
-                )
-            overrides = dict(overrides or {})
-            field_name = overrides.pop('field', None)
-            unknown = set(overrides) - set(Button.__dataclass_fields__)
+            base = {**catalogo[name], **(overrides or {})}
+            field_name = base.pop('field', None)
+            unknown = set(base) - set(Button.__dataclass_fields__)
             if unknown:
                 raise _err(where, f"{name}", f"chave(s) desconhecida(s): {', '.join(sorted(unknown))}.")
-            btn = replace(base, **overrides)
+            btn = replace(Button(**base))
         else:
             cfg = dict(spec)
+            if 'label' not in cfg and len(cfg) == 1:
+                # Chegou aqui por ter uma chave só e nenhuma chave de tipo. A
+                # mensagem precisa dizer isso, senão o `Button(**cfg)` reclama
+                # de `label` faltando e não diz que o problema é o nome do tipo.
+                raise KeyError(
+                    f"Botão padrão '{next(iter(cfg))}' não existe em "
+                    f"ajsystem.defs.buttons.BUTTON_TYPES. "
+                    f"Disponíveis: {', '.join(catalogo)}"
+                )
             field_name = cfg.get('field')
             unknown = set(cfg) - set(Button.__dataclass_fields__)
             if unknown:

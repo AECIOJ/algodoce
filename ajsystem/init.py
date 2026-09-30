@@ -97,15 +97,21 @@ def init_app(app):
         if isinstance(_value, (Button, ConfirmModal)):
             app.jinja_env.globals[_name] = _value
 
+    # 4.1 catálogo de botões efetivo (framework < host). Vai para `extensions`
+    # porque um endpoint HTTP não tem como receber isto por parâmetro — é o
+    # único lugar do framework que precisa ler o catálogo fora do motor de forms.
+    app.extensions['botoes'] = dict(APP.botoes or {})
+
     # 5. registra módulos CRUD a partir dos menus do módulo 'system'
     system = APP.module('system')
     if system:
-        registrar_modulos(app, system.menus)
+        registrar_modulos(app, system.menus, botoes_tipos=APP.botoes)
 
     # 6. registra os módulos públicos (páginas do site) a partir do menu
     public = APP.module('public')
     if public:
-        registrar_modulos(app, public.menus, modulo_ini='app.routes.site', login=False)
+        registrar_modulos(app, public.menus, modulo_ini='app.routes.site', login=False,
+                          botoes_tipos=APP.botoes)
 
     # 7. globals/contexto padrão do framework (tema, app config, módulo atual).
     #    O host pode sobrescrever com seus próprios context_processor.

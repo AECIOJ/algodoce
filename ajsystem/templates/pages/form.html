@@ -29,7 +29,7 @@
 <div class="app-bar app-bar-form shrink-0"
          style="border-bottom:1px solid var(--fallback-b3, oklch(var(--b3)));background:var(--bar-bg-form);color:var(--bar-txt-form); flex-wrap: wrap; align-items: center;">
     <div class="app-bar-left" style="flex:0 0 auto; display:flex; align-items:center; gap:var(--bar-gap);">
-      {% from "pages/macros.html" import btn %}
+      {% from "pages/macros.html" import btn, btn_off %}
       {{ btn(BTN_LIST, back_url|default('#')) }}
       {% for btn in form._resolved_buttons if btn.position == 'top_left' %}
       <span class="app-bar-btn">{{ fm.render_button(btn, instance, form._resolved_fields) }}</span>
@@ -38,17 +38,11 @@
     {% if entity_id is defined and entity_id %}
     <div class="app-bar-center" style="flex:1 1 auto; display:flex; align-items:center; justify-content:center; gap:var(--bar-gap); margin:0 auto;">
       <div class="flex gap-0 items-center">
-        <a href="{{ url_for(edit_endpoint, id=nav.first_id) if nav is defined and nav else '#' }}" class="btn btn-ghost btn-sm" title="{{ i18n.FIRST }}">
-          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-bar-left"/></svg>
-        </a>
+        {{ btn(BTN_FIRST, url_for(edit_endpoint, id=nav.first_id) if nav is defined and nav else '#', text=False) }}
         {% if nav is defined and nav and nav.prev_id %}
-        <a href="{{ url_for(edit_endpoint, id=nav.prev_id) }}" class="btn btn-ghost btn-sm" title="{{ i18n.PREVIOUS }}">
-          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-left"/></svg>
-        </a>
+        {{ btn(BTN_PREVIOUS, url_for(edit_endpoint, id=nav.prev_id), text=False) }}
         {% else %}
-        <span class="btn btn-ghost btn-sm btn-disabled">
-          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-left"/></svg>
-        </span>
+        {{ btn_off(BTN_PREVIOUS, text=False) }}
         {% endif %}
       </div>
       <div class="flex items-center gap-1 mx-2">
@@ -58,17 +52,11 @@
       </div>
       <div class="flex gap-0 items-center">
         {% if nav is defined and nav and nav.next_id %}
-        <a href="{{ url_for(edit_endpoint, id=nav.next_id) }}" class="btn btn-ghost btn-sm" title="{{ i18n.NEXT }}">
-          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-right"/></svg>
-        </a>
+        {{ btn(BTN_NEXT, url_for(edit_endpoint, id=nav.next_id), text=False) }}
         {% else %}
-        <span class="btn btn-ghost btn-sm btn-disabled">
-          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-right"/></svg>
-        </span>
+        {{ btn_off(BTN_NEXT, text=False) }}
         {% endif %}
-        <a href="{{ url_for(edit_endpoint, id=nav.last_id) if nav is defined and nav else '#' }}" class="btn btn-ghost btn-sm" title="{{ i18n.LAST }}">
-          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-chevron-bar-right"/></svg>
-        </a>
+        {{ btn(BTN_LAST, url_for(edit_endpoint, id=nav.last_id) if nav is defined and nav else '#', text=False) }}
       </div>
     </div>
     {% else %}
@@ -113,8 +101,13 @@
       {% endif %}
       {% if form.delete and can_delete and instance and instance.id and not ro %}
       <form method="POST" action="{{ url_for(edit_endpoint.rsplit('.', 1)[0] + '.delete', id=instance.id) }}" class="inline">
-        <button type="submit" class="btn btn-danger inline-flex items-center gap-1" onclick="return confirm('Excluir este registro?')">
-          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-trash"/></svg> Excluir
+        {# `BTN_DELETE` em vez de `<button class="btn btn-danger">` escrito à mão:
+           o `confirm` passa a sair de `i18n.CONFIRM_DELETE` (o texto estava
+           duplicado em português no template) e a classe vem de `btn_cls()`. #}
+        <button type="submit" class="btn {{ BTN_DELETE.btn_cls() }} inline-flex items-center gap-1"
+                onclick="return confirm('{{ BTN_DELETE.confirm_text() }}')">
+          {% if BTN_DELETE.icon %}<svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ BTN_DELETE.icon }}"/></svg>{% endif %}
+          {{ BTN_DELETE.text() }}
         </button>
       </form>
       {% endif %}

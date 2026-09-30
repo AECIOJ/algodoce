@@ -1,5 +1,6 @@
 import re
-from flask import Blueprint, jsonify, request, render_template, url_for
+from flask import (Blueprint, current_app, jsonify, request, render_template,
+                   url_for)
 from markupsafe import Markup
 from flask_login import login_required
 
@@ -90,7 +91,8 @@ def list_action():
                 if isinstance(getattr(mod, a, None), _BP)), None)
     bp_name = bp.name if bp else None
     from ajsystem.defs.buttons import resolve_buttons
-    btns = resolve_buttons(lista.get('buttons'), bp_name, where='list', ctx='list')
+    btns = resolve_buttons(lista.get('buttons'), bp_name, where='list', ctx='list',
+                           types=current_app.extensions.get('botoes'))
     if btn_idx < 0 or btn_idx >= len(btns):
         return jsonify(error='botão inválido'), 400
     btn = btns[btn_idx]

@@ -4,11 +4,24 @@
 </svg>
 {% endmacro %}
 
-{% macro btn(button, url, extra_class='') %}
+{# `text=False` renderiza só o ícone. A navegação de registro (⏮ ← → ⏭) é
+   assim: a entrada do catálogo traz `label` para o caso de uso com texto, e o
+   `title` fica sendo o nome acessível e o tooltip de quem não enxerga o glifo. #}
+{% macro btn(button, url, extra_class='', text=True) %}
 {# Usa `button.btn_cls()`/`button.text()`: a cor e o texto traduzido saem da
-   mesma fonte dos presets, sem a cópia da regra de classe que vivia aqui. #}
-<a href="{{ url }}" class="btn {{ button.btn_cls() }} {{ extra_class }} inline-flex items-center gap-1">
-  {% if button.icon %}{{ heroicon(button.icon, 'w-4 h-4') }}{% endif %}
-  {{ button.text() }}
+   mesma fonte do catálogo de tipos, sem a cópia da regra de classe que vivia
+   aqui. #}
+<a href="{{ url }}" title="{{ button.title_or_label() }}"
+   class="btn {{ button.btn_cls() }} {{ extra_class }} inline-flex items-center gap-1">
+  {% if button.icon %}{{ heroicon(button.icon, 'w-4 h-4') }}{% endif %}{% if text %} {{ button.text() }}{% endif %}
 </a>
+{% endmacro %}
+
+{# Botão sem destino: o `span` desabilitado que a navegação de registro usa
+   quando não há registro anterior/próximo. Mesma classe do `btn`, sem href. #}
+{% macro btn_off(button, extra_class='', text=True) %}
+<span title="{{ button.title_or_label() }}" aria-disabled="true"
+      class="btn {{ button.btn_cls() }} {{ extra_class }} inline-flex items-center gap-1 btn-disabled">
+  {% if button.icon %}{{ heroicon(button.icon, 'w-4 h-4') }}{% endif %}{% if text %} {{ button.text() }}{% endif %}
+</span>
 {% endmacro %}

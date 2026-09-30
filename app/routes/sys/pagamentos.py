@@ -57,9 +57,12 @@ Page = {
             'pre_save': _validar_origem_exclusiva,
             'post_save': post_save_movto_link,
             'buttons': [
-                {'label': 'Excluir', 'icon': 'trash', 'color': 'danger', 'outline': False,
-                 'url': 'pagamentos.excluir', 'method': 'POST',
-                 'confirm_msg': 'Excluir este lançamento?', 'position': 'bottom_left'},
+                # O que sobra de `delete` aqui é o que difere do tipo: destino
+                # (a rota de exclusão é a única que estorna o lançamento) e a
+                # mensagem de confirmação. Rótulo, ícone, cor e posição saem do
+                # catálogo — por isso `resolve_buttons` declara o tipo.
+                {'delete': {'url': 'pagamentos.excluir', 'method': 'POST',
+                            'confirm_msg': 'Excluir este lançamento?', 'position': 'bottom_left'}},
             ],
         },
     },

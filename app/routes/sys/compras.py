@@ -6,6 +6,7 @@ from ajsystem.core.formats import parse_brl
 from ajsystem.defs.buttons import BTN_SEND
 from ajsystem.defs.constants import TODAY, POS_0_NOT_EMPTY
 from app.models.compra import Compra
+from app.botoes import _sem_financeiro
 from app.models.compra_item import CompraItem
 from app.reports.compras import COMPRA
 
@@ -77,10 +78,6 @@ def _pre_get(mod, id):
             db.session.rollback()
         flash("Faturamento revertido: lançamento em contrapartida não existe.", "warning")
     return None
-
-
-def _sem_financeiro(instance):
-    return instance is not None and not instance.transacao and not instance.movto
 
 
 def _financeiro_gerado(instance):
@@ -197,12 +194,16 @@ Page = {
                                'carteira_id', 'transacao_id', 'movto_id'],
                     'query': _query_financeiro,
                     'buttons': [
-                        {'label': 'Gerar', 'icon': 'banknotes', 'color': 'success', 'outline': True,
-                         'url': 'compras.gerar_financeiro', 'method': 'POST', 'position': 'right',
-                         'confirm_msg': 'Gerar o financeiro desta compra?',
-                         'visible': _sem_financeiro,
-                         'enabled': ['valor', 'carteira_id'],
-                         'carry': {'map': {'valor': 'valor', 'conta_id': 'fornecedor_id'}}},
+                        # Rótulo, ícone (cédula -> moeda), cor e estilo saem do
+                        # tipo `gerar_financeiro` do app. Aqui ficam só o que é
+                        # deste uso: destino, confirmação, visibilidade, campos
+                        # que habilitam e o que é carregado para o formulário.
+                        {'gerar_financeiro': {
+                            'url': 'compras.gerar_financeiro', 'method': 'POST', 'position': 'right',
+                            'confirm_msg': 'Gerar o financeiro desta compra?',
+                            'visible': _sem_financeiro,
+                            'enabled': ['valor', 'carteira_id'],
+                            'carry': {'map': {'valor': 'valor', 'conta_id': 'fornecedor_id'}}}},
                     ],
                 },
 

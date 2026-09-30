@@ -108,6 +108,9 @@ class App:
       procura o arquivo `versao.py` do app (YEAR/MONTH/SEQUENCE).
     - `upload`: política global de upload (`Page.upload` sobrescreve).
       Ausente (`None`) = `DEFAULT_UPLOAD` abaixo.
+    - `botoes`: catálogo de botões do host (`app.botoes.Buttons`), mesclado
+      sobre `BUTTON_TYPES` na resolução. Mesmo papel do `Schema` de um módulo
+      sobre os campos. Ausente (`None`) = só o catálogo do framework.
     """
     name: str
     logo: str
@@ -115,6 +118,7 @@ class App:
     title: Optional[str] = None
     version: Optional[str] = None
     upload: Optional[dict] = None
+    botoes: Optional[dict] = None
     modules: List[Module] = field(default_factory=list)
     def module(self, type):
         """Retorna o módulo com o `type` dado; se ausente, o primeiro da lista
@@ -192,7 +196,7 @@ def _versao_de_arquivo(caminho):
         return ''
 
 
-def build_app(cfg, versao_path=None) -> App:
+def build_app(cfg, versao_path=None, botoes=None) -> App:
     cfg = dict(cfg)
     mods = [build_module(m) for m in cfg.pop('modules', None) or []]
     tipos = [m.type for m in mods]
@@ -209,6 +213,7 @@ def build_app(cfg, versao_path=None) -> App:
         version=versao or None,
         tema=cfg['tema'],
         upload=cfg.get('upload'),
+        botoes=botoes,
         modules=mods,
     )
 

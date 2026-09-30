@@ -13,10 +13,14 @@ from app.models.usuario import Usuario
 from app.models.configuracao import Configuracao
 from app import config as _config_mod
 from app.config import APP as _APP, Temas as _TEMAS
+from app.botoes import Buttons as _BOTOES
 from ajsystem.defs.config import build_app, build_temas
 
 _versao_path = os.path.join(os.path.dirname(os.path.abspath(_config_mod.__file__)), 'versao.py')
-APP = build_app(_APP, versao_path=_versao_path)
+# `botoes` é o catálogo de aparência que só o app conhece (o `Schema` dos campos,
+# equivalente). Entra por parâmetro como o resto do config — o framework não abre
+# arquivo do host; quem carrega é o adapter, que já é o ponto de acoplamento.
+APP = build_app(_APP, versao_path=_versao_path, botoes=_BOTOES)
 TEMAS = build_temas(_TEMAS)
 
 # Pacote base das rotas do host (módulos `sys`/`site` pendurados dele).

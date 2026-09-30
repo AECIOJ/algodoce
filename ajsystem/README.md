@@ -251,7 +251,7 @@ Page = {'type': 'crud', 'props': {'scripts': ['previsoes', 'rel/gerar']}}
 | `readonly` | `bool\|callable` | `False` | `lambda q: q.pedido_id is not None` | `do_form.py:79` `_is_readonly` desabilita tudo |
 | `delete` | `bool\|dict\|callable` | `False` | `True`, `{'when':[Model]}`, `lambda` | `_resolve_delete` + `_when_allows`; `msg_ok`/`msg_no` |
 | `pre_save`/`post_save` | `callable` | `None` | `f(instance,request,is_new)` | `do_form.py:446` valida/salva |
-| `buttons` | `str\|Button\|list` | `None` | `['on_off']`, instância `Button`, preset (`BTN_SAVE`, `BTN_PRINT`, `BTN_SEND`…) ou lista de qualquer um | `resolve_buttons` (`defs/buttons.py`); `form.html:nav`/`footer` |
+| `buttons` | `str\|Button\|list` | `None` | nome de tipo (`'on_off'`, `'delete'`), `{tipo: {overrides}}`, instância `Button` (`BTN_SAVE`, `BTN_PRINT`, `BTN_SEND`…) ou lista de qualquer um | `resolve_buttons` (`defs/buttons.py`); `form.html:nav`/`footer` |
 | `spacing` | `num` | `2` | gap entre campos | `render_fields` |
 | `max_width` | `num` | `None` | largura máxima do form | `resolve_max_width` |
 
@@ -358,11 +358,12 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 | Prop | Tipo | Default | Valores | Impacto |
 |---|---|---|---|---|
 | `label` | `str` | — | constante de `ajsystem.locales` | **texto final** do locale ativo; `btn.text()` é pass-through |
+| `title` | `str` | `''` | constante de `ajsystem.locales` | nome acessível e tooltip; `title_or_label()` cai no `label` quando vazio |
 | `icon` | `str` | `None` | nome de ícone | ícone do botão |
 | `color` | `str` | `'secondary'` | `primary/secondary/success/warning/error/info` | `btn-{color}` |
-| `outline` | `bool` | `True` | | `btn-outline` |
+| `variant` | `str` | `'outline'` | `outline`, `solid`, `ghost` | `btn-outline` / `btn-{color}` / `btn-ghost` (o `ghost` **ignora** a cor) |
 | `size` | `str` | `'sm'` | `xs,sm,md…` | `btn-{size}` |
-| `cls` | `str` | `''` | classe extra; **anula** `color`/`outline`/`size` | `btn.btn_cls()` |
+| `cls` | `str` | `''` | classe extra; **anula** `color`/`variant`/`size` | `btn.btn_cls()` |
 | `label_off` | `str` | `None` | constante de `ajsystem.locales` | **não renderizado** — reservado ao toggle `on_off`; se for conectado, declarar com constante, como os outros rótulos |
 | `icon_off` | `str` | `None` | | idem, não renderizado |
 | `visible` | `bool\|callable\|tuple\|dict` | `True` | | decide a renderização, **no servidor, 1×** |
@@ -382,7 +383,32 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 | `on_off` | `bool` | `False` | | vira toggle; `field` diz de qual campo |
 | `field` | `str` | `None` | nome do campo | usado por `on_off` |
 
-`resolve_buttons(specs, bp_name, *, where, valid_fields, sess, ctx)` recebe uma **lista** de specs; cada item pode ser instância `Button` (presets e `BTN_PRINT`/`BTN_SEND` já são `Button`), nome em `ACTIONS` (hoje só `on_off`), `{nome: {overrides}}` ou dict custom. Toda chave é validada — chave desconhecida, destino ambíguo (`action`+`url`) ou campo inexistente em `enabled` **levanta erro** em vez de ser descartado em silêncio. Instâncias são copiadas com `replace()` porque a validação normaliza `enabled`/`field`/`url` in-place: sem a cópia, o preset compartilhado seria contaminado pelo primeiro registro que o usasse.
+`resolve_buttons(specs, bp_name, *, where, valid_fields, sess, ctx)` recebe uma **lista** de specs; cada item pode ser instância `Button` (os tipos derivados e `BTN_PRINT`/`BTN_SEND` já são `Button`), nome de tipo (`'delete'`), `{nome: {overrides}}` ou dict custom. Toda chave é validada — chave desconhecida, destino ambíguo (`action`+`url`) ou campo inexistente em `enabled` **levanta erro** em vez de ser descartado em silêncio. Instâncias são copiadas com `replace()` porque a validação normaliza `enabled`/`field`/`url` in-place: sem a cópia, o preset compartilhado seria contaminado pelo primeiro registro que o usasse.
+
+**Catálogo de tipos (`BUTTON_TYPES`)** — a aparência mora num só lugar, e `resolve_buttons` monta o resultado em 4 camadas:
+
+```
+BUTTON_TYPES[base]  <  entrada do host (sem 'type')  <  spec do uso
+```
+
+- **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:356`) tem 41 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
+- **`type`** — a entrada do host declara de qual genérico diverge. Sem `type`, a base é o tipo de **mesmo nome** (o caso de sobrescrever `delete`); com `type`, o app nomeia um botão seu e declara só o que muda. `type` apontando para tipo inexistente **levanta erro dizendo o nome** — não vira `label faltando` mais tarde.
+- **override parcial** — a entrada do host é parcial de propósito. `{'delete': {'color': 'warning'}}` troca a cor e **mantém** o `label`/`icon`/`confirm_msg` do tipo.
+- **`build_catalogo(types)`** é a função que faz o merge, e é a mesma para `resolve_buttons` e para o `_toggle_field` do motor — dois merges divergem no dia seguinte em que um deles ganha uma regra. Nenhuma camada muta `BUTTON_TYPES`.
+- **`enabled`/`carry`/`url`/`position` não moram no catálogo**: dependem do form e do registro, então ficam no ponto de uso.
+
+```python
+# framework — só genéricos
+BUTTON_TYPES = {'generate': {'label': i18n.GENERATE, 'color': 'success', 'variant': 'solid'}, …}
+
+# app/botoes.py — só o que diverge
+Buttons = {'gerar_financeiro': {'type': 'generate', 'icon': 'currency-dollar', 'variant': 'outline'}}
+
+# route — só o que depende do form e do registro
+'buttons': [{'gerar_financeiro': {'url': 'pedidos.gerar_financeiro', 'method': 'POST'}}]
+```
+
+Toda entrada de `BUTTON_TYPES` ganha sua constante `BTN_<NOME>` por loop, e as globais Jinja saem daí por varredura de prefixo (`BTN_*`, `CONFIRM_*` em `ajsystem/init.py`) — por isso um tipo novo não toca lista de importação. `print` vira `BTN_PRINT_STYLE`, porque `BTN_PRINT` é nome da factory de relatório.
 
 **`position`** — são 8 nomes, e o *mesmo* nome se comporta de forma diferente conforme o contexto que vai renderizar o botão. `_check_position` valida contra a tabela do contexto e **levanta erro** em valor fora dela (nada de sumir em silêncio). O contexto da sessão é decidido pelo formato dela: havendo `fields`, o botão pertence ao bloco de `fields` (mesmo que a sessão também traga `table`/`query`, como em `Financeiro`); sem `fields`, pertence à tabela.
 

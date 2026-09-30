@@ -110,12 +110,22 @@ def _get_model(mod):
     return None
 
 
-def _toggle_field(form_cfg):
+def _toggle_field(form_cfg, botoes_tipos=None):
+    """Nome do campo booleano que o toggle da página liga/desliga.
+
+    O nome do tipo não é literal aqui: um app pode declarar o seu próprio
+    (`'ligar_desligar': {'on_off': True, ...}`), então o que decide é a entrada
+    do CATÁLOGO ter `on_off`, e não a string se chamar `on_off` ou não.
+    """
+    from ajsystem.defs.buttons import build_catalogo
+    catalogo = build_catalogo(botoes_tipos)
     for b in form_cfg.get('buttons') or []:
-        if b == 'on_off':
+        if isinstance(b, str) and catalogo.get(b, {}).get('on_off'):
             return 'ativo'
-        if isinstance(b, dict) and len(b) == 1 and 'on_off' in b:
-            return (b['on_off'] or {}).get('field') or 'ativo'
+        if isinstance(b, dict) and len(b) == 1:
+            (nome, _), = b.items()
+            if nome in catalogo and catalogo[nome].get('on_off'):
+                return (b[nome] or {}).get('field') or 'ativo'
         if isinstance(b, dict) and b.get('on_off') is True and b.get('field'):
             return b['field']
         # Instância `Button` pronta (mesmo caminho de `resolve_buttons`). Sem
@@ -125,7 +135,7 @@ def _toggle_field(form_cfg):
     return None
 
 
-def _build_form(mod, entidade, model, slug=None):
+def _build_form(mod, entidade, model, slug=None, botoes_tipos=None):
     cfg = dict(_form_config(mod))
     if 'pre_get' in cfg:
         cfg.pop('pre_get')
@@ -139,7 +149,8 @@ def _build_form(mod, entidade, model, slug=None):
     _pu = _pg.get('upload') if hasattr(_pg, 'get') else None
     if _pu:
         form.upload = _pu
-    form.resolve(entidade, model, schema, blueprint=slug)
+    form.resolve(entidade, model, schema, blueprint=slug,
+                 botoes_tipos=botoes_tipos)
     if slug:
         form._redirect = f"{slug}.list"
     if hasattr(mod, '_label') and not form._label:
@@ -147,7 +158,7 @@ def _build_form(mod, entidade, model, slug=None):
     return form
 
 
-def _generated_crud(mod, slug):
+def _generated_crud(mod, slug, botoes_tipos=None):
     page = getattr(mod, 'Page', None)
     if isinstance(page, dict):
         if page.get('type', 'crud') != 'crud':
@@ -166,7 +177,8 @@ def _generated_crud(mod, slug):
     routes.append(('/', 'list', _list))
 
     def _form(id=None):
-        form = _build_form(mod, entidade, model, slug=slug)
+        form = _build_form(mod, entidade, model, slug=slug,
+                           botoes_tipos=botoes_tipos)
         # `page_scripts` entra pelo extra_ctx (que `do_form` mescla no ctx) em
         # vez de entrar na assinatura: o motor já tem o módulo aqui, e o
         # `pre_get` continua podendo acrescentar as próprias chaves.
@@ -192,7 +204,7 @@ def _generated_crud(mod, slug):
             return redirect(url_for(f'{slug}.list'))
         routes.append(('/<int:id>/excluir', 'delete', _delete))
 
-    campo = _toggle_field(form_cfg)
+    campo = _toggle_field(form_cfg, botoes_tipos)
     if model is not None and campo:
         flash_toggle = i18n.MSG_UPDATED
 
@@ -207,7 +219,8 @@ def _generated_crud(mod, slug):
     return routes
 
 
-def montar_blueprint(mod, slug=None, url_prefix=None, login=True, label=None):
+def montar_blueprint(mod, slug=None, url_prefix=None, login=True, label=None,
+                    botoes_tipos=None):
     existente = module_blueprint(mod)
     if existente is not None:
         return existente
@@ -222,7 +235,7 @@ def montar_blueprint(mod, slug=None, url_prefix=None, login=True, label=None):
     if login:
         protect_blueprint(bp)
 
-    generated = _generated_crud(mod, slug)
+    generated = _generated_crud(mod, slug, botoes_tipos=botoes_tipos)
     custom = _rotas_do_modulo(mod)
     custom_names = {r['endpoint'] for r in custom}
     for r in custom:
@@ -285,7 +298,8 @@ def _blueprint_construcao(slug, label=None, login=True, url_prefix=None):
     return bp
 
 
-def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True):
+def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True,
+                      botoes_tipos=None):
     registrados = []
     vistos = set()
     para_site = modulo_ini.endswith('.site')
@@ -318,9 +332,11 @@ def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True)
             prefix = f'/{base}'
             if not route and any(r.rule == f'/{base}/' for r in app.url_map.iter_rules()):
                 prefix = f'/site{prefix}'
-            bp = montar_blueprint(mod, slug=bp_slug, url_prefix=prefix, label=label, login=login)
+            bp = montar_blueprint(mod, slug=bp_slug, url_prefix=prefix, label=label,
+                                  login=login, botoes_tipos=botoes_tipos)
         else:
-            bp = montar_blueprint(mod, bp_slug, label=label, login=login)
+            bp = montar_blueprint(mod, bp_slug, label=label, login=login,
+                                  botoes_tipos=botoes_tipos)
         if bp is None:
             continue
         app.register_blueprint(bp)

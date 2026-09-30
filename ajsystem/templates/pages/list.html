@@ -73,8 +73,11 @@
         {% block page_list_header_extra %}{% endblock %}
         {% for btn in buttons %}{{ fm.render_list_button(btn, loop.index0) }}{% endfor %}
         {% if new_url %}
-        <a href="{{ new_url }}" class="btn btn-success btn-sm inline-flex items-center gap-1 shrink-0" title="{{ new_label|default('Incluir') }}">
-          {{ heroicon('plus', 'w-4 h-4') }} Incluir
+        {# `new_label` (quando a listagem declara outro texto) ainda manda; o
+           padrão passa a ser `BTN_NEW`, que já é o botão de `new` do CRUD. #}
+        <a href="{{ new_url }}" class="btn {{ BTN_NEW.btn_cls() }} inline-flex items-center gap-1 shrink-0"
+           title="{{ new_label|default(BTN_NEW.text()) }}">
+          {{ heroicon(BTN_NEW.icon or 'plus', 'w-4 h-4') }} {{ new_label|default(BTN_NEW.text()) }}
         </a>
         {% endif %}
       </div>
@@ -141,8 +144,8 @@
               <td class="col-actions">
                 <a href="{{ url_for(edit_endpoint, id=_item_id) }}"
                    class="no-underline inline-flex items-center gap-1 text-nowrap action-edit-link">
-                  {{ heroicon('pencil-square', 'w-4 h-4') }}
-                  <span class="text-xs">{{ i18n.EDIT }}</span>
+                  {{ heroicon(BTN_EDIT.icon, 'w-4 h-4') }}
+                  <span class="text-xs">{{ BTN_EDIT.text() }}</span>
                 </a>
               </td>
               {% endif %}
@@ -298,10 +301,10 @@
         </div>
         <div class="flex gap-2 mt-3 bg-white p-2 border-t" id="page-filter-actions">
           <button type="button" class="btn btn-outline btn-danger flex-1 inline-flex items-center gap-1" @click="clearFilters()" :disabled="!hasActiveFilters">
-            {{ heroicon('xmark', 'w-4 h-4') }} Limpar
+            {{ heroicon(BTN_CLEAR.icon, 'w-4 h-4') }} {{ BTN_CLEAR.text() }}
           </button>
           <button type="button" class="btn btn-primary flex-1 inline-flex items-center gap-1" @click="submitFilters()">
-            {{ heroicon('funnel', 'w-4 h-4') }} Aplicar
+            {{ heroicon(BTN_APPLY.icon, 'w-4 h-4') }} {{ BTN_APPLY.text() }}
           </button>
         </div>
       </div>

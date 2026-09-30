@@ -74,19 +74,25 @@ Page = {
                         'columns': ['Previsao'],
                         'totals': ['previsto', 'realizado', 'variacao', 'saldo'],
                     },
+                    # `gerar_previsoes` e `zerar_previsoes` são tipos do app
+                    # (app/botoes.py): aqui fica só o que depende do form — a
+                    # ação JS, a posição e os campos que habilitam.
+                    #
+                    # Antes cada botão trazia `cls` com a classe toda escrita à
+                    # mão, o que bypassava o catálogo inteiro. As classes
+                    # marcador (`btn-gerar-previsoes`) não eram lidas por nada
+                    # e foram junto.
                     'buttons': [
-                        {'label': 'Gerar', 'icon': 'arrow-path',
-                         'cls': 'btn-gerar-previsoes btn-success btn-sm',
-                         'position': 'top_left',
-                         'action': 'gerarPrevisoes',
-                         'enabled': ['conta_id', 'operacao_id', 'prazo',
-                                     'recurso_id', 'valor', 'ratear']},
-                        {'label': 'Zerar', 'icon': 'x-circle',
-                         'cls': 'btn-zerar-previsoes btn-warning btn-sm',
-                         'position': 'top_left',
-                         'action': 'zerarPrevisoes',
-                         'enabled': {'fields': ['realizado', 'variacao'],
-                                     'mode': 'all_zero'}},
+                        {'gerar_previsoes': {
+                            'position': 'top_left',
+                            'action': 'gerarPrevisoes',
+                            'enabled': ['conta_id', 'operacao_id', 'prazo',
+                                        'recurso_id', 'valor', 'ratear']}},
+                        {'zerar_previsoes': {
+                            'position': 'top_left',
+                            'action': 'zerarPrevisoes',
+                            'enabled': {'fields': ['realizado', 'variacao'],
+                                        'mode': 'all_zero'}}},
                     ],
                 },
             },

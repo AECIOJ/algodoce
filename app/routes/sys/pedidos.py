@@ -6,6 +6,7 @@ from ajsystem.core.formats import parse_brl
 from ajsystem.defs.buttons import BTN_SEND
 from ajsystem.defs.constants import POS_0_NOT_EMPTY
 from app.models.pedido import Pedido
+from app.botoes import _sem_financeiro
 from app.models.pedido_item import PedidoItem
 from app.models.carteira import Carteira
 from app.reports.pedidos import PEDIDO
@@ -108,10 +109,6 @@ def gerar_financeiro(id):
     ))
 
 
-def _sem_financeiro(instance):
-    return instance is not None and not instance.transacao and not instance.movto
-
-
 def _financeiro_gerado(instance):
     return instance is not None and bool(instance.transacao or instance.movto)
 
@@ -205,12 +202,16 @@ Page = {
                                'carteira_id', 'transacao_id', 'movto_id'],
                     'query': _query_financeiro,
                     'buttons': [
-                        {'label': 'Gerar', 'icon': 'banknotes', 'color': 'success', 'outline': True,
-                         'url': 'pedidos.gerar_financeiro', 'method': 'POST', 'position': 'right',
-                         'confirm_msg': 'Gerar o financeiro deste pedido?',
-                         'visible': _sem_financeiro,
-                         'enabled': ['total', 'carteira_id'],
-                         'carry': {'map': {'valor': 'total'}}},
+                        # Rótulo, ícone (cédula -> moeda), cor e estilo saem do
+                        # tipo `gerar_financeiro` do app. Aqui ficam só o que é
+                        # deste uso: destino, confirmação, visibilidade, campos
+                        # que habilitam e o que é carregado para o formulário.
+                        {'gerar_financeiro': {
+                            'url': 'pedidos.gerar_financeiro', 'method': 'POST', 'position': 'right',
+                            'confirm_msg': 'Gerar o financeiro deste pedido?',
+                            'visible': _sem_financeiro,
+                            'enabled': ['total', 'carteira_id'],
+                            'carry': {'map': {'valor': 'total'}}}},
                     ],
                 },
             },
