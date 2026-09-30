@@ -152,7 +152,7 @@
 </div>
 {# Container padrão (exclusivo) para relatórios — ocupa o meio quando recebe
    conteúdo injetado via reportRender/injectHTML, ocultando a página corrente. #}
-<div id="report-content" class="flex-1 min-h-0 flex flex-col" style="display:none;"></div>
+<div id="{{ REPORT_ID }}" class="flex-1 min-h-0 flex flex-col" style="display:none;"></div>
 {% endblock %}
 
 {% block after_content %}
@@ -316,10 +316,10 @@ function postToCarry(url, btnEl) {
 }
 
 /* Rota padrão de render de relatório: injeta no container exclusivo do meio
-   (#report-content) e alterna a visibilidade com a página corrente. */
+   (`REPORT_ID`, definido abaixo) e alterna a visibilidade com a página corrente. */
 function reportRender(html) {
   if (!html) return;
-  var rep = document.getElementById('report-content');
+  var rep = document.getElementById('{{ REPORT_ID }}');
   var page = document.getElementById('page-content');
   if (!rep) { injectHTML('#page-content', html); return; }
   rep.innerHTML = html;
@@ -335,15 +335,16 @@ function reportRender(html) {
 /* Botão de listagem com `render`: busca o HTML no servidor no clique (o
    template de listagem é estático e já veio com o `rid` consumido, então
    renderizar no servidor evita servir markup velho) e entrega em `data-into`.
-   `into` = '#report-content' usa o overlay de relatório; qualquer outro seletor
-   injeta direto. */
+   `into` = `REPORT_CONTENT` usa o overlay de relatório; qualquer outro seletor
+   injeta direto. Os dois lados do `===` vêm da mesma constante — `data-into` é
+   renderizado de `Button.target_into()` —, então nunca destoam. */
 function itListRender(el) {
   fetch(el.dataset.action + '?page=' + encodeURIComponent(el.dataset.page) + '&btn=' + el.dataset.idx)
     .then(function(r) { return r.json(); })
     .then(function(d) {
       if (!d || !d.html) return;
-      var into = el.dataset.into || '#report-content';
-      if (into === '#report-content') reportRender(d.html);
+      var into = el.dataset.into || '{{ REPORT_CONTENT }}';
+      if (into === '{{ REPORT_CONTENT }}') reportRender(d.html);
       else injectHTML(into, d.html);
     });
 }
@@ -351,7 +352,7 @@ function itListRender(el) {
 /* Fecha o relatório e volta à página sem recarregar; limpa os parâmetros de
    impressão da URL para que um refresh mostre a listagem normal. */
 function closeReport() {
-  var rep = document.getElementById('report-content');
+  var rep = document.getElementById('{{ REPORT_ID }}');
   var page = document.getElementById('page-content');
   if (rep) rep.style.display = 'none';
   if (page) page.style.display = '';
@@ -889,14 +890,19 @@ function itDisablesBase(src) {
 }
 /* ── enabled declarativo (data-enabled, de Button.enabled) ────────────────
    Botão com `data-enabled="camp1,camp2"` nasce desabilitado e é reavaliado a
-   cada input/change do form. Mesma regra do `enabled_ok` (Python): número conta
-   como vazio se |v| <= 0.005 (0,00 = Decimal('0.00')), string vazia/nula como
-   vazia, checkbox pelo `checked`. `data-enabled-mode="all_zero"` inverte:
-   habilita só quando TODOS estão vazios. O campo é resolvido por
-   `querySelector`, ou seja, na ordem do DOM — a mesma ordem que o `dom_fields`
-   do servidor usa para o `disabled` inicial. */
+   cada input/change do form. Espelha `is_zero_or_empty` (core/utils.py), pelo
+   `enabled_ok`: número conta como vazio se |v| <= ZERO_EPS (0,00 =
+   Decimal('0.00')), string vazia/nula como vazia, checkbox pelo `checked`.
+   `data-enabled-mode="all_zero"` inverte: habilita só quando TODOS estão
+   vazios. O campo é resolvido por `querySelector`, ou seja, na ordem do DOM —
+   a mesma ordem que o `dom_fields` do servidor usa para o `disabled` inicial.
+
+   O `IT_EPS` abaixo é o par de `ZERO_EPS`: o JS não importa o Python, então são
+   dois literais acoplados. Mudar um sem o outro deixa o `disabled` do servidor
+   e o do cliente discordarem. Não é o mesmo que `is_empty`, que trata zero
+   como valor válido (validação de `required`). */
 var IT_EPS = 0.005;
-function itValEmpty(el) {
+function itZeroOrEmpty(el) {
   if (!el) return true;
   if (el.type === 'checkbox') return !el.checked;
   var s = String(el.value == null ? '' : el.value).trim();
@@ -905,7 +911,7 @@ function itValEmpty(el) {
   if (!isNaN(n)) return Math.abs(n) <= IT_EPS;
   return false;
 }
-function itValFilled(el) {
+function itFilled(el) {
   if (!el) return false;
   if (el.type === 'checkbox') return !!el.checked;
   var s = String(el.value == null ? '' : el.value).trim();
@@ -925,7 +931,7 @@ function itEnabledEval(root) {
       nm = nm.trim();
       if (!nm) return;
       var el = scope.querySelector('[name="' + nm + '"]');
-      if (zero ? !itValEmpty(el) : !itValFilled(el)) ok = false;
+      if (zero ? !itZeroOrEmpty(el) : !itFilled(el)) ok = false;
     });
     btn.disabled = !ok;
   });

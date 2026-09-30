@@ -10,6 +10,27 @@ from dataclasses import dataclass, field as dc_field
 from typing import Optional, Callable, Union
 
 
+# ── Contrato de DOM do container de relatório ──
+# O relatório não é só o PDF: ele é injetado num container exclusivo da página,
+# que o JS alterna com a página corrente (`reportRender` abre, `closeReport`
+# volta sem recarregar). O nome desse container é contrato de três lados:
+#   Python  — `Button.into` e `Button.target_into` (ver defs/buttons.py)
+#   HTML    — o atributo `id=` em `pages/sys.html`
+#   JS      — `getElementById` em `sys.html` e `components/print_overlay.html`
+#
+# Por isso existem duas formas, e uma é derivada da outra: a crua (`report-content`)
+# para o `id=` e o `getElementById`, e a de seletor (`#report-content`) para o
+# `Button.into` e o `injectHTML`. Se fossem dois literais soltos, trocar o id
+# deixaria um dos lados para trás e o botão renderizaria o HTML sem o JS
+# reconhecer o destino — o relatório aparece, a página não some, e o console
+# não reclama.
+#
+# `init.py` expõe as duas como globals Jinja, então os templates leem daqui em
+# vez de repetir o literal.
+REPORT_ID = 'report-content'
+REPORT_CONTENT = f'#{REPORT_ID}'
+
+
 @dataclass
 class ReportField:
     """Campo para cabeçalho do relatório (dict-only)."""

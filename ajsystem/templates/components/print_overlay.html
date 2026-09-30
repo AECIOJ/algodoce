@@ -1,11 +1,14 @@
 {% include "components/print_fragment.html" %}
 <script>
 {# Exibe o container exclusivo de relatório (padrão `reportRender` das
-   listagens): injeta-se este fragmento no `#report-content` (vazio/oculto)
+   listagens): injeta-se este fragmento no container `REPORT_ID` (vazio/oculto)
    e este script alterna a visibilidade com a página corrente. O Voltar do
-   fragmento (`closeReport()`) restaura tudo sem recarregar. #}
+   fragmento (`closeReport()`) restaura tudo sem recarregar.
+
+   Renderizado também standalone (ver `core/do_report.py`), sem o `sys.html` que
+   define o container — daí o `if (rep)`: ali o fragmento só é exibido. #}
 (function () {
-  var rep = document.getElementById('report-content');
+  var rep = document.getElementById('{{ REPORT_ID }}');
   var page = document.getElementById('page-content');
   if (rep) rep.style.display = '';
   if (page) page.style.display = 'none';

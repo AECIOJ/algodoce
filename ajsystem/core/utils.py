@@ -6,6 +6,7 @@ Não dependem de modelos nem da aplicação host.
 import re
 import unicodedata
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from flask import Blueprint
 from flask_login import login_required
@@ -73,15 +74,88 @@ def snake_case(name) -> str:
     return re.sub(r'(?<!^)(?=[A-Z])', '_', name or '').lower()
 
 
+# ── Predicados de valor: nulo / vazio / zero ──
+# Três noções que o framework usa e que costumam ser confundidas entre si. A
+# diferença importa em dois pontos concretos:
+#
+#   `is_empty`         → "falta valor": validação de `required` e condição de
+#                        campo `when`. 0 e False NÃO são vazios — um campo
+#                        preenchido com 0 é um valor deliberado, não ausência.
+#   `is_zero_or_empty` → "não há nada aproveitável": habilitação de botão por
+#                        `enabled`. Aqui 0 conta como vazio, dentro da
+#                        tolerância `ZERO_EPS`.
+#
+# Misturar os dois quebra formulário: `do_form` grava `False` no checkbox de
+# linha nova (do_form.py:220) e usa `is_empty` para detectar a linha em branco
+# (do_form.py:221), então se `is_empty` tratasse 0 como vazio a linha nunca
+# seria salva.
+#
+# Tolerância do "zero": qualquer |n| <= ZERO_EPS conta como zero, para um total
+# de 0,004 vindo de arredondamento não habilitar "Enviar relatório". Espelhado
+# no cliente por `IT_EPS` (sys.html) — o JS não importa o Python, então são dois
+# literais acoplados: mudar um sem o outro deixa o `disabled` do servidor e o do
+# cliente discordarem.
+ZERO_EPS = 0.005
+
+
+def is_null(val):
+    """Estritamente `None` (o NULL do banco). Não confundir com 'vazio'."""
+    return val is None
+
+
+def as_num(val):
+    """Valor numérico de `val`, ou `None` se não for número.
+
+    Espelha o `parseNum` de `static/js/formats.js` (aceita '1.234,56' e '1.5'),
+    para que Python e JS leiam o mesmo texto. `bool` conta como 0/1.
+    """
+    if isinstance(val, bool):
+        return 1.0 if val else 0.0
+    if isinstance(val, (int, float, Decimal)):
+        return float(val)
+    if isinstance(val, str):
+        s = re.sub(r'[^0-9\-+,.]', '', val)
+        if not s or s in ('-', '.', ','):
+            return None
+        if ',' in s:
+            s = s.replace('.', '').replace(',', '.')
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    return None
+
+
 def is_empty(val):
-    """True para `None`, string vazia ou coleção vazia (falso para 0)."""
-    if val is None:
+    """True para `None`, string vazia ou só em espaços, e coleção vazia.
+
+    Falso para `0` e `False` — ver a nota da família acima.
+    """
+    if is_null(val):
         return True
     if isinstance(val, str):
-        return val == ''
+        return val.strip() == ''
     if isinstance(val, (list, tuple, dict, set)):
         return len(val) == 0
     return False
+
+
+def is_zero_or_empty(val):
+    """True para `None`, string vazia ou só em espaços, ou número até `ZERO_EPS`.
+
+    Superconjunto de `is_empty` menos as coleções: `[]` é vazio mas não é zero.
+    Use para "não há nada aqui" (habilitação de botão); use `is_empty` para
+    "falta preenchimento obrigatório". Não existe predicado para o
+    preenchido: é a negação, `not is_zero_or_empty(val)`.
+    """
+    if is_null(val):
+        return True
+    n = as_num(val)
+    if n is not None:
+        return abs(n) <= ZERO_EPS
+    if isinstance(val, str):
+        return val.strip() == ''
+    return not bool(val)
 
 
 def module_blueprint(mod):

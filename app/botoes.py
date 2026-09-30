@@ -84,9 +84,9 @@ Buttons = {
 BTN_ORC_ENV = replace(BTN_SEND(ORCAMENTO), position='top_right', visible=_editavel)
 
 # `enabled=['total']`: só habilita com total > 0. `Orcamento.total` é property
-# (soma dos itens) e `_filled` trata número ≠ 0 como preenchido — mesma regra
-# roda no servidor (`enabled_ok`) e no JS (`itEnabledEval`). O botão fica na
-# sessão Financeiro, junto do campo `total`, porque é ele que o habilita.
+# (soma dos itens) e `is_zero_or_empty` trata número ≠ 0 como preenchido — mesma
+# regra roda no servidor (`enabled_ok`) e no JS (`itEnabledEval`). O botão fica
+# na sessão Financeiro, junto do campo `total`, porque é ele que o habilita.
 # O tipo `approve` já é "Aprovar" com `check` verde — antes o botão sobrescrevia
 # `label` e `icon` à mão para chegar no mesmo lugar.
 BTN_ORC_APROVAR = {'approve': {'url': 'orcamentos.aprovar', 'position': 'right',

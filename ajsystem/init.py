@@ -15,10 +15,14 @@ from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens, internal_sc
 from ajsystem.core.list import fields_to_columns
 from ajsystem.core.utils import (
     deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, fmt_num, item_ref,
-    field_value, calc_value, fmt_mask_cmd, is_empty,
+    field_value, calc_value, fmt_mask_cmd, is_empty, is_zero_or_empty,
 )
 from ajsystem.defs.tags import _resolve_tag_color
-from ajsystem.defs.buttons import _empty as btn_empty, _filled as btn_filled
+# Filtros do predicado de `enabled`. `btn_empty` é a forma "zero ou vazio" (a
+# que o botão usa) e `btn_filled` é a negação; os nomes antigos continuam porque
+# `form_macros.html` os consome, e renomear exigiria tocar nos templates.
+btn_empty = is_zero_or_empty
+btn_filled = lambda v: not is_zero_or_empty(v)
 
 
 def init_app(app):
@@ -96,6 +100,15 @@ def init_app(app):
         _value = getattr(_buttons, _name)
         if isinstance(_value, (Button, ConfirmModal)):
             app.jinja_env.globals[_name] = _value
+
+    # Contrato de DOM do container de relatório: a constante mora em
+    # `defs/report.py` (o Python usa a forma de seletor, em `Button.into`), e
+    # vem para cá porque `sys.html` e `print_overlay.html` precisam da forma
+    # crua no `id=` e no `getElementById`. Um global só, sem literais nos
+    # templates, para os três lados não poderem divergir em silêncio.
+    from ajsystem.defs import report as _report
+    app.jinja_env.globals['REPORT_ID'] = _report.REPORT_ID
+    app.jinja_env.globals['REPORT_CONTENT'] = _report.REPORT_CONTENT
 
     # 4.1 catálogo de botões efetivo (framework < host). Vai para `extensions`
     # porque um endpoint HTTP não tem como receber isto por parâmetro — é o

@@ -301,7 +301,7 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 
 > `fields_master`, `linha` e `card_idx` saem do `do_list.py` (`list_obj = List(...)`, `do_list.py:275`). **Não** os declare à mão: a engine sobrescreve. `linha` é a única que aceita nomes na spec, porque a conversão acontece no meio do caminho.
 
-### 5.7 `Report` — `ajsystem/defs/report.py:113` `class Report`
+### 5.7 `Report` — `ajsystem/defs/report.py:135` `class Report`
 
 | Prop | Tipo | Default | Valores | Impacto |
 |---|---|---|---|---|
@@ -351,7 +351,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 
 **`ReportBody`** (`:88`) — 6 props: `source`, `form`, `table`, `before`, `after`, `filter`. `before`/`after` inserem blocos ao redor da tabela.
 
-### 5.9 `Button` — `ajsystem/defs/buttons.py:101` `class Button`
+### 5.9 `Button` — `ajsystem/defs/buttons.py:78` `class Button`
 
 O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 
@@ -373,7 +373,7 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 | `action` | `str` | `''` | nome de função JS global | `onclick="fn(this)"` |
 | `url` | `str\|callable` | `''` | nome de endpoint, ou callable que devolve URL | `url_for(...)` |
 | `render` | `callable` | `None` | devolve HTML | injetado em `into` |
-| `into` | `str` | `''` | seletor/alvo | vazio = `'#report-content'` (ver `target_into`) |
+| `into` | `str` | `''` | seletor/alvo | vazio = `REPORT_CONTENT` (ver `target_into`) |
 | `url_params` | `dict\|callable` | `None` | query params | `url_for(..., **params)` |
 | `method` | `str` | `'GET'` | `GET`/`POST` | método do form gerado |
 | `confirm_msg` | `str` | `None` | constante de `ajsystem.locales` | modal de confirmação; `btn.confirm_text()` é pass-through |
@@ -391,7 +391,7 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 BUTTON_TYPES[base]  <  entrada do host (sem 'type')  <  spec do uso
 ```
 
-- **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:356`) tem 41 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
+- **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:298`) tem 41 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
 - **`type`** — a entrada do host declara de qual genérico diverge. Sem `type`, a base é o tipo de **mesmo nome** (o caso de sobrescrever `delete`); com `type`, o app nomeia um botão seu e declara só o que muda. `type` apontando para tipo inexistente **levanta erro dizendo o nome** — não vira `label faltando` mais tarde.
 - **override parcial** — a entrada do host é parcial de propósito. `{'delete': {'color': 'warning'}}` troca a cor e **mantém** o `label`/`icon`/`confirm_msg` do tipo.
 - **`build_catalogo(types)`** é a função que faz o merge, e é a mesma para `resolve_buttons` e para o `_toggle_field` do motor — dois merges divergem no dia seguinte em que um deles ganha uma regra. Nenhuma camada muta `BUTTON_TYPES`.
@@ -441,9 +441,29 @@ BTN_SEND(report,  filter_field=None, guard=None)   # BTN_PRINT com ícone paper-
 'buttons': [BTN_SEND(COMPRA), BTN_SEND(ORCAMENTO, guard=lambda c: c.finalizado)]
 ```
 
-Sem `filter_field`, imprime para a instância (shape documento). Com `filter_field='tipo'`, imprime o relatório da seleção de filtro corrente (shape listagem) e o `guard` não se aplica. `**overrides` chega ao `Button` e o `replace` recria `cls` a partir da nova cor via `btn_style()`. `print_report` entra por import tardio dentro da closure — é o que mantém `defs/buttons.py` importável isolado, sem depender de `core/`.
+Sem `filter_field`, imprime para a instância (shape documento). Com `filter_field='tipo'`, imprime o relatório da seleção de filtro corrente (shape listagem) e o `guard` não se aplica. `**overrides` chega ao `Button` e o `replace` recria `cls` a partir da nova cor via `btn_style()`. `print_report` entra por import tardio dentro da closure — é o que mantém `defs/buttons.py` livre do **motor de renderização** (`core/do_report`, `core/pdf`) no import de módulo.
 
-Substituem o antigo `app/utils.btn_enviar_report` e a constante `REPORT_CONTENT`, que foram removidos do app. `REPORT_ID` e `REPORT_CONTENT` agora vivem no framework.
+Substituem o antigo `app/utils.btn_enviar_report` e a constante `REPORT_CONTENT`, que foram removidos do app. `REPORT_CONTENT` (`'#report-content'`) agora vive no framework e é o destino padrão de `Button.into`.
+
+O par mora em `ajsystem/defs/report.py` (`REPORT_ID` cru + `REPORT_CONTENT` derivado), não em `defs/buttons.py` — a constante descreve o container do relatório, e o botão só a consome como default. `init.py` expõe as duas como globals Jinja, então `sys.html` e `print_overlay.html` leem `{{ REPORT_ID }}` / `{{ REPORT_CONTENT }}` em vez de repetir o literal. Isso fecha o contrato de três lados (Python, HTML e JS): se o id divergisse em algum deles, o botão renderizaria o HTML sem o JS reconhecer o destino, e o relatório apareceria sem esconder a página nem reexecutar os scripts do fragmento.
+
+### 5.9.1 Predicados de valor — `ajsystem/core/utils.py`
+
+O que decide se um campo "tem valor" são três funções, e confundir duas delas quebra formulário. Todas em `core/utils.py` (dependência permitida de `defs/`, por `defs/__init__.py`).
+
+| Função | True para | Usada por |
+|---|---|---|
+| `is_null(v)` | só `None` (o NULL do banco) | base das outras duas |
+| `is_empty(v)` | `None`, `''`, só espaços, coleção vazia | `required` (`do_form.py`), condição de campo `when` (`defs/data.py`) |
+| `is_zero_or_empty(v)` | `is_empty` **mais** qualquer número com `\|v\| <= ZERO_EPS` | `Button.enabled` (`defs/buttons.py`, `init.py`) |
+
+`ZERO_EPS = 0.005` existe para que um total de `0,004` vindo de arredondamento não habilite "Enviar relatório". `as_num(v)` é o leitor que faz `'0,00'` → `0.0`; espelha o `parseNum` de `static/js/formats.js` para que Python e JS leiam o mesmo texto.
+
+**Por que `0` não é vazio em `is_empty`:** um campo preenchido com `0` é um valor deliberado, não ausência. Dar a tolerância a `is_empty` quebraria `do_form.py`: a linha 220 grava `False` no checkbox da linha nova e a 221 usa `is_empty` para detectar a linha em branco — com `False` contando como vazio, a linha nunca seria salva. Daí `is_zero_or_empty` ser função separada, e não uma fusão.
+
+O lado do cliente espelha `is_zero_or_empty` em `sys.html` (`IT_EPS`, `itZeroOrEmpty`, `itFilled`, `itEnabledEval`). `IT_EPS` e `ZERO_EPS` são dois literais acoplados: mudar um sem o outro deixa o `disabled` do servidor e o do cliente discordarem.
+
+Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `btn_empty` = `is_zero_or_empty` e `btn_filled` = a negação. Não há predicado "preenchido" — é `not is_zero_or_empty(v)`.
 
 ### 5.10 `Query`, `Table` e `Session` — `ajsystem/defs/data.py`
 

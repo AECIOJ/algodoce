@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field, replace
-from decimal import Decimal
 from typing import Any, Callable, Dict, Optional, Union
 import json
 import re
@@ -7,19 +6,8 @@ import re
 from flask import url_for
 
 from ajsystem import locales as i18n
-
-# Tolerância numérica de `enabled`, espelhada em `itEnabledEval` (sys.html).
-# "0,00" e Decimal('0.00') contam como vazio; 0.01 conta como preenchido.
-NUM_EPS = 0.005
-
-# Container exclusivo dos relatórios impressos, alternado com a página pelo
-# script do fragmento; `closeReport` restaura sem recarregar. Declarado em
-# `pages/sys.html` e usado como destino padrão de `Button.into`.
-REPORT_ID = 'report-content'
-REPORT_CONTENT = f'#{REPORT_ID}'
-
-# Nomes de função JS globais aceitos em `action` (sem argumentos, sem statement).
-_ACTION_RE = re.compile(r'^[A-Za-z_$][\w$]*$')
+from ajsystem.core.utils import is_zero_or_empty
+from ajsystem.defs.report import REPORT_CONTENT
 
 # ── Posições de botão ──
 # São 8 nomes, e o MESMO nome se comporta de forma diferente conforme o
@@ -85,53 +73,6 @@ def _get(obj, path, default=None):
     return default if cur is None else cur
 
 
-def _as_num(v):
-    """Valor numérico de `v`, ou None se não for número.
-
-    Espelha o `parseNum` de `formats.js` (aceita '1.234,56' e '1.5'), para que
-    Python e JS juliquem '0,00' do mesmo jeito. `bool` conta como 0/1.
-    """
-    if isinstance(v, bool):
-        return 1.0 if v else 0.0
-    if isinstance(v, (int, float, Decimal)):
-        return float(v)
-    if isinstance(v, str):
-        s = re.sub(r'[^0-9\-+,.]', '', v)
-        if not s or s in ('-', '.', ','):
-            return None
-        if ',' in s:
-            s = s.replace('.', '').replace(',', '.')
-        try:
-            return float(s)
-        except ValueError:
-            return None
-    return None
-
-
-def _filled(v):
-    """Preenchido: número ≠ 0 (|v| > NUM_EPS), string não-vazia, objeto truthy."""
-    if v is None:
-        return False
-    n = _as_num(v)
-    if n is not None:
-        return abs(n) > NUM_EPS
-    if isinstance(v, str):
-        return v.strip() != ''
-    return bool(v)
-
-
-def _empty(v):
-    """Vazio: None, número 0 (|v| <= NUM_EPS), string vazia, objeto falsy."""
-    if v is None:
-        return True
-    n = _as_num(v)
-    if n is not None:
-        return abs(n) <= NUM_EPS
-    if isinstance(v, str):
-        return v.strip() == ''
-    return not bool(v)
-
-
 @dataclass
 class Button:
     """Botão de form/sessão/listagem.
@@ -178,7 +119,7 @@ class Button:
     action: str = ''
     url: Union[str, Callable[[Any], str]] = ''
     render: Optional[Callable[[Any], str]] = None
-    into: str = ''          # vazio = '#report-content' (ver `target_into`)
+    into: str = ''          # vazio = REPORT_CONTENT (ver `target_into`)
     url_params: Union[dict, Callable, None] = None
     method: str = 'GET'
     confirm_msg: Optional[str] = None
@@ -265,8 +206,8 @@ class Button:
             return True
         vals = [_get(instance, n) for n in names]
         if mode == 'all_zero':
-            return all(_empty(v) for v in vals)
-        return all(_filled(v) for v in vals)
+            return all(is_zero_or_empty(v) for v in vals)
+        return all(not is_zero_or_empty(v) for v in vals)
 
     def url_ready(self, instance) -> bool:
         """False esconde o botão: `url` por endpoint sem registro para o `id`.
@@ -535,7 +476,10 @@ def _check_destination(btn, where):
         raise _err(where, label,
                    '`action`, `url` e `render` são mutuamente exclusivos '
                    f'(recebeu {", ".join(k for k, v in (("action", btn.action), ("url", btn.url), ("render", btn.render)) if v)}).')
-    if btn.action and not _ACTION_RE.match(btn.action):
+    # `fullmatch` e não `match` de um padrão ancorado em `$`: o `$` também casa
+    # antes de uma quebra de linha final, então 'gerarPrevisoes\n' passava numa
+    # validação que existe justamente para barrar isso.
+    if btn.action and not re.fullmatch(r'[A-Za-z_$][\w$]*', btn.action):
         raise _err(where, label,
                    f'`action` deve ser o NOME de uma função JS global, sem '
                    f'argumentos nem ";" — veio {btn.action!r}.')
