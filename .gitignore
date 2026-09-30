@@ -32,6 +32,9 @@ dados/
 # Análise de código (saída do graphify)
 graphify-out/
 
+# Config e planos do opencode (ferramenta, não é do projeto)
+.opencode/
+
 # Build intermediário do CSS pré-compilado do framework (regenerado por npm run build:css:framework)
 app/ajsystem/tailwind.daisyui.framework.json
 
