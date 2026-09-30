@@ -22,6 +22,42 @@ from ajsystem.defs.tags import parse_tag, resolve_tag
 from ajsystem.defs.validators import resolve_validator
 from ajsystem.defs.transformers import apply_field_transforms
 from ajsystem.core.query import aggregate_rows, group_items, order_items
+from ajsystem.defs.buttons import BTN_FIRST, BTN_LAST, BTN_NEXT, BTN_PREVIOUS
+
+
+# A navegação de registro: os 4 botões da barra central, em 2 grupos. A
+# declaração é o par (preset, atributo do `nav`) mais o flag `opcional`, que
+# diz se o botão pode ficar desligado — o "Primeiro"/"Último" nunca desliga
+# (sem `nav` o destino é '#'), já "Anterior"/"Próximo" viram `btn_off` no
+# registro que não tem vizinho. O destino é resolvido AQUI, e não no template,
+# para o `url_for` deixar de ser um detalhe de markup que só o teste de render
+# pega: `_nav_grupos` é testável sem HTML.
+_NAV_GRUPOS = (
+    ('anterior', (('first', 'first_id', False), ('previous', 'prev_id', True))),
+    ('proximo', (('next', 'next_id', True), ('last', 'last_id', False))),
+)
+
+_NAV_PRESETS = {
+    'first': BTN_FIRST, 'previous': BTN_PREVIOUS,
+    'next': BTN_NEXT, 'last': BTN_LAST,
+}
+
+
+def _nav_grupos(nav, edit_endpoint):
+    """Os 2 grupos da navegação de registro, com o destino já resolvido.
+
+    Devolve `{'anterior': [...], 'proximo': [...]}`, onde cada item é
+    `{'btn': <Button>, 'url': str|None, 'on': bool}`. `url` é `None` só
+    quando o botão está desligado (o template escolhe entre `btn` e `btn_off`).
+    """
+    def _um(tipo, attr, opcional):
+        _id = (nav or {}).get(attr)
+        _destino = url_for(edit_endpoint, id=_id) if _id else '#'
+        return {'btn': _NAV_PRESETS[tipo], 'url': _destino,
+                'on': not (opcional and not _id)}
+
+    return {nome: [_um(tipo, attr, opcional) for tipo, attr, opcional in itens]
+            for nome, itens in _NAV_GRUPOS}
 
 
 def _calc_virtual(f):
@@ -549,6 +585,15 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
                                        'link': r.get('link'), 'id': _val,
                                        'width': (getattr(f, 'width', None) or 0) + 3})
     form._resolved_tags = _resolved_tags
+
+    # A navegação e o botão "Lista" saem daqui com o destino já resolvido: o
+    # template não deve conhecer `url_for`/`edit_endpoint`/`nav`. `edit_endpoint`
+    # segue o mesmo default do template (o `.form` do `_redirect`), e o
+    # `back_url` é o do host quando a sessão mestre/detalhe passa um.
+    _edit_endpoint = (extra_ctx or {}).get('edit_endpoint') or (
+        form._redirect.rsplit('.', 1)[0] + '.form')
+    form._nav = _nav_grupos(nav, _edit_endpoint)
+    form._back_url = (extra_ctx or {}).get('back_url') or url_for(form._redirect)
 
     ctx = dict(
         instance=instance,
