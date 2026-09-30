@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
 from ajsystem.core.utils import is_empty
+from ajsystem.defs.pages import Page, parse_page
 
 
 # ── Tipos base de campo ──────────────────────────────────────────────────────
@@ -519,9 +520,8 @@ def _infer_field_from_model(model, name: str) -> dict:
 
 
 # ── Leitura declarativa de módulo de rota (Page/Schema/Form/List) ───────────
-def module_page(mod) -> "Page":
+def module_page(mod) -> Page:
     """Lê o `Page` de um módulo de rota (dataclass; {} → Page vazio)."""
-    from ajsystem.defs.pages import parse_page
     p = getattr(mod, 'Page', None)
     if p is None:
         return parse_page({})
