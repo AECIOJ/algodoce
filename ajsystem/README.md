@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.09.29.0001 — Manual do Framework
+# AJSYSTEM 1.26.09.30.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.09.29.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE`).
+> Vinculado a `ajsystem/version` (`1.26.09.30.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE`).
 
 ---
 
