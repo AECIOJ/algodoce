@@ -403,9 +403,6 @@ BUTTON_TYPES = {
     'copy':        {'label': i18n.COPY, 'color': 'secondary'},
     'report':      {'label': i18n.REPORT, 'icon': 'document-text', 'color': 'info'},
     'refresh':     {'label': i18n.REFRESH, 'icon': 'arrow-path', 'color': 'warning'},
-    'on_off':      {'label': i18n.ACTIVATE, 'icon': 'check', 'label_off': i18n.DEACTIVATE,
-                    'icon_off': 'xmark', 'color': 'success', 'position': POS_TOP_RIGHT,
-                    'on_off': True},
 
     # ── Específicos de auth e de domínio ──
     # Não são CRUD genérico, mas ficam no mesmo catálogo para não espalhar a
@@ -416,11 +413,38 @@ BUTTON_TYPES = {
     'edit_product': {'label': i18n.EDIT_PRODUCT, 'icon': 'pencil-square', 'color': 'primary'},
 }
 
+
+# ── Botões que o MOTOR precisa conhecer, e que não são genéricos ───────────
+# `BUTTON_TYPES` acima é aparência pura: um tipo existe ali se ele faz sentido
+# para qualquer entity, e o app nunca precisa saber os nomes. O que mora aqui é
+# o contrário — botão que o motor procura pelo NOME porque o comportamento dele
+# é do motor, não da aparência.
+#
+# `on_off` é o caso: o toggle liga/desliga um campo booleano, e quem monta o
+# POST é o motor (`auto._toggle_field`/`_toggle`), não o CRUD. Se ele ficasse
+# em `BUTTON_TYPES`, `on_off` seria um nome genérico como `delete` — e app
+# que não usa toggle ainda carregaria a entrada.
+#
+# A camada entra no merge por `build_catalogo`, então o app continua declaring
+# `{'ligar_desligar': {'type': 'on_off', ...}}` se quiser outro nome/aparência.
+Buttons = {
+    'on_off':      {'label': i18n.ACTIVATE, 'icon': 'check', 'label_off': i18n.DEACTIVATE,
+                    'icon_off': 'xmark', 'color': 'success', 'position': POS_TOP_RIGHT,
+                    'on_off': True},
+}
+
+# Catálogo genérico efetivo: o que `build_catalogo` semeia, antes de qualquer
+# camada do host. Os presets (abaixo) e o merge leem daqui, para nenhum dos dois
+# conseguir enxergar um tipo que o outro não vê.
+GENERICOS = {**BUTTON_TYPES, **Buttons}
+
 # Derivados: o mesmo catálogo como constantes, geradas em loop. A constante de um
 # tipo é o preset EXATO desse tipo — par de preset/tipo não pode divergir, porque os
-# dois leem o mesmo `BUTTON_TYPES[...]`. `dir()` no módulo enxerga os nomes criados
-# aqui, então `init.py` publica as globals Jinja sem lista.
-for _nome, _spec in BUTTON_TYPES.items():
+# dois leem o mesmo `GENERICOS[...]`. `dir()` no módulo enxerga os nomes criados
+# aqui, então `init.py` publica as globals Jinja sem lista. O loop lê `GENERICOS`
+# (e não `BUTTON_TYPES`) para o preset de um tipo do motor não sumir: `on_off`
+# virou `Buttons`, e `BTN_ON_OFF` tem de continuar existindo.
+for _nome, _spec in GENERICOS.items():
     if _nome == 'print':
         continue
     globals()['BTN_' + _nome.upper()] = Button(**_spec)
@@ -501,10 +525,10 @@ def BTN_SEND(report, *, filter_field='', guard=None, **overrides) -> Button:
     return replace(BTN_PRINT(report, filter_field=filter_field, guard=guard), **opts)
 
 
-# O antigo registro `ACTIONS` virou a entrada `'on_off'` de `BUTTON_TYPES`. O
-# resolução por nome continua igual: um nome resolve para o tipo do catálogo, e
-# endpoint/campo booleano são derivados por convenção (endpoint =
-# '<blueprint>.toggle', campo default 'ativo'). Ver `resolve_buttons`.
+# O antigo registro `ACTIONS` virou a entrada `'on_off'` do catálogo do motor
+# (`Buttons`, acima). O resolução por nome continua igual: um nome resolve para o
+# tipo do catálogo, e endpoint/campo booleano são derivados por convenção
+# (endpoint = '<blueprint>.toggle', campo default 'ativo'). Ver `resolve_buttons`.
 
 
 def _err(where, label, msg):
@@ -638,16 +662,22 @@ def _check_list(btn, where):
                    'callable): o endpoint receberia o `id`, que a listagem não tem.')
 
 
-def build_catalogo(types=None) -> dict:
-    """Junta o catálogo do framework com o do host e devolve o efetivo.
+def build_catalogo(*camadas) -> dict:
+    """Junta os catálogos, do genérico para o do host, e devolve o efetivo.
 
     É a MESMA função para `resolve_buttons` e para o `_toggle_field` do motor
     (que precisa ler `on_off` sem passar por um `Button`), porque dois merges
     divergem no dia seguinte em que um deles ganha uma regra.
 
-    Quatro camadas, na ordem:
+    Um argumento por camada do host, na ordem em que cada uma sobrepõe a
+    anterior:
 
-        BUTTON_TYPES[tipo-base]  <  entrada do host (sem 'type')  <  spec
+        GENERICOS  <  Buttons do host 1  <  Buttons do host 2  <  spec
+
+    `GENERICOS` é `BUTTON_TYPES` + o catálogo do motor (`Buttons`), e sai
+    semeado aqui — o chamador não precisa saber que `on_off` não é um tipo
+    genérico, só que ele existe. `None`/`{}` são ignorados, então quem não tem
+    catálogo do host passa o que tem.
 
     - **A chave é o nome do tipo**, e a entrada do host é um override *parcial*
       da entrada de base. Sem isso, `{'delete': {'color': 'warning'}}` trocaria a
@@ -656,37 +686,39 @@ def build_catalogo(types=None) -> dict:
       é o tipo de *mesmo nome* (o caso de sobrescrever `delete`). Com ele, o app
       nomeia um tipo novo que declara só o que muda:
       `{'type': 'generate', 'icon': 'currency-dollar'}`.
+    - A base pode ser um tipo do motor, não só um de `BUTTON_TYPES`: `type` é
+      procurado no catálogo já montado, então `{'type': 'on_off'}` funciona.
     - `type` aponta para tipo que não existe é erro aqui, com o nome — senão o
       `Button(**...)` lá embaixo reclama de `label` faltando e não diz que o
       problema é o tipo base declarado.
-    - Nenhuma camada muta `BUTTON_TYPES`: o merge é sempre por dict nova.
+    - Nenhuma camada muta `GENERICOS`: o merge é sempre por dict nova.
     """
-    catalogo = dict(BUTTON_TYPES)
-    for chave, entrada in (types or {}).items():
-        if not isinstance(entrada, dict):
-            raise TypeError(f"entrada de botoes[{chave!r}] não é dict: "
-                            f"{type(entrada).__name__}.")
-        base = entrada.get('type', chave)
-        if base not in BUTTON_TYPES:
-            # Duas causas bem diferentes com a mesma consequência (a entrada
-            # ficaria sem `label` e o `Button(**...)` reclamaria depois), então a
-            # mensagem diz qual das duas é — senão `type='gerate'` (digitação) e
-            # "esqueci de declarar a base" viram o mesmo erro.
-            if 'type' in entrada:
+    catalogo = dict(GENERICOS)
+    for camada in camadas:
+        for chave, entrada in (camada or {}).items():
+            if not isinstance(entrada, dict):
+                raise TypeError(f"entrada de botoes[{chave!r}] não é dict: "
+                                f"{type(entrada).__name__}.")
+            base = entrada.get('type', chave)
+            if base not in catalogo:
+                # Duas causas bem diferentes com a mesma consequência (a entrada
+                # ficaria sem `label` e o `Button(**...)` reclamaria depois), então a
+                # mensagem diz qual das duas é — senão `type='gerate'` (digitação) e
+                # "esqueci de declarar a base" viram o mesmo erro.
+                if 'type' in entrada:
+                    raise KeyError(
+                        f"botoes[{chave!r}] declara type={base!r}, que não existe no "
+                        f"catálogo. Disponíveis: {', '.join(catalogo)}"
+                    )
                 raise KeyError(
-                    f"botoes[{chave!r}] declara type={base!r}, que não existe em "
-                    f"ajsystem.defs.buttons.BUTTON_TYPES. Disponíveis: "
-                    f"{', '.join(BUTTON_TYPES)}"
+                    f"botoes[{chave!r}] não existe no catálogo e não declara "
+                    f"'type'. Todo tipo do app diverge de um genérico: ponha "
+                    f"'type': '<genérico>' em botoes[{chave!r}], ou sobrescreva um "
+                    f"tipo que já tenha o nome. Genéricos: {', '.join(GENERICOS)}"
                 )
-            raise KeyError(
-                f"botoes[{chave!r}] não existe em BUTTON_TYPES e não declara "
-                f"'type'. Todo tipo do app diverge de um genérico: ponha "
-                f"'type': '<genérico>' em botoes[{chave!r}], ou sobrescreva um "
-                f"tipo que já tenha o nome. Genéricos: {', '.join(BUTTON_TYPES)}"
-            )
-        # `type` sai do merge: é metadado de qual base usar, não prop de Button.
-        catalogo[chave] = {**BUTTON_TYPES[base],
-                           **{k: v for k, v in entrada.items() if k != 'type'}}
+            # `type` sai do merge: é metadado de qual base usar, não prop de Button.
+            catalogo[chave] = {**catalogo[base],
+                               **{k: v for k, v in entrada.items() if k != 'type'}}
     return catalogo
 
 
@@ -705,11 +737,11 @@ def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
     `has_fields`/`has_table`, para `position` de sessão) e `ctx` (`'form'` ou
     `'list'`).
 
-    `types` é o catálogo do host (`app.botoes.Buttons`), mesclado sobre
-    `BUTTON_TYPES` — o mesmo papel que o `Schema` do módulo tem sobre a entity
-    em `resolve_entity_fields`. O merge é o de `build_catalogo`: o app declara
-    de qual tipo genérico diverge (`type`) e só o que muda, e a spec declara
-    sobre o app. Nenhuma camada muta `BUTTON_TYPES`.
+    `types` é o catálogo do host (`app.botoes.Buttons`), mesclado sobre o
+    catálogo genérico do motor — o mesmo papel que o `Schema` do módulo tem
+    sobre a entity em `resolve_entity_fields`. O merge é o de `build_catalogo`:
+    o app declara de qual tipo genérico diverge (`type`) e só o que muda, e a
+    spec declara sobre o app. Nenhuma camada muta os catálogos.
     """
     if not specs:
         return []
@@ -729,7 +761,7 @@ def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
             base = catalogo.get(name)
             if base is None:
                 raise KeyError(
-                    f"Botão padrão '{name}' não existe em ajsystem.defs.buttons.BUTTON_TYPES. "
+                    f"Botão padrão '{name}' não existe no catálogo de botões. "
                     f"Disponíveis: {', '.join(catalogo)}"
                 )
             btn = replace(Button(**base))
@@ -754,8 +786,7 @@ def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
                 # mensagem precisa dizer isso, senão o `Button(**cfg)` reclama
                 # de `label` faltando e não diz que o problema é o nome do tipo.
                 raise KeyError(
-                    f"Botão padrão '{next(iter(cfg))}' não existe em "
-                    f"ajsystem.defs.buttons.BUTTON_TYPES. "
+                    f"Botão padrão '{next(iter(cfg))}' não existe no catálogo. "
                     f"Disponíveis: {', '.join(catalogo)}"
                 )
             field_name = cfg.get('field')

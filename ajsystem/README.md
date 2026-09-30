@@ -385,21 +385,25 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 
 `resolve_buttons(specs, bp_name, *, where, valid_fields, sess, ctx)` recebe uma **lista** de specs; cada item pode ser instância `Button` (os tipos derivados e `BTN_PRINT`/`BTN_SEND` já são `Button`), nome de tipo (`'delete'`), `{nome: {overrides}}` ou dict custom. Toda chave é validada — chave desconhecida, destino ambíguo (`action`+`url`) ou campo inexistente em `enabled` **levanta erro** em vez de ser descartado em silêncio. Instâncias são copiadas com `replace()` porque a validação normaliza `enabled`/`field`/`url` in-place: sem a cópia, o preset compartilhado seria contaminado pelo primeiro registro que o usasse.
 
-**Catálogo de tipos (`BUTTON_TYPES`)** — a aparência mora num só lugar, e `resolve_buttons` monta o resultado em 4 camadas:
+**Catálogo de tipos** — a aparência mora num só lugar, e `resolve_buttons` monta o resultado em camadas:
 
 ```
-BUTTON_TYPES[base]  <  entrada do host (sem 'type')  <  spec do uso
+GENERICOS[base]  <  entrada do host (sem 'type')  <  spec do uso
 ```
 
-- **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:298`) tem 41 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
-- **`type`** — a entrada do host declara de qual genérico diverge. Sem `type`, a base é o tipo de **mesmo nome** (o caso de sobrescrever `delete`); com `type`, o app nomeia um botão seu e declara só o que muda. `type` apontando para tipo inexistente **levanta erro dizendo o nome** — não vira `label faltando` mais tarde.
+- **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:337`) tem 40 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
+- **`Buttons`** (`ajsystem/defs/buttons.py:430`) é o catálogo **do motor**: botão que o motor procura pelo nome porque o *comportamento* é dele, não a aparência. Hoje é só o `on_off` — o toggle liga/desliga um campo booleano e quem monta o POST é `auto._toggle_field`/`_toggle`, não o CRUD. Um app que não usa toggle não carrega a entrada. `GENERICOS` é a soma dos dois e é o que o merge semeia.
+- **`type`** — a entrada do host declara de qual genérico diverge. Sem `type`, a base é o tipo de **mesmo nome** (o caso de sobrescrever `delete`); com `type`, o app nomeia um botão seu e declara só o que muda. A base pode ser um tipo do motor, então `{'type': 'on_off'}` funciona. `type` apontando para tipo inexistente **levanta erro dizendo o nome** — não vira `label faltando` mais tarde.
 - **override parcial** — a entrada do host é parcial de propósito. `{'delete': {'color': 'warning'}}` troca a cor e **mantém** o `label`/`icon`/`confirm_msg` do tipo.
-- **`build_catalogo(types)`** é a função que faz o merge, e é a mesma para `resolve_buttons` e para o `_toggle_field` do motor — dois merges divergem no dia seguinte em que um deles ganha uma regra. Nenhuma camada muta `BUTTON_TYPES`.
+- **`build_catalogo(*camadas)`** é a função que faz o merge, e é a mesma para `resolve_buttons` e para o `_toggle_field` do motor — dois merges divergem no dia seguinte em que um deles ganha uma regra. Um argumento por camada do host, cada uma sobrepondo a anterior; `None`/`{}` são ignorados. Nenhuma camada muta `GENERICOS`.
 - **`enabled`/`carry`/`url`/`position` não moram no catálogo**: dependem do form e do registro, então ficam no ponto de uso.
 
 ```python
 # framework — só genéricos
 BUTTON_TYPES = {'generate': {'label': i18n.GENERATE, 'color': 'success', 'variant': 'solid'}, …}
+
+# framework — o que o motor procura pelo nome (hoje: o toggle)
+Buttons = {'on_off': {'label': i18n.ACTIVATE, 'icon': 'check', 'on_off': True, …}}
 
 # app/botoes.py — só o que diverge
 Buttons = {'gerar_financeiro': {'type': 'generate', 'icon': 'currency-dollar', 'variant': 'outline'}}
@@ -408,7 +412,7 @@ Buttons = {'gerar_financeiro': {'type': 'generate', 'icon': 'currency-dollar', '
 'buttons': [{'gerar_financeiro': {'url': 'pedidos.gerar_financeiro', 'method': 'POST'}}]
 ```
 
-Toda entrada de `BUTTON_TYPES` ganha sua constante `BTN_<NOME>` por loop, e as globais Jinja saem daí por varredura de prefixo (`BTN_*`, `CONFIRM_*` em `ajsystem/init.py`) — por isso um tipo novo não toca lista de importação. `print` vira `BTN_PRINT_STYLE`, porque `BTN_PRINT` é nome da factory de relatório.
+Toda entrada de `GENERICOS` ganha sua constante `BTN_<NOME>` por loop, e as globais Jinja saem daí por varredura de prefixo (`BTN_*`, `CONFIRM_*` em `ajsystem/init.py`) — por isso um tipo novo não toca lista de importação. `print` vira `BTN_PRINT_STYLE`, porque `BTN_PRINT` é nome da factory de relatório.
 
 **`position`** — são 8 nomes, e o *mesmo* nome se comporta de forma diferente conforme o contexto que vai renderizar o botão. `_check_position` valida contra a tabela do contexto e **levanta erro** em valor fora dela (nada de sumir em silêncio). O contexto da sessão é decidido pelo formato dela: havendo `fields`, o botão pertence ao bloco de `fields` (mesmo que a sessão também traga `table`/`query`, como em `Financeiro`); sem `fields`, pertence à tabela.
 
