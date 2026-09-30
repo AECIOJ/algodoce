@@ -73,6 +73,14 @@ def _get(obj, path, default=None):
     return default if cur is None else cur
 
 
+# Texto de `Button.label` quando ninguém declarou um. É o default do campo e o
+# que a renderização usa se o `label` chegar `None` — assim um botão construído
+# em isolamento (`Button()`, `Button(report=ORCAMENTO)`) não exige o primeiro
+# argumento posicional e ainda mostra alguma coisa na tela. `label: ''` é
+# diferente: é botão só-ícone, que mostra só o ícone.
+LABEL_DEFAULT = 'Button'
+
+
 @dataclass
 class Button:
     """Botão de form/sessão/listagem.
@@ -88,7 +96,7 @@ class Button:
       - `render`: callable que devolve HTML, injetado em `into`.
     """
     # ── apresentação ──
-    label: str
+    label: str = LABEL_DEFAULT
     icon: Optional[str] = None
     color: str = 'secondary'
     # `variant` é o eixo de estilo: 'solid' (preenchido), 'outline' (contorno) ou
@@ -168,16 +176,22 @@ class Button:
         O método sobrevive como pass-through porque `label` é o contrato: um app
         pode escrever o texto dele direto (`label='Plular'`), e `text()` continua
         sendo a leitura correta sem que o template precise saber a diferença.
+
+        `label=None` cai em `LABEL_DEFAULT` — um botão sem texto nenhum sairia
+        com "None" impresso. `label=''` não cai: é o botão só-ícone, e o
+        `icon` é o que se vê (é assim que a macro `btn` com `text=False`
+        esconde o rótulo dos 4 botões de navegação).
         """
-        return self.label
+        return LABEL_DEFAULT if self.label is None else self.label
 
     def title_or_label(self) -> str:
         """Nome acessível: `title` quando declarado, senão o `label`.
 
-        Botão só-ícone (`label=''`) depende disto — sem `title`, os quatro botões
-        de navegação de registro não teriam nome acessível nenhum.
+        Passa por `text()` para não devolver `None` quando o botão foi construído
+        sem rótulo nenhum. Botão só-ícone depende disto — sem `title`, os botões
+        de navegação não teriam nome acessível.
         """
-        return self.title or self.label
+        return self.title or self.text()
 
     def confirm_text(self) -> str:
         """Texto da confirmação (vazio se o botão não confirma)."""
