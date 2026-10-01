@@ -187,7 +187,7 @@ def create_app():
         from flask_login import current_user
         from ajsystem.core.adapter import APP
         usuario = (current_user.username if current_user.is_authenticated else "Visitante").upper()
-        return dict(versao=APP.version or '', usuario=usuario)
+        return dict(versao=APP.version.text() if APP.version else '', usuario=usuario)
 
     def tema_atual():
         from ajsystem.core.adapter import APP, TEMAS

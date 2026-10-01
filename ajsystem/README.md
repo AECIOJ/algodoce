@@ -1,6 +1,6 @@
 # AJSYSTEM 1.26.09.30.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.01.0002`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, formato `1.aa.mm-build`).
+> Vinculado a `ajsystem/version` (`1.26.10.01.0002`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via `scripts/bump_version.py`).
 
 ---
 
@@ -532,7 +532,7 @@ Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `
 
 > **Exceção à convenção:** `config.py` é o único módulo do framework com props em **português** (`Tema.rotulo/marca/neutras/...`, `Module.default_path`, `MenuItem.submenus`, `Layout*.rows/align/text/font/color/logo/title/user`). Todo o resto do framework é em inglês.
 
-**`App`** (`:109`) — 9 props:
+**`App`** (`:138`) — 9 props:
 
 | Prop | Default | Impacto |
 |---|---|---|
@@ -540,16 +540,16 @@ Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `
 | `logo` | — | caminho do logo |
 | `tema` | — | `Tema` |
 | `title` | `None` | título padrão de página |
-| `version` | `None` | string direta `1.aa.mm-build` (ex.: `'1.26.10-009'`), chave do próprio dict (`APP['version']`); formato validado no `build_app`, exibida como veio |
+| `version` | `None` | sub-dict `{cycle, year, month, number}` (ex.: `{'cycle': 1, 'year': 26, 'month': 10, 'number': 10}` → `'1.26.10-010'`); `build_version` valida as partes, `Version.text()` compõe no rodapé |
 | `upload` | `None` | política padrão de upload (páginas herdam) |
 | `botoes` | `None` | catálogo do host (`app.extends.buttons.Buttons`); `None` = só genéricos |
 | `inputs` | `None` | catálogo do host (`app.extends.inputs.Inputs`); `None` = só genéricos |
 | `modules` | `[]` | `Module`s do menu |
 
-**`Module`** (`:91`) — `type` (`'public'`), `default_path`, `menus` (`MenuItem`s), `triggers`, `layout`.
-**`MenuItem`** (`:73`) — `page`, `url`, `icon`, `submenus`.
-**`Tema`** (`:22`) — `base`, `rotulo`, `marca`, `neutras`, `feedback`, `apoio`, `barras`, `modal` (paleta daisyUI/Tailwind).
-**`Layout`** (`:66`) — `header` (`LayoutHeader`), `footer` (`LayoutFooter`); `LayoutHeader` tem `logo` (`LayoutLogo`: `rows` 5, `align` center) e `title` (`LayoutTitle`: `text`, `align`, `font`, `color`); `LayoutFooter` tem `font`, `color`, `user` (`True`).
+**`Module`** (`:120`) — `type` (`'public'`), `default_path`, `menus` (`MenuItem`s), `triggers`, `layout`.
+**`MenuItem`** (`:67`) — `page`, `url`, `icon`, `submenus`.
+**`Tema`** (`:16`) — `base`, `rotulo`, `marca`, `neutras`, `feedback`, `apoio`, `barras`, `modal` (paleta daisyUI/Tailwind).
+**`Layout`** (`:60`) — `header` (`LayoutHeader`), `footer` (`LayoutFooter`); `LayoutHeader` tem `logo` (`LayoutLogo`: `rows` 5, `align` center) e `title` (`LayoutTitle`: `text`, `align`, `font`, `color`); `LayoutFooter` tem `font`, `color`, `user` (`True`).
 
 ### 5.11.1 Overrides do host — `app/extends/`
 
@@ -672,11 +672,14 @@ Page = {
 >
 > **Limitação conhecida:** `formats.js:259` (`itMoneyInfo`) duplica a tabela `CURRENCY` à mão. Alterar só o Python dessincroniza os dois em silêncio. E `normalize_currency` só aceita `'brl'` como string — `currency:'eur'` devolve `None` e **desliga** a formatação em vez de escolher o código 3.
 
-> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `1.aa.mm-build`) — sem arquivo próprio. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:413`) valida chaves (`FieldConfigError`).
+> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `{cycle, year, month, number}`) — sem arquivo próprio; bump via `scripts/bump_version.py` (só ele edita os dígitos). `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:413`) valida chaves (`FieldConfigError`).
 
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.01.0003
+- **`APP['version']` virou `{cycle, year, month, number}` + script de bump.** A string direta durou um commit: sem consumidor para as partes, ela era certa — mas o bump manual da string (`010`→`011` à mão) é o erro de digitação esperando acontecer, então as partes voltaram **com** o consumidor que faltava: `scripts/bump_version.py` (default `number+1`; `--month/--year` viram o período e resetam para 1; `--number` explícito). `defs/config.py` ganhou `Version` (frozen, valida tipos + mês 1–12) e `build_version`; `text()` compõe `'1.26.10-010'` com padding num lugar só. `inject_versao` é o único leitor além do rodapé. Sumiram a regex `_VERSAO_OK` e o param `version=` string do `build_app`. Valor exibido idêntico antes/depois (`1.26.10-010`), provado no rodapé.
 
 ### 1.26.10.01.0002
 - **Overrides do host ganharam pasta exclusiva, com os nomes do framework em inglês.** `app/botoes.py`, `app/inputs.py`, `app/constantes.py` e `app/utils.py` viraram `app/extends/buttons.py|inputs.py|constants.py|utils.py` (`git mv`, histórico preservado). `app/config.py` fica na raiz. Seção nova 5.11.1 documenta o contrato.
