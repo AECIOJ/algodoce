@@ -60,6 +60,12 @@
       {% for btn in form._resolved_buttons if btn.position == 'top_right' %}
       <span class="app-bar-btn">{{ fm.render_button(btn, instance, form._resolved_fields) }}</span>
       {% endfor %}
+      {# Toggles de barra na área de navegação (nav_right). O `ativo` é
+         autoexplicativo (só o toggle, com badge quando desligado); os demais
+         levam rótulo — e rótulo exibido esconde o badge, e vice-versa. #}
+      {% for f in form._resolved_fields if f.inp.slot == 'bar' and not ro %}
+      {{ fm.render_toggle_field(f, instance, with_label=(f.name != 'ativo')) }}
+      {% endfor %}
     </div>
     <div id="appBarLine2" class="app-bar-line2" style="display:none; width:100%; justify-content:center; flex-wrap:wrap; gap:var(--bar-gap); padding:4px 0; order:10;"></div>
   </div>

@@ -1,6 +1,6 @@
 from ajsystem.core.extensions import db
 from ajsystem.defs.constants import POS_0_NOT_EMPTY
-from app.constantes import TIPO_TRANSACAO, STATUS_PREVISAO
+from app.extends.constants import TIPO_TRANSACAO, STATUS_PREVISAO
 
 
 class Transacao(db.Model):

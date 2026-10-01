@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import TIPO_INGREDIENTE, UND_INSUMO
+from app.extends.constants import TIPO_INGREDIENTE, UND_INSUMO
 
 
 class Insumo(db.Model):

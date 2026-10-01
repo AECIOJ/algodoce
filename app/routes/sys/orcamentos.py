@@ -100,7 +100,7 @@ Page = {
             'sessions': {
                 'Itens do Orçamento': {
                     'buttons': [
-                        # Tipo `precos_zerados` do app (app/botoes.py), que
+                        # Tipo `precos_zerados` do app (app/extends/buttons.py), que
                         # deriva do genérico neutro `execute`. A cor, o ícone e
                         # o texto saem de lá; a posição e a ação são deste uso.
                         {'precos_zerados': {'position': 'bottom_left',

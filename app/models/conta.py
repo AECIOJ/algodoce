@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import TIPO_CONTA
+from app.extends.constants import TIPO_CONTA
 
 
 class Conta(db.Model):
@@ -35,5 +35,5 @@ Entity = {
     'insc_estadual':  {'type': 'TEXT', 'label': 'Insc. Estadual',
                        'on_set': {'disables': ['cpf']}},
     'endereco':       {'type': 'TEXT', 'label': 'Endereço', 'input': 'textarea'},
-    'ativo':          {'type': 'BOOL'},
+    'ativo':          {'type': 'BOOL', 'input': 'toggle', 'pos_form': 3},
 }

@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import TIPO_RECURSO
+from app.extends.constants import TIPO_RECURSO
 
 class Recurso(db.Model):
     __tablename__ = "recurso"

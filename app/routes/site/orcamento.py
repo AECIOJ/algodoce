@@ -11,7 +11,7 @@ from ajsystem.core.cart import (
 )
 from ajsystem.core.ntfy import notificar as aj_notificar
 from ajsystem.defs.cart import CART_SESSION_KEY, CLIENT_SESSION_KEY
-from app.constantes import FORMINHAS, STATUS_ORCAMENTO, TIPO_EVENTO
+from app.extends.constants import FORMINHAS, STATUS_ORCAMENTO, TIPO_EVENTO
 from app.models.configuracao import Configuracao
 
 Entity = {

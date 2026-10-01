@@ -4,7 +4,7 @@ from ajsystem.core.formats import parse_brl
 from ajsystem.defs.constants import POS_0_NOT_EMPTY
 from ajsystem import locales as i18n
 from app.models.pedido import Pedido
-from app.botoes import _sem_financeiro
+from app.extends.buttons import _sem_financeiro
 from app.models.pedido_item import PedidoItem
 from app.models.carteira import Carteira
 from app.reports.pedidos import PEDIDO

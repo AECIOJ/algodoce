@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import PRODUCAO_ETAPAS, UND_INSUMO
+from app.extends.constants import PRODUCAO_ETAPAS, UND_INSUMO
 
 
 class ProdutoInsumo(db.Model):

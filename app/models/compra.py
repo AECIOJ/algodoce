@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import STATUS_COMPRA
+from app.extends.constants import STATUS_COMPRA
 
 
 class Compra(db.Model):

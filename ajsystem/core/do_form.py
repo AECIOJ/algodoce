@@ -131,9 +131,9 @@ def _save_session_masters(form, instance, old_vals, is_new):
                 continue
             if getattr(f, 'memory', False):
                 continue  # campo só de memória: não persiste no pai
-            if f.input == 'image':
+            if f.inp.upload:
                 continue
-            if f.input == 'multi':
+            if f.inp.multi:
                 raw = request.form.getlist(f.name)
             else:
                 raw = request.form.get(f.name)
@@ -202,7 +202,7 @@ def _save_table_sessions(form, instance):
         columns = session.get('columns') or []
         savable = [f for f in columns
                    if not _calc_virtual(f)
-                   and f.input != 'image'
+                   and not f.inp.upload
                    and f.name not in pk_names
                    and f.name != dk_name]
         by_input = {f.name: f for f in savable}
@@ -246,13 +246,13 @@ def _save_table_sessions(form, instance):
                 f = by_input.get(fname)
                 if f is None:
                     continue
-                if f.input == 'multi':
+                if f.inp.multi:
                     raw = request.form.getlist(key)
                 else:
                     raw = request.form.get(key)
                 vals[f.name] = _coerce(raw, f)
             for f in savable:
-                if f.name not in vals and f.input in ('checkbox', 'boolean'):
+                if f.name not in vals and f.inp.boolean:
                     vals[f.name] = False
             if is_new_row and all(is_empty(v) for v in vals.values()):
                 continue  # linha adicionada mas não preenchida
@@ -349,7 +349,7 @@ def _build_lookup(form, extra_lookup=None, instance=None):
     lookup = dict(extra_lookup or {})
 
     def fill(f, src_model, _union=True):
-        if f.input != 'select' or f.options is not None:
+        if f.inp.filter_kind != 'select' or f.options is not None:
             return
         if f.name in lookup:
             return
@@ -488,9 +488,9 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
                 continue
             if _calc_virtual(f):
                 continue
-            if f.input == 'image':
+            if f.inp.upload:
                 continue
-            if f.input == 'multi':
+            if f.inp.multi:
                 raw = request.form.getlist(f.name)
             else:
                 raw = request.form.get(f.name)

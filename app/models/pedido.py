@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
-from app.constantes import STATUS_PEDIDO, FORMINHAS
+from app.extends.constants import STATUS_PEDIDO, FORMINHAS
 
 
 class Pedido(db.Model):

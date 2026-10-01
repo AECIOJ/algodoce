@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import TIPO_EVENTO
+from app.extends.constants import TIPO_EVENTO
 
 
 class Evento(db.Model):

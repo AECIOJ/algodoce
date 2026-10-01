@@ -1,4 +1,4 @@
-from app.constantes import FORMINHAS
+from app.extends.constants import FORMINHAS
 
 
 def _event_after(instance):

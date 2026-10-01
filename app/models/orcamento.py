@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
-from app.constantes import STATUS_ORCAMENTO, FORMINHAS
+from app.extends.constants import STATUS_ORCAMENTO, FORMINHAS
 from ajsystem.core.utils import add_dias
 
 

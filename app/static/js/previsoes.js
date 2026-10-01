@@ -5,7 +5,7 @@
  * vencimento, previsto, recurso e documento (fatura/P#/C# + parcela); o Salvar
  * do form persiste tudo junto. Mantém ao vivo os agregados só-exibição
  * (previsto/realizado/variacao/saldo) e o `ratear` (= valor − previsto).
- * Espelha app/utils.parse_prazo_recebimento (sem data de entrega).
+ * Espelha app/extends/utils.parse_prazo_recebimento (sem data de entrega).
  *
  * O estado dos botões NÃO é calculado aqui: vem de `Button.enabled` nas specs de
  * app/routes/sys/{pagar,receber}.py (Gerar = 6 campos preenchidos; Zerar = só

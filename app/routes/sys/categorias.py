@@ -38,6 +38,7 @@ Page = {
             'order': ['ordem', 'nome'],
         },
         'form': {
+            'max_width':70,
             'fields': 'Categoria',
             'delete': {
                 'when': {Produto},
@@ -46,7 +47,6 @@ Page = {
             },
             'pre_save': _pre_save,
             'post_save': _post_save,
-            'buttons': ['on_off'],
         },
     },
 }

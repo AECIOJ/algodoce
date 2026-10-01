@@ -1,4 +1,4 @@
-from app.constantes import TIPO_OPERACAO
+from app.extends.constants import TIPO_OPERACAO
 from ajsystem.core.extensions import db
 
 
@@ -67,5 +67,5 @@ Entity = {
     'pai_id': {'type': 'FK', 'label': 'Superior', 'width': 30,
                'lookup': {'display': 'nome', 'when': {'pai_id': None}}},
     'ordem':  {'type': 'INT', 'width': 8},
-    'ativa':  {'type': 'BOOL', 'width': 8},
+    'ativa':  {'type': 'BOOL', 'input': 'toggle', 'width': 8, 'pos_form': 3},
 }

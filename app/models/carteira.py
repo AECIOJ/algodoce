@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import CARTEIRA_USO, CARTEIRA_GERAR
+from app.extends.constants import CARTEIRA_USO, CARTEIRA_GERAR
 
 
 class Carteira(db.Model):

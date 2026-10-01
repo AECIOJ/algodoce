@@ -7,6 +7,12 @@ atributo. Não depende de request nem do motor.
 """
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
+import re
+
+
+# Formato da versão do app: `1.aa.mm-build` (`1` fixo, ano/mês com 2 dígitos,
+# build numérico). O motor só valida e exibe — os segmentos não têm semântica.
+_VERSAO_OK = re.compile(r'^1\.\d{2}\.\d{2}-\d+$')
 
 # Valor especial para `LayoutTitle.text`: resolve para `APP.title` no render.
 TEXTO_APP = 'app_title'
@@ -104,13 +110,20 @@ class App:
     """Config geral do app (APP): metadados + lista de módulos.
 
     - `name`: nome do app exibido no cabeçalho/títulos.
-    - `version`: versão exibida no rodapé. Se não informada, `build_app`
-      procura o arquivo `versao.py` do app (YEAR/MONTH/SEQUENCE).
+    - `version`: versão exibida no rodapé, em formato direto `1.aa.mm-build`
+      (ex.: `'1.26.10-009'`). É chave do próprio dict (`APP['version']`, em
+      `app/config.py`) — sem arquivo separado. Ausente (`None`) = rodapé sem
+      versão. O motor valida o formato e exibe como veio — não interpreta os
+      segmentos.
     - `upload`: política global de upload (`Page.upload` sobrescreve).
       Ausente (`None`) = `DEFAULT_UPLOAD` abaixo.
-    - `botoes`: catálogo de botões do host (`app.botoes.Buttons`), mesclado
+    - `botoes`: catálogo de botões do host (`app.extends.buttons.Buttons`), mesclado
       sobre `BUTTON_TYPES` na resolução. Mesmo papel do `Schema` de um módulo
       sobre os campos. Ausente (`None`) = só o catálogo do framework.
+    - `inputs`: catálogo de inputs do host (`app.extends.inputs.Inputs`), mesclado sobre
+      `INPUTS` na resolução do `Field`. Gêmeo de `botoes`: é aqui que `cpf`,
+      `cnpj` e a máscara do telefone ganham forma, e é o que `FIELD_TYPES`
+      referencia. Ausente (`None`) = só o catálogo do framework.
     """
     name: str
     logo: str
@@ -119,6 +132,7 @@ class App:
     version: Optional[str] = None
     upload: Optional[dict] = None
     botoes: Optional[dict] = None
+    inputs: Optional[dict] = None
     modules: List[Module] = field(default_factory=list)
     def module(self, type):
         """Retorna o módulo com o `type` dado; se ausente, o primeiro da lista
@@ -176,36 +190,18 @@ def build_module(cfg) -> Module:
     return Module(**cfg, menus=menus, layout=layout)
 
 
-def _versao_de_arquivo(caminho):
-    """Lê um arquivo `versao.py` do app (YEAR/MONTH/SEQUENCE) → 'v1.YY.MM-SEQ'.
-
-    Formato padrão do arquivo gerado (veja `app/versao.py`). Retorna '' se o
-    arquivo não existir ou não tiver as variáveis esperadas.
-    """
-    try:
-        import importlib.util
-        import sys
-
-        spec = importlib.util.spec_from_file_location("__versao__", caminho)
-        vmod = importlib.util.module_from_spec(spec)
-        sys.modules["__versao__"] = vmod
-        spec.loader.exec_module(vmod)
-        ano = str(vmod.YEAR)[-2:]
-        return f"v1.{ano}.{vmod.MONTH}-{vmod.SEQUENCE}"
-    except Exception:
-        return ''
-
-
-def build_app(cfg, versao_path=None, botoes=None) -> App:
+def build_app(cfg, version=None, botoes=None, inputs=None) -> App:
     cfg = dict(cfg)
     mods = [build_module(m) for m in cfg.pop('modules', None) or []]
     tipos = [m.type for m in mods]
     if len(tipos) != len(set(tipos)):
         dup = {t for t in tipos if tipos.count(t) > 1}
         raise ValueError(f"APP['modules'] com tipos duplicados: {sorted(dup)}")
-    versao = cfg.get('version') or ''
-    if not versao and versao_path:
-        versao = _versao_de_arquivo(versao_path)
+    versao = cfg.get('version') or version or ''
+    if versao and not _VERSAO_OK.match(versao):
+        raise ValueError(
+            f"App version {versao!r} fora do formato 1.aa.mm-build "
+            f"(ex.: '1.26.10-009'). Edite APP['version'] em app/config.py.")
     return App(
         name=cfg['name'],
         title=cfg.get('title'),
@@ -214,6 +210,7 @@ def build_app(cfg, versao_path=None, botoes=None) -> App:
         tema=cfg['tema'],
         upload=cfg.get('upload'),
         botoes=botoes,
+        inputs=inputs,
         modules=mods,
     )
 

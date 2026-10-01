@@ -1,6 +1,6 @@
 from ajsystem.core.extensions import db
 from ajsystem.core.utils import divide
-from app.constantes import TIPO_INGREDIENTE
+from app.extends.constants import TIPO_INGREDIENTE
 
 
 class Produto(db.Model):
@@ -41,7 +41,9 @@ Entity = {
     'preco':       {'type': 'NUM', 'label': 'Preço', 'currency': 1,
                     'calc': 'divide(valor, qtd_minima)'},
     'categoria_id': {'type': 'FK', 'label': 'Categoria', 'width': 12},
-    'ativo':       {'type': 'BOOL'},
+    # `pos_form: 3` = barra do form (o `slot: 'bar'` do input `toggle`), e o
+    # `Field` cobra o par: input de barra sem pos_form 3 não sobe.
+    'ativo':       {'type': 'BOOL', 'input': 'toggle', 'pos_form': 3},
     'imagem':      {'type': 'IMAGE'},
     'descricao':   {'type': 'MEMO', 'label': 'Descrição', 'rows': 4},
 }

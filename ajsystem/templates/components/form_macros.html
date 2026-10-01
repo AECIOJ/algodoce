@@ -24,6 +24,29 @@
 {% endif %}
 {% endmacro %}
 
+{# Toggle de barra (`Input.slot='bar'`, `Field.pos_form=3`): liga/desliga um
+   booleano da própria instância, sem passar pelo POST do form. O `endpoint` foi
+   resolvido no `Form.resolve` (blueprint + `Input.route`); o POST é porque o
+   toggle muda dados. O CSRF vai no header do HTMX (`page_layout.html`), então
+   não precisa de token no corpo. #}
+{% macro render_toggle_field(field, data=none, with_label=false) %}
+{% set _val = data|deep_attr(field.name) if data is not none else field.default %}
+{% set _ep = field.inp.endpoint %}
+{% if _ep %}
+<span class="inline-flex items-center gap-1">
+  {% if with_label %}<label class="text-sm mr-1" style="white-space:nowrap;">{{ field.display_label }}</label>{% endif %}
+  {# sem rótulo, o badge diz o estado: `badge_on` ligado, `badge_off` desligado #}
+  {% if not with_label %}
+    {% if _val and field.inp.badge_on %}<span class="badge badge-success badge-sm">{{ field.inp.badge_on }}</span>{% endif %}
+    {% if not _val and field.inp.badge_off %}<span class="badge badge-warning badge-sm">{{ field.inp.badge_off }}</span>{% endif %}
+  {% endif %}
+  <input type="checkbox" class="toggle toggle-success" {% if _val %}checked{% endif %}
+         title="{{ field.inp.label_on }}/{{ field.inp.label_off }}" aria-label="{{ field.inp.label_on }}/{{ field.inp.label_off }}"
+         {% if data and data.id %}hx-post="{{ url_for(_ep, id=data.id, field=field.name) }}" hx-target="this" hx-swap="none"{% endif %}>
+</span>
+{% endif %}
+{% endmacro %}
+
 {% macro render_field(field, data=none, ro=false, name_prefix='', show_label=true, ro_fields=none) %}
 {% set val = (calc_value(field.calc, data) if (field.calc is defined and field.calc and data is not none) else (data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default))) %}
 {% set ns = (name_prefix or '') + field.name %}
@@ -286,15 +309,7 @@
    `render_button_el` esquecer o `title` (nome acessível do botão só-ícone). -#}
 {%- set _attrs = (_ed ~ ' ' ~ btn_title(btn))|trim -%}
 {%- set _cls = 'btn btn-sm ' ~ btn.btn_cls() ~ ' inline-flex items-center gap-1' ~ (' btn-disabled' if not _on and (btn.url or btn.render) else '') -%}
-{%- if btn.on_off -%}
-  {%- set _val = instance|attr(btn.field or 'ativo') -%}
-  <span class="inline-flex items-center gap-1 mr-2">
-    {% if not _val %}<span class="badge badge-warning badge-sm">{{ i18n.INACTIVE }}</span>{% endif %}
-    <input type="checkbox" class="toggle toggle-success" {% if _val %}checked{% endif %}
-           title="{{ i18n.ACTIVATE }}/{{ i18n.DEACTIVATE }}" aria-label="{{ i18n.ACTIVATE }}/{{ i18n.DEACTIVATE }}"
-           onclick="window.location.href='{{ url }}'">
-  </span>
-{%- elif btn.render -%}
+{%- if btn.render -%}
   {%- if not _on -%}
   {# inativo: <span> sem href e sem onclick, como no ramo `url` — assim nem
      script injetado em página reativa consegue dispará-lo. #}
@@ -352,12 +367,11 @@
 {% endmacro %}
 
 {% macro render_list_button(btn, btn_idx=none) %}
-{# Botão de cabeçalho de listagem (sem instância). `on_off` é botão de linha e
-   não renderiza aqui. `render` busca HTML fresco em /list-action (evita o cache
-   do template de listagem com o `rid` já consumido) e entrega em `into`.
-   `url` de listagem é sempre callable (validado em `resolve_buttons`), então
-   `target_url(none)` é resolvido aqui. #}
-{% if not btn.on_off and btn.visible_ok(none) %}
+{# Botão de cabeçalho de listagem (sem instância). `render` busca HTML fresco em
+   /list-action (evita o cache do template de listagem com o `rid` já consumido) e
+   entrega em `into`. `url` de listagem é sempre callable (validado em
+   `resolve_buttons`), então `target_url(none)` é resolvido aqui. #}
+{% if btn.visible_ok(none) %}
 {{ render_button_el(btn, none, ctx='list', url=btn.target_url(none), btn_idx=btn_idx) }}
 {% endif %}
 {% endmacro %}

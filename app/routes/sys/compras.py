@@ -4,7 +4,7 @@ from ajsystem.core.formats import parse_brl
 from ajsystem.defs.constants import TODAY, POS_0_NOT_EMPTY
 from ajsystem import locales as i18n
 from app.models.compra import Compra
-from app.botoes import _sem_financeiro
+from app.extends.buttons import _sem_financeiro
 from app.models.compra_item import CompraItem
 from app.reports.compras import COMPRA
 

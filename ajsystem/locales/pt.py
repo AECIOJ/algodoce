@@ -10,6 +10,7 @@ Ver `en.py` para a regra completa.
 ACCESS = 'Acessar'
 ACTIONS = 'Ações'
 ACTIVATE = 'Ativar'
+ACTIVE = 'Ativo'
 ADD = '+ Adicionar'
 ADD_ITEM = '+ Adicionar Item'
 ADD_MORE_ITEMS = 'Incluir mais itens'

@@ -175,5 +175,9 @@ APP = {
     # código. Não afeta número/moeda/data. Copy que o app escreve direto no spec
     # fica em português de propósito — o app é quem decide o texto dele.
     'locale': 'pt',
+    # Versão do app em formato direto de leitura (`1.aa.mm-build`). É a prop
+    # `version` do `App`: o motor valida o formato e exibe no rodapé como veio.
+    # Bump = editar aqui.
+    'version': '1.26.10-010',
     'modules': [SITE, SYS, ADMIN],
 }

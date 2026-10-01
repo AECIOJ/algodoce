@@ -78,7 +78,10 @@ class Form:
         self._label = None
         self._botoes_tipos = None
         self._botoes_page = None
+        self._inputs_tipos = None
+        self._inputs_page = None
         self._camadas = ()
+        self._camadas_inputs = ()
         self._resolved_fields = []
         self._resolved_sessions = []
         # Botões NÃO são resolvidos aqui. Esta dataclass é construída antes de o
@@ -91,20 +94,27 @@ class Form:
         self._resolved_tags = []
 
     def resolve(self, entity_name: str, model, schema: dict, blueprint=None,
-                botoes_tipos=None, botoes_page=None):
+                 botoes_tipos=None, botoes_page=None,
+                 inputs_tipos=None, inputs_page=None):
         """Motor: a partir da entity nomeada, do model e do Schema da página,
         deriva campos/colunas, label, redirect e sessões.
 
         `schema` é o Schema original da página (chaveado por entidade); dele é
         derivado o merged do form principal e aplicados os overrides aos filhos.
 
-        `botoes_tipos` é o catálogo de botões do host (`app.botoes.Buttons`) e
+        `botoes_tipos` é o catálogo de botões do host (`app.extends.buttons.Buttons`) e
         `botoes_page` o da própria página (a variável `Buttons` do módulo), com o
         mesmo papel que `schema` tem sobre os campos: o catálogo genérico do
         motor resolve a chave e cada camada descreve o que diverge. É por isso
         que `self.buttons` pode ser só uma lista de nomes. Vêm por parâmetro, e
         não de um import dentro de `defs/`, para `defs` continuar importável
-        isolado."""
+        isolado.
+
+        `inputs_tipos` e `inputs_page` são o mesmo par para o catálogo de inputs
+        (`App.inputs` e a variável `Inputs` do módulo). Vêm por parâmetros
+        separados porque o `Field` resolve o input ANTES deste `resolve()` — no
+        `__post_init__`, já que máscara e largura são computadas ali —, então a
+        camada da página precisa estar disponível na hora da construção."""
         self._entity_name = entity_name
         self._model = model
         self._schema_orig = schema or {}
@@ -113,6 +123,15 @@ class Form:
             self._botoes_tipos = botoes_tipos
         if botoes_page is not None:
             self._botoes_page = botoes_page
+        if inputs_tipos is not None:
+            self._inputs_tipos = inputs_tipos
+        if inputs_page is not None:
+            self._inputs_page = inputs_page
+        # Inputs têm a MESMA precedência de camadas dos botões: app, depois
+        # página. Categoria diferente (`_camadas_inputs`) porque os dois catálogos
+        # resuelvem nomes de coisas diferentes — um `Buttons` e um `Inputs` podem
+        # ter a mesma chave com significados diferentes.
+        self._camadas_inputs = (self._inputs_tipos, self._inputs_page)
         # Cadeia de camadas do host, na ordem: app, depois página. Fica num
         # atributo só para os 4 pontos de resolução lerem a mesma coisa.
         self._camadas = (self._botoes_tipos, self._botoes_page)
@@ -129,6 +148,32 @@ class Form:
         self._resolved_buttons = resolve_buttons(
             self.buttons, self._bp_name, where='form',
             valid_fields=self._master_field_names, types=self._camadas)
+        self._resolve_input_routes()
+
+    def _resolve_input_routes(self):
+        """Junta o blueprint ao `route` de cada input que declara um endpoint.
+
+        Só o `Form` sabe o slug do blueprint, e o `Input` é resolvido antes dele
+        (no `Field.__post_init__`), então o endpoint fica para cá. Mesma ideia do
+        `Button.url` que o `on_off` derivava. Um input sem `route` grava no POST
+        do próprio form e não recebe endpoint nenhum.
+        """
+        if not self._bp_name:
+            return
+        for f in self._resolved_fields or ():
+            inp = getattr(f, 'inp', None)
+            if inp is not None and inp.route and not inp.endpoint:
+                inp.endpoint = f'{self._bp_name}.{inp.route}'
+
+    @property
+    def toggle_fields(self) -> dict:
+        """Campos alternáveis da página: `{nome: Field}` dos inputs com `route`.
+
+        O endpoint do toggle valida o `field` da URL contra este mapa, então um
+        POST não consegue escolher um campo qualquer do model para inverter.
+        """
+        return {f.name: f for f in (self._resolved_fields or ())
+                if getattr(f, 'inp', None) is not None and f.inp.route}
 
     @property
     def _master_field_names(self):
@@ -152,7 +197,7 @@ class Form:
             if is_multi_entity:
                 # Schema multi-entity: usa normalize_fieldspec
                 if spec in merged:
-                    return normalize_fieldspec(spec, merged, merged)
+                    return normalize_fieldspec(spec, merged, merged, inputs=self._camadas_inputs)
                 if self._model is None:
                     self._model = _resolve_model(spec)
                 self._entity_name = spec
@@ -161,7 +206,7 @@ class Form:
                 if not self._label:
                     self._label = _auto_label(spec)
                     self._apply_flash_defaults()
-                return normalize_fieldspec(spec, self._schema, self._schema)
+                return normalize_fieldspec(spec, self._schema, self._schema, inputs=self._camadas_inputs)
             else:
                 # Schema single-entity: spec é nome da entidade, expande merged direto
                 if self._model is None:
@@ -172,8 +217,9 @@ class Form:
                     self._apply_flash_defaults()
                 # Expansão de entidade → pos_managed=True
                 field_names = list(merged.keys())
-                return _build_fields_from_merged(field_names, merged, pos_managed=True)
-        return normalize_fieldspec(spec, merged, merged)
+                return _build_fields_from_merged(field_names, merged, pos_managed=True,
+                                              inputs=self._camadas_inputs)
+        return normalize_fieldspec(spec, merged, merged, inputs=self._camadas_inputs)
 
     def _apply_flash_defaults(self):
         if not self.flash_ok:
@@ -236,7 +282,8 @@ class Form:
                 )
                 if is_parent:
                     resolved_fields = resolve_column_configs(
-                        parent_schema, col_specs, principal=parent_schema)
+                        parent_schema, col_specs, principal=parent_schema,
+                        inputs=self._camadas_inputs)
                 else:
                     child_ent = _extract_entity_from_cols(col_specs, name)
                     if isinstance(child_ent, str):
@@ -344,7 +391,8 @@ class Form:
             # `fields` da sessão: as já resolvidas, senão as do Schema do form.
             sess_fields = resolved_fields or (
                 resolve_column_configs(self._schema or {}, spec_fields,
-                                       principal=self._schema or {}) if spec_fields else [])
+                                       principal=self._schema or {},
+                                       inputs=self._camadas_inputs) if spec_fields else [])
             # Botões da sessão: `enabled` pode citar campos do mestre ou da
             # própria sessão (ambos renderizam `name=` no mesmo form), e
             # `position` precisa bater com o formato da sessão.
@@ -439,21 +487,21 @@ class Form:
         full_schema = {child_ent: child_merged}
         principal = {child_ent: child_merged}
         if cols is None:
-            return normalize_fieldspec(child_ent, full_schema, principal)
+            return normalize_fieldspec(child_ent, full_schema, principal, inputs=self._camadas_inputs)
         if isinstance(cols, str):
             if cols == child_ent:
-                return normalize_fieldspec(child_ent, full_schema, principal)
+                return normalize_fieldspec(child_ent, full_schema, principal, inputs=self._camadas_inputs)
             cols = [cols]
         elif isinstance(cols, list):
             # Formato: ['Entity'] -> expansão de todos os campos da entidade
             if cols and isinstance(cols[0], str) and cols[0][0].isupper() and cols[0] == child_ent:
                 if len(cols) == 1:
                     # Apenas o nome da entidade -> expande tudo (passa string para normalize_fieldspec)
-                    return normalize_fieldspec(child_ent, full_schema, principal)
+                    return normalize_fieldspec(child_ent, full_schema, principal, inputs=self._camadas_inputs)
                 else:
                     # ['Entity', 'field1', 'field2'] -> remove nome da entidade
                     cols = cols[1:]
-        return normalize_fieldspec(cols, full_schema, principal)
+        return normalize_fieldspec(cols, full_schema, principal, inputs=self._camadas_inputs)
 
     def _resolve_buttons(self):
         return resolve_buttons(self.buttons, self._bp_name, types=self._camadas)

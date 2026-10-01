@@ -21,7 +21,7 @@ def infer_transform(f):
     """Transform de texto de um `Field` resolvido (None → sem transform)."""
     if f.pos_form != 1 or f.readonly or f.hidden:
         return None
-    if f.input in ('number', 'boolean', 'checkbox', 'date', 'time', 'image'):
+    if not f.inp.textual:
         return None
     if f.options:
         return None

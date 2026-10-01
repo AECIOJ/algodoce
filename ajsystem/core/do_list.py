@@ -61,7 +61,7 @@ def list_max_width(entity_name: str, module_name: str) -> str:
     bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
     model = _resolve_model(entity_name)
     merged = resolve_entity_fields(schema, model, entity_name)
-    fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged)
+    fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged, inputs=_camadas_inputs(module_name))
     if not any(f._pos_managed for f in fields):
         line_fields = list(fields)
     else:
@@ -215,7 +215,7 @@ def _camadas_botoes(module_name):
     """Catálogos de botão da listagem: o do app e o do módulo da rota.
 
     A listagem resolve botão pelo mesmo caminho do form, então precisa das mesmas
-    duas camadas — sem elas, um nome declarado em `app.botoes.Buttons` ou no
+    duas camadas — sem elas, um nome declarado em `app.extends.buttons.Buttons` ou no
     `Buttons` do módulo não resolveria aqui (e a página de listagem quebraria
     num botão que a de form mostra).
     """
@@ -228,6 +228,26 @@ def _camadas_botoes(module_name):
         except ImportError:
             pagina = {}
     return botoes, pagina
+
+
+def _camadas_inputs(module_name):
+    """Camadas de input da listagem: o do app e o do módulo da rota.
+
+    Gêmeo de `_camadas_botoes`. Uma coluna da listagem é um `Field` como outro
+    qualquer, e o `input` decide como a célula é impressa (`inp.number`,
+    `inp.boolean`, `inp.filter_kind`) e filtrada — então a listagem precisa das
+    mesmas duas camadas, senão a mesma entidade mostraria coluna de um jeito no
+    form e de outro na grade.
+    """
+    from ajsystem.defs.inputs import module_inputs
+    inputs = current_app.extensions.get('inputs')
+    pagina = {}
+    if module_name:
+        try:
+            pagina = module_inputs(importlib.import_module(module_name))
+        except ImportError:
+            pagina = {}
+    return inputs, pagina
 
 
 def do_list(entity_name: str, module_name: str, data=None, **extra):
@@ -256,7 +276,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     if card_layer:
         merged = resolve_entity_fields(schema, model, entity_name, card_layer)
 
-    fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged)
+    fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged, inputs=_camadas_inputs(module_name))
     fields_all = list(fields)
     if not any(f._pos_managed for f in fields):
         # lista explícita de campos → autoritativa (pos_list não filtra)
@@ -320,9 +340,9 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
                 _cmerged = resolve_entity_fields(schema, _child, _child.__name__)
             else:
                 _cmerged = merged
-            detail_fields = resolve_column_configs(_cmerged, _dfields, principal=_cmerged)
+            detail_fields = resolve_column_configs(_cmerged, _dfields, principal=_cmerged, inputs=_camadas_inputs(module_name))
         else:
-            detail_fields = resolve_column_configs(merged, _dfields, principal=merged)
+            detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
         list_obj.detail_data = detail_data
 
     filter_config = build_filter_config(list_obj.fields)
@@ -469,7 +489,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     spec = lista.get('columns', lista.get('fields', entity_name))
 
     def _resolve_tagged(entity_key):
-        cfgs = resolve_column_configs(merged, entity_key, principal=merged)
+        cfgs = resolve_column_configs(merged, entity_key, principal=merged, inputs=_camadas_inputs(module_name))
         for f in cfgs:
             f._entity = entity_key
         return cfgs
@@ -479,7 +499,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         # (pos_list), seguidos dos campos do pai.
         fields = _resolve_tagged(master_name) + _resolve_tagged(entity_name)
     else:
-        fields = resolve_column_configs(merged, spec, principal=merged)
+        fields = resolve_column_configs(merged, spec, principal=merged, inputs=_camadas_inputs(module_name))
     fields_all = list(fields)
     if not any(f._pos_managed for f in fields):
         # lista explícita de campos → autoritativa (pos_list não filtra)
@@ -556,9 +576,9 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
                 _cmerged = resolve_entity_fields(schema, _child, _child.__name__)
             else:
                 _cmerged = merged
-            detail_fields = resolve_column_configs(_cmerged, _dfields, principal=_cmerged)
+            detail_fields = resolve_column_configs(_cmerged, _dfields, principal=_cmerged, inputs=_camadas_inputs(module_name))
         else:
-            detail_fields = resolve_column_configs(merged, _dfields, principal=merged)
+            detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
         list_obj.detail_data = detail_data
 
     filter_config = build_filter_config(list_obj.fields)

@@ -27,6 +27,7 @@ constante aqui.
 ACCESS = 'Access'
 ACTIONS = 'Actions'
 ACTIVATE = 'Activate'
+ACTIVE = 'Active'
 ADD = '+ Add'
 ADD_ITEM = '+ Add Item'
 ADD_MORE_ITEMS = '+ Add More Items'

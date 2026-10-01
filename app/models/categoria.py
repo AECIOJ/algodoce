@@ -17,5 +17,5 @@ Entity = {
     'id':    {'type': 'ID', 'width': 6},
     'nome':  {'type': 'TEXT', 'required': True},
     'ordem': {'type': 'INT', 'mask': '999', 'min': 0, 'max': 99},
-    'ativo': {'type': 'BOOL'},
+    'ativo': {'type': 'BOOL', 'input': 'toggle', 'pos_form': 3},
 }

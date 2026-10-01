@@ -4,23 +4,48 @@ Ponto único de import das dependências específicas do projeto (SQLAlchemy db,
 login manager, modelos Usuario/Configuracao, config APP) mais hooks opcionais de
 markdown/túnel. Para portar o framework a outro host, ajustar este arquivo.
 """
-import os
-
 from flask import current_app
+from importlib.util import find_spec as _find_spec
+from importlib import import_module as _import_module
 
 from ajsystem.core.extensions import db, login_manager
 from app.models.usuario import Usuario
 from app.models.configuracao import Configuracao
-from app import config as _config_mod
 from app.config import APP as _APP, Temas as _TEMAS
-from app.botoes import Buttons as _BOTOES
 from ajsystem.defs.config import build_app, build_temas
 
-_versao_path = os.path.join(os.path.dirname(os.path.abspath(_config_mod.__file__)), 'versao.py')
-# `botoes` é o catálogo de aparência que só o app conhece (o `Schema` dos campos,
-# equivalente). Entra por parâmetro como o resto do config — o framework não abre
-# arquivo do host; quem carrega é o adapter, que já é o ponto de acoplamento.
-APP = build_app(_APP, versao_path=_versao_path, botoes=_BOTOES)
+
+def _override_ou(caminho, atributo, default):
+    """Lê um override do host se o arquivo existir, senão o default.
+
+    É o `if` declarativo do acoplamento: `find_spec` verifica a existência SEM
+    executar nada; só havendo arquivo é que ele é importado. As três situações:
+
+    - arquivo ausente → `default`, boot normal (host sem override);
+    - arquivo presente → vale o atributo do host;
+    - arquivo presente mas com erro interno → o erro original propaga. O
+      `find_spec` distingue "não existe" de "existe e quebrou": um `except
+      ImportError` genérico engoliria um typo dentro do arquivo e o boot
+      seguiria com o default em silêncio — por isso não é usado aqui.
+    - arquivo presente sem o atributo → `ImportError` nomeando o que falta.
+      Silêncio aqui esconderia variável renomeada por engano; o motor é
+      fail-fast com mensagem, não default silencioso.
+    """
+    if _find_spec(caminho) is None:
+        return default
+    mod = _import_module(caminho)
+    if not hasattr(mod, atributo):
+        raise ImportError(
+            f"{caminho} existe mas não define {atributo!r} — declare o catálogo "
+            f"ou apague o arquivo para valer o default do framework.")
+    return getattr(mod, atributo)
+
+
+# `version` vem no próprio dict (`APP['version']`, em `app/config.py`): o
+# `build_app` valida o formato `1.aa.mm-build` e exibe como veio.
+APP = build_app(_APP,
+                botoes=_override_ou('app.extends.buttons', 'Buttons', {}),
+                inputs=_override_ou('app.extends.inputs', 'Inputs', {}))
 TEMAS = build_temas(_TEMAS)
 
 # Pacote base das rotas do host (módulos `sys`/`site` pendurados dele).

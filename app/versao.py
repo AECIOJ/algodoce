@@ -1,3 +1,0 @@
-YEAR = "2026"
-MONTH = "09"
-SEQUENCE = "008"

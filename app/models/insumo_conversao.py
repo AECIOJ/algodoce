@@ -1,5 +1,5 @@
 from ajsystem.core.extensions import db
-from app.constantes import UND_INSUMO
+from app.extends.constants import UND_INSUMO
 
 
 class InsumoConversao(db.Model):

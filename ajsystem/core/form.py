@@ -122,9 +122,9 @@ def _coerce(value, f):
     """Converte o valor bruto de um input para o tipo do campo."""
     if value is None:
         return None
-    if f.input in ('checkbox', 'boolean'):
+    if f.inp.boolean:
         return value in ('on', '1', 1, True)
-    if f.input == 'number':
+    if f.inp.number:
         s = str(value).strip().replace('\u00A0', ' ')
         # sufixo de lista/readonly (`1234,56 D`) — sinal de débito/crédito
         s = re.sub(r'\s+[CD]\s*$', '', s)
@@ -166,13 +166,13 @@ def _coerce(value, f):
             if res is not None:
                 return res
         return None
-    if f.input == 'multi':
+    if f.inp.multi:
         s = ''.join(sorted(value)) or None
         return s
     val = str(value).strip() or None
     if val and 'R' in getattr(f, 'mask_cmds', frozenset()):
         val = mask_strip(val, f.mask_display or '') or None
-    if f.input == 'select' and isinstance(f.options, dict):
+    if f.inp.filter_kind == 'select' and isinstance(f.options, dict):
         for key in f.options:
             if str(key) == val:
                 return key

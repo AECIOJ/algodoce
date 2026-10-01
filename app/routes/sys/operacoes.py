@@ -67,7 +67,6 @@ Page = {
                 'msg_ok': 'Operação excluída!',
                 'msg_no': 'Não é possível excluir — existem operações vinculadas.',
             },
-            'buttons': [{'on_off': {'field': 'ativa'}}],
         },
     },
 }

@@ -15,15 +15,22 @@ Esta camada NÃO importa `Query` (a espec de busca/FK entra depois, quando uma
 página precisar).
 """
 import importlib
-from dataclasses import dataclass, fields as dc_fields
+from dataclasses import dataclass, field, fields as dc_fields
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
 from ajsystem.core.utils import is_empty
+from ajsystem.defs.inputs import Input, resolve_input
 from ajsystem.defs.pages import Page, parse_page
 
 
 # ── Tipos base de campo ──────────────────────────────────────────────────────
+# `input` aqui é o NOME de um tipo do catálogo `defs/inputs` — a entrada diz
+# qual editor o tipo usa, e todas as props desse editor (tag, classe, largura,
+# máscara, validador) estão no catálogo. Por isso `'CPF'` só aponta para
+# `'cpf'`: a máscara e o validador do CPF são uma entrada do app, escritas uma
+# vez em `app/extends/inputs.py`. `'type': 'CPF'` na Entity já traz tudo, sem a rota
+# reescrever nada.
 FIELD_TYPES = {
     'TEXT':      {'input': 'text'},
     'MEMO':      {'input': 'textarea'},
@@ -37,10 +44,10 @@ FIELD_TYPES = {
     'DATA':      {'input': 'date'},
     'DATA_HORA': {'input': 'datetime-local'},
     'HORA':      {'input': 'time'},
-    'BOOL':      {'input': 'boolean'},
-    'FONE':      {'input': 'text', 'mask': '@R (99) 99999-9999'},
-    'CPF':       {'input': 'text', 'mask': '@R 999.999.999-99', 'validate': 'cpf'},
-    'CNPJ':      {'input': 'text', 'mask': '@R 99.999.999/9999-99', 'validate': 'cnpj'},
+    'BOOL':      {'input': 'checkbox'},
+    'FONE':      {'input': 'tel'},
+    'CPF':       {'input': 'cpf'},
+    'CNPJ':      {'input': 'cnpj'},
     'LIST':      {'input': 'select'},
     'MULT10':    {'input': 'multi', 'pos_filter': 0},
     'IMAGE':     {'input': 'image', 'pos_filter': 0, 'required': False},
@@ -151,7 +158,8 @@ class Field:
     label: Optional[str] = None
     width: Optional[int] = None
     align: str = 'left'
-    input: str = 'text'
+    input: str = 'text'        # NOME de um tipo do catálogo `defs/inputs`
+    input_props: dict = field(default_factory=dict)  # overrides do editor no ponto de uso
     options: Optional[dict] = None
     mask: Optional[str] = None
     placeholder: Optional[str] = None
@@ -182,6 +190,10 @@ class Field:
 
     # interno: condição `when` de `pos_form` dict (None | dict | callable | str)
     _pos_form_when: Any = None
+
+    # interno: camadas do host (app, rota) + o `Input` resolvido. Ver `inp`.
+    _input_camadas: tuple = ()
+    _input_def: Optional[Input] = None
 
     def __post_init__(self):
         # pos_form pode ser dict {pos, when} para visibilidade condicional exclusivamente via Schema
@@ -215,28 +227,43 @@ class Field:
         if self.tag is not None:
             from ajsystem.defs.tags import parse_tag
             self.tag = parse_tag(self.tag)
+        # `input` resolve pelo catálogo — fail-fast aqui, no mesmo spirit do
+        # `parse_tag` acima: a entrada de um `Input` é o `Field`, não o template.
+        self._input_def = resolve_input(self.input, self.input_props,
+                                        *self._input_camadas)
+        if self._input_def.slot == 'bar' and self.pos_form != 3:
+            raise ValueError(
+                f"FIELD '{self.name}': input {self.input!r} é de barra — "
+                f"declare 'pos_form': 3.")
+        # Máscara: o catálogo pode trazer uma (cpf/cnpj), o Field vence.
+        if self.mask is None:
+            self.mask = self._input_def.mask
+        if self.validate is None:
+            self.validate = self._input_def.validate
         # Comandos de máscara `@X` e corpo (display) derivados; fail-fast.
         self.mask_cmds, self.mask_display = (
             parse_mask_commands(self.mask) if self.mask else (frozenset(), ''))
-        if self.mask_cmds & {'B', 'X'} and self.input != 'number':
+        if not self._input_def.aceita(self.mask_cmds):
             raise ValueError(
-                f"FIELD '{self.name}': comandos @B/@X só para input 'number'")
-        if self.mask_cmds & {'U', 'L', 'C', 'T', 'R'} and self.input not in ('text', 'textarea'):
-            raise ValueError(
-                f"FIELD '{self.name}': comandos @U/@L/@C/@T/@R só para input text/textarea")
+                f"FIELD '{self.name}': máscara {sorted(self.mask_cmds)} não "
+                f"permitida em input {self.input!r} (aceita "
+                f"{sorted(self._input_def.mask_cmds)})")
         if len(self.mask_cmds & {'U', 'L', 'C', 'T'}) > 1:
             raise ValueError(
                 f"FIELD '{self.name}': comandos de transform @U/@L/@C/@T são exclusivos")
         if self.width is None and self.mask:
             self.width = len(self.mask_display)
-            if self.input == 'number' and not self.mask_display.startswith('-'):
+            if self._input_def.number and not self.mask_display.startswith('-'):
                 self.width += 1
         if self.width is None:
-            self.width = {'number': 12, 'date': 12, 'time': 10,
-                          'datetime-local': 16, 'boolean': 6, 'checkbox': 6,
-                          'image': 12}.get(self.input, 18)
-        if self.input == 'number' and self.align == 'left':
+            self.width = self._input_def.size or 18
+        if self._input_def.align == 'right' and self.align == 'left':
             self.align = 'right'
+
+    @property
+    def inp(self) -> Input:
+        """O `Input` resolvido deste campo. Atalho para template e `core/`."""
+        return self._input_def
 
     @property
     def mask_text_command(self) -> str:
@@ -365,9 +392,18 @@ def build_field_config(name: str, cfg: dict) -> dict:
     return props
 
 
-def build_field(name: str, cfg: dict) -> Field:
-    """Instancia um `Field` a partir de uma config de entrada."""
-    return Field(**build_field_config(name, cfg))
+def build_field(name: str, cfg: dict, inputs=None) -> Field:
+    """Instancia um `Field` a partir de uma config de entrada.
+
+    `inputs` = camadas extras do host (a do módulo), para os campos construídos
+    aqui verem um input que o catálogo do app não tem. Sem isso, o `Field` cai
+    na camada default de processo (`inputs.definir_camadas_padrao`), que é o
+    `App.inputs` — a mesma que os 4 outros sítios de construção usam.
+    """
+    props = build_field_config(name, cfg)
+    if inputs:
+        props['_input_camadas'] = tuple(inputs)
+    return Field(**props)
 
 
 class FieldConfigError(ValueError):
@@ -927,7 +963,8 @@ def apply_lookup_when(query, target_model, when):
 
 
 # ── Normalização unificada de fields/columns ───────────────────────────────────
-def normalize_fieldspec(spec, full_schema: dict, principal: dict = None) -> list[Field]:
+def normalize_fieldspec(spec, full_schema: dict, principal: dict = None,
+                       inputs=None) -> list[Field]:
     """Normaliza spec de campos para lista de Field resolvidos.
 
     Formatos suportados:
@@ -954,11 +991,11 @@ def normalize_fieldspec(spec, full_schema: dict, principal: dict = None) -> list
         merged = {**entity_schema, **entity_principal}
         field_names = list(merged.keys())
         pos_managed = True
-        return _build_fields_from_names(field_names, merged, pos_managed)
+        return _build_fields_from_names(field_names, merged, pos_managed, inputs=inputs)
 
     # 2. Lista = campos explícitos (pode ter 'Entity.field')
     if isinstance(spec, list):
-        return _resolve_field_list(spec, full_schema, principal)
+        return _resolve_field_list(spec, full_schema, principal, inputs=inputs)
 
     # 3. Dict = multi-entidade {Entity: [fields]} ou Schema-style {field: config}
     if isinstance(spec, dict):
@@ -970,7 +1007,7 @@ def normalize_fieldspec(spec, full_schema: dict, principal: dict = None) -> list
                 entity_schema = full_schema.get(entity_name, {}) or {}
                 entity_principal = principal.get(entity_name, {}) or {}
                 merged = {**entity_schema, **entity_principal}
-                fields = _build_fields_from_names(field_names, merged, pos_managed=False)
+                fields = _build_fields_from_names(field_names, merged, pos_managed=False, inputs=inputs)
                 all_fields.extend(fields)
             return all_fields
         else:
@@ -985,12 +1022,13 @@ def normalize_fieldspec(spec, full_schema: dict, principal: dict = None) -> list
                     merged[fname] = {**merged[fname], **fcfg}
                 else:
                     merged[fname] = fcfg
-            return _build_fields_from_names(field_names, merged, pos_managed=False)
+            return _build_fields_from_names(field_names, merged, pos_managed=False, inputs=inputs)
 
     raise TypeError(f"fields/columns deve ser str, list ou dict, recebeu {type(spec).__name__}")
 
 
-def _resolve_field_list(spec: list, full_schema: dict, principal: dict) -> list[Field]:
+def _resolve_field_list(spec: list, full_schema: dict, principal: dict,
+                        inputs=None) -> list[Field]:
     """Resolve lista de campos: ['f1', 'Entity.f2', ...]."""
     # Agrupa por entidade detectada no prefixo
     by_entity = {}
@@ -1012,7 +1050,7 @@ def _resolve_field_list(spec: list, full_schema: dict, principal: dict) -> list[
         entity_schema = full_schema.get(entity_name, {}) or {}
         entity_principal = principal.get(entity_name, {}) or {}
         merged = {**entity_schema, **entity_principal}
-        fields = _build_fields_from_names(field_names, merged, pos_managed=False)
+        fields = _build_fields_from_names(field_names, merged, pos_managed=False, inputs=inputs)
         all_fields.extend(fields)
 
     # Campos sem prefixo: resolve contra primeira entidade disponível
@@ -1021,13 +1059,14 @@ def _resolve_field_list(spec: list, full_schema: dict, principal: dict) -> list[
         entity_schema = full_schema.get(entity_name, {}) or {}
         entity_principal = principal.get(entity_name, {}) or {}
         merged = {**entity_schema, **entity_principal}
-        fields = _build_fields_from_names(no_prefix, merged, pos_managed=False)
+        fields = _build_fields_from_names(no_prefix, merged, pos_managed=False, inputs=inputs)
         all_fields.extend(fields)
 
     return all_fields
 
 
-def _build_fields_from_names(field_names: list[str], merged: dict, pos_managed: bool) -> list[Field]:
+def _build_fields_from_names(field_names: list[str], merged: dict, pos_managed: bool,
+                           inputs=None) -> list[Field]:
     """Constrói lista de Field a partir de nomes e config merged."""
     fields = []
     for name in field_names:
@@ -1035,7 +1074,7 @@ def _build_fields_from_names(field_names: list[str], merged: dict, pos_managed: 
         base = base if isinstance(base, dict) else {}
         if pos_managed and base.get('memory'):
             continue  # campo `memory`: só onde citado explicitamente
-        f = build_field(name, base)
+        f = build_field(name, base, inputs=inputs)
         f._pos_managed = pos_managed
         fields.append(f)
     return fields

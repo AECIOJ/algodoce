@@ -1,6 +1,6 @@
 # AJSYSTEM 1.26.09.30.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.09.30.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE`).
+> Vinculado a `ajsystem/version` (`1.26.09.30.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, formato `1.aa.mm-build`).
 
 ---
 
@@ -160,11 +160,12 @@
 | Prop | Tipo | Valores possíveis | Impacto visual | Impacto processamento |
 |---|---|---|---|---|
 | `name` | `str` | nome da coluna | — | chave do `Field` |
-| `type` | `str` | `TEXT,MEMO,INT,NUM,PERCENT,PK,ID,DK,FK,DATA,DATA_HORA,HORA,BOOL,FONE,CPF,CNPJ,LIST,MULT10,IMAGE` (`FIELD_TYPES`, **19** entradas) | define `input`, `width` default, máscara | `build_field_config` aplica `FIELD_TYPES`; `DK` força `pos_form:0 pos_filter:0` |
+| `type` | `str` | `TEXT,MEMO,INT,NUM,PERCENT,PK,ID,DK,FK,DATA,DATA_HORA,HORA,BOOL,FONE,CPF,CNPJ,LIST,MULT10,IMAGE` (`FIELD_TYPES`, **19** entradas) | declara qual **input** do catálogo o campo usa (`BOOL`→`checkbox`, `CPF`→`cpf`, `CNPJ`→`cnpj`, `FONE`→`tel`), e o input traz `width`/máscara/validador | `build_field_config` aplica `FIELD_TYPES`; `DK` força `pos_form:0 pos_filter:0` |
 | `label` | `str` | texto ou `None` → `_auto_label(name)` | cabeçalho lista/form/report | — |
 | `width` | `int` | `ch` (ex: `6` para `ID`, `12` para `NUM`) | largura input/coluna (`field.width+3 ch`, report mm) | `field_to_column` (`core/list.py:143`) calcula |
 | `align` | `str` | `left,center,right` (`NUM`→`right` automático `data.py:217`) | `text-align` célula/input | — |
-| `input` | `str` | `text,number,date,select,textarea,boolean,image,multi` | tipo de `<input>` | `_coerce` (`core/form.py:133`) converte |
+| `input` | `str` | **nome de um tipo** de `ajsystem/defs/inputs.py` (`text,number,date,select,textarea,email,tel,password,checkbox,multi,image,toggle,…`) | resolve o `Input`; o `Field` passa a ler as props dele | `Field.__post_init__` instancia o `Input` — o `core` lê **`f.inp.*`**, nunca `f.input` por string |
+| `input_props` | `dict` | override parcial do input **neste campo** (`{'cls':'x','size':9}`) | última camada do merge, acima do app e da rota | `resolve_input(..., overrides)`; chave desconhecida **levanta erro** |
 | `options` | `dict` | `{k:label}` para `LIST/MULT10` | `select` options, `tag` texto | `field_filter_options` |
 | `mask` | `str` | `@R 999.999.999-99` (CPF), `dd/mm/aaaa`, `@T` title | máscara display/edição (`formats.js:fmtMask`) | `parse_mask_commands`, `width` derivado |
 | `placeholder` | `str` | texto | `placeholder` input | — |
@@ -364,8 +365,6 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 | `variant` | `str` | `'outline'` | `outline`, `solid`, `ghost` | `btn-outline` / `btn-{color}` / `btn-ghost` (o `ghost` **ignora** a cor) |
 | `size` | `str` | `'sm'` | `xs,sm,md…` | `btn-{size}` |
 | `cls` | `str` | `''` | classe extra; **anula** `color`/`variant`/`size` | `btn.btn_cls()` |
-| `label_off` | `str` | `None` | constante de `ajsystem.locales` | **não renderizado** — reservado ao toggle `on_off`; se for conectado, declarar com constante, como os outros rótulos |
-| `icon_off` | `str` | `None` | | idem, não renderizado |
 | `visible` | `bool\|callable\|tuple\|dict` | `True` | | decide a renderização, **no servidor, 1×** |
 | `enabled` | `bool\|list\|dict` | `True` | | decide o `disabled`; reavaliado **no cliente** a cada `input`/`change` |
 | `enabled_fields` | `list` | `[]` | nomes dos campos observados | `enabled_mode` |
@@ -380,8 +379,6 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 | `carry` | `dict` | `None` | `{campo_destino: campo_origem}` | importa valores do form ao navegar |
 | `serialize` | `bool` | `False` | | serializa o form antes de enviar |
 | `position` | `str` | `'top_right'` | `POSITION_CONTEXT` — `left`, `right`, `before`, `after`, `top_left`, `top_right`, `bottom_left`, `bottom_right` | ver abaixo |
-| `on_off` | `bool` | `False` | | vira toggle; `field` diz de qual campo |
-| `field` | `str` | `None` | nome do campo | usado por `on_off` |
 
 `resolve_buttons(specs, bp_name, *, where, valid_fields, sess, ctx)` recebe uma **lista** de specs; cada item pode ser instância `Button` (os tipos derivados e `BTN_PRINT`/`BTN_SEND` já são `Button`), nome de tipo (`'delete'`), `{nome: {overrides}}` ou dict custom. Toda chave é validada — chave desconhecida, destino ambíguo (`action`+`url`) ou campo inexistente em `enabled` **levanta erro** em vez de ser descartado em silêncio. Instâncias são copiadas com `replace()` porque a validação normaliza `enabled`/`field`/`url` in-place: sem a cópia, o preset compartilhado seria contaminado pelo primeiro registro que o usasse.
 
@@ -392,10 +389,9 @@ GENERICOS[base]  <  app.botoes.Buttons  <  Buttons da rota  <  spec do uso
 ```
 
 - **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:337`) tem 40 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
-- **`Buttons`** (`ajsystem/defs/buttons.py:430`) é o catálogo **do motor**: botão que o motor procura pelo nome porque o *comportamento* é dele, não a aparência. Hoje é só o `on_off` — o toggle liga/desliga um campo booleano e quem monta o POST é `auto._toggle_field`/`_toggle`, não o CRUD. Um app que não usa toggle não carrega a entrada. `GENERICOS` é a soma dos dois e é o que o merge semeia.
-- **`type`** — a entrada do host declara de qual genérico diverge. Sem `type`, a base é o tipo de **mesmo nome** (o caso de sobrescrever `delete`); com `type`, o app nomeia um botão seu e declara só o que muda. A base pode ser um tipo do motor, então `{'type': 'on_off'}` funciona. `type` apontando para tipo inexistente **levanta erro dizendo o nome** — não vira `label faltando` mais tarde.
+- **`type`** — a entrada do host declara de qual genérico diverge. Sem `type`, a base é o tipo de **mesmo nome** (o caso de sobrescrever `delete`); com `type`, o app nomeia um botão seu e declara só o que muda. `type` apontando para tipo inexistente **levanta erro dizendo o nome** — não vira `label faltando` mais tarde.
 - **override parcial** — a entrada do host é parcial de propósito. `{'delete': {'color': 'warning'}}` troca a cor e **mantém** o `label`/`icon`/`confirm_msg` do tipo.
-- **`build_catalogo(*camadas)`** é a função que faz o merge, e é a mesma para `resolve_buttons` e para o `_toggle_field` do motor — dois merges divergem no dia seguinte em que um deles ganha uma regra. Um argumento por camada do host, cada uma sobrepondo a anterior; `None`/`{}` são ignorados. Nenhuma camada muta `GENERICOS`.
+- **`build_catalogo(*camadas)`** é a função que faz o merge, com um argumento por camada do host, cada uma sobrepondo a anterior; `None`/`{}` são ignorados. Nenhuma camada muta `GENERICOS`.
 - **`Buttons` da rota** é a variável de módulo que a rota declara, lida por `module_buttons` — o mesmo papel que o `Schema` dela tem sobre os campos. É onde vive o botão que só aquela rota usa, e é o que permite a spec ser **uma lista de nomes**. A camada entra depois do app, então a rota também pode sobrescrever um botão do app só naquele form.
 - **`report` + `filter_field`** na entrada do catálogo substituem as factories `BTN_PRINT`/`BTN_SEND` no ponto de uso: `render`, `into` e o `guard` padrão (`_has_items`) saem sozinhos, e o que fica escrito é só a aparência que diverge do tipo `print`. `BTN_PRINT`/`BTN_SEND` continuam existindo para o `guard` customizado e para compatibilidade.
 - **`enabled`/`carry`/`url`/`position` não moram no catálogo genérico nem no do app**: dependem do form e do registro, então ficam no ponto de uso. No `Buttons` da rota eles podem — a rota já é o ponto de uso.
@@ -407,7 +403,7 @@ BUTTON_TYPES = {'generate': {'label': i18n.GENERATE, 'color': 'success', 'varian
 # framework — o que o motor procura pelo nome (hoje: o toggle)
 Buttons = {'on_off': {'label': i18n.ACTIVATE, 'icon': 'check', 'on_off': True, …}}
 
-# app/botoes.py — o que o app repete em 2+ forms
+# app/extends/buttons.py — o que o app repete em 2+ forms
 Buttons = {'gerar_financeiro': {'type': 'generate', 'icon': 'currency-dollar', 'variant': 'outline'}}
 
 # route — o `Buttons` dela (mesmo papel do `Schema` dela)
@@ -460,8 +456,54 @@ Substituem o antigo `app/utils.btn_enviar_report` e a constante `REPORT_CONTENT`
 
 O par mora em `ajsystem/defs/report.py` (`REPORT_ID` cru + `REPORT_CONTENT` derivado), não em `defs/buttons.py` — a constante descreve o container do relatório, e o botão só a consome como default. `init.py` expõe as duas como globals Jinja, então `sys.html` e `print_overlay.html` leem `{{ REPORT_ID }}` / `{{ REPORT_CONTENT }}` em vez de repetir o literal. Isso fecha o contrato de três lados (Python, HTML e JS): se o id divergisse em algum deles, o botão renderizaria o HTML sem o JS reconhecer o destino, e o relatório apareceria sem esconder a página nem reexecutar os scripts do fragmento.
 
-### 5.9.1 Predicados de valor — `ajsystem/core/utils.py`
+### 5.9.1 `Input` — `ajsystem/defs/inputs.py` `class Input`
 
+Gêmeo de `Button`, para o outro lado do formulário: enquanto o botão descreve *o que acontece*, o input descreve *como o valor entra e volta*. Antes, cada editor era um `if field.input == '...'` espalhado por `core/list.py`, `core/form.py`, `core/do_form.py`, `core/do_upload.py` e `defs/transformers.py` — o `core` conhecia os nomes do catálogo, e adicionar um editor era editar cinco arquivos. Agora a escolha do editor é uma prop, e o `core` só lê `f.inp.*`.
+
+| Prop | Tipo | Default | Papel |
+|---|---|---|---|
+| `html_type` | `str` | `''` | atributo `type` do `<input>` (vazio = o template escolhe) |
+| `inputmode` | `str` | `''` | dica de teclado no mobile (`decimal`, `numeric`) |
+| `cls` | `str` | `'input input-bordered input-sm'` | classe do controle |
+| `size` | `int` | `18` | largura em `ch`; vira `Field.width` quando o campo não declara |
+| `align` | `str` | `'left'` | `text-align`; `'right'` do input vence o `'left'` do campo |
+| `slot` | `str` | `'body'` | `body` no corpo do form, `bar` na barra — `bar` **exige** `pos_form: 3` |
+| `boolean` | `bool` | `False` | valor é booleano; ausência no POST = `False` |
+| `number` | `bool` | `False` | formatado por `fmt_num`/`fmt_id` |
+| `multi` | `bool` | `False` | lista de opções marcadas |
+| `masked` | `bool` | `False` | o texto passa por `mask`/`mask_cmd` |
+| `textual` | `bool` | `True` | texto livre — só isso aceita transform `@U/@L/@C/@T` |
+| `filter_kind` | `str` | `'text'` | editor de filtro da listagem: `text/boolean/date/number/select` |
+| `upload` | `bool` | `False` | o valor é o nome de um arquivo enviado |
+| `mask` | `str` | `''` | máscara default; o `Field` vence |
+| `validate` | `str\|list` | `None` | validador default; o `Field` vence |
+| `mask_group` | `str` | `'text'` | comandos `@X` liberados: `text` (`ULCTR`), `number` (`BX`), `*` |
+| `route` | `str` | `''` | sufixo do endpoint — `''` grava no POST do form |
+| `method` | `str` | `'GET'` | verbo do endpoint |
+| `label_on`/`label_off` | `str` | `''` | rótulos do toggle (title/`aria-label`) |
+| `badge_off` | `str` | `''` | badge mostrada quando o valor é falso |
+| `endpoint` | `str` | `''` | **interno** — resolvido no `Form.resolve` (blueprint + `route`) |
+
+**Camadas** — mesma regra e mesma mensagem de erro dos botões:
+
+```
+INPUTS[base]  <  app.inputs.Inputs  <  Inputs da rota  <  input_props do campo
+```
+
+- **`INPUT_TYPES`** (`ajsystem/defs/inputs.py:127`) tem 13 entradas genéricas (`text`, `textarea`, `email`, `tel`, `password`, `number`, `select`, `checkbox`, `multi`, `date`, `datetime-local`, `time`, `image`). O framework não conhece `cpf` nem `cnpj` — são domínio.
+- **`Inputs`** (mesmo arquivo) é a camada do **motor**: só o `toggle`. A entrada diverge de `checkbox` declarando `type: 'checkbox'`, e acrescenta `slot: 'bar'`, `route: 'toggle'`, `method: 'POST'`, `label_on`/`label_off` e `badge_off`. `INPUTS` é a soma das duas, já com o `type` resolvido.
+- **`type`** é metadado de qual base usar e sai do merge. Base inexistente **levanta erro dizendo o nome**; entrada sem `type` e com nome novo **também**, porque todo tipo do app diverge de um genérico.
+- **`App.inputs`** (`app/config.py` → `build_app(inputs=…)`) é a camada do app, lida por `core/adapter.py` e fixada como default de processo por `definir_camadas_padrao` no `init.py` — antes de `registrar_modulos`, porque o `Entity` já é expandido no import do model. É onde `cpf`/`cnpj` e a máscara do telefone BR ganham forma: `app/extends/inputs.py`, gêmeo de `app/extends/buttons.py`.
+- **`Inputs` da rota** é a variável de módulo lida por `module_inputs`, no mesmo papel que `Schema` e `Buttons` têm na sua rota. A listagem resolve as mesmas camadas por `_camadas_inputs`.
+- **`input_props`** é a última camada e vale só para aquele campo: `{'type': 'BOOL', 'input_props': {'cls': 'meu-toggle'}}`. Chave que não existe em `Input` **levanta erro** com a lista das válidas.
+
+**Resolução** — `Field.input` continua sendo `str` (o *nome* do tipo, porque é isso que o `Schema` e o spec referenciam); o objeto resolvido é `Field.inp`. A resolução é **eager**, no `Field.__post_init__`, e não preguiçosa: `mask`, `validate`, `width` e `align` são computados ali, e um input resolvido depois deixaria a máscara de fora. O `Field` ainda valida três pares que não podem divergir: input de `slot='bar'` sem `pos_form: 3`, comando de máscara não liberado pelo `mask_group`, e `@U/@L/@C/@T` combináveis entre si (são exclusivos).
+
+**Toggle** — `{'type': 'BOOL', 'input': 'toggle', 'pos_form': 3}` no model. Renderiza no rodapé do form (`form_macros.html:render_toggle_field`), **fora** do `<form id="main-form">`, porque cada um é um POST próprio. O endpoint é genérico — um por módulo, em `POST /<rota>/<id>/toggle/<campo>` — e valida o `<campo>` da URL contra `Form.toggle_fields` (os campos cujo input declara `route`), então um POST não escolhe coluna arbitrária do model para inverter. É POST e não GET porque muda dados: GET mutante quebra o cache do navegador, o prefetch de link e o back/forward. Respondendo a HTMX, devolve `204` + `HX-Refresh`; fora dela, `302` para o form.
+
+Presets `IN_TEXT`, `IN_TOGGLE`… são gerados em loop a partir de `INPUTS` e publicados como globals Jinja no `init.py` (mesma ideia dos `BTN_*`). São o preset do **framework**; quem customiza escreve `input_props` no campo, que é a última camada do merge e por isso não pode ser enganado por um global.
+
+### 5.9.2 Predicados de valor — `ajsystem/core/utils.py`
 O que decide se um campo "tem valor" são três funções, e confundir duas delas quebra formulário. Todas em `core/utils.py` (dependência permitida de `defs/`, por `defs/__init__.py`).
 
 | Função | True para | Usada por |
@@ -498,7 +540,7 @@ Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `
 | `logo` | — | caminho do logo |
 | `tema` | — | `Tema` |
 | `title` | `None` | título padrão de página |
-| `version` | `None` | **depreciado** — a versão do app é `app/versao.py` |
+| `version` | `None` | string direta `1.aa.mm-build` (ex.: `'1.26.10-009'`), chave do próprio dict (`APP['version']`); formato validado no `build_app`, exibida como veio |
 | `upload` | `None` | política padrão de upload (páginas herdam) |
 | `modules` | `[]` | `Module`s do menu |
 
@@ -506,6 +548,22 @@ Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `
 **`MenuItem`** (`:66`) — `page`, `url`, `icon`, `submenus`.
 **`Tema`** (`:15`) — `base`, `rotulo`, `marca`, `neutras`, `feedback`, `apoio`, `barras`, `modal` (paleta daisyUI/Tailwind).
 **`Layout`** (`:59`) — `header` (`LayoutHeader`), `footer` (`LayoutFooter`); `LayoutHeader` tem `logo` (`LayoutLogo`: `rows` 5, `align` center) e `title` (`LayoutTitle`: `text`, `align`, `font`, `color`); `LayoutFooter` tem `font`, `color`, `user` (`True`).
+
+### 5.11.1 Overrides do host — `app/extends/`
+
+O que estende ou sobrescreve o framework mora numa pasta exclusiva do app, com os **mesmos nomes do framework em inglês**: `buttons.py` espelha `ajsystem/defs/buttons.py`, `inputs.py` espelha `ajsystem/defs/inputs.py`, `constants.py` espelha `ajsystem/defs/constants.py`, `utils.py` espelha `ajsystem/core/utils.py`. `app/config.py` fica na raiz (documento-raiz do app, lido pelo adapter e pelos models).
+
+O motor **antecipa** esses arquivos: `core/adapter.py:_override_ou(caminho, atributo, default)` verifica a existência com `find_spec` **sem executar nada** e só importa havendo arquivo. As três situações:
+
+| Situação | Comportamento |
+|---|---|
+| arquivo ausente | `default` do framework, boot normal |
+| arquivo presente | vale o atributo do host |
+| arquivo presente mas com erro interno | o erro original propaga — `find_spec` distingue "não existe" de "existe e quebrou", então um `except ImportError` genérico (que engoliria um typo e bootaria com default em silêncio) não é usado |
+| arquivo presente sem o atributo | `ImportError` nomeando o que falta (fail-fast; silêncio esconderia variável renomeada) |
+
+Só `extends/buttons.py` (`Buttons`) e `extends/inputs.py` (`Inputs`) passam pelo loader — são os únicos que o framework importa. `extends/constants.py` e `extends/utils.py` são só do app (o framework nunca os importa), e `app.config` + models continuam obrigatórios: sem eles não há boot.
+
 
 ### 5.12 Locales — `ajsystem/locales/`
 
@@ -612,17 +670,33 @@ Page = {
 >
 > **Limitação conhecida:** `formats.js:260` (`itMoneyInfo`) duplica a tabela `CURRENCY` à mão. Alterar só o Python dessincroniza os dois em silêncio. E `normalize_currency` só aceita `'brl'` como string — `currency:'eur'` devolve `None` e **desliga** a formatação em vez de escolher o código 3.
 
-> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `app/versao.py` (`YEAR`/`MONTH`/`SEQUENCE`). `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:286`) valida chaves (`FieldConfigError`).
+> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `1.aa.mm-build`) — sem arquivo próprio. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:286`) valida chaves (`FieldConfigError`).
 
 ---
 
 ## 6. Histórico de versões
 
+### 1.26.10.01.0002
+- **Overrides do host ganharam pasta exclusiva, com os nomes do framework em inglês.** `app/botoes.py`, `app/inputs.py`, `app/constantes.py` e `app/utils.py` viraram `app/extends/buttons.py|inputs.py|constants.py|utils.py` (`git mv`, histórico preservado). `app/config.py` fica na raiz. Seção nova 5.11.1 documenta o contrato.
+- **O motor antecipa os overrides em vez de exigir.** `core/adapter.py:_override_ou(caminho, atributo, default)` checa com `find_spec` sem executar: arquivo ausente → default do framework; presente → vale o host; presente com erro interno → o erro original propaga (nunca engolido por `except ImportError`); presente sem o atributo → `ImportError` nomeando. Vale para `extends/buttons.py` (`Buttons`) e `extends/inputs.py` (`Inputs`) — os únicos que o framework importa. Verificado nos 3 cenários: boot normal, `inputs.py` ausente (app sobe, `type: 'CPF'` falha alto nomeando o tipo) e `buttons.py` com `SyntaxError` (o erro original aparece com arquivo/linha).
+- **`App.version` virou string direta `1.26.10-009`.** É chave do próprio dict (`APP['version']`, em `app/config.py`) — sem arquivo separado; `build_app` valida o formato `1.aa.mm-build` com erro nomeando. Sumiram `app/versao.py`, o trio `YEAR`/`MONTH`/`SEQUENCE`, a composição `v1.26.10-009` e o `_versao_de_arquivo` — que engolia toda exceção com `except Exception: return ''`. O rodapé exibe como veio.
+
+### 1.26.10.01.0001
+- **A aparência de input virou um catálogo por tipo, gêmeo do de botão.** `ajsystem/defs/inputs.py` traz `Input` (dataclass), `INPUT_TYPES` (13 genéricos) e a camada do motor `Inputs` (só o `toggle`). As camadas, na ordem: `INPUTS` < `app.extends.inputs.Inputs` < `Inputs` da rota < `input_props` do campo — mesma merge, mesma mensagem de erro de `build_catalogo`. `App.inputs` entrou no `build_app` ao lado de `botoes`, e `app/extends/inputs.py` é o novo gêmeo de `app/extends/buttons.py`.
+- **`Field.input` continua `str`, e `Field.inp` é o `Input` resolvido.** A escolha do tipo (checkbox, moeda, data) passou a ser prop, não nome. Isso levou `textual`, `filter_kind` e `upload` ao catálogo: eram três `if field.input == '...'` no `core` que só existiam para distinguir editores, e agora são atributos. **O `core` não compara mais `f.input` com string** — sobraram só quatro pontos, todos de data/hora (`date`/`time`/`datetime-local`), que precisam do nome porque cada um tem formatação própria.
+- **`FIELD_TYPES` virou o ponto único de default.** `BOOL`→`checkbox` (o nome `boolean` saiu do catálogo — era um alias que três arquivos usavam), `FONE`→`tel`, `CPF`→`cpf`, `CNPJ`→`cnpj`. A máscara e o validador do CPF/CNPJ e do telefone BR saíram do `Schema` do model para `app/extends/inputs.py`, escritas uma vez.
+- **A resolução do input é eager** (`Field.__post_init__`, não property preguiçosa): `mask`, `validate`, `width` e `align` são computados ali, e resolver depois deixaria a máscara de fora. Três pares passaram a ser validados com erro: input de `slot='bar'` sem `pos_form: 3`, comando `@X` não liberado pelo `mask_group`, e `@U/@L/@C/@T` combos (são exclusivos).
+- **O `on_off` saiu do catálogo de botão e virou input `toggle`.** Era o único botão cujo comportamento era do motor, não da CRUD. As 4 rotas que o usavam (`produtos`/`contas`/`categorias` com `ativo`, `operacoes` com `ativa`) declararam `{'type': 'BOOL', 'input': 'toggle', 'pos_form': 3}` no model e apagaram `'buttons': ['on_off']`.
+- **O toggle virou POST, e a URL passou a declarar o campo.** Antes: `GET /<rota>/<id>/toggle` mutava dados (quebra cache, prefetch e back/forward) e o campo era fixo por módulo, sem o POST poder escolher. Agora: `POST /<rota>/<id>/toggle/<campo>`, validado contra `Form.toggle_fields` (os campos cujo input declara `route`) — `404` para campo que não é toggle, `405` para GET. Respondendo a HTMX devolve `204` + `HX-Refresh`; fora dela, `302` para o form. O CSRF vem do header que `page_layout.html` já mandava.
+- **O toggle renderiza fora do `<form id="main-form">`**, no rodapé, porque cada um é um POST próprio — um form aninhado seria HTML inválido. Só aparece com instância (`id` é a URL), então o form de criação não mostra.
+- **`Inputs` da rota entrou no mesmo caminho de `Buttons`.** `module_inputs` lê a variável de módulo, `Form.resolve` recebe `inputs_tipos`/`inputs_page` e `_camadas_inputs` propaga para a listagem — uma coluna é um `Field` como outro qualquer, e sem as duas camadas a mesma entidade mostraria coluna de um jeito no form e de outro na grade.
+- **`definir_camadas_padrao` fixa o catálogo do app como default de processo.** `Field` é construído em 6 lugares e nem todos passam pelo `Form`, então o `App.inputs` não podia chegar só por parâmetro. O `init.py` chama antes de `registrar_modulos`, porque o `Entity` já é expandido no import do model — um `type: 'CPF'` resolveria o input antes de a camada existir. Mesmo princípio do catálogo de locales, pelo mesmo motivo (resolvido no import e congelado).
+
 ### 1.26.09.30.0001
-- **A aparência de botão virou um catálogo por tipo, em 4 camadas.** `BUTTON_TYPES` (40 entradas, todas genéricas — o framework não conhece nenhum botão de app) é a base; `build_catalogo(*camadas)` faz o merge e `resolve_buttons` monta o resultado. As camadas, na ordem: `BUTTON_TYPES` < `Buttons` do motor < `app.botoes.Buttons` < `Buttons` da rota < a spec do uso. A entrada do host declara `type` (de qual genérico diverge; sem `type`, a base é o tipo de mesmo nome) e é **parcial de propósito** — `{'delete': {'color': 'warning'}}` troca a cor e herda o resto. `type` apontando para tipo inexistente levanta erro dizendo o nome, em vez de virar "label faltando" no render.
-- **O `Buttons` da rota é a 4ª camada, e é a que mais importa na prática.** É uma variável de módulo lida por `module_buttons`, no mesmo papel que o `Schema` da rota tem sobre os campos — e é o que permite a spec ser **só a lista de nomes** que o form usa. Com ela, `BTN_ORC_ENV`/`BTN_ORC_APROVAR`/`BTN_ORC_RENOVAR` e os helpers `_editavel`/`_expirado` saíram de `app/botoes.py` (um catálogo global para a regra de uma tela) e foram para `app/routes/sys/orcamentos.py`; compras, pedidos e operações trocaram as calls de factory por nomes. `enabled`/`carry`/`url`/`position` seguem fora do catálogo genérico e do do app porque dependem do form e do registro — no `Buttons` da rota eles podem, já que a rota é o ponto de uso.
+- **A aparência de botão virou um catálogo por tipo, em 4 camadas.** `BUTTON_TYPES` (40 entradas, todas genéricas — o framework não conhece nenhum botão de app) é a base; `build_catalogo(*camadas)` faz o merge e `resolve_buttons` monta o resultado. As camadas, na ordem: `BUTTON_TYPES` < `Buttons` do motor < `app.extends.buttons.Buttons` < `Buttons` da rota < a spec do uso. A entrada do host declara `type` (de qual genérico diverge; sem `type`, a base é o tipo de mesmo nome) e é **parcial de propósito** — `{'delete': {'color': 'warning'}}` troca a cor e herda o resto. `type` apontando para tipo inexistente levanta erro dizendo o nome, em vez de virar "label faltando" no render.
+- **O `Buttons` da rota é a 4ª camada, e é a que mais importa na prática.** É uma variável de módulo lida por `module_buttons`, no mesmo papel que o `Schema` da rota tem sobre os campos — e é o que permite a spec ser **só a lista de nomes** que o form usa. Com ela, `BTN_ORC_ENV`/`BTN_ORC_APROVAR`/`BTN_ORC_RENOVAR` e os helpers `_editavel`/`_expirado` saíram de `app/extends/buttons.py` (um catálogo global para a regra de uma tela) e foram para `app/routes/sys/orcamentos.py`; compras, pedidos e operações trocaram as calls de factory por nomes. `enabled`/`carry`/`url`/`position` seguem fora do catálogo genérico e do do app porque dependem do form e do registro — no `Buttons` da rota eles podem, já que a rota é o ponto de uso.
 - **`Button.report` tornou o relatório uma declaração, não uma chamada.** `{'type': 'print', 'report': REL}` sintetiza `render`, `into` e o guard padrão (`_has_items`), então o que fica escrito é só a aparência que diverge. Nenhum tipo `send` foi criado: `BTN_PRINT`/`BTN_SEND` continuam existindo para o guard customizado e para compatibilidade. O container de relatório (`REPORT_ID`/`REPORT_CONTENT`) saiu de `defs/buttons.py` para `defs/report.py`, e os predicados de valor (`is_zero_or_empty`, `calc_value`) foram para `core/utils.py`, para o Python e o JS avaliarem a mesma regra.
-- **O `on_off` saiu do catálogo genérico e virou catálogo do motor** (`Buttons = {'on_off': …}`, somado em `GENERICOS`, 40 → 41 efetivos). O toggle liga/desliga um campo booleano e quem monta o POST é `auto._toggle_field`, não o CRUD: é comportamento do motor, não aparência genérica. `build_catalogo` passou a aceitar variádica, e um app que não usa toggle não carrega a entrada.
+- **O `on_off` saiu do catálogo de botão e virou input `toggle`.** Era o único botão cujo *comportamento* (ligar/desligar um booleano) era do motor e não da CRUD, e ele morava no meio da aparência por isso. Agora é um tipo do catálogo de inputs (`ajsystem/defs/inputs.py`), declarado no model como `{'type': 'BOOL', 'input': 'toggle', 'pos_form': 3}` e resolvido por um endpoint genérico `POST /<rota>/<id>/toggle/<campo>`. Três ganhos: o `core` deixou de comparar `f.input` por string, o GET mutante virou POST, e a URL passou a declarar qual campo alterna (validado contra o form, então um POST não escolhe coluna arbitrária).
 - **Bug corrigido que a comparação de HTML não pegava:** `/list-action` re-resolvia `lista['buttons']` só com o catálogo do app, enquanto a listagem desenha com as duas camadas. Um botão de listagem declarado no `Buttons` da rota era desenhado e dava **500** no clique — `/operacoes/` respondia `KeyError: imprimir_plano`. O endpoint passou a chamar o mesmo `_camadas_botoes` que `do_list` usa, para as duas resoluções não poderem divergir. Botão de *form* não passa por endpoint (o `render` vai inline em `<template>`), então não tinha o mesmo caminho.
 - **A navegação de registro saiu do template.** `Lista`, `Primeiro`, `Anterior`, `Próximo` e `Último` resolviam destino com `url_for` inline, cada um com um caso especial (Anterior/Próximo viravam `btn_off` sem vizinho; Primeiro/Último viravam link com `'#'`). `_nav_grupos` em `core/do_form.py` declara os 4 como `(preset, atributo do nav, opcional)` e devolve os 2 grupos com o destino resolvido; o template só escolhe `btn` vs `btn_off` pelo `on`. E o `back_url` do botão Lista passou a vir resolvido (`form._back_url`).
 - **Correções de rótulo.** `Button.label` ganhou default `'Button'` com fallback **só** na renderização — `label=''` continua sendo botão só-ícone, e ausência não vira erro. E o botão de incluir voltou a ser o rótulo do tipo `new` (`Incluir`/`Include`) em vez da composição `Incluir <Entity>`.

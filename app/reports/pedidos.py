@@ -1,4 +1,4 @@
-from app.constantes import FORMINHAS
+from app.extends.constants import FORMINHAS
 
 
 def _valor_item(item):

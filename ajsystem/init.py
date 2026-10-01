@@ -41,6 +41,14 @@ def init_app(app):
     # 3. auth (login manager, session timeout, unauthorized handler)
     init_auth(app)
 
+    # 3.1 camada default do catálogo de inputs. Precisa vir ANTES de qualquer
+    # construção de `Field`: `registrar_modulos` importa os models do app, e o
+    # `Entity` já é expandido no import — um `type: 'CPF'` resolveria o input
+    # antes de a camada do host existir. `App.inputs` é o default de processo
+    # (ver `_CAMADAS_PADRAO`), e a camada da rota entra por cima na resolução.
+    from ajsystem.defs import inputs as _inputs
+    _inputs.definir_camadas_padrao((APP.inputs,))
+
     # 4. filtros/globals Jinja
     app.jinja_env.filters['deep_attr'] = deep_attr
     app.jinja_env.filters['is_empty'] = is_empty
@@ -101,6 +109,18 @@ def init_app(app):
         if isinstance(_value, (Button, ConfirmModal)):
             app.jinja_env.globals[_name] = _value
 
+    # Presets de input (`IN_TEXT`, `IN_TOGGLE`…) como globals Jinja, descobertos
+    # por prefixo — mesma ideia dos BTN_: um tipo novo no catálogo chega nos
+    # templates sem tocar em lista de importação. São o preset do FRAMEWORK, não
+    # o do host: quem customiza escreve `input_props` no Field, que é a última
+    # camada do merge e por isso não tem como ser enganado por um global.
+    for _name in dir(_inputs):
+        if not _name.startswith('IN_'):
+            continue
+        _value = getattr(_inputs, _name)
+        if isinstance(_value, _inputs.Input):
+            app.jinja_env.globals[_name] = _value
+
     # Contrato de DOM do container de relatório: a constante mora em
     # `defs/report.py` (o Python usa a forma de seletor, em `Button.into`), e
     # vem para cá porque `sys.html` e `print_overlay.html` precisam da forma
@@ -114,17 +134,21 @@ def init_app(app):
     # porque um endpoint HTTP não tem como receber isto por parâmetro — é o
     # único lugar do framework que precisa ler o catálogo fora do motor de forms.
     app.extensions['botoes'] = dict(APP.botoes or {})
+    # 4.2 o mesmo para o catálogo de inputs, pelo mesmo motivo — a rota do
+    # toggle (um endpoint HTTP) precisa resolver o input que o form renderizou.
+    app.extensions['inputs'] = dict(APP.inputs or {})
 
     # 5. registra módulos CRUD a partir dos menus do módulo 'system'
     system = APP.module('system')
     if system:
-        registrar_modulos(app, system.menus, botoes_tipos=APP.botoes)
+        registrar_modulos(app, system.menus, botoes_tipos=APP.botoes,
+                          inputs_tipos=APP.inputs)
 
     # 6. registra os módulos públicos (páginas do site) a partir do menu
     public = APP.module('public')
     if public:
         registrar_modulos(app, public.menus, modulo_ini='app.routes.site', login=False,
-                          botoes_tipos=APP.botoes)
+                          botoes_tipos=APP.botoes, inputs_tipos=APP.inputs)
 
     # 7. globals/contexto padrão do framework (tema, app config, módulo atual).
     #    O host pode sobrescrever com seus próprios context_processor.

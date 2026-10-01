@@ -75,7 +75,7 @@ Page = {
                         'totals': ['previsto', 'realizado', 'variacao', 'saldo'],
                     },
                     # `gerar_previsoes` e `zerar_previsoes` são tipos do app
-                    # (app/botoes.py): aqui fica só o que depende do form — a
+                    # (app/extends/buttons.py): aqui fica só o que depende do form — a
                     # ação JS, a posição e os campos que habilitam.
                     #
                     # Antes cada botão trazia `cls` com a classe toda escrita à

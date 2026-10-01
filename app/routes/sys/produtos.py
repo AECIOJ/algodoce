@@ -7,7 +7,6 @@ Schema = {
     'Produto': { 
         'qtd_receita': {'pos_form' : 0 },
         'preco': {'pos_list': 1},
-        'ativo': {'tag': 'boolean', 'pos_form': 0},
         'descricao': {'pos_list': 2},
         },
 }
@@ -27,7 +26,6 @@ Page = {
         'form': {
             'max_width': 115,
             'fields': 'Produto',
-            'buttons': ['on_off'],
             'delete': {
                 'when': [PedidoItem, OrcamentoItem],
                 'msg_ok': 'Produto excluído!',

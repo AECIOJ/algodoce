@@ -100,7 +100,7 @@ def process_image_fields(form, instance):
     rel = (policy.get('path') or '').strip('/')
     changed = set()
     for f in form._resolved_fields:
-        if f.input != 'image' or f.pos_form != 1:
+        if not f.inp.upload or f.pos_form != 1:
             continue
         name = f.name
         old = getattr(instance, name, None)

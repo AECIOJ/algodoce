@@ -109,11 +109,6 @@ class Button:
     # Nome acessível. Vazio = cai no `label`; com `label=''` (botão só-ícone) é
     # o `title` que dá nome ao botão e o tooltip do mouse.
     title: str = ''
-    # `label_off`/`icon_off` não são renderizados por nenhum template ainda —
-    # declarados para o toggle `on_off` completo. Se for conectá-los, declarar
-    # com constante de `ajsystem.locales`, como os outros rótulos.
-    label_off: Optional[str] = None
-    icon_off: Optional[str] = None
 
     # ── visibilidade (servidor, 1× no render) ──
     visible: Union[bool, Callable, tuple, dict] = True
@@ -145,8 +140,6 @@ class Button:
     # ── posicionamento (8 valores; o mesmo nome muda de sentido conforme o
     #    contexto — ver `POSITION_CONTEXT`) ──
     position: str = POS_TOP_RIGHT
-    on_off: bool = False
-    field: Optional[str] = None
 
     def __post_init__(self):
         """`report` vira `render`. Só quando `report` existe e `render` não —
@@ -254,7 +247,7 @@ class Button:
 
         `url` str é nome de endpoint e a chave de URL que ele recebe é o `id`
         (veja `target_url`/`url_params`), então sem instância salva o botão não
-        tem para onde apontar — é o caso do `on_off` no form de criação. Já
+        tem para onde apontar — é o caso do botão no form de criação. Já
         `url` callable e `render` não dependem do `id`.
         """
         if not self.url or callable(self.url) or self.render is not None:
@@ -414,36 +407,15 @@ BUTTON_TYPES = {
 }
 
 
-# ── Botões que o MOTOR precisa conhecer, e que não são genéricos ───────────
-# `BUTTON_TYPES` acima é aparência pura: um tipo existe ali se ele faz sentido
-# para qualquer entity, e o app nunca precisa saber os nomes. O que mora aqui é
-# o contrário — botão que o motor procura pelo NOME porque o comportamento dele
-# é do motor, não da aparência.
-#
-# `on_off` é o caso: o toggle liga/desliga um campo booleano, e quem monta o
-# POST é o motor (`auto._toggle_field`/`_toggle`), não o CRUD. Se ele ficasse
-# em `BUTTON_TYPES`, `on_off` seria um nome genérico como `delete` — e app
-# que não usa toggle ainda carregaria a entrada.
-#
-# A camada entra no merge por `build_catalogo`, então o app continua declaring
-# `{'ligar_desligar': {'type': 'on_off', ...}}` se quiser outro nome/aparência.
-Buttons = {
-    'on_off':      {'label': i18n.ACTIVATE, 'icon': 'check', 'label_off': i18n.DEACTIVATE,
-                    'icon_off': 'xmark', 'color': 'success', 'position': POS_TOP_RIGHT,
-                    'on_off': True},
-}
-
 # Catálogo genérico efetivo: o que `build_catalogo` semeia, antes de qualquer
 # camada do host. Os presets (abaixo) e o merge leem daqui, para nenhum dos dois
 # conseguir enxergar um tipo que o outro não vê.
-GENERICOS = {**BUTTON_TYPES, **Buttons}
+GENERICOS = dict(BUTTON_TYPES)
 
 # Derivados: o mesmo catálogo como constantes, geradas em loop. A constante de um
 # tipo é o preset EXATO desse tipo — par de preset/tipo não pode divergir, porque os
 # dois leem o mesmo `GENERICOS[...]`. `dir()` no módulo enxerga os nomes criados
-# aqui, então `init.py` publica as globals Jinja sem lista. O loop lê `GENERICOS`
-# (e não `BUTTON_TYPES`) para o preset de um tipo do motor não sumir: `on_off`
-# virou `Buttons`, e `BTN_ON_OFF` tem de continuar existindo.
+# aqui, então `init.py` publica as globals Jinja sem lista.
 for _nome, _spec in GENERICOS.items():
     if _nome == 'print':
         continue
@@ -525,7 +497,7 @@ def BTN_SEND(report, *, filter_field='', guard=None, **overrides) -> Button:
     return replace(BTN_PRINT(report, filter_field=filter_field, guard=guard), **opts)
 
 
-# O antigo registro `ACTIONS` virou a entrada `'on_off'` do catálogo do motor
+# O antigo registro `ACTIONS` não existe mais: o toggle virou input (`defs/inputs`).
 # (`Buttons`, acima). O resolução por nome continua igual: um nome resolve para o
 # tipo do catálogo, e endpoint/campo booleano são derivados por convenção
 # (endpoint = '<blueprint>.toggle', campo default 'ativo'). Ver `resolve_buttons`.
@@ -541,10 +513,10 @@ def _check_destination(btn, where):
     `url`. Sem isso, `action`+`endpoint` juntos venciam em ordem invertida
     conforme o renderizador, sem aviso."""
     label = btn.label
-    if not (btn.action or btn.url or btn.render) and not btn.on_off:
+    if not (btn.action or btn.url or btn.render):
         raise _err(where, label,
                    'sem destino — declare `action`, `url` ou `render` (o toggle '
-                   '`on_off` é a única exceção, com url derivada).')
+                   'Todo botão precisa de um destino.')
     if sum(bool(x) for x in (btn.action, btn.url, btn.render)) > 1:
         raise _err(where, label,
                    '`action`, `url` e `render` são mutuamente exclusivos '
@@ -738,7 +710,7 @@ def module_buttons(mod) -> dict:
     """Lê o `Buttons` de um módulo de rota ({} se ausente/inválido).
 
     O mesmo papel que `Schema` tem sobre os campos: o catálogo genérico do
-    motor resolve a chave, o `app.botoes.Buttons` descreve o que o app diverge,
+    motor resolve a chave, o `app.extends.buttons.Buttons` descreve o que o app diverge,
     e o `Buttons` do módulo descreve o que só aquele form precisa. Por isso a
     spec pode ser só uma lista de nomes:
 
@@ -765,7 +737,7 @@ def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
     `has_fields`/`has_table`, para `position` de sessão) e `ctx` (`'form'` ou
     `'list'`).
 
-    `types` é o catálogo do host (`app.botoes.Buttons`) e `types_page` o da
+    `types` é o catálogo do host (`app.extends.buttons.Buttons`) e `types_page` o da
     página (a variável `Buttons` do módulo de rota, lida por `module_buttons`),
     mesclados nessa ordem sobre o catálogo genérico do motor — o mesmo papel que
     o `Schema` do módulo tem sobre a entity em `resolve_entity_fields`. Cada um
@@ -819,15 +791,10 @@ def resolve_buttons(specs, bp_name=None, *, where=None, valid_fields=None,
                     f"Botão padrão '{next(iter(cfg))}' não existe no catálogo. "
                     f"Disponíveis: {', '.join(catalogo)}"
                 )
-            field_name = cfg.get('field')
             unknown = set(cfg) - set(Button.__dataclass_fields__)
             if unknown:
                 raise _err(where, cfg.get('label') or '?', f"chave(s) desconhecida(s): {', '.join(sorted(unknown))}.")
             btn = Button(**cfg)
-        if btn.on_off and bp_name and not btn.url:
-            btn.url = f'{bp_name}.toggle'
-        if btn.on_off:
-            btn.field = field_name or btn.field or 'ativo'
         _check_destination(btn, where)
         _check_enabled(btn, where, valid_fields)
         if ctx == 'list':

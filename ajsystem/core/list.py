@@ -20,28 +20,21 @@ def infer_filter_type(f: Field):
     if inf == 0 or inf == 9:
         return None
     if inf == 1:
-        if f.input in ('date', 'datetime-local'):
-            return 'date'
-        if f.input == 'number':
-            return 'number'
-        if f.input == 'boolean':
-            return 'boolean'
-        return 'text'
+        # Filtro de texto renderiza o input como texto mesmo em data/número
+        # (é o usuário que digita), então `select` cai em 'text'.
+        kind = f.inp.filter_kind
+        return 'text' if kind == 'select' else kind
     if inf == 2:
-        return 'boolean' if f.input == 'boolean' else 'select'
+        return 'boolean' if f.inp.boolean else 'select'
     if inf == 3:
         return 'checklist'
-    if f.input == 'boolean':
-        return 'boolean'
-    if f.input in ('date', 'datetime-local'):
-        return 'date'
-    if f.input == 'number':
-        return 'number'
-    if f.input == 'multi':
+    if f.inp.multi:
         return None
-    if f.input == 'select' or f.options is not None:
-        return 'select'
-    return 'text'
+    # A ordem importa: `boolean`/`date`/`number` vencem `options` (um booleano
+    # com `options` é checklist de filtro, não select), então o `filter_kind` do
+    # catálogo é consultado antes do fallback por `options`.
+    kind = f.inp.filter_kind
+    return kind if kind != 'text' else ('select' if f.options is not None else 'text')
 
 
 def field_filter_options(f: Field):
@@ -50,7 +43,7 @@ def field_filter_options(f: Field):
             return dict(f.options)  # preserva chaves: o filtro submete a chave
         return list(f.options)
     # boolean sem options, mas checklist precisa Sim/Não
-    if f.input in ('boolean', 'checkbox'):
+    if f.inp.boolean:
         return {'true': i18n.FILTER_YES, 'false': i18n.NO}
     _cached = getattr(f, '_fopts', _NO_OPTIONS)
     if _cached is not _NO_OPTIONS:
@@ -169,7 +162,7 @@ def _content_width_ch(f):
                'datetime-local': 'dd/mm/aaaa hh:mm',
                'time': 'hh:mm'}[f.input]
         return _cell_width_ch(fmt)
-    if f.input == 'number':
+    if f.inp.number:
         dec = f.decimals if f.decimals is not None else 2
         body = '8' * 9
         if f.decimals is not None:
@@ -181,9 +174,9 @@ def _content_width_ch(f):
         if f.percent:
             s = body + ' %'
         return _cell_width_ch(s)
-    if f.input in ('boolean', 'checkbox'):
+    if f.inp.boolean:
         return _cell_width_ch('Falso')
-    if f.input == 'select':
+    if f.inp.filter_kind == 'select':
         return _cell_width_ch('Selecionar')
     return 0
 
@@ -336,7 +329,8 @@ def _resolve_model(entity_name: str):
     return model
 
 
-def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_managed=None) -> list:
+def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_managed=None,
+                           inputs=None) -> list:
     """Resolve `spec` para lista de Field usando normalização unificada.
 
     Mantém compatibilidade: recebe merged_entity single-entity e converte
@@ -360,7 +354,7 @@ def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_manage
                     is_multi_entity_principal = True
 
     if is_multi_entity_principal:
-        return normalize_fieldspec(spec, principal, principal)
+        return normalize_fieldspec(spec, principal, principal, inputs=inputs)
 
     # Single-entity: merged_entity é {field: config}
     if isinstance(spec, str):
@@ -392,7 +386,7 @@ def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_manage
         # Usa normalize_fieldspec com entity 'default'
         full_schema = {'default': merged_entity}
         principal_dict = {'default': principal} if principal else {}
-        fields = normalize_fieldspec(spec, full_schema, principal_dict)
+        fields = normalize_fieldspec(spec, full_schema, principal_dict, inputs=inputs)
         if pos_managed is not None:
             for f in fields:
                 f._pos_managed = bool(pos_managed)
@@ -400,8 +394,13 @@ def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_manage
     return fields
 
 
-def _build_fields_from_merged(field_names: list, merged: dict, pos_managed: bool) -> list:
-    """Helper para construir Fields de merged single-entity."""
+def _build_fields_from_merged(field_names: list, merged: dict, pos_managed: bool,
+                             inputs=None) -> list:
+    """Helper para construir Fields de merged single-entity.
+
+    `inputs` são as camadas do catálogo (`App.inputs` + o `Inputs` da rota),
+    repassadas ao `build_field` para o `Field` resolver o input com elas.
+    """
     from ajsystem.defs.data import build_field
     fields = []
     for name in field_names:
@@ -409,7 +408,7 @@ def _build_fields_from_merged(field_names: list, merged: dict, pos_managed: bool
         base = base if isinstance(base, dict) else {}
         if pos_managed and base.get('memory'):
             continue  # campo `memory`: só onde citado explicitamente
-        f = build_field(name, base)
+        f = build_field(name, base, inputs=inputs)
         f._pos_managed = pos_managed
         fields.append(f)
     return fields
