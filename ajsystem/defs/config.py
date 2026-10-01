@@ -91,7 +91,7 @@ class Version:
     - `number`: sequencial do período (`10` → `010`).
 
     `frozen` porque versão não muda em runtime: só o script de bump
-    (`scripts/bump_version.py`) a reescreve no config. `text()` compõe a forma
+    o script de bump do host a reescreve no config. `text()` compõe a forma
     de leitura — padding em um lugar só, para o rodapé nunca divergir do dict.
     """
     cycle: int
@@ -142,8 +142,7 @@ class App:
     - `version`: versão exibida no rodapé (`Version`: `cycle`/`year`/`month`/
       `number`, ex. `{'cycle': 1, 'year': 26, 'month': 10, 'number': 10}` → lê-se
       `'1.26.10-010'`). É sub-dict do próprio `APP['version']`, em `app/config.py`
-      — sem arquivo separado; o script `scripts/bump_version.py` incrementa o
-      `number`. Ausente (`None`) = rodapé sem versão. O motor valida as partes
+      — sem arquivo separado; o script de bump do host incrementa o `number`. Ausente (`None`) = rodapé sem versão. O motor valida as partes
       e exibe `Version.text()` — não interpreta além disso.
     - `upload`: política global de upload (`Page.upload` sobrescreve).
       Ausente (`None`) = `DEFAULT_UPLOAD` abaixo.

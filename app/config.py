@@ -177,7 +177,7 @@ APP = {
     'locale': 'pt',
     # Versão do app em partes (`cycle`/`year`/`month`/`number`): lê-se
     # `1.26.10-010`. O motor valida e exibe `Version.text()` no rodapé.
-    # Bump = `python scripts/bump_version.py` (não edite à mão).
+    # Bump = via script de bump do host (não edite os dígitos à mão).
     'version': {'cycle': 1, 'year': 26, 'month': 10, 'number': 11},
     'modules': [SITE, SYS, ADMIN],
 }

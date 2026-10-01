@@ -1,6 +1,6 @@
 # AJSYSTEM 1.26.09.30.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.01.0002`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via `scripts/bump_version.py`).
+> Vinculado a `ajsystem/version` (`1.26.10.01.0004`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
 
 ---
 
@@ -672,11 +672,14 @@ Page = {
 >
 > **Limitação conhecida:** `formats.js:259` (`itMoneyInfo`) duplica a tabela `CURRENCY` à mão. Alterar só o Python dessincroniza os dois em silêncio. E `normalize_currency` só aceita `'brl'` como string — `currency:'eur'` devolve `None` e **desliga** a formatação em vez de escolher o código 3.
 
-> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `{cycle, year, month, number}`) — sem arquivo próprio; bump via `scripts/bump_version.py` (só ele edita os dígitos). `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:413`) valida chaves (`FieldConfigError`).
+> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `{cycle, year, month, number}`) — sem arquivo próprio; bump via script de bump do host. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:413`) valida chaves (`FieldConfigError`).
 
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.01.0004
+- **Script de bump do framework removido.** O host já tem bump em bash, então `scripts/bump_version.py` saiu (com a pasta `scripts/`). As refs viraram neutras ("script de bump do host"): docstring de `Version`, `App.version`, comentário do `APP['version']` e as duas notas de versionamento do README. Mecânica intacta — `Version`/`build_version`/`text()` e a validação não mudaram.
 
 ### 1.26.10.01.0003
 - **`APP['version']` virou `{cycle, year, month, number}` + script de bump.** A string direta durou um commit: sem consumidor para as partes, ela era certa — mas o bump manual da string (`010`→`011` à mão) é o erro de digitação esperando acontecer, então as partes voltaram **com** o consumidor que faltava: `scripts/bump_version.py` (default `number+1`; `--month/--year` viram o período e resetam para 1; `--number` explícito). `defs/config.py` ganhou `Version` (frozen, valida tipos + mês 1–12) e `build_version`; `text()` compõe `'1.26.10-010'` com padding num lugar só. `inject_versao` é o único leitor além do rodapé. Sumiram a regex `_VERSAO_OK` e o param `version=` string do `build_app`. Valor exibido idêntico antes/depois (`1.26.10-010`), provado no rodapé.
