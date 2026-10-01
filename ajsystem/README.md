@@ -1,6 +1,6 @@
 # AJSYSTEM 1.26.09.30.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.09.30.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, formato `1.aa.mm-build`).
+> Vinculado a `ajsystem/version` (`1.26.10.01.0002`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, formato `1.aa.mm-build`).
 
 ---
 
@@ -155,15 +155,15 @@
 
 ## 5. Referência de API
 
-### 5.1 `Field` — `ajsystem/defs/data.py:147` `class Field`
+### 5.1 `Field` — `ajsystem/defs/data.py:156` `class Field`
 
 | Prop | Tipo | Valores possíveis | Impacto visual | Impacto processamento |
 |---|---|---|---|---|
 | `name` | `str` | nome da coluna | — | chave do `Field` |
 | `type` | `str` | `TEXT,MEMO,INT,NUM,PERCENT,PK,ID,DK,FK,DATA,DATA_HORA,HORA,BOOL,FONE,CPF,CNPJ,LIST,MULT10,IMAGE` (`FIELD_TYPES`, **19** entradas) | declara qual **input** do catálogo o campo usa (`BOOL`→`checkbox`, `CPF`→`cpf`, `CNPJ`→`cnpj`, `FONE`→`tel`), e o input traz `width`/máscara/validador | `build_field_config` aplica `FIELD_TYPES`; `DK` força `pos_form:0 pos_filter:0` |
 | `label` | `str` | texto ou `None` → `_auto_label(name)` | cabeçalho lista/form/report | — |
-| `width` | `int` | `ch` (ex: `6` para `ID`, `12` para `NUM`) | largura input/coluna (`field.width+3 ch`, report mm) | `field_to_column` (`core/list.py:143`) calcula |
-| `align` | `str` | `left,center,right` (`NUM`→`right` automático `data.py:217`) | `text-align` célula/input | — |
+| `width` | `int` | `ch` (ex: `6` para `ID`, `12` para `NUM`) | largura input/coluna (`field.width+3 ch`, report mm) | `field_to_column` (`core/list.py:184`) calcula |
+| `align` | `str` | `left,center,right` (`NUM`→`right` automático `data.py:260`) | `text-align` célula/input | — |
 | `input` | `str` | **nome de um tipo** de `ajsystem/defs/inputs.py` (`text,number,date,select,textarea,email,tel,password,checkbox,multi,image,toggle,…`) | resolve o `Input`; o `Field` passa a ler as props dele | `Field.__post_init__` instancia o `Input` — o `core` lê **`f.inp.*`**, nunca `f.input` por string |
 | `input_props` | `dict` | override parcial do input **neste campo** (`{'cls':'x','size':9}`) | última camada do merge, acima do app e da rota | `resolve_input(..., overrides)`; chave desconhecida **levanta erro** |
 | `options` | `dict` | `{k:label}` para `LIST/MULT10` | `select` options, `tag` texto | `field_filter_options` |
@@ -174,27 +174,27 @@
 | `currency` | `int` | `0` off, `1` R$ pt-BR, `2` $ en-US, `3` € pt-BR (`constants.py:CURRENCY`; ver 5.14) | `itFmtMoney`, símbolo | `normalize_currency` remove o símbolo antes de `itEval` |
 | `percent` | `bool` | `True` → `12%` | ` %` sufixo | — |
 | `required` | `bool` | `True` → `*` | `*` no label, `required` attr | bloqueia `POST` se vazio |
-| `disabled` | `bool\|callable` | `True` ou `callable(row)->bool` (`_financeiro_gerado`) | `disabled` attr | `form_macros.html:32` avalia `callable` |
-| `readonly` | `bool` | `True` → sempre readonly | branch `pos_form==2/3/readonly` (`form_macros.html:43`) | `do_form.py:430` skip no `POST` se `readonly` |
-| `hidden` | `bool` | `True` → `<input type=hidden>` | oculto mas enviado | `do_form.py:397` `extra_ctx['hidden']` |
-| `pos_form` | `int\|dict` | `0` oculto body (visível só em `fields` explícito), `1` visível, `2` readonly sempre, `3` barra/tag, `5` footer, `dict{pos,when}` (`when:{not_empty,empty,field,callable}`) | `init.py:54` `field_body`, `form_macros.html:473` `is_visible_by_pos` | `do_form.py:430` skip no `POST` se barra/readonly |
-| `pos_list` | `int` | `0` oculto lista, `1` coluna, `2` card, `3` barra lista | `list.py:274` `_pos_managed` | `do_list.py` filtra `pos_list` |
-| `pos_filter` | `int` | `0` sem filtro, `1` texto, `2` select, `3` checklist, `9` fixo (`WHERE default`, força `pos_form0/pos_list0` `data.py:184`) | sem UI quando `9` | `filters.py:117` `fixed_filters` injeta `WHERE` |
-| `default` | `any\|callable` | `TODAY` (`date.today`), `lambda:1` | valor inicial | `do_form.py:419` aplica se `None` |
+| `disabled` | `bool\|callable` | `True` ou `callable(row)->bool` (`_financeiro_gerado`) | `disabled` attr | `form_macros.html:55` avalia `callable` |
+| `readonly` | `bool` | `True` → sempre readonly | branch `pos_form==2/3/readonly` (`form_macros.html:66`) | `do_form.py:485` skip no `POST` se `readonly` |
+| `hidden` | `bool` | `True` → `<input type=hidden>` | oculto mas enviado | `do_form.py:457` `extra_ctx['hidden']` |
+| `pos_form` | `int\|dict` | `0` oculto body (visível só em `fields` explícito), `1` visível, `2` readonly sempre, `3` barra/tag, `5` footer, `dict{pos,when}` (`when:{not_empty,empty,field,callable}`) | `init.py:75` `field_body`, `form_macros.html:405` `is_visible_by_pos` | `do_form.py:485` skip no `POST` se barra/readonly |
+| `pos_list` | `int` | `0` oculto lista, `1` coluna, `2` card, `3` barra lista | `do_list.py:68` filtra `pos_list != 0` | `do_list.py` filtra `pos_list` |
+| `pos_filter` | `int` | `0` sem filtro, `1` texto, `2` select, `3` checklist, `9` fixo (`WHERE default`, força `pos_form0/pos_list0` `data.py:214`) | sem UI quando `9` | `filters.py:114` `fixed_filters` injeta `WHERE` |
+| `default` | `any\|callable` | `TODAY` (`date.today`), `lambda:1` | valor inicial | `do_form.py:479` aplica se `None` |
 | `rows` | `int` | altura textarea | `rows` attr | — |
-| `lookup` | `bool\|dict\|Lookup` | `True` (defaults) ou `{display,fields,value,when,query}` — **sem `model`**, o alvo vem do FK | `select` (1 campo) vs modal busca (>1) | `resolve_lookup` (`data.py:774`) + `apply_lookup_when` |
+| `lookup` | `bool\|dict\|Lookup` | `True` (defaults) ou `{display,fields,value,when,query}` — **sem `model`**, o alvo vem do FK | `select` (1 campo) vs modal busca (>1) | `resolve_lookup` (`data.py:810`) + `apply_lookup_when` |
 | `validate` | `str` | `cpf,cnpj,placa` (`validators.js`) | erro client `data-err-for` | `core/validators.py` espelha no `POST` |
 | `help` | `str\|list` | texto | botão `?` | — |
 | `on_set` | `dict` | `{replaces:{campo:fonte},disables:[...]}` | `data-replaces-map`, `data-disables` | `itOnSetBind` copia `data-*` da option |
-| `calc` | `str\|callable\|dict` | `'qtd*preco'`, `lambda row:`, `{'type':'agg','source':'sum(Item.valor)'}`, `{'type':'call','source':'calc_status'}` | `aj-calc` (`data-calc`) ou `readonly` | `calc_value` (`do_form.py:406` `diff` flash), `itEval`/`formCalcRefresh` JS |
-| `carry` | `str` | nome campo origem (`carry` map do botão) | — | `do_form.py:550` `carry_get` importa |
+| `calc` | `str\|callable\|dict` | `'qtd*preco'`, `lambda row:`, `{'type':'agg','source':'sum(Item.valor)'}`, `{'type':'call','source':'calc_status'}` | `aj-calc` (`data-calc`) ou `readonly` | `calc_value` (`do_form.py:471` `diff` flash), `itEval`/`formCalcRefresh` JS |
+| `carry` | `str` | nome campo origem (`carry` map do botão) | — | `do_form.py:618` `carry_get` importa |
 | `memory` | `bool` | `True` → campo só de memória: renderiza/editável, **não persiste** e não entra em expansão automática (form principal/list/filtro); só aparece onde citado explicitamente (ex.: `session.fields`) | select FK normal | `_save_session_masters` skip; alvo vem do FK em `resolve_lookup`/`_build_lookup` |
-| `tag` | `dict\|Tag` | `{colors, color, link, size, preset, text_field, outline, cls}` | `tag-pill` (`width:width+3ch`, `badge`) ou `badge` lista | `tags.py:74` `resolve_link` (`callable` ok) |
+| `tag` | `dict\|Tag` | `{colors, color, link, size, preset, text_field, outline, cls}` | `tag-pill` (`width:width+3ch`, `badge`) ou `badge` lista | `tags.py:86` `resolve_link` (`callable` ok) |
 | `_pos_form_when` | `dict` | **interno** — preenchido pelo motor a partir de `pos_form['when']`; não declarar à mão | — | `is_visible_by_pos` |
 
-> `on_set.replaces` alimenta o `lookup` no `resolve_lookup` — é a prop `replaces` do dicionário de lookup, mas **não** uma prop de `Lookup`. Por isso `lookup.model` também não existe: o model alvo é inferido de `fk_target_model` (`data.py:774`).
+> `on_set.replaces` alimenta o `lookup` no `resolve_lookup` — é a prop `replaces` do dicionário de lookup, mas **não** uma prop de `Lookup`. Por isso `lookup.model` também não existe: o model alvo é inferido de `fk_target_model` (`data.py:810`).
 
-### 5.2 `Tag` — `ajsystem/defs/tags.py:61` `class Tag`
+### 5.2 `Tag` — `ajsystem/defs/tags.py:62` `class Tag`
 
 | Prop | Tipo | Valores | Visual | Processamento |
 |---|---|---|---|---|
@@ -207,7 +207,7 @@
 | `text_field` | `str` | campo de onde vem o rótulo do tag | texto exibido | `parse_tag` |
 | `cls` | `str` | classe CSS extra | concatenada ao badge | — |
 
-### 5.3 `Lookup` — `ajsystem/defs/data.py:105` `class Lookup`
+### 5.3 `Lookup` — `ajsystem/defs/data.py:114` `class Lookup`
 
 | Prop | Tipo | Default | Impacto |
 |---|---|---|---|
@@ -219,7 +219,7 @@
 
 > **Não existe `Lookup.model`.** O model alvo é inferido do FK do campo (`fk_target_model`). Para campo `memory`, sem FK, aponte a origem pelo `lookup` do próprio `Field` — não por um `model` no `Lookup`.
 
-### 5.4 `Page` — `ajsystem/defs/pages.py:16` `class Page`
+### 5.4 `Page` — `ajsystem/defs/pages.py:17` `class Page`
 
 | Prop | Tipo | Default | Impacto |
 |---|---|---|---|
@@ -238,9 +238,9 @@
 Page = {'type': 'crud', 'props': {'scripts': ['previsoes', 'rel/gerar']}}
 ```
 
-→ `static/js/previsoes.js` e `static/js/rel/gerar.js`, resolvidos por `page_scripts` (`data.py:608`) e injetados no ctx como `page_scripts=[{'name','url'}]`. A URL leva **cache-buster por mtime**, então editar o JS dispensa limpeza de cache. Subpastas são permitidas de propósito: é o mesmo caminho de código e evita uma prop separada quando um grupo de helpers crescer.
+→ `static/js/previsoes.js` e `static/js/rel/gerar.js`, resolvidos por `page_scripts` (`data.py:644`) e injetados no ctx como `page_scripts=[{'name','url'}]`. A URL leva **cache-buster por mtime**, então editar o JS dispensa limpeza de cache. Subpastas são permitidas de propósito: é o mesmo caminho de código e evita uma prop separada quando um grupo de helpers crescer.
 
-### 5.5 `Form` — `ajsystem/defs/form.py:54` `class Form`
+### 5.5 `Form` — `ajsystem/defs/form.py:55` `class Form`
 
 | Prop | Tipo | Default | Valores | Impacto |
 |---|---|---|---|---|
@@ -249,9 +249,9 @@ Page = {'type': 'crud', 'props': {'scripts': ['previsoes', 'rel/gerar']}}
 | `template` | `str` | `None` | path | se setado, ignora `fields` |
 | `flash_ok` | `str` | `None` | mensagem de sucesso do save | flash pós-submit |
 | `flash_update` | `str` | `None` | mensagem quando o save só atualiza | flash pós-submit |
-| `readonly` | `bool\|callable` | `False` | `lambda q: q.pedido_id is not None` | `do_form.py:79` `_is_readonly` desabilita tudo |
+| `readonly` | `bool\|callable` | `False` | `lambda q: q.pedido_id is not None` | `core/form.py:77` `_is_readonly` desabilita tudo |
 | `delete` | `bool\|dict\|callable` | `False` | `True`, `{'when':[Model]}`, `lambda` | `_resolve_delete` + `_when_allows`; `msg_ok`/`msg_no` |
-| `pre_save`/`post_save` | `callable` | `None` | `f(instance,request,is_new)` | `do_form.py:446` valida/salva |
+| `pre_save`/`post_save` | `callable` | `None` | `f(instance,request,is_new)` | `do_form.py:536` valida/salva |
 | `buttons` | `str\|Button\|list` | `None` | nome de tipo (`'on_off'`, `'delete'`), `{tipo: {overrides}}`, instância `Button` (`BTN_SAVE`, `BTN_PRINT`, `BTN_SEND`…) ou lista de qualquer um | `resolve_buttons` (`defs/buttons.py`); `form.html:nav`/`footer` |
 | `spacing` | `num` | `2` | gap entre campos | `render_fields` |
 | `max_width` | `num` | `None` | largura máxima do form | `resolve_max_width` |
@@ -285,7 +285,7 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 },
 ```
 
-### 5.6 `List` — `ajsystem/defs/list.py:14` `class List`
+### 5.6 `List` — `ajsystem/defs/list.py:15` `class List`
 
 | Prop | Tipo | Default | Impacto |
 |---|---|---|---|
@@ -297,10 +297,10 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 | `buttons` | `str\|Button\|list` | `None` | mesmos formatos de `Form.buttons` | `List.resolve_buttons` |
 | `template` | `str` | `None` | template alternativo |
 | `master` | `list` | `None` | colunas da linha mestre |
-| `linha` | `list[int]` | `None` | **computado** — o autor declara `linha: ['nome','data']` com **nomes**; `do_list.py:261` converte para índices |
+| `linha` | `list[int]` | `None` | **computado** — o autor declara `linha: ['nome','data']` com **nomes**; `do_list.py:300` converte para índices |
 | `card_idx` | `list[int]` | `None` | **computado** — índices de `fields` que caem no card |
 
-> `fields_master`, `linha` e `card_idx` saem do `do_list.py` (`list_obj = List(...)`, `do_list.py:275`). **Não** os declare à mão: a engine sobrescreve. `linha` é a única que aceita nomes na spec, porque a conversão acontece no meio do caminho.
+> `fields_master`, `linha` e `card_idx` saem do `do_list.py` (`list_obj = List(...)`, `do_list.py:312`). **Não** os declare à mão: a engine sobrescreve. `linha` é a única que aceita nomes na spec, porque a conversão acontece no meio do caminho.
 
 ### 5.7 `Report` — `ajsystem/defs/report.py:135` `class Report`
 
@@ -328,7 +328,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | `body.source` | `str\|dict` | `'Tarefa'` ou `{'entity':'Operacao','order':'indice'}` | `_infer_source` + `_auto_data` query |
 | `body.table.columns` | `dict` | `{'titulo':{'width':50},'PedidoItem.valor':{'width':20,'agg':'sum'}}` | `_apply_entity` herda `label`/`calc` da `Entity` (Schema vence) |
 | `body.table.hierarchy` | `list\|dict` | `[{'indice':{'left':1,'pos':2,'text':'{indice}. {tipo}'}}]` | `pos:2` título fora da tabela, `1` linha, `0` oculto. Aceita `list` de dicts ou `dict` direto; chaves lidas: `pos` (1), `total` (True), `line` (True), `eject` (False), `left`, e o resto vai para o spec |
-| `body.filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` (`do_report.py:461`); critério aplicado **antes** da ordenação |
+| `body.filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` (`do_report.py:458`); critério aplicado **antes** da ordenação |
 
 ### 5.8 `ReportColumn` e amigos — `ajsystem/defs/report.py`
 
@@ -352,7 +352,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 
 **`ReportBody`** (`:88`) — 6 props: `source`, `form`, `table`, `before`, `after`, `filter`. `before`/`after` inserem blocos ao redor da tabela.
 
-### 5.9 `Button` — `ajsystem/defs/buttons.py:78` `class Button`
+### 5.9 `Button` — `ajsystem/defs/buttons.py:85` `class Button`
 
 O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 
@@ -388,7 +388,7 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 GENERICOS[base]  <  app.botoes.Buttons  <  Buttons da rota  <  spec do uso
 ```
 
-- **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:337`) tem 40 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
+- **`BUTTON_TYPES`** (`ajsystem/defs/buttons.py:330`) tem 40 entradas, **todas genéricas** — o framework não conhece nenhum botão de app. Cada entrada é a aparência completa de um tipo (dict literal).
 - **`type`** — a entrada do host declara de qual genérico diverge. Sem `type`, a base é o tipo de **mesmo nome** (o caso de sobrescrever `delete`); com `type`, o app nomeia um botão seu e declara só o que muda. `type` apontando para tipo inexistente **levanta erro dizendo o nome** — não vira `label faltando` mais tarde.
 - **override parcial** — a entrada do host é parcial de propósito. `{'delete': {'color': 'warning'}}` troca a cor e **mantém** o `label`/`icon`/`confirm_msg` do tipo.
 - **`build_catalogo(*camadas)`** é a função que faz o merge, com um argumento por camada do host, cada uma sobrepondo a anterior; `None`/`{}` são ignorados. Nenhuma camada muta `GENERICOS`.
@@ -490,7 +490,7 @@ Gêmeo de `Button`, para o outro lado do formulário: enquanto o botão descreve
 INPUTS[base]  <  app.inputs.Inputs  <  Inputs da rota  <  input_props do campo
 ```
 
-- **`INPUT_TYPES`** (`ajsystem/defs/inputs.py:127`) tem 13 entradas genéricas (`text`, `textarea`, `email`, `tel`, `password`, `number`, `select`, `checkbox`, `multi`, `date`, `datetime-local`, `time`, `image`). O framework não conhece `cpf` nem `cnpj` — são domínio.
+- **`INPUT_TYPES`** (`ajsystem/defs/inputs.py:129`) tem 13 entradas genéricas (`text`, `textarea`, `email`, `tel`, `password`, `number`, `select`, `checkbox`, `multi`, `date`, `datetime-local`, `time`, `image`). O framework não conhece `cpf` nem `cnpj` — são domínio.
 - **`Inputs`** (mesmo arquivo) é a camada do **motor**: só o `toggle`. A entrada diverge de `checkbox` declarando `type: 'checkbox'`, e acrescenta `slot: 'bar'`, `route: 'toggle'`, `method: 'POST'`, `label_on`/`label_off` e `badge_off`. `INPUTS` é a soma das duas, já com o `type` resolvido.
 - **`type`** é metadado de qual base usar e sai do merge. Base inexistente **levanta erro dizendo o nome**; entrada sem `type` e com nome novo **também**, porque todo tipo do app diverge de um genérico.
 - **`App.inputs`** (`app/config.py` → `build_app(inputs=…)`) é a camada do app, lida por `core/adapter.py` e fixada como default de processo por `definir_camadas_padrao` no `init.py` — antes de `registrar_modulos`, porque o `Entity` já é expandido no import do model. É onde `cpf`/`cnpj` e a máscara do telefone BR ganham forma: `app/extends/inputs.py`, gêmeo de `app/extends/buttons.py`.
@@ -522,17 +522,17 @@ Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `
 
 ### 5.10 `Query`, `Table` e `Session` — `ajsystem/defs/data.py`
 
-**`Query`** (`:86`) — 6 props, fonte de dados **readonly** de sessão ou relatório: `columns`, `join`, `when`, `groups`, `order`, `totals`.
+**`Query`** (`:95`) — 6 props, fonte de dados **readonly** de sessão ou relatório: `columns`, `join`, `when`, `groups`, `order`, `totals`.
 
-**`Table`** (`:97`) — 3 props, variante **editável**: `columns`, `order`, `totals`.
+**`Table`** (`:106`) — 3 props, variante **editável**: `columns`, `order`, `totals`.
 
-**`Session`** (`:127`) — 4 props: `template`, `fields`, `query`, `table`. É a spec da sessão dentro de `Form.sessions`; `fields` é a relação 1:1 child↔pai e `query`/`table` o corpo.
+**`Session`** (`:136`) — 4 props: `template`, `fields`, `query`, `table`. É a spec da sessão dentro de `Form.sessions`; `fields` é a relação 1:1 child↔pai e `query`/`table` o corpo.
 
 ### 5.11 `App`, `Module`, `MenuItem`, `Tema`, `Layout*` — `ajsystem/defs/config.py`
 
 > **Exceção à convenção:** `config.py` é o único módulo do framework com props em **português** (`Tema.rotulo/marca/neutras/...`, `Module.default_path`, `MenuItem.submenus`, `Layout*.rows/align/text/font/color/logo/title/user`). Todo o resto do framework é em inglês.
 
-**`App`** (`:102`) — 8 props:
+**`App`** (`:109`) — 9 props:
 
 | Prop | Default | Impacto |
 |---|---|---|
@@ -542,12 +542,14 @@ Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `
 | `title` | `None` | título padrão de página |
 | `version` | `None` | string direta `1.aa.mm-build` (ex.: `'1.26.10-009'`), chave do próprio dict (`APP['version']`); formato validado no `build_app`, exibida como veio |
 | `upload` | `None` | política padrão de upload (páginas herdam) |
+| `botoes` | `None` | catálogo do host (`app.extends.buttons.Buttons`); `None` = só genéricos |
+| `inputs` | `None` | catálogo do host (`app.extends.inputs.Inputs`); `None` = só genéricos |
 | `modules` | `[]` | `Module`s do menu |
 
-**`Module`** (`:84`) — `type` (`'public'`), `default_path`, `menus` (`MenuItem`s), `triggers`, `layout`.
-**`MenuItem`** (`:66`) — `page`, `url`, `icon`, `submenus`.
-**`Tema`** (`:15`) — `base`, `rotulo`, `marca`, `neutras`, `feedback`, `apoio`, `barras`, `modal` (paleta daisyUI/Tailwind).
-**`Layout`** (`:59`) — `header` (`LayoutHeader`), `footer` (`LayoutFooter`); `LayoutHeader` tem `logo` (`LayoutLogo`: `rows` 5, `align` center) e `title` (`LayoutTitle`: `text`, `align`, `font`, `color`); `LayoutFooter` tem `font`, `color`, `user` (`True`).
+**`Module`** (`:91`) — `type` (`'public'`), `default_path`, `menus` (`MenuItem`s), `triggers`, `layout`.
+**`MenuItem`** (`:73`) — `page`, `url`, `icon`, `submenus`.
+**`Tema`** (`:22`) — `base`, `rotulo`, `marca`, `neutras`, `feedback`, `apoio`, `barras`, `modal` (paleta daisyUI/Tailwind).
+**`Layout`** (`:66`) — `header` (`LayoutHeader`), `footer` (`LayoutFooter`); `LayoutHeader` tem `logo` (`LayoutLogo`: `rows` 5, `align` center) e `title` (`LayoutTitle`: `text`, `align`, `font`, `color`); `LayoutFooter` tem `font`, `color`, `user` (`True`).
 
 ### 5.11.1 Overrides do host — `app/extends/`
 
@@ -662,15 +664,15 @@ Page = {
 |---|---|---|
 | `CURRENCY` | `{0: None, 1: {'symbol':'R$','locale':'pt-BR'}, 2: {'symbol':'$','locale':'en-US'}, 3: {'symbol':'€','locale':'pt-BR'}}` | `money`/`itFmtMoney` |
 | `DEFAULT_CURRENCY` | `1` | código usado quando `Field.currency` é `None`/`True`/`'brl'` |
-| `POS_0_NOT_EMPTY` | `{'pos':0,'when':{'not_empty':True}}` | `pos:0` explícito só quando valor≠vazio (só `form`, `ajsystem/defs/data.py:234` `is_visible_by_pos`) |
+| `POS_0_NOT_EMPTY` | `{'pos':0,'when':{'not_empty':True}}` | `pos:0` explícito só quando valor≠vazio (só `form`, `ajsystem/defs/data.py:338` `is_visible_by_pos`) |
 | `TODAY` | `date.today` (callable) | default de `Field.data` em forms novos |
 | `CONNECTORS` | `frozenset` de 40 preposições PT | normalização de busca textual |
 
 > **Sobre `CURRENCY`:** o `locale` só tem **um valor com efeito real** — `core/formats.py:438` `_fmt_number` faz `if locale == 'pt-BR'`, e qualquer outro valor cai no formato `en-US`. Por isso `3` (`€`) usa `pt-BR`: o agrupamento `1.234,56` é o correto para pt-PT/es-ES/it-IT/de-DE, e o símbolo é prefixado em todos os códigos. Não troque `3` por `de-DE`: o Python passaria a emitir `€ 1,234.56` (errado para Alemanha) enquanto o `toLocaleString` do `formats.js` emitiria `1.234,56` — cliente e servidor divergiriam no mesmo campo.
 >
-> **Limitação conhecida:** `formats.js:260` (`itMoneyInfo`) duplica a tabela `CURRENCY` à mão. Alterar só o Python dessincroniza os dois em silêncio. E `normalize_currency` só aceita `'brl'` como string — `currency:'eur'` devolve `None` e **desliga** a formatação em vez de escolher o código 3.
+> **Limitação conhecida:** `formats.js:259` (`itMoneyInfo`) duplica a tabela `CURRENCY` à mão. Alterar só o Python dessincroniza os dois em silêncio. E `normalize_currency` só aceita `'brl'` como string — `currency:'eur'` devolve `None` e **desliga** a formatação em vez de escolher o código 3.
 
-> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `1.aa.mm-build`) — sem arquivo próprio. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:286`) valida chaves (`FieldConfigError`).
+> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `1.aa.mm-build`) — sem arquivo próprio. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:413`) valida chaves (`FieldConfigError`).
 
 ---
 
