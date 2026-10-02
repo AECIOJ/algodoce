@@ -270,13 +270,49 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     lista = page_list_cfg(page)
     bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
 
+    from ajsystem.defs.qspec import is_query_dict as _is_q
+    _colspec = lista.get('columns', lista.get('fields', entity_name))
+    _is_query = _is_q(_colspec)
+    if _is_query:
+        _from = _colspec.get('from')
+        if isinstance(_from, str):
+            entity_name = _from
+        # field_id: ausente = só-leitura; declarado = tem que estar no select e ser pk
+        _fid = lista.get('field_id', lista.get('edit_id_field'))
+        if 'field_id' not in lista and 'edit_id_field' not in lista:
+            _fid = None
     model = _resolve_model(entity_name)
     merged = resolve_entity_fields(schema, model, entity_name)
     card_layer = _card_layer(lista.get('card'), {entity_name: merged}, entity_name)
     if card_layer:
         merged = resolve_entity_fields(schema, model, entity_name, card_layer)
 
-    fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged, inputs=_camadas_inputs(module_name))
+    if _is_query:
+        from ajsystem.defs.qspec import parse_select as _ps
+        _qentries = list(_ps(_colspec.get('select')))
+        _merged_q = dict(merged)
+        _schema_ent = schema.get(entity_name, {}) or {}
+        _qn = {e.name: e for e in _qentries}
+        for _e in _qentries:
+            # Computado na query (over/agg/calc): o valor vem da query, o
+            # calc da Entity não pode sombrear (ex. indice '1.01' vs '1.1').
+            if _e.name in _merged_q and (_e.over is not None or _e.agg or _e.calc):
+                _merged_q[_e.name] = {k: v for k, v in _merged_q[_e.name].items() if k != 'calc'}
+            if _e.name not in _merged_q:
+                _cfg = {'type': 'TEXT', 'label': _e.label or _e.name,
+                        'pos_list': _e.pos_list}
+                if _e.width is not None:
+                    _cfg['width'] = _e.width
+                if _e.align is not None:
+                    _cfg['align'] = _e.align
+                _merged_q[_e.name] = _cfg
+            elif _e.pos_list == 0 and 'pos_list' not in _schema_ent:
+                # pos_list da entrada vale salvo override do Schema (página vence)
+                _merged_q[_e.name] = {**_merged_q[_e.name], 'pos_list': 0}
+        fields = resolve_column_configs(_merged_q, [e.name for e in _qentries], principal=_merged_q, inputs=_camadas_inputs(module_name))
+        fields = [f for f in fields if f.pos_list != 0]
+    else:
+        fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged, inputs=_camadas_inputs(module_name))
     fields_all = list(fields)
     if not any(f._pos_managed for f in fields):
         # lista explícita de campos → autoritativa (pos_list não filtra)
@@ -301,7 +337,24 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     linha_names = [n.split('.', 1)[-1] for n in linha_names]
     linha_indices = [i for i, f in enumerate(line_fields) if f.name in linha_names] if linha_names else None
 
-    edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
+    if _is_query:
+        _fid = lista.get('field_id', lista.get('edit_id_field'))
+        if 'field_id' not in lista and 'edit_id_field' not in lista:
+            edit_endpoint = None
+            _fid = None
+        else:
+            from ajsystem.defs.qspec import parse_select as _ps2
+            _sel_names = {e.name for e in _ps2(_colspec.get('select'))}
+            if _fid not in _sel_names:
+                raise ValueError(f"list: field_id '{_fid}' não está no select da query")
+            _pkcols = getattr(model, '__table__', None).primary_key.columns if getattr(model, '__table__', None) is not None else []
+            _pk = {c.name for c in _pkcols}
+            if _fid.split('.')[-1] not in _pk:
+                raise ValueError(f"list: field_id '{_fid}' não é pk do model")
+            edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
+    else:
+        _fid = None
+        edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
 
     from ajsystem.defs.data import resolve_lookup
     for f in line_fields + cardonly_fields:
@@ -313,7 +366,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         fields=all_fields,
         fields_master=fields_master,
         edit_endpoint=edit_endpoint,
-        edit_id_field=lista.get('edit_id_field', 'id'),
+        edit_id_field=(lista.get('field_id', lista.get('edit_id_field', 'id')) if _is_query and edit_endpoint else lista.get('edit_id_field', 'id')),
         template=lista.get('template'),
         linha=linha_indices,
         card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1))
@@ -366,6 +419,9 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             q = q.filter(_mf == _v)
         return q
 
+    if data is None and _is_query:
+        from ajsystem.core.qrun import run_query as _rq
+        data = _rq(model, _colspec, entity_cfg=merged)
     if data is None:
         ordering = lista.get('order', []) or lista.get('ordering', [])
         if isinstance(ordering, str):
@@ -376,7 +432,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             data = _base_query().all()
 
     calc_field = next((f for f in line_fields if callable(getattr(f, 'calc', None))), None)
-    if calc_field and data:
+    if calc_field and data and not _is_query:
         data = sorted(data, key=calc_field.calc)
 
     from ajsystem.core.filters import apply_filters

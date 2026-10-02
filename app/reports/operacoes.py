@@ -1,3 +1,38 @@
+"""Plano de Contas: QPLANO (fonte, compartilhável list/report) + PLANO (papel).
+
+Código em 3 segmentos: tipo (direto), grupo (denserank por família), index
+(rownumber entre irmãos). O 'indice' montado nasce no select via calc —
+grade e PDF bebem a mesma string, sem N+1.
+"""
+QPLANO = {
+    'select': [
+        'id',
+        {'indice': {
+            'calc': '{tipo:d}.{grupo:02d}{?pai_id:.{index:03d}}',
+            'label': 'Código', 'width': 14,
+        }},
+        'nome',
+        'tipo',
+        {'grupo': {
+            'func': 'denserank',
+            'over': {'partition': ['tipo'], 'order': [{'coalesce': ['pai_id', 'id']}]},
+            'pos_list': 0, 'label': 'Grupo', 'width': 8,
+        }},
+        {'index': {
+            'func': 'rownumber',
+            'over': {'partition': ['tipo', 'pai_id'], 'order': ['ordem', 'id']},
+            'pos_list': 0, 'label': 'Seq', 'width': 8,
+        }},
+        'fator',
+        'ativa',
+        'pai_id',
+        'ordem',
+    ],
+    'from': 'Operacao',
+    # raiz (pai_id null) antes dos filhos dentro do grupo: null ordena primeiro
+    'order': ['tipo', 'grupo', 'pai_id', 'ordem', 'id'],
+}
+
 PLANO = {
     'label': 'Plano de Contas',
     'header': {
@@ -5,20 +40,18 @@ PLANO = {
         'title': {'label': 'Plano de Contas'},
     },
     'body': {
-        'source': {'entity': 'Operacao', 'order': 'indice'},
+        'source': QPLANO,
         'table': {
-            'columns': {
-                'indice': {'width': 12},   # label 'Índice' da Entity
-                'nome':   {},              # label 'Nome'
-                'id':     {'width': 6, 'label': '#'},
-                'fator':  {'width': 10},   # INT → center
-                'ativa':  {'width': 8},    # BOOL → Sim/Não
-            },
-            'hierarchy': [
-                {'indice': {'left': 1, 'pos': 2, 'transform': 'upper',
-                            'text': '{indice}. {tipo}'}},       # título: '1. RECEITAS'
-                {'indice': {'left': 2, 'pos': 1,
-                            'text': '{indice} {nome}'}},        # linha: '1.1 RECEITAS COM VENDAS'
+            'columns': [
+                'indice',
+                'nome',
+                {'id': {'width': 6, 'label': '#'}},
+                {'fator': {'width': 10}},
+                {'ativa': {'width': 8}},
+            ],
+            'groups': [
+                {'field': 'tipo', 'print': 1, 'place': 1, 'text': '{tipo:d}. {tipo}'},
+                {'field': 'grupo', 'print': 1, 'place': 2, 'text': '{tipo:d}.{grupo:02d} {nome}'},
             ],
         },
     },

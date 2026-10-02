@@ -62,6 +62,11 @@ class ReportColumn:
     format: Optional[str] = None
     agg: Optional[str] = None
     function: Optional[Callable] = None
+    # Montagem via template '{campo}' (ex. código '1.01.001'); suppress em
+    # branco repetido na célula (place=0 do groups). Quebras vão em
+    # table.groups (só o que imprime entra em columns).
+    text: Optional[str] = None
+    suppress: bool = False
 
     def __post_init__(self):
         if self.label is None:
@@ -124,6 +129,9 @@ class ReportBody:
     # Filtro aplicado pelo motor na query (dict de igualdade `{campo: valor}`
     # ou callable). O valor pode vir da request na impressão (ex.: tipo).
     filter: Optional[Union[dict, Callable]] = None
+    # Numeração hierárquica (apresentação, genérica): {using, pk, parent,
+    # group, root, child, target, maxdepth}. Ver QPLANO/PLANO no app.
+    levels: Optional[dict] = dc_field(default=None)
 
     def __post_init__(self):
         formats = [k for k in ('form', 'table') if getattr(self, k) is not None]
@@ -176,6 +184,13 @@ class Report:
 
     # Linhas horizontais internas da tabela (entre linhas de dados e GroupRow)
     show_table_lines: bool = False
+
+    # Formato novo (ponto 1 travado): página/sessão/elementos em grade.
+    # Passthrough nesta fase (pdf ainda renderiza fluxo); parse_report aceita
+    # os dois formatos, legado tem precedência quando ambos presentes.
+    page: Optional[dict] = dc_field(default=None)
+    session: Optional[dict] = dc_field(default=None)
+    shapes: Optional[list] = dc_field(default=None)
 
 
 def parse_report(spec):

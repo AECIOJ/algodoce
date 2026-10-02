@@ -144,7 +144,9 @@ def _module_entity(report=None):
         if isinstance(src, str):
             entity_name = src
         elif isinstance(src, dict):
-            entity_name = src.get('entity')
+            entity_name = src.get('entity', src.get('from'))
+            if isinstance(entity_name, (list, tuple)):
+                entity_name = entity_name[0] if entity_name else None
         if entity_name:
             return _entity_for(entity_name)
     return None
@@ -222,6 +224,38 @@ def _apply_entity(raw, entity):
                 if isinstance(cfg, dict) and field in cfg]
         return hits[0] if len(hits) == 1 else None
 
+    # Defaults vindos das entradas do select (nascidos: label/width/align/
+    # format). Precedência: Entity/Schema -> entrada -> inline do relatório.
+    _disp_map = {}
+    _computed = set()
+    try:
+        from ajsystem.defs.qspec import parse_select as _ps
+        _src = (out.get('body') or {}).get('source') if isinstance(out.get('body'), dict) else None
+        if isinstance(_src, dict) and 'select' in _src and 'from' in _src:
+            for _e in _ps(_src.get('select')):
+                _d = {}
+                if _e.label is not None:
+                    _d['label'] = _e.label
+                if _e.width is not None:
+                    _d['width'] = _e.width
+                if _e.align is not None:
+                    _d['align'] = _e.align
+                if _e.format is not None:
+                    _d['format'] = _e.format
+                if _d:
+                    _disp_map[_e.name] = _d
+                if _e.over is not None or _e.agg or _e.calc:
+                    _computed.add(_e.name)
+            _hier = (_src.get('levels', _src.get('hierarchy')) or {})
+            _blevels = ((out.get('body') or {}).get('levels') or {})
+            if isinstance(_blevels, dict) and _blevels.get('target'):
+                _hier = _blevels
+            if isinstance(_hier, dict) and _hier.get('target'):
+                _computed.add(_hier['target'])
+    except Exception:
+        _disp_map = {}
+        _computed = set()
+
     def _infer_presentation(cfg):
         from ajsystem.core.utils import normalize_currency
         t, inp, cur = cfg.get('type'), cfg.get('input'), cfg.get('currency')
@@ -238,15 +272,21 @@ def _apply_entity(raw, entity):
 
     def _resolve_map(items):
         if isinstance(items, list):
-            # forma enxuta: strs puros + dicts (calculados/overrides)
+            # forma enxuta: strs puros + {alias: cfg} + dicts (calculados).
             norm = {}
             for i, it in enumerate(items):
                 if isinstance(it, str):
                     norm[it] = {}
                     continue
                 it = dict(it)
-                k = it.pop('name', None) or it.get('field') or f'_{i}'
-                norm[k] = it
+                if 'name' in it or 'field' in it:
+                    k = it.pop('name', None) or it.get('field') or f'_{i}'
+                    norm[k] = it
+                elif len(it) == 1:
+                    (k, v), = it.items()
+                    norm[k] = v or {}
+                else:
+                    raise ValueError(f"coluna lista {it!r}: use 'nome', {{'nome': cfg}} ou {{'name': ...}}")
             items = norm
         if not isinstance(items, dict):
             return None
@@ -273,8 +313,12 @@ def _apply_entity(raw, entity):
                         and key.endswith('_id')):
                     spec['field'] = f'{key[:-3]}.nome'
                 # calc da Entity → function(row) - exclusivamente via Schema/Entity
-                # (report não deve redefinir function quando Entity já tem calc)
-                if raw_cfg.get('calc'):
+                # (report não deve redefinir function quando Entity já tem calc).
+                # Exceção: coluna já computada pela query (over/hierarchy) -> attr
+                # direto (1 query, sem N+1 por célula).
+                if fld in _computed:
+                    spec.pop('function', None)
+                elif raw_cfg.get('calc'):
                     calc = raw_cfg['calc']
                     if isinstance(calc, (str,)) or callable(calc):
                         spec['function'] = calc if callable(calc) else _calc_fn(calc)
@@ -291,7 +335,21 @@ def _apply_entity(raw, entity):
                             o.get(getattr(row, f, None), getattr(row, f, '')))
                 resolved[key] = spec
                 continue
-            # não resolvido na Entity: exige identidade p/ descartar typo
+            # não resolvido na Entity: display do select (nascidos) como default;
+            # text monta a célula via template (ex. código) — senão exige
+            # identidade p/ descartar typo
+            if key in _disp_map:
+                spec = {**_disp_map[key], **extra}
+                if 'label' not in spec:
+                    spec['label'] = _auto_label(key)
+                resolved[key] = spec
+                continue
+            if 'text' in extra:
+                spec = dict(extra)
+                spec.setdefault('label', _auto_label(key))
+                spec['function'] = _cell_text_fn(extra['text'], entity)
+                resolved[key] = spec
+                continue
             if not any(k in extra for k in ('label', 'function')):
                 raise KeyError(
                     f"Campo '{key}' não resolvido na Entity (ausente ou "
@@ -325,7 +383,8 @@ def _apply_entity(raw, entity):
                     cols[data_key] = spec
                 table['columns'] = cols
 
-            hier = table.get('hierarchy')
+            _synthesize_levels_from_groups(table, out.get('body') or {}, raw.get('label'))
+            hier = table.get('levels', table.get('hierarchy'))
             if hier:
                 items = (hier.items() if isinstance(hier, dict)
                          else [(k, v) for h in hier for k, v in (h or {}).items()])
@@ -379,7 +438,8 @@ def _apply_entity(raw, entity):
                         if fo:
                             sp['_fmt_opts'] = fo
                     specs.append(sp)
-                table['hierarchy'] = specs
+                table['levels'] = specs
+                table.pop('hierarchy', None)
             body['table'] = table
 
         source = body.get('source')
@@ -415,8 +475,12 @@ def _infer_source(report, entity):
     if src is None:
         return {'name': None, 'data_attr': 'items', 'order_mode': None,
                 'sort_fn': None, 'order_field': None}
-    entity_name = src if isinstance(src, str) else (
-        src.get('entity') if isinstance(src, dict) else None)
+    entity_name = src if isinstance(src, str) else None
+    if entity_name is None and isinstance(src, dict):
+        # Legado usa 'entity'; query nova usa 'from' (str ou [entidade, ...]).
+        entity_name = src.get('entity', src.get('from'))
+        if isinstance(entity_name, (list, tuple)):
+            entity_name = entity_name[0] if entity_name else None
     data_attr = src.get('data_attr', 'items') if isinstance(src, dict) else None
     order = src.get('order') if isinstance(src, dict) else None
     if not entity_name:
@@ -427,6 +491,8 @@ def _infer_source(report, entity):
             'order_mode': None, 'sort_fn': None, 'order_field': order}
     if not order or not entity:
         return info
+    if isinstance(order, (list, tuple)):
+        return info  # query nova: ordem composta resolvida no qrun
 
     model = _resolve_model(entity_name)
     if model is None:
@@ -443,6 +509,118 @@ def _infer_source(report, entity):
             info['order_mode'] = 'calc'
             info['sort_fn'] = calc
     return info
+
+
+def _cell_text_fn(tpl, entity):
+    """Monta function(row) a partir de template (código montado). Delegado ao
+    avaliador único (core/text); labels LIST via options da Entity."""
+    import re as _re
+    from ajsystem.core.text import render as _render
+    _fmt_opts = {}
+    for nm in set(_re.findall(r'{(\w+)(?::[^}]*)?}', tpl or '')):
+        mdl = None
+        if entity and nm in entity and isinstance(entity.get(nm), dict):
+            mdl = nm
+        else:
+            hits = [m for m, cfg in (entity or {}).items()
+                    if isinstance(cfg, dict) and nm in cfg] if entity else []
+            mdl = hits[0] if len(hits) == 1 else None
+        if mdl:
+            raw_cfg = entity[mdl] if mdl == nm else entity[mdl].get(nm, {})
+            opts = raw_cfg.get('list') or raw_cfg.get('options')
+            if opts:
+                _fmt_opts[nm] = opts
+
+    def _fn(row):
+        return _render(tpl, lambda k: getattr(row, k, None), _fmt_opts)
+    return _fn
+
+
+def _mark_suppress(table, cname):
+    """Marca suppress na cfg da coluna (dict ou lista), p/ place=0."""
+    cols = table.get('columns')
+    if isinstance(cols, dict) and isinstance(cols.get(cname), dict):
+        cols[cname]['suppress'] = True
+    elif isinstance(cols, list):
+        for it in cols:
+            if isinstance(it, dict) and len(it) == 1 and cname in it:
+                cfg = it[cname]
+                if isinstance(cfg, dict):
+                    cfg['suppress'] = True
+                else:
+                    it[cname] = {'suppress': True}
+
+
+def _synthesize_levels_from_groups(table, body, label):
+    """Deriva table.levels de table.groups (lista em ordem de aninhamento).
+
+    Cada item: {field, print, place, text}. print: 0 sempre; 1 abre grupo;
+    2 fecha grupo. place: 0 na célula (suprime repetido — exige o campo em
+    columns); 1 título antes da tabela (pos 2); 2 linha da tabela (pos 1).
+    Valida que order abre com as quebras. columns lista só o que imprime.
+    """
+    groups = table.get('groups')
+    if not groups or table.get('levels') or table.get('hierarchy'):
+        return
+    if not isinstance(groups, list):
+        raise ValueError(f"report '{label}': groups deve ser lista")
+    cols = table.get('columns') or {}
+    col_names = set()
+    if isinstance(cols, dict):
+        col_names = set(cols.keys())
+    elif isinstance(cols, list):
+        for it in cols:
+            if isinstance(it, str):
+                col_names.add(it)
+            elif isinstance(it, dict) and len(it) == 1:
+                col_names.update(it.keys())
+    grouped, synth = [], []
+    for g in groups:
+        if not isinstance(g, dict) or 'field' not in g:
+            raise ValueError(f"report '{label}': groups exige {{field, ...}}")
+        cname = g['field']
+        pr, pl = g.get('print', 0), g.get('place', 0)
+        if pr not in (0, 1, 2):
+            raise ValueError(f"report '{label}': print de '{cname}' deve ser 0|1|2")
+        if pl not in (0, 1, 2):
+            raise ValueError(f"report '{label}': place de '{cname}' deve ser 0|1|2")
+        if pr == 0 and pl in (1, 2):
+            raise ValueError(f"report '{label}': '{cname}' com print=0 exige place=0")
+        if pl == 0 and pr == 1:
+            if cname not in col_names:
+                raise ValueError(f"report '{label}': place=0 exige '{cname}' em columns")
+            _mark_suppress(table, cname)
+            continue
+        grouped.append(cname)
+        if pr == 1 and pl in (1, 2):
+            synth.append({cname: {'pos': 2 if pl == 1 else 1,
+                                  'text': g.get('text', cname),
+                                  'total': False, 'line': True}})
+        elif pr == 2:
+            synth.append({cname: {'pos': 0, 'total': bool(g.get('total', True)),
+                                  'line': True, 'footer_text': g.get('text', 'Total')}})
+    # order da fonte tem que abrir com as colunas de quebra (senão picota)
+    src = (body or {}).get('source') if isinstance(body, dict) else None
+    if isinstance(src, dict) and src.get('order') and grouped:
+        _ord = [o.split()[0] if isinstance(o, str) else (o.get('field') or '') for o in src['order']]
+        _ord = [o for o in _ord if o]
+        if grouped != _ord[:len(grouped)]:
+            raise ValueError(f"report '{label}': order {src['order']} deve abrir com as quebras {grouped}")
+    if synth:
+        table['levels'] = synth
+
+
+def _entity_cfg_for(entity, entity_name):
+    """ cfg flat {campo: cfg} p/ cast tipado (INT/LIST->int). Genérico."""
+    if not entity:
+        base = _entity_for(entity_name) if isinstance(entity_name, str) else None
+        return base or {}
+    if isinstance(entity, dict) and entity_name in entity and isinstance(entity[entity_name], dict):
+        return entity[entity_name]
+    if isinstance(entity, dict) and all(isinstance(v, dict) for v in entity.values()):
+        # flat ({campo: cfg}) ou aninhado de 1 nível: usa como está se parecer campo
+        return entity
+    return {}
 
 
 def _auto_data(report, data, instance, filter=None):
@@ -467,6 +645,38 @@ def _auto_data(report, data, instance, filter=None):
             info = _infer_source(report, _module_entity(report))
             data = getattr(instance, info['data_attr'] or 'items', None)
         return data
+
+    # Fonte nova: query dict {select, dist, from, ...} (QPLANO) -> qrun genérico.
+    # Índice global estável: numera tudo, filtra depois (filtro funde por cima).
+    # levels mora no body do relatório (apresentação), não na query.
+    from ajsystem.defs.qspec import is_query_dict
+    _src_raw = _source_of(report)
+    if isinstance(_src_raw, dict) and is_query_dict(_src_raw):
+        from ajsystem.core.list import _resolve_model as _rm
+        from ajsystem.core.qrun import run_query, build_levels
+        _ent = _module_entity(report)
+        _ename = _src_raw.get('from')
+        _model = _rm(_ename if isinstance(_ename, str) else None)
+        _cfg = _entity_cfg_for(_ent, _ename)
+        _rows = run_query(_model, _src_raw, entity_cfg=_cfg, extra_where=filtro)
+        _body = _body_of(report)
+        _lvl = None
+        if isinstance(_body, dict):
+            _lvl = _body.get('levels')
+        elif _body is not None:
+            _lvl = getattr(_body, 'levels', None)
+        if _lvl:
+            if not isinstance(_lvl, dict):
+                raise TypeError("body.levels deve ser dict")
+            _rows = build_levels(_rows, pk=_lvl.get('pk', 'id'),
+                                 parent=_lvl.get('parent', 'pai_id'),
+                                 rn_attr=_lvl.get('using', 'rn'),
+                                 group=_lvl.get('group', 'tipo'),
+                                 root_fmt=_lvl.get('root', '{g:02d}.{rn:02d}'),
+                                 child_fmt=_lvl.get('child', '{parent}.{rn:02d}'),
+                                 target=_lvl.get('target', 'indice'),
+                                 max_depth=int(_lvl.get('maxdepth', 20)))
+        return _rows
 
     info = _infer_source(report, _module_entity(report))
     name = info['name']
@@ -495,12 +705,17 @@ def _apply_report_filter(query, model, filtro):
     if callable(filtro):
         crit = filtro(model)
         return crit if crit is not None else query
+    from ajsystem.core.qrun import _cast_value
+    try:
+        _cfg = _entity_cfg_for(_module_entity(report), getattr(model, '__name__', None))
+    except Exception:
+        _cfg = {}
     for campo, valor in (filtro or {}).items():
-        if valor is None:
+        if valor is None or valor == '':
             continue
         col = getattr(model, campo, None)
         if col is not None:
-            query = query.filter(col == valor)
+            query = query.filter(col == _cast_value(_cfg.get(campo, {}), valor))
     return query
 
 

@@ -1,7 +1,7 @@
 from ajsystem.core.extensions import db
 from ajsystem.core.utils import CONNECTORS
 from app.models.operacao import Operacao
-from app.reports import PLANO
+from app.reports import PLANO, QPLANO
 
 
 # `filter_field: 'tipo'` imprime o relatório da seleção de filtro corrente (o
@@ -54,7 +54,8 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Operacao',
+            'columns': QPLANO,
+            'field_id': 'id',
             'order': ['ordem', 'nome'],
             'buttons': ['imprimir_plano'],
         },

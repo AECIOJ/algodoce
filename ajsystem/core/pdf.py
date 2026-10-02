@@ -444,6 +444,8 @@ def _format_cell_value(val, fmt: str) -> str:
 
 MIN_COL_WIDTH = 15  # mm
 
+_MISSING = object()  # sentinela p/ suppress (None é valor válido de comparar)
+
 
 def _calc_col_widths(pdf, cols):
     """Converte widths (ch) → mm pela métrica da fonte e distribui.
@@ -505,9 +507,17 @@ def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
     """Renderiza uma linha de dados."""
     pdf.set_font("Helvetica", "", 9)
     row_h = 6
+    if not hasattr(pdf, '_sup_prev'):
+        pdf._sup_prev = {}
     for i, col in enumerate(cols):
         val = _get_cell_value(row, col)
-        txt = _format_cell_value(val, col.format)
+        _blank = False
+        if getattr(col, 'suppress', False):
+            if pdf._sup_prev.get(col.field, _MISSING) == val:
+                _blank = True
+            else:
+                pdf._sup_prev[col.field] = val
+        txt = '' if _blank else _format_cell_value(val, col.format)
         align = 'R' if col.align == 'right' else ('C' if col.align == 'center' else 'L')
         nx = "LMARGIN" if i == len(cols) - 1 else "END"
         ny = "NEXT" if i == len(cols) - 1 else "TOP"
@@ -562,36 +572,24 @@ def sep_join(code, n, sep='.'):
 
 
 def _group_title(g, val, row=None):
-    """Título do grupo — template `text`.
+    """Título do grupo — template `text` (avaliador único core/text).
 
-    '{campo}' = valor da linha com formatação da Entity (LIST → label);
-    `{<g.field>}` = código do grupo (left aplicado); demais caracteres
-    são literais. Ex.: '{indice}. {tipo}' → '1. Receitas'.
-
-    Sem `text` → str(valor) do grupo.
-    `transform`: 'upper' | 'title' | 'lower' aplicado ao texto final.
+    '{campo}' = label da Entity (LIST → options); '{campo:spec}' = valor cru;
+    '{?campo:literal}' = segmento condicional; `{<g.field>}` = valor do grupo.
+    Ex.: '{tipo:d}. {tipo}' → '1. Receitas'. Sem `text` → str(valor).
     """
+    from ajsystem.core.text import render as _render
     tpl = g.get('text')
     if not tpl:
         return apply_transform(str(val or ''), g.get('transform'))
-
     fmt_opts = g.get('_fmt_opts') or {}
 
-    class _NS(dict):
-        def __missing__(self, k):
-            v = getattr(row, k, None) if row is not None else None
-            o = fmt_opts.get(k)
-            if o is not None and v is not None:
-                v = o.get(v, v)
-            return '' if v is None else str(v)
+    def _get(name):
+        if name == g.get('field'):
+            return val
+        return getattr(row, name, None) if row is not None else None
 
-    ns = _NS()
-    gv = val
-    o = fmt_opts.get(g.get('field'))
-    if o is not None and gv is not None:
-        gv = o.get(gv, gv)
-    ns[g['field']] = gv
-    return apply_transform(tpl.format_map(ns), g.get('transform'))
+    return apply_transform(_render(tpl, _get, fmt_opts), g.get('transform'))
 
 
 def _render_group_header(pdf, g, val, xs, tw, pos, row=None):
@@ -618,13 +616,17 @@ def _render_group_line(pdf, g, val, xs, tw, row=None):
              new_x="LMARGIN", new_y="NEXT")
 
 
-def _render_group_total(pdf, g, cols, cw, xs, acc):
-    if not any(c.agg for c in cols):
+def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
+    if not any(c.agg for c in cols) and not g.get('footer_text'):
         return
     pdf.set_font("Helvetica", "B", 9)
+    label = g.get('footer_text')
+    if label and row is not None:
+        label = _group_title({**g, 'text': label}, None, row=row)
+    label = label or "Total"
     label_w = sum(cw[:-1])
     pdf.set_x(xs)
-    pdf.cell(label_w, 7, "Total", border=0, align="R")
+    pdf.cell(label_w, 7, label, border=0, align="R")
     last_i = max(i for i, c in enumerate(cols) if c.agg == 'sum') \
         if any(c.agg == 'sum' for c in cols) else None
     for i, col in enumerate(cols):
@@ -643,6 +645,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
     show_lines = bool(report.show_table_lines) if report else False
     prev = [None] * len(gs)
     accs = [{c.field: 0 for c in cols if c.agg} for _ in gs]
+    last_rows = [None] * len(gs)
     started = False
     table_open = False   # nada foi desenhado ainda — evita fechar tabela fantasma
     gera_cab = True
@@ -652,7 +655,8 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
         if not started:
             return
         if g.get('total', True):
-            _render_group_total(pdf, g, cols, cw, xs, accs[i])
+            _render_group_total(pdf, g, cols, cw, xs, accs[i],
+                                row=last_rows[i])
         if g.get('line', True):
             _draw_hline(pdf, xs, tw)
 
@@ -695,7 +699,10 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                     skip_row = True
                 # pos == 0: oculto — agrupa/totaliza sem imprimir cabeçalho
                 prev[i] = vals[i]
+                last_rows[i] = row
             started = True
+            for i in range(len(gs)):
+                last_rows[i] = row
 
         if skip_row:
             continue
@@ -731,7 +738,7 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
     cols = list(columns)
     if not cols:
         return
-
+    pdf._sup_prev = {}
 
     col_widths, total_w, x_start = _calc_col_widths(pdf, cols)
 
@@ -749,7 +756,7 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
     agg_values = {c.field: 0 for c in cols if c.agg}
     header_h = 7 + 6
     gera_cab = True
-    gs = [g for g in _body_table(report).get('hierarchy', [])
+    gs = [g for g in (_body_table(report).get('levels', _body_table(report).get('hierarchy', [])))
           if isinstance(g, dict) and 'field' in g] \
         if report else []
 

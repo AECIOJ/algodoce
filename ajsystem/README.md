@@ -1,6 +1,6 @@
 # AJSYSTEM 1.26.09.30.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.01.0004`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
+> Vinculado a `ajsystem/version` (`1.26.10.02.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
 
 ---
 
@@ -302,6 +302,8 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 
 > `fields_master`, `linha` e `card_idx` saem do `do_list.py` (`list_obj = List(...)`, `do_list.py:312`). **Não** os declare à mão: a engine sobrescreve. `linha` é a única que aceita nomes na spec, porque a conversão acontece no meio do caminho.
 
+> `columns` da página (`Page.props.list`) aceita query dict no lugar da entidade (`columns=QPLANO`, ver 5.10.1): os dados vêm do `qrun` e `pos_list` da entrada vale (Schema vence). Nesse modo `field_id` é exigido para editar (ausente = só-leitura; declarado tem que estar no `select` e ser pk, senão quebra nomeando). Sem query, `edit_id_field` (`'id'`) e o resto seguem como antes.
+
 ### 5.7 `Report` — `ajsystem/defs/report.py:135` `class Report`
 
 | Prop | Tipo | Default | Valores | Impacto |
@@ -325,24 +327,27 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 
 | Chave | Tipo | Valores | Impacto |
 |---|---|---|---|
-| `body.source` | `str\|dict` | `'Tarefa'` ou `{'entity':'Operacao','order':'indice'}` | `_infer_source` + `_auto_data` query |
-| `body.table.columns` | `dict` | `{'titulo':{'width':50},'PedidoItem.valor':{'width':20,'agg':'sum'}}` | `_apply_entity` herda `label`/`calc` da `Entity` (Schema vence) |
-| `body.table.hierarchy` | `list\|dict` | `[{'indice':{'left':1,'pos':2,'text':'{indice}. {tipo}'}}]` | `pos:2` título fora da tabela, `1` linha, `0` oculto. Aceita `list` de dicts ou `dict` direto; chaves lidas: `pos` (1), `total` (True), `line` (True), `eject` (False), `left`, e o resto vai para o spec |
-| `body.filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` (`do_report.py:458`); critério aplicado **antes** da ordenação |
+| `body.source` | `str\|dict` | `'Tarefa'`, `{'entity':...}` (legado) ou query dict `{select,dist,from,...}` (5.10.1) | `_infer_source` + `_auto_data`; query numera tudo e filtra depois (índice global estável) |
+| `body.table.columns` | `dict\|list` | `{'titulo':{'width':50}}` ou `['indice','nome',{'id':{'width':6}}]` (forma enxuta igual ao `select`) | `_apply_entity` herda `label`/`calc` da `Entity` (Schema vence); coluna computada na query usa o attr direto |
+| `body.table.groups` | `list` | `[{field:'tipo',print:1,place:1,text:'{tipo:d}. {tipo}'}]` | control-break por coluna: `print` 0 sempre, 1 abre, 2 fecha; `place` 0 na célula, 1 título, 2 linha. `order` da fonte tem que abrir com as quebras (senão quebra nomeando) |
+| `body.table.hierarchy` | `list\|dict` | legado (derivado de `groups` quando ausente) | mantido por compat; prefira `groups` |
+| `body.filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` com cast tipado; critério aplicado **antes** da ordenação |
 
 ### 5.8 `ReportColumn` e amigos — `ajsystem/defs/report.py`
 
-**`ReportColumn`** (`:34`) — 7 props:
+**`ReportColumn`** (`:34`) — 9 props (novas: `text`, `suppress`):
 
 | Prop | Tipo | Default | Valores | Impacto |
 |---|---|---|---|---|
 | `field` | `str` | — | `'qtd'` ou `'produto.nome'` | `data_key` |
-| `label` | `str` | `None` | texto; sem ela, `_auto_label`/Entity | cabeçalho da coluna |
+| `label` | `str` | `None` | texto; sem ela, `_auto_label`/Entity/entrada do `select` | cabeçalho da coluna |
 | `width` | `float` | `None` | `ch`/`mm` | coluna no PDF |
 | `align` | `str` | `'left'` | `left,center,right` | herdado do `Field.align` (`NUM`→`right`) |
 | `format` | `str` | `None` | formato de data/número | render da célula |
 | `agg` | `str` | `None` | `sum` | totaliza |
-| `function` | `callable` | `None` | `lambda row:` | usa `Entity.calc` se ausente |
+| `function` | `callable` | `None` | `lambda row:` | usa `Entity.calc` se ausente (coluna computada na query usa o attr) |
+| `text` | `str` | `None` | template `'{campo}'`/`{x:02d}`/`{?cond:…}` (6, `core/text.py`) | monta a célula (ex. código) |
+| `suppress` | `bool` | `False` | repete valor só na 1ª linha do grupo | `place:0` do `groups` |
 
 **`ReportField`** (`:13`) — 5 props, spec de campo solto (fora de `columns`): `field`, `label`, `align` (`left`), `format`, `function`.
 
@@ -350,7 +355,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 
 **`ReportText`** (`:78`) — 5 props: `text` (obrigatório), `font_size` (`10`), `font_style` (`''`), `align` (`'L'`), `when` (`end_of_report`; também `start_of_report`/similar). Bloco de texto avulso, usado por `Report.texts`.
 
-**`ReportBody`** (`:88`) — 6 props: `source`, `form`, `table`, `before`, `after`, `filter`. `before`/`after` inserem blocos ao redor da tabela.
+**`ReportBody`** (`:88`) — 7 props: `source`, `form`, `table`, `before`, `after`, `filter`, `levels`. `before`/`after` inserem blocos ao redor da tabela; `levels` é numeração hierárquica legada (prefira `select` com `over` + `table.groups`).
 
 ### 5.9 `Button` — `ajsystem/defs/buttons.py:85` `class Button`
 
@@ -528,6 +533,10 @@ Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `
 
 **`Session`** (`:136`) — 4 props: `template`, `fields`, `query`, `table`. É a spec da sessão dentro de `Form.sessions`; `fields` é a relação 1:1 child↔pai e `query`/`table` o corpo.
 
+### 5.10.1 QSpec — query declarativa SQL-like (`ajsystem/defs/qspec.py`, `core/qrun.py`, `core/text.py`)
+
+`QuerySpec` com as props na ordem do SQL — `select, dist, from, join, where, groups, order, limit` — executada por `qrun.run_query`: WHERE/ORDER/LIMIT/GROUP BY no banco, `OVER` em passo único (1 query, sem N+1), `calc` depois, ordenação final incluindo computados, com cast tipado e nulo-primeiro no asc. Entrada do `select` espelha o `Field` (`field/agg/func/over/calc/pos_list/label/width/align/format`, sem sub-dict); `over` exige `func` explícito do catálogo (`rownumber/rank/denserank/…`) e `order` aceita expressão do registro `EXPR_FUNCS` (só `coalesce` liberado). Templates (`calc`, coluna `text`, `group text`) falam a mesma língua (`core/text.py`): `'{campo}'` label, `'{x:02d}'` cru, `'{?campo:literal}'` ternário sem `else`. `PivotSpec` (`src/lines/columns/aggs/filters`) declarado, executor pendente.
+
 ### 5.11 `App`, `Module`, `MenuItem`, `Tema`, `Layout*` — `ajsystem/defs/config.py`
 
 > **Exceção à convenção:** `config.py` é o único módulo do framework com props em **português** (`Tema.rotulo/marca/neutras/...`, `Module.default_path`, `MenuItem.submenus`, `Layout*.rows/align/text/font/color/logo/title/user`). Todo o resto do framework é em inglês.
@@ -677,6 +686,15 @@ Page = {
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.02.0001
+- **Fonte de dados declarativa SQL-like (`defs/qspec.py`, novo).** `QuerySpec` com as props na ordem do SQL — `select, dist, from, join, where, groups, order, limit` (`levels` legado aceito como alias) — e `PivotSpec` (`src, lines, columns, aggs, filters`; executor pendente). Cada entrada do `select` espelha o `Field`: dado (`field/agg/func/over/calc`) + apresentação (`label/width/align/format/pos_list`) lado a lado, sem sub-dict `display` (que existiu numa fase e foi removido por duplicar props do `Field`). Formas por campo: `'nome'` puro, `{'alias': {agg, field}}` (GROUP BY fora de `over`), `{func, over}` (janela, `func` explícito, `over` nunca vazio), `{over={agg,...}}` (agregado em janela), `{calc}` (template montado pós-`over`). `aggs` no dual curto/longo (`{'id':'count'}` | `{'qtd':{'id':'count'}}`). Tudo com `fail-fast` nomeando (função desconhecida, chave estranha, `groups` sem `agg`, `calc` referenciando campo inexistente). Detecção `is_query_dict` (`select+from`) para a `columns` polimórfica da listagem.
+- **Catálogo de window functions + registro de expressões.** `OVER_FUNCS` cobre `rownumber/rank/denserank/percentrank/cumedist/ntile/lag/lead/firstvalue/lastvalue/nthvalue/sum/avg/min/max/count`; `order` aceita campo, `'campo desc'`, `{field, direction}` e expressão do registro `EXPR_FUNCS` — hoje só `coalesce` liberado (`{coalesce: [...]}`), resto entra um por vez (função fora do registro = erro listando as liberadas; campo inexistente = erro).
+- **Executor genérico (`core/qrun.py`, novo).** `run_query(model, spec)`: WHERE/ORDER/LIMIT/GROUP BY no SQL, `OVER` avaliado em passo único em Python (1 query, sem N+1), `calc` depois, ordenação final incluindo computados. Cast tipado via Entity (`LIST/INT` str→int, então `filter_select` chega string e filtra `Integer` certo). Convenção de nulo igual a `core/query._cmp_value` (None antes no asc — raiz com `pai_id` null abre o grupo), espelhada no SQL com `nullsfirst/nullslast`. `build_levels` (numeração hierárquica com `sortpath` numérico e guarda `maxdepth`) segue no motor com alias `build_hierarchy`, hoje sem uso ativo.
+- **Avaliador único de templates (`core/text.py`, novo).** Sintaxe compartilhada por `select.calc`, coluna `text` e `group text`: `'{campo}'` aplica label do catálogo (LIST→options), `'{campo:02d}'` usa o valor cru, `'{?campo:literal}'` é ternário sem `else` (inclui só se não-None/vazio — ex. código da raiz omite o 3º segmento). `_cell_text_fn` e `pdf._group_title` viraram delegação (a segunda reescrita por substituição por placeholder, que também corrigiu o sombreamento `ns[field]` que imprimia `1. 1` em vez de `1. Receitas`).
+- **`Report` emagreceu para apresentação + `table.groups` (control-break por coluna).** `Report` ganhou `page/session/shapes` (passthrough) e `ReportBody` ganhou `levels`; `ReportColumn` ganhou `text` (monta a célula via template) e `suppress` (branco no repetido). Quebras declaradas onde quebram: `table.groups=[{field, print, place, text}]` — `print: 0` sempre, `1` abre, `2` fecha (com `footer_text`); `place: 0` na célula (exige o campo em `columns`), `1` título antes da tabela, `2` linha da tabela. `columns` lista só o que imprime e aceita forma enxuta (`'nome'`, `{'alias': cfg}` igual ao `select`). `body.source` aceita query dict (índice global estável: numera tudo, filtra depois); coluna computada usa o attr direto (fim do N+1 por célula e do `calc` da Entity sombreando a query); `body.filter` com cast; `_infer_source`/`_module_entity` entendem `from` (str ou lista); `order` em lista no legado é ignorado com segurança em vez de `TypeError` no `hasattr`.
+- **Listagem bebe da mesma fonte (`columns=QPLANO`, `field_id`).** `do_list_normal` aceita query dict em `columns`: `pos_list` da entrada vale (Schema da página vence), `pos_list=0` filtra num ponto único, `field_id` ausente = só-leitura e declarado tem que estar no `select` e ser pk (senão quebra nomeando). Sem query, comportamento intacto.
+- **Dependência declarada, executor futuro.** `requirements.txt` ganha `pandas==2.2.2` para o `pivot` (só declarado; o executor `pivot_table` é a próxima fatia). Débito registrado e assumido: a condição de precedência `Schema` × `pos_list` da entrada está sempre-verdadeira (a entrada sempre vence; o correto é a página vencer) — corrigir junto da próxima fatia.
 
 ### 1.26.10.01.0004
 - **Script de bump do framework removido.** O host já tem bump em bash, então `scripts/bump_version.py` saiu (com a pasta `scripts/`). As refs viraram neutras ("script de bump do host"): docstring de `Version`, `App.version`, comentário do `APP['version']` e as duas notas de versionamento do README. Mecânica intacta — `Version`/`build_version`/`text()` e a validação não mudaram.
