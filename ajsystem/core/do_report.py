@@ -30,6 +30,10 @@ from ajsystem.defs.data import _auto_label
 from ajsystem.defs.report import parse_report
 
 ERRO_TEMPLATE = 'components/print_erro.html'
+# Fragmento injetado pelo print_report: overlay do framework (fragmento com
+# o iframe + alternância do container; redundante sob reportRender, vital no
+# standalone — o script só age se o container existir).
+OVERLAY_TEMPLATE = 'components/print_overlay.html'
 
 # Registro em memória de impressões com escolha pendente (filter_select).
 # Mapeia um id curto → {report, field}, preenchido quando `print_report` monta
@@ -283,10 +287,12 @@ def _apply_entity(raw, entity):
                     k = it.pop('name', None) or it.get('field') or f'_{i}'
                     norm[k] = it
                 elif len(it) == 1:
+                    # forma enxuta {alias: cfg} (mesma do select)
                     (k, v), = it.items()
                     norm[k] = v or {}
                 else:
-                    raise ValueError(f"coluna lista {it!r}: use 'nome', {{'nome': cfg}} ou {{'name': ...}}")
+                    # legado: dict de props sem nome (ex. header {function, label})
+                    norm[f'_{i}'] = it
             items = norm
         if not isinstance(items, dict):
             return None
@@ -308,6 +314,13 @@ def _apply_entity(raw, entity):
                 # base (Schema) vence para label/format/align; extra (report) mantém width/agg etc.
                 _base_filtered = {k: v for k, v in base.items() if v is not None}
                 spec = {**extra, **_base_filtered}
+                # Sem format de nenhum lado + mask de data/hora na Entity: a
+                # máscara vira format (declarado no relatório continua vencendo).
+                if spec.get('format') is None:
+                    from ajsystem.core.formats import has_date_tokens as _hdt
+                    _mask = raw_cfg.get('mask')
+                    if _mask and _hdt(_mask):
+                        spec['format'] = _mask
                 # FK → caminho de exibição via relacionamento ('<base>.nome')
                 if (raw_cfg.get('type') == 'FK' and 'field' not in spec
                         and key.endswith('_id')):
@@ -359,13 +372,33 @@ def _apply_entity(raw, entity):
             resolved[key] = extra
         return resolved
 
-    # header.fields
+    # header.fields (dict) ou header=[...] (lista: FIELDs resolvidos na Entity)
     header = out.get('header')
     if isinstance(header, dict):
         specs = _resolve_map(header.get('fields'))
         if specs is not None:
             out['header'] = {**header, 'fields': [
                 {'field': k, **v} for k, v in specs.items()]}
+    elif isinstance(header, list):
+        from ajsystem.defs.report import parse_report_item as _pri
+        _flist, _fpos = [], []
+        for _i, _it in enumerate(header):
+            try:
+                _ri = _pri(_it, raw.get('label'))
+            except ValueError:
+                continue
+            if _ri.kind == 'FIELD':
+                _flist.append(_it if isinstance(_it, str) else {'field': _ri.name, **_ri.config})
+                _fpos.append(_i)
+        if _flist:
+            _fspecs = _resolve_map(_flist) or {}
+            _header = list(header)
+            for _i, _it in zip(_fpos, _flist):
+                _key = _it if isinstance(_it, str) else (_it.get('field') or next(iter(_it)))
+                _sp = dict(_fspecs.get(_key, {}))
+                _header[_i] = ({'field': _sp.pop('field', _key), **_sp}
+                               if isinstance(_it, dict) else {'field': _key, **_sp})
+            out['header'] = _header
 
     # body.table.columns + body.table.hierarchy
     body = out.get('body')
@@ -551,19 +584,57 @@ def _mark_suppress(table, cname):
                     it[cname] = {'suppress': True}
 
 
-def _synthesize_levels_from_groups(table, body, label):
-    """Deriva table.levels de table.groups (lista em ordem de aninhamento).
+def _translate_legacy_group(g, cname, label):
+    """Shim: {print, place} legado -> eixos {action, print}.
 
-    Cada item: {field, print, place, text}. print: 0 sempre; 1 abre grupo;
-    2 fecha grupo. place: 0 na célula (suprime repetido — exige o campo em
-    columns); 1 título antes da tabela (pos 2); 2 linha da tabela (pos 1).
-    Valida que order abre com as quebras. columns lista só o que imprime.
+    print:0/place:0 = coluna normal; print:1/place:0 = abre/suprime;
+    place:1 = antes da tabela; place:2 = na linha; print:2 = fecha/total.
+    Com 'action' presente, 'place' é erro (escolher um vocabulário).
+    """
+    g = dict(g)
+    if 'action' in g:
+        if 'place' in g:
+            raise ValueError(f"report '{label}': '{cname}' mistura action e place (escolha um)")
+        return g
+    pr, pl = g.pop('print', 0), g.pop('place', 0)
+    if (pr, pl) == (0, 0):
+        return g  # coluna normal
+    if pr == 1 and pl == 0:
+        g['action'], g['print'] = 1, 1
+    elif pr == 1 and pl == 1:
+        g['action'], g['print'] = 1, 3
+    elif pr == 1 and pl == 2:
+        g['action'], g['print'] = 1, 2
+    elif pr == 2:
+        g['action'], g['print'] = 2, 2
+    else:
+        raise ValueError(f"report '{label}': print/place de '{cname}' inválido")
+    return g
+
+
+def _synthesize_levels_from_groups(table, body, label):
+    """Deriva table.levels de table.groups (dict {campo: cfg}, ordem aninhada).
+
+    Eixos: action (quando: 1 abre, 2 fecha, ausente = toda linha) x print
+    (onde, relativo ao evento: 0 nunca, 1 na coluna (default), 2 na linha,
+    3 antes/depois da tabela). action:2 + print:2 = linha de total após as
+    linhas; action:2 + print:1/3 e print 2/3 sem action = fail-fast (fase
+    futura). Valida que order abre com as quebras. columns lista só o que
+    imprime.
     """
     groups = table.get('groups')
     if not groups or table.get('levels') or table.get('hierarchy'):
         return
-    if not isinstance(groups, list):
-        raise ValueError(f"report '{label}': groups deve ser lista")
+    if isinstance(groups, dict):
+        items = [(k, v if isinstance(v, dict) else {}) for k, v in groups.items()]
+    elif isinstance(groups, list):
+        items = []
+        for g in groups:
+            if not isinstance(g, dict) or 'field' not in g:
+                raise ValueError(f"report '{label}': groups exige {{field, ...}}")
+            items.append((g['field'], {k: v for k, v in g.items() if k != 'field'}))
+    else:
+        raise ValueError(f"report '{label}': groups deve ser dict ou lista")
     cols = table.get('columns') or {}
     col_names = set()
     if isinstance(cols, dict):
@@ -575,28 +646,42 @@ def _synthesize_levels_from_groups(table, body, label):
             elif isinstance(it, dict) and len(it) == 1:
                 col_names.update(it.keys())
     grouped, synth = [], []
-    for g in groups:
-        if not isinstance(g, dict) or 'field' not in g:
-            raise ValueError(f"report '{label}': groups exige {{field, ...}}")
-        cname = g['field']
-        pr, pl = g.get('print', 0), g.get('place', 0)
-        if pr not in (0, 1, 2):
-            raise ValueError(f"report '{label}': print de '{cname}' deve ser 0|1|2")
-        if pl not in (0, 1, 2):
-            raise ValueError(f"report '{label}': place de '{cname}' deve ser 0|1|2")
-        if pr == 0 and pl in (1, 2):
-            raise ValueError(f"report '{label}': '{cname}' com print=0 exige place=0")
-        if pl == 0 and pr == 1:
-            if cname not in col_names:
-                raise ValueError(f"report '{label}': place=0 exige '{cname}' em columns")
-            _mark_suppress(table, cname)
-            continue
-        grouped.append(cname)
-        if pr == 1 and pl in (1, 2):
-            synth.append({cname: {'pos': 2 if pl == 1 else 1,
-                                  'text': g.get('text', cname),
-                                  'total': False, 'line': True}})
-        elif pr == 2:
+    for cname, g in items:
+        if not isinstance(g, dict):
+            raise ValueError(f"report '{label}': group de '{cname}' deve ser dict")
+        g = _translate_legacy_group(g, cname, label)
+        ac, pr = g.get('action'), g.get('print', 1)
+        if ac not in (None, 1, 2):
+            raise ValueError(f"report '{label}': action de '{cname}' deve ser 1|2")
+        if pr not in (0, 1, 2, 3):
+            raise ValueError(f"report '{label}': print de '{cname}' deve ser 0|1|2|3")
+        if ac is None:
+            if pr != 1:
+                raise ValueError(f"report '{label}': '{cname}' sem action exige print=1")
+            continue  # coluna normal, sem quebra
+        if ac == 1:
+            if pr == 0:
+                raise ValueError(f"report '{label}': '{cname}' com action=1 exige print 1|2|3")
+            if pr == 1:
+                if cname not in col_names:
+                    raise ValueError(f"report '{label}': print=1 exige '{cname}' em columns")
+                _mark_suppress(table, cname)
+                continue
+            grouped.append(cname)
+            _sp = {cname: {'pos': 2 if pr == 3 else 1,
+                           'text': g.get('text', cname),
+                           'total': False, 'line': True}}
+            if g.get('totals') is not None:
+                if not isinstance(g['totals'], dict):
+                    raise ValueError(f"report '{label}': totals de '{cname}' deve ser dict")
+                _sp[cname]['totals'] = g['totals']
+            synth.append(_sp)
+        else:  # ac == 2 fecha
+            if pr == 1:
+                raise ValueError(f"report '{label}': action=2/print=1 não suportado nesta fase")
+            if pr == 3:
+                raise ValueError(f"report '{label}': action=2/print=3 não suportado nesta fase")
+            grouped.append(cname)
             synth.append({cname: {'pos': 0, 'total': bool(g.get('total', True)),
                                   'line': True, 'footer_text': g.get('text', 'Total')}})
     # order da fonte tem que abrir com as colunas de quebra (senão picota)
@@ -757,14 +842,14 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
         data = _auto_data(report, data, instance, filter.criteria())
         try:
             src = _data_uri(_pdf_bytes(report, data, instance))
-            return render_template(report.print_fragment_template, pdf_url=src)
+            return render_template(OVERLAY_TEMPLATE, pdf_url=src)
         except Exception:
             return _print_erro(msg)
     report = parse_report(_apply_entity(report, _module_entity(report)))
     data = _auto_data(report, data, instance, filter)
     try:
         src = _data_uri(_pdf_bytes(report, data, instance))
-        return render_template(report.print_fragment_template, pdf_url=src)
+        return render_template(OVERLAY_TEMPLATE, pdf_url=src)
     except Exception:
         return _print_erro(msg)
 

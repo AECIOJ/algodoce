@@ -1,3 +1,4 @@
+from ajsystem.defs.report import FIELD, LOGO, PCOL, TABS, TITLE, POS
 from app.extends.constants import FORMINHAS
 
 
@@ -43,17 +44,16 @@ def _forminhas_carteira(q):
 
 ORCAMENTO = {
     'label': 'Orçamento',
-    'print_fragment_template': 'components/print_overlay.html',
-    'header': {
-        'layout': 'logo_left',
-        'title': 'Orçamento #{id}',
-        'fields': [
-            'cliente_nome',
-            'data_pedido',
-            'cliente_telefone',
-            'validade_data',
-        ],
-    },
+    'header': [
+        LOGO('L', 3),
+        TABS(PCOL, PCOL+30),
+        TITLE('Orçamento #{id}', {'location': [PCOL, 0]}),
+        POS(PCOL,2),
+        FIELD('cliente_nome', {'tab': 1}),
+        FIELD('data_pedido', {'tab': 2, 'rows_after': 1}),
+        FIELD('cliente_telefone', {'tab': 1}),
+        FIELD('validade_data', {'tab': 2, 'rows_after': 2}),
+    ],
     'body': {
         'table': {
             'columns': {
@@ -62,8 +62,7 @@ ORCAMENTO = {
                 'preco':          {'width': 14},
                 'OrcamentoItem.valor': {'width': 14, 'agg': 'sum'},
             },
-            'footer': True,
-            'footer_label': 'Total',
+            'totals': {'label': 'Total', 'align': 'R', 'span': 3},
             'after': _forminhas_carteira,
         },
         'after': _event_after,

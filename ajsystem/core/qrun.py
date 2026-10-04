@@ -89,8 +89,11 @@ def _compute_calc(rows, entries):
 
 
 def _validate_calc(entries, model):
+    """calc referencia coluna do model ou entrada over/agg — nunca outro calc
+    (a ordem do select é de exibição; avaliação é over -> calc, sem cadeia)."""
     import re as _re
     cols = set(getattr(model, '__table__', None).columns.keys()) if getattr(model, '__table__', None) is not None else set()
+    calcs = {e.name for e in entries or [] if e.calc}
     known = cols | {e.name for e in entries or []}
     for e in entries or []:
         if not e.calc:
@@ -98,6 +101,8 @@ def _validate_calc(entries, model):
         for nm in set(_re.findall(r'{\??(\w+)', e.calc)):
             if nm not in known:
                 raise ValueError(f"select '{e.name}': calc referencia campo desconhecido '{nm}'")
+            if nm in calcs:
+                raise ValueError(f"select '{e.name}': calc não pode referenciar outro calc ('{nm}')")
 
 
 def _eval_key(row, key):

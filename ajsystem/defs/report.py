@@ -31,6 +31,38 @@ REPORT_ID = 'report-content'
 REPORT_CONTENT = f'#{REPORT_ID}'
 
 
+class _CursorExpr:
+    """Expressão de cursor p/ TABS (só PCOL/PROW ± número). Avaliada no motor."""
+
+    __slots__ = ('base', 'offset')
+
+    def __init__(self, base, offset=0):
+        self.base = base
+        self.offset = offset
+
+    def __add__(self, n):
+        if isinstance(n, bool) or not isinstance(n, (int, float)):
+            raise TypeError(f"cursor '{self.base}' só soma número")
+        return _CursorExpr(self.base, self.offset + n)
+
+    def __sub__(self, n):
+        if isinstance(n, bool) or not isinstance(n, (int, float)):
+            raise TypeError(f"cursor '{self.base}' só subtrai número")
+        return _CursorExpr(self.base, self.offset - n)
+
+    def __repr__(self):
+        if not self.offset:
+            return self.base
+        sign = '+' if self.offset > 0 else '-'
+        return f"{self.base}{sign}{abs(self.offset)}"
+
+
+# Posição corrente do cursor em grade, p/ TABS (forma constante; a string
+# 'PCOL+20' segue válida). Importe no relatório: from ajsystem.defs.report import PCOL
+PCOL = _CursorExpr('PCOL')
+PROW = _CursorExpr('PROW')
+
+
 @dataclass
 class ReportField:
     """Campo para cabeçalho do relatório (dict-only)."""
@@ -50,6 +82,148 @@ def parse_header_field(item) -> ReportField:
     if isinstance(item, dict):
         return ReportField(**item)
     raise TypeError(f"header_field deve ser dict, recebeu {type(item).__name__}: {item!r}")
+
+
+ITEM_KINDS = ('FIELD', 'TEXT', 'IMAGE', 'LINE', 'BOX', 'CIRCLE', 'LOGO', 'TITLE',
+              'TABS', 'POS')
+
+
+@dataclass
+class ReportItem:
+    """Item de header/body (forma lista). Sem type = FIELD; MAIÚSCULA = elemento.
+
+    Grafias: 'nome' | {'total': {...}} (FIELD) | {'TEXT': {...}} | 'LOGO' |
+    {'LOGO': {...}} | 'TITLE' (1º = título, demais = subtítulo em cascata).
+    """
+    kind: str = 'FIELD'
+    name: str = ''
+    config: dict = dc_field(default_factory=dict)
+
+    def __post_init__(self):
+        if self.kind not in ITEM_KINDS:
+            raise ValueError(f"item '{self.kind}' desconhecido {list(ITEM_KINDS)}")
+
+
+def _check_props(kind, props, label):
+    if not isinstance(props, dict):
+        raise ValueError(f"report '{label}': props de '{kind}' devem ser dict")
+    return props
+
+
+def LOGO(anchor=None, lines=None):
+    """Factory pura: LOGO() == 'LOGO' (defaults); LOGO('C', 4) explícito."""
+    if anchor is None and lines is None:
+        return {'LOGO': {}}
+    if anchor not in ('C', 'L', 'R'):
+        raise ValueError(f"LOGO: âncora '{anchor}' deve ser C|L|R")
+    if isinstance(lines, bool) or not isinstance(lines, (int, float)) or lines <= 0:
+        raise ValueError(f"LOGO: linhas deve ser número > 0")
+    return {'LOGO': {'location': [anchor, lines]}}
+
+
+def TITLE(text=None, props=None):
+    """Factory pura: TITLE() == 'TITLE' (defaults); TITLE('...', {...}) explícito."""
+    if text is None and not props:
+        return {'TITLE': {}}
+    if not ((isinstance(text, str) and text) or callable(text)):
+        raise ValueError("TITLE: texto deve ser str não vazia ou callable")
+    return {'TITLE': {'text': text, **_check_props('TITLE', props or {}, '')}}
+
+
+def TEXT(text, props=None):
+    """Factory pura: TEXT('...', {...}) == {'TEXT': {'text': '...', ...}}."""
+    if not isinstance(text, str):
+        raise ValueError("TEXT: texto deve ser str")
+    return {'TEXT': {'text': text, **_check_props('TEXT', props or {}, '')}}
+
+
+def TABS(*stops):
+    """Factory pura: TABS(22, 48) == {'TABS': [22, 48]} (ou TABS([22, 48]))."""
+    if len(stops) == 1 and isinstance(stops[0], (list, tuple)):
+        stops = list(stops[0])
+    else:
+        stops = list(stops)
+    if not stops:
+        raise ValueError("TABS: exige ao menos uma parada")
+    return {'TABS': stops}
+
+
+def FIELD(name, props=None):
+    """Factory pura: FIELD('nome') == 'nome'; FIELD('n', {...}) == {'n': {...}}."""
+    if not isinstance(name, str) or not name:
+        raise ValueError("FIELD: nome deve ser str não vazia")
+    if props is None:
+        return name
+    return {name: dict(_check_props('FIELD', props, ''))}
+
+
+def POS(*where):
+    """Factory pura: POS(22, 0) == {'POS': [22, 0]} (ou POS([22, 0]))."""
+    if len(where) == 1 and isinstance(where[0], (list, tuple)):
+        where = list(where[0])
+    else:
+        where = list(where)
+    if len(where) != 2:
+        raise ValueError("POS: exige [col, lin]")
+    return {'POS': where}
+
+
+def _located(kind, location, props, label=''):
+    if not isinstance(location, (list, tuple)):
+        raise ValueError(f"{kind}: location deve ser lista")
+    return {kind: {'location': list(location), **_check_props(kind, props or {}, label)}}
+
+
+def LINE(location, props=None):
+    """Factory pura: LINE([...], {...}) == {'LINE': {'location': [...], ...}}."""
+    return _located('LINE', location, props)
+
+
+def BOX(location, props=None):
+    """Factory pura: BOX([...], {...}) == {'BOX': {'location': [...], ...}}."""
+    return _located('BOX', location, props)
+
+
+def CIRCLE(location, props=None):
+    """Factory pura: CIRCLE([...], {...}) == {'CIRCLE': {'location': [...], ...}}."""
+    return _located('CIRCLE', location, props)
+
+
+def IMAGE(field, props=None):
+    """Factory pura: IMAGE('foto', {...}) == {'IMAGE': {'field': 'foto', ...}}."""
+    if not isinstance(field, str) or not field:
+        raise ValueError("IMAGE: field deve ser str não vazia")
+    return {'IMAGE': {'field': field, **_check_props('IMAGE', props or {}, '')}}
+
+
+def parse_report_item(it, label='') -> ReportItem:
+    """Normaliza 1 item -> ReportItem (fail-fast)."""
+    if isinstance(it, str):
+        if it.isupper():
+            if it not in ITEM_KINDS:
+                raise ValueError(f"report '{label}': elemento '{it}' desconhecido")
+            return ReportItem(kind=it, name=it, config={})
+        return ReportItem(kind='FIELD', name=it, config={})
+    if isinstance(it, dict):
+        if 'field' in it:
+            return ReportItem(kind='FIELD', name=it.get('field'),
+                              config={k: v for k, v in it.items() if k != 'field'})
+        if len(it) == 1:
+            (k, v), = it.items()
+            if k.isupper():
+                if k not in ITEM_KINDS:
+                    raise ValueError(f"report '{label}': elemento '{k}' desconhecido")
+                if k in ('TABS', 'POS'):
+                    if not isinstance(v, list):
+                        raise ValueError(f"report '{label}': '{k}' exige lista")
+                    return ReportItem(kind=k, name=k, config={'values': v})
+                if not isinstance(v, dict):
+                    raise ValueError(f"report '{label}': cfg de '{k}' deve ser dict")
+                return ReportItem(kind=k, name=k, config=v)
+            if not isinstance(v, dict):
+                raise ValueError(f"report '{label}': cfg de '{k}' deve ser dict")
+            return ReportItem(kind='FIELD', name=k, config=v)
+    raise ValueError(f"report '{label}': item deve ser str ou dict, veio {it!r}")
 
 
 @dataclass
@@ -132,6 +306,9 @@ class ReportBody:
     # Numeração hierárquica (apresentação, genérica): {using, pk, parent,
     # group, root, child, target, maxdepth}. Ver QPLANO/PLANO no app.
     levels: Optional[dict] = dc_field(default=None)
+    # Itens inline em ordem (string=field, minúscula=field+overrides,
+    # MAIÚSCULA=elemento TEXT/IMAGE/LINE/BOX/CIRCLE). Render antes da tabela.
+    items: Optional[list] = dc_field(default=None)
 
     def __post_init__(self):
         formats = [k for k in ('form', 'table') if getattr(self, k) is not None]
@@ -169,9 +346,10 @@ class Report:
     # Texts avulsos
     texts: Optional[list] = None
 
-    # Template de impressão HTML (fragmento p/ injeção e página standalone)
+    # Template de impressão HTML (página standalone). O fragmento injetado
+    # é sempre o overlay do framework (fragmento + alternância do container);
+    # a chave legada 'print_fragment_template' é ignorada no parse (shim).
     print_template: str = 'components/print_default.html'
-    print_fragment_template: str = 'components/print_fragment.html'
     # Path da logo (relativo ao root_path do app; resolvido em runtime)
     logo_path: str = 'static/icons/Logo.png'
 
@@ -203,6 +381,9 @@ def parse_report(spec):
         return spec
     if isinstance(spec, dict):
         spec = dict(spec)
+        # Shim: 'print_fragment_template' removida (fragmento sempre overlay);
+        # dicts antigos com a chave seguem parseando sem TypeError.
+        spec.pop('print_fragment_template', None)
         body = spec.get('body')
         if isinstance(body, dict):
             spec['body'] = ReportBody(**body)

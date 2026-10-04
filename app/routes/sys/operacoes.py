@@ -54,7 +54,8 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': QPLANO,
+            'columns': [QPLANO, 'id', 'indice', 'nome', 'tipo',
+                        'fator', 'ativa', 'pai_id', 'ordem'],
             'field_id': 'id',
             'order': ['ordem', 'nome'],
             'buttons': ['imprimir_plano'],

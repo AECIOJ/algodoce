@@ -4,14 +4,12 @@ Código em 3 segmentos: tipo (direto), grupo (denserank por família), index
 (rownumber entre irmãos). O 'indice' montado nasce no select via calc —
 grade e PDF bebem a mesma string, sem N+1.
 """
+from ajsystem.defs.report import LOGO, TITLE
 QPLANO = {
+    # Ordem de dependência (leitura top-down): a grade declara a sua ordem
+    # na rota; avaliação independe daqui (overs antes dos calcs, ver qrun).
     'select': [
         'id',
-        {'indice': {
-            'calc': '{tipo:d}.{grupo:02d}{?pai_id:.{index:03d}}',
-            'label': 'Código', 'width': 14,
-        }},
-        'nome',
         'tipo',
         {'grupo': {
             'func': 'denserank',
@@ -23,6 +21,11 @@ QPLANO = {
             'over': {'partition': ['tipo', 'pai_id'], 'order': ['ordem', 'id']},
             'pos_list': 0, 'label': 'Seq', 'width': 8,
         }},
+        {'indice': {
+            'calc': '{tipo:d}.{grupo:02d}{?pai_id:.{index:03d}}',
+            'label': 'Código', 'width': 14,
+        }},
+        'nome',
         'fator',
         'ativa',
         'pai_id',
@@ -35,23 +38,24 @@ QPLANO = {
 
 PLANO = {
     'label': 'Plano de Contas',
-    'header': {
-        'logo': {'position': 'C'},
-        'title': {'label': 'Plano de Contas'},
-    },
+    'header': [
+        LOGO(),
+        TITLE(),
+    ],
     'body': {
         'source': QPLANO,
         'table': {
+            'rows_after': 1,
+            'groups': {
+                'tipo': {'action': 1, 'print': 3, 'text': '{tipo:d}. {tipo}'},
+                'grupo': {'action': 1, 'print': 2, 'text': '{tipo:d}.{grupo:02d} {nome}'},
+            },
             'columns': [
                 'indice',
                 'nome',
                 {'id': {'width': 6, 'label': '#'}},
                 {'fator': {'width': 10}},
                 {'ativa': {'width': 8}},
-            ],
-            'groups': [
-                {'field': 'tipo', 'print': 1, 'place': 1, 'text': '{tipo:d}. {tipo}'},
-                {'field': 'grupo', 'print': 1, 'place': 2, 'text': '{tipo:d}.{grupo:02d} {nome}'},
             ],
         },
     },

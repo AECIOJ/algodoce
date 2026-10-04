@@ -302,7 +302,7 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 
 > `fields_master`, `linha` e `card_idx` saem do `do_list.py` (`list_obj = List(...)`, `do_list.py:312`). **Não** os declare à mão: a engine sobrescreve. `linha` é a única que aceita nomes na spec, porque a conversão acontece no meio do caminho.
 
-> `columns` da página (`Page.props.list`) aceita query dict no lugar da entidade (`columns=QPLANO`, ver 5.10.1): os dados vêm do `qrun` e `pos_list` da entrada vale (Schema vence). Nesse modo `field_id` é exigido para editar (ausente = só-leitura; declarado tem que estar no `select` e ser pk, senão quebra nomeando). Sem query, `edit_id_field` (`'id'`) e o resto seguem como antes.
+> `columns` da página (`Page.props.list`) aceita query dict no lugar da entidade (`columns=QPLANO`, ver 5.10.1): os dados vêm do `qrun` e `pos_list` da entrada vale (Schema vence). Com ordem própria, a query entra como item da lista (`columns=[QPLANO, 'id', 'indice', ...]` — no máximo uma query por lista; strings autoritativas, fora do `select` quebra nomeando). Nesse modo `field_id` é exigido para editar (ausente = só-leitura; declarado tem que estar no `select` e ser pk, senão quebra nomeando). Sem query, `edit_id_field` (`'id'`) e o resto seguem como antes.
 
 ### 5.7 `Report` — `ajsystem/defs/report.py:135` `class Report`
 
@@ -316,8 +316,8 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 | `body` | `dict\|ReportBody` | `None` | ver 5.8 | fonte dos dados |
 | `footer` | `dict` | `None` | `{show_user, show_datetime, show_page_number}` | rodapé do PDF |
 | `texts` | `dict\|list` | `None` | `ReportText` — ver 5.8 | blocos de texto avulso |
-| `print_template` | `str` | `'components/print_default.html'` | caminho | template de impressão |
-| `print_fragment_template` | `str` | `'components/print_fragment.html'` | caminho | fragmento para AJAX |
+| `print_template` | `str` | `'components/print_default.html'` | caminho | página standalone (`print_report_page`) |
+| (fragmento) | — | overlay do framework (`print_overlay.html`) | fixo no motor | `print_report` injeta sempre com alternância do container; a chave legada `print_fragment_template` é ignorada no parse |
 | `logo_path` | `str` | `'static/icons/Logo.png'` | caminho | logo do cabeçalho |
 | `margin_top`/`margin_bottom`/`margin_left`/`margin_right` | `num` | `10` / `20` / `10` / `10` | mm | margens do PDF |
 | `auto_page_break` | `bool` | `True` | quebra automática de página | `fpdf` |
@@ -329,7 +329,8 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 |---|---|---|---|
 | `body.source` | `str\|dict` | `'Tarefa'`, `{'entity':...}` (legado) ou query dict `{select,dist,from,...}` (5.10.1) | `_infer_source` + `_auto_data`; query numera tudo e filtra depois (índice global estável) |
 | `body.table.columns` | `dict\|list` | `{'titulo':{'width':50}}` ou `['indice','nome',{'id':{'width':6}}]` (forma enxuta igual ao `select`) | `_apply_entity` herda `label`/`calc` da `Entity` (Schema vence); coluna computada na query usa o attr direto |
-| `body.table.groups` | `list` | `[{field:'tipo',print:1,place:1,text:'{tipo:d}. {tipo}'}]` | control-break por coluna: `print` 0 sempre, 1 abre, 2 fecha; `place` 0 na célula, 1 título, 2 linha. `order` da fonte tem que abrir com as quebras (senão quebra nomeando) |
+| `body.table.groups` | `dict\|list` | `{'tipo':{action:1,print:3,text:'{tipo:d}. {tipo}'}}` | control-break: `action` (quando: 1 abre, 2 fecha, ausente = toda linha) × `print` (onde: 0 nunca, 1 coluna, 2 linha, 3 fora da tabela). Legado `{print,place}` traduzido via shim. `order` da fonte tem que abrir com as quebras (senão quebra nomeando). `totals` no grupo = subtotal (`{'label','align','span'}`; ausente = não totaliza) |
+| `body.table.totals` | `dict` | `{'label':'TOTAL GERAL','align':'R','span':3}` | linha de total geral (sempre). `agg` na coluna diz O QUÊ; sem `totals` não totaliza. Legado `footer/footer_label` via shim |
 | `body.table.hierarchy` | `list\|dict` | legado (derivado de `groups` quando ausente) | mantido por compat; prefira `groups` |
 | `body.filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` com cast tipado; critério aplicado **antes** da ordenação |
 
@@ -344,7 +345,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | `width` | `float` | `None` | `ch`/`mm` | coluna no PDF |
 | `align` | `str` | `'left'` | `left,center,right` | herdado do `Field.align` (`NUM`→`right`) |
 | `format` | `str` | `None` | formato de data/número | render da célula |
-| `agg` | `str` | `None` | `sum` | totaliza |
+| `agg` | `str` | `None` | `sum/count/avg/min/max` | O QUÊ somar (só impressão; o ONDE vai em `totals`) |
 | `function` | `callable` | `None` | `lambda row:` | usa `Entity.calc` se ausente (coluna computada na query usa o attr) |
 | `text` | `str` | `None` | template `'{campo}'`/`{x:02d}`/`{?cond:…}` (6, `core/text.py`) | monta a célula (ex. código) |
 | `suppress` | `bool` | `False` | repete valor só na 1ª linha do grupo | `place:0` do `groups` |
@@ -355,7 +356,22 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 
 **`ReportText`** (`:78`) — 5 props: `text` (obrigatório), `font_size` (`10`), `font_style` (`''`), `align` (`'L'`), `when` (`end_of_report`; também `start_of_report`/similar). Bloco de texto avulso, usado por `Report.texts`.
 
-**`ReportBody`** (`:88`) — 7 props: `source`, `form`, `table`, `before`, `after`, `filter`, `levels`. `before`/`after` inserem blocos ao redor da tabela; `levels` é numeração hierárquica legada (prefira `select` com `over` + `table.groups`).
+**`ReportBody`** (`:88`) — 8 props: `source`, `form`, `table`, `before`, `after`, `filter`, `levels`, `items`. `before`/`after` inserem blocos ao redor da tabela; `levels` é numeração hierárquica legada (prefira `select` com `over` + `table.groups`); `items` = lista unificada abaixo.
+
+#### 5.8.1 Items de impressão (`header=[...]`, `body.items`)
+
+String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Factories puras (`defs/report.py`, tradução 1:1 validada pelo mesmo normalizador):
+
+| factory | equivale a | exemplo |
+|---|---|---|
+| `'nome'` / `{'total': {...}}` / `FIELD(nome, props?)` | `FIELD` | `'cliente_nome'`, `FIELD('data_pedido', {'tab': 2})` |
+| `TITLE(texto, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE('Orçamento #{id}')` (1º = título, demais = subtítulo em cascata) |
+| `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'before': 1})` |
+| `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('C', 4)` (âncoras `C/L/R`; ausente não renderiza) |
+| `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(PCOL, PCOL+20)` (crescente; com `tab:N` no item) |
+| `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
+| `LINE/BOX/CIRCLE(loc, props?)` | `{'LINE': {'location': loc, ...}}` | `LINE([10, 5, 20])` (horizontal; `[c,r,0,h]` vertical) |
+| `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
 
 ### 5.9 `Button` — `ajsystem/defs/buttons.py:85` `class Button`
 

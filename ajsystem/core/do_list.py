@@ -272,6 +272,22 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
 
     from ajsystem.defs.qspec import is_query_dict as _is_q
     _colspec = lista.get('columns', lista.get('fields', entity_name))
+    # Forma enxuta fonte+ordem: query dict como item da lista; as strings dão
+    # recorte/ordem autoritativos. No máximo uma query por lista.
+    _colorder = None
+    if isinstance(_colspec, list):
+        _qs = [it for it in _colspec if _is_q(it)]
+        if len(_qs) > 1:
+            raise ValueError("list: no máximo uma query em columns (multi-fonte é fase futura)")
+        if _qs:
+            _colspec = _qs[0]
+            _colorder = []
+            for it in lista.get('columns'):
+                if _is_q(it):
+                    continue
+                if not isinstance(it, str):
+                    raise ValueError(f"list: com query, item deve ser str (campo), veio {type(it).__name__}")
+                _colorder.append(it)
     _is_query = _is_q(_colspec)
     if _is_query:
         _from = _colspec.get('from')
@@ -309,8 +325,17 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             elif _e.pos_list == 0 and 'pos_list' not in _schema_ent:
                 # pos_list da entrada vale salvo override do Schema (página vence)
                 _merged_q[_e.name] = {**_merged_q[_e.name], 'pos_list': 0}
-        fields = resolve_column_configs(_merged_q, [e.name for e in _qentries], principal=_merged_q, inputs=_camadas_inputs(module_name))
-        fields = [f for f in fields if f.pos_list != 0]
+        _shown = [e.name for e in _qentries]
+        if _colorder:
+            _sel = {e.name for e in _qentries}
+            for _fn in _colorder:
+                if _fn not in _sel:
+                    raise ValueError(f"list: field '{_fn}' não está no select da query")
+            _shown = list(_colorder)
+            fields = resolve_column_configs(_merged_q, _shown, principal=_merged_q, inputs=_camadas_inputs(module_name))
+        else:
+            fields = resolve_column_configs(_merged_q, _shown, principal=_merged_q, inputs=_camadas_inputs(module_name))
+            fields = [f for f in fields if f.pos_list != 0]
     else:
         fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged, inputs=_camadas_inputs(module_name))
     fields_all = list(fields)

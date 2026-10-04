@@ -51,7 +51,6 @@ def _report_after(compra):
 
 COMPRA = {
     'label': 'Compra',
-    'print_fragment_template': 'components/print_overlay.html',
     'header': {
         'layout': 'logo_left',
         'title': _report_title,
@@ -69,8 +68,7 @@ COMPRA = {
                 'preco':         {'width': 20},
                 'CompraItem.valor': {'width': 20, 'agg': 'sum'},
             },
-            'footer': True,
-            'footer_label': 'Subtotal',
+            'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
         },
         'after': _report_after,
     },

@@ -79,7 +79,6 @@ def _report_after(order):
 
 PEDIDO = {
     'label': 'Pedido',
-    'print_fragment_template': 'components/print_overlay.html',
     'header': {
         'layout': 'logo_left',
         'title': 'Pedido #{id}',
@@ -98,8 +97,7 @@ PEDIDO = {
                 'preco':          {'width': 20},
                 'PedidoItem.valor': {'width': 20, 'agg': 'sum'},
             },
-            'footer': True,
-            'footer_label': 'Subtotal',
+            'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
             'after': _forminhas_carteira,
         },
         'after': _report_after,

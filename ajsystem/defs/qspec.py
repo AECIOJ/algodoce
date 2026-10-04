@@ -12,6 +12,9 @@ select aceita por campo (estrutura espelha o Field):
   'alias': {func, over={...}}             -> janela (func explícito, over nunca vazio)
   'alias': {over={agg, field, ...}}       -> agregado em janela
   'alias': {calc, pos_list, label, ...}   -> montado pós-over + apresentação
+
+Ordem do select = ordem de exibição. Avaliação independe dela: overs (e
+aggs) antes dos calcs; calc referencia coluna ou over/agg, nunca outro calc.
 """
 from dataclasses import dataclass, field as dc_field
 from typing import Any, Optional
