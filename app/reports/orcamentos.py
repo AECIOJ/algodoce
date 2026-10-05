@@ -1,45 +1,4 @@
 from ajsystem.defs.report import FIELD, LOGO, PCOL, TABS, TITLE, POS
-from app.extends.constants import FORMINHAS
-
-
-def _event_after(instance):
-    e = instance.evento
-    if not e:
-        return []
-    lines = []
-    has_any = False
-    if e.tipo:
-        lines.append({'text': f'Evento: {e.tipo}', 'font_size': 10, 'font_style': 'B'})
-        has_any = True
-    if e.tema:
-        lines.append({'text': f'Tema: {e.tema}', 'font_size': 10})
-        has_any = True
-    if e.data:
-        data_str = e.data.strftime('%d/%m/%Y')
-        hora_str = e.hora.strftime('%H:%M') if e.hora else ''
-        lines.append({'text': f'Data: {data_str} {hora_str}'.strip(), 'font_size': 10})
-        has_any = True
-    if e.local:
-        lines.append({'text': f'Local: {e.local}', 'font_size': 10})
-        has_any = True
-    if e.convidados:
-        lines.append({'text': f'Convidados: {e.convidados}', 'font_size': 10})
-        has_any = True
-    if e.cerimonial:
-        lines.append({'text': f'Cerimonial: {e.cerimonial}', 'font_size': 10})
-        has_any = True
-    if e.obs:
-        lines.append({'text': f'Obs: {e.obs}', 'font_size': 10})
-        has_any = True
-    if has_any:
-        lines.append({'text': ''})
-    return lines
-
-
-def _forminhas_carteira(q):
-    f = FORMINHAS.get(q.forminhas, '-')
-    c = q.carteira.nome if q.carteira else '50% no pedido + 50% na entrega'
-    return f"Forminhas: {f} | Forma de Pagamento: {c}"
 
 
 ORCAMENTO = {
@@ -63,8 +22,14 @@ ORCAMENTO = {
                 'OrcamentoItem.valor': {'width': 14, 'agg': 'sum'},
             },
             'totals': {'label': 'Total', 'align': 'R', 'span': 3},
-            'after': _forminhas_carteira,
+            'after': [{'TEXT': {'text': 'Evento: {evento.tipo}', 'font_style': 'B', 'when': 'evento.tipo'}},
+                      {'TEXT': {'text': 'Tema: {evento.tema}', 'when': 'evento.tema'}},
+                      {'TEXT': {'text': 'Data: {evento.data:%d/%m/%Y} {evento.hora:%H:%M}', 'when': 'evento.data'}},
+                      {'TEXT': {'text': 'Local: {evento.local}', 'when': 'evento.local'}},
+                      {'TEXT': {'text': 'Convidados: {evento.convidados}', 'when': 'evento.convidados'}},
+                      {'TEXT': {'text': 'Cerimonial: {evento.cerimonial}', 'when': 'evento.cerimonial'}},
+                      {'TEXT': {'text': 'Obs: {evento.obs}', 'when': 'evento.obs'}},
+                      {'TEXT': {'text': 'Forminhas: {forminhas} | Forma de Pagamento: {carteira.nome|50% no pedido + 50% na entrega}'}}],
         },
-        'after': _event_after,
     },
 }

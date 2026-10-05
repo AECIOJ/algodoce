@@ -85,7 +85,7 @@ def parse_header_field(item) -> ReportField:
 
 
 ITEM_KINDS = ('FIELD', 'TEXT', 'IMAGE', 'LINE', 'BOX', 'CIRCLE', 'LOGO', 'TITLE',
-              'TABS', 'POS')
+              'TABS', 'POS', 'FIELDS')
 
 
 @dataclass
@@ -157,6 +157,29 @@ def FIELD(name, props=None):
     return {name: dict(_check_props('FIELD', props, ''))}
 
 
+def FIELDS(source, when=None):
+    """Factory pura: FIELDS('Evento', when='evento') | FIELDS(['a','b'], when=...).
+
+    source = relação/model (expande a Entity) ou lista explícita. when =
+    path avaliado truthy (ausente = sempre). Tradução 1:1 validada igual.
+    """
+    if isinstance(source, str):
+        if not source:
+            raise ValueError("FIELDS: source deve ser relação/lista não vazia")
+    elif isinstance(source, (list, tuple)):
+        if not source or not all(isinstance(s, str) and s for s in source):
+            raise ValueError("FIELDS: lista deve ter strs não vazias")
+        source = list(source)
+    else:
+        raise ValueError("FIELDS: source deve ser str ou lista")
+    if when is not None and (not isinstance(when, str) or not when):
+        raise ValueError("FIELDS: when deve ser path str")
+    cfg = {'source': source}
+    if when is not None:
+        cfg['when'] = when
+    return {'FIELDS': cfg}
+
+
 def POS(*where):
     """Factory pura: POS(22, 0) == {'POS': [22, 0]} (ou POS([22, 0]))."""
     if len(where) == 1 and isinstance(where[0], (list, tuple)):
@@ -217,6 +240,10 @@ def parse_report_item(it, label='') -> ReportItem:
                     if not isinstance(v, list):
                         raise ValueError(f"report '{label}': '{k}' exige lista")
                     return ReportItem(kind=k, name=k, config={'values': v})
+                if k == 'FIELDS':
+                    if not isinstance(v, dict):
+                        raise ValueError(f"report '{label}': 'FIELDS' exige dict")
+                    return ReportItem(kind=k, name=k, config=v)
                 if not isinstance(v, dict):
                     raise ValueError(f"report '{label}': cfg de '{k}' deve ser dict")
                 return ReportItem(kind=k, name=k, config=v)

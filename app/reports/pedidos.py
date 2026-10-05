@@ -1,3 +1,4 @@
+from ajsystem.defs.report import FIELD, LOGO, PCOL, TABS, TITLE
 from app.extends.constants import FORMINHAS
 
 
@@ -79,16 +80,15 @@ def _report_after(order):
 
 PEDIDO = {
     'label': 'Pedido',
-    'header': {
-        'layout': 'logo_left',
-        'title': 'Pedido #{id}',
-        'fields': [
-            {'function': _cliente_nome, 'label': 'Cliente'},
-            {'field': 'pedido_em', 'align': 'right'},
-            {'function': _cliente_telefone, 'label': 'Telefone'},
-            {'field': 'data_previsao_entrega', 'align': 'right'},
-        ],
-    },
+    'header': [
+        LOGO('L', 3),
+        TABS(PCOL, PCOL+20),
+        TITLE('Pedido #{id}', {'tab': 1}),
+        FIELD('cliente_nome', {'function': _cliente_nome, 'label': 'Cliente', 'tab': 1}),
+        FIELD('pedido_em', {'tab': 2, 'rows_after': 1}),
+        FIELD('cliente_telefone', {'function': _cliente_telefone, 'label': 'Telefone', 'tab': 1}),
+        FIELD('data_previsao_entrega', {'tab': 2}),
+    ],
     'body': {
         'table': {
             'columns': {

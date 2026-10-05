@@ -312,7 +312,7 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 | `page_size` | `str` | `'A4'` | `'A4'`, `'Letter'`… | `fpdf` |
 | `orientation` | `str` | `'portrait'` | `'portrait'`, `'landscape'` | `fpdf` |
 | `orientation_mutable` | `bool` | `False` | `True` → o usuário gira a página na tela | página de impressão |
-| `header` | `dict` | `None` | `{logo, title, fields:[...]}` | `do_report.py:_apply_entity` resolve `label` via `Entity` |
+| `header` | `dict\|list` | `None` | `{logo, title, fields:[...]}` (legado) ou `[...]` (5.8.1, `LOGO`/`TITLE`/`FIELD`/…) | `do_report.py:_apply_entity` resolve `label` via `Entity`; dict legado sintetiza a lista |
 | `body` | `dict\|ReportBody` | `None` | ver 5.8 | fonte dos dados |
 | `footer` | `dict` | `None` | `{show_user, show_datetime, show_page_number}` | rodapé do PDF |
 | `texts` | `dict\|list` | `None` | `ReportText` — ver 5.8 | blocos de texto avulso |
@@ -330,6 +330,9 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | `body.source` | `str\|dict` | `'Tarefa'`, `{'entity':...}` (legado) ou query dict `{select,dist,from,...}` (5.10.1) | `_infer_source` + `_auto_data`; query numera tudo e filtra depois (índice global estável) |
 | `body.table.columns` | `dict\|list` | `{'titulo':{'width':50}}` ou `['indice','nome',{'id':{'width':6}}]` (forma enxuta igual ao `select`) | `_apply_entity` herda `label`/`calc` da `Entity` (Schema vence); coluna computada na query usa o attr direto |
 | `body.table.groups` | `dict\|list` | `{'tipo':{action:1,print:3,text:'{tipo:d}. {tipo}'}}` | control-break: `action` (quando: 1 abre, 2 fecha, ausente = toda linha) × `print` (onde: 0 nunca, 1 coluna, 2 linha, 3 fora da tabela). Legado `{print,place}` traduzido via shim. `order` da fonte tem que abrir com as quebras (senão quebra nomeando). `totals` no grupo = subtotal (`{'label','align','span'}`; ausente = não totaliza) |
+| `when` (item) | `str` | `{'TEXT': {'text': '…', 'when': 'evento.tipo'}}` | imprime só se o path (pontilhado ok) for truthy; ausente = sempre |
+| templates | — | `'{total:brl}'`, `'{a.b}'`, `'{?c:…}'`, `'{x\|dflt}'` | `:brl` moeda; path pontilhado com navegação segura; `\|dflt` fallback; labels LIST da Entity |
+| fluxo | — | `FIELD`/`TEXT` seguem na linha | `PCOL` avança pela largura; `pcol+largura>ncol` envolve; maior que a linha trunca; quebra por `rows_after/before` ou posicionamento; sem âncora volta à margem |
 | `body.table.totals` | `dict` | `{'label':'TOTAL GERAL','align':'R','span':3}` | linha de total geral (sempre). `agg` na coluna diz O QUÊ; sem `totals` não totaliza. Legado `footer/footer_label` via shim |
 | `body.table.hierarchy` | `list\|dict` | legado (derivado de `groups` quando ausente) | mantido por compat; prefira `groups` |
 | `body.filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` com cast tipado; critério aplicado **antes** da ordenação |
@@ -344,7 +347,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | `label` | `str` | `None` | texto; sem ela, `_auto_label`/Entity/entrada do `select` | cabeçalho da coluna |
 | `width` | `float` | `None` | `ch`/`mm` | coluna no PDF |
 | `align` | `str` | `'left'` | `left,center,right` | herdado do `Field.align` (`NUM`→`right`) |
-| `format` | `str` | `None` | formato de data/número | render da célula |
+| `format` | `str` | `None` | formato de data/número | render da célula. Sem `format` declarado nem inferido, a `mask` da Entity/catálogo manda (genérico: tel/CPF/data) — `format` do relatório vence a máscara, máscara vence inferência |
 | `agg` | `str` | `None` | `sum/count/avg/min/max` | O QUÊ somar (só impressão; o ONDE vai em `totals`) |
 | `function` | `callable` | `None` | `lambda row:` | usa `Entity.calc` se ausente (coluna computada na query usa o attr) |
 | `text` | `str` | `None` | template `'{campo}'`/`{x:02d}`/`{?cond:…}` (6, `core/text.py`) | monta a célula (ex. código) |
@@ -365,13 +368,15 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | factory | equivale a | exemplo |
 |---|---|---|
 | `'nome'` / `{'total': {...}}` / `FIELD(nome, props?)` | `FIELD` | `'cliente_nome'`, `FIELD('data_pedido', {'tab': 2})` |
-| `TITLE(texto, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE('Orçamento #{id}')` (1º = título, demais = subtítulo em cascata) |
+| `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha) |
 | `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'before': 1})` |
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('C', 4)` (âncoras `C/L/R`; ausente não renderiza) |
 | `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(PCOL, PCOL+20)` (crescente; com `tab:N` no item) |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
+| `PROW`/`PCOL` | constantes (`defs/report.py`) | posição corrente em grade, em `pos`/`location`/`TABS` (só literais; `PCOL±N` só em `TABS`) |
 | `LINE/BOX/CIRCLE(loc, props?)` | `{'LINE': {'location': loc, ...}}` | `LINE([10, 5, 20])` (horizontal; `[c,r,0,h]` vertical) |
 | `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
+| `FIELDS(modelo\|lista, when?)` | expande em `FIELD`s (relação navegada ou instância) | `FIELDS('Evento', when='evento')` (sem lista = todos da Entity; `when` = path truthy, ausente = sempre) |
 
 ### 5.9 `Button` — `ajsystem/defs/buttons.py:85` `class Button`
 

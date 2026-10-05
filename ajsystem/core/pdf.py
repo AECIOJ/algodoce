@@ -234,6 +234,10 @@ def _render_header_items(self, h):
             # ancora a partir daqui; sem âncora, o bloco volta à margem.
             self.set_xy(x + w, y + hh)
         elif item.kind == 'TITLE':
+            if cfg.get('when') is not None:
+                from ajsystem.core.text import eval_when as _ew
+                if not _ew(self._instance, cfg['when']):
+                    continue
             titles += 1
             first = titles == 1
             txt = cfg.get('text', cfg.get('label', label))
@@ -271,6 +275,10 @@ def _render_header_items(self, h):
         elif item.kind == 'FIELD':
             if self._instance is None:
                 continue  # sem instância: omite (legado do cabeçalho)
+            if cfg.get('when') is not None:
+                from ajsystem.core.text import eval_when as _ew
+                if not _ew(self._instance, cfg['when']):
+                    continue
             _render_items(self, [{'field': item.name, **cfg}], self._instance, self._report,
                           reset_tabs=False)
         else:
@@ -514,13 +522,12 @@ class DocPDFReport(FPDF):
             return val.strftime('%d/%m/%Y')
         if rf.format == 'datetime' and hasattr(val, 'strftime'):
             return val.strftime('%d/%m/%Y %H:%M')
-        if isinstance(rf.format, str) and hasattr(val, 'strftime'):
-            from ajsystem.core.formats import has_date_tokens as _hdt, _fmt_mask_data as _fmd
-            if _hdt(rf.format):
-                try:
-                    return _fmd(val, rf.format)
-                except Exception:
-                    return str(val)
+        if _is_mask(rf.format):
+            from ajsystem.core.formats import fmt_mask as _fm
+            try:
+                return _fm(val, rf.format)
+            except Exception:
+                return str(val)
         return str(val)
 
     def footer(self):
@@ -585,11 +592,24 @@ def _get_cell_value(row, col: ReportColumn):
     return val
 
 
+def _is_mask(fmt) -> bool:
+    """fmt parece máscara (dígitos 9, tokens de data ou alfa)?"""
+    if not isinstance(fmt, str):
+        return False
+    if '9' in fmt:
+        return True
+    from ajsystem.core.formats import has_date_tokens as _hdt, _ALPHA_TOKEN_RE as _are
+    try:
+        return bool(_hdt(fmt) or _are.search(fmt))
+    except Exception:
+        return False
+
+
 def _format_cell_value(val, fmt: str) -> str:
     """Formata valor para exibição na célula.
 
-    fmt com tokens de data (mask herdada da Entity, ex. 'dd/mm/yyyy ddd')
-    formata via máscara; demais literais caem no str().
+    fmt máscara (Entity, ex. '(99) 99999-9999', 'dd/mm/yyyy ddd') formata
+    via máscara — igual à list; demais literais caem no str().
     """
     if val is None:
         return '-'
@@ -601,13 +621,12 @@ def _format_cell_value(val, fmt: str) -> str:
         return val.strftime('%d/%m/%Y')
     if fmt == 'datetime' and hasattr(val, 'strftime'):
         return val.strftime('%d/%m/%Y %H:%M')
-    if isinstance(fmt, str) and hasattr(val, 'strftime'):
-        from ajsystem.core.formats import has_date_tokens as _hdt, _fmt_mask_data as _fmd
-        if _hdt(fmt):
-            try:
-                return _fmd(val, fmt)
-            except Exception:
-                return str(val)
+    if _is_mask(fmt):
+        from ajsystem.core.formats import fmt_mask as _fm
+        try:
+            return _fm(val, fmt)
+        except Exception:
+            return str(val)
     if fmt == 'int':
         try:
             return str(int(val))
@@ -807,7 +826,10 @@ def _group_title(g, val, row=None):
     def _get(name):
         if name == g.get('field'):
             return val
-        return getattr(row, name, None) if row is not None else None
+        if row is None:
+            return None
+        from ajsystem.core.text import dotted_get as _dg
+        return _dg(row, name)
 
     return apply_transform(_render(tpl, _get, fmt_opts), g.get('transform'))
 
@@ -1049,6 +1071,8 @@ def _split_item(it, label):
     """
     if isinstance(it, str):
         return ('FIELD', it, {})
+    if callable(it):
+        return ('CALL', getattr(it, '__name__', 'call'), {'fn': it})
     if isinstance(it, dict):
         if 'field' in it:
             return ('FIELD', it.get('field'), {k: v for k, v in it.items() if k != 'field'})
@@ -1062,6 +1086,10 @@ def _split_item(it, label):
                     if not isinstance(v, list):
                         raise ValueError(f"report '{label}': '{k}' exige lista")
                     return (k, k, {'values': v})
+                if k == 'FIELDS':
+                    if not isinstance(v, dict):
+                        raise ValueError(f"report '{label}': 'FIELDS' exige dict")
+                    return (k, k, v)
                 if not isinstance(v, dict):
                     raise ValueError(f"report '{label}': '{k}' exige dict de props")
                 return (k, k, v)
@@ -1196,6 +1224,7 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w):
     if kind == 'FIELD':
         if instance is None:
             raise ValueError(f"report '{label}': field '{name}' exige instância (documento)")
+        from ajsystem.core.text import dotted_get as _dg
         fn, fmt = cfg.get('function'), cfg.get('format')
         if callable(fn):
             try:
@@ -1203,8 +1232,8 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w):
             except Exception:
                 val = None
         else:
-            val = getattr(instance, cfg.get('field', name) or name, None)
-        txt = _format_cell_value(val, fmt)
+            val = _dg(instance, cfg.get('field', name) or name)
+        txt = _format_cell_value(val, fmt if fmt is not None else cfg.get('mask'))
         lbl = cfg.get('label') or name
         pdf.set_font(FONT_FAMILY, "B", FONT_ITEMS)
         lw = pdf.get_string_width(lbl + ': ') + 2
@@ -1219,7 +1248,8 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w):
         pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
         pdf.cell(vw, ROW_CELL, txt, new_x="END", new_y="TOP")
     else:  # TEXT
-        txt = _trender(cfg.get('text', ''), lambda k: getattr(instance, k, None) if instance is not None else None)
+        from ajsystem.core.text import dotted_get as _dg
+        txt = _trender(cfg.get('text', ''), lambda k: _dg(instance, k) if instance is not None else None, cfg.get('_fmt_opts'))
         pdf.set_font(FONT_FAMILY, cfg.get('font_style', ''), cfg.get('font_size', FONT_ITEMS))
         _w = cfg.get('width')
         if _w is not None:
@@ -1253,11 +1283,26 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
     col_w = pdf.get_string_width('0') or 2.0
     for it in items or []:
         kind, name, cfg = _split_item(it, label)
+        if kind == 'FIELDS':
+            raise ValueError(f"report '{label}': FIELDS deve ser expandido no apply (do_report)")
+        if kind in ('FIELD', 'TEXT') and cfg.get('when') is not None:
+            from ajsystem.core.text import eval_when as _ew
+            if not _ew(instance, cfg['when']):
+                continue
         if kind == 'TABS':
             _stops = [_eval_tab_value(pdf, _s, label) for _s in (cfg.get('values') or [])]
             if sorted(_stops) != list(_stops):
                 raise ValueError(f"report '{label}': TABS deve vir em ordem crescente")
             pdf._tabs = list(_stops)
+            continue
+        if kind == 'CALL':
+            try:
+                _txt = cfg['fn'](instance) if instance is not None else ''
+            except Exception:
+                _txt = ''
+            if _txt:
+                pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
+                pdf.cell(0, ROW_CELL, _txt, new_x="LMARGIN", new_y="NEXT")
             continue
         if kind == 'POS':
             _c, _r = _resolve_tokens(pdf, cfg.get('values'), label)
@@ -1350,16 +1395,19 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     if _after:
         _render_table_lines(pdf, _after, instance)
     if tbl.after and instance:
-        txt = tbl.after
-        if callable(txt):
-            try:
-                txt = txt(instance)
-            except Exception:
-                txt = ''
-        if txt:
-            pdf.ln(GAP_AFTER_TABLE)
-            pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
-            pdf.cell(0, ROW_CELL, txt, new_x="LMARGIN", new_y="NEXT")
+        if isinstance(tbl.after, list):
+            _render_items(pdf, tbl.after, instance, report)
+        else:
+            txt = tbl.after
+            if callable(txt):
+                try:
+                    txt = txt(instance)
+                except Exception:
+                    txt = ''
+            if txt:
+                pdf.ln(GAP_AFTER_TABLE)
+                pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
+                pdf.cell(0, ROW_CELL, txt, new_x="LMARGIN", new_y="NEXT")
 
     # Texts avulsos
     if report.texts:

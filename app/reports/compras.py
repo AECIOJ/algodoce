@@ -1,3 +1,6 @@
+from ajsystem.defs.report import FIELD, LOGO, PCOL, TABS, TITLE
+
+
 def _fornecedor_nome(compra):
     return compra.fornecedor.nome if compra and compra.fornecedor else '-'
 
@@ -51,14 +54,13 @@ def _report_after(compra):
 
 COMPRA = {
     'label': 'Compra',
-    'header': {
-        'layout': 'logo_left',
-        'title': _report_title,
-        'fields': [
-            {'function': _fornecedor_nome, 'label': 'Fornecedor'},
-            {'field': 'data', 'align': 'right'},
-        ],
-    },
+    'header': [
+        LOGO('L', 3),
+        TABS(PCOL, PCOL+20),
+        TITLE(_report_title, {'tab': 1}),
+        FIELD('fornecedor_nome', {'function': _fornecedor_nome, 'label': 'Fornecedor', 'tab': 1}),
+        FIELD('data', {'tab': 2}),
+    ],
     'body': {
         'before': _report_before,
         'table': {

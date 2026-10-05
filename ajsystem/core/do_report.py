@@ -314,13 +314,11 @@ def _apply_entity(raw, entity):
                 # base (Schema) vence para label/format/align; extra (report) mantém width/agg etc.
                 _base_filtered = {k: v for k, v in base.items() if v is not None}
                 spec = {**extra, **_base_filtered}
-                # Sem format de nenhum lado + mask de data/hora na Entity: a
-                # máscara vira format (declarado no relatório continua vencendo).
-                if spec.get('format') is None:
-                    from ajsystem.core.formats import has_date_tokens as _hdt
-                    _mask = raw_cfg.get('mask')
-                    if _mask and _hdt(_mask):
-                        spec['format'] = _mask
+                # Máscara manda (genérico, igual à list): format declarado no
+                # relatório vence; máscara (Entity ou catálogo de inputs) vence
+                # a inferência por type. BOOL/LIST com rótulo não mascaram.
+                _mapped_label = False
+                _explicit_fmt = extra.get('format')
                 # FK → caminho de exibição via relacionamento ('<base>.nome')
                 if (raw_cfg.get('type') == 'FK' and 'field' not in spec
                         and key.endswith('_id')):
@@ -341,11 +339,18 @@ def _apply_entity(raw, entity):
                 elif raw_cfg.get('type') == 'BOOL':
                     spec['function'] = lambda row, f=fld: (
                         i18n.FILTER_YES if getattr(row, f, None) else i18n.NO)
+                    _mapped_label = True
                 elif raw_cfg.get('type') == 'LIST':
                     opts = raw_cfg.get('list') or raw_cfg.get('options') or {}
                     if opts:
                         spec['function'] = lambda row, f=fld, o=opts: (
                             o.get(getattr(row, f, None), getattr(row, f, '')))
+                        _mapped_label = True
+                if fld not in _computed and _explicit_fmt is None and not _mapped_label:
+                    _mask = _field_mask(fld, raw_cfg)
+                    if _mask:
+                        spec.pop('format', None)
+                        spec['format'] = _mask
                 resolved[key] = spec
                 continue
             # não resolvido na Entity: display do select (nascidos) como default;
@@ -381,6 +386,7 @@ def _apply_entity(raw, entity):
                 {'field': k, **v} for k, v in specs.items()]}
     elif isinstance(header, list):
         from ajsystem.defs.report import parse_report_item as _pri
+        header = _expand_fields_list(header, entity, raw.get('label'))
         _flist, _fpos = [], []
         for _i, _it in enumerate(header):
             try:
@@ -399,6 +405,8 @@ def _apply_entity(raw, entity):
                 _header[_i] = ({'field': _sp.pop('field', _key), **_sp}
                                if isinstance(_it, dict) else {'field': _key, **_sp})
             out['header'] = _header
+        _attach_text_opts(out.get('header') if isinstance(out.get('header'), list) else None,
+                          entity, raw.get('label'))
 
     # body.table.columns + body.table.hierarchy
     body = out.get('body')
@@ -480,6 +488,21 @@ def _apply_entity(raw, entity):
             src_model = _locate(source)
             if src_model is None and source in entity:
                 src_model = source
+        if isinstance(body.get('items'), list):
+            body['items'] = _expand_fields_list(body['items'], entity, raw.get('label'))
+            body['items'] = _attach_field_mask(body['items'], entity, raw.get('label'))
+        _attach_text_opts(body.get('items'), entity, raw.get('label'))
+        _after = body.get('after')
+        if isinstance(_after, list):
+            body['after'] = _expand_fields_list(_after, entity, raw.get('label'))
+            body['after'] = _attach_field_mask(body['after'], entity, raw.get('label'))
+            _attach_text_opts(body['after'], entity, raw.get('label'))
+        _tbl = body.get('table') or {}
+        _tbl_after = _tbl.get('after')
+        if isinstance(_tbl_after, list):
+            _tbl['after'] = _expand_fields_list(_tbl_after, entity, raw.get('label'))
+            _tbl['after'] = _attach_field_mask(_tbl['after'], entity, raw.get('label'))
+            _attach_text_opts(_tbl['after'], entity, raw.get('label'))
         out['body'] = body
 
     return out
@@ -544,6 +567,132 @@ def _infer_source(report, entity):
     return info
 
 
+def _fmt_opts_for(tpl, entity):
+    """Mapa {campo: options} p/ templates (LIST da Entity; pontilhado: base)."""
+    import re as _re
+    out = {}
+    for nm in set(_re.findall(r'{([\w.]+)(?::[^}]*)?}', tpl or '')):
+        base = nm.split('.')[0]
+        mdl = None
+        if entity and base in entity and isinstance(entity.get(base), dict):
+            mdl = base
+        else:
+            hits = [m for m, cfg in (entity or {}).items()
+                    if isinstance(cfg, dict) and base in cfg] if entity else []
+            mdl = hits[0] if len(hits) == 1 else None
+        if mdl:
+            raw_cfg = entity[mdl] if mdl == base else entity[mdl].get(base, {})
+            opts = raw_cfg.get('list') or raw_cfg.get('options')
+            if opts:
+                out[nm] = opts
+    return out
+
+
+def _related_cfg(name, entity):
+    """Cfg {campo: cfg} do model relacionado (Schema da rota vence Entity)."""
+    if isinstance(entity, dict) and name in entity and isinstance(entity[name], dict):
+        return entity[name]
+    return _entity_for(name) or {}
+
+
+def _expand_fields_list(items, entity, label):
+    """Expande FIELDS(...) em FIELDs (genérico, sem nada de app).
+
+    FIELDS('Evento', when='evento') -> fields da Entity relacionada lidos em
+    'evento.<campo>', cada um com o when do bloco + TEXT '' final (respiro
+    sse o bloco imprimir). FIELDS([...]) -> fields na instância. when ausente
+    = sempre. Lista explícita = recorte/ordem.
+    """
+    if not isinstance(items, list):
+        return items
+    from ajsystem.defs.report import parse_report_item as _pri
+    from ajsystem.core.list import _resolve_model
+    out = []
+    for it in items:
+        try:
+            _ri = _pri(it, label)
+        except ValueError:
+            out.append(it)
+            continue
+        if _ri.kind != 'FIELDS':
+            out.append(it)
+            continue
+        _src, _when = _ri.config.get('source'), _ri.config.get('when')
+        if isinstance(_src, str):
+            _rel = _src[:1].lower() + _src[1:]
+            _cfg = _related_cfg(_src, entity)
+            _model = _resolve_model(_src)
+            _names = [k for k in _cfg.keys() if not k.startswith('_')] if _cfg else []
+            _prefix = _rel + '.' if _model is not None else ''
+        else:
+            _names, _prefix, _cfg = list(_src), '', {}
+        for _n in _names:
+            _f = {'field': f'{_prefix}{_n}'}
+            _rc = (_cfg.get(_n) or {}) if isinstance(_cfg, dict) else {}
+            for _kk in ('label', 'format', 'mask'):
+                if _rc.get(_kk):
+                    _f[_kk] = _rc[_kk]
+            if _when is not None:
+                _f['when'] = _when
+            out.append(_f)
+        if _when is not None and _names:
+            out.append({'TEXT': {'text': '', 'when': _when}})
+    return out
+
+
+def _raw_cfg_of(field, entity):
+    """Cfg bruta do campo na Entity (flat ou aninhada), {} se ausente."""
+    if not isinstance(entity, dict):
+        return {}
+    if field in entity and isinstance(entity.get(field), dict):
+        return entity[field]
+    hits = [cfg[field] for cfg in entity.values()
+            if isinstance(cfg, dict) and field in cfg]
+    return hits[0] if len(hits) == 1 else {}
+
+
+def _attach_field_mask(items, entity, label):
+    """Anexa format=mask aos FIELD de items sem function/format.
+
+    Retorna nova lista (string nua não carrega props). Genérico.
+    """
+    from ajsystem.defs.report import parse_report_item as _pri
+    if not isinstance(items, list):
+        return items
+    out = []
+    for it in items:
+        try:
+            _ri = _pri(it, label)
+        except ValueError:
+            out.append(it)
+            continue
+        if _ri.kind != 'FIELD' or _ri.config.get('function') or _ri.config.get('format'):
+            out.append(it)
+            continue
+        _mask = _field_mask(_ri.name, _raw_cfg_of(_ri.name, entity))
+        if not _mask:
+            out.append(it)
+            continue
+        _cfg = dict(_ri.config)
+        _cfg['format'] = _mask
+        out.append({'field': _ri.name, **_cfg})
+    return out
+
+
+def _attach_text_opts(items, entity, label):
+    """Anexa _fmt_opts aos TEXT de uma lista de items (in-place, genérico)."""
+    from ajsystem.defs.report import parse_report_item as _pri
+    for it in items or []:
+        try:
+            _ri = _pri(it, label)
+        except ValueError:
+            continue
+        if _ri.kind == 'TEXT' and isinstance(_ri.config.get('text'), str):
+            _fo = _fmt_opts_for(_ri.config['text'], entity)
+            if _fo:
+                _ri.config.setdefault('_fmt_opts', _fo)
+
+
 def _cell_text_fn(tpl, entity):
     """Monta function(row) a partir de template (código montado). Delegado ao
     avaliador único (core/text); labels LIST via options da Entity."""
@@ -565,7 +714,8 @@ def _cell_text_fn(tpl, entity):
                 _fmt_opts[nm] = opts
 
     def _fn(row):
-        return _render(tpl, lambda k: getattr(row, k, None), _fmt_opts)
+        from ajsystem.core.text import dotted_get as _dg
+        return _render(tpl, lambda k: _dg(row, k), _fmt_opts)
     return _fn
 
 
@@ -693,6 +843,48 @@ def _synthesize_levels_from_groups(table, body, label):
             raise ValueError(f"report '{label}': order {src['order']} deve abrir com as quebras {grouped}")
     if synth:
         table['levels'] = synth
+
+
+def _report_inputs():
+    """Camadas de inputs (motor + página), igual a `do_list._camadas_inputs`."""
+    try:
+        from flask import request, current_app
+        from ajsystem.core.utils import module_blueprint
+        from ajsystem.defs.inputs import module_inputs
+        import importlib as _il
+        inputs = current_app.extensions.get('inputs')
+        try:
+            bp_name = request.blueprint
+        except RuntimeError:
+            return (inputs, {})
+        if not bp_name:
+            return (inputs, {})
+        bp = current_app.blueprints.get(bp_name)
+        mod = _il.import_module(bp.import_name) if bp is not None else None
+        try:
+            pagina = module_inputs(mod) if mod is not None else {}
+        except ImportError:
+            pagina = {}
+        return (inputs, pagina)
+    except Exception:
+        return (None, {})
+
+
+def _field_mask(name, cfg):
+    """Máscara do campo: explícita na cfg ou do catálogo de inputs (mesma
+    cadeia do form). Nunca quebra o relatório: falha -> None."""
+    if (cfg or {}).get('mask'):
+        return cfg['mask']
+    try:
+        from ajsystem.defs.data import build_field
+        if not isinstance(cfg, dict) or 'type' not in cfg:
+            return None
+        _tipos, _pagina = _report_inputs()
+        _camadas = tuple(c for c in (_tipos, _pagina) if c)
+        f = build_field(name, dict(cfg), inputs=_camadas or None)
+        return f.mask or None
+    except Exception:
+        return None
 
 
 def _entity_cfg_for(entity, entity_name):
