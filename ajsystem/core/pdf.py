@@ -1442,15 +1442,38 @@ def _tab_x(pdf, tab, label):
     pdf.set_x(pdf.l_margin + tabs[tab - 1] * col_w)
 
 
-def _place_item(pdf, kind, name, cfg, label):
-    """Posicionamento pré-render: tab, location/pos ou volta ao início."""
+def _place_item(pdf, kind, name, cfg, label, line=True):
+    """Posicionamento pré-render: âncora, fluxo, linha ou bloco.
+
+    tab/location/pos = absoluto (inalterado). Sem âncora:
+    - FIELD e TEXT com `width` = **fluxo**: herda o cursor (o item anterior
+      deixou o X no fim dele); só entra na 1ª coluna da zona se o cursor
+      está fora dela (início de bloco pós-tabela, zona nova do IND);
+    - TEXT avulso sem âncora e sem `width` (line=True) = **linha própria**:
+      começa na 1ª coluna da zona e, se o cursor não está lá (terminou um
+      bloco de fluxo), avança a linha antes — é o "avanço de linha
+      automático ao final" do bloco. Sub-item de TEXTS passa line=False e
+      flui inline (o bloco é apertado; CR/LF controlam as quebras);
+    - bloco (IMAGE/LINE/BOX/CIRCLE/CALL) = volta ao início, Y flui.
+    """
     if 'tab' in cfg:
         if any(k in cfg for k in ('location', 'pos')):
             raise ValueError(f"report '{label}': tab não combina com location/pos")
         _tab_x(pdf, cfg['tab'], label)
         return
-    if not any(k in cfg for k in ('location', 'pos')):
-        pdf.set_x(_flow_zone(pdf)[0])  # bloco: volta ao início, Y flui
+    if any(k in cfg for k in ('location', 'pos')):
+        return
+    x0, right = _flow_zone(pdf)
+    if kind == 'TEXT' and line and cfg.get('width') is None:
+        if pdf.get_x() > x0 + 0.01:
+            pdf.ln(ROW_CELL)
+        pdf.set_x(x0)
+        return
+    if kind in ('FIELD', 'TEXT'):
+        if pdf.get_x() < x0 - 0.01 or pdf.get_x() > right + 0.01:
+            pdf.set_x(x0)
+        return
+    pdf.set_x(x0)  # bloco: volta ao início, Y flui
 
 
 def _cut_to_fit(pdf, txt, avail):
@@ -1461,10 +1484,13 @@ def _cut_to_fit(pdf, txt, avail):
     return txt
 
 
-def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w):
+def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
     """FIELD/TEXT em fluxo datilográfico: segue na linha (PCOL avança);
     envolve p/ margem se não couber; trunca o excedente se maior que a linha.
     Posicionado (tab/location/pos) = absoluto, sem envoltório.
+    `fill` = TEXT avulso sem width ocupa o resto da zona (linha própria com
+    largura da zona — é o que faz `align` R/C valer); sub-item de TEXTS é
+    apertado (inline) e FIELD nunca preenche.
     """
     from ajsystem.core.text import render as _trender
     _x0, right = _flow_zone(pdf)
@@ -1523,6 +1549,10 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w):
                 raise ValueError(f"report '{label}': width deve ser cols > 0")
             _w = _w * _col_unit(pdf)
             pdf.set_font(_ff, cfg.get('font_style', _fst) or _fst, cfg.get('font_size', _fs))
+        elif fill and not _fixed:
+            _w = right - pdf.get_x()
+            if pdf.get_string_width(txt or '') + 2 > _w:
+                txt = _cut_to_fit(pdf, txt, _w)  # linha própria: trunca na zona
         else:
             _w = pdf.get_string_width(txt or '') + 2
         if not _fixed and pdf.get_x() + _w > right + 0.01 and pdf.get_x() > _x0 + 0.01:
@@ -1614,7 +1644,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                     from ajsystem.core.text import eval_when as _ew
                     if not _ew(instance, _when):
                         continue
-                _place_item(pdf, 'TEXT', 'text', _tcfg, label)
+                _place_item(pdf, 'TEXT', 'text', _tcfg, label, line=False)
                 _render_flow_item(pdf, 'TEXT', 'text', _tcfg, instance, label, col_w)
             continue
         if kind == 'CR':
@@ -1654,7 +1684,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             pdf.set_x(_flow_zone(pdf)[0])
         _place_item(pdf, kind, name, cfg, label)
         if kind in ('FIELD', 'TEXT'):
-            _render_flow_item(pdf, kind, name, cfg, instance, label, col_w)
+            _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=True)
         elif kind == 'IMAGE':
             src = cfg.get('path') or (getattr(instance, cfg.get('field', name), None) if instance is not None else None)
             if not src:
@@ -1755,6 +1785,7 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
         _render_table_lines(pdf, _after, instance)
     if tbl.after and instance:
         if isinstance(tbl.after, list):
+            pdf.ln(GAP_AFTER_TABLE)  # respiro pós-régua, igual ao ramo string
             _render_items(pdf, tbl.after, instance, report)
         else:
             txt = tbl.after
