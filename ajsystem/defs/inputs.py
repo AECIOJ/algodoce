@@ -156,7 +156,7 @@ INPUT_TYPES = {
 
     # ── data/hora ──
     'date':           {'html_type': 'date', 'size': 12, 'textual': False,
-                        'filter_kind': 'date'},
+                        'filter_kind': 'date', 'mask': 'dd/mm/yyyy'},
     'datetime-local': {'html_type': 'datetime-local', 'size': 16, 'textual': False,
                         'filter_kind': 'date'},
     'time':           {'html_type': 'time', 'size': 10, 'textual': False},

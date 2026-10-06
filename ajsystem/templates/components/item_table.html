@@ -259,7 +259,9 @@
       <div class="mt-1 flex items-center gap-2 flex-wrap">
         <span class="itm-pager"></span>
       </div>
+      {% endif %}
     </div>
+    {% if _can_edit %}
     <div id="{{ _rel }}ColumnTemplate" style="display:none">
       <th class="itm-item" data-crow="__IDX__">
         <div class="itm-item-head">

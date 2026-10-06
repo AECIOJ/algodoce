@@ -4,7 +4,7 @@ Código em 3 segmentos: tipo (direto), grupo (denserank por família), index
 (rownumber entre irmãos). O 'indice' montado nasce no select via calc —
 grade e PDF bebem a mesma string, sem N+1.
 """
-from ajsystem.defs.report import LOGO, TITLE
+from ajsystem.defs.report import *
 QPLANO = {
     # Ordem de dependência (leitura top-down): a grade declara a sua ordem
     # na rota; avaliação independe daqui (overs antes dos calcs, ver qrun).

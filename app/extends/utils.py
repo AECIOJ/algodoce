@@ -1,4 +1,24 @@
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
+
+
+def num0(v):
+    """Coage para Decimal tolerante (None/str/float/int -> Decimal).
+
+    Colunas NUMERIC devolvem Decimal, mas o form e rotinas avulsas podem
+    entregar float/str/None — somar misto (`Decimal + float`) levanta
+    TypeError e derrubava form e impressão. Centralizado aqui.
+    """
+    if v is None or v == '':
+        return Decimal(0)
+    if isinstance(v, Decimal):
+        return v
+    if isinstance(v, bool):
+        return Decimal(int(v))
+    try:
+        return Decimal(str(v))
+    except (InvalidOperation, ValueError):
+        return Decimal(0)
 
 
 def parse_prazo_recebimento(texto, data_base, data_entrega=None, total=0.0):

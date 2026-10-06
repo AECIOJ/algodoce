@@ -79,13 +79,13 @@ def _agg_apply(fn, values):
 
 
 def _parse_totals(raw, where):
-    """Normaliza totals -> {label, align, span} | None. Ausente = não totaliza."""
+    """Normaliza totals -> {label, align, span, bline} | None."""
     if raw is None:
         return None
     if not isinstance(raw, dict):
         raise ValueError(f"{where}: totals deve ser dict")
     for k in raw:
-        if k not in ('label', 'align', 'span'):
+        if k not in ('label', 'align', 'span', 'bline'):
             raise ValueError(f"{where}: chave '{k}' inválida em totals")
     align = raw.get('align', 'C')
     if align not in ('L', 'C', 'R'):
@@ -93,8 +93,11 @@ def _parse_totals(raw, where):
     span = raw.get('span', 1)
     if isinstance(span, bool) or not isinstance(span, int) or span < 1:
         raise ValueError(f"{where}: span deve ser int >= 1")
+    bline = raw.get('bline', False)
+    if not isinstance(bline, bool):
+        raise ValueError(f"{where}: bline deve ser bool")
     return {'label': raw.get('label', TOTALS_DEFAULT_LABEL),
-            'align': align, 'span': span}
+            'align': align, 'span': span, 'bline': bline}
 
 
 @dataclass
@@ -125,7 +128,7 @@ def _build_header(report: Report) -> '_ReportHeader':
         # Forma lista: header=[...] (ReportItem). Defaults + raw p/ render.
         return _ReportHeader(
             show_logo=False,
-            logo_path=report.logo_path,
+            logo_path=None,
             title_font_size=_HEADER_DEFAULTS['title'].get('font_size', 16),
             title_font_style=_HEADER_DEFAULTS['title'].get('font_style', 'B'),
             title_align=_HEADER_DEFAULTS['title'].get('align', 'C'),
@@ -201,9 +204,17 @@ def _render_header_items(self, h):
     label = self._report.label if getattr(self, '_report', None) else ''
     items = [parse_report_item(it, label) for it in (h.raw_header or [])]
     self._tabs = None
+    self._gridfont = None
+    self._ind = None
     titles = 0
     for item in items:
         cfg = item.config
+        if item.kind == 'FONT':
+            if not cfg.get('font') and cfg.get('cpp') is None:
+                self._gridfont = None  # FONT() nu = restaura o default
+            else:
+                self._gridfont = _resolve_font(cfg, label)
+            continue
         if item.kind == 'TABS':
             _raw = cfg if isinstance(cfg, list) else cfg.get('values', [])
             _stops = [_eval_tab_value(self, _s, label) for _s in _raw]
@@ -215,12 +226,11 @@ def _render_header_items(self, h):
             _vals = cfg if isinstance(cfg, list) else cfg.get('values', [])
             if len(list(_vals)) != 2:
                 raise ValueError(f"report '{label}': POS exige [col, lin]")
-            self.set_font(FONT_FAMILY, "", FONT_CELL)
             _c, _r = _resolve_tokens(self, list(_vals), label)
             for _v in (_c, _r):
                 if isinstance(_v, bool) or not isinstance(_v, (int, float)):
                     raise ValueError(f"report '{label}': POS exige [col, lin]")
-            self.set_xy(self.l_margin + _c * (self.get_string_width('0') or 2.0),
+            self.set_xy(self.l_margin + _c * _col_unit(self),
                         self.t_margin + _r * ROW_CELL)
             continue
         if item.kind == 'LOGO':
@@ -233,6 +243,7 @@ def _render_header_items(self, h):
             # Cursor p/ o fim da caixa (PCOL = fim do logo): o próximo item
             # ancora a partir daqui; sem âncora, o bloco volta à margem.
             self.set_xy(x + w, y + hh)
+            _mark_content(self)
         elif item.kind == 'TITLE':
             if cfg.get('when') is not None:
                 from ajsystem.core.text import eval_when as _ew
@@ -265,12 +276,12 @@ def _render_header_items(self, h):
             if _w is not None:
                 if isinstance(_w, bool) or not isinstance(_w, (int, float)) or _w <= 0:
                     raise ValueError(f"report '{label}': width deve ser cols > 0")
-                self.set_font(FONT_FAMILY, "", FONT_CELL)
-                _w = _w * (self.get_string_width('0') or 2.0)
+                _w = _w * _col_unit(self)
                 self.set_font(FONT_FAMILY, style, size)
             else:
                 _w = 0  # coluna corrente até o fim da linha
             self.cell(_w, size * 0.6, txt or '', align=align, new_x="LMARGIN", new_y="NEXT")
+            _mark_content(self)
             self.ln(GAP_TITLE if first else GAP_SUBTITLE)
         elif item.kind == 'FIELD':
             if self._instance is None:
@@ -379,7 +390,13 @@ class DocPDFReport(FPDF):
         if not self._is_first_page and not h.on_each_page:
             return
         self._is_first_page = False
+        self._in_header = True
+        try:
+            self._header_inner(h)
+        finally:
+            self._in_header = False
 
+    def _header_inner(self, h):
         # Forma lista (header=[...]): itens em ordem; dict legado abaixo.
         if isinstance(h.raw_header, list):
             _render_header_items(self, h)
@@ -640,7 +657,7 @@ def _format_cell_value(val, fmt: str) -> str:
     return str(val)
 
 
-MIN_COL_WIDTH = 15  # mm
+
 
 _MISSING = object()  # sentinela p/ suppress (None é valor válido de comparar)
 
@@ -680,16 +697,21 @@ GAP_AFTER_TABLE = 4     # antes do texto after da tabela
 GAP_TEXTS = 4           # antes de cada texto avulso
 
 
-def _calc_col_widths(pdf, cols):
-    """Converte widths (ch) → mm pela métrica da fonte e distribui.
+PAPER_FIT_MSG = ('Largura do papel insuficiente para relatorio. '
+                 'Mude orientação ou tipo de papel.')
 
-    - Colunas com `width` (ch) → mm exato via largura do glifo '0';
+
+def _calc_col_widths(pdf, cols, cpp=0):
+    """Converte widths (ch) → mm no pitch nominal (tabela sempre draft).
+
+    - Colunas com `width` (ch) → mm exato em 25.4/cpp;
     - Sem nenhuma width → divisão igual;
     - Com widths parciais → restante dividido entre as sem width;
     - Todas com width → bloco centrado no disponível.
     """
+    from ajsystem.defs.fonts import CPP as _CPP
     avail_w = pdf.w - pdf.l_margin - pdf.r_margin
-    unit = pdf.get_string_width('0') or 2.0
+    unit = 25.4 / _CPP[cpp]
     n = len(cols)
     conv = [(c.width or 0) * unit for c in cols]
     if not any(c.width for c in cols):
@@ -707,6 +729,22 @@ def _calc_col_widths(pdf, cols):
     return col_widths, total_w, x_start
 
 
+MIN_COL_CHARS = 6  # piso de legibilidade por coluna (em caracteres)
+
+
+def _fit_table(pdf, cols, label):
+    """Auto-fit: cpp 0→3 (10/12/17/20); primeiro que cabe (total + piso em
+    caracteres). Tabela é sempre draft; font/cpp/size dentro dela = fail-fast."""
+    from ajsystem.defs.fonts import CPP as _CPP
+    avail_w = pdf.w - pdf.l_margin - pdf.r_margin
+    for cpp in sorted(_CPP):
+        col_widths, total_w, x_start = _calc_col_widths(pdf, cols, cpp)
+        _floor = MIN_COL_CHARS * 25.4 / _CPP[cpp]
+        if total_w <= avail_w + 0.01 and all(w + 0.01 >= _floor for w in col_widths):
+            return col_widths, total_w, x_start, cpp
+    raise ValueError(f"report '{label}': {PAPER_FIT_MSG}")
+
+
 def _check_page_break(pdf, needed_h):
     """Verifica se há espaço. Se não, fecha tabela e adiciona página."""
     if pdf.get_y() + needed_h + pdf.b_margin <= pdf.h:
@@ -715,10 +753,18 @@ def _check_page_break(pdf, needed_h):
     return True
 
 
+def _mark_content(pdf):
+    """Conteúdo impresso: libera a próxima régua."""
+    pdf._ruled = False
+
+
 def _draw_hline(pdf, x_start, total_w):
-    """Desenha linha horizontal (sem laterais)."""
+    """Linha horizontal (sem laterais). Régua seguida sem conteúdo = ignorada."""
+    if getattr(pdf, '_ruled', False):
+        return
     y = pdf.get_y()
     pdf.line(x_start, y, x_start + total_w, y)
+    pdf._ruled = True
 
 
 def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=True):
@@ -733,6 +779,7 @@ def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_lin
         ny = "NEXT" if i == len(cols) - 1 else "TOP"
         pdf.set_x(x_start + sum(col_widths[:i]))
         pdf.cell(col_widths[i], row_h, col.label or col.field, border=0, align=align, new_x=nx, new_y=ny)
+    _mark_content(pdf)
     _draw_hline(pdf, x_start, total_w)
 
 
@@ -758,12 +805,94 @@ def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
         pdf.cell(col_widths[i], row_h, txt, border=0, align=align, new_x=nx, new_y=ny)
         if col.agg and val is not None:
             agg_values[col.field].append(val)
+    _mark_content(pdf)
     if pdf._report.show_table_lines:
         _draw_hline(pdf, x_start, sum(col_widths))
 
 
-def _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w):
+def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, report):
+    """Linhas dentro do quadro (table.extend): tuplas, spans, LINE/LF/CR."""
+    import re as _re
+    from ajsystem.core.text import render as _trender, eval_when as _ew, dotted_get as _dg
+    label = report.label if report is not None else ''
+    n = len(cols)
+    _ALIGN = {'left': 'L', 'center': 'C', 'right': 'R'}
+
+    def _span_xw(a, b):
+        return x_start + sum(col_widths[:a - 1]), sum(col_widths[a - 1:b])
+
+    _stayed = False
+    for it in items or []:
+        if isinstance(it, str):
+            if it not in ('LINE', 'LF', 'CR'):
+                raise ValueError(f"report '{label}': extend aceita tupla, LINE, LF ou CR")
+            if it == 'LINE':
+                if _check_page_break(pdf, ROW_CELL):
+                    _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
+                _draw_hline(pdf, x_start, total_w)
+                pdf.ln(ROW_CELL)
+            elif it == 'LF':
+                pdf.ln(ROW_CELL)
+            else:
+                pdf.set_x(x_start)
+            _stayed = False
+            continue
+        if not (isinstance(it, tuple) and 2 <= len(it) <= 3):
+            raise ValueError(f"report '{label}': extend exige (col, texto[, props])")
+        _col, _text = it[0], it[1]
+        _props = dict(it[2]) if len(it) == 3 else {}
+        for _fk in ('font', 'cpp', 'font_size'):
+            if _fk in _props:
+                raise ValueError(f"report '{label}': '{_fk}' não vale em tabela (sempre cpp=0)")
+        if _props.get('font_style') not in (None, '', 'B', 'I', 'BI'):
+            raise ValueError(f"report '{label}': font_style em tabela: ''|B|I|BI")
+        if not isinstance(_text, str):
+            raise ValueError(f"report '{label}': texto do extend deve ser str")
+        if isinstance(_col, list):
+            if len(_col) != 2 or not all(isinstance(c, int) and not isinstance(c, bool) for c in _col):
+                raise ValueError(f"report '{label}': span deve ser [a, b] ints")
+            _a, _b = _col
+            if not (1 <= _a <= _b <= n):
+                raise ValueError(f"report '{label}': span [{_a}, {_b}] fora de 1..{n}")
+            _x, _w, _align_dflt, _fmt_dflt = (*_span_xw(_a, _b), 'C', None)
+        elif isinstance(_col, int) and not isinstance(_col, bool):
+            if not 1 <= _col <= n:
+                raise ValueError(f"report '{label}': col {_col} fora de 1..{n}")
+            _x = x_start + sum(col_widths[:_col - 1])
+            _w = col_widths[_col - 1]
+            _cc = cols[_col - 1]
+            _align_dflt, _fmt_dflt = _ALIGN.get(_cc.align, 'L'), _cc.format
+        else:
+            raise ValueError(f"report '{label}': col deve ser N ou [a, b]")
+        _when = _props.get('when')
+        if _when is not None and not _ew(instance, _when):
+            continue
+        if _check_page_break(pdf, ROW_CELL):
+            _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
+        _fo = _props.get('_fmt_opts') or {}
+        _m = _re.fullmatch(r'{([\w.]+)}', (_text or '').strip())
+        if _m and _props.get('format') is None and _fmt_dflt is not None:
+            # Placeholder puro: herda formatação da coluna.
+            _txt = _format_cell_value(_dg(instance, _m.group(1)) if instance is not None else None, _fmt_dflt)
+        else:
+            _txt = _trender(_text, lambda k: _dg(instance, k) if instance is not None else None, _fo)
+        pdf.set_font(FONT_FAMILY, _props.get('font_style', ''), FONT_CELL)
+        pdf.set_x(_x)
+        _last_col = _b if isinstance(_col, list) else _col
+        _stay = _last_col < n
+        pdf.cell(_w, ROW_CELL, _txt, align=_props.get('align', _align_dflt),
+                 new_x="END" if _stay else "LMARGIN",
+                 new_y="TOP" if _stay else "NEXT")
+        _stayed = _stay
+        if _txt:
+            _mark_content(pdf)
+    if _stayed:
+        pdf.ln(ROW_CELL)
+
+
+def _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w, close=True):
     """Linha de total geral: rótulo nas SPAN primeiras + func por coluna agg."""
+    _draw_hline(pdf, x_start, total_w)  # régua antes (interna, sempre)
     pdf.set_font(FONT_FAMILY, "B", FONT_FOOT)
     span = totals.get('span')
     nspan = len(cols) - 1 if span is None else min(span, len(cols) - 1)
@@ -783,7 +912,9 @@ def _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total
         pdf.cell(col_widths[i], ROW_FOOT, _format_cell_value(v, col.format),
                  border=0, align="R",
                  **({'new_x': "LMARGIN", 'new_y': "NEXT"} if i == _positions[-1] else {}))
-    _draw_hline(pdf, x_start, total_w)
+    _mark_content(pdf)
+    if close:
+        _draw_hline(pdf, x_start, total_w)
 
 
 def _table_close(pdf, x_start, total_w):
@@ -844,6 +975,7 @@ def _render_group_header(pdf, g, val, xs, tw, pos, row=None):
     pdf.set_x(xs + indent)
     pdf.cell(tw - indent, height, txt, border=0,
              new_x="LMARGIN", new_y="NEXT")
+    _mark_content(pdf)
 
 
 def _render_group_line(pdf, g, val, xs, tw, row=None):
@@ -856,6 +988,7 @@ def _render_group_line(pdf, g, val, xs, tw, row=None):
     pdf.set_x(xs + indent)
     pdf.cell(tw - indent, height, txt, border=0,
              new_x="LMARGIN", new_y="NEXT")
+    _mark_content(pdf)
 
 
 def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
@@ -870,6 +1003,8 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
             return
     if not any(c.agg for c in cols):
         return
+    if totals.get('bline'):
+        _draw_hline(pdf, xs, sum(cw))
     pdf.set_font(FONT_FAMILY, "B", FONT_FOOT)
     label = totals.get('label', 'Sub-Total')
     if label and row is not None and ('{' in label):
@@ -892,6 +1027,7 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
         pdf.cell(cw[i], ROW_FOOT, _format_cell_value(v, col.format),
                  border=0, align="R",
                  **({'new_x': "LMARGIN", 'new_y': "NEXT"} if i == _positions[-1] else {}))
+    _mark_content(pdf)
 
 
 def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
@@ -913,7 +1049,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
         if g.get('totals') is not None or g.get('total', True):
             _render_group_total(pdf, g, cols, cw, xs, accs[i],
                                 row=last_rows[i])
-        if g.get('line', True):
+        if g.get('gline', g.get('line', True)):
             _draw_hline(pdf, xs, tw)
 
     for row in data:
@@ -997,17 +1133,14 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
         return
     pdf._sup_prev = {}
 
-    col_widths, total_w, x_start = _calc_col_widths(pdf, cols)
-
-    # Verificar largura mínima
-    for i, col in enumerate(cols):
-        if col_widths[i] < MIN_COL_WIDTH:
-            pdf.set_font(FONT_FAMILY, "B", FONT_ITEMS)
-            pdf.cell(0, LINE_TALL, f"Erro: coluna '{col.label or col.field}' muito estreita "
-                     f"({col_widths[i]:.1f}mm < {MIN_COL_WIDTH}mm). "
-                     f"Largura insuficiente para o relatório.",
-                     align="C", new_x="LMARGIN", new_y="NEXT")
-            return
+    label = report.label if report is not None else ''
+    col_widths, total_w, x_start, _cpp = _fit_table(pdf, cols, label)
+    # Bordas reais p/ LTB/RTB em mm (última tabela vence; sem tabela = área
+    # útil). Guarda em mm e converte na resolução: âncora/fluxo/IND vivem na
+    # unidade da fonte corrente (`_col_unit`), que muda com FONT — gravar já
+    # em cols do pitch da tabela brigava com o `ncol` da validação do IND.
+    pdf._table_bounds = [x_start, x_start + total_w]
+    pdf._table_cpp = _cpp
 
     # Dados — grupos por mudança de valor (specs normalizadas em _apply_entity)
     agg_values = {c.field: [] for c in cols if c.agg}
@@ -1028,8 +1161,9 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
                 gera_cab = False
             _render_data_row(pdf, cols, col_widths, row, x_start, agg_values)
 
-    # Linha de fechamento da tabela
-    if totals is None:
+    # Extend (linhas dentro do quadro, após totais) + fechamento no fim.
+    _ext = (_body_table(report).get('extend') or []) if report else []
+    if totals is None and not _ext:
         _table_close(pdf, x_start, total_w)
 
     # Linha de total geral — com sua própria linha de fechamento
@@ -1037,7 +1171,12 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
         footer_h = ROW_FOOT
         if _check_page_break(pdf, footer_h):
             _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
-        _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w)
+        _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w,
+                           close=True)
+    if _ext:
+        _render_extend(pdf, cols, col_widths, x_start, total_w, _ext,
+                       instance, report)
+        _table_close(pdf, x_start, total_w)
 
 
 def _render_table_lines(pdf, lines, instance=None):
@@ -1057,6 +1196,8 @@ def _render_table_lines(pdf, lines, instance=None):
         pdf.ln(GAP_TEXT_LINE)
         pdf.set_font(FONT_FAMILY, style, size)
         pdf.cell(w, size * 0.5, text, align=align, new_x="LMARGIN", new_y="NEXT")
+        if text:
+            _mark_content(pdf)
 
 
 
@@ -1082,10 +1223,16 @@ def _split_item(it, label):
                 from ajsystem.defs.report import ITEM_KINDS as _KINDS
                 if k not in _KINDS:
                     raise ValueError(f"report '{label}': elemento '{k}' desconhecido")
-                if k in ('TABS', 'POS'):
+                if k in ('TABS', 'POS', 'IND'):
                     if not isinstance(v, list):
                         raise ValueError(f"report '{label}': '{k}' exige lista")
-                    return (k, k, {'values': v})
+                    return (k, k, {'values': list(v)})
+                if k == 'TEXTS':
+                    if not isinstance(v, list):
+                        raise ValueError(f"report '{label}': 'TEXTS' exige lista")
+                    return (k, k, {'items': list(v)})
+                if k in ('CR', 'LF', 'FF'):
+                    return (k, k, v if isinstance(v, dict) else {})
                 if k == 'FIELDS':
                     if not isinstance(v, dict):
                         raise ValueError(f"report '{label}': 'FIELDS' exige dict")
@@ -1104,8 +1251,7 @@ def _image_box(pdf, location, path):
     """
     from PIL import Image as _PIL
     from ajsystem.core.geom import normalize as _gloc, resolve_anchor as _ra, to_mm as _gmm
-    pdf.set_font(FONT_FAMILY, "", FONT_CELL)  # get_string_width exige fonte; ref fixa
-    col_w = pdf.get_string_width('0') or 2.0
+    col_w = _col_unit(pdf)  # diretiva FONT ou referência fixa
     norm = _gloc('IMAGE', location)
     if norm[0] == 'IMAGE_ANCHOR':
         _, anchor, lines = norm
@@ -1116,33 +1262,133 @@ def _image_box(pdf, location, path):
     return pdf.l_margin + g['x'], pdf.t_margin + g['y'], g['w'], g['h']
 
 
+def _col_unit(pdf):
+    """Largura da col em mm: nominal (25.4/cpp) sob FONT vigente ou ref fixa.
+
+    Sem FONT = referência fixa (legado, byte-igual); com FONT, tudo
+    (pos/tab/TABS/widths/ncol) usa o pitch nominal da fonte vigente.
+    """
+    spec = getattr(pdf, '_gridfont', None)
+    if spec is None:
+        pdf.set_font(FONT_FAMILY, "", FONT_CELL)  # referência fixa da grade
+        return pdf.get_string_width('0') or 2.0
+    return spec['col']
+
+
+def _font_layers():
+    """Camadas de fontes: framework < app.extends.fonts < Fonts da rota."""
+    try:
+        from flask import request, current_app
+        from ajsystem.core.adapter import _override_ou
+        from ajsystem.defs.fonts import module_fonts
+        import importlib as _il
+        from ajsystem.core.utils import module_blueprint
+        app_layer = _override_ou('app.extends.fonts', 'Fonts', {}) or {}
+        try:
+            bp_name = request.blueprint
+        except RuntimeError:
+            return ({}, app_layer, {})
+        if not bp_name:
+            return ({}, app_layer, {})
+        bp = current_app.blueprints.get(bp_name)
+        mod = _il.import_module(bp.import_name) if bp is not None else None
+        try:
+            page_layer = module_fonts(mod) if mod is not None else {}
+        except ImportError:
+            page_layer = {}
+        return ({}, app_layer, page_layer)
+    except Exception:
+        return ({}, {}, {})
+
+
+def _resolve_font(cfg, label):
+    """{'font': nome, 'cpp':?} -> {family, cpp, col} (fail-fast)."""
+    from ajsystem.defs.fonts import resolve_font as _rf
+    if not isinstance(cfg, dict) or not cfg.get('font'):
+        raise ValueError(f"report '{label}': FONT exige {{font, ...}}")
+    _fw, _app, _page = _font_layers()
+    _extra = {k: v for k, v in cfg.items() if k not in ('font', 'cpp')}
+    if _extra:
+        raise ValueError(f"report '{label}': chaves {sorted(_extra)} inválidas em FONT")
+    return _rf(cfg['font'], cfg.get('cpp'),
+               types=[l for l in (_fw, _app, _page) if l])
+
+
+def _font_default(pdf):
+    """(family, size, style) p/ FIELD/TEXT sem tamanho próprio."""
+    spec = getattr(pdf, '_gridfont', None)
+    if spec is None:
+        return (FONT_FAMILY, FONT_ITEMS, '')
+    return (spec['family'], FONT_ITEMS, '')
+
+
+def _apply_font(pdf, family, size, style):
+    pdf.set_font(family, style, size)
+
+
 def _grid_pos(pdf):
     """Cursor corrente em grade (PCOL, PROW)."""
-    pdf.set_font(FONT_FAMILY, "", FONT_CELL)  # referência fixa da grade
-    col_w = pdf.get_string_width('0') or 2.0
+    col_w = _col_unit(pdf)
     return ((pdf.get_x() - pdf.l_margin) / col_w,
             (pdf.get_y() - pdf.t_margin) / ROW_CELL, col_w)
 
 
+def _usable_cols(pdf):
+    """Total de cols da área útil na unidade vigente."""
+    return (pdf.w - pdf.l_margin - pdf.r_margin) / _col_unit(pdf)
+
+
+def _table_edges(pdf):
+    """[l, r] da última tabela em cols da fonte corrente (ou área útil)."""
+    tb = getattr(pdf, '_table_bounds', None)
+    if tb is not None:
+        col_w = _col_unit(pdf)
+        return [(tb[0] - pdf.l_margin) / col_w, (tb[1] - pdf.l_margin) / col_w]
+    return [0, _usable_cols(pdf)]
+
+
+def _flow_zone(pdf):
+    """(x0_mm, right_mm) do fluxo: região IND ou área útil."""
+    ind = getattr(pdf, '_ind', None)
+    if ind is not None:
+        col_w = _col_unit(pdf)
+        return pdf.l_margin + ind[0] * col_w, pdf.l_margin + ind[1] * col_w
+    return pdf.l_margin, pdf.w - pdf.r_margin
+
+
 def _resolve_tokens(pdf, values, label):
-    """Troca PROW/PCOL (literal ou constante) pela posição corrente. Só âncora
+    """Troca cursores (literal ou constante) pelos valores. Só âncora
     (2 termos); em extensão (w/h/c2/r2/deltas) ou fora de lista = fail-fast."""
     from ajsystem.defs.report import _CursorExpr as _CE
+    _gp = _grid_pos(pdf)
+    _te = _table_edges(pdf)
+    _ncol = _usable_cols(pdf)
+
+    def _one(v):
+        if isinstance(v, _CE):
+            base, off = v.base, v.offset
+        elif v in ('PCOL', 'PROW', 'LTB', 'RTB', 'NCOL'):
+            base, off = v, 0
+        else:
+            return v
+        if base == 'PCOL':
+            return _gp[0] + off
+        if base == 'PROW':
+            return _gp[1] + off
+        if base == 'LTB':
+            return _te[0] + off
+        if base == 'RTB':
+            return _te[1] + off
+        if base == 'NCOL':
+            return _ncol + off
+        raise ValueError(f"report '{label}': cursor '{base}' desconhecido")
+
     out = []
     for v in values:
-        if isinstance(v, _CE):
-            if v.base not in ('PCOL', 'PROW'):
-                raise ValueError(f"report '{label}': cursor '{v.base}' desconhecido")
-            out.append(_grid_pos(pdf)[0 if v.base == 'PCOL' else 1] + v.offset)
-            continue
-        if v == 'PROW':
-            out.append(_grid_pos(pdf)[1])
-        elif v == 'PCOL':
-            out.append(_grid_pos(pdf)[0])
-        elif isinstance(v, str):
-            raise ValueError(f"report '{label}': '{v}' inválido (só número, PROW ou PCOL)")
-        else:
-            out.append(v)
+        r = _one(v)
+        if isinstance(r, str):
+            raise ValueError(f"report '{label}': '{v}' inválido (só número ou cursor)")
+        out.append(r)
     return out
 
 
@@ -1157,31 +1403,34 @@ def _anchor(pdf, cfg, label=''):
                                     and not isinstance(_v, _CE)
                                     and _v not in ('PROW', 'PCOL')):
             raise ValueError(f"report '{label}': âncora [col, lin] inválida: {list(loc)!r}")
-    pdf.set_font(FONT_FAMILY, "", FONT_CELL)  # referência fixa da grade
-    col_w = pdf.get_string_width('0') or 2.0
+    col_w = _col_unit(pdf)
     c, r = _resolve_tokens(pdf, list(loc)[:2], label)
     pdf.set_xy(pdf.l_margin + c * col_w, pdf.t_margin + r * ROW_CELL)
 
 
 def _eval_tab_value(pdf, v, label):
-    """Número, constante PCOL/PROW (±N) ou string 'PCOL+20' (só ±, sem eval)."""
+    """Número, cursor (PCOL/PROW/LTB/RTB/NCOL ±N, const ou string) em TABS."""
     import re as _re
     from ajsystem.defs.report import _CursorExpr as _CE
     if isinstance(v, bool):
-        raise ValueError(f"report '{label}': TABS exige números ou PCOL/PROW±N")
+        raise ValueError(f"report '{label}': TABS exige números ou cursor±N")
     if isinstance(v, (int, float)):
         return v
     if isinstance(v, _CE):
-        if v.base not in ('PCOL', 'PROW'):
-            raise ValueError(f"report '{label}': cursor '{v.base}' desconhecido")
-        base = _grid_pos(pdf)[0 if v.base == 'PCOL' else 1]
-        return base + v.offset
+        return _resolve_tokens(pdf, [v], label)[0]
     if isinstance(v, str):
-        m = _re.fullmatch(r'\s*(PCOL|PROW)\s*([+-]\s*\d+(?:\.\d+)?)?\s*', v)
+        m = _re.fullmatch(r'\s*(PCOL|PROW|LTB|RTB|NCOL)\s*([+-]\s*\d+(?:\.\d+)?)?\s*', v)
         if m:
-            base = _grid_pos(pdf)[0 if m.group(1) == 'PCOL' else 1]
-            return base + float(m.group(2).replace(' ', '')) if m.group(2) else base
-    raise ValueError(f"report '{label}': TABS exige números ou PCOL/PROW±N, veio {v!r}")
+            return _eval_cursor_str(pdf, m, label)
+    raise ValueError(f"report '{label}': TABS exige números ou cursor±N, veio {v!r}")
+
+
+def _eval_cursor_str(pdf, m, label):
+    """Match de cursor±N em string -> valor."""
+    from ajsystem.defs.report import _CursorExpr as _CE
+    base, off = m.group(1), m.group(2)
+    off = float(off.replace(' ', '')) if off else 0
+    return _resolve_tokens(pdf, [_CE(base, off)], label)[0]
 
 
 def _tab_x(pdf, tab, label):
@@ -1189,20 +1438,19 @@ def _tab_x(pdf, tab, label):
     tabs = getattr(pdf, '_tabs', None) or []
     if not isinstance(tab, int) or isinstance(tab, bool) or not 1 <= tab <= len(tabs):
         raise ValueError(f"report '{label}': tab:{tab} inválido (TABS tem {len(tabs)} paradas)")
-    pdf.set_font(FONT_FAMILY, "", FONT_CELL)
-    col_w = pdf.get_string_width('0') or 2.0
+    col_w = _col_unit(pdf)
     pdf.set_x(pdf.l_margin + tabs[tab - 1] * col_w)
 
 
 def _place_item(pdf, kind, name, cfg, label):
-    """Posicionamento pré-render: tab, location/pos ou volta à margem."""
+    """Posicionamento pré-render: tab, location/pos ou volta ao início."""
     if 'tab' in cfg:
         if any(k in cfg for k in ('location', 'pos')):
             raise ValueError(f"report '{label}': tab não combina com location/pos")
         _tab_x(pdf, cfg['tab'], label)
         return
     if not any(k in cfg for k in ('location', 'pos')):
-        pdf.set_x(pdf.l_margin)  # bloco: volta à margem, Y flui
+        pdf.set_x(_flow_zone(pdf)[0])  # bloco: volta ao início, Y flui
 
 
 def _cut_to_fit(pdf, txt, avail):
@@ -1219,8 +1467,18 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w):
     Posicionado (tab/location/pos) = absoluto, sem envoltório.
     """
     from ajsystem.core.text import render as _trender
-    right = pdf.w - pdf.r_margin
+    _x0, right = _flow_zone(pdf)
     _fixed = any(k in cfg for k in ('tab', 'location', 'pos'))
+    _fam = None
+    if 'font' in cfg or 'cpp' in cfg:
+        # Override temporário por item (diretiva intacta): família e/ou pitch.
+        from ajsystem.defs.fonts import CPP as _CPP
+        _base = getattr(pdf, '_gridfont', None) or {}
+        _fam = cfg.get('font', _base.get('family', FONT_FAMILY))
+        _c = cfg.get('cpp', _base.get('cpp', 0))
+        if _c not in _CPP:
+            raise ValueError(f"report '{label}': cpp deve ser 0|1|2|3")
+        col_w = 25.4 / _CPP[_c]
     if kind == 'FIELD':
         if instance is None:
             raise ValueError(f"report '{label}': field '{name}' exige instância (documento)")
@@ -1234,37 +1492,47 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w):
         else:
             val = _dg(instance, cfg.get('field', name) or name)
         txt = _format_cell_value(val, fmt if fmt is not None else cfg.get('mask'))
-        lbl = cfg.get('label') or name
-        pdf.set_font(FONT_FAMILY, "B", FONT_ITEMS)
-        lw = pdf.get_string_width(lbl + ': ') + 2
-        pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
+        lbl = cfg.get('label', name) or ''
+        _ff, _fs, _fst = _font_default(pdf)
+        _ff = _fam or _ff
+        pdf.set_font(_ff, "B", _fs)
+        lw = (pdf.get_string_width(lbl + ': ') + 2) if lbl else 0
+        _apply_font(pdf, _ff, _fs, _fst)
         vw = pdf.get_string_width(txt or '') + 2
-        if not _fixed and pdf.get_x() + lw + vw > right + 0.01 and pdf.get_x() > pdf.l_margin + 0.01:
+        if not _fixed and pdf.get_x() + lw + vw > right + 0.01 and pdf.get_x() > _x0 + 0.01:
             pdf.ln(ROW_CELL)  # pcol+1>ncol -> pcol=1, prow+=1
-        if lw + vw > right - pdf.l_margin:
-            txt, vw = _cut_to_fit(pdf, txt, right - pdf.l_margin - lw), right - pdf.l_margin - lw
-        pdf.set_font(FONT_FAMILY, "B", FONT_ITEMS)
-        pdf.cell(lw, ROW_CELL, lbl + ': ', new_x="END")
-        pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
+            pdf.set_x(_x0)
+        if lw + vw > right - _x0:
+            txt, vw = _cut_to_fit(pdf, txt, right - _x0 - lw), right - _x0 - lw
+        if lbl:
+            pdf.set_font(_ff, "B", _fs)
+            pdf.cell(lw, ROW_CELL, lbl + ': ', new_x="END")
+            _apply_font(pdf, _ff, _fs, _fst)
         pdf.cell(vw, ROW_CELL, txt, new_x="END", new_y="TOP")
+        if txt:
+            _mark_content(pdf)
     else:  # TEXT
         from ajsystem.core.text import dotted_get as _dg
         txt = _trender(cfg.get('text', ''), lambda k: _dg(instance, k) if instance is not None else None, cfg.get('_fmt_opts'))
-        pdf.set_font(FONT_FAMILY, cfg.get('font_style', ''), cfg.get('font_size', FONT_ITEMS))
+        _ff, _fs, _fst = _font_default(pdf)
+        _ff = _fam or _ff
+        pdf.set_font(_ff, cfg.get('font_style', _fst) or _fst, cfg.get('font_size', _fs))
         _w = cfg.get('width')
         if _w is not None:
             if isinstance(_w, bool) or not isinstance(_w, (int, float)) or _w <= 0:
                 raise ValueError(f"report '{label}': width deve ser cols > 0")
-            pdf.set_font(FONT_FAMILY, "", FONT_CELL)
-            _w = _w * (pdf.get_string_width('0') or 2.0)
-            pdf.set_font(FONT_FAMILY, cfg.get('font_style', ''), cfg.get('font_size', FONT_ITEMS))
+            _w = _w * _col_unit(pdf)
+            pdf.set_font(_ff, cfg.get('font_style', _fst) or _fst, cfg.get('font_size', _fs))
         else:
             _w = pdf.get_string_width(txt or '') + 2
-        if not _fixed and pdf.get_x() + _w > right + 0.01 and pdf.get_x() > pdf.l_margin + 0.01:
+        if not _fixed and pdf.get_x() + _w > right + 0.01 and pdf.get_x() > _x0 + 0.01:
             pdf.ln(ROW_CELL)
-        if _w > right - pdf.l_margin:
-            txt, _w = _cut_to_fit(pdf, txt, right - pdf.l_margin), right - pdf.l_margin
+            pdf.set_x(_x0)
+        if _w > right - _x0:
+            txt, _w = _cut_to_fit(pdf, txt, right - _x0), right - _x0
         pdf.cell(_w, ROW_CELL, txt, align=cfg.get('align', 'L'), new_x="END", new_y="TOP")
+        if txt:
+            _mark_content(pdf)
 
 
 def _render_items(pdf, items, instance, report, reset_tabs=True):
@@ -1279,12 +1547,20 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
     label = report.label if report is not None else ''
     if reset_tabs:
         pdf._tabs = None
-    pdf.set_font(FONT_FAMILY, "", FONT_CELL)  # referência fixa da grade
-    col_w = pdf.get_string_width('0') or 2.0
+        pdf._gridfont = None
+        pdf._ind = None
+    col_w = _col_unit(pdf)
     for it in items or []:
         kind, name, cfg = _split_item(it, label)
         if kind == 'FIELDS':
             raise ValueError(f"report '{label}': FIELDS deve ser expandido no apply (do_report)")
+        if kind == 'FONT':
+            if not cfg.get('font') and cfg.get('cpp') is None:
+                pdf._gridfont = None  # FONT() nu = restaura o default
+            else:
+                pdf._gridfont = _resolve_font(cfg, label)
+            col_w = _col_unit(pdf)
+            continue
         if kind in ('FIELD', 'TEXT') and cfg.get('when') is not None:
             from ajsystem.core.text import eval_when as _ew
             if not _ew(instance, cfg['when']):
@@ -1303,6 +1579,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             if _txt:
                 pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
                 pdf.cell(0, ROW_CELL, _txt, new_x="LMARGIN", new_y="NEXT")
+                _mark_content(pdf)
             continue
         if kind == 'POS':
             _c, _r = _resolve_tokens(pdf, cfg.get('values'), label)
@@ -1311,9 +1588,70 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                     raise ValueError(f"report '{label}': POS exige [col, lin]")
             pdf.set_xy(pdf.l_margin + _c * col_w, pdf.t_margin + _r * ROW_CELL)
             continue
+        if kind == 'TEXTS':
+            for _sub in cfg.get('items', []):
+                if isinstance(_sub, str):
+                    _tcfg = {'text': _sub}
+                elif isinstance(_sub, dict) and set(_sub) == {'TEXT'} and isinstance(_sub.get('TEXT'), dict):
+                    _tcfg = _sub['TEXT']
+                elif isinstance(_sub, tuple):
+                    if len(_sub) != 2 or not isinstance(_sub[1], str):
+                        raise ValueError(f"report '{label}': par TEXTS deve ser (texto|cfg, when)")
+                    if isinstance(_sub[0], str):
+                        _tcfg = {'text': _sub[0], 'when': _sub[1]}
+                    elif isinstance(_sub[0], dict) and isinstance(_sub[0].get('text'), str):
+                        _tcfg = dict(_sub[0])
+                        _tcfg['when'] = _sub[1]
+                    else:
+                        raise ValueError(f"report '{label}': par TEXTS deve ser (texto|cfg, when)")
+                elif isinstance(_sub, dict) and isinstance(_sub.get('text'), str):
+                    _tcfg = {k: v for k, v in _sub.items() if k != 'text'}
+                    _tcfg['text'] = _sub['text']
+                else:
+                    raise ValueError(f"report '{label}': TEXTS aceita texto, (texto, when) ou {{'text': ...}}")
+                _when = _tcfg.get('when')
+                if _when is not None:
+                    from ajsystem.core.text import eval_when as _ew
+                    if not _ew(instance, _when):
+                        continue
+                _place_item(pdf, 'TEXT', 'text', _tcfg, label)
+                _render_flow_item(pdf, 'TEXT', 'text', _tcfg, instance, label, col_w)
+            continue
+        if kind == 'CR':
+            pdf.set_x(_flow_zone(pdf)[0])  # volta à 1ª coluna, mesma linha
+            continue
+        if kind == 'LF':
+            _n = cfg.get('lines', 1)
+            if isinstance(_n, bool) or not isinstance(_n, (int, float)) or _n < 1:
+                raise ValueError(f"report '{label}': LF exige lines >= 1")
+            pdf.ln(_n * ROW_CELL)
+            pdf.set_x(_flow_zone(pdf)[0])
+            continue
+        if kind == 'FF':
+            if getattr(pdf, '_in_header', False):
+                raise ValueError(f"report '{label}': FF só no corpo (header repete por página)")
+            pdf.add_page()
+            continue
+        if kind == 'IND':
+            _vals = cfg.get('values') or []
+            if not _vals:
+                pdf._ind = None  # IND() nu = restaura (margens+área útil)
+                continue
+            if len(list(_vals)) != 2:
+                raise ValueError(f"report '{label}': IND exige [l, r]")
+            _l, _r = _resolve_tokens(pdf, list(_vals), label)
+            for _v in (_l, _r):
+                if isinstance(_v, bool) or not isinstance(_v, (int, float)) or _v < 0:
+                    raise ValueError(f"report '{label}': IND exige [l, r] não-negativos")
+            _ncol = _usable_cols(pdf)
+            if not (_l < _r) or _r > _ncol + 0.01:
+                raise ValueError(f"report '{label}': IND [{_l}, {_r}] fora da área (ncol={_ncol:.1f})")
+            pdf._ind = [_l, _r]
+            continue
         rb, ra = int(cfg.get('rows_before', 0) or 0), int(cfg.get('rows_after', 0) or 0)
         if rb:
             pdf.ln(rb * ROW_CELL)
+            pdf.set_x(_flow_zone(pdf)[0])
         _place_item(pdf, kind, name, cfg, label)
         if kind in ('FIELD', 'TEXT'):
             _render_flow_item(pdf, kind, name, cfg, instance, label, col_w)
@@ -1326,6 +1664,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             path = src if _os.path.isabs(str(src)) else _os.path.join(current_app.root_path, str(src))
             x, y, w, hh = _image_box(pdf, cfg.get('location'), path)
             pdf.image(path, x=x, y=y, w=w, h=hh)
+            _mark_content(pdf)
         else:  # LINE / BOX / CIRCLE
             g = _gmm(_gloc(kind, cfg.get('location')), ROW_CELL, col_w)
             ox, oy = pdf.l_margin, pdf.t_margin
@@ -1336,18 +1675,38 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             else:
                 pdf.ellipse(ox + g['x'] - g['rx'], oy + g['y'] - g['ry'],
                             2 * g['rx'], 2 * g['ry'])
+            _mark_content(pdf)
         if ra:
             pdf.ln(ra * ROW_CELL)
+            pdf.set_x(_flow_zone(pdf)[0])
+
+
+def _margin_mm(v, label):
+    """Margem em mm ou {'cols': n} (cols draft 2.54mm). Congelada aqui: troca
+    de fonte nunca recalcula margem."""
+    from ajsystem.defs.fonts import DRAFT_COL_MM
+    if isinstance(v, dict):
+        if set(v) != {'cols'}:
+            raise ValueError(f"report '{label}': margem dict deve ser {{'cols': n}}")
+        n = v['cols']
+        if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
+            raise ValueError(f"report '{label}': cols deve ser número >= 0")
+        return n * DRAFT_COL_MM
+    return v
 
 
 def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None,
                         instance=None, title_substitutions: dict = None) -> DocPDFReport:
     """Gera PDF genérico a partir de um Report."""
     data = data or []
+    _ml = _margin_mm(report.margin_left, report.label)
+    _mt = _margin_mm(report.margin_top, report.label)
+    _mr = _margin_mm(report.margin_right, report.label)
+    _mb = _margin_mm(report.margin_bottom, report.label)
 
     pdf = DocPDFReport(report)
-    pdf.set_auto_page_break(auto=report.auto_page_break, margin=report.margin_bottom)
-    pdf.set_margins(report.margin_left, report.margin_top, report.margin_right)
+    pdf.set_auto_page_break(auto=report.auto_page_break, margin=_mb)
+    pdf.set_margins(_ml, _mt, _mr)
 
     # Aplicar logo customizado
     h_cfg = report.header if isinstance(report.header, dict) else {}

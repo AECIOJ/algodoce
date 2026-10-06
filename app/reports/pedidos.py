@@ -1,9 +1,4 @@
-from ajsystem.defs.report import FIELD, LOGO, PCOL, TABS, TITLE
-from app.extends.constants import FORMINHAS
-
-
-def _valor_item(item):
-    return (item.preco or 0) * item.qtd
+from ajsystem.defs.report import *
 
 
 def _cliente_nome(order):
@@ -14,80 +9,18 @@ def _cliente_telefone(order):
     return order.conta.telefone if order.conta else ''
 
 
-def _event_after(instance):
-    e = instance.evento
-    if not e:
-        return []
-    lines = []
-    has_any = False
-    if e.tipo:
-        lines.append({'text': f'Evento: {e.tipo}', 'font_size': 10, 'font_style': 'B'})
-        has_any = True
-    if e.tema:
-        lines.append({'text': f'Tema: {e.tema}', 'font_size': 10})
-        has_any = True
-    if e.data:
-        data_str = e.data.strftime('%d/%m/%Y')
-        hora_str = e.hora.strftime('%H:%M') if e.hora else ''
-        lines.append({'text': f'Data: {data_str} {hora_str}'.strip(), 'font_size': 10})
-        has_any = True
-    if e.local:
-        lines.append({'text': f'Local: {e.local}', 'font_size': 10})
-        has_any = True
-    if e.convidados:
-        lines.append({'text': f'Convidados: {e.convidados}', 'font_size': 10})
-        has_any = True
-    if e.cerimonial:
-        lines.append({'text': f'Cerimonial: {e.cerimonial}', 'font_size': 10})
-        has_any = True
-    if e.obs:
-        lines.append({'text': f'Obs: {e.obs}', 'font_size': 10})
-        has_any = True
-    if has_any:
-        lines.append({'text': ''})
-    return lines
-
-
-def _forminhas_carteira(order):
-    f = FORMINHAS.get(order.forminhas, '-')
-    c = order.carteira.nome if order.carteira else '-'
-    return f"Forminhas: {f} | Forma de Pagamento: {c}"
-
-
-def _brl(v):
-    if v is None:
-        return "R$ 0,00"
-    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def _report_after(order):
-    lines = []
-    acrescimo = float(order.acrescimo or 0)
-    desconto = float(order.desconto or 0)
-    total = float(order.total or 0)
-    if acrescimo:
-        lines.append({'text': f'Acréscimo: {_brl(acrescimo)}', 'align': 'R'})
-    if desconto:
-        lines.append({'text': f'Desconto: {_brl(desconto)}', 'align': 'R'})
-    if acrescimo or desconto:
-        lines.append({'text': ''})
-    lines.append({'text': f'Total: {_brl(total)}', 'align': 'R',
-                  'font_size': 11, 'font_style': 'B'})
-    lines.append({'text': ''})
-    lines += _event_after(order)
-    return lines
-
-
 PEDIDO = {
     'label': 'Pedido',
     'header': [
         LOGO('L', 3),
-        TABS(PCOL, PCOL+20),
-        TITLE('Pedido #{id}', {'tab': 1}),
-        FIELD('cliente_nome', {'function': _cliente_nome, 'label': 'Cliente', 'tab': 1}),
-        FIELD('pedido_em', {'tab': 2, 'rows_after': 1}),
-        FIELD('cliente_telefone', {'function': _cliente_telefone, 'label': 'Telefone', 'tab': 1}),
-        FIELD('data_previsao_entrega', {'tab': 2}),
+        TABS(PCOL+5, PCOL+40),
+        TITLE('Pedido Nº {id}', {'location': [PCOL, 0]}),
+        POS(PCOL,2),
+        FIELDS(cliente_nome={'function': _cliente_nome, 'label': 'Cliente', 'tab': 1},
+               pedido_em={'tab': 2, 'rows_after': 1},
+               cliente_telefone={'function': _cliente_telefone, 'label': 'Telefone', 'tab': 1},
+               data_previsao_entrega={'tab': 2}),
+        LF(2)
     ],
     'body': {
         'table': {
@@ -98,8 +31,22 @@ PEDIDO = {
                 'PedidoItem.valor': {'width': 20, 'agg': 'sum'},
             },
             'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
-            'after': _forminhas_carteira,
+            'extend': [([1, 3], 'Acréscimo', {'align': 'R', 'when': 'acrescimo'}),
+                       (4, '{acrescimo}', {'when': 'acrescimo'}),
+                       ([1, 3], 'Desconto', {'align': 'R', 'when': 'desconto'}),
+                       (4, '{desconto}', {'when': 'desconto'}),
+                       ([1, 3], 'Total', {'align': 'R', 'font_style': 'B'}),
+                       (4, '{total}', {'font_style': 'B'})],
+            'after': [
+                IND(LTB,RTB),
+                FIELDS('Evento', tipo={'label': 'Evento', 'when': 'evento.tipo'},
+                             tema={'when': 'evento.tema'},
+                             local={'when': 'evento.local'},
+                             convidados={'when': 'evento.convidados'},
+                             cerimonial={'when': 'evento.cerimonial'},
+                             obs={'when': 'evento.obs', 'rows_after': 1}),
+                      {'TEXT': {'text': 'Data: {evento.data:%d/%m/%Y} {evento.hora:%H:%M}', 'when': 'evento.data'}},
+                      {'TEXT': {'text': 'Forminhas: {forminhas} | Forma de Pagamento: {conta.nome|-}'}}],
         },
-        'after': _report_after,
     },
 }

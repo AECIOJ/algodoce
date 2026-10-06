@@ -157,8 +157,16 @@ def _module_entity(report=None):
 
 
 def _resolve_logo(report):
-    """Resolve o path absoluto da logo a partir do path relativo do Report."""
-    return os.path.join(current_app.root_path, report.logo_path)
+    """Logo do APP (`APP.logo`, relativo ao static) com fallback legado."""
+    from ajsystem.defs.report import LOGO_FALLBACK
+    try:
+        from ajsystem.core.adapter import APP
+        _logo = getattr(APP, 'logo', None)
+    except Exception:
+        _logo = None
+    if _logo:
+        return os.path.join(current_app.static_folder, _logo)
+    return os.path.join(current_app.root_path, LOGO_FALLBACK)
 
 
 def _body_of(report):
@@ -420,10 +428,25 @@ def _apply_entity(raw, entity):
                 cols = {}
                 for key, spec in specs.items():
                     spec = dict(spec)
+                    for _fk in ('font', 'cpp', 'font_size'):
+                        if _fk in spec:
+                            raise ValueError(f"report '{raw.get('label')}': '{_fk}' não vale em tabela (sempre cpp=0)")
                     data_key = spec.pop('field', None) or key
                     cols[data_key] = spec
                 table['columns'] = cols
 
+            _ext = []
+            for _ex in table.get('extend') or []:
+                if isinstance(_ex, tuple) and len(_ex) >= 2 and isinstance(_ex[1], str):
+                    _fo = _fmt_opts_for(_ex[1], entity)
+                    if _fo:
+                        _ex = list(_ex)
+                        _pp = dict(_ex[2]) if len(_ex) == 3 else {}
+                        _pp.setdefault('_fmt_opts', _fo)
+                        _ex = tuple([_ex[0], _ex[1], _pp] if len(_ex) == 3 else [_ex[0], _ex[1]])
+                _ext.append(_ex)
+            if _ext:
+                table['extend'] = _ext
             _synthesize_levels_from_groups(table, out.get('body') or {}, raw.get('label'))
             hier = table.get('levels', table.get('hierarchy'))
             if hier:
@@ -435,7 +458,7 @@ def _apply_entity(raw, entity):
                     sp = {'field': field,
                           'pos': o.pop('pos', 1),
                           'total': o.pop('total', True),
-                          'line': o.pop('line', True),
+                          'gline': o.pop('gline', o.pop('line', True)),
                           'eject': o.pop('eject', False)}
                     if 'left' in o:
                         sp['left'] = max(1, int(o.pop('left')))
@@ -618,21 +641,40 @@ def _expand_fields_list(items, entity, label):
             out.append(it)
             continue
         _src, _when = _ri.config.get('source'), _ri.config.get('when')
+        _subset = None
+        if isinstance(_src, dict) and 'model' in _src:
+            _subset = _src.get('fields') or {}
+            _src = _src.get('model')
         if isinstance(_src, str):
             _rel = _src[:1].lower() + _src[1:]
             _cfg = _related_cfg(_src, entity)
             _model = _resolve_model(_src)
-            _names = [k for k in _cfg.keys() if not k.startswith('_')] if _cfg else []
-            _prefix = _rel + '.' if _model is not None else ''
+            if _subset is not None:
+                _names = list(_subset.keys())
+                _inline = dict(_subset)
+            else:
+                _names = [k for k in _cfg.keys() if not k.startswith('_')] if _cfg else []
+                _inline = {}
+            _prefix = (_rel + '.') if _model is not None else ''
+        elif isinstance(_src, dict):
+            for _k, _v in _src.items():
+                if not isinstance(_v, dict):
+                    raise ValueError(f"report '{label}': cfg de '{_k}' em FIELDS deve ser dict")
+            _names = list(_src.keys())
+            _prefix, _cfg, _inline = '', {}, dict(_src)
         else:
-            _names, _prefix, _cfg = list(_src), '', {}
+            _names, _prefix, _cfg, _inline = list(_src), '', {}, {}
         for _n in _names:
             _f = {'field': f'{_prefix}{_n}'}
             _rc = (_cfg.get(_n) or {}) if isinstance(_cfg, dict) else {}
             for _kk in ('label', 'format', 'mask'):
                 if _rc.get(_kk):
                     _f[_kk] = _rc[_kk]
-            if _when is not None:
+            if 'label' not in _f:
+                _f['label'] = _auto_label(_n)
+            for _kk, _vv in (_inline.get(_n) or {}).items():
+                _f[_kk] = _vv
+            if _f.get('when') is None and _when is not None:
                 _f['when'] = _when
             out.append(_f)
         if _when is not None and _names:
@@ -820,7 +862,7 @@ def _synthesize_levels_from_groups(table, body, label):
             grouped.append(cname)
             _sp = {cname: {'pos': 2 if pr == 3 else 1,
                            'text': g.get('text', cname),
-                           'total': False, 'line': True}}
+                           'total': False, 'gline': True}}
             if g.get('totals') is not None:
                 if not isinstance(g['totals'], dict):
                     raise ValueError(f"report '{label}': totals de '{cname}' deve ser dict")
@@ -833,7 +875,7 @@ def _synthesize_levels_from_groups(table, body, label):
                 raise ValueError(f"report '{label}': action=2/print=3 não suportado nesta fase")
             grouped.append(cname)
             synth.append({cname: {'pos': 0, 'total': bool(g.get('total', True)),
-                                  'line': True, 'footer_text': g.get('text', 'Total')}})
+                                  'gline': True, 'footer_text': g.get('text', 'Total')}})
     # order da fonte tem que abrir com as colunas de quebra (senão picota)
     src = (body or {}).get('source') if isinstance(body, dict) else None
     if isinstance(src, dict) and src.get('order') and grouped:
@@ -871,18 +913,23 @@ def _report_inputs():
 
 
 def _field_mask(name, cfg):
-    """Máscara do campo: explícita na cfg ou do catálogo de inputs (mesma
-    cadeia do form). Nunca quebra o relatório: falha -> None."""
-    if (cfg or {}).get('mask'):
+    """Máscara autoral do campo: explícita na cfg ou do catálogo de inputs
+    (mesma cadeia do form). Máscara auto-derivada (decimals->'9999.99') NÃO
+    conta (é dica de largura, não intenção). Falha -> None, nunca quebra."""
+    if not isinstance(cfg, dict):
+        return None
+    if cfg.get('mask'):
         return cfg['mask']
     try:
-        from ajsystem.defs.data import build_field
-        if not isinstance(cfg, dict) or 'type' not in cfg:
+        from ajsystem.defs.data import FIELD_TYPES
+        from ajsystem.defs.inputs import resolve_input
+        _inp = FIELD_TYPES.get(cfg.get('type'), {}).get('input')
+        if not _inp:
             return None
         _tipos, _pagina = _report_inputs()
         _camadas = tuple(c for c in (_tipos, _pagina) if c)
-        f = build_field(name, dict(cfg), inputs=_camadas or None)
-        return f.mask or None
+        _idef = resolve_input(_inp, {}, *_camadas)
+        return _idef.mask or None
     except Exception:
         return None
 
@@ -1001,8 +1048,9 @@ def print_report_page(report, instance=None, data=None, msg=None, filter=None):
     report = parse_report(_apply_entity(report, _module_entity(report)))
     data = _auto_data(report, data, instance, filter)
     try:
+        from ajsystem.defs.report import PRINT_TEMPLATE
         src = _data_uri(_pdf_bytes(report, data, instance))
-        return render_template(report.print_template, pdf_url=src)
+        return render_template(PRINT_TEMPLATE, pdf_url=src)
     except Exception:
         return _print_erro(msg)
 

@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.09.30.0001 — Manual do Framework
+# AJSYSTEM 1.26.10.06.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.02.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
+> Vinculado a `ajsystem/version` (`1.26.10.06.0001`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
 
 ---
 
@@ -311,14 +311,14 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 | `label` | `str` | — | título | cabeçalho do PDF |
 | `page_size` | `str` | `'A4'` | `'A4'`, `'Letter'`… | `fpdf` |
 | `orientation` | `str` | `'portrait'` | `'portrait'`, `'landscape'` | `fpdf` |
-| `orientation_mutable` | `bool` | `False` | `True` → o usuário gira a página na tela | página de impressão |
 | `header` | `dict\|list` | `None` | `{logo, title, fields:[...]}` (legado) ou `[...]` (5.8.1, `LOGO`/`TITLE`/`FIELD`/…) | `do_report.py:_apply_entity` resolve `label` via `Entity`; dict legado sintetiza a lista |
 | `body` | `dict\|ReportBody` | `None` | ver 5.8 | fonte dos dados |
 | `footer` | `dict` | `None` | `{show_user, show_datetime, show_page_number}` | rodapé do PDF |
 | `texts` | `dict\|list` | `None` | `ReportText` — ver 5.8 | blocos de texto avulso |
-| `print_template` | `str` | `'components/print_default.html'` | caminho | página standalone (`print_report_page`) |
+| (template standalone) | — | `PRINT_TEMPLATE` (`components/print_default.html`) | fixo no motor | página standalone (`print_report_page`); a chave legada `print_template` é ignorada no parse |
 | (fragmento) | — | overlay do framework (`print_overlay.html`) | fixo no motor | `print_report` injeta sempre com alternância do container; a chave legada `print_fragment_template` é ignorada no parse |
-| `logo_path` | `str` | `'static/icons/Logo.png'` | caminho | logo do cabeçalho |
+| (logo) | — | `APP.logo` (relativo a `static/`) com fallback `LOGO_FALLBACK` | `App.logo` / constante | logo do cabeçalho (`do_report._resolve_logo`); a chave legada `logo_path` é ignorada no parse |
+| (orientação mutável) | — | — | — | removida; a chave legada `orientation_mutable` é ignorada no parse |
 | `margin_top`/`margin_bottom`/`margin_left`/`margin_right` | `num` | `10` / `20` / `10` / `10` | mm | margens do PDF |
 | `auto_page_break` | `bool` | `True` | quebra automática de página | `fpdf` |
 | `show_table_lines` | `bool` | `False` | grade da tabela | `fpdf` |
@@ -329,11 +329,12 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 |---|---|---|---|
 | `body.source` | `str\|dict` | `'Tarefa'`, `{'entity':...}` (legado) ou query dict `{select,dist,from,...}` (5.10.1) | `_infer_source` + `_auto_data`; query numera tudo e filtra depois (índice global estável) |
 | `body.table.columns` | `dict\|list` | `{'titulo':{'width':50}}` ou `['indice','nome',{'id':{'width':6}}]` (forma enxuta igual ao `select`) | `_apply_entity` herda `label`/`calc` da `Entity` (Schema vence); coluna computada na query usa o attr direto |
-| `body.table.groups` | `dict\|list` | `{'tipo':{action:1,print:3,text:'{tipo:d}. {tipo}'}}` | control-break: `action` (quando: 1 abre, 2 fecha, ausente = toda linha) × `print` (onde: 0 nunca, 1 coluna, 2 linha, 3 fora da tabela). Legado `{print,place}` traduzido via shim. `order` da fonte tem que abrir com as quebras (senão quebra nomeando). `totals` no grupo = subtotal (`{'label','align','span'}`; ausente = não totaliza) |
+| `body.table.groups` | `dict\|list` | `{'tipo':{action:1,print:3,text:'{tipo:d}. {tipo}'}}` | control-break: `action` (quando: 1 abre, 2 fecha, ausente = toda linha) × `print` (onde: 0 nunca, 1 coluna, 2 linha, 3 fora da tabela). Legado `{print,place}` traduzido via shim. `order` da fonte tem que abrir com as quebras (senão quebra nomeando). `totals` no grupo = subtotal (`{'label','align','span','bline'}`; ausente = não totaliza; `bline` = régua antes); fechamento do grupo usa `gline` (legado `line` traduzido) |
 | `when` (item) | `str` | `{'TEXT': {'text': '…', 'when': 'evento.tipo'}}` | imprime só se o path (pontilhado ok) for truthy; ausente = sempre |
 | templates | — | `'{total:brl}'`, `'{a.b}'`, `'{?c:…}'`, `'{x\|dflt}'` | `:brl` moeda; path pontilhado com navegação segura; `\|dflt` fallback; labels LIST da Entity |
 | fluxo | — | `FIELD`/`TEXT` seguem na linha | `PCOL` avança pela largura; `pcol+largura>ncol` envolve; maior que a linha trunca; quebra por `rows_after/before` ou posicionamento; sem âncora volta à margem |
-| `body.table.totals` | `dict` | `{'label':'TOTAL GERAL','align':'R','span':3}` | linha de total geral (sempre). `agg` na coluna diz O QUÊ; sem `totals` não totaliza. Legado `footer/footer_label` via shim |
+| `body.table.totals` | `dict` | `{'label':'TOTAL GERAL','align':'R','span':3}` | linha de total geral (sempre, com régua antes e depois — internas). `agg` na coluna diz O QUÊ; sem `totals` não totaliza. Legado `footer/footer_label` via shim. Réguas seguidas sem conteúdo entre elas saem uma vez só |
+| `body.table.extend` | `list` | `[(col\|[a,b], texto[, props]), 'LINE', 'LF', 'CR']` | linhas **dentro do quadro** depois dos totais (ex.: Acréscimo/Desconto/Total). `when` por linha; placeholder puro `{campo}` herda o `format` da coluna; `font`/`cpp`/`font_size` recusados (tabela = sempre cpp 0) |
 | `body.table.hierarchy` | `list\|dict` | legado (derivado de `groups` quando ausente) | mantido por compat; prefira `groups` |
 | `body.filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` com cast tipado; critério aplicado **antes** da ordenação |
 
@@ -373,10 +374,14 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('C', 4)` (âncoras `C/L/R`; ausente não renderiza) |
 | `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(PCOL, PCOL+20)` (crescente; com `tab:N` no item) |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
+| `FONT(nome, cpp?)` | diretiva de fonte (catálogo `defs/fonts.py` + `extends/fonts.py`) | `FONT('DRAFT')`, `FONT('Courier', 0)` (`cpp` 0..3 = 10/12/17/20; `col=25.4/cpp` nominal; vale p/ `FIELD`/`TEXT` sem tamanho, escopo header/body) |
 | `PROW`/`PCOL` | constantes (`defs/report.py`) | posição corrente em grade, em `pos`/`location`/`TABS` (só literais; `PCOL±N` só em `TABS`) |
+| `LTB`/`RTB`/`NCOL` | constantes (bordas da última tabela; área útil se nenhuma) | `IND([LTB, RTB])`; `NCOL` = cols da área útil |
+| `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
 | `LINE/BOX/CIRCLE(loc, props?)` | `{'LINE': {'location': loc, ...}}` | `LINE([10, 5, 20])` (horizontal; `[c,r,0,h]` vertical) |
 | `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
-| `FIELDS(modelo\|lista, when?)` | expande em `FIELD`s (relação navegada ou instância) | `FIELDS('Evento', when='evento')` (sem lista = todos da Entity; `when` = path truthy, ausente = sempre) |
+| `FIELDS(modelo\|lista\|dict\|kwargs, when?)` | expande em `FIELD`s (relação, instância ou `{campo: cfg}`) | `FIELDS(a={'tab': 1}, …)` (kwargs, sem chaves; `when` vale p/ todos) |
+| `TEXTS(*itens)` / `CR()` / `LF(n?)` / `FF()` | bloco de textos; retorno; avanço; quebra de página (corpo) | `CR` = volta à 1ª coluna; `LF()` = 1 linha; `FF` no header = erro |
 
 ### 5.9 `Button` — `ajsystem/defs/buttons.py:85` `class Button`
 
@@ -707,6 +712,14 @@ Page = {
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.06.0001
+- **Diretivas de fluxo novas: `FONT`, `IND`, `TEXTS`/`CR`/`LF`/`FF` e as âncoras `LTB`/`RTB`/`NCOL`.** `FONT(nome, cpp?)` troca família/pitch no meio do fluxo (`cpp` 0..3 = 10/12/17/20; col nominal `25.4/cpp`; `FONT()` nu restaura o default) sobre o catálogo `defs/fonts.py` + camada `app.extends.fonts` (mesmo merge de `buttons`/`inputs`). `IND([l, r])` delimita a região em que o fluxo flui sem âncora (`IND()` restaura; validação em cols da fonte corrente) e `LTB`/`RTB`/`NCOL` são as bordas da última tabela (área útil se nenhuma) — `IND(LTB, RTB)` alinha o bloco `after` às colunas da tabela. `TEXTS(*itens)` monta blocos de texto (`str` = sempre, `(texto, when)` = condicional, dict = props), `CR()` volta à 1ª coluna, `LF(n)` avança linhas e `FF()` quebra página no corpo. `TABS()`/`IND()` sem parada = restaura (`TABS` sem argumento deixou de ser erro).
+- **`table.extend`: linhas dentro do quadro, depois dos totais.** Tuplas `(col|[a,b], texto[, props])` + as strings `'LINE'`/`'LF'`/`'CR'`; `when` por linha, placeholder puro `{campo}` herda o `format` da coluna, span `[a,b]` centraliza. `font`/`cpp`/`font_size` são recusados na tabela (sempre cpp 0) e `font_style` aceita só `''|B|I|BI`. No `_apply_entity` o `format`/`mask` do campo vira `_fmt_opts` da linha. Pedido/compra passaram a imprimir Acréscimo/Desconto/Total por `extend`, sem helper Python.
+- **`FIELDS` aceita kwargs e dict de cfg.** `FIELDS(a={'tab': 1}, …)` (kwargs, sem chaves; exige modelo `str` ou ausente), `FIELDS({'a': {...}})` ou a forma interna `{'model': …, 'fields': …}`; cfg por campo aceita `label`/`when`/`function` (com `_auto_label` quando não há rótulo) e o `when` posicional vale para todos. Relatórios do app migraram para `from ajsystem.defs.report import *` (`__all__` novo entrega **só** as factories de declaração; `Report*`/`parse_*` seguem import explícito) — `_brl`/`_report_after`/`_event_after`/`_forminhas_carteira` saíram de `pedidos`/`compras` e o bloco do evento virou `IND(LTB, RTB)` + `FIELDS('Evento', tipo={…, 'when': 'evento.tipo'}, …)`.
+- **Controles de régua: `totals.bline` e `groups.gline`.** `bline` = régua antes da linha de subtotal/total; fechamento de grupo usa `gline` (legado `line` traduzido no parse e nas sínteses de `levels`). Réguas seguidas sem conteúdo entre elas saem uma vez só; o total geral ganhou régua antes e depois internas.
+- **Logo e página standalone saíram da declaração do `Report`.** `do_report._resolve_logo` lê `APP.logo` (relativo a `static/`) com fallback `LOGO_FALLBACK` (`static/icons/Logo.png`), e `print_report_page` usa a constante `PRINT_TEMPLATE`. As chaves legadas `print_template`, `logo_path` e `orientation_mutable` são ignoradas no parse (shim) — a última não tinha consumidor e a feature saiu.
+- **Correções de impressão e de form.** `_render_table` guarda as bordas da última tabela em **mm** e converte na resolução (`_table_edges`): gravar já em cols do pitch da tabela brigava com o `ncol` da validação do `IND` depois que `FONT` mudou a unidade. `data-enabled` no botão escapava para `&#34;` (Markup do `title` escapava a string do `~`) e o `itEnabledEval` morria com seletor inválido **antes** de amarrar os listeners do form — o `total` nunca recalculava; fix é `|safe` + espaço inicial em `_attrs` (`form_macros`). `item_table` fechava o `</div>` de `.itm-scroll` só dentro de `{% if _can_edit %}`: sessão readonly (pedido com evento) deixava o HTML desbalanceado, `#report-content` nascia dentro de `#page-content` e o overlay escondia os dois — página em branco ao imprimir; agora o fechamento é incondicional e o `{% if _can_edit %}` do ColumnTemplate é separado. `transformers` lê o atributo com `getattr` tolerante (property que levanta não derruba o form), input `date` ganhou máscara `dd/mm/yyyy`, `_field_mask` do relatório ignora máscara auto-derivada de `decimals`, `'LINE'` (string) no relatório de pedido parou de quebrar o boot e `app/extends/utils.py` ganhou `num0` (Decimal tolerante a None/str/float).
 
 ### 1.26.10.02.0001
 - **Fonte de dados declarativa SQL-like (`defs/qspec.py`, novo).** `QuerySpec` com as props na ordem do SQL — `select, dist, from, join, where, groups, order, limit` (`levels` legado aceito como alias) — e `PivotSpec` (`src, lines, columns, aggs, filters`; executor pendente). Cada entrada do `select` espelha o `Field`: dado (`field/agg/func/over/calc`) + apresentação (`label/width/align/format/pos_list`) lado a lado, sem sub-dict `display` (que existiu numa fase e foi removido por duplicar props do `Field`). Formas por campo: `'nome'` puro, `{'alias': {agg, field}}` (GROUP BY fora de `over`), `{func, over}` (janela, `func` explícito, `over` nunca vazio), `{over={agg,...}}` (agregado em janela), `{calc}` (template montado pós-`over`). `aggs` no dual curto/longo (`{'id':'count'}` | `{'qtd':{'id':'count'}}`). Tudo com `fail-fast` nomeando (função desconhecida, chave estranha, `groups` sem `agg`, `calc` referenciando campo inexistente). Detecção `is_query_dict` (`select+from`) para a `columns` polimórfica da listagem.

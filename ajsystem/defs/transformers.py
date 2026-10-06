@@ -40,9 +40,14 @@ def apply_field_transforms(instance, fields):
         else:
             field_list = [Field(name=k, **v) for k, v in fields.items()]
     for f in field_list:
-        if not hasattr(instance, f.name):
+        # Leitura tolerante: atributos calculados (@property) podem levantar
+        # qualquer exceção (ex. TypeError em soma de tipos); transform é
+        # cosmético e nunca pode derrubar o form. Ausente cai no default None
+        # e segue o mesmo caminho de valor nulo.
+        try:
+            val = getattr(instance, f.name, None)
+        except Exception:
             continue
-        val = getattr(instance, f.name, None)
         if val is None or not isinstance(val, str):
             continue
         tr = infer_transform(f)

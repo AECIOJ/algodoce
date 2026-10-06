@@ -1,4 +1,4 @@
-from ajsystem.defs.report import FIELD, LOGO, PCOL, TABS, TITLE
+from ajsystem.defs.report import *
 
 
 def _fornecedor_nome(compra):
@@ -28,38 +28,16 @@ def _report_before(compra):
     ]
 
 
-def _brl(v):
-    if v is None:
-        return "R$ 0,00"
-    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def _report_after(compra):
-    lines = [
-        {'text': ''},
-        {'text': '_' * 40, 'align': 'C'},
-    ]
-    acrescimo = float(compra.acrescimo or 0)
-    desconto = float(compra.desconto or 0)
-    total = float(compra.total or 0)
-    if acrescimo:
-        lines.append({'text': f'Acréscimo: {_brl(acrescimo)}', 'align': 'R'})
-    if desconto:
-        lines.append({'text': f'Desconto: {_brl(desconto)}', 'align': 'R'})
-    lines.append({'text': ''})
-    lines.append({'text': f'Total: {_brl(total)}', 'align': 'R',
-                  'font_size': 11, 'font_style': 'B'})
-    return lines
-
-
 COMPRA = {
     'label': 'Compra',
     'header': [
         LOGO('L', 3),
-        TABS(PCOL, PCOL+20),
-        TITLE(_report_title, {'tab': 1}),
-        FIELD('fornecedor_nome', {'function': _fornecedor_nome, 'label': 'Fornecedor', 'tab': 1}),
-        FIELD('data', {'tab': 2}),
+        TABS(PCOL+5, PCOL+40),
+        TITLE(_report_title, {'location': [PCOL, 0]}),
+        POS(PCOL,2),
+        FIELDS(fornecedor_nome={'function': _fornecedor_nome, 'label': 'Fornecedor', 'tab': 1},
+               data={'tab': 2}),
+        LF(2)
     ],
     'body': {
         'before': _report_before,
@@ -71,7 +49,11 @@ COMPRA = {
                 'CompraItem.valor': {'width': 20, 'agg': 'sum'},
             },
             'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
+            'after': [{'TEXT': {'text': ''}},
+                      {'TEXT': {'text': '_' * 40, 'align': 'C'}},
+                      {'TEXT': {'text': 'Acréscimo: {acrescimo:brl}', 'align': 'R', 'when': 'acrescimo'}},
+                      {'TEXT': {'text': 'Desconto: {desconto:brl}', 'align': 'R', 'when': 'desconto', 'rows_after': 1}},
+                      {'TEXT': {'text': 'Total: {total:brl|R$ 0,00}', 'align': 'R', 'font_size': 11, 'font_style': 'B'}}],
         },
-        'after': _report_after,
     },
 }

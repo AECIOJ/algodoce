@@ -304,10 +304,16 @@
 {% macro render_button_el(btn, instance, ctx='form', url='', html='', dom_fields=none, btn_idx=none) %}
 {%- set _names, _mode = btn.enabled_spec() -%}
 {%- set _on = btn_enabled_init(btn, instance, dom_fields) -%}
-{%- set _ed = (' data-enabled="' ~ _names|join(',') ~ '" data-enabled-mode="' ~ _mode ~ '"') if _names else '' -%}
+{%- set _ed = ((' data-enabled="' ~ _names|join(',') ~ '" data-enabled-mode="' ~ _mode ~ '"')|safe) if _names else '' -%}
 {#- `_attrs` junta o que TODO botão carrega na tag, para nenhum ramo do
-   `render_button_el` esquecer o `title` (nome acessível do botão só-ícone). -#}
-{%- set _attrs = (_ed ~ ' ' ~ btn_title(btn))|trim -%}
+   `render_button_el` esquecer o `title` (nome acessível do botão só-ícone).
+   Dois detalques que quebram o cliente se forem ignorados:
+   `|safe` em `_ed` — `btn_title()` devolve Markup e o `~` escapa a string
+   simples da esquerda, gerando `data-enabled=&#34;...&#34;` (o navegador lê
+   as aspas como parte do valor e o `itEnabledEval` morre com seletor
+   inválido no meio do init, antes de amarrar os listeners do form);
+   espaço inicial — sem ele a tag sai `class="..."data-enabled=...`. -#}
+{%- set _attrs = ' ' ~ ((_ed ~ ' ' ~ btn_title(btn))|trim) -%}
 {%- set _cls = 'btn btn-sm ' ~ btn.btn_cls() ~ ' inline-flex items-center gap-1' ~ (' btn-disabled' if not _on and (btn.url or btn.render) else '') -%}
 {%- if btn.render -%}
   {%- if not _on -%}

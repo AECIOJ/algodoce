@@ -9,6 +9,16 @@ E o motor `ajsystem.core.pdf.gerar_pdf_relatorio(report, ...)` os renderiza.
 from dataclasses import dataclass, field as dc_field
 from typing import Optional, Callable, Union
 
+# Import único nos relatórios do app: `from ajsystem.defs.report import *`
+# entrega SÓ os aliases de declaração; o resto (Report*, parse_*, contrato
+# DOM) é import explícito, como o motor já faz.
+__all__ = [
+    'LOGO', 'TITLE', 'TEXT', 'TABS', 'IND', 'FIELD', 'TEXTS',
+    'CR', 'LF', 'FF', 'FIELDS', 'FONT', 'POS',
+    'LINE', 'BOX', 'CIRCLE', 'IMAGE',
+    'PCOL', 'PROW', 'LTB', 'RTB', 'NCOL',
+]
+
 
 # ── Contrato de DOM do container de relatório ──
 # O relatório não é só o PDF: ele é injetado num container exclusivo da página,
@@ -29,6 +39,11 @@ from typing import Optional, Callable, Union
 # vez de repetir o literal.
 REPORT_ID = 'report-content'
 REPORT_CONTENT = f'#{REPORT_ID}'
+
+# Template da página standalone (antes: prop print_template do Report).
+PRINT_TEMPLATE = 'components/print_default.html'
+# Logo fallback quando o APP não declara (APP.logo = relativo ao static).
+LOGO_FALLBACK = 'static/icons/Logo.png'
 
 
 class _CursorExpr:
@@ -61,6 +76,11 @@ class _CursorExpr:
 # 'PCOL+20' segue válida). Importe no relatório: from ajsystem.defs.report import PCOL
 PCOL = _CursorExpr('PCOL')
 PROW = _CursorExpr('PROW')
+# Bordas da última tabela impressa (fallback = área útil) e total de cols.
+# LTB/RTB/NCOL valem em âncora, TABS e POS, como PCOL/PROW.
+LTB = _CursorExpr('LTB')
+RTB = _CursorExpr('RTB')
+NCOL = _CursorExpr('NCOL')
 
 
 @dataclass
@@ -85,7 +105,7 @@ def parse_header_field(item) -> ReportField:
 
 
 ITEM_KINDS = ('FIELD', 'TEXT', 'IMAGE', 'LINE', 'BOX', 'CIRCLE', 'LOGO', 'TITLE',
-              'TABS', 'POS', 'FIELDS')
+              'TABS', 'POS', 'FIELDS', 'FONT', 'IND', 'TEXTS', 'CR', 'LF', 'FF')
 
 
 @dataclass
@@ -138,14 +158,23 @@ def TEXT(text, props=None):
 
 
 def TABS(*stops):
-    """Factory pura: TABS(22, 48) == {'TABS': [22, 48]} (ou TABS([22, 48]))."""
+    """Factory pura: TABS(22, 48) == {'TABS': [22, 48]}; TABS() = restaura."""
     if len(stops) == 1 and isinstance(stops[0], (list, tuple)):
         stops = list(stops[0])
     else:
         stops = list(stops)
-    if not stops:
-        raise ValueError("TABS: exige ao menos uma parada")
     return {'TABS': stops}
+
+
+def IND(*bounds):
+    """Factory pura: IND([l, r]) = região do fluxo; IND() = restaura."""
+    if len(bounds) == 1 and isinstance(bounds[0], (list, tuple)):
+        bounds = list(bounds[0])
+    else:
+        bounds = list(bounds)
+    if bounds and len(bounds) != 2:
+        raise ValueError("IND: exige [l, r] ou vazio (restaura)")
+    return {'IND': bounds}
 
 
 def FIELD(name, props=None):
@@ -157,27 +186,107 @@ def FIELD(name, props=None):
     return {name: dict(_check_props('FIELD', props, ''))}
 
 
-def FIELDS(source, when=None):
-    """Factory pura: FIELDS('Evento', when='evento') | FIELDS(['a','b'], when=...).
+def TEXTS(*items):
+    """Factory pura: TEXTS('a', ('b', 'quando.c'), {'text': 'd', ...}).
 
-    source = relação/model (expande a Entity) ou lista explícita. when =
-    path avaliado truthy (ausente = sempre). Tradução 1:1 validada igual.
+    str = sempre; (texto, when) = par posicional exato; dict = props.
     """
+    out = []
+    for it in items:
+        if isinstance(it, str):
+            out.append({'TEXT': {'text': it}})
+        elif isinstance(it, tuple):
+            if len(it) != 2 or not isinstance(it[1], str):
+                raise ValueError("TEXTS: par deve ser (texto|cfg, when)")
+            if isinstance(it[0], str):
+                out.append({'TEXT': {'text': it[0], 'when': it[1]}})
+            elif isinstance(it[0], dict) and isinstance(it[0].get('text'), str):
+                _cfg = dict(it[0])
+                _cfg['when'] = it[1]
+                out.append({'TEXT': _cfg})
+            else:
+                raise ValueError("TEXTS: par deve ser (texto|cfg, when)")
+        elif isinstance(it, dict):
+            out.append(it)
+        else:
+            raise ValueError("TEXTS: item deve ser str, par (texto, when) ou dict")
+    return {'TEXTS': out}
+
+
+def CR():
+    """Factory pura: volta à 1ª coluna (sem avançar linha)."""
+    return {'CR': {}}
+
+
+def LF(n=1):
+    """Factory pura: avança n linhas (default 1)."""
+    if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 1:
+        raise ValueError("LF: exige n >= 1")
+    return {'LF': {'lines': n}}
+
+
+def FF():
+    """Factory pura: quebra de página (só no corpo; no header = erro)."""
+    return {'FF': {}}
+
+
+def FIELDS(source=None, when=None, **kws):
+    """Factory pura: FIELDS('Evento', when='evento') | FIELDS(['a','b']) |
+    FIELDS({'a': {...}}) | FIELDS(a={...}, b={...}) (kwargs, sem chaves).
+
+    source = relação/model (expande a Entity), lista ou dict explícitos.
+    when = path avaliado truthy (ausente = sempre). Tradução 1:1 validada.
+    """
+    if kws:
+        if source is not None and not isinstance(source, str):
+            raise ValueError("FIELDS: kwargs exigem source str (modelo) ou ausente")
+        for _k, _v in kws.items():
+            if not isinstance(_v, dict):
+                raise ValueError(f"FIELDS: cfg de '{_k}' deve ser dict")
+        source = {'model': source, 'fields': dict(kws)} if source is not None else kws
     if isinstance(source, str):
         if not source:
-            raise ValueError("FIELDS: source deve ser relação/lista não vazia")
+            raise ValueError("FIELDS: source deve ser relação/lista/dict não vazia")
     elif isinstance(source, (list, tuple)):
         if not source or not all(isinstance(s, str) and s for s in source):
             raise ValueError("FIELDS: lista deve ter strs não vazias")
         source = list(source)
+    elif isinstance(source, dict):
+        if 'model' in source:
+            pass  # forma interna model+fields (já validada acima)
+        else:
+            if not source:
+                raise ValueError("FIELDS: dict não pode ser vazio")
+            for _k, _v in source.items():
+                if not isinstance(_v, dict):
+                    raise ValueError(f"FIELDS: cfg de '{_k}' deve ser dict")
+            source = dict(source)
     else:
-        raise ValueError("FIELDS: source deve ser str ou lista")
+        raise ValueError("FIELDS: source deve ser str, lista ou dict")
     if when is not None and (not isinstance(when, str) or not when):
         raise ValueError("FIELDS: when deve ser path str")
     cfg = {'source': source}
     if when is not None:
         cfg['when'] = when
     return {'FIELDS': cfg}
+
+
+def FONT(name=None, cpp=None):
+    """Factory pura: FONT() = restaura; FONT('DRAFT') | FONT('Courier', 0).
+
+    Nome de preset (catálogo framework/app/página) ou família crua (aí cpp
+    é obrigatório). Tradução 1:1 validada pelo normalizador.
+    """
+    if name is None and cpp is None:
+        return {'FONT': {}}
+    if not isinstance(name, str) or not name:
+        raise ValueError("FONT: nome deve ser str não vazia")
+    if cpp is not None and cpp not in (0, 1, 2, 3):
+        raise ValueError("FONT: cpp deve ser 0|1|2|3 (10/12/17/20cpp)")
+    cfg = {'font': name}
+    if cpp is not None:
+        cfg['cpp'] = cpp
+    return {'FONT': cfg}
 
 
 def POS(*where):
@@ -240,10 +349,31 @@ def parse_report_item(it, label='') -> ReportItem:
                     if not isinstance(v, list):
                         raise ValueError(f"report '{label}': '{k}' exige lista")
                     return ReportItem(kind=k, name=k, config={'values': v})
+                if k == 'IND':
+                    if not isinstance(v, list) or (v and len(v) != 2):
+                        raise ValueError(f"report '{label}': 'IND' exige [l, r] ou []")
+                    return ReportItem(kind=k, name=k, config={'values': list(v)})
+                if k == 'FONT':
+                    if not isinstance(v, dict) or not v.get('font'):
+                        raise ValueError(f"report '{label}': 'FONT' exige {{font, ...}}")
+                    if 'cpp' in v and v['cpp'] not in (0, 1, 2, 3):
+                        raise ValueError(f"report '{label}': cpp deve ser 0|1|2|3")
+                    return ReportItem(kind=k, name=k, config=v)
                 if k == 'FIELDS':
                     if not isinstance(v, dict):
                         raise ValueError(f"report '{label}': 'FIELDS' exige dict")
                     return ReportItem(kind=k, name=k, config=v)
+                if k == 'TEXTS':
+                    if not isinstance(v, list):
+                        raise ValueError(f"report '{label}': 'TEXTS' exige lista")
+                    return ReportItem(kind=k, name=k, config={'items': list(v)})
+                if k in ('CR', 'FF'):
+                    return ReportItem(kind=k, name=k, config={})
+                if k == 'LF':
+                    _lines = 1 if not isinstance(v, dict) else v.get('lines', 1)
+                    if isinstance(_lines, bool) or not isinstance(_lines, (int, float)) or _lines < 1:
+                        raise ValueError(f"report '{label}': 'LF' exige lines >= 1")
+                    return ReportItem(kind=k, name=k, config={'lines': _lines})
                 if not isinstance(v, dict):
                     raise ValueError(f"report '{label}': cfg de '{k}' deve ser dict")
                 return ReportItem(kind=k, name=k, config=v)
@@ -357,7 +487,6 @@ class Report:
     # Página
     page_size: str = 'A4'
     orientation: str = 'portrait'
-    orientation_mutable: bool = False
 
     # Header (dict consolidado)
     header: Optional[dict] = dc_field(default=None)
@@ -373,12 +502,8 @@ class Report:
     # Texts avulsos
     texts: Optional[list] = None
 
-    # Template de impressão HTML (página standalone). O fragmento injetado
-    # é sempre o overlay do framework (fragmento + alternância do container);
-    # a chave legada 'print_fragment_template' é ignorada no parse (shim).
-    print_template: str = 'components/print_default.html'
-    # Path da logo (relativo ao root_path do app; resolvido em runtime)
-    logo_path: str = 'static/icons/Logo.png'
+    # Template standalone e logo saíram da declaração (motor/APP resolvem;
+    # chaves legadas ignoradas no parse). Ver PRINT_TEMPLATE/APP.logo.
 
     # Margens (mm)
     margin_top: float = 10
@@ -408,9 +533,12 @@ def parse_report(spec):
         return spec
     if isinstance(spec, dict):
         spec = dict(spec)
-        # Shim: 'print_fragment_template' removida (fragmento sempre overlay);
-        # dicts antigos com a chave seguem parseando sem TypeError.
+        # Shim: chaves removidas (fragmento sempre overlay; template/logo no
+        # motor/APP). Dicts antigos seguem parseando sem TypeError.
         spec.pop('print_fragment_template', None)
+        spec.pop('print_template', None)
+        spec.pop('logo_path', None)
+        spec.pop('orientation_mutable', None)
         body = spec.get('body')
         if isinstance(body, dict):
             spec['body'] = ReportBody(**body)
