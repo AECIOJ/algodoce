@@ -74,8 +74,8 @@ COMPRA = {
                        (4, '{acrescimo}', {'when': 'acrescimo'}),
                        ([1, 3], 'Desconto', {'align': 'R', 'when': 'desconto'}),
                        (4, '{desconto}', {'when': 'desconto'}),
-                       ([1, 3], 'Total', {'align': 'R', 'font_style': 'B'}),
-                       (4, '{total}', {'font_style': 'B'})],
+                       ([1, 3], 'Total', {'align': 'R', 'font_style': 'B' , 'when': 'acrescimo | desconto'}),
+                       (4, '{total}', {'font_style': 'B', 'when': 'acrescimo | desconto'  })],
             'after': [
                 LF(1, {'when': 'observacao'}),
                 MEMO('observacao', LARGURA, {'label': 'Obs.:',

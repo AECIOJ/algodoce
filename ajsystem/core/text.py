@@ -31,14 +31,51 @@ def dotted_get(obj, path):
     return cur
 
 
+# `when` com expressão: `or`/`and`/`not` sobre paths. Precedência NOT > AND > OR,
+# e as duas grafias — `or`/`and`/`not` e `|`/`&`/`!` — valem. Parser próprio em vez
+# de `eval`: o avaliador de `calc` (`do_report._calc_fn`) usa `eval` porque é
+# aritmética com namespace montada, e trazer isso para cá abriria execução de
+# código num módulo genérico que list/select também usam.
+_OR_RE = re.compile(r'\s+(?:or|\|\|?)\s+|\|\|?')
+_AND_RE = re.compile(r'\s+(?:and|&&)\s+|&')
+_NOT_RE = re.compile(r'^(?:not\s+|!)', re.I)
+
+
+def _unparenthesize(expr):
+    while len(expr) > 1 and expr.startswith('(') and expr.endswith(')'):
+        inner = expr[1:-1].strip()
+        # só remove se o parêntese realmente envolve a expressão toda
+        if inner.count('(') != inner.count(')'):
+            break
+        expr = inner
+    return expr.strip()
+
+
+def _truth(expr, obj):
+    """Avalia a expressão booleana de um `when` sobre os paths do objeto."""
+    e = _unparenthesize(str(expr or ''))
+    neg = _NOT_RE.match(e)
+    if neg:
+        return not _truth(e[neg.end():], obj)
+    if _OR_RE.search(e):
+        return any(_truth(p, obj) for p in _OR_RE.split(e) if p.strip())
+    if _AND_RE.search(e):
+        return all(_truth(p, obj) for p in _AND_RE.split(e) if p.strip())
+    v = dotted_get(obj, e)
+    return bool(v) and v != ''
+
+
 def eval_when(obj, when):
-    """`when` = path str (pontilhado, truthy) **ou** dict `{campo: valores}`.
+    """`when` = path (pontilhado, truthy) **ou** expressão sobre paths
+    (`'a or b'`, `'a | b'`, `'not a'`, com parênteses) **ou** dict
+    `{campo: valores}`.
 
     O dict é o mesmo formato que o Schema já usava (`{'ativo': True, 'tipo':
-    [1, 2]}` em `app/routes/sys/*`); aqui ele permite dizer "este item só para
-    os status que estão neste catálogo", o que deixa o CATÁLOGO ser a única
-    fonte da verdade em vez de um `if status not in (...)` em Python.
-    `{'status': FRASE}` casa quando `FRASE` é lista/conjunto/dict (chaves).
+    [1, 2]}`), e com dicionário como alvo `{'status': FRASE}` quer dizer "só nos
+    status que estão neste catálogo" — foi o que deixou o CATÁLOGO ser a única
+    fonte da verdade em vez de um `if status not in (...)` em Python. Na forma
+    dict o alvo é COMPARAÇÃO (`True` casa com campo booleano), não truthiness;
+    para "algum destes" use a expressão (`'acrescimo or desconto'`).
     Ausente = sempre.
     """
     if when is None:
@@ -56,9 +93,8 @@ def eval_when(obj, when):
                 return False
         return True
     if not isinstance(when, str) or not when:
-        raise ValueError(f"when deve ser path str ou dict, veio {when!r}")
-    v = dotted_get(obj, when)
-    return bool(v) and v != ''
+        raise ValueError(f"when deve ser path str, expressão ou dict, veio {when!r}")
+    return _truth(when, obj)
 
 
 def render(tpl, get, labels=None):
