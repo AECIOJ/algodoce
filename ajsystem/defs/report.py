@@ -191,25 +191,44 @@ def FIELD(name, props=None):
     return {name: dict(_check_props('FIELD', props, ''))}
 
 
-def MEMO(text, width, props=None):
-    """Factory pura: MEMO('...', 80, {...}) == {'MEMO': {'text': '...', 'width': 80, ...}}.
+def MEMO(campo, width, props=None):
+    """Factory pura: `MEMO('status', 80, {...})` — um FIELD com medida.
 
-    Bloco de parágrafo: quebra por palavra numa largura (`width` em colunas da
-    grade) e **centraliza o bloco na área livre** da zona corrente. É o que o
-    `IND` não fazia direito: `IND` abre uma zona que vaza para os itens
-    seguintes e depende de ordem, enquanto `MEMO` tem a largura no próprio item.
+    `campo` aceita a MESMA gramática que `field_spec_item` (a de `FIELD`,
+    `FIELDS` e `list.columns`): `'status'`, `('status', {props})`,
+    `{'status': {props}}`, `{'field': 'status', **props}`. É a resposta a
+    "por que o catálogo do status tinha que vir colado num `labels`, se a
+    Entity já tem `options`?": não precisa. O catálogo é o override normal do
+    field, e o label, o `calc` e a máscara vêm da Entity como em qualquer item
+    de field — `MEMO` é um FIELD que quebra por palavra numa largura.
 
-    Props: `align` (L/C/R/J — `J` só justifica quando o espaço esticado fica
-    legível, ver `JUSTIFY_MAX`), `font_size`, `font_style`, `label` (legenda
-    acima do bloco), `when`, `labels` (catálogo `{campo: {valor: rótulo}}`).
-    O texto passa pelo mesmo avaliador de `TEXT`: `{campo}`, `{campo:brl}`,
-    `{campo|fallback}` e `{?campo:...}`.
+    Bloco de parágrafo: quebra numa medida (`width` em colunas da grade) e
+    **centraliza na área livre** da zona. É o que o `IND` não fazia direito:
+    `IND` abre uma zona que vaza para os itens seguintes e depende de ordem,
+    enquanto `MEMO` tem a largura no próprio item.
+
+    `campo` com `{` vira TEMPLATE (`MEMO('Prezado {fornecedor.nome}, ...')`) e
+    aí não tem label nem override de catálogo — é a mesma distinção que separa
+    `FIELD` de `TEXT`.
+
+    Props: `align` (default `'J'` — parágrafo se justifica; `JUSTIFY_MAX` limita
+    o quanto o espaço estica), `font_size`, `font_style`, `label` (legenda
+    acima do bloco; no uso como field, o rótulo do campo), `when`.
     """
-    if not isinstance(text, str):
-        raise ValueError("MEMO: texto deve ser str")
     if isinstance(width, bool) or not isinstance(width, (int, float)) or width <= 0:
         raise ValueError(f"MEMO: width deve ser cols > 0, veio {width!r}")
-    return {'MEMO': {'text': text, 'width': width, **_check_props('MEMO', props or {}, '')}}
+    _check_props('MEMO', props or {}, '')
+    from ajsystem.core.resolve import field_spec_item as _fsi
+    achado = _fsi(campo)
+    cfg = dict(props or {})
+    if achado and '{' not in (achado[0] or ''):
+        nome, overrides = achado
+        # a gramática resolve o nome; os overrides do campo entram junto, como
+        # em `FIELD('status', {'options': ...})`.
+        return {'MEMO': {'field': nome, 'width': width, **overrides, **cfg}}
+    if isinstance(campo, str):
+        return {'MEMO': {'text': campo, 'width': width, **cfg}}
+    raise ValueError(f"MEMO: campo deve ser nome de field ou template, veio {campo!r}")
 
 
 def TEXTS(*items):
@@ -446,11 +465,17 @@ def parse_report_item(it, label='') -> ReportItem:
                 if k == 'MEMO':
                     if not isinstance(v, dict):
                         raise ValueError(f"report '{label}': 'MEMO' exige dict")
-                    if not isinstance(v.get('text'), str):
-                        raise ValueError(f"report '{label}': 'MEMO' exige 'text' str")
                     _mw = v.get('width')
                     if isinstance(_mw, bool) or not isinstance(_mw, (int, float)) or _mw <= 0:
                         raise ValueError(f"report '{label}': 'MEMO' exige 'width' cols > 0")
+                    # `field` = FIELD com medida (a forma normal) · `text` =
+                    # TEMPLATE. Exige um dos dois, senão o bloco sai vazio e o
+                    # autor não descobre por quê.
+                    _f, _t = v.get('field'), v.get('text')
+                    if not isinstance(_f, str) and not isinstance(_t, str):
+                        raise ValueError(
+                            f"report '{label}': 'MEMO' exige 'field' (nome de field) "
+                            f"ou 'text' (template)")
                     return ReportItem(kind=k, name=k, config=v)
                 if k in ('CR', 'FF'):
                     return ReportItem(kind=k, name=k, config={})

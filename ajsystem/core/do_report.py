@@ -242,7 +242,17 @@ def _apply_entity(raw, entity):
         # Entity legada aninhada: {'Model': {'campo': cfg}}.
         hits = [m for m, cfg in entity.items()
                 if isinstance(cfg, dict) and field in cfg]
-        return hits[0] if len(hits) == 1 else None
+        if len(hits) == 1:
+            return hits[0]
+        # Mais de um model tem esse nome, e `status` é o caso real (existe em
+        # Compra, Orcamento, Pedido, Transacao e Transferencia). Sem prefixo o
+        # campo é da entidade PRINCIPAL do report — devolver None aqui fazia o
+        # item perder label, catálogo e `calc` de uma vez, e o `status` saía
+        # como código. `_pmodel` é uma CLASSE e `hits` são strings: compara pelo
+        # nome. `_pmodel` é resolvido logo abaixo e as chamadas vêm depois.
+        if _pmodel is not None and _pmodel.__name__ in hits:
+            return _pmodel.__name__
+        return None
 
     # Entidade principal (campos sem prefixo) do report.
     from ajsystem.core.list import _resolve_model as _rmodel
@@ -330,20 +340,29 @@ def _apply_entity(raw, entity):
                 # direto (1 query, sem N+1 por célula).
                 if fld in _computed:
                     spec.pop('function', None)
-                elif raw_cfg.get('calc'):
-                    calc = raw_cfg['calc']
-                    if isinstance(calc, (str,)) or callable(calc):
-                        spec['function'] = calc if callable(calc) else _calc_fn(calc)
                 else:
-                    # BOOL → Sim/Não · LIST → rótulo do catálogo: passo genérico
-                    # (`core.resolve.field_display_fn`), o mesmo que
-                    # `_field_item` usa — é por isso que coluna e item de
-                    # layout imprimem igual. Fora daqui (calc acima) a Entity
-                    # manda, porque quem calcula o valor é o `calc`.
-                    _disp_fn = field_display_fn(raw_cfg, fld, i18n)
-                    if _disp_fn is not None:
-                        spec['function'] = _disp_fn
-                        _mapped_label = True
+                    _calc = raw_cfg.get('calc')
+                    # `calc` que o report consegue usar: str (expressão) ou
+                    # callable. `calc` DICT é do formulário (`{'type':'call',
+                    # 'source': ...}`, que recalcula no save) e NÃO vale para
+                    # imprimir — mas ele NÃO pode engolir o campo: antes, caía
+                    # aqui e saía sem `function` e sem cair no display de LIST,
+                    # então um `LIST` com `calc` dict imprimia o CÓDIGO. O
+                    # `status` da Compra é exatamente esse caso (Schema
+                    # declara `calc` dict para o `pre_save` recalcular).
+                    if isinstance(_calc, str) or callable(_calc):
+                        spec['function'] = _calc if callable(_calc) else _calc_fn(_calc)
+                    else:
+                        # BOOL → Sim/Não · LIST → rótulo do catálogo: passo
+                        # genérico (`core.resolve.field_display_fn`), o mesmo
+                        # que `_field_item` usa — é por isso que coluna e item
+                        # de layout imprimem igual. Lê `{**raw_cfg, **extra}`
+                        # para que o `options` do REPORT vença o da Entity,
+                        # como no override de field.
+                        _disp_fn = field_display_fn({**raw_cfg, **extra}, fld, i18n)
+                        if _disp_fn is not None:
+                            spec['function'] = _disp_fn
+                            _mapped_label = True
                 if fld not in _computed and _explicit_fmt is None and not _mapped_label:
                     _fcfg = {**raw_cfg,
                              **{k: v for k, v in _qp.items() if k != 'format'}}
@@ -381,6 +400,14 @@ def _apply_entity(raw, entity):
 
     # header.fields (dict) ou header=[...] (lista: FIELDs resolvidos na Entity)
     header = out.get('header')
+    def _ri_config(item):
+        """cfg de um item já normalizado (ou o proprio dicionário)."""
+        from ajsystem.defs.report import parse_report_item as _pri2
+        try:
+            return dict(_pri2(item, raw.get('label')).config)
+        except ValueError:
+            return dict(item or {})
+
     def _resolve_fields(items):
         """`FIELD` solto na lista vira FIELD resolvido — a MESMA rotina do
         header, agora compartilhada com `items`/`before`/`after`.
@@ -392,7 +419,7 @@ def _apply_entity(raw, entity):
         relação (`'items.qtd'` ficava cru em vez de virar `OrcamentoItem.qtd`).
         """
         from ajsystem.defs.report import parse_report_item as _pri
-        _flist, _fpos = [], []
+        _flist, _fpos, _memo = [], [], []
         for _i, _it in enumerate(items or []):
             try:
                 _ri = _pri(_it, raw.get('label'))
@@ -402,6 +429,16 @@ def _apply_entity(raw, entity):
                 _flist.append(_it if isinstance(_it, str)
                               else {'field': _ri.name, **_ri.config})
                 _fpos.append(_i)
+            elif _ri.kind == 'MEMO' and _ri.config.get('field'):
+                # `MEMO` É um field com medida: o nome e os overrides vão para a
+                # MESMA resolução, e o que voltar (label, `options`/catálogo,
+                # `calc`, máscara) entra no cfg do item. `width` fica de fora
+                # porque é do bloco, não do campo.
+                _over = {k: v for k, v in _ri.config.items()
+                         if k not in ('width', 'align', 'font_size', 'font_style')}
+                _flist.append({'field': _ri.config['field'], **_over})
+                _fpos.append(_i)
+                _memo.append(_i)
         if not _flist:
             return items
         _fspecs = _resolve_map(_flist) or {}
@@ -409,8 +446,15 @@ def _apply_entity(raw, entity):
         for _i, _it in zip(_fpos, _flist):
             _key = _it if isinstance(_it, str) else (_it.get('field') or next(iter(_it)))
             _sp = dict(_fspecs.get(_key, {}))
-            _out[_i] = ({'field': _sp.pop('field', _key), **_sp}
-                        if isinstance(_it, dict) else {'field': _key, **_sp})
+            _res = ({'field': _sp.pop('field', _key), **_sp}
+                    if isinstance(_it, dict) else {'field': _key, **_sp})
+            if _i in _memo:
+                # preserva as props do bloco e adota a resolução do campo
+                _cfg = dict(_ri_config(_out[_i]))
+                _cfg.update(_res)
+                _out[_i] = {'MEMO': _cfg}
+            else:
+                _out[_i] = _res
         return _out
 
     if isinstance(header, dict):
@@ -531,12 +575,6 @@ def _apply_entity(raw, entity):
         # chamada por instância no meio da renderização (ver o fail-fast em
         # `gerar_pdf_relatorio`), então um item devolvido por ela não tem como
         # ser resolvido contra a Entity.
-        for _k in ('before', 'after'):
-            _v = body.get(_k)
-            if isinstance(_v, list):
-                body[_k] = _expand_fields_list(_v, entity, raw.get('label'), _pname, _pmodel)
-                body[_k] = _attach_field_mask(body[_k], entity, raw.get('label'))
-                _attach_text_opts(body[_k], entity, raw.get('label'))
         for _k in ('before', 'after'):
             _v = body.get(_k)
             if isinstance(_v, list):

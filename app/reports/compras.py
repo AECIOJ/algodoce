@@ -55,9 +55,12 @@ COMPRA = {
         # estão no catálogo, então o `when` some com a frase, sem um
         # `if status not in (...)` para divergir do texto.
         'before': [
-            # sem `align`: o default do MEMO é 'J' (parágrafo se justifica)
-            MEMO('{status}', LARGURA, {'labels': {'status': FRASE},
-                                       'when': {'status': FRASE}}),
+            # sem `align`: o default do MEMO é 'J' (parágrafo se justifica).
+            # `options` é o override normal do field — o mesmo que
+            # `FIELDS(('status', {'options': ...}))` usa. Nada de catálogo
+            # colado: o status é um LIST e o catálogo entra pela Entity.
+            MEMO('status', LARGURA, {'options': FRASE, 'label': '',
+                                     'when': {'status': FRASE}}),
         ],
         'table': {
             'columns': {
@@ -74,8 +77,8 @@ COMPRA = {
                        ([1, 3], 'Total', {'align': 'R', 'font_style': 'B'}),
                        (4, '{total}', {'font_style': 'B'})],
             'after': [
-                LF(2, {'when': 'observacao'}),
-                MEMO('{observacao}', LARGURA, {'label': 'Obs.:',
+                LF(1, {'when': 'observacao'}),
+                MEMO('observacao', LARGURA, {'label': 'Obs.:',
                                               'when': 'observacao'}),
             ],
         },

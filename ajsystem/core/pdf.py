@@ -1327,7 +1327,7 @@ def _lines_de_callable(fn, instance, prop, label=''):
 def _render_table_lines(pdf, lines, instance=None, prop='body.after', report=None):
     """Renderiza `body.before` / `body.after`: LINHAS DE TEXTO **ou** items.
 
-    `text`/`font_*`/`align`/`width`/`wrap`/`labels` desenham uma linha de texto
+    `text`/`font_*`/`align`/`width`/`wrap` desenham uma linha de texto
     (avulsa, solta do resto do documento); qualquer item de `header`/`items`/
     `table.after` passa pelo mesmo `_render_items` das outras props — é o que
     permite declarar o preâmbulo do documento na mesma gramática do resto, em
@@ -1337,12 +1337,11 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after', report=Non
     em `gerar_pdf_relatorio`).
 
     O texto passa pelo mesmo avaliador dos items (`core.text.render`), então
-    `{campo}`, `{campo:brl}`, `{campo|fallback}` e o catálogo `labels` funcionam
-    igual em `TEXT` e aqui. Uma frase de documento é o caso que pede os dois: o
-    catálogo escolhe o texto pelo status e o `wrap` impede que a ponta saia da
-    página. `labels` é `{campo: catálogo}` — o mesmo mapa que o `TEXT` item deriva
-    da Entity sozinho; aqui o report declara, porque a frase é do documento e
-    não do cadastro do campo.
+    `{campo}`, `{campo:brl}` e `{campo|fallback}` funcionam igual em `TEXT` e
+    aqui. O catálogo é o do campo, derivado da Entity — para um texto que
+    precisa de OUTRO catálogo (a frase de um documento), o item certo é
+    `MEMO('campo', width, {'options': ...})`: mesmo override de field, e o
+    catálogo entra pela Entity em vez de ser colado no texto.
     """
     from ajsystem.core.text import render as _trender
     for i, line in enumerate(lines or []):
@@ -1362,7 +1361,7 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after', report=Non
             from ajsystem.core.text import dotted_get as _dg
             text = _trender(text,
                             lambda k: _dg(instance, k) if instance is not None else None,
-                            line.get('labels') or line.get('_fmt_opts'))
+                            line.get('_fmt_opts'))
         text = text or ''
         size = line.get('font_size', 10)
         style = line.get('font_style', '')
@@ -1390,7 +1389,7 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after', report=Non
 # `_split_item` (dict de uma chave), e sem esta lista o texto mais comum do
 # report viraria FIELD chamado `text`.
 _TEXT_LINE_KEYS = frozenset(('text', 'font_size', 'font_style', 'align',
-                             'width', 'wrap', 'labels', '_fmt_opts'))
+                             'width', 'wrap', '_fmt_opts'))
 
 
 def _is_item(ent, label=''):
@@ -1931,9 +1930,28 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             continue
         if kind == 'MEMO':
             from ajsystem.core.text import render as _mrender, dotted_get as _mdg
-            _txt = _mrender(cfg.get('text', ''),
-                            lambda k: _mdg(instance, k) if instance is not None else None,
-                            cfg.get('labels') or cfg.get('_fmt_opts'))
+            _campo = cfg.get('field')
+            if _campo:
+                # FIELD com medida: o valor vem resolvido — `function` (que já
+                # traduz LIST pelo catálogo, vindo da Entity ou do override
+                # `options`) e a máscara. É o mesmo passo do item FIELD.
+                if instance is None:
+                    raise ValueError(
+                        f"report '{label}': memo '{_campo}' exige instância (documento)")
+                _fn, _fmt = cfg.get('function'), cfg.get('format')
+                try:
+                    _val = _fn(instance) if callable(_fn) else _mdg(instance, _campo)
+                except Exception:
+                    _val = None
+                _txt = _format_cell_value(_val, _fmt if _fmt is not None
+                                          else cfg.get('mask'))
+            else:
+                # TEMPLATE (`'Prezado {fornecedor.nome}, ...'`): avaliador de
+                # `TEXT`, sem label nem catálogo do report — a mesma distinção
+                # que separa FIELD de TEXT.
+                _txt = _mrender(cfg.get('text', ''),
+                                lambda k: _mdg(instance, k) if instance is not None else None,
+                                cfg.get('_fmt_opts'))
             _ff, _fs, _fst = _font_default(pdf)
             _size = cfg.get('font_size', _fs)
             _style = cfg.get('font_style', _fst) or _fst

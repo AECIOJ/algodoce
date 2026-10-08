@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0009 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0010 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0009`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0010`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -383,7 +383,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `PROW`/`PCOL` | constantes (`defs/report.py`) | posição corrente em grade, em `pos`/`location`/`TABS` (só literais; `PCOL±N` só em `TABS`) |
 | `LTB`/`RTB`/`NCOL` | constantes (bordas da última tabela; área útil se nenhuma) | `IND([LTB, RTB])`; `NCOL` = cols da área útil |
 | `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
-| `MEMO(texto, width, props?)` | bloco de parágrafo: quebra por palavra numa medida e **centraliza na área livre** | `width` em cols; `align` L/C/R/**J (default)**; `label` = legenda acima; `labels` = catálogo `{campo: {valor: rótulo}}` |
+| `MEMO(campo, width, props?)` | **um FIELD com medida**: quebra por palavra numa `width` e **centraliza na área livre** | `campo` na gramática de field (`'x'`, `('x', {...})`, `{'x': {...}}`); com `{` vira template. `align` L/C/R/**J (default)**; `options` = override de catálogo |
 | `LINE/BOX/CIRCLE(*args)` | grid em números: `LINE(c, r, +cols, +rows[, 'queda'])`; uma lista solta também vale | ver **Régua e formas posicionadas** abaixo |
 | `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
 | `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
@@ -409,7 +409,7 @@ O 3º e 4º são **deltas** (extensão a partir da origem), não posição final
 
 **`wrap` e a frase que nascia cortada.** `cell` do fpdf2 **não quebra linha**: o texto passa reto e a ponta sai da folha. A frase de cancelamento do COMPRA media 206mm contra 190mm úteis — os últimos "itens:" iam para fora da página, sem aviso. `wrap: True` troca `cell` por `multi_cell` na largura da zona (ou da prop `width`), e vale nos três renderizadores: linha de texto, item `TEXT` e item `FIELD`/`FIELDS` (onde o rótulo fica na 1ª linha e o valor quebra no resto da zona). **Ausente é `cell`**, ou seja, o comportamento de sempre — a correção só acontece onde alguém declara. Para "altura em linhas" continua valendo `rows_before`/`rows_after` (espaço); `rows` é outra coisa, do formulário (`<textarea rows>`), que o report ainda não lê.
 
-**Linha de texto fala a língua do `TEXT`.** `body.before`/`body.after` passam pelo mesmo avaliador (`{campo}`, `{campo:brl}`, `{campo|fallback}`, `{?campo:...}`) que os items, e aceitam `labels` — o mapa `{campo: catálogo}` que o item `TEXT` deriva sozinho da Entity. É o que permite uma **frase de documento** ser declarada em vez de montada em Python: o catálogo escolhe o texto pelo status e o `{observacao}` entra no meio dele.
+**Linha de texto fala a língua do `TEXT`.** `body.before`/`body.after` passam pelo mesmo avaliador (`{campo}`, `{campo:brl}`, `{campo|fallback}`, `{?campo:...}`) que os items, com o catálogo do campo vindo da Entity. **Para um texto que precisa de OUTRO catálogo — uma frase de documento — o item certo é `MEMO('campo', width, {'options': ...})`**, que é um field com medida: o catálogo é o override normal e não uma prop nova na linha de texto.
 
 ```python
 FRASE = {0: 'Solicitamos o orçamento referente aos seguintes itens:',
@@ -419,27 +419,27 @@ FRASE = {0: 'Solicitamos o orçamento referente aos seguintes itens:',
 'before': lambda c: [{'text': ''},
                      {'text': '{fornecedor.nome|-}', 'font_size': 12, 'font_style': 'B', 'align': 'C'},
                      {'text': ''},
-                     {'text': '{status}', 'labels': {'status': FRASE}, 'wrap': True}]
+                     {'text': '{status}', 'wrap': True}]   # catálogo do campo, da Entity
 ```
 
 O rótulo de catálogo pode ter `{campo}` dentro dele, e aí o avaliador faz uma segunda passada (`core.text.LABEL_DEPTH`, com guarda de recursão para catálogo que se referencia). Seguro no app: **0 dos 57 rótulos** dos catálogos têm `{`.
 
-**`MEMO(texto, width)` — o parágrafo do documento.** Um item de texto com medida: quebra por palavra, **centraliza o bloco na área livre** da zona, e **`align` é `'J'` por default** — parágrafo se justifica, e `L` é a exceção declarada. (A última linha nunca é justificada, como em tipografia.) É o que o `IND` não resolvia: `IND` abre uma zona que **vaza** para os itens seguintes e depende de ordem (`LTB`/`RTB` só valem depois que a tabela desenhou), enquanto `MEMO` tem a largura no próprio item. Dois blocos com o mesmo `width` ficam com o mesmo recuo das margens por construção — é assim que o preâmbulo e o bloco de observações do COMPRA se alinham sem número mágico.
+**`MEMO(campo, width)` — um FIELD com medida.** `campo` é o **field** (mesma gramática de `FIELD`/`FIELDS`/`list.columns`), então o catálogo é o override normal dele — `options` — e label, `calc` e máscara vêm da Entity. Não há `labels` nem catálogo colado no texto. Com `{` no `campo`, vira template (`MEMO('Prezado {fornecedor.nome}, ...')`) e aí não tem label nem override de catálogo, que é a mesma distinção que separa `FIELD` de `TEXT`. Quebra por palavra numa medida, **centraliza o bloco na área livre** da zona, e **`align` é `'J'` por default** — parágrafo se justifica, e `L` é a exceção declarada. (A última linha nunca é justificada, como em tipografia.) É o que o `IND` não resolvia: `IND` abre uma zona que **vaza** para os itens seguintes e depende de ordem (`LTB`/`RTB` só valem depois que a tabela desenhou), enquanto `MEMO` tem a largura no próprio item. Dois blocos com o mesmo `width` ficam com o mesmo recuo das margens por construção — é assim que o preâmbulo e o bloco de observações do COMPRA se alinham sem número mágico.
 
 ```python
 LARGURA = 80                      # cols da grade
 
-'before': [MEMO('{status}', LARGURA, {'labels': {'status': FRASE},
-                                       'when': {'status': FRASE}})],
+'before': [MEMO('status', LARGURA, {'options': FRASE, 'label': '',
+                                     'when': {'status': FRASE}})],
 'after':  [LF(2, {'when': 'observacao'}),
-           MEMO('{observacao}', LARGURA, {'label': 'Obs.:', 'when': 'observacao'})]
+           MEMO('observacao', LARGURA, {'label': 'Obs.:', 'when': 'observacao'})]
 ```
 
 Justificar é um **pedido com sanidade**, não uma garantia: o espaço só estica até `JUSTIFY_MAX` (o espaço pode no máximo dobrar) e, acima disso, a linha cai em `L`. Passando disso o olho lê "palavra␣␣␣␣␣palavra" e não texto justificado — medido a 60 cols a sobra é 213% do espaço, e bloco serrilhado fica melhor que buraco. O `multi_cell` do fpdf2 **documenta** `J: justify` mas não implementa (escreve cada linha no x dela: 102.5mm e 99.2mm numa coluna de 105.9mm), então a justificação é nossa, palavra a palavra.
 
 **`when` aceita `{campo: valores}`.** Além do path (`'observacao'`), o item aceita o mesmo formato que o Schema já usava: `{'ativo': True, 'tipo': [1, 2]}` — e com o dicionário como alvo, `{'status': FRASE}` quer dizer "só nos status que estão neste catálogo". Foi o que deixou o catálogo ser a única fonte de verdade do COMPRA: o `FRASE` diz o texto *e* quais status têm frase, sem um `if status not in (...)` em Python para divergir. `LF` ganhou props pelo mesmo motivo (o respiro de um bloco condicional precisa sumir com ele).
 
-**Onde cada prop aceita o quê.** `header` (lista), `body.items`, `body.before`, `body.after` e `body.table.after` passam pelo **mesmo** renderizador de items — e as duas últimas também aceitam **linha de texto** (`{text, font_*, align, width, wrap, labels}`), que é o que dá o espaçador e o texto avulso. Um item vindo de *callable* é recusado nomeando a prop: a função roda depois do `_apply_entity`, então o item não tem como ser resolvido contra a Entity (um LIST sairia com o código em vez do rótulo). E `FIELD` solto agora resolve em todas elas — antes saía o rótulo no header e o **código** em `items`/`after`, e o `calc` da Entity nem chegava. Em `table.extend`, a régua é `LINE()` — a da própria tabela, sujeita ao latch que impede duas réguas seguidas sem conteúdo entre elas (a antiga string `'LINE'` saiu por ser o mesmo desenho com dois nomes).
+**Onde cada prop aceita o quê.** `header` (lista), `body.items`, `body.before`, `body.after` e `body.table.after` passam pelo **mesmo** renderizador de items — e as duas últimas também aceitam **linha de texto** (`{text, font_*, align, width, wrap}`), que é o que dá o espaçador e o texto avulso. Um item vindo de *callable* é recusado nomeando a prop: a função roda depois do `_apply_entity`, então o item não tem como ser resolvido contra a Entity (um LIST sairia com o código em vez do rótulo). E `FIELD` solto agora resolve em todas elas — antes saía o rótulo no header e o **código** em `items`/`after`, e o `calc` da Entity nem chegava. Em `table.extend`, a régua é `LINE()` — a da própria tabela, sujeita ao latch que impede duas réguas seguidas sem conteúdo entre elas (a antiga string `'LINE'` saiu por ser o mesmo desenho com dois nomes).
 
 > **Todo field mostra o valor de exibição, em qualquer prop que o imprima.** `LIST` sai pelo rótulo do catálogo (`options`/`list` da Entity) e `BOOL` por Sim/Não — em coluna (`table.columns`, `header.fields`) e em item de layout (`items`, `after`, `table.after`, header) alike, porque os dois caminhos usam o mesmo passo (`core/resolve.field_display_fn`). Código fora do catálogo cai no valor cru, como na listagem. Antes de `1.26.10.08.0005` só as colunas traduziam, e o mesmo field saía `1` num lugar e `Fornecidas pelo Cliente` no outro.
 
@@ -806,6 +806,11 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0010
+- **`MEMO` virou um FIELD com medida: o catálogo é o override do field, e `labels` saiu.** O primeiro argumento passa pela mesma gramática de `field_spec_item` (`'x'`, `('x', {...})`, `{'x': {...}}`) e as props do `MEMO` são as props do campo — `options` (catálogo), `label`, `when`, máscara. Inventar `labels` para carregar catálogo era o que obrigava a repetir o mapeamento que a Entity e o override do field já sabem fazer. `campo` com `{` continua template, sem label nem override, que é a mesma distinção que separa `FIELD` de `TEXT`. Provado que o catálogo do report vence o da Entity fim a fim (sai `SEIS`, não `Cancelado`) e que o documento do COMPRA ficou **byte-idêntico** (18 cenários).
+- **Um `LIST` com `calc` dict imprimia o CÓDIGO em vez do rótulo.** O Schema da Compra declara `status: {'calc': {'type': 'call', 'source': 'calc_status'}}` — um `calc` **dict**, do formulário, que recalcula no save. No `_resolve_map` o ramo do `calc` engolia o campo: como dict não é `str` nem callable, nenhum `function` era gerado **e não caía no display de LIST/BOOL**. Agora o `calc` que o report não consegue usar deixa o campo passar para o passo genérico de exibição, e o `options` do report entra nele (`{**raw_cfg, **extra}`) em vez de o catálogo da Entity vencer. Sem isso o `MEMO('status')` do COMPRA simplesmente não imprimia nada. Isso é a mesma família do `LIST/BOOL` de 052ec2b, agora pelo lado do `calc`.
+- **`_locate` preferia `None` a escolher, em campo que existe em vários models.** `status` existe em Compra, Orcamento, Pedido, Transacao e Transferencia: com a Entity mesclada, `len(hits) > 1` devolvia `None` e o item perdia label, catálogo e `calc` de uma vez — silencioso, porque `_resolve_map` só levanta quando não acha `label`/`function` no report. Agora, havendo ambiguidade, vence a entidade **principal** do report (comparada pelo nome da classe, que `_pmodel` é).
 
 ### 1.26.10.08.0009
 - **`align` do `MEMO` passou a ser `'J'` por default.** `MEMO` é parágrafo, e parágrafo se justifica — `L` é a exceção declarada, não o padrão. Como `J` aqui já era um pedido com sanidade (`JUSTIFY_MAX`), o default não produz buraco onde ninguém pediu: no máximo deixa a linha como `L`, que é o mesmo que pedir `L`. Virou constante nomeada (`MEMO_ALIGN`) para o default ter um lugar de verdade, e o COMPRA pode finalmente **omitir** o `'align': 'J'` que repetia nas duas chamadas. Medido: as duas chamadas do COMPRA já passavam `'J'`, então o documento saiu **byte-idêntico** (18 cenários) — o ganho é só de declaração. E o default não fica no ar: o harness compara `MEMO(t)` com `MEMO(t, align='J')` e conta as chamadas de desenho (10 palavra-a-palavra contra 2 da linha inteira), que é a única medida que distingue os dois depois de agrupar por `y`.
