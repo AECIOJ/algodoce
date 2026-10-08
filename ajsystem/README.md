@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0005 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0006 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0005`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0006`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -383,10 +383,30 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `PROW`/`PCOL` | constantes (`defs/report.py`) | posição corrente em grade, em `pos`/`location`/`TABS` (só literais; `PCOL±N` só em `TABS`) |
 | `LTB`/`RTB`/`NCOL` | constantes (bordas da última tabela; área útil se nenhuma) | `IND([LTB, RTB])`; `NCOL` = cols da área útil |
 | `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
-| `LINE/BOX/CIRCLE(loc, props?)` | `{'LINE': {'location': loc, ...}}` | `LINE([10, 5, 20])` (horizontal; `[c,r,0,h]` vertical) |
+| `LINE/BOX/CIRCLE(*args)` | grid em números: `LINE(c, r, +cols, +rows[, 'queda'])`; uma lista solta também vale | ver **Régua e formas posicionadas** abaixo |
 | `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
 | `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
 | `TEXTS(*itens)` / `CR()` / `LF(n?)` / `FF()` | bloco de textos; retorno; avanço; quebra de página (corpo) | `CR` = volta à 1ª coluna; `LF()` = 1 linha; `FF` no header = erro |
+
+**Régua e formas posicionadas.** A grade é **colunas no horizontal, linhas no vertical** (a coluna é o *pitch* da fonte vigente — `col_w = 25.4/cpp` — então `FONT` muda o alcance horizontal; a linha é `ROW_CELL`, 6mm, fixa). As factories de grade (`LINE`/`BOX`/`CIRCLE`, como `TABS`/`IND`/`POS`) são **variádicas**: declare os números, a lista interna é do motor.
+
+```python
+LINE()                      # largura da zona: a indentação vigente (IND) ou,
+                            #   sem ela, a última tabela
+LINE(True)                  # largura da página inteira (ignora IND)
+LINE(w)                     # w colunas a partir do cursor  == LINE(PCOL, PROW, w)
+LINE(c, r)                  # PONTO em (c, r)      -- extensão (0,0)
+LINE(c, r, cols)            # horizontal: de (c,r) até (c+cols, r)
+LINE(c, r, 0, rows)         # vertical:   de (c,r) até (c, r+rows)
+LINE(c, r, cols, rows)      # inclinada:  de (c,r) até (c+cols, r+rows)
+LINE(..., 'queda')          # só quando `queda` é verdadeira (when)
+BOX(c, r, cols[, rows])     # altura omitida = quadrado de verdade
+CIRCLE(c, r, raio[, achata])
+```
+
+O 3º e 4º são **deltas** (extensão a partir da origem), não posição final; omissão vale 0 no `LINE` (de onde vem o ponto). `LINE` desenha e avança uma linha — o cursor desce e volta ao início da zona, para o próximo item não colidir com a régua; espaço extra é `LF(n)`. `when` vale para `FIELD`, `TEXT`, `LINE`, `BOX` e `CIRCLE`. As formas de largura (`()`, `(True)`, `(w)`) são de régua e só existem no `LINE`.
+
+**Onde cada prop aceita o quê.** Só três props são a mesma lista de items e passam pelo mesmo renderizador: `header` (lista), `body.items` e `body.table.after`. `body.before`/`body.after` são **linhas de texto** (`{text, font_*, align, width}`) e agora **recusam** um item nomeando a prop, em vez de engolê-lo como linha em branco. Em `table.extend`, a régua é `LINE()` — a da própria tabela, sujeita ao latch que impede duas réguas seguidas sem conteúdo entre elas (a antiga string `'LINE'` saiu por ser o mesmo desenho com dois nomes).
 
 > **Todo field mostra o valor de exibição, em qualquer prop que o imprima.** `LIST` sai pelo rótulo do catálogo (`options`/`list` da Entity) e `BOOL` por Sim/Não — em coluna (`table.columns`, `header.fields`) e em item de layout (`items`, `after`, `table.after`, header) alike, porque os dois caminhos usam o mesmo passo (`core/resolve.field_display_fn`). Código fora do catálogo cai no valor cru, como na listagem. Antes de `1.26.10.08.0005` só as colunas traduziam, e o mesmo field saía `1` num lugar e `Fornecidas pelo Cliente` no outro.
 
@@ -753,6 +773,9 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0006
+- **`LINE`/`BOX`/`CIRCLE` declarados em números, e a régua deixou de exigir número mágico.** As factories de grade viraram variádicas como `TABS`/`IND`/`POS` (a lista solta continua valendo): `LINE(c, r, +cols, +rows)` — o 3º e 4º são **deltas** a partir da origem, e omissão vale 0, o que torna `LINE(10, 5)` um **ponto** (antes era `ValueError: linha nula`; agora sai um disco de raio `col_w/8`, que acompanha o pitch da fonte — um `line` degenerado emitiria um subcaminho de comprimento zero e não pintaria nada). `LINE()` pega a largura da zona (a indentação vigente ou, sem ela, a última tabela), `LINE(True)` a da página inteira, e `LINE(w)` equivale a `LINE(PCOL, PROW, w)` — essas três referências só divergem onde a tabela é mais estreita que a página ou o `IND` recua, e é por isso que o harness monta esse cenário. `LINE` desenha e avança uma linha; espaço extra é `LF(n)`, que compõe exatamente o que `rows_before`/`rows_after` faziam (medido). `when` passou a valer também para `LINE`/`BOX`/`CIRCLE` — era aceito e ignorado. `body.before`/`body.after` **recusam** item nomeando a prop (são linhas de texto) em vez de virarem linha em branco, e `table.extend` passa a usar `LINE()` no lugar da string `'LINE'`, que eram dois nomes para a mesma régua. Equivalência: 4 reports + 41 casos, 20 forms, 15 listas, RQ, moeda, parse e calc byte a byte, mais 40+ medições de coordenada das formas.
 
 ### 1.26.10.08.0005
 - **`LIST`/`BOOL` imprimem rótulo em toda prop que mostra field, não só nas colunas.** O report resolve campo por dois caminhos: `_resolve_map` (colunas e `header.fields`) e `_field_item` (`FIELDS` em `items`/`after`/`table.after`/header). Só o primeiro consultava o catálogo, então um `FIELDS('forminhas')` em `body.after` imprimia `1` onde a coluna imprimia `Fornecidas pelo Cliente` — o mesmo campo, o mesmo catálogo, resultado diferente só pela prop. O passo virou genérico: `core/resolve.field_options` (o catálogo, aceitando `list` e `options` com a precedência de `build_field_config` — seis pontos do report liam isso à mão, um deles com a ordem das chaves invertida) e `core/resolve.field_display_fn` (a tradução, `LIST`→rótulo e `BOOL`→Sim/Não), consumidos pelos dois caminhos. Código fora do catálogo cai no valor cru, como na listagem. A **listagem não muda**: ela traduz no template e renderizava certo. Provado no PDF renderizado, não só no dict: `forminhas=0/1` saem `Simples (Inclusa)`/`Fornecidas pelo Cliente` e `7` (fora do catálogo) sai `7`. Equivalência do resto: o diff inteiro são linhas de `"function"` a mais, zero remoções.

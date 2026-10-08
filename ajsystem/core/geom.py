@@ -4,9 +4,9 @@ Convenção travada (ordem cartesiana x,y, em unidades de grade):
   pos      = [col, lin]              (âncora; [0,0] = fluxo automático)
   location = conforme o tipo:
     IMAGE  = [c1, r1, c2, r2]        (cantos; proporção via fit futuro)
-    LINE   = [col, lin, caracteres, linhas] (origem + deltas com sinal;
-              linhas omitida/0 = horizontal; caracteres 0 = vertical;
-              ambos 0 = fail-fast "linha nula")
+    LINE   = [col, lin, +cols, +rows]    (origem + deltas com sinal;
+              linhas omitida/0 = horizontal; cols 0 = vertical;
+              ambos 0 = PONTO — disco na origem, `to_mm` marca `ponto`)
     BOX    = [col, lin, largura, altura?] (âncora + extensão; altura
               omitida = quadrado de verdade, altura_mm = largura_mm)
     CIRCLE = [col_centro, lin_centro, raio, achata] (raio em cols;
@@ -67,10 +67,11 @@ def normalize(kind, location):
         if len(loc) == 3:
             loc.append(0)
         if len(loc) != 4:
-            raise ValueError(f"LINE: location [col, lin, caracteres, linhas], veio {list(location)!r}")
+            raise ValueError(f"LINE: location [col, lin, +cols, +rows], veio {list(location)!r}")
         c, r, w, h = (_num(v, 'LINE') for v in loc)
-        if isclose(w, 0) and isclose(h, 0):
-            raise ValueError("LINE: linha nula ([col, lin, 0, 0])")
+        # Extensão (0,0) não é erro: é um PONTO (origem sem deltas). O ponto é
+        # desenhado como disco pelo render — um `line` degenerado não pintaria
+        # nada, porque o subcaminho tem comprimento zero.
         return ('LINE', c, r, w, h)
     if kind == 'BOX':
         if len(loc) == 3:
@@ -109,14 +110,15 @@ def normalize(kind, location):
 def to_mm(norm, line_h, col_w):
     """Tupla normalizada + métrica real (mm) -> geometria em mm p/ o FPDF.
 
-    Retorna dict por tipo: LINE {x1,y1,x2,y2}; BOX/IMAGE {x,y,w,h};
+    Retorna dict por tipo: LINE {x1,y1,x2,y2,ponto}; BOX/IMAGE {x,y,w,h};
     CIRCLE {x, y, rx, ry} (rx==ry = círculo perfeito).
     """
     kind = norm[0]
     if kind == 'LINE':
         _, c, r, w, h = norm
         x1, y1 = c * col_w, r * line_h
-        return {'x1': x1, 'y1': y1, 'x2': x1 + w * col_w, 'y2': y1 + h * line_h}
+        return {'x1': x1, 'y1': y1, 'x2': x1 + w * col_w, 'y2': y1 + h * line_h,
+                'ponto': isclose(w, 0) and isclose(h, 0)}
     if kind in ('BOX', 'IMAGE'):
         if kind == 'BOX':
             _, c, r, w, h = norm

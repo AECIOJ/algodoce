@@ -833,15 +833,23 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
 
     _stayed = False
     for it in items or []:
+        # `LINE()` aqui é a régua da própria tabela: `_draw_hline` (e não
+        # `pdf.line`), para valer o latch que impede duas réguas seguidas sem
+        # conteúdo entre elas. Fora do `extend` a régua é intenção do autor e
+        # desenha sempre.
+        if isinstance(it, dict) and 'LINE' in it:
+            if _check_page_break(pdf, ROW_CELL):
+                _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
+            _draw_hline(pdf, x_start, total_w)
+            pdf.ln(ROW_CELL)
+            _stayed = False
+            continue
         if isinstance(it, str):
-            if it not in ('LINE', 'LF', 'CR'):
-                raise ValueError(f"report '{label}': extend aceita tupla, LINE, LF ou CR")
-            if it == 'LINE':
-                if _check_page_break(pdf, ROW_CELL):
-                    _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
-                _draw_hline(pdf, x_start, total_w)
-                pdf.ln(ROW_CELL)
-            elif it == 'LF':
+            if it not in ('LF', 'CR'):
+                raise ValueError(
+                    f"report '{label}': extend aceita tupla, LINE(), LF ou CR "
+                    f"(a régua é LINE(), não a string 'LINE')")
+            if it == 'LF':
                 pdf.ln(ROW_CELL)
             else:
                 pdf.set_x(x_start)
@@ -1189,9 +1197,23 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
         _table_close(pdf, x_start, total_w)
 
 
-def _render_table_lines(pdf, lines, instance=None):
-    """Renderiza lista de linhas (before_table / after_table)."""
+def _render_table_lines(pdf, lines, instance=None, prop='body.after'):
+    """Renderiza lista de linhas (before_table / after_table).
+
+    São LINHAS DE TEXTO (`text`/`font_*`/`align`/`width`), não a lista de items:
+    um `LINE` aqui não é erro de tipo hoje, ele vira uma linha em branco — o
+    pior tipo de falha. Nomear a prop é o que evita isso; os items de verdade
+    vivem em `header` (lista), `body.items` e `body.table.after`.
+    """
     for line in lines or []:
+        if isinstance(line, dict):
+            from ajsystem.defs.report import ITEM_KINDS as _KINDS
+            for _k in line:
+                if _k in _KINDS or (_k.isalpha() and _k == _k.upper()):
+                    raise ValueError(
+                        f"report: '{prop}' recebe linhas de texto; {_k!r} é item e "
+                        f"vale em 'header' (lista), 'body.items' ou "
+                        f"'body.table.after'")
         text = line.get('text', '')
         if callable(text) and instance:
             text = text(instance)
@@ -1452,6 +1474,44 @@ def _tab_x(pdf, tab, label):
     pdf.set_x(pdf.l_margin + tabs[tab - 1] * col_w)
 
 
+def _elem_location(pdf, kind, cfg, label=''):
+    """`location` de LINE/BOX/CIRCLE, resolvendo as formas sem coordenada.
+
+    A factory guarda a INTENÇÃO (`mode`/`width`) porque a coordenada só existe
+    no render — é o cursor e a zona daquele momento:
+
+        'cursor' -> largura `width` a partir de (PCOL, PROW)
+        'zona'   -> a indentação vigente (IND) ou, sem ela, a última tabela
+        'pagina' -> a largura toda da área útil
+
+    `geom` continua recebendo 4 números; só decide que ponto é ponto.
+    """
+    loc = cfg.get('location')
+    if loc is not None:
+        return loc
+    mode = cfg.get('mode')
+    if mode is None:
+        raise ValueError(f"report '{label}': {kind} sem location nem mode")
+    col_w = _col_unit(pdf)
+    c, r, _cw = _grid_pos(pdf)
+    if mode == 'cursor':
+        w = cfg.get('width')
+        if not isinstance(w, (int, float)) or isinstance(w, bool):
+            raise ValueError(f"report '{label}': LINE(w) exige largura numérica, veio {w!r}")
+        return [c, r, w, 0]
+    if mode == 'pagina':
+        return [0, r, _usable_cols(pdf), 0]
+    if mode != 'zona':
+        raise ValueError(f"report '{label}': LINE mode {mode!r} desconhecido")
+    # A indentação manda; sem ela, a zona é a última tabela (fallback: área útil
+    # — é o que `_table_edges` devolve quando ainda não houve tabela).
+    ind = getattr(pdf, '_ind', None)
+    if ind is not None:
+        return [ind[0], r, ind[1] - ind[0], 0]
+    esq, dir_ = _table_edges(pdf)
+    return [esq, r, dir_ - esq, 0]
+
+
 def _place_item(pdf, kind, name, cfg, label, line=True):
     """Posicionamento pré-render: âncora, fluxo, linha ou bloco.
 
@@ -1601,7 +1661,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 pdf._gridfont = _resolve_font(cfg, label)
             col_w = _col_unit(pdf)
             continue
-        if kind in ('FIELD', 'TEXT') and cfg.get('when') is not None:
+        if kind in ('FIELD', 'TEXT', 'LINE', 'BOX', 'CIRCLE') and cfg.get('when') is not None:
             from ajsystem.core.text import eval_when as _ew
             if not _ew(instance, cfg['when']):
                 continue
@@ -1706,16 +1766,29 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             pdf.image(path, x=x, y=y, w=w, h=hh)
             _mark_content(pdf)
         else:  # LINE / BOX / CIRCLE
-            g = _gmm(_gloc(kind, cfg.get('location')), ROW_CELL, col_w)
+            g = _gmm(_gloc(kind, _elem_location(pdf, kind, cfg, label)),
+                     ROW_CELL, col_w)
             ox, oy = pdf.l_margin, pdf.t_margin
             if kind == 'LINE':
-                pdf.line(ox + g['x1'], oy + g['y1'], ox + g['x2'], oy + g['y2'])
+                if g.get('ponto'):
+                    # Extensão (0,0): um `line` degenerado emitiria um
+                    # subcaminho de comprimento zero e não pintaria nada —
+                    # o ponto vira disco. Raio = 1/8 da coluna, para acompanhar
+                    # o pitch da fonte vigente (col_w = 25.4/cpp).
+                    pdf.circle(ox + g['x1'], oy + g['y1'], col_w / 8)
+                else:
+                    pdf.line(ox + g['x1'], oy + g['y1'], ox + g['x2'], oy + g['y2'])
             elif kind == 'BOX':
                 pdf.rect(ox + g['x'], oy + g['y'], g['w'], g['h'])
             else:
                 pdf.ellipse(ox + g['x'] - g['rx'], oy + g['y'] - g['ry'],
                             2 * g['rx'], 2 * g['ry'])
             _mark_content(pdf)
+            if kind == 'LINE':
+                # A régua ocupa uma linha: o cursor desce e volta ao início da
+                # zona, para o próximo item não colidir com ela.
+                pdf.ln(ROW_CELL)
+                pdf.set_x(_flow_zone(pdf)[0])
         if ra:
             pdf.ln(ra * ROW_CELL)
             pdf.set_x(_flow_zone(pdf)[0])
@@ -1769,7 +1842,7 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     if callable(_before) and instance:
         _before = _before(instance) or []
     if _before:
-        _render_table_lines(pdf, _before, instance)
+        _render_table_lines(pdf, _before, instance, prop='body.before')
 
     # Itens inline em ordem (body.items), antes da tabela
     _items = getattr(_body, 'items', None) if _body else None
@@ -1792,7 +1865,7 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     if callable(_after) and instance:
         _after = _after(instance) or []
     if _after:
-        _render_table_lines(pdf, _after, instance)
+        _render_table_lines(pdf, _after, instance, prop='body.after')
     if tbl.after and instance:
         if isinstance(tbl.after, list):
             pdf.ln(GAP_AFTER_TABLE)  # respiro pós-régua, igual ao ramo string

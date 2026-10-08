@@ -290,25 +290,82 @@ def POS(*where):
     return {'POS': where}
 
 
-def _located(kind, location, props, label=''):
-    if not isinstance(location, (list, tuple)):
-        raise ValueError(f"{kind}: location deve ser lista")
-    return {kind: {'location': list(location), **_check_props(kind, props or {}, label)}}
+def _located(kind, *args, **kw):
+    """`LINE`/`BOX`/`CIRCLE`: coordenada posicional, `when` e props.
+
+    Variádica como `TABS`/`IND`/`POS` (uma lista solta ainda vale), porque a
+    grade é declarada em números — `LINE(10, 5, 20)`, não `LINE([10, 5, 20])`.
+    Um `str` final é o `when`; um `dict` final são `props` (legado).
+
+    `LINE` aceita ainda as formas sem coordenada, que só o render resolve
+    (dependem do cursor): `LINE()` = zona/tabela, `LINE(True)` = página
+    inteira, `LINE(w)` = `w` cols a partir do cursor. `BOX`/`CIRCLE` são
+    desenhados por extensão e não têm essa família.
+    """
+    args = list(args)
+    when, props = None, {}
+    if args and isinstance(args[-1], str):
+        when = args.pop()
+    elif args and isinstance(args[-1], dict):
+        props = dict(args.pop())
+    for _k in list(kw):
+        raise ValueError(f"{kind}: prop {_k!r} desconhecida (use o `when` final)")
+    cfg = dict(props)
+
+    if len(args) == 1 and isinstance(args[0], (list, tuple)):
+        cfg['location'] = list(args[0])
+    elif kind == 'LINE' and not args and 'location' not in cfg:
+        cfg['mode'] = 'zona'
+    elif kind == 'LINE' and args and isinstance(args[0], bool):
+        cfg['mode'] = 'pagina' if args[0] else 'zona'
+    elif kind == 'LINE' and len(args) == 1:
+        cfg['mode'], cfg['width'] = 'cursor', args[0]   # LINE(w) ≡ LINE(PCOL, PROW, w)
+    elif args:
+        # LINE completa com 0 (omissão = extensão nula); BOX/CIRCLE guardam o
+        # comprimento declarado, porque o 4º ausente tem outro sentido para cada
+        # um: altura = largura (quadrado) e achata compensado.
+        cfg['location'] = ([0] * 4 if kind == 'LINE' else list(args))
+        if kind == 'LINE':
+            for _i, _v in enumerate(args):
+                cfg['location'][_i] = _v
+    elif 'location' not in cfg and 'mode' not in cfg:
+        raise ValueError(f"{kind}: informe a coordenada")
+
+    if when is not None:
+        cfg['when'] = when
+    return {kind: cfg}
 
 
-def LINE(location, props=None):
-    """Factory pura: LINE([...], {...}) == {'LINE': {'location': [...], ...}}."""
-    return _located('LINE', location, props)
+def LINE(*args):
+    """Factory pura. Formas:
+
+        LINE()                        = largura da zona (IND) ou da tabela
+        LINE(True|False)              = largura da página / da zona
+        LINE(w)                       = w colunas a partir do cursor (PCOL, PROW)
+        LINE(c, r)                    = ponto em (c, r)
+        LINE(c, r, cols)              = horizontal: até (c+cols, r)
+        LINE(c, r, 0, rows)           = vertical:   até (c, r+rows)
+        LINE(c, r, cols, rows)        = inclinada:  até (c+cols, r+rows)
+        LINE(..., 'queda')            = só quando `queda` é verdadeira
+
+    O 3º e 4º são DELTAS (extensão), não posição final. `LINE([c, r, cols])`
+    continua valendo, como em `TABS`/`IND`/`POS`. Desenha e avança uma linha.
+    """
+    return _located('LINE', *args)
 
 
-def BOX(location, props=None):
-    """Factory pura: BOX([...], {...}) == {'BOX': {'location': [...], ...}}."""
-    return _located('BOX', location, props)
+def BOX(*args):
+    """Factory pura: BOX(c, r, cols[, rows]) ou BOX([c, r, cols[, rows]])."""
+    return _located('BOX', *args)
 
 
-def CIRCLE(location, props=None):
-    """Factory pura: CIRCLE([...], {...}) == {'CIRCLE': {'location': [...], ...}}."""
-    return _located('CIRCLE', location, props)
+def CIRCLE(*args):
+    """Factory pura: CIRCLE(c, r, raio[, achata]) ou CIRCLE([c, r, raio[, achata]]).
+
+    `raio` em cols; `achata` 0/ausente = círculo compensado, >0 achata a
+    altura por esse fator, <0 achata a largura.
+    """
+    return _located('CIRCLE', *args)
 
 
 def IMAGE(field, props=None):
