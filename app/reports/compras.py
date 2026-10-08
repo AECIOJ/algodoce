@@ -29,7 +29,7 @@ FRASE = {
 # largura no próprio item (e não numa zona `IND`, que vaza para o que vem
 # depois e depende de ordem), os dois centralizam com a mesma sobra de cada
 # lado.
-LARGURA = 80
+LARGURA = 84
 
 
 def _report_title(compra):
@@ -48,17 +48,7 @@ COMPRA = {
         LF(2)
     ],
     'body': {
-        # Preâmbulo: só a frase, na mesma medida do bloco de observações lá no
-        # fim. O NOME do fornecedor não entra aqui — o cabeçalho já o imprime
-        # (`FIELDS('fornecedor_id')`), e repetir a mesma coisa no meio do
-        # documento só gastava uma linha. Faturado (2) e Recebido (8) não
-        # estão no catálogo, então o `when` some com a frase, sem um
-        # `if status not in (...)` para divergir do texto.
         'before': [
-            # sem `align`: o default do MEMO é 'J' (parágrafo se justifica).
-            # `options` é o override normal do field — o mesmo que
-            # `FIELDS(('status', {'options': ...}))` usa. Nada de catálogo
-            # colado: o status é um LIST e o catálogo entra pela Entity.
             MEMO('status', LARGURA, {'options': FRASE, 'label': '',
                                      'when': {'status': FRASE}}),
         ],
@@ -74,12 +64,11 @@ COMPRA = {
                        (4, '{acrescimo}', {'when': 'acrescimo'}),
                        ([1, 3], 'Desconto', {'align': 'R', 'when': 'desconto'}),
                        (4, '{desconto}', {'when': 'desconto'}),
-                       ([1, 3], 'Total', {'align': 'R', 'font_style': 'B' , 'when': 'acrescimo | desconto'}),
-                       (4, '{total}', {'font_style': 'B', 'when': 'acrescimo | desconto'  })],
+                       ([1, 3], 'Total', {'align': 'R', 'font_style': 'B', 'when': 'acrescimo or desconto'}),
+                       (4, '{total}', {'font_style': 'B', 'when': 'acrescimo or desconto'})],
             'after': [
                 LF(1, {'when': 'observacao'}),
-                MEMO('observacao', LARGURA, {'label': 'Obs.:',
-                                              'when': 'observacao'}),
+                MEMO('observacao', LARGURA, {'label': 'Obs.:', 'when': 'observacao'}),
             ],
         },
     },

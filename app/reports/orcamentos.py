@@ -26,7 +26,7 @@ ORCAMENTO = {
             'after': [
                     IND(LTB,RTB),
                     FIELDS(
-                        'forminhas','carteira_id',                    
+                        'forminhas','carteira_id',
                         ('Evento.tipo', {'label': 'Evento', 'when': 'evento.tipo'}),
                         ('Evento.tema', {'when': 'evento.tema'}),
                         ('Evento.data', {'when': 'evento.data'}),

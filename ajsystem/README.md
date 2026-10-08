@@ -437,7 +437,17 @@ LARGURA = 80                      # cols da grade
 
 Justificar é um **pedido com sanidade**, não uma garantia: o espaço só estica até `JUSTIFY_MAX` (o espaço pode no máximo dobrar) e, acima disso, a linha cai em `L`. Passando disso o olho lê "palavra␣␣␣␣␣palavra" e não texto justificado — medido a 60 cols a sobra é 213% do espaço, e bloco serrilhado fica melhor que buraco. O `multi_cell` do fpdf2 **documenta** `J: justify` mas não implementa (escreve cada linha no x dela: 102.5mm e 99.2mm numa coluna de 105.9mm), então a justificação é nossa, palavra a palavra.
 
-**`when` aceita path, expressão e `{campo: valores}`.** Path (`'observacao'`), expressão booleana (`'acrescimo or desconto'`, `'acrescimo | desconto'`, `'not x'`, com parênteses) e o mesmo formato que o Schema já usava: `{'ativo': True, 'tipo': [1, 2]}` — e com o dicionário como alvo, `{'status': FRASE}` quer dizer "só nos status que estão neste catálogo". Foi o que deixou o catálogo ser a única fonte de verdade do COMPRA: o `FRASE` diz o texto *e* quais status têm frase, sem um `if status not in (...)` em Python para divergir. `LF` ganhou props pelo mesmo motivo (o respiro de um bloco condicional precisa sumir com ele).
+**`when` aceita path, expressão e `{campo: valores}`.** Path (`'observacao'`), expressão booleana (`'acrescimo or desconto'`, `'not x'`, com parênteses) e o mesmo formato que o Schema já usava: `{'ativo': True, 'tipo': [1, 2]}` — e com o dicionário como alvo, `{'status': FRASE}` quer dizer "só nos status que estão neste catálogo". Foi o que deixou o catálogo ser a única fonte de verdade do COMPRA: o `FRASE` diz o texto *e* quais status têm frase, sem um `if status not in (...)` em Python para divergir. `LF` ganhou props pelo mesmo motivo (o respiro de um bloco condicional precisa sumir com ele).
+
+**Expressão: `or`/`and`/`not` (e `|`/`&`/`!`), sempre inclusivos.** `or` e `|` são **sinônimos exatos** — mesmo regex, mesmo `any()`, resultado idêntico:
+
+| expressão | nenhum | só A | só B | A e B |
+|---|---|---|---|---|
+| `'A or B'` = `'A \| B'` | não | **sim** | **sim** | **sim** |
+
+XOR não existe, e é por isso que `|` é a grafia perigosa: em C, shell, SQL, R e no bitwise de Python ele é bitwise, e em booleanos bitwise **é** o XOR (`True | True` → `False`) — o oposto do que o `when` faz. Quem não conhece essa convenção da casa lê `|` como "exatamente um" e erra. Use `or`; `|` continua aceito, mas é sinônimo e não faz nada a mais.
+
+Na forma **dict** o alvo é **comparação**, não truthiness: `{'ativo': True}` casa com campo booleano, mas `{'acrescimo': True}` procuraria o valor `True` no campo e não encontraria. Para "algum destes" a expressão é o caminho.
 
 **Onde cada prop aceita o quê.** `header` (lista), `body.items`, `body.before`, `body.after` e `body.table.after` passam pelo **mesmo** renderizador de items — e as duas últimas também aceitam **linha de texto** (`{text, font_*, align, width, wrap}`), que é o que dá o espaçador e o texto avulso. Um item vindo de *callable* é recusado nomeando a prop: a função roda depois do `_apply_entity`, então o item não tem como ser resolvido contra a Entity (um LIST sairia com o código em vez do rótulo). E `FIELD` solto agora resolve em todas elas — antes saía o rótulo no header e o **código** em `items`/`after`, e o `calc` da Entity nem chegava. Em `table.extend`, a régua é `LINE()` — a da própria tabela, sujeita ao latch que impede duas réguas seguidas sem conteúdo entre elas (a antiga string `'LINE'` saiu por ser o mesmo desenho com dois nomes).
 
