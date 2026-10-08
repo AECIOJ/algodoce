@@ -9,9 +9,11 @@ Forma espelhada em `defs/buttons.py`: catálogo genérico (`INPUT_TYPES`), catá
 do motor (`Inputs`), `INPUTS` semeia o merge, e um preset por tipo sai em loop
 (`IN_TEXT`, `IN_TOGGLE`, …) para o Python importar por nome.
 
-O que NÃO mora aqui: `options`, `rows`, `min`/`max`/`step`, `currency`,
-`percent`, `on_set`, `calc`. São props do `Field` — dependem do campo, não do
-tipo. `mask` e `validate` estão aqui por um motivo só: `cpf`/`cnpj` são inputs
+O que NÃO mora aqui: `options`, `rows`, `min`/`max`/`step`, `percent`,
+`on_set`, `calc`. São props do `Field` — dependem do campo, não do tipo.
+(A moeda não é prop declarativa de nada: o motor deriva `Field.currency` da
+`mask`, via `@M(id)`.) `mask` e `validate` estão aqui por um motivo só:
+`cpf`/`cnpj` são inputs
 do app que precisam carregar a máscara e o validador que os definem, e um
 `Input` não aceita chave que não seja prop sua.
 
@@ -40,8 +42,8 @@ INPUT_SLOTS = ('body', 'bar')
 # `@U/@L/@C/@T/@R` só em texto. `'*'` libera os dois (opt-in do host).
 MASK_GROUPS = {
     'text':   frozenset('ULCTR'),
-    'number': frozenset('BX'),
-    '*':      frozenset('ULCTRBX'),
+    'number': frozenset('BXM'),
+    '*':      frozenset('ULCTRBXM'),
 }
 
 # Editor que a listagem usa para filtrar o campo. Antes isso era um `if` por
@@ -159,7 +161,8 @@ INPUT_TYPES = {
                         'filter_kind': 'date', 'mask': 'dd/mm/yyyy'},
     'datetime-local': {'html_type': 'datetime-local', 'size': 16, 'textual': False,
                         'filter_kind': 'date'},
-    'time':           {'html_type': 'time', 'size': 10, 'textual': False},
+    'time':           {'html_type': 'time', 'size': 10, 'textual': False,
+                        'mask': 'hh:mm'},
 
     # ── arquivo ──
     'image':          {'html_type': '', 'size': 12, 'textual': False,
@@ -262,7 +265,7 @@ def module_inputs(mod) -> dict:
     descreve o que o app diverge, e o `Inputs` do módulo descreve o que só
     aquela página precisa. Por isso a entrada pode ser só um override parcial:
 
-        Inputs = {'money': {'mask': '@R 999.999,99'}}
+        Inputs = {'money': {'mask': '@M(BRL) 999,999.99'}}
     """
     i = getattr(mod, 'Inputs', None)
     return i if isinstance(i, dict) else {}

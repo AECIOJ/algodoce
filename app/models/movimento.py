@@ -1,4 +1,5 @@
 from ajsystem.core.extensions import db
+from app.extends.masks import MVALOR
 
 
 class Movimento(db.Model):
@@ -48,7 +49,7 @@ Entity = {
     'conta_id':     {'type': 'FK', 'label': 'Conta', 'width': 15},
     'previsao_id':  {'type': 'FK', 'label': 'Previsão', 'width': 10},
     'documento':    {'type': 'TEXT', 'width': 10},
-    'valor':        {'type': 'NUM', 'width': 10, 'currency': 1, 'required': True},
+    'valor':        {'type': 'NUM', 'width': 10, 'required': True, 'mask': MVALOR},
     'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15},
     'variacao':     {'type': 'NUM', 'label': 'Variação', 'width': 10},
     'historico':    {'type': 'MEMO', 'label': 'Histórico', 'width': 30},

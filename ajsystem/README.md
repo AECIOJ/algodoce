@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.06.0002 — Manual do Framework
+# AJSYSTEM 1.26.10.07.0005 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.06.0002`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
+> Vinculado a `ajsystem/version` (`1.26.10.07.0005`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
 
 ---
 
@@ -90,11 +90,15 @@
                                             │  templates   │
                                             └──────────────┘
    ```
-5. **Merge.**
+5. **Merge (declaração de props).**
    ```
-   Entity ──┐
-            ├─► {**Entity, **Schema} ──► Field ──► column/form/report
-   Schema ──┘          (Schema vence)
+   tipo (FIELD_TYPES+INPUT_TYPES)  ─┐
+   Entity ──────────────────────────┤ (cada camada sobrescreve a anterior)
+   Schema ──────────────────────────┤
+   Query  ──────────────────────────┘
+            └─► build_field ─► Field ─► column/form/report
+   list/form: consomem o Field (sem override)
+   report:    consomem o Field + override de props de display (format/mask)
    ```
 6. **Ciclo form.**
    ```
@@ -167,11 +171,10 @@
 | `input` | `str` | **nome de um tipo** de `ajsystem/defs/inputs.py` (`text,number,date,select,textarea,email,tel,password,checkbox,multi,image,toggle,…`) | resolve o `Input`; o `Field` passa a ler as props dele | `Field.__post_init__` instancia o `Input` — o `core` lê **`f.inp.*`**, nunca `f.input` por string |
 | `input_props` | `dict` | override parcial do input **neste campo** (`{'cls':'x','size':9}`) | última camada do merge, acima do app e da rota | `resolve_input(..., overrides)`; chave desconhecida **levanta erro** |
 | `options` | `dict` | `{k:label}` para `LIST/MULT10` | `select` options, `tag` texto | `field_filter_options` |
-| `mask` | `str` | `@R 999.999.999-99` (CPF), `dd/mm/aaaa`, `@T` title | máscara display/edição (`formats.js:fmtMask`) | `parse_mask_commands`, `width` derivado |
+| `mask` | `str` | `@R 999.999.999-99` (CPF), `dd/mm/aaaa`, `@M(BRL) 999,999.99`, `@T` | máscara **de exibição**; default do tipo/catálogo (data/hora/cpf), senão numérico de `decimals`. Numérica canônica (`0`=pad, `9`=opcional, `,`=milhar, `.`=decimal) — o motor troca por `THOUSAND`/`DECIMAL` | `parse_mask`, `width` derivado; precedência `explícita > catálogo > numérico` |
 | `placeholder` | `str` | texto | `placeholder` input | — |
-| `decimals` | `int` | `0` int, `2` moeda | `data-num-decimals`, `fmtNumBR` | `parseNum` |
+| `decimals` | `int` | `0` int, `2` moeda | **entrada** (`data-num-decimals`, `fmtNumBR`), default da máscara numérica e arredondamento no POST | `parseNumField` (JS) / `fmt_num`+`_coerce` (Python), ver 5.14 |
 | `min`/`max`/`step` | `num` | limites | `input min/max/step` | validação `required` |
-| `currency` | `int` | `0` off, `1` R$ pt-BR, `2` $ en-US, `3` € pt-BR (`constants.py:CURRENCY`; ver 5.14) | `itFmtMoney`, símbolo | `normalize_currency` remove o símbolo antes de `itEval` |
 | `percent` | `bool` | `True` → `12%` | ` %` sufixo | — |
 | `required` | `bool` | `True` → `*` | `*` no label, `required` attr | bloqueia `POST` se vazio |
 | `disabled` | `bool\|callable` | `True` ou `callable(row)->bool` (`_financeiro_gerado`) | `disabled` attr | `form_macros.html:55` avalia `callable` |
@@ -193,6 +196,8 @@
 | `_pos_form_when` | `dict` | **interno** — preenchido pelo motor a partir de `pos_form['when']`; não declarar à mão | — | `is_visible_by_pos` |
 
 > `on_set.replaces` alimenta o `lookup` no `resolve_lookup` — é a prop `replaces` do dicionário de lookup, mas **não** uma prop de `Lookup`. Por isso `lookup.model` também não existe: o model alvo é inferido de `fk_target_model` (`data.py:810`).
+
+> **Moeda não é prop de `Field`.** Não existe `currency` no dataclass (Entity/Schema que declarar `currency` levanta `FieldConfigError`). A moeda sai da `mask` — comando `@M(id)` (ex.: `@M(BRL)`). `Field.currency` é **derivada pelo motor** (`mask_money_id`) para lista/form/report/totais; em qualquer editável, declare `mask: MVALOR` (ver 5.14).
 
 ### 5.2 `Tag` — `ajsystem/defs/tags.py:62` `class Tag`
 
@@ -348,7 +353,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | `label` | `str` | `None` | texto; sem ela, `_auto_label`/Entity/entrada do `select` | cabeçalho da coluna |
 | `width` | `float` | `None` | `ch`/`mm` | coluna no PDF |
 | `align` | `str` | `'left'` | `left,center,right` | herdado do `Field.align` (`NUM`→`right`) |
-| `format` | `str` | `None` | formato de data/número | render da célula. Sem `format` declarado nem inferido, a `mask` da Entity/catálogo manda (genérico: tel/CPF/data) — `format` do relatório vence a máscara, máscara vence inferência |
+| `format` | `str` | `None` | formato de data/número | render da célula. `format` do relatório vence; sem ele, a `mask` do Field (Entity/Schema/query/catálogo, ou numérica de `decimals` com milhar) manda; a inferência por type é o último recurso (moeda vem da `mask` via `@M(id)`) |
 | `agg` | `str` | `None` | `sum/count/avg/min/max` | O QUÊ somar (só impressão; o ONDE vai em `totals`) |
 | `function` | `callable` | `None` | `lambda row:` | usa `Entity.calc` se ausente (coluna computada na query usa o attr) |
 | `text` | `str` | `None` | template `'{campo}'`/`{x:02d}`/`{?cond:…}` (6, `core/text.py`) | monta a célula (ex. código) |
@@ -380,7 +385,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
 | `LINE/BOX/CIRCLE(loc, props?)` | `{'LINE': {'location': loc, ...}}` | `LINE([10, 5, 20])` (horizontal; `[c,r,0,h]` vertical) |
 | `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
-| `FIELDS(modelo\|lista\|dict\|kwargs, when?)` | expande em `FIELD`s (relação, instância ou `{campo: cfg}`) | `FIELDS(a={'tab': 1}, …)` (kwargs, sem chaves; `when` vale p/ todos) |
+| `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
 | `TEXTS(*itens)` / `CR()` / `LF(n?)` / `FF()` | bloco de textos; retorno; avanço; quebra de página (corpo) | `CR` = volta à 1ª coluna; `LF()` = 1 linha; `FF` no header = erro |
 
 ### 5.9 `Button` — `ajsystem/defs/buttons.py:85` `class Button`
@@ -508,7 +513,7 @@ Gêmeo de `Button`, para o outro lado do formulário: enquanto o botão descreve
 | `upload` | `bool` | `False` | o valor é o nome de um arquivo enviado |
 | `mask` | `str` | `''` | máscara default; o `Field` vence |
 | `validate` | `str\|list` | `None` | validador default; o `Field` vence |
-| `mask_group` | `str` | `'text'` | comandos `@X` liberados: `text` (`ULCTR`), `number` (`BX`), `*` |
+| `mask_group` | `str` | `'text'` | comandos `@X` liberados: `text` (`ULCTR`), `number` (`BXM`), `*` |
 | `route` | `str` | `''` | sufixo do endpoint — `''` grava no POST do form |
 | `method` | `str` | `'GET'` | verbo do endpoint |
 | `label_on`/`label_off` | `str` | `''` | rótulos do toggle (title/`aria-label`) |
@@ -650,7 +655,7 @@ Função interna que centraliza a resolução de `fields`/`columns` em **todos**
 
 #### Regras
 
-1. **Schema é fonte única de overrides** — Entity (model) + Schema (rota) = merged config. Inline dicts em lista são ignorados (warning).
+1. **Entity/Schema são a base de overrides** — Entity (model) + Schema (rota) = merged config; a entrada do `select` (query) é uma camada de props por cima. Inline dicts em lista são ignorados (warning).
 2. **`pos_managed=True`** (expansão por entidade) → `pos_form=0`/`pos_list=0` ocultam o campo.
 3. **`pos_managed=False`** (lista explícita) → campos aparecem mesmo com `pos_*=0`; a declaração é autoritativa.
 4. **Multi-entidade** — cada entidade resolve contra seu próprio `full_schema[entidade]`. Requer que o Schema da página tenha as entidades declaradas.
@@ -693,25 +698,79 @@ Page = {
 }
 ```
 
-### 5.14 Constantes `ajsystem/defs/constants.py`
+### 5.14 Máscaras e formatação numérica — `defs/masks.py` + `app/extends/masks.py`
+
+Catálogo do motor (default **en-US**) com override do host (mesmo merge de `buttons`/`inputs`/`fonts`): `MASKS < Masks(app)`. `init.py` aplica via `defs.masks.definir_masks` **antes** de registrar módulos e publica `AJ_MASKS` no Jinja (→ `window.AJ_MASK` no `sys.html`).
+
+| Chave | Default (framework) | Papel |
+|---|---|---|
+| `DECIMAL` / `THOUSAND` | `'.'` / `','` | separadores de saída (`pt-BR`: `','`/`'.'`) |
+| `MONEY` | `{'USD': '$'}` | catálogo por id ISO (`{'BRL':'R$',…}`) |
+| `DEFAULT_MONEY` | `'USD'` | moeda-base (legados `1`/`True`/`'brl'` e `@M` sem id) |
+| `MVALOR`, `MCPF`, `MCNPJ`, `MCEP`, `MPLACA`, `MTEL`… | — | máscaras nomeadas (o host define as de domínio). Nas Entities/Schemas importe **o nome**: `from app.extends.masks import MVALOR` e `'mask': MVALOR` |
+
+**Comandos `@X`** (`core/formats.py:parse_mask`): `U/L/C/T` (texto), `R` (remove separadores no save), `B` (branco se zero), `X` (sufixo C/D), `M(id)` (moeda: `@M(BRL) 999,999.99`).
+
+**Máscara numérica canônica** (escrita em inglês; o motor troca pelos `DECIMAL`/`THOUSAND`): `0` = dígito com zero-pad, `9` = dígito opcional, `,` = milhar (agrupa se presente), `.` = decimal (casas após o último `.`). Ex.: `'999,999.99'` → `1.234,50` em pt-BR. Máscaras de texto/data usam literais (o `9` de CPF casa `0` e preserva zeros à esquerda).
+
+**Exemplo de troca de moeda** — só `app/extends/masks.py` (mudar `DEFAULT_MONEY`/`MONEY`/`MVALOR`):
+```python
+DECIMAL, THOUSAND = '.', ','
+MONEY = {'BRL': 'R$', 'USD': '$', 'EUR': '€'}
+DEFAULT_MONEY = 'USD'
+MVALOR = '@M(USD) 999,999,999.99'
+# ...
+Masks = {'DECIMAL': DECIMAL, 'THOUSAND': THOUSAND, 'MONEY': MONEY,
+         'DEFAULT_MONEY': DEFAULT_MONEY, 'MVALOR': MVALOR, ...}
+```
+→ list/form/report/totais passam a `$ 1,234.56`, sem tocar Entity/Route/template.
+
+**Leitura/escrita do valor de um input numérico.** O input guarda o valor na convenção do **campo**, nem sempre igual à do texto exibido, e cálculo (`data-calc`), totais, `enabled`/`on_set` leem esse valor — então a leitura tem de ser a mesma que o servidor fará no POST:
+
+| Onde | Função | Regra |
+|---|---|---|
+| Python | `parse_brl` (`core/formats.py`), `as_num` (`core/utils.py`), `_coerce` (`core/form.py`) | vírgula presente → decimal do app, ponto é milhar (`'1.234,56'`); **sem vírgula o ponto é decimal** (`'6.00'`, `'6.5'`) |
+| JS | `parseNumText(v)` / `parseNumField(el)` (`static/js/formats.js`) | idem — é o espelho de `_coerce`/`as_num` |
+| JS | `parseNum(v)` | só para **texto exibido** (ordenar coluna, comparar célula): ponto é sempre milhar |
+| JS | `numToInput(v, dec)` / `numToInputFor(el, v)` | escreve na convenção do campo alvo (`dec` = `data-num-decimals`), espelhando `fmt_num` |
+
+Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para a leitura de volta ser inequívoca. `'1.000'` continua ambíguo por construção: sem vírgula é lido como `1.0`, nos dois lados — quem quiser `1000` escreve `'1000'` ou `'1.000,0'`. Num campo com `decimals`, use `numToInputFor`/`fmtNumBR` para escrever, nunca `String(valor)`: um `Decimal` cru (`'6.00'`) entra no input e sai multiplicado por 100 no `calc`.
+
+### 5.14.1 Constantes `ajsystem/defs/constants.py`
 
 | Constante | Valor | Impacto |
 |---|---|---|
-| `CURRENCY` | `{0: None, 1: {'symbol':'R$','locale':'pt-BR'}, 2: {'symbol':'$','locale':'en-US'}, 3: {'symbol':'€','locale':'pt-BR'}}` | `money`/`itFmtMoney` |
-| `DEFAULT_CURRENCY` | `1` | código usado quando `Field.currency` é `None`/`True`/`'brl'` |
-| `POS_0_NOT_EMPTY` | `{'pos':0,'when':{'not_empty':True}}` | `pos:0` explícito só quando valor≠vazio (só `form`, `ajsystem/defs/data.py:338` `is_visible_by_pos`) |
+| `POS_0_NOT_EMPTY` | `{'pos':0,'when':{'not_empty':True}}` | `pos:0` explícito só quando valor≠vazio (só `form`, `ajsystem/defs/data.py` `is_visible_by_pos`) |
 | `TODAY` | `date.today` (callable) | default de `Field.data` em forms novos |
-| `CONNECTORS` | `frozenset` de 40 preposições PT | normalização de busca textual |
+| `CONNECTORS` | `frozenset` de ~40 preposições PT | normalização de busca textual |
 
-> **Sobre `CURRENCY`:** o `locale` só tem **um valor com efeito real** — `core/formats.py:438` `_fmt_number` faz `if locale == 'pt-BR'`, e qualquer outro valor cai no formato `en-US`. Por isso `3` (`€`) usa `pt-BR`: o agrupamento `1.234,56` é o correto para pt-PT/es-ES/it-IT/de-DE, e o símbolo é prefixado em todos os códigos. Não troque `3` por `de-DE`: o Python passaria a emitir `€ 1,234.56` (errado para Alemanha) enquanto o `toLocaleString` do `formats.js` emitiria `1.234,56` — cliente e servidor divergiriam no mesmo campo.
->
-> **Limitação conhecida:** `formats.js:259` (`itMoneyInfo`) duplica a tabela `CURRENCY` à mão. Alterar só o Python dessincroniza os dois em silêncio. E `normalize_currency` só aceita `'brl'` como string — `currency:'eur'` devolve `None` e **desliga** a formatação em vez de escolher o código 3.
+> **Legado:** `CURRENCY`/`DEFAULT_CURRENCY` seguem em `constants.py` só como compatibilidade — a formatação passou a ler `MONEY`/`DEFAULT_MONEY` (masks) e o dataclass `Field` **não tem mais `currency`** (a moeda vem da `mask`, via `@M(id)`; `Field.currency` é derivada pelo motor). `normalize_currency` aceita ids ISO (`'BRL'`), legados `1`/`True`/`'brl'` e (`2`/`3`→`'USD'`/`'EUR'` se existirem); `0`/`None` = desligado.
 
 > **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `{cycle, year, month, number}`) — sem arquivo próprio; bump via script de bump do host. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:413`) valida chaves (`FieldConfigError`).
 
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.07.0005
+- **Cálculo de `calc` lê o valor *desformatado* do input (`parseNumText`/`parseNumField` em `static/js/formats.js`).** O `on_set` de `produto_id` (itens do orçamento) copia `data-preco` do `<option>` — `str(Decimal)`, `'6.00'` — direto pro input, e `parseNum` lia o ponto como milhar pt-BR: `100 × 600 = 60.000,00` em vez de `600,00`. A leitura do input numérico passou a ser a regra de `_coerce` (`core/form.py`) e de `as_num` (`core/utils.py`): vírgula presente = decimal do app (ponto é milhar); sem vírgula, ponto é decimal. No lado da escrita, `numToInput`/`numToInputFor` põem no input o valor na convenção do campo alvo (`numToInputFor(target, val)` em `itOnSetBind` e `itUpdateZerados`), espelhando `fmt_num`. `parseNum` ficou como era (ler exibição/ordenar coluna), e `parse_brl` passou a fazer o que o docstring já prometia. `'1.000'` segue ambíguo por construção: sem vírgula é lido como `1.0`, igual o servidor.
+
+### 1.26.10.07.0004
+- **Células `calc` da lista passam a renderizar pela máscara.** O ramo `col.calc` de `list.html` só formatava `B/X/R` e data — um `@M` (ex. `MVALOR` no `total` de orçamentos) caía no valor cru. O fallback dos 5 ramos de calc (linha, detail, card, cardonly) virou `_cv|format(col.mask) if col.mask … else _cv`, e o filtro Jinja `format` (= `core.formats.format`) foi registrado no `init`. Resultado: `total` (agg) sai `R$ 1.234,50`, e qualquer coluna calc com máscara numérica `0/9` passa a agrupar milhar. Sem regressão em calc sem máscara (reproduz `{{ _cv }}`).
+- **`Masks`/`MASKS` deixaram de ser repetidos à mão** — derivados no próprio import por `collect_mask_catalog` (nomes maiúsculos, valores `str`/`dict`, na ordem declarada) em `ajsystem/defs/masks.py` e `app/extends/masks.py`. Adicionar um `M*` novo no arquivo não exige mais atualizar o dict.
+- **Máquina genérica de camadas de fields (`core/resolve.py`: `RL`/`RQ`/`RS`/`RE`).** `apply_field_layers` aplica props por camada em *fill-gap* (quem declara primeiro vence) com a validação de sempre, e `query_select_layer` extrai a camada de uma fonte `query` (destila `calc` herdado quando a query computa, sobrescreve `label/width/align`, `pos_list: 0` salvo override do Schema). `resolve_entity_fields` passou a delegar a ele (ordem `[Schema, layer, Entity]` = mesmo vencedor por chave do `{**Entity, **layer, **Schema}` anterior) e `do_list` orquestra `RS/RE → RQ → build`. Equivalência provada por harness: os 26 merges (22 entidades + card em `pagar`/`receber`) e a listagem com query (`operacoes`/`QPLANO`) são idênticos ao fluxo antigo, byte a byte.
+- **`Form._resolve_fields` migrou para a RL da listagem (`resolve_column_configs`).** O ramo `is_multi_entity` morto (o merge de `resolve_entity_fields` é sempre single-entity) caiu, e a expansão de `fields` como nome de entidade passou a reusar `resolve_column_configs(…, pos_managed=True)` no lugar do `_build_fields_from_merged` inline — o form e a listagem agora montam campos pelo mesmo código. Equivalência provada por harness: os 21 forms resolvidos (fields, sessões query/table, colunas, botões, label/redirect/flash) são byte a byte iguais aos anteriores.
+
+### 1.26.10.07.0003
+- **`currency` deixou de ser prop de `Field` (vira motor, derivada da `mask`).** O dataclass não tem mais `currency` — Entity/Schema que declarar levanta `FieldConfigError` (nova chave desconhecida em `_FIELD_KEYS`), e `Field(**{...,'currency':...})` falha no construtor. `Field.currency` é agora **property derivada** de `mask_money_id(self.mask)` (`@M(id)` validado em `MONEY`; `@M` sem id → `DEFAULT_MONEY`; sem `@M` → `None`), lida pelos mesmos consumidores de sempre: lista (`field_to_column`), formulário (totais), templates (`field.currency`/`col.currency`) e report. `search._fmt_cell` e `_infer_presentation` passaram a derivar a moeda de `cfg['mask']`; a guarda obsoleta de `_field_mask` (number+currency sem mask) caiu. Migrados todos os campos de dinheiro do app para `mask: MVALOR` (que já carrega o `@M(BRL)`): `previsao` (previsto/realizado/variacao/saldo), `recurso` (saldo), `transacao` (valor/variacao/saldo), rotas `pagar`/`receber` (previsto/realizado/ratear), `site/orcamento` (preco) e o `total` do Schema de `sys/orcamentos` (era `999,999.99`). `decimals` segue declarativo (entrada `data-num-decimals`, arredondamento no POST, totais).
+- **`formats.format`/`fmt_mask_cmd` roteiam número × máscara de texto corretamente.** Máscara de documento tem literal fora de `09,.` (CPF `-`, tel `(`/`)`, placa letras) → cai no caminho de texto (`fmt_mask`), não mais no numérico (que calculava casas a partir do `.` e saía `12345678901,00000000`). Mesmo guard (`_isNumMask`) espelhado no JS.
+
+### 1.26.10.07.0002
+- **Máscaras e formatação numérica dirigidas pelo app (`defs/masks.py` + `app/extends/masks.py`).** Separadores (`DECIMAL`/`THOUSAND`), catálogo de moedas por id ISO (`MONEY`/`DEFAULT_MONEY`) e máscaras nomeadas (`MVALOR`, `MCPF`, `MCNPJ`, `MCEP`, `MPLACA`, `MTEL`) num arquivo só, com override do host (merge de `buttons`/`inputs`/`fonts`) aplicado no `init` e publicado em `window.AJ_MASK`. `core/formats.py` passa a ler as constantes; JS (`static/js/formats.js`) espelha. Comando `@M(id)` (moeda, ex. `@M(BRL) 999,999.99`) e `@R` (remoção de separadores no save, agora em CPF/CNPJ/tel). Máscara numérica canônica (`0`=pad, `9`=opcional, `,`=milhar, `.`=decimal) escrita em inglês e renderizada nos separadores do app; `num_mask`/`_mask_decimals`/`parse_brl`/`fmt_num`/`fmt_money`/`fmt_percent`/`fmt_id` alinhados. Moeda **não é prop declarativa**: o dataclass `Field` não tem `currency` (Entity/Schema que declarar levanta `FieldConfigError`) — `Field.currency` é derivada da `mask` (`@M(id)`) pelo motor (`mask_money_id`). Trocar de moeda = editar `app/extends/masks.py`. Trocar os separadores do report (`_format_cell_value`/`_format_field`) e da list idem.
+
+### 1.26.10.07.0001
+- **Resolução de props do field unificada: `tipo (FIELD_TYPES+INPUT_TYPES) → Entity → Schema → Query → report`.** Cada camada sobrescreve a anterior (declaração, não motor). `list`/`form` consomem o `Field` resolvido sem override; o `report` mantém override de props de display (`format`/`mask`), e a entrada do `select` da query sobrescreve as props que já declara (`label/width/align/format/pos_list`). A `mask` é prop de **exibição**: explícita (Entity/Schema/query/report) vence; senão o default do input (cpf/cnpj/telefone/data/hora — `time` ganhou `hh:mm`); senão o default numérico de `decimals`, renderizado **com separador de milhar sempre**. `decimals` controla a **entrada** (`data-num-decimals`), o arredondamento no POST e compõe o default numérico; a moeda **não** é prop declarativa — `Field.currency` é derivada da `mask` (`@M(id)`) pelo motor (lista/form/report/totais leem `f.currency`). `_field_mask` resolve pelo `Field` (não re-deriva do catálogo) e `_format_cell_value` usa `formats.format` (número agrupa no report).
+- **`FIELDS` v2 e resolução de field do report unificada.** `FIELDS(*itens)`, item `'campo'` ou `('campo', {props})`; `'Entidade'` expande, `'Entidade.campo'` é campo relacionado. Cada item resolve **como `columns`/`fields`** (list/form): `build_field` sobre Entity+Schema, com label da Entity (não mais auto-label) e `lookup` de FK; sem lookup, o caminho é `<relação>.nome`. Props de `Field` no dict são override; `tab/when/rows_*/font*/function` são overlay de report. O resolvedor próprio (`_expand_fields_list`/`_resolve_map`/`_attach_field_mask` na parte de field) foi substituído por um caminho único; `table.columns` também aceita `('campo', {props})`. Relatórios do app migraram: pedido/compra referenciam o **FK declarado** (`conta_id`/`fornecedor_id` + `Conta.telefone`), eliminando os virtuais `_cliente_nome`/`_cliente_telefone`/`_fornecedor_nome`; orçamento usa `Evento.<campo>`.
 
 ### 1.26.10.06.0002
 - **Bloco `table.after` passou a fluir: o cursor é herdado entre itens (fix do "imprime tudo no mesmo ponto").** `_place_item` separou as semânticas de posicionamento: âncora (`tab`/`location`/`pos`) absoluta, inalterada; sem âncora, `FIELD` e `TEXT` com `width` **herdam o X do item anterior** (só entram na 1ª coluna da zona se o cursor está fora dela — início de bloco pós-tabela ou zona nova do `IND`); `TEXT` avulso sem `width` é **linha própria** (começa na 1ª coluna da zona e avança a linha automaticamente quando o fluxo terminou antes dela — é o "avanço ao final" dos `rows_after`/`CR`); bloco (`IMAGE`/`LINE`/`BOX`/`CIRCLE`/`CALL`) volta ao início como antes. O bug: todo item sem âncora recebia `set_x(zone0)` individual, então os campos de `FIELDS` e os `TEXT` do `after` de pedido/orçamento/compra **imprimiam todos sobre o mesmo ponto** (o wrap nunca disparava porque `x == x0` zera a condição) — e `TEXTS` sofria do mesmo mal. Verificado por dump de coordenadas em PDF: campos do evento lado a lado com wrap na zona `IND`, `Data`/`Forminhas` em linhas distintas, zero pares `(x,y)` duplicados em pedido (com e sem `obs`), compra e orçamento.
@@ -723,7 +782,7 @@ Page = {
 - **`FIELDS` aceita kwargs e dict de cfg.** `FIELDS(a={'tab': 1}, …)` (kwargs, sem chaves; exige modelo `str` ou ausente), `FIELDS({'a': {...}})` ou a forma interna `{'model': …, 'fields': …}`; cfg por campo aceita `label`/`when`/`function` (com `_auto_label` quando não há rótulo) e o `when` posicional vale para todos. Relatórios do app migraram para `from ajsystem.defs.report import *` (`__all__` novo entrega **só** as factories de declaração; `Report*`/`parse_*` seguem import explícito) — `_brl`/`_report_after`/`_event_after`/`_forminhas_carteira` saíram de `pedidos`/`compras` e o bloco do evento virou `IND(LTB, RTB)` + `FIELDS('Evento', tipo={…, 'when': 'evento.tipo'}, …)`.
 - **Controles de régua: `totals.bline` e `groups.gline`.** `bline` = régua antes da linha de subtotal/total; fechamento de grupo usa `gline` (legado `line` traduzido no parse e nas sínteses de `levels`). Réguas seguidas sem conteúdo entre elas saem uma vez só; o total geral ganhou régua antes e depois internas.
 - **Logo e página standalone saíram da declaração do `Report`.** `do_report._resolve_logo` lê `APP.logo` (relativo a `static/`) com fallback `LOGO_FALLBACK` (`static/icons/Logo.png`), e `print_report_page` usa a constante `PRINT_TEMPLATE`. As chaves legadas `print_template`, `logo_path` e `orientation_mutable` são ignoradas no parse (shim) — a última não tinha consumidor e a feature saiu.
-- **Correções de impressão e de form.** `_render_table` guarda as bordas da última tabela em **mm** e converte na resolução (`_table_edges`): gravar já em cols do pitch da tabela brigava com o `ncol` da validação do `IND` depois que `FONT` mudou a unidade. `data-enabled` no botão escapava para `&#34;` (Markup do `title` escapava a string do `~`) e o `itEnabledEval` morria com seletor inválido **antes** de amarrar os listeners do form — o `total` nunca recalculava; fix é `|safe` + espaço inicial em `_attrs` (`form_macros`). `item_table` fechava o `</div>` de `.itm-scroll` só dentro de `{% if _can_edit %}`: sessão readonly (pedido com evento) deixava o HTML desbalanceado, `#report-content` nascia dentro de `#page-content` e o overlay escondia os dois — página em branco ao imprimir; agora o fechamento é incondicional e o `{% if _can_edit %}` do ColumnTemplate é separado. `transformers` lê o atributo com `getattr` tolerante (property que levanta não derruba o form), input `date` ganhou máscara `dd/mm/yyyy`, `_field_mask` do relatório ignora máscara auto-derivada de `decimals`, `'LINE'` (string) no relatório de pedido parou de quebrar o boot e `app/extends/utils.py` ganhou `num0` (Decimal tolerante a None/str/float).
+- **Correções de impressão e de form.** `_render_table` guarda as bordas da última tabela em **mm** e converte na resolução (`_table_edges`): gravar já em cols do pitch da tabela brigava com o `ncol` da validação do `IND` depois que `FONT` mudou a unidade. `data-enabled` no botão escapava para `&#34;` (Markup do `title` escapava a string do `~`) e o `itEnabledEval` morria com seletor inválido **antes** de amarrar os listeners do form — o `total` nunca recalculava; fix é `|safe` + espaço inicial em `_attrs` (`form_macros`). `item_table` fechava o `</div>` de `.itm-scroll` só dentro de `{% if _can_edit %}`: sessão readonly (pedido com evento) deixava o HTML desbalanceado, `#report-content` nascia dentro de `#page-content` e o overlay escondia os dois — página em branco ao imprimir; agora o fechamento é incondicional e o `{% if _can_edit %}` do ColumnTemplate é separado. `transformers` lê o atributo com `getattr` tolerante (property que levanta não derruba o form), input `date` ganhou máscara `dd/mm/yyyy`, `'LINE'` (string) no relatório de pedido parou de quebrar o boot e `app/extends/utils.py` ganhou `num0` (Decimal tolerante a None/str/float).
 
 ### 1.26.10.02.0001
 - **Fonte de dados declarativa SQL-like (`defs/qspec.py`, novo).** `QuerySpec` com as props na ordem do SQL — `select, dist, from, join, where, groups, order, limit` (`levels` legado aceito como alias) — e `PivotSpec` (`src, lines, columns, aggs, filters`; executor pendente). Cada entrada do `select` espelha o `Field`: dado (`field/agg/func/over/calc`) + apresentação (`label/width/align/format/pos_list`) lado a lado, sem sub-dict `display` (que existiu numa fase e foi removido por duplicar props do `Field`). Formas por campo: `'nome'` puro, `{'alias': {agg, field}}` (GROUP BY fora de `over`), `{func, over}` (janela, `func` explícito, `over` nunca vazio), `{over={agg,...}}` (agregado em janela), `{calc}` (template montado pós-`over`). `aggs` no dual curto/longo (`{'id':'count'}` | `{'qtd':{'id':'count'}}`). Tudo com `fail-fast` nomeando (função desconhecida, chave estranha, `groups` sem `agg`, `calc` referenciando campo inexistente). Detecção `is_query_dict` (`select+from`) para a `columns` polimórfica da listagem.

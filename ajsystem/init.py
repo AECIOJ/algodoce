@@ -13,6 +13,7 @@ from ajsystem.core.menu import url_do_item
 from ajsystem.defs.buttons import Button, ConfirmModal
 from ajsystem.defs.data import fmt_mask, get_field, has_date_tokens, internal_scripts
 from ajsystem.core.list import fields_to_columns
+from ajsystem.core.formats import format as _fmt_format
 from ajsystem.core.utils import (
     deep_attr, fmt_brl, fmt_money, fmt_id, fmt_zero, fmt_zero_int, fmt_date, fmt_datetime, fmt_percent, fmt_num, item_ref,
     field_value, calc_value, fmt_mask_cmd, is_empty, is_zero_or_empty,
@@ -49,6 +50,13 @@ def init_app(app):
     from ajsystem.defs import inputs as _inputs
     _inputs.definir_camadas_padrao((APP.inputs,))
 
+    # 3.2 separadores/moedas do app (formatação numérica) e catálogo p/ o
+    # cliente (`window.AJ_MASK`). Também antes de construir qualquer número.
+    from ajsystem.defs import masks as _masks
+    from ajsystem.core.adapter import masks_override as _masks_override
+    _cfg_masks = _masks.definir_masks(_masks_override())
+    app.jinja_env.globals['AJ_MASKS'] = _cfg_masks
+
     # 4. filtros/globals Jinja
     app.jinja_env.filters['deep_attr'] = deep_attr
     app.jinja_env.filters['is_empty'] = is_empty
@@ -67,6 +75,7 @@ def init_app(app):
     app.jinja_env.filters['fmtdatetime'] = fmt_datetime
     app.jinja_env.filters['mask'] = fmt_mask
     app.jinja_env.filters['mask_cmd'] = fmt_mask_cmd
+    app.jinja_env.filters['format'] = _fmt_format
     app.jinja_env.tests['datemask'] = has_date_tokens
     # Um único global `i18n` (o catálogo do locale ativo), em vez de ~100 nomes
     # soltos: não polui o namespace do template nem sombreia variável de

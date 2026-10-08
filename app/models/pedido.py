@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
 from app.extends.constants import STATUS_PEDIDO, FORMINHAS
+from app.extends.masks import MVALOR
 
 
 class Pedido(db.Model):
@@ -78,11 +79,12 @@ Entity = {
     'cancelado_em':          {'type': 'DATA', 'label': 'Cancelado em', },
     'carteira_id':           {'type': 'FK', 'label': 'Pagamento', 'width': 15},
     'forminhas':             {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12},
-    'valor':                 {'type': 'NUM', 'currency': 1, 'width': 10, 'required': True},
-    'acrescimo':             {'type': 'NUM', 'currency': 1, 'width': 10},
-    'desconto':              {'type': 'NUM', 'currency': 1, 'width': 10},
-    'total':                 {'type': 'NUM', 'currency': 1, 'readonly': True, 'width': 10,
-                              'calc': 'valor + acrescimo - desconto'},
+    'valor':                 {'type': 'NUM', 'width': 10, 'required': True,
+                              'mask': MVALOR},
+    'acrescimo':             {'type': 'NUM', 'width': 10, 'mask': MVALOR},
+    'desconto':              {'type': 'NUM', 'width': 10, 'mask': MVALOR},
+    'total':                 {'type': 'NUM', 'readonly': True, 'width': 10,
+                              'mask': MVALOR, 'calc': 'valor + acrescimo - desconto'},
     'status':                {'type': 'LIST', 'width': 11, 'options': STATUS_PEDIDO},
     'transacao_id':          {'type': 'INT', 'label': 'Transação', 'calc': lambda row: row.transacao_id},
     'movto_id':              {'type': 'INT', 'label': 'Movimento', 'calc': lambda row: row.movto_id},

@@ -1,6 +1,7 @@
 from ajsystem.core.extensions import db
 from ajsystem.core.utils import divide
 from app.extends.constants import TIPO_INGREDIENTE
+from app.extends.masks import MVALOR
 
 
 class Produto(db.Model):
@@ -37,9 +38,10 @@ Entity = {
     'nome':        {'type': 'TEXT', 'width': 20, 'mask': '@T'},
     'qtd_minima':  {'type': 'INT', 'label': 'Qtd. Mínima', 'min': 0, 'step': 1, 'default': 1},
     'qtd_receita': {'type': 'INT', 'label': 'Qtd. Receita', 'min': 0, 'step': 1, 'default': 1},
-    'valor':       {'type': 'NUM', 'label': 'Valor', 'required': True, 'currency': 1},
-    'preco':       {'type': 'NUM', 'label': 'Preço', 'currency': 1,
-                    'calc': 'divide(valor, qtd_minima)'},
+    'valor':       {'type': 'NUM', 'label': 'Valor', 'required': True,
+                    'mask': MVALOR},
+    'preco':       {'type': 'NUM', 'label': 'Preço',
+                    'mask': MVALOR, 'calc': 'divide(valor, qtd_minima)'},
     'categoria_id': {'type': 'FK', 'label': 'Categoria', 'width': 12},
     # `pos_form: 3` = barra do form (o `slot: 'bar'` do input `toggle`), e o
     # `Field` cobra o par: input de barra sem pos_form 3 não sobe.

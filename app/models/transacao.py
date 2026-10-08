@@ -1,6 +1,7 @@
 from ajsystem.core.extensions import db
 from ajsystem.defs.constants import POS_0_NOT_EMPTY
 from app.extends.constants import TIPO_TRANSACAO, STATUS_PREVISAO
+from app.extends.masks import MVALOR
 
 
 class Transacao(db.Model):
@@ -61,9 +62,9 @@ Entity = {
     'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15, 'required': True,},
     'fatura':       {'type': 'TEXT', 'width': 12},
     'prazo':        {'type': 'TEXT', 'width': 20, 'readonly': True},
-    'valor':        {'type': 'NUM', 'width': 12, 'currency': 1, 'readonly': True},
-    'variacao':     {'type': 'NUM', 'width': 10, 'currency': 1, 'readonly': True},
-    'saldo':        {'type': 'NUM', 'width': 10, 'currency': 1, 'readonly': True},
+    'valor':        {'type': 'NUM', 'width': 12, 'readonly': True, 'mask': MVALOR},
+    'variacao':     {'type': 'NUM', 'width': 10, 'readonly': True, 'mask': MVALOR},
+    'saldo':        {'type': 'NUM', 'width': 10, 'readonly': True, 'mask': MVALOR},
     'cancelado':    {'type': 'DATA', 'width': 12},
     'status':       {'type': 'LIST', 'width': 10, 'options': STATUS_PREVISAO},
     'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9,

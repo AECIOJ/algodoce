@@ -8,7 +8,7 @@ associadas. Não manipula request/DB nem engine.
 from dataclasses import dataclass, field, fields as dc_fields
 from typing import Callable, Optional, Union
 
-from ajsystem.core.list import resolve_column_configs, _resolve_model, _build_fields_from_merged
+from ajsystem.core.list import resolve_column_configs, _resolve_model
 from ajsystem.defs.buttons import resolve_buttons
 from ajsystem.defs.data import _auto_label, resolve_entity_fields, normalize_fieldspec
 
@@ -185,40 +185,18 @@ class Form:
         spec = self.fields if self.fields is not None else (self._entity_name or ['id'])
         merged = self._schema or {}
         if isinstance(spec, str):
-            # Se merged já é single-entity (chaves são campos), expande direto
-            # Se merged é multi-entity (chaves são entidades), usa normalize_fieldspec
-            is_multi_entity = False
-            if merged:
-                first_key = next(iter(merged.keys()))
-                # Heurística: chave de entidade começa com maiúscula
-                if first_key and first_key[0].isupper():
-                    is_multi_entity = True
-            
-            if is_multi_entity:
-                # Schema multi-entity: usa normalize_fieldspec
-                if spec in merged:
-                    return normalize_fieldspec(spec, merged, merged, inputs=self._camadas_inputs)
-                if self._model is None:
-                    self._model = _resolve_model(spec)
-                self._entity_name = spec
-                if not merged:
-                    self._schema = resolve_entity_fields({}, self._model, spec)
-                if not self._label:
-                    self._label = _auto_label(spec)
-                    self._apply_flash_defaults()
-                return normalize_fieldspec(spec, self._schema, self._schema, inputs=self._camadas_inputs)
-            else:
-                # Schema single-entity: spec é nome da entidade, expande merged direto
-                if self._model is None:
-                    self._model = _resolve_model(spec)
-                self._entity_name = spec
-                if not self._label:
-                    self._label = _auto_label(spec)
-                    self._apply_flash_defaults()
-                # Expansão de entidade → pos_managed=True
-                field_names = list(merged.keys())
-                return _build_fields_from_merged(field_names, merged, pos_managed=True,
-                                              inputs=self._camadas_inputs)
+            # `_schema` vem de `resolve_entity_fields` → sempre single-entity
+            # (chaves = campos). `fields` é o nome da entidade: expansão de
+            # todos os campos, pos_managed=True (mesma RL da listagem).
+            if self._model is None:
+                self._model = _resolve_model(spec)
+            self._entity_name = spec
+            if not self._label:
+                self._label = _auto_label(spec)
+                self._apply_flash_defaults()
+            return resolve_column_configs(merged, spec, principal=merged,
+                                          pos_managed=True,
+                                          inputs=self._camadas_inputs)
         return normalize_fieldspec(spec, merged, merged, inputs=self._camadas_inputs)
 
     def _apply_flash_defaults(self):

@@ -1,4 +1,5 @@
 from ajsystem.core.extensions import db
+from app.extends.masks import MVALOR
 
 
 class Previsao(db.Model):
@@ -36,9 +37,9 @@ Entity = {
     'documento':    {'type': 'TEXT', 'label': 'Documento'},
     'vencimento':   {'type': 'DATA', 'label': 'Vencimento', 'required': True},
     'recurso_id':   {'type': 'FK', 'label': 'Recurso'},
-    'previsto':     {'type': 'NUM', 'label': 'Previsto', 'required': True, 'currency': 1},
-    'realizado':    {'type': 'NUM', 'label': 'Realizado', 'currency': 1},
-    'variacao':     {'type': 'NUM', 'label': 'Variação', 'currency': 1},
-    'saldo':        {'type': 'NUM', 'label': 'Saldo', 'currency': 1,
+    'previsto':     {'type': 'NUM', 'label': 'Previsto', 'required': True, 'mask': MVALOR},
+    'realizado':    {'type': 'NUM', 'label': 'Realizado', 'mask': MVALOR},
+    'variacao':     {'type': 'NUM', 'label': 'Variação', 'mask': MVALOR},
+    'saldo':        {'type': 'NUM', 'label': 'Saldo', 'mask': MVALOR,
                      'calc': 'previsto - realizado + variacao'},
 }

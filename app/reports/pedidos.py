@@ -1,14 +1,6 @@
 from ajsystem.defs.report import *
 
 
-def _cliente_nome(order):
-    return order.conta.nome if order.conta else '-'
-
-
-def _cliente_telefone(order):
-    return order.conta.telefone if order.conta else ''
-
-
 PEDIDO = {
     'label': 'Pedido',
     'header': [
@@ -16,10 +8,10 @@ PEDIDO = {
         TABS(PCOL+5, PCOL+40),
         TITLE('Pedido Nº {id}', {'location': [PCOL, 0]}),
         POS(PCOL,2),
-        FIELDS(cliente_nome={'function': _cliente_nome, 'label': 'Cliente', 'tab': 1},
-               pedido_em={'tab': 2, 'rows_after': 1},
-               cliente_telefone={'function': _cliente_telefone, 'label': 'Telefone', 'tab': 1},
-               data_previsao_entrega={'tab': 2}),
+        FIELDS(('conta_id', {'tab': 1}),
+               ('pedido_em', {'tab': 2, 'rows_after': 1}),
+               ('Conta.telefone', {'tab': 1}),
+               ('data_previsao_entrega', {'tab': 2})),
         LF(2)
     ],
     'body': {
@@ -39,14 +31,15 @@ PEDIDO = {
                        (4, '{total}', {'font_style': 'B'})],
             'after': [
                 IND(LTB,RTB),
-                FIELDS('Evento', tipo={'label': 'Evento', 'when': 'evento.tipo'},
-                             tema={'when': 'evento.tema'},
-                             local={'when': 'evento.local'},
-                             convidados={'when': 'evento.convidados'},
-                             cerimonial={'when': 'evento.cerimonial'},
-                             obs={'when': 'evento.obs', 'rows_after': 1}),
-                      {'TEXT': {'text': 'Data: {evento.data:%d/%m/%Y} {evento.hora:%H:%M}', 'when': 'evento.data'}},
-                      {'TEXT': {'text': 'Forminhas: {forminhas} | Forma de Pagamento: {conta.nome|-}'}}],
+                FIELDS(('Evento.tipo', {'label': 'Evento', 'when': 'evento.tipo'}),
+                       ('Evento.tema', {'when': 'evento.tema'}),
+                       ('Evento.data', {'when': 'evento.data'}),
+                       ('Evento.hora', {'when': 'evento.data'}),
+                       ('Evento.local', {'when': 'evento.local'}),
+                       ('Evento.convidados', {'when': 'evento.convidados'}),
+                       ('Evento.cerimonial', {'when': 'evento.cerimonial'}),
+                       ('Evento.obs', {'when': 'evento.obs'})),
+                      {'TEXT': {'text': 'Forminhas: {forminhas} | Forma de Pagamento: {carteira.nome|-}'}}],
         },
     },
 }

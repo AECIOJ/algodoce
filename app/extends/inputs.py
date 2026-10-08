@@ -18,14 +18,17 @@ Exemplos:
     }
 """
 # ── Aparência/tipo que é do app ──────────────────────────────────────────────
+from app.extends.masks import MCPF, MCNPJ, MTEL
+
 Inputs = {
     # Documentos: como `text` com máscara (HTML puro); validadores do framework
     # tratam `validate: 'cpf'`/`'cnpj'` em outro lugar (se houver). O importante
-    # aqui é `masked` + `mask` + `size`.
+    # aqui é `masked` + `mask` + `size`. As máscaras vêm de `app/extends/masks.py`
+    # (`@R` = não grava separadores no banco).
     'cpf': {
         'type': 'text',
         'masked': True,
-        'mask': '999.999.999-99',
+        'mask': MCPF,
         'validate': 'cpf',
         'size': 14,
         'filter_kind': 'text',
@@ -34,7 +37,7 @@ Inputs = {
     'cnpj': {
         'type': 'text',
         'masked': True,
-        'mask': '99.999.999/9999-99',
+        'mask': MCNPJ,
         'validate': 'cnpj',
         'size': 18,
         'filter_kind': 'text',
@@ -46,7 +49,7 @@ Inputs = {
     'tel': {
         'type': 'tel',
         'masked': True,
-        'mask': '@R (99) 99999-9999',
+        'mask': MTEL,
         'validate': 'telefone',
         'size': 18,
         'filter_kind': 'text',

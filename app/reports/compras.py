@@ -35,8 +35,8 @@ COMPRA = {
         TABS(PCOL+5, PCOL+40),
         TITLE(_report_title, {'location': [PCOL, 0]}),
         POS(PCOL,2),
-        FIELDS(fornecedor_nome={'function': _fornecedor_nome, 'label': 'Fornecedor', 'tab': 1},
-               data={'tab': 2}),
+        FIELDS(('fornecedor_id', {'tab': 1}),
+               ('data', {'tab': 2})),
         LF(2)
     ],
     'body': {

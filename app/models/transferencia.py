@@ -1,4 +1,5 @@
 from ajsystem.core.extensions import db
+from app.extends.masks import MVALOR
 
 
 class Transferencia(db.Model):
@@ -35,7 +36,8 @@ Entity = {
     'id':        {'type': 'ID', 'width': 7},
     'data':      {'type': 'DATA', 'width': 10, 'required': True},
     'historico': {'type': 'MEMO', 'label': 'Histórico', 'width': 30},
-    'total':     {'type': 'NUM', 'label': 'Total', 'width': 12, 'currency': 1, 'readonly': True},
+    'total':     {'type': 'NUM', 'label': 'Total', 'width': 12, 'readonly': True,
+                  'mask': MVALOR},
     'status':    {'type': 'TEXT', 'label': 'Status', 'width': 12,
                   'calc': {'type': 'call', 'source': 'calc_status',
                            'diff': 'Aviso de Inconsistência: Status registrado desta transferência difere do status calculado.'}},

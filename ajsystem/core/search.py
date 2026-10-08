@@ -162,11 +162,11 @@ def _fmt_cell(value, cfg):
     from ajsystem.core.utils import fmt_money, fmt_date, fmt_datetime
     if value is None:
         return '—'
-    cur = (cfg or {}).get('currency')
-    if cur:
-        from ajsystem.core.utils import normalize_currency
-        code = normalize_currency(cur)
-        return fmt_money(value, code if code is not None else 1)
+    from ajsystem.core.formats import mask_money_id
+    # moeda da `mask` (`@M(id)`) — `currency` não é prop declarativa.
+    code = mask_money_id((cfg or {}).get('mask'))
+    if code:
+        return fmt_money(value, code)
     t = (cfg or {}).get('type')
     inp = (cfg or {}).get('input')
     if hasattr(value, 'strftime'):

@@ -254,7 +254,8 @@
 {% block scripts %}
 {# Helpers internos: lista no motor (`defs/data.INTERNAL_JS`), com `?v=` pelo
    mtime. Ficam no topo do bloco porque o `sys.html` inline abaixo depende deles
-   (`parseNum`, `showConfirm`). #}
+   (`parseNum`, `showConfirm`). O catálogo de máscaras/moeda vai antes deles. #}
+<script>window.AJ_MASK = {{ AJ_MASKS | tojson }};</script>
 {% for _js in internal_scripts() %}
 <script src="{{ _js.url }}"></script>
 {% endfor %}
@@ -809,7 +810,7 @@ function itTotalsRefresh(wrap) {
     var vars = {};
     fields.forEach(function(f) {
       var el = tr.querySelector('[name="' + prefix + c + '_' + f + '"]');
-      vars[f] = el ? parseNum(el.value) || 0 : 0;
+      vars[f] = el ? parseNumField(el) || 0 : 0;
     });
     var rowTotal = itEval(expr, vars);
     grand += rowTotal;
@@ -830,7 +831,7 @@ function itTotalsRefresh(wrap) {
       var vars = {};
       fields.forEach(function(f) {
         var el = mtable.querySelector('[name="' + prefix + c + '_' + f + '"]');
-        vars[f] = el ? parseNum(el.value) || 0 : 0;
+        vars[f] = el ? parseNumField(el) || 0 : 0;
       });
       var rowTotal = itEval(expr, vars);
       var td = document.createElement('td');
@@ -868,7 +869,7 @@ function itOnSetBind(wrap) {
         var target = wrap.querySelector('[name="' + base + '_' + parts[0].trim() + '"]');
         var val = opt.getAttribute('data-' + parts[1].trim());
         if (target && val !== null && val !== undefined) {
-          target.value = val;
+          target.value = numToInputFor(target, val) || val;
           fmtFieldInput(target);
           target.dispatchEvent(new Event('input', {bubbles: true}));
           target.dispatchEvent(new Event('change', {bubbles: true}));
@@ -907,7 +908,7 @@ function itZeroOrEmpty(el) {
   if (el.type === 'checkbox') return !el.checked;
   var s = String(el.value == null ? '' : el.value).trim();
   if (s === '') return true;
-  var n = parseNum(s);
+  var n = parseNumField(el);
   if (!isNaN(n)) return Math.abs(n) <= IT_EPS;
   return false;
 }
@@ -916,7 +917,7 @@ function itFilled(el) {
   if (el.type === 'checkbox') return !!el.checked;
   var s = String(el.value == null ? '' : el.value).trim();
   if (s === '') return false;
-  var n = parseNum(s);
+  var n = parseNumField(el);
   if (!isNaN(n)) return Math.abs(n) > IT_EPS;
   return true;
 }
@@ -986,11 +987,11 @@ function itUpdateZerados(btn) {
       if (parts.length < 2) return;
       var target = wrap.querySelector('[name="' + base + '_' + parts[0].trim() + '"]');
       if (!target) return;
-      var v = parseNum(opt.getAttribute('data-' + parts[1].trim()));
+      var v = parseNumText(opt.getAttribute('data-' + parts[1].trim()));
       if (isNaN(v)) return;
-      var cur = parseNum(target.value);
+      var cur = parseNumField(target);
       if (!isNaN(cur) && cur !== 0) return;
-      target.value = String(Math.round(v * 100) / 100);
+      target.value = numToInputFor(target, v);
       fmtFieldInput(target);
       target.dispatchEvent(new Event('input', {bubbles: true}));
       target.dispatchEvent(new Event('change', {bubbles: true}));
@@ -1016,7 +1017,7 @@ function itCalcRefresh(wrap) {
     var vars = {};
     (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach(function(f) {
       var el = (prefix && crow) ? wrap.querySelector('[name="' + prefix + crow + '_' + f + '"]') : null;
-      vars[f] = el ? parseNum(el.value) : NaN;
+      vars[f] = el ? parseNumField(el) : NaN;
     });
     return vars;
   }
@@ -1051,7 +1052,7 @@ function formCalcRefresh(scope) {
     var vars = {};
     (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach(function(f) {
       var el = scope.querySelector('[name="' + f + '"]');
-      vars[f] = el ? parseNum(el.value) : 0;
+      vars[f] = el ? parseNumField(el) : 0;
     });
     var v = itEval(expr, vars);
     var cur = inp.getAttribute('data-calc-currency');
@@ -1068,7 +1069,7 @@ function itSessionTotals(wrap) {
     var vars = {};
     (expr.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).forEach(function(f) {
       var el = (prefix && crow) ? wrap.querySelector('[name="' + prefix + crow + '_' + f + '"]') : null;
-      vars[f] = el ? parseNum(el.value) : NaN;
+      vars[f] = el ? parseNumField(el) : NaN;
     });
     return vars;
   }
@@ -1087,7 +1088,7 @@ function itSessionTotals(wrap) {
         val = itEval(expr, varsFor(crow, expr));
       } else {
         var input = prefix ? wrap.querySelector('[name="' + prefix + crow + '_' + fname + '"]') : null;
-        val = input ? parseNum(input.value) || 0 : 0;
+        val = input ? parseNumField(input) || 0 : 0;
       }
       if (fn === 'sum') sum += val || 0;
       else if (fn === 'avg') { sum += val || 0; count++; }

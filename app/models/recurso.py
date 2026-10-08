@@ -1,5 +1,6 @@
 from ajsystem.core.extensions import db
 from app.extends.constants import TIPO_RECURSO
+from app.extends.masks import MVALOR
 
 class Recurso(db.Model):
     __tablename__ = "recurso"
@@ -18,6 +19,6 @@ Entity = {
     'id':    {'type': 'ID', 'width': 7},
     'nome':  {'type': 'TEXT', 'width': 20, 'required': True, 'mask': '@T'},
     'tipo':  {'type': 'LIST', 'width': 12, 'options': TIPO_RECURSO, 'required': True},
-    'saldo': {'type': 'NUM', 'label': 'Saldo Inicial', 'width': 12, 'currency': 1},
+    'saldo': {'type': 'NUM', 'label': 'Saldo Inicial', 'width': 12, 'mask': MVALOR},
     'data':  {'type': 'DATA', 'label': 'Balanço', 'width': 12},
 }

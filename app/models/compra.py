@@ -1,5 +1,6 @@
 from ajsystem.core.extensions import db
 from app.extends.constants import STATUS_COMPRA
+from app.extends.masks import MVALOR
 
 
 class Compra(db.Model):
@@ -66,11 +67,11 @@ Entity = {
     'data':         {'type': 'DATA', 'width': 10},
     'fornecedor_id': {'type': 'FK', 'label': 'Fornecedor', 'width': 20},
     'carteira_id':  {'type': 'FK', 'label': 'Pagamento', 'width': 15},
-    'valor':        {'type': 'NUM', 'currency': 1, 'width': 12},
-    'acrescimo':    {'type': 'NUM', 'currency': 1, 'width': 12},
-    'desconto':     {'type': 'NUM', 'currency': 1, 'width': 12},
-    'total':        {'type': 'NUM', 'currency': 1, 'readonly': True, 'width': 12,
-                     'calc': 'valor + acrescimo - desconto'},
+    'valor':        {'type': 'NUM', 'width': 12, 'mask': MVALOR},
+    'acrescimo':    {'type': 'NUM', 'width': 12, 'mask': MVALOR},
+    'desconto':     {'type': 'NUM', 'width': 12, 'mask': MVALOR},
+    'total':        {'type': 'NUM', 'readonly': True, 'width': 12,
+                     'mask': MVALOR, 'calc': 'valor + acrescimo - desconto'},
     'status':       {'type': 'LIST', 'width': 11, 'options': STATUS_COMPRA},
     'transacao_id': {'type': 'INT', 'label': 'Transação', 'calc': lambda row: row.transacao_id},
     'movto_id':     {'type': 'INT', 'label': 'Movimento', 'calc': lambda row: row.movto_id},

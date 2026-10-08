@@ -1,4 +1,5 @@
 from ajsystem.core.extensions import db
+from app.extends.masks import MVALOR
 
 
 class CompraItem(db.Model):
@@ -30,7 +31,8 @@ Entity = {
     'compra_id':    {'type': 'DK'},
     'insumo_id':    {'type': 'FK', 'label': 'Insumo', 'required': True},
     'qtd':          {'type': 'NUM', 'label': 'Qtd', 'required': True},
-    'preco':        {'type': 'NUM', 'label': 'Preço', 'required': True, 'currency': 1},
-    'valor':        {'type': 'NUM', 'label': 'Valor', 'currency': 1,
-                     'calc': 'qtd * preco'},
+    'preco':        {'type': 'NUM', 'label': 'Preço', 'required': True,
+                     'mask': MVALOR},
+    'valor':        {'type': 'NUM', 'label': 'Valor',
+                     'mask': MVALOR, 'calc': 'qtd * preco'},
 }

@@ -48,6 +48,11 @@ APP = build_app(_APP,
                 inputs=_override_ou('app.extends.inputs', 'Inputs', {}))
 TEMAS = build_temas(_TEMAS)
 
+
+def masks_override():
+    """Catálogo de máscaras do host (`app.extends.masks.Masks`), se existir."""
+    return _override_ou('app.extends.masks', 'Masks', {})
+
 # Pacote base das rotas do host (módulos `sys`/`site` pendurados dele).
 # Para portar o framework a outro layout, ajustar aqui (os chamadores que
 # aceitam `modulo_ini` já permitem override por chamada).

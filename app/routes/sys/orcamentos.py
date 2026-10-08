@@ -8,6 +8,7 @@ from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
 from app.models.orcamento import Orcamento
 from app.models.orcamento_item import OrcamentoItem
+from app.extends.masks import MVALOR
 from app.reports.orcamentos import ORCAMENTO
 
 
@@ -53,7 +54,7 @@ Schema = {
         'status': {'pos_form': 3, 'pos_filter':3,
                     'tag': {'colors': {0: 'warning', 1: 'info', 6: 'success'}}},
         'total': {'calc': {'type': 'agg', 'source': 'sum(OrcamentoItem.valor)'},
-                  'pos_form': 0},
+                  'mask': MVALOR, 'pos_form': 0},
         'validade': {'pos_list':0}, 
         'validade_data': {'pos_form': 2},
         'carteira_id': { 'lookup': {'display': 'nome'}, 'pos_form': 0},

@@ -531,6 +531,7 @@ class DocPDFReport(FPDF):
             val = getattr(self._instance, rf.field, None)
         if val is None:
             return '-'
+        from ajsystem.core.formats import normalize_currency as _nc
         if rf.format == 'brl':
             return _fmt(val)
         if rf.format is True or isinstance(rf.format, int):
@@ -539,10 +540,13 @@ class DocPDFReport(FPDF):
             return val.strftime('%d/%m/%Y')
         if rf.format == 'datetime' and hasattr(val, 'strftime'):
             return val.strftime('%d/%m/%Y %H:%M')
+        if (isinstance(rf.format, str) and not _is_mask(rf.format)
+                and _nc(rf.format) is not None):
+            return fmt_money(val, rf.format)
         if _is_mask(rf.format):
-            from ajsystem.core.formats import fmt_mask as _fm
+            from ajsystem.core.formats import format as _format
             try:
-                return _fm(val, rf.format)
+                return _format(val, rf.format)
             except Exception:
                 return str(val)
         return str(val)
@@ -630,18 +634,24 @@ def _format_cell_value(val, fmt: str) -> str:
     """
     if val is None:
         return '-'
+    from ajsystem.core.formats import (
+        normalize_currency as _nc, fmt_money as _fmoney,
+        fmt_num as _fnum, _fmt_dec as _fdec,
+    )
     if fmt == 'brl':
         return _fmt(val)
     if fmt is True or isinstance(fmt, int):
-        return fmt_money(val, fmt)
+        return _fmoney(val, fmt)
     if fmt == 'date' and hasattr(val, 'strftime'):
         return val.strftime('%d/%m/%Y')
     if fmt == 'datetime' and hasattr(val, 'strftime'):
         return val.strftime('%d/%m/%Y %H:%M')
+    if isinstance(fmt, str) and not _is_mask(fmt) and _nc(fmt) is not None:
+        return _fmoney(val, fmt)
     if _is_mask(fmt):
-        from ajsystem.core.formats import fmt_mask as _fm
+        from ajsystem.core.formats import format as _format
         try:
-            return _fm(val, fmt)
+            return _format(val, fmt)
         except Exception:
             return str(val)
     if fmt == 'int':
@@ -651,7 +661,7 @@ def _format_cell_value(val, fmt: str) -> str:
             return str(val)
     if fmt == 'float':
         try:
-            return f"{float(val):,.3f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            return _fdec(val, 3, True)
         except (ValueError, TypeError):
             return str(val)
     return str(val)

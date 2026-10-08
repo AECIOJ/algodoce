@@ -1,4 +1,5 @@
 from ajsystem.core.extensions import db
+from app.extends.masks import MVALOR
 
 
 class PedidoItem(db.Model):
@@ -31,8 +32,9 @@ Entity = {
     'pedido_id':        {'type': 'DK'},
     'produto_id':      {'type': 'FK', 'label': 'Produto', 'required': True},
     'qtd':             {'type': 'INT', 'label': 'Qtd', 'required': True},
-    'preco':           {'type': 'NUM', 'label': 'Preço', 'currency': 1},
-    'valor':           {'type': 'NUM', 'label': 'Valor', 'currency': 1,
-                        'calc': 'qtd * preco'},
+    'preco':           {'type': 'NUM', 'label': 'Preço',
+                        'mask': MVALOR},
+    'valor':           {'type': 'NUM', 'label': 'Valor',
+                        'mask': MVALOR, 'calc': 'qtd * preco'},
     'observacao':      {'type': 'TEXT', 'label': 'Obs'},
 }

@@ -298,6 +298,8 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         if 'field_id' not in lista and 'edit_id_field' not in lista:
             _fid = None
     model = _resolve_model(entity_name)
+    # RS/RE — camadas Schema (e `card`) e Entity sobre os fields da entidade,
+    # via `core.resolve.apply_field_layers` (Schema vence conflitos).
     merged = resolve_entity_fields(schema, model, entity_name)
     card_layer = _card_layer(lista.get('card'), {entity_name: merged}, entity_name)
     if card_layer:
@@ -305,26 +307,11 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
 
     if _is_query:
         from ajsystem.defs.qspec import parse_select as _ps
+        from ajsystem.core.resolve import query_select_layer as _rq
         _qentries = list(_ps(_colspec.get('select')))
-        _merged_q = dict(merged)
-        _schema_ent = schema.get(entity_name, {}) or {}
-        _qn = {e.name: e for e in _qentries}
-        for _e in _qentries:
-            # Computado na query (over/agg/calc): o valor vem da query, o
-            # calc da Entity não pode sombrear (ex. indice '1.01' vs '1.1').
-            if _e.name in _merged_q and (_e.over is not None or _e.agg or _e.calc):
-                _merged_q[_e.name] = {k: v for k, v in _merged_q[_e.name].items() if k != 'calc'}
-            if _e.name not in _merged_q:
-                _cfg = {'type': 'TEXT', 'label': _e.label or _e.name,
-                        'pos_list': _e.pos_list}
-                if _e.width is not None:
-                    _cfg['width'] = _e.width
-                if _e.align is not None:
-                    _cfg['align'] = _e.align
-                _merged_q[_e.name] = _cfg
-            elif _e.pos_list == 0 and 'pos_list' not in _schema_ent:
-                # pos_list da entrada vale salvo override do Schema (página vence)
-                _merged_q[_e.name] = {**_merged_q[_e.name], 'pos_list': 0}
+        # RQ — camada da fonte query sobre a Entity/Schema (query vence,
+        # destilando `calc` quando a query computa; label/width/align da query).
+        _merged_q = _rq(_qentries, merged, schema.get(entity_name, {}) or {})
         _shown = [e.name for e in _qentries]
         if _colorder:
             _sel = {e.name for e in _qentries}

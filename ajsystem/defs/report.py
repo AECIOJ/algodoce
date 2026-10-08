@@ -230,45 +230,32 @@ def FF():
     return {'FF': {}}
 
 
-def FIELDS(source=None, when=None, **kws):
-    """Factory pura: FIELDS('Evento', when='evento') | FIELDS(['a','b']) |
-    FIELDS({'a': {...}}) | FIELDS(a={...}, b={...}) (kwargs, sem chaves).
+def FIELDS(*items):
+    """FIELDS('x', 'y', ('z', {props})) — itens de campo do report.
 
-    source = relação/model (expande a Entity), lista ou dict explícitos.
-    when = path avaliado truthy (ausente = sempre). Tradução 1:1 validada.
+    item = 'campo' | ('campo', {props}). Cada item resolve como `columns`/
+    `fields` de list/form: 'campo' simples, 'Entidade' expande a entidade,
+    'Entidade.campo' campo relacionado. No dict, chaves de `Field`
+    (`label/width/align/mask/decimals/percent`) são override do field;
+    as demais (`tab/location/pos/rows_before/rows_after/when/font*/function`)
+    são overlay de report.
     """
-    if kws:
-        if source is not None and not isinstance(source, str):
-            raise ValueError("FIELDS: kwargs exigem source str (modelo) ou ausente")
-        for _k, _v in kws.items():
-            if not isinstance(_v, dict):
-                raise ValueError(f"FIELDS: cfg de '{_k}' deve ser dict")
-        source = {'model': source, 'fields': dict(kws)} if source is not None else kws
-    if isinstance(source, str):
-        if not source:
-            raise ValueError("FIELDS: source deve ser relação/lista/dict não vazia")
-    elif isinstance(source, (list, tuple)):
-        if not source or not all(isinstance(s, str) and s for s in source):
-            raise ValueError("FIELDS: lista deve ter strs não vazias")
-        source = list(source)
-    elif isinstance(source, dict):
-        if 'model' in source:
-            pass  # forma interna model+fields (já validada acima)
+    norm = []
+    for it in items:
+        if isinstance(it, str):
+            if not it:
+                raise ValueError("FIELDS: nome de campo não pode ser vazio")
+            norm.append(it)
+        elif (isinstance(it, tuple) and len(it) == 2
+              and isinstance(it[0], str) and isinstance(it[1], dict)):
+            if not it[0]:
+                raise ValueError("FIELDS: nome de campo não pode ser vazio")
+            norm.append((it[0], dict(it[1])))
         else:
-            if not source:
-                raise ValueError("FIELDS: dict não pode ser vazio")
-            for _k, _v in source.items():
-                if not isinstance(_v, dict):
-                    raise ValueError(f"FIELDS: cfg de '{_k}' deve ser dict")
-            source = dict(source)
-    else:
-        raise ValueError("FIELDS: source deve ser str, lista ou dict")
-    if when is not None and (not isinstance(when, str) or not when):
-        raise ValueError("FIELDS: when deve ser path str")
-    cfg = {'source': source}
-    if when is not None:
-        cfg['when'] = when
-    return {'FIELDS': cfg}
+            raise ValueError("FIELDS: item deve ser 'campo' ou ('campo', {props})")
+    if not norm:
+        raise ValueError("FIELDS: exige ao menos um campo")
+    return {'FIELDS': {'items': norm}}
 
 
 def FONT(name=None, cpp=None):

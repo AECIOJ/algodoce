@@ -59,7 +59,7 @@ FIELD_TYPES = {
 # centralizados em `core/formats.py` (ver lá). Re-export para compat.
 from ajsystem.core.formats import (  # noqa: F401
     has_date_tokens, fmt_mask, _fmt_mask_data,
-    parse_mask_commands,
+    parse_mask_commands, mask_money_id,
     _DOW_PT, _MES_PT, _DATE_TOKENS_RE,
 )
 
@@ -167,7 +167,6 @@ class Field:
     min: Optional[Union[int, float]] = None
     max: Optional[Union[int, float]] = None
     step: Optional[Union[int, float]] = None
-    currency: Optional[Union[int, str, bool]] = None  # código CURRENCY (0=off); True/'brl' legados = padrão
     percent: bool = False
     required: bool = False
     disabled: bool = False
@@ -235,9 +234,14 @@ class Field:
             raise ValueError(
                 f"FIELD '{self.name}': input {self.input!r} é de barra — "
                 f"declare 'pos_form': 3.")
-        # Máscara: o catálogo pode trazer uma (cpf/cnpj), o Field vence.
+        # Máscara (exibição): explícita (Entity/Schema/Query) > catálogo do input
+        # (cpf/cnpj/telefone/data/hora) > default numérico de `decimals` (o
+        # separador de milhar é aplicado na renderização). `Field` vence o input.
         if self.mask is None:
             self.mask = self._input_def.mask
+        if self.mask is None and self._input_def.number and self.decimals is not None:
+            from ajsystem.core.formats import num_mask
+            self.mask = num_mask(self.decimals)
         if self.validate is None:
             self.validate = self._input_def.validate
         # Comandos de máscara `@X` e corpo (display) derivados; fail-fast.
@@ -273,6 +277,13 @@ class Field:
             if c in self.mask_cmds:
                 return c
         return ''
+
+    @property
+    def currency(self) -> Optional[str]:
+        """Id de moeda derivado da `mask` (`@M(id)`) — prop de **motor**, não
+        declarativa; `Field` não tem campo `currency` (Entity/Schema não podem
+        declarar `currency`, só `mask`). None = sem moeda."""
+        return mask_money_id(self.mask)
 
     @property
     def display_label(self) -> str:
@@ -384,10 +395,6 @@ def build_field_config(name: str, cfg: dict) -> dict:
                 )
         if len(props['options']) > 10:
             raise ValueError(f"MULT10: campo '{name}' suporta no máximo 10 opções (0-9)")
-
-    if 'mask' not in props and 'decimals' in props:
-        d = props['decimals']
-        props['mask'] = '9999' if d == 0 else f'9999.{"9" * d}'
 
     return props
 
@@ -710,34 +717,21 @@ def resolve_entity_fields(schema: dict, model_cls, entity_name: str, layer=None)
       `{**Entity, **layer, **Schema}`
     `layer` é um dict opcional `{entiade: {campo: cfg}}` (ex. defaults de `card`
     vindos do Page) aplicado entre Entity e Schema.
+
+    Aplicação genérica via `core.resolve.apply_field_layers` (fill-gap): ordem
+    `[Schema, layer, Entity]` reproduz exatamente o merge anterior por chave
+    (Schema vence conflitos; Entity/layer preenchem o resto).
     """
     base = entity_fields(model_cls)
     delta = (schema or {}).get(entity_name, {}) or {}
     mid = (layer or {}).get(entity_name, {}) or {}
-    out = {}
-    # Primeiro adiciona todos da base na ordem exata em que foram definidos
-    for n in base:
-        b = base.get(n, {}) or {}
-        m = mid.get(n, {}) or {}
-        d = delta.get(n, {}) or {}
-        merged = {**b, **m, **d}
-        if b:
-            validate_field_config(b, 'Entity', n)
-        if m:
-            validate_field_config(m, 'Page (card)', n)
-        if d:
-            validate_field_config(d, 'Schema', n)
-        out[n] = merged
-    # Depois adiciona eventuais extras que só venham no delta (Schema)
-    for n in delta:
-        if n not in out:
-            d = delta.get(n, {}) or {}
-            m = mid.get(n, {}) or {}
-            if m:
-                validate_field_config(m, 'Page (card)', n)
-            validate_field_config(d, 'Schema', n)
-            out[n] = {**m, **d}
-    return out
+    # Nomes: os do Entity na ordem exata, depois os extras só do Schema.
+    names = list(base) + [n for n in delta if n not in base]
+    from ajsystem.core.resolve import apply_field_layers
+    return apply_field_layers(
+        names,
+        [(delta, 'Schema'), (mid, 'Page (card)'), (base, 'Entity')],
+    )
 
 
 # ── Registro de models (referências/FK) ─────────────────────────────────────

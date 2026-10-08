@@ -19,13 +19,35 @@ import re
 from datetime import date, datetime, time
 from decimal import Decimal
 
-from ajsystem.defs.constants import CONNECTORS, CURRENCY, DEFAULT_CURRENCY
+from ajsystem.defs.constants import CONNECTORS
+
+# ── Estado de formatação (default en-US; o host sobrescreve via masks) ────────
+DECIMAL = '.'
+THOUSAND = ','
+MONEY = {'USD': '$'}
+DEFAULT_MONEY = 'USD'
+
+
+def definir_formatacao(decimal=None, thousand=None, money=None, default_money=None):
+    """Publica separadores/moedas do app (chamado por `defs/masks.definir_masks`)."""
+    global DECIMAL, THOUSAND, MONEY, DEFAULT_MONEY
+    if decimal is not None:
+        DECIMAL = decimal
+    if thousand is not None:
+        THOUSAND = thousand
+    if money is not None:
+        MONEY = dict(money)
+    if default_money is not None:
+        DEFAULT_MONEY = default_money
+
 
 __all__ = [
     # mask display + tokens
     'has_date_tokens', 'fmt_mask', '_fmt_mask_data',
-    'parse_mask_commands', 'mask_strip', 'fmt_mask_cmd', 'format',
+    'parse_mask', 'parse_mask_commands', 'mask_money_id', 'mask_strip', 'fmt_mask_cmd', 'format',
     '_DOW_PT', '_MES_PT', '_DATE_TOKENS_RE',
+    # formatação (separadores/moedas do app)
+    'definir_formatacao', 'DECIMAL', 'THOUSAND', 'MONEY', 'DEFAULT_MONEY',
     # mask parse
     '_coerce_masked_datetime', '_MASK_TOKENS', '_MASK_TEXT_TOKENS', '_MASK_TOKEN_ORDER',
     # números/moeda
@@ -68,24 +90,26 @@ def _tok_match(ch, tok):
 
 
 # Comandos de máscara (prefixo `@X`, letras maiúsculas em bloco: `@BX 999.99`).
+# `M` = money: `@M(id) 999,999.99` (id ISO do catálogo `MONEY`; sem id = default).
 _MASK_COMMANDS = {
     'U': 'upper', 'L': 'lower', 'C': 'cap', 'T': 'title',
-    'R': 'R', 'B': 'B', 'X': 'X',
+    'R': 'R', 'B': 'B', 'X': 'X', 'M': 'M',
 }
 _TEXT_COMMANDS = ('U', 'L', 'C', 'T')
 
 
-def parse_mask_commands(mask):
-    """Separa os comandos `@X` (prefixo) do corpo da máscara.
+def parse_mask(mask):
+    """Separa `(cmds, display, money_id)`. Comandos `@X` são prefixo contíguo;
+    `@M(id)` consome o id entre parênteses (id de `MONEY`).
 
-    Ex.: '@BX 999,999.99' → (frozenset({'B', 'X'}), '999,999.99').
-    Ex.: '@UR AAA-9A99' → ({'R', 'U'}, 'AAA-9A99').
-    Validação fail-fast: comando desconhecido/literal `@` no corpo → ValueError.
+    Ex.: '@M(BRL) 999,999.99' → ({'M'}, '999,999.99', 'BRL').
+    Fail-fast: comando desconhecido / `)` ausente / `@` no corpo.
     """
     if not mask:
-        return frozenset(), ''
+        return frozenset(), '', None
     s = str(mask).strip()
     cmds = []
+    money = None
     i = 0
     while i < len(s) and s[i] == '@':
         j = i + 1
@@ -98,13 +122,40 @@ def parse_mask_commands(mask):
             raise ValueError(f"MASK: comando desconhecido '@{ltr}' em '{mask}'")
         cmds.extend(letters)
         i = j
+        if 'M' in letters and i < len(s) and s[i] == '(':
+            k = s.find(')', i + 1)
+            if k < 0:
+                raise ValueError(f"MASK: ')' ausente no money de '{mask}'")
+            money = s[i + 1:k].strip() or None
+            i = k + 1
         if i < len(s) and s[i] == '@':
             continue
         break
     display = s[i:].lstrip(' \t')
     if display.startswith('@'):
         raise ValueError(f"MASK: comandos devem ser contíguos em '{mask}'")
-    return frozenset(cmds), display
+    return frozenset(cmds), display, money
+
+
+def parse_mask_commands(mask):
+    """Backward-compat: `(cmds, display)` de `parse_mask` (descarta o money id).
+
+    Ex.: '@BX 999,999.99' → (frozenset({'B', 'X'}), '999,999.99').
+    """
+    cmds, display, _ = parse_mask(mask)
+    return cmds, display
+
+
+def mask_money_id(mask):
+    """Id de moeda da máscara: `@M(id)` (validado em `MONEY`) ou, `@M` sem id,
+    `DEFAULT_MONEY`; `None` se a máscara não tem `@M`. Uso interno do motor —
+    `Field.currency` é derivada daqui (a mask é a fonte da moeda)."""
+    if not mask:
+        return None
+    cmds, _, mid = parse_mask(mask)
+    if mid:
+        return mid if mid in MONEY else None
+    return DEFAULT_MONEY if 'M' in cmds else None
 
 
 def _apply_text_cmds(text, cmds):
@@ -212,12 +263,78 @@ def mask_strip(value, mask):
     return re.sub(r'[^A-Za-z0-9]', '', str(value))
 
 
-def fmt_mask_cmd(value, mask, decimals=None, currency=None):
-    """Render de número para lista/readonly com comandos `B`/`X`.
+def _group_digits(digits, sep):
+    """Agrupa `digits` (str) de 3 em 3 da direita, preservando zeros à esquerda."""
+    out = []
+    while len(digits) > 3:
+        out.insert(0, digits[-3:])
+        digits = digits[:-3]
+    out.insert(0, digits)
+    return sep.join(out)
 
-    `B`: '' quando o valor é zero. `X`: sufixo `' C'` (crédito) / `' D'`
-    (débito). Moeda/decimais entram na base (money se `currency`, senão
-    `fmt_num` com `decimals`). None → ''.
+
+def _num_mask_spec(display):
+    """(decimals, group, pad_int, width_int) da máscara numérica canônica.
+
+    `0`=dígito com pad; `9`=opcional; `,`=milhar (agrupa); `.`=decimal."""
+    body = display or ''
+    int_part, _, dec_part = body.partition('.')
+    int_digits = int_part.replace(',', '')
+    decimals = sum(1 for c in dec_part if c in '09')
+    group = ',' in body
+    pad_int = '0' in int_digits
+    width_int = sum(1 for c in int_digits if c in '09')
+    return decimals, group, pad_int, width_int
+
+
+def _is_num_mask(display):
+    """Máscara canônica numérica: só `0`/`9`/`,`/`.` (milhar/decimal). Máscaras
+    de texto/documento (CPF `999.999.999-99`, tel `(99) 99999-9999`, placa
+    `AAA-9A99`) têm literais (`-`/`(`/`)`/letras) → não são numéricas; quem as
+    renderiza é o caminho de texto (`fmt_mask`)."""
+    return bool(display) and all(c in '09,.' for c in display)
+
+
+def _render_num_mask(value, display):
+    """Número pela máscara canônica, com `THOUSAND`/`DECIMAL` de saída."""
+    decimals, group, pad_int, width_int = _num_mask_spec(display)
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    s = f'{abs(num):.{decimals}f}'
+    int_s, _, frac_s = s.partition('.')
+    if pad_int and width_int:
+        int_s = int_s.rjust(width_int, '0')
+    if group:
+        int_s = _group_digits(int_s, THOUSAND)
+    out = int_s + (DECIMAL + frac_s if decimals else '')
+    return ('-' + out) if num < 0 else out
+
+
+def _fmt_dec(value, decimals=2, group=True):
+    """Número com `decimals` casas nos separadores do app (base sem máscara)."""
+    if value is None:
+        value = 0
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    s = f'{abs(num):,.{decimals}f}' if group else f'{abs(num):.{decimals}f}'
+    if group:
+        s = (s.replace(',', '\x00').replace('.', '\x01')
+              .replace('\x00', THOUSAND).replace('\x01', DECIMAL))
+    else:
+        s = s.replace('.', DECIMAL)
+    return ('-' + s) if num < 0 else s
+
+
+def fmt_mask_cmd(value, mask, decimals=None, currency=None):
+    """Render numérico para lista/readonly (máscara canônica + moeda/comandos).
+
+    `@M(id)` (a fonte da moeda) ou `currency` (id derivado pelo motor de
+    `Field.currency`) → símbolo de `MONEY`; `B` = '' quando zero;
+    `X` = sufixo ' C'/' D'. Sem corpo e sem `M`: número com `decimals` (grupo).
     """
     if value is None:
         return ''
@@ -225,51 +342,54 @@ def fmt_mask_cmd(value, mask, decimals=None, currency=None):
         num = float(value)
     except (TypeError, ValueError):
         return str(value)
-    cmds, _ = parse_mask_commands(mask)
+    cmds, display, money = parse_mask(mask) if mask else (frozenset(), '', None)
+    if display and not _is_num_mask(display):
+        return fmt_mask(value, mask)
     if 'B' in cmds and num == 0:
         return ''
-    if normalize_currency(currency) is not None:
-        base = fmt_money(num, currency)
+    mid = money or normalize_currency(currency)
+    if 'M' in cmds and mid is None:
+        mid = DEFAULT_MONEY
+    dec = decimals if decimals is not None else (_mask_decimals(display) or 2)
+    if mid is not None:
+        sym = MONEY.get(mid, '')
+        body = _render_num_mask(num, display) if display else _fmt_dec(num, dec)
+        base = f'{sym} {body}' if sym else body
+    elif display:
+        base = _render_num_mask(num, display)
     else:
-        base = fmt_num(num, decimals)
+        base = _fmt_dec(num, dec)
     if 'X' in cmds:
-        if num < 0:
-            base += ' D'
-        elif num > 0:
-            base += ' C'
+        base += ' D' if num < 0 else (' C' if num > 0 else '')
     return base
 
 
 def _mask_decimals(display):
-    """Casas decimais inferidas da máscara: nº de `9` após o último `'./,'`.
-
-    Ex.: '9.999,99' → 2; '999.999' → None (sem decimais claras).
-    """
-    if not display:
+    """Casas decimais da máscara canônica: `0`/`9` após o último `.`."""
+    if not display or '.' not in display:
         return None
-    idx = max(display.rfind('.'), display.rfind(','))
-    if idx < 0:
+    dec_part = display.rsplit('.', 1)[1]
+    if not dec_part or any(c not in '09' for c in dec_part):
         return None
-    tail = display[idx + 1:]
-    if not tail or any(c != '9' for c in tail):
-        return None
-    return len(tail)
+    return len(dec_part)
 
 
 def format(value, mask):
     """Formata QUALQUER valor por uma máscara (espelho JS `format`).
 
-    - data/hora (`date`/`datetime`/`time`) com tokens de data → `fmt_mask`;
-    - número (int/float/Decimal) → render numérico: casas inferidas da
-      máscara + comandos `B` (branco se zero) / `X` (sufixo C/D);
-    - string → `fmt_mask` (tokens `9`/`A`/`N`/`#` + comandos texto U/L/C/T).
+    - data/hora com tokens de data → `fmt_mask`;
+    - número com máscara canônica numérica (ou sem máscara) → `fmt_mask_cmd`
+      (`@M(id)`, separadores do app);
+    - string ou número em máscara de texto/documento → `fmt_mask`
+      (CPF `999.999.999-99` com `9` = dígito, literais preservados).
     """
     if value is None:
         return ''
-    cmds, display = parse_mask_commands(mask)
+    _, display, _ = parse_mask(mask)
     if hasattr(value, 'strftime') and has_date_tokens(display):
         return fmt_mask(value, mask)
-    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
+    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool) \
+            and (not display or _is_num_mask(display)):
         return fmt_mask_cmd(value, mask, _mask_decimals(display))
     return fmt_mask(value, mask)
 
@@ -427,89 +547,99 @@ def parse_brl(value):
     s = str(value).strip().replace('\u00A0', ' ')
     s = re.sub(r'\s+[CD]\s*$', '', s)   # '1.234,56 D'
     s = re.sub(r'[^0-9,.+-]', '', s)     # 'R$ ', '$', '€', 'US$'
-    if ',' in s:
-        s = s.replace('.', '').replace(',', '.')
+    # Vírgula presente = o decimal é o do app e o ponto é milhar ('1.234,56');
+    # sem vírgula o ponto é decimal ('6.00', '1.5'). Mesma regra de `as_num`
+    # (core/utils.py) e de `_coerce` (core/form.py): um input numérico sem
+    # `decimals` guarda o valor canônico, e ler '6.00' como milhar daria 600.
+    if DECIMAL in s:
+        if THOUSAND and THOUSAND != DECIMAL:
+            s = s.replace(THOUSAND, '')
+        s = s.replace(DECIMAL, '.')
     try:
         return float(s)
     except (TypeError, ValueError):
         return None
 
 
-def _fmt_number(value, locale):
-    """Número com 2 decimais no agrupamento do locale (sem símbolo)."""
-    if value is None:
-        return '0,00' if locale == 'pt-BR' else '0.00'
-    try:
-        num = f'{float(value):,.2f}'
-    except (TypeError, ValueError):
-        return str(value)
-    if locale == 'pt-BR':
-        num = num.replace(',', 'X').replace('.', ',').replace('X', '.')
-    return num
+def _fmt_number(value, locale=None):
+    """Número com 2 decimais nos separadores do app (sem símbolo)."""
+    return _fmt_dec(value, 2, True)
 
 
 def normalize_currency(cur):
-    """Normaliza a prop `Field.currency` para código de `CURRENCY`.
+    """Normaliza uma moeda para id de `MONEY`.
 
-    `True`/`'brl'` legados e `1` → padrão; `0`/`None`/`False` → desligado
-    (None); código desconhecido → desligado (nunca quebra, nunca mente
-    símbolo). Retorna o código int ou None.
+    A fonte é `Field.currency` (derivada pelo motor da `mask` `@M(id)`, já id
+    ISO) — mas segue aceitando os legados `True`/`'brl'`/`1` → `DEFAULT_MONEY`;
+    `2`→'USD' / `3`→'EUR' (se existirem); `0`/`None`/`False` → desligado (None);
+    id ISO de `MONEY` → ele. Nunca mente símbolo: desconhecido → None.
     """
     if cur is None or cur is False or cur == 0:
         return None
     if cur is True:
-        return DEFAULT_CURRENCY
+        return DEFAULT_MONEY
     if isinstance(cur, str):
-        if cur.strip().lower() == 'brl':
-            return DEFAULT_CURRENCY
-        return None
-    try:
-        code = int(cur)
-    except (TypeError, ValueError):
-        return None
-    return code if CURRENCY.get(code) else None
+        s = cur.strip()
+        if s.lower() in ('brl', 'real'):
+            return DEFAULT_MONEY
+        return s if s in MONEY else None
+    if isinstance(cur, int) and not isinstance(cur, bool):
+        if cur == 1:
+            return DEFAULT_MONEY
+        legacy = {2: 'USD', 3: 'EUR'}.get(cur)
+        return legacy if legacy in MONEY else None
+    return None
 
 
 def currency_symbol(cur):
-    """Símbolo da moeda (`'R$'`) a partir do código/legado; '' se desligado."""
-    code = normalize_currency(cur)
-    info = CURRENCY.get(code) if code is not None else None
-    return info['symbol'] if info else ''
+    """Símbolo da moeda (`'R$'`) a partir do id/legado; '' se desligado."""
+    mid = normalize_currency(cur)
+    return MONEY.get(mid, '') if mid else ''
 
 
 def fmt_brl(value):
     """Filtro legado `brl` (sem símbolo; None → '0,00')."""
-    if value is None:
-        return '0,00'
-    return _fmt_number(value, 'pt-BR')
+    return _fmt_dec(value, 2, True)
 
 
-def fmt_money(value, cur=DEFAULT_CURRENCY):
-    """Formata valor monetário pelo código de `CURRENCY` (filtro `money`).
+def fmt_money(value, cur=None):
+    """Formata valor monetário pelo id de `MONEY` (filtro `money`).
 
-    `fmt_money(v)` sem código = padrão (BRL), idêntico ao antigo `fmt_brl`.
+    `fmt_money(v)` sem id = `DEFAULT_MONEY`.
     """
-    code = normalize_currency(cur)
-    if code is None:
-        code = DEFAULT_CURRENCY
-    info = CURRENCY.get(code) or CURRENCY[DEFAULT_CURRENCY]
-    num = _fmt_number(value, info['locale'])
-    return f"{info['symbol']} {num}" if info['symbol'] else num
+    mid = normalize_currency(cur) if cur is not None else DEFAULT_MONEY
+    if mid is None:
+        mid = DEFAULT_MONEY
+    sym = MONEY.get(mid, '')
+    num = _fmt_dec(value, 2, True)
+    return f'{sym} {num}' if sym else num
 
 
 def fmt_percent(value):
     """Formata percentual com 1 decimal e sufixo '%' (ex.: 12.5 → '12,5%')."""
     if value is None:
         return '—'
-    return f'{value:,.1f}'.replace(',', 'X').replace('.', ',').replace('X', '.') + '%'
+    return _fmt_dec(value, 1, True) + '%'
 
 
-def fmt_num(value, decimals=None):
-    """Número pt-BR p/ inputs (filtro `fmt_num`): casas de `decimals`, sem símbolo.
+def num_mask(decimals):
+    """Máscara numérica default (canônica) a partir de `decimals`.
 
-    `None`/'' → ''. Sem `decimals` (ou 0) → inteiro sem agrupar ('1000'), para
-    que a leitura de volta seja inequívoca (ponto = decimal só com vírgula).
-    Com `decimals` > 0 → agrupa milhar e fixa as casas ('1.234,56').
+    Com milhar: `0` → `'9,999'`; `2` → `'9,999.99'`. O motor troca pelos
+    `THOUSAND`/`DECIMAL` do app na renderização.
+    """
+    d = int(decimals or 0)
+    return '9,999' if d <= 0 else f'9,999.{"9" * d}'
+
+
+def fmt_num(value, decimals=None, group=False):
+    """Número p/ inputs (filtro `fmt_num`): casas de `decimals`, sem símbolo.
+
+    `None`/'' → ''. Sem `decimals` (ou 0) → sem agrupar ('1000', '1234,5'),
+    para que a leitura de volta seja inequívoca: vírgula presente é o decimal
+    do app (e o ponto, milhar); sem vírgula, o ponto é casa decimal.
+    Com `decimals` > 0 → agrupa milhar e fixa as casas. `group=True` força o
+    separador também sem decimais (exibição). Separadores do app.
     """
     if value is None or (isinstance(value, str) and not value.strip()):
         return ''
@@ -522,15 +652,21 @@ def fmt_num(value, decimals=None):
     except (TypeError, ValueError):
         return str(value)
     if dec <= 0:
-        return str(int(num)) if num.is_integer() else str(num)
-    return f'{num:,.{dec}f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        if group:
+            return _fmt_dec(num, 0, True)
+        if num.is_integer():
+            return str(int(num))
+        # Fração sem casa declarada: sem agrupar (leitura de volta
+        # inequívoca) e com o decimal do app — `str(6.5)` vazaria o ponto
+        # canônico e o `parseNum` do motor leria '6.5' como 65.
+        return str(num).replace('.', DECIMAL)
+    return _fmt_dec(num, dec, True)
 
 
 def fmt_id(value):
     if value is None:
         return '0'
-    formatted = f'{value:,}'.replace(',', '.')
-    return ('%7s' % formatted).replace(' ', '\u00A0')
+    return ('%7s' % _group_digits(str(value), THOUSAND)).replace(' ', '\u00A0')
 
 
 # ── Data/hora ────────────────────────────────────────────────────────────────

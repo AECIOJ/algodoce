@@ -4,11 +4,16 @@
    alfanuméricos (A/N/#), comandos de máscara @U/L/C/T/@R, `format(value,
    mask)` para qualquer valor, números/moeda pt-BR, data. Validação
    (CPF/CNPJ) fica em validators.js. */
+var _AJM = (window.AJ_MASK || {});
+var _DEC = _AJM.DECIMAL || '.';
+var _THOU = _AJM.THOUSAND || ',';
+var _MONEY = _AJM.MONEY || { USD: '$' };
+var _DEF_MONEY = _AJM.DEFAULT_MONEY || 'USD';
 var _PT_DOW = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
 var _PT_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun',
                'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 var _MASK_TOKENS = ['aaaa', 'yyyy', 'mmm', 'ddd', 'aa', 'yy', 'dd', 'mm', 'hh', 'ii', 'ss', '9', 'A', 'N', '#'];
-var _MASK_COMMANDS = ['B', 'C', 'L', 'R', 'T', 'U', 'X'];
+var _MASK_COMMANDS = ['B', 'C', 'L', 'M', 'R', 'T', 'U', 'X'];
 var _TEXT_COMMANDS = ['U', 'L', 'C', 'T'];
 var _MASK_CONNECTORS = ['de', 'da', 'do', 'das', 'dos', 'para', 'pra', 'com', 'sem',
                         'em', 'no', 'na', 'nos', 'nas', 'por', 'ao', 'aos', 'às', 'e',
@@ -19,21 +24,27 @@ function _maskDigits(v) {
   return (v || '').replace(/\D/g, '');
 }
 function _maskParseCommands(mask) {
-  if (!mask) return { cmds: [], display: '' };
+  if (!mask) return { cmds: [], display: '', money: null };
   var s = String(mask).replace(/^\s+|\s+$/g, '');
-  var cmds = [], i = 0;
+  var cmds = [], money = null, i = 0;
   while (i < s.length && s.charAt(i) === '@') {
     var j = i + 1, letters = '';
     while (j < s.length && _MASK_COMMANDS.indexOf(s.charAt(j)) >= 0) { letters += s.charAt(j); j++; }
     if (!letters) throw new Error("MASK: comando desconhecido '@" + (s.charAt(i + 1) || '') + "' em " + mask);
     for (var k = 0; k < letters.length; k++) cmds.push(letters[k]);
     i = j;
+    if (letters.indexOf('M') >= 0 && s.charAt(i) === '(') {
+      var close = s.indexOf(')', i + 1);
+      if (close < 0) throw new Error("MASK: ')' ausente no money de " + mask);
+      money = s.slice(i + 1, close).replace(/^\s+|\s+$/g, '') || null;
+      i = close + 1;
+    }
     if (s.charAt(i) === '@') continue;
     break;
   }
   var display = s.slice(i).replace(/^[ \t]+/, '');
   if (display.charAt(0) === '@') throw new Error('MASK: comandos devem ser contíguos em ' + mask);
-  return { cmds: cmds, display: display };
+  return { cmds: cmds, display: display, money: money };
 }
 function _hasDateTokens(mask) {
   if (!mask) return false;
@@ -222,65 +233,147 @@ function fmtMask(value, mask) {
   return _applyMaskCmds(String(value), cmds);
 }
 function _maskDecimals(display) {
-  if (!display) return null;
-  var idx = -1;
-  for (var k = 0; k < display.length; k++) if (display[k] === '.' || display[k] === ',') idx = k;
-  if (idx < 0) return null;
-  var tail = display.slice(idx + 1);
-  if (!tail || /[^9]/.test(tail)) return null;
+  if (!display || display.indexOf('.') < 0) return null;
+  var tail = display.slice(display.lastIndexOf('.') + 1);
+  if (!tail || /[^09]/.test(tail)) return null;
   return tail.length;
 }
-/* format(value, mask): formata QUALQUER valor por uma máscara.
-   Número → render numérico (casas da máscara + comandos B/X);
-   Date   → fmtMask (tokens de data); string → fmtMask. */
+function _groupDigits(digits, sep) {
+  var out = [];
+  while (digits.length > 3) { out.unshift(digits.slice(-3)); digits = digits.slice(0, -3); }
+  out.unshift(digits);
+  return out.join(sep);
+}
+function _renderNumMask(value, display) {
+  var intPart = (display || '').split('.')[0].replace(/,/g, '');
+  var decPart = (display || '').indexOf('.') >= 0 ? display.split('.')[1] : '';
+  var dec = (decPart.match(/[09]/g) || []).length;
+  var group = (display || '').indexOf(',') >= 0;
+  var padInt = intPart.indexOf('0') >= 0;
+  var widthInt = (intPart.match(/[09]/g) || []).length;
+  var n = Number(value);
+  var neg = n < 0;
+  var parts = Math.abs(n).toFixed(dec).split('.');
+  var ip = parts[0];
+  if (padInt && widthInt) { while (ip.length < widthInt) ip = '0' + ip; }
+  if (group) ip = _groupDigits(ip, _THOU);
+  return (neg ? '-' : '') + ip + (dec ? _DEC + parts[1] : '');
+}
+function _fmtDec(value, dec, group) {
+  var n = Number(value) || 0;
+  var neg = n < 0;
+  var parts = Math.abs(n).toFixed(dec === undefined ? 2 : dec).split('.');
+  var ip = (group === false) ? parts[0] : _groupDigits(parts[0], _THOU);
+  return (neg ? '-' : '') + ip + (parts[1] ? _DEC + parts[1] : '');
+}
+/* format(value, mask): número → máscara canônica (+ `@M(id)`); data/string → fmtMask. */
+function _isNumMask(display) {
+  /* canônica numérica: só `0`/`9`/`,`/`.` — máscara de texto/documento (CPF
+     `999.999.999-99`, tel `(99) 99999-9999`) tem literais → caminho de texto. */
+  if (!display) return false;
+  return /^[09,.]*$/.test(display);
+}
 function format(value, mask) {
   if (value === null || value === undefined) return '';
-  if (typeof value === 'number') {
-    var p = _maskParseCommands(mask);
-    if (p.cmds.indexOf('B') >= 0 && value === 0) return '';
-    var base = fmtNumBR(Number(value), _maskDecimals(p.display));
-    if (p.cmds.indexOf('X') >= 0) {
-      if (value < 0) base += ' D';
-      else if (value > 0) base += ' C';
-    }
-    return base;
+  if (typeof value !== 'number' || isNaN(value)) {
+    if (value instanceof Date && !isNaN(value.getTime())) return fmtMask(value, mask);
+    return fmtMask(String(value), mask);
   }
-  if (value instanceof Date && !isNaN(value.getTime())) {
-    return fmtMask(value, mask);
+  var p = _maskParseCommands(mask);
+  if (p.display && !_isNumMask(p.display)) return fmtMask(String(value), mask);
+  if (p.cmds.indexOf('B') >= 0 && value === 0) return '';
+  var dec = _maskDecimals(p.display);
+  var mid = p.money;
+  if (!mid && p.cmds.indexOf('M') >= 0) mid = _DEF_MONEY;
+  var base;
+  if (mid) {
+    var sym = _MONEY[mid] || '';
+    var body = p.display ? _renderNumMask(value, p.display)
+                         : _fmtDec(value, dec === null ? 2 : dec, true);
+    base = (sym ? sym + ' ' : '') + body;
+  } else if (p.display) {
+    base = _renderNumMask(value, p.display);
+  } else {
+    base = _fmtDec(value, dec === null ? 2 : dec, true);
   }
-  return fmtMask(String(value), mask);
+  if (p.cmds.indexOf('X') >= 0) base += value < 0 ? ' D' : (value > 0 ? ' C' : '');
+  return base;
 }
-/* ── moeda pt-BR (totais, sessões, cálculos) ─────────────────────────────── */
-function itFmtMoney(v, cur) {
-  var m = itMoneyInfo(cur);
-  var num = Number(v) || 0;
-  return m.symbol + ' ' + num.toLocaleString(m.locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
-}
-function itMoneyInfo(cur) {
-  var map = {1: {symbol: 'R$', locale: 'pt-BR'}, 2: {symbol: '$', locale: 'en-US'}, 3: {symbol: '€', locale: 'pt-BR'}};
-  return map[itNormalizeCurrency(cur)] || map[1];
-}
+/* ── moeda (totais, sessões, cálculos) — separadores/símbolos do app ─────── */
 function itNormalizeCurrency(cur) {
-  if (cur === undefined || cur === null) return 1;
-  var s = String(cur).trim().toLowerCase();
-  if (s === '' || s === 'brl' || s === 'true' || s === 'sim' || s === '1') return 1;
-  var n = parseInt(s, 10);
-  return (n === 2 || n === 3) ? n : 1;
+  if (cur === undefined || cur === null || cur === 0 || cur === false) return _DEF_MONEY;
+  if (cur === true) return _DEF_MONEY;
+  var s = String(cur).trim();
+  if (s === '') return _DEF_MONEY;
+  var low = s.toLowerCase();
+  if (low === 'brl' || low === 'real' || low === 'true' || low === 'sim' || low === '1') return _DEF_MONEY;
+  if (_MONEY[s]) return s;
+  if (s === '2') return _MONEY.USD ? 'USD' : _DEF_MONEY;
+  if (s === '3') return _MONEY.EUR ? 'EUR' : _DEF_MONEY;
+  return _DEF_MONEY;
 }
-/* ── numéricos pt-BR (inputs com data-num-decimals) ────────────────────────
-   Leitura: parseNum aceita '1.234,56' e '1.5' (vírgula presente ⇒ pt-BR).
-   Escrita: fmtFieldInput formata pela casa do field no blur e após
-   preenchimentos (replaces/totais); vazio/inválido não é tocado. */
+function itFmtMoney(v, cur) {
+  var mid = itNormalizeCurrency(cur);
+  var sym = _MONEY[mid] || '';
+  return (sym ? sym + ' ' : '') + _fmtDec(Number(v) || 0, 2, true);
+}
+/* ── numéricos (inputs com data-num-decimals) — separadores do app ─────────
+   Leitura: parseNum aceita os separadores do app. Escrita: fmtFieldInput
+   formata pela casa do field no blur e após preenchimentos; vazio/inválido
+   não é tocado. */
 function parseNum(v) {
   if (v === null || v === undefined) return NaN;
   var s = String(v).replace(/\s/g, '');
   if (s === '') return NaN;
-  // Remove currency symbols (R$, $, €) e outros não-numéricos exceto dígitos, ponto, vírgula, sinal
   s = s.replace(/[^0-9\-,\.]/g, '');
   if (s === '' || s === '-' || s === '.' || s === ',') return NaN;
-  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  if (_THOU && _THOU !== _DEC && s.indexOf(_THOU) >= 0) s = s.split(_THOU).join('');
+  if (_DEC !== '.') s = s.split(_DEC).join('.');
   var n = parseFloat(s);
   return isNaN(n) ? NaN : n;
+}
+/* ── input numérico: o valor *desformatado* do campo ────────────────────────
+   `parseNum` acima lê o texto já na convenção do app (milhar agrupado). Mas o
+   input numérico guarda o valor na convenção do CAMPO, e nem sempre é a mesma:
+   com `data-num-decimals` ele sai de `fmtNumBR`/`fmt_num` (vírgula decimal);
+   sem `decimals` o campo não agrupa — é o que `fmt_num` documenta para a
+   leitura de volta ser inequívoca — e o que vem por `on_set` chega cru, como
+   `str(Decimal)` ('6.00'). Nesse caso `parseNum` lê '6.00' como milhar e
+   devolve 600. É a regra de `_coerce` (core/form.py): vírgula presente = o
+   decimal é o do app e o ponto é milhar; sem vírgula, o ponto é decimal. Como
+   o servidor vai ler o MESMO texto no POST, ler igual aqui é o que mantém o
+   cálculo e o salvamento falando do mesmo número. */
+function parseNumText(v) {
+  if (v === null || v === undefined) return NaN;
+  var s = String(v).replace(/\s/g, '');
+  if (s === '') return NaN;
+  s = s.replace(/[^0-9\-,\.]/g, '');
+  if (s === '' || s === '-' || s === '.' || s === ',') return NaN;
+  if (_DEC && s.indexOf(_DEC) >= 0) {
+    if (_THOU && _THOU !== _DEC) s = s.split(_THOU).join('');
+    s = s.split(_DEC).join('.');
+  }
+  var n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+function parseNumField(el) { return el ? parseNumText(el.value) : NaN; }
+/* Escrita: valor que entra programaticamente (on_set, botões) sai na convenção
+   do campo alvo, para o input continuar legível e o POST mandar o texto que
+   `_coerce`/`parse_brl` vão ler. Espelha `fmt_num`. */
+function numToInput(v, dec) {
+  var n = Number(v);
+  if (isNaN(n)) return null;
+  if (dec === null || dec === undefined) {
+    if (n % 1 === 0) return String(n);
+    return String(n).replace('.', _DEC);
+  }
+  return _fmtDec(n, dec, true);
+}
+function numToInputFor(el, v) {
+  var d = (el && el.getAttribute) ? el.getAttribute('data-num-decimals') : null;
+  var dec = (d === null || d === '') ? null : parseInt(d, 10);
+  if (isNaN(dec)) dec = null;
+  return numToInput(v, dec);
 }
 function numDecimals(el) {
   if (!el || el.disabled) return null;
@@ -293,7 +386,7 @@ function fmtNumBR(v, dec) {
   var n = Number(v);
   if (isNaN(n)) return null;
   if (!dec) return String(Math.round(n));
-  return n.toLocaleString('pt-BR', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+  return _fmtDec(n, dec, true);
 }
 function fmtFieldInput(el) {
   var dec = numDecimals(el);

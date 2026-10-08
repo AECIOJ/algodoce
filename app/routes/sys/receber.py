@@ -1,4 +1,5 @@
 from ajsystem.defs.constants import TODAY
+from app.extends.masks import MVALOR
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
 from app.routes.sys.transacoes import (
@@ -16,11 +17,13 @@ Schema = {
         'historico': {'pos_list': 2},
         'cancelado': {'pos_list': 0, 'pos_form': 5},
         'valor': {'readonly': False, 'pos_form': 0, 'carry': 'valor'},
-        'previsto': {'type': 'NUM', 'label': 'Previsto', 'currency': 1, 'readonly': True,
-                     'memory': True, 'calc': {'type': 'agg', 'source': 'sum(Previsao.previsto)'}},
-        'realizado': {'type': 'NUM', 'label': 'Realizado', 'currency': 1, 'readonly': True,
-                      'memory': True, 'calc': {'type': 'agg', 'source': 'sum(Previsao.realizado)'}},
-        'ratear': {'type': 'NUM', 'label': 'Ratear', 'currency': 1, 'memory': True},
+        'previsto': {'type': 'NUM', 'label': 'Previsto', 'readonly': True,
+                     'memory': True, 'mask': MVALOR,
+                     'calc': {'type': 'agg', 'source': 'sum(Previsao.previsto)'}},
+        'realizado': {'type': 'NUM', 'label': 'Realizado', 'readonly': True,
+                      'memory': True, 'mask': MVALOR,
+                      'calc': {'type': 'agg', 'source': 'sum(Previsao.realizado)'}},
+        'ratear': {'type': 'NUM', 'label': 'Ratear', 'memory': True, 'mask': MVALOR},
         'prazo': {'readonly': False, 'pos_form': 0},
         'variacao': {'calc': {'type': 'agg', 'source': 'sum(Previsao.variacao)',
                               'diff': 'Aviso de Inconsistência: Variação difere da soma das variações das previsões atuais.'},

@@ -236,8 +236,16 @@ def _apply_entity(raw, entity):
                 if isinstance(cfg, dict) and field in cfg]
         return hits[0] if len(hits) == 1 else None
 
-    # Defaults vindos das entradas do select (nascidos: label/width/align/
-    # format). Precedência: Entity/Schema -> entrada -> inline do relatório.
+    # Entidade principal (campos sem prefixo) do report.
+    from ajsystem.core.list import _resolve_model as _rmodel
+    _pname = _principal_name(out, entity)
+    try:
+        _pmodel = _rmodel(_pname) if _pname else None
+    except Exception:
+        _pmodel = None
+
+    # Defaults vindos das entradas do select (props de apresentação da query).
+    # Precedência: Entity/Schema -> entrada (query) -> inline do relatório.
     _disp_map = {}
     _computed = set()
     try:
@@ -270,7 +278,10 @@ def _apply_entity(raw, entity):
 
     def _infer_presentation(cfg):
         from ajsystem.core.utils import normalize_currency
-        t, inp, cur = cfg.get('type'), cfg.get('input'), cfg.get('currency')
+        from ajsystem.core.formats import mask_money_id
+        t, inp = cfg.get('type'), cfg.get('input')
+        # moeda vem da `mask` (`@M(id)`) — `currency` não é prop declarativa.
+        cur = mask_money_id(cfg.get('mask'))
         fmt = align = None
         if cur:
             fmt, align = normalize_currency(cur), 'right'
@@ -289,6 +300,10 @@ def _apply_entity(raw, entity):
             for i, it in enumerate(items):
                 if isinstance(it, str):
                     norm[it] = {}
+                    continue
+                if (isinstance(it, tuple) and len(it) == 2
+                        and isinstance(it[0], str) and isinstance(it[1], dict)):
+                    norm[it[0]] = dict(it[1])
                     continue
                 it = dict(it)
                 if 'name' in it or 'field' in it:
@@ -321,12 +336,14 @@ def _apply_entity(raw, entity):
                         **_infer_presentation(raw_cfg)}
                 # base (Schema) vence para label/format/align; extra (report) mantém width/agg etc.
                 _base_filtered = {k: v for k, v in base.items() if v is not None}
-                spec = {**extra, **_base_filtered}
+                # Query (entrada do select) sobre Entity/Schema; report inline por cima.
+                _qp = _disp_map.get(fld) or _disp_map.get(key) or {}
+                spec = {**_base_filtered, **_qp, **extra}
                 # Máscara manda (genérico, igual à list): format declarado no
-                # relatório vence; máscara (Entity ou catálogo de inputs) vence
+                # relatório vence; máscara (Entity/Schema/query/catálogo) vence
                 # a inferência por type. BOOL/LIST com rótulo não mascaram.
                 _mapped_label = False
-                _explicit_fmt = extra.get('format')
+                _explicit_fmt = extra.get('format') or _qp.get('format')
                 # FK → caminho de exibição via relacionamento ('<base>.nome')
                 if (raw_cfg.get('type') == 'FK' and 'field' not in spec
                         and key.endswith('_id')):
@@ -355,7 +372,11 @@ def _apply_entity(raw, entity):
                             o.get(getattr(row, f, None), getattr(row, f, '')))
                         _mapped_label = True
                 if fld not in _computed and _explicit_fmt is None and not _mapped_label:
-                    _mask = _field_mask(fld, raw_cfg)
+                    _fcfg = {**raw_cfg,
+                             **{k: v for k, v in _qp.items() if k != 'format'}}
+                    if extra.get('mask'):
+                        _fcfg = {**_fcfg, 'mask': extra['mask']}
+                    _mask = _field_mask(fld, _fcfg)
                     if _mask:
                         spec.pop('format', None)
                         spec['format'] = _mask
@@ -394,7 +415,7 @@ def _apply_entity(raw, entity):
                 {'field': k, **v} for k, v in specs.items()]}
     elif isinstance(header, list):
         from ajsystem.defs.report import parse_report_item as _pri
-        header = _expand_fields_list(header, entity, raw.get('label'))
+        header = _expand_fields_list(header, entity, raw.get('label'), _pname, _pmodel)
         _flist, _fpos = [], []
         for _i, _it in enumerate(header):
             try:
@@ -512,18 +533,18 @@ def _apply_entity(raw, entity):
             if src_model is None and source in entity:
                 src_model = source
         if isinstance(body.get('items'), list):
-            body['items'] = _expand_fields_list(body['items'], entity, raw.get('label'))
+            body['items'] = _expand_fields_list(body['items'], entity, raw.get('label'), _pname, _pmodel)
             body['items'] = _attach_field_mask(body['items'], entity, raw.get('label'))
         _attach_text_opts(body.get('items'), entity, raw.get('label'))
         _after = body.get('after')
         if isinstance(_after, list):
-            body['after'] = _expand_fields_list(_after, entity, raw.get('label'))
+            body['after'] = _expand_fields_list(_after, entity, raw.get('label'), _pname, _pmodel)
             body['after'] = _attach_field_mask(body['after'], entity, raw.get('label'))
             _attach_text_opts(body['after'], entity, raw.get('label'))
         _tbl = body.get('table') or {}
         _tbl_after = _tbl.get('after')
         if isinstance(_tbl_after, list):
-            _tbl['after'] = _expand_fields_list(_tbl_after, entity, raw.get('label'))
+            _tbl['after'] = _expand_fields_list(_tbl_after, entity, raw.get('label'), _pname, _pmodel)
             _tbl['after'] = _attach_field_mask(_tbl['after'], entity, raw.get('label'))
             _attach_text_opts(_tbl['after'], entity, raw.get('label'))
         out['body'] = body
@@ -618,18 +639,116 @@ def _related_cfg(name, entity):
     return _entity_for(name) or {}
 
 
-def _expand_fields_list(items, entity, label):
-    """Expande FIELDS(...) em FIELDs (genérico, sem nada de app).
+def _relation_to(source_model, target_entity):
+    """Nome da relação em `source_model` cujo alvo é `target_entity` (único).
 
-    FIELDS('Evento', when='evento') -> fields da Entity relacionada lidos em
-    'evento.<campo>', cada um com o when do bloco + TEXT '' final (respiro
-    sse o bloco imprimir). FIELDS([...]) -> fields na instância. when ausente
-    = sempre. Lista explícita = recorte/ordem.
+    Usado p/ ler `<Entidade>.<campo>`: a Entity diz o alvo, a relação (FK) diz o
+    caminho do atributo. Múltiplas relações → None (use o FK explícito)."""
+    if source_model is None:
+        return None
+    try:
+        rels = source_model.__mapper__.relationships
+    except Exception:
+        return None
+    hits = [k for k, rel in rels.items()
+            if rel.mapper.class_.__name__ == target_entity]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _principal_name(out, entity):
+    """Entidade principal do report (campos sem prefixo)."""
+    body = out.get('body') if isinstance(out.get('body'), dict) else {}
+    src = body.get('source')
+    if isinstance(src, str):
+        return src
+    if isinstance(src, dict):
+        nm = src.get('entity') or src.get('from')
+        if isinstance(nm, (list, tuple)):
+            nm = nm[0] if nm else None
+        if nm:
+            return nm
+    if isinstance(entity, dict):
+        for k, v in entity.items():
+            if isinstance(v, dict) and k[:1].isupper():
+                return k
+    return None
+
+
+def _field_base_cfg(entity, principal_name, name):
+    """Cfg do campo na Entity (principal/aninhada/flat, senão hit único)."""
+    if principal_name and isinstance(entity.get(principal_name), dict):
+        c = entity[principal_name].get(name)
+        if isinstance(c, dict):
+            return c
+    # Entity flat: {campo: cfg}
+    c = entity.get(name)
+    if isinstance(c, dict) and any(k in c for k in ('type', 'input', 'label', 'calc')):
+        return c
+    hits = [cfg[name] for cfg in entity.values()
+            if isinstance(cfg, dict) and name in cfg]
+    return hits[0] if len(hits) == 1 else {}
+
+
+def _field_item(name, cfg, entity, principal_name, principal_model):
+    """Resolve 1 item de campo do report (mesma base de columns/fields).
+
+    `name` = 'campo' | 'Entidade.campo'. Retorna dict do item com `field`
+    (caminho de leitura) + `label`/`format`/`mask` da Entity + overlay `cfg`.
+    FK usa o `lookup` do Field (senão '<relação>.nome'). `function`/BOOL/LIST
+    ficam pro `_resolve_map`.
+    """
+    from ajsystem.defs.data import (
+        _FIELD_KEYS, build_field, resolve_lookup, fk_relation_name,
+    )
+    from ajsystem.core.list import _resolve_model
+    cfg = dict(cfg or {})
+    if '.' in name:
+        ent_key, short = name.split('.', 1)
+        base = (_related_cfg(ent_key, entity) or {}).get(short, {}) or {}
+        src_model = _resolve_model(ent_key)
+        rel = _relation_to(principal_model, ent_key)
+        data_path = f'{rel}.{short}' if rel else name
+    else:
+        short = name
+        base = _field_base_cfg(entity, principal_name, short)
+        src_model = principal_model
+        data_path = short
+    fprops = {k: v for k, v in cfg.items() if k in _FIELD_KEYS}
+    merged = {**base, **fprops}
+    try:
+        f = build_field(short, merged)
+    except Exception:
+        f = None
+    if merged.get('type') == 'FK':
+        try:
+            lk = resolve_lookup(f, src_model) if f is not None else None
+        except Exception:
+            lk = None
+        if lk:
+            data_path = lk['path']
+        elif short.endswith('_id'):
+            rel = fk_relation_name(src_model, short) if src_model else short[:-3]
+            data_path = f'{rel}.nome'
+    item = {'field': data_path}
+    item['label'] = f.label if f is not None else (
+        base.get('label') or _auto_label(short))
+    _m = _field_mask(short, merged)
+    if _m:
+        item['format'] = _m
+    item.update(cfg)
+    return item
+
+
+def _expand_fields_list(items, entity, label, principal_name=None, principal_model=None):
+    """Expande FIELDS(...) em itens FIELD resolvidos.
+
+    Cada item ('campo' ou ('campo', {props})) resolve como columns/fields;
+    'Entidade' (PascalCase resolvível) expande a entidade. Sem label automático:
+    o label vem da Entity (Entity/Schema) e só o override o troca.
     """
     if not isinstance(items, list):
         return items
     from ajsystem.defs.report import parse_report_item as _pri
-    from ajsystem.core.list import _resolve_model
     out = []
     for it in items:
         try:
@@ -640,45 +759,22 @@ def _expand_fields_list(items, entity, label):
         if _ri.kind != 'FIELDS':
             out.append(it)
             continue
-        _src, _when = _ri.config.get('source'), _ri.config.get('when')
-        _subset = None
-        if isinstance(_src, dict) and 'model' in _src:
-            _subset = _src.get('fields') or {}
-            _src = _src.get('model')
-        if isinstance(_src, str):
-            _rel = _src[:1].lower() + _src[1:]
-            _cfg = _related_cfg(_src, entity)
-            _model = _resolve_model(_src)
-            if _subset is not None:
-                _names = list(_subset.keys())
-                _inline = dict(_subset)
+        for spec in _ri.config.get('items') or []:
+            if isinstance(spec, str):
+                name, cfg = spec, {}
             else:
-                _names = [k for k in _cfg.keys() if not k.startswith('_')] if _cfg else []
-                _inline = {}
-            _prefix = (_rel + '.') if _model is not None else ''
-        elif isinstance(_src, dict):
-            for _k, _v in _src.items():
-                if not isinstance(_v, dict):
-                    raise ValueError(f"report '{label}': cfg de '{_k}' em FIELDS deve ser dict")
-            _names = list(_src.keys())
-            _prefix, _cfg, _inline = '', {}, dict(_src)
-        else:
-            _names, _prefix, _cfg, _inline = list(_src), '', {}, {}
-        for _n in _names:
-            _f = {'field': f'{_prefix}{_n}'}
-            _rc = (_cfg.get(_n) or {}) if isinstance(_cfg, dict) else {}
-            for _kk in ('label', 'format', 'mask'):
-                if _rc.get(_kk):
-                    _f[_kk] = _rc[_kk]
-            if 'label' not in _f:
-                _f['label'] = _auto_label(_n)
-            for _kk, _vv in (_inline.get(_n) or {}).items():
-                _f[_kk] = _vv
-            if _f.get('when') is None and _when is not None:
-                _f['when'] = _when
-            out.append(_f)
-        if _when is not None and _names:
-            out.append({'TEXT': {'text': '', 'when': _when}})
+                name, cfg = spec[0], dict(spec[1])
+            if name[:1].isupper():
+                ent_cfg = _related_cfg(name, entity)
+                if ent_cfg:
+                    for fld, _fcfg in ent_cfg.items():
+                        if fld.startswith('_'):
+                            continue
+                        full = fld if name == principal_name else f'{name}.{fld}'
+                        out.append(_field_item(full, cfg, entity,
+                                               principal_name, principal_model))
+                    continue
+            out.append(_field_item(name, cfg, entity, principal_name, principal_model))
     return out
 
 
@@ -686,6 +782,9 @@ def _raw_cfg_of(field, entity):
     """Cfg bruta do campo na Entity (flat ou aninhada), {} se ausente."""
     if not isinstance(entity, dict):
         return {}
+    if isinstance(field, str) and '.' in field:
+        model, fld = field.split('.', 1)
+        return _raw_cfg_of(fld, _related_cfg(model, entity))
     if field in entity and isinstance(entity.get(field), dict):
         return entity[field]
     hits = [cfg[field] for cfg in entity.values()
@@ -711,7 +810,11 @@ def _attach_field_mask(items, entity, label):
         if _ri.kind != 'FIELD' or _ri.config.get('function') or _ri.config.get('format'):
             out.append(it)
             continue
-        _mask = _field_mask(_ri.name, _raw_cfg_of(_ri.name, entity))
+        # máscara do field: config (Entity/Schema/query) + override do report.
+        _fcfg = _raw_cfg_of(_ri.name, entity)
+        if _ri.config.get('mask'):
+            _fcfg = {**_fcfg, 'mask': _ri.config['mask']}
+        _mask = _field_mask(_ri.name, _fcfg)
         if not _mask:
             out.append(it)
             continue
@@ -913,23 +1016,18 @@ def _report_inputs():
 
 
 def _field_mask(name, cfg):
-    """Máscara autoral do campo: explícita na cfg ou do catálogo de inputs
-    (mesma cadeia do form). Máscara auto-derivada (decimals->'9999.99') NÃO
-    conta (é dica de largura, não intenção). Falha -> None, nunca quebra."""
+    """Máscara do campo: o `Field` materializa o default do tipo (catálogo) e a
+    cfg (Entity/Schema/query/report) vence por cima. A máscara vive no field —
+    o formatter não re-deriva do catálogo. `number` sem moeda recebe a máscara
+    default de `decimals` (milhar na renderização). Falha -> None."""
     if not isinstance(cfg, dict):
         return None
-    if cfg.get('mask'):
-        return cfg['mask']
     try:
-        from ajsystem.defs.data import FIELD_TYPES
-        from ajsystem.defs.inputs import resolve_input
-        _inp = FIELD_TYPES.get(cfg.get('type'), {}).get('input')
-        if not _inp:
-            return None
+        from ajsystem.defs.data import build_field
         _tipos, _pagina = _report_inputs()
         _camadas = tuple(c for c in (_tipos, _pagina) if c)
-        _idef = resolve_input(_inp, {}, *_camadas)
-        return _idef.mask or None
+        _f = build_field(name, cfg, inputs=_camadas or None)
+        return _f.mask or None
     except Exception:
         return None
 
