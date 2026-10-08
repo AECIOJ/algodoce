@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0003 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0004 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0003`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0004`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -751,6 +751,8 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+### 1.26.10.08.0004
+- **Uma função decide o que é um item que enumera field (`core/resolve.field_spec_item`),** e as três gramáticas que existiam passam a usá-la: `do_report._resolve_map` (lista solta), `do_report._expand_fields_list` (itens de layout) e o factory `FIELDS`. As formas são as de `list.columns` — `'campo'`, `('campo', {props})`, `{alias: {props}}`, `{'field': 'campo', **props}` — e quem chama decide a **política**: `FIELDS` mantém ser estrito (só as duas formas curtas, com os mesmos erros), os itens de layout descartam o que não nomeia field, e `_resolve_map` preserva a forma legada em que um dict de props sem nome vira `_0`, `_1`…. `parse_select` ficou de fora de propósito: o tipo canônico dele é `SelectEntry` e o contrato de erro é outro. Equivalência por harness: os 4 reports, os 12 casos sintéticos e 16 novos de gramática (as 4 formas em `columns`/`header.fields`/`FIELDS`, entidade expandida, forma legada) com os 7 caminhos de erro travados — tudo byte a byte igual.
 
 ### 1.26.10.08.0003
 - **Três passos de resolução de field deixaram de ter cópia própria.** `core/list.py` tinha um `_build_fields_from_merged` idêntico ao `defs/data._build_fields_from_names` (mesmo `merged.get`, mesmo skip de `memory`, mesmo `_pos_managed`) — o de `list.py` saiu e passou a importar o de `data.py`. A decisão de apresentação (máscara → moeda via `@M(id)`; `NUM`→`brl`; `DATA`/`date`→data; `INT`→centro) estava escrita duas vezes com o mesmo encadeamento, em `do_report._infer_presentation` e `search._fmt_cell`; virou `core/resolve.field_presentation`, chamada pelos dois. E `defs/data.resolve_field_mask` responde "qual a máscara deste field" sem materializar o `Field` — o `do_report._field_mask` montava um field inteiro só para ler `.mask`. Equivalência por harness: 4 reports + 12 casos sintéticos, 20 forms, 15 listas, camada RQ e 352 combinações de célula da busca (`search._fmt_cell`) saem idênticos.

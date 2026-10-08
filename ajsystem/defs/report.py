@@ -19,6 +19,10 @@ __all__ = [
     'PCOL', 'PROW', 'LTB', 'RTB', 'NCOL',
 ]
 
+# A pergunta "isto nomeia um field?" é da máquina genérica; as factories de
+# declaração só nisso aplicam a sua política de aceitação.
+from ajsystem.core.resolve import field_spec_item  # noqa: E402
+
 
 # ── Contrato de DOM do container de relatório ──
 # O relatório não é só o PDF: ele é injetado num container exclusivo da página,
@@ -242,17 +246,16 @@ def FIELDS(*items):
     """
     norm = []
     for it in items:
-        if isinstance(it, str):
-            if not it:
-                raise ValueError("FIELDS: nome de campo não pode ser vazio")
-            norm.append(it)
-        elif (isinstance(it, tuple) and len(it) == 2
-              and isinstance(it[0], str) and isinstance(it[1], dict)):
-            if not it[0]:
-                raise ValueError("FIELDS: nome de campo não pode ser vazio")
-            norm.append((it[0], dict(it[1])))
-        else:
+        # `FIELDS` aceita só as duas formas curtas: a forma longa (dict) é das
+        # props que recebem lista solta. A DECISÃO ("isto nomeia um field?") é a
+        # genérica; a política (recusar) é do factory.
+        achado = None if isinstance(it, dict) else field_spec_item(it)
+        if achado is None:
             raise ValueError("FIELDS: item deve ser 'campo' ou ('campo', {props})")
+        nome, props = achado
+        if not nome:
+            raise ValueError("FIELDS: nome de campo não pode ser vazio")
+        norm.append(nome if not props else (nome, props))
     if not norm:
         raise ValueError("FIELDS: exige ao menos um campo")
     return {'FIELDS': {'items': norm}}

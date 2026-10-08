@@ -51,6 +51,65 @@ def select_entry_computed(entry):
     return entry.over is not None or bool(entry.agg) or bool(entry.calc)
 
 
+# ── o que é um item que enumera field ────────────────────────────────────────
+# Toda prop que elenca fields (list.columns, form.fields, report.columns, os
+# FIELDS do report, o select de uma query) tem que responder a mesma pergunta
+# sobre cada item: qual é o NOME do field e quais são os OVERRIDES. A resposta
+# estava escrita em três lugares com subconjuntos diferentes de formas aceitas;
+# aqui é uma só, e cada chamador decide a POLÍTICA (aceitar, recusar ou manter
+# o item como está).
+def field_spec_item(item):
+    """`(nome, overrides)` de um item que enumera field, ou `None`.
+
+    Formas aceitas (as de `list.columns`):
+        'campo'                       → ('campo', {})
+        ('campo', {props})            → ('campo', props)
+        {alias: {props}}              → (alias, props)
+        {'field': 'campo', **props}   → ('campo', props)
+        {'name': 'campo', **props}    → ('campo', props)
+
+    `None` = o item não nomeia um field (dict de props sem nome, por exemplo).
+    O chamador decide o que fazer: o report guarda como `_0`, `_1`…; `FIELDS`
+    recusa; `parse_select` só conhece as duas primeiras formas.
+    """
+    if isinstance(item, str):
+        return item, {}
+    if isinstance(item, tuple) and len(item) == 2 \
+            and isinstance(item[0], str) and isinstance(item[1], dict):
+        return item[0], dict(item[1])
+    if isinstance(item, dict):
+        nome = item.get('field') or item.get('name')
+        if isinstance(nome, str) and nome:
+            return nome, {k: v for k, v in item.items() if k not in ('field', 'name')}
+        if len(item) == 1:
+            (alias, cfg), = item.items()
+            if isinstance(alias, str) and alias:
+                return alias, dict(cfg) if isinstance(cfg, dict) else {}
+    return None
+
+
+def field_spec_items(spec):
+    """Normaliza um spec que enumera fields em `{nome: overrides}`.
+
+    Aceita a lista de itens ou o dict `{nome: overrides}`. Item que não nomeia
+    um field cai em `_0`, `_1`… — a forma legada do report, em que um dict de
+    props sem nome ainda é um campo e o nome é a posição. Quem não quer essa
+    forma usa `field_spec_item` e decide por conta (é o que o report faz nos
+    itens de layout).
+    """
+    out = {}
+    if isinstance(spec, dict):
+        for nome, cfg in spec.items():
+            out[nome] = dict(cfg) if isinstance(cfg, dict) else {}
+        return out
+    if not isinstance(spec, (list, tuple)):
+        return out
+    for i, item in enumerate(spec):
+        achado = field_spec_item(item)
+        out[achado[0] if achado else '_%d' % i] = achado[1] if achado else dict(item)
+    return out
+
+
 # ── apresentação inferida de um campo (a decisão, não o texto final) ─────────
 # Um único lugar decide o que a cfg de um campo significa para exibição. Antes
 # isso estava escrito duas vezes com o mesmo encadeamento: `do_report`

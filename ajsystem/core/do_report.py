@@ -26,6 +26,13 @@ from flask import Response, current_app, render_template, request
 
 from ajsystem import locales as i18n
 from ajsystem.core.pdf import gerar_pdf_relatorio
+from ajsystem.core.resolve import (
+    field_presentation,
+    field_spec_item,
+    field_spec_items,
+    select_entry_computed as _computed_e,
+    select_entry_props as _props_e,
+)
 from ajsystem.defs.data import _auto_label
 from ajsystem.defs.report import parse_report
 
@@ -244,13 +251,7 @@ def _apply_entity(raw, entity):
     except Exception:
         _pmodel = None
 
-    from ajsystem.core.resolve import (
-    field_presentation,
-    select_entry_computed as _computed_e,
-    select_entry_props as _props_e,
-)
-
-# Defaults vindos das entradas do select (props de apresentação da query),
+    # Defaults vindos das entradas do select (props de apresentação da query),
     # via `core.resolve` — as mesmas primitivas que a listagem usa em
     # `query_select_layer`. Precedência: Entity/Schema -> entrada (query) ->
     # inline do relatório.
@@ -285,29 +286,12 @@ def _apply_entity(raw, entity):
         return {'format': fmt, 'align': align}
 
     def _resolve_map(items):
+        # Lista solta de itens → `{nome: overrides}`: a gramática é a
+        # genérica (`core.resolve.field_spec_items`, as formas de
+        # `list.columns`). Item que não nomeia um field cai em `_0`, `_1`…,
+        # a forma legada em que um dict de props ainda é um campo.
         if isinstance(items, list):
-            # forma enxuta: strs puros + {alias: cfg} + dicts (calculados).
-            norm = {}
-            for i, it in enumerate(items):
-                if isinstance(it, str):
-                    norm[it] = {}
-                    continue
-                if (isinstance(it, tuple) and len(it) == 2
-                        and isinstance(it[0], str) and isinstance(it[1], dict)):
-                    norm[it[0]] = dict(it[1])
-                    continue
-                it = dict(it)
-                if 'name' in it or 'field' in it:
-                    k = it.pop('name', None) or it.get('field') or f'_{i}'
-                    norm[k] = it
-                elif len(it) == 1:
-                    # forma enxuta {alias: cfg} (mesma do select)
-                    (k, v), = it.items()
-                    norm[k] = v or {}
-                else:
-                    # legado: dict de props sem nome (ex. header {function, label})
-                    norm[f'_{i}'] = it
-            items = norm
+            items = field_spec_items(items)
         if not isinstance(items, dict):
             return None
         resolved = {}
@@ -751,10 +735,10 @@ def _expand_fields_list(items, entity, label, principal_name=None, principal_mod
             out.append(it)
             continue
         for spec in _ri.config.get('items') or []:
-            if isinstance(spec, str):
-                name, cfg = spec, {}
-            else:
-                name, cfg = spec[0], dict(spec[1])
+            achado = field_spec_item(spec)
+            if achado is None:
+                continue
+            name, cfg = achado
             if name[:1].isupper():
                 ent_cfg = _related_cfg(name, entity)
                 if ent_cfg:
@@ -1266,8 +1250,8 @@ def do_report(report, data=None, instance=None, filename="relatorio.pdf",
     """
     report = parse_report(report)
     if not as_response:
-        from ajsystem.core.pdf import gerar_pdf_relatorio as _g
-        return _g(report, data, _resolve_logo(report), instance=instance)
+        from ajsystem.core.pdf import gerar_pdf_relatorio
+        return gerar_pdf_relatorio(report, data, _resolve_logo(report), instance=instance)
     raw = _pdf_bytes(report, data, instance)
     return Response(
         raw,
