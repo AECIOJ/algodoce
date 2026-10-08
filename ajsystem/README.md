@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0006 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0007 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0006`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0007`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -406,7 +406,24 @@ CIRCLE(c, r, raio[, achata])
 
 O 3º e 4º são **deltas** (extensão a partir da origem), não posição final; omissão vale 0 no `LINE` (de onde vem o ponto). `LINE` desenha e avança uma linha — o cursor desce e volta ao início da zona, para o próximo item não colidir com a régua; espaço extra é `LF(n)`. `when` vale para `FIELD`, `TEXT`, `LINE`, `BOX` e `CIRCLE`. As formas de largura (`()`, `(True)`, `(w)`) são de régua e só existem no `LINE`.
 
-**Onde cada prop aceita o quê.** Só três props são a mesma lista de items e passam pelo mesmo renderizador: `header` (lista), `body.items` e `body.table.after`. `body.before`/`body.after` são **linhas de texto** (`{text, font_*, align, width}`) e agora **recusam** um item nomeando a prop, em vez de engolê-lo como linha em branco. Em `table.extend`, a régua é `LINE()` — a da própria tabela, sujeita ao latch que impede duas réguas seguidas sem conteúdo entre elas (a antiga string `'LINE'` saiu por ser o mesmo desenho com dois nomes).
+**`wrap` e a frase que nascia cortada.** `cell` do fpdf2 **não quebra linha**: o texto passa reto e a ponta sai da folha. A frase de cancelamento do COMPRA media 206mm contra 190mm úteis — os últimos "itens:" iam para fora da página, sem aviso. `wrap: True` troca `cell` por `multi_cell` na largura da zona (ou da prop `width`), e vale nos três renderizadores: linha de texto, item `TEXT` e item `FIELD`/`FIELDS` (onde o rótulo fica na 1ª linha e o valor quebra no resto da zona). **Ausente é `cell`**, ou seja, o comportamento de sempre — a correção só acontece onde alguém declara. Para "altura em linhas" continua valendo `rows_before`/`rows_after` (espaço); `rows` é outra coisa, do formulário (`<textarea rows>`), que o report ainda não lê.
+
+**Linha de texto fala a língua do `TEXT`.** `body.before`/`body.after` passam pelo mesmo avaliador (`{campo}`, `{campo:brl}`, `{campo|fallback}`, `{?campo:...}`) que os items, e aceitam `labels` — o mapa `{campo: catálogo}` que o item `TEXT` deriva sozinho da Entity. É o que permite uma **frase de documento** ser declarada em vez de montada em Python: o catálogo escolhe o texto pelo status e o `{observacao}` entra no meio dele.
+
+```python
+FRASE = {0: 'Solicitamos o orçamento referente aos seguintes itens:',
+         6: 'Conforme conversado anteriormente, por motivo de {observacao|(não informado)}, '
+            'solicitamos o cancelamento do pedido com os seguintes itens:'}
+
+'before': lambda c: [{'text': ''},
+                     {'text': '{fornecedor.nome|-}', 'font_size': 12, 'font_style': 'B', 'align': 'C'},
+                     {'text': ''},
+                     {'text': '{status}', 'labels': {'status': FRASE}, 'wrap': True}]
+```
+
+O rótulo de catálogo pode ter `{campo}` dentro dele, e aí o avaliador faz uma segunda passada (`core.text.LABEL_DEPTH`, com guarda de recursão para catálogo que se referencia). Seguro no app: **0 dos 57 rótulos** dos catálogos têm `{`.
+
+**Onde cada prop aceita o quê.** Só três props são a mesma lista de items e passam pelo mesmo renderizador: `header` (lista), `body.items` e `body.table.after`. `body.before`/`body.after` são **linhas de texto** (`{text, font_*, align, width, wrap, labels}`) e agora **recusam** um item nomeando a prop, em vez de engolí-lo como linha em branco. Em `table.extend`, a régua é `LINE()` — a da própria tabela, sujeita ao latch que impede duas réguas seguidas sem conteúdo entre elas (a antiga string `'LINE'` saiu por ser o mesmo desenho com dois nomes).
 
 > **Todo field mostra o valor de exibição, em qualquer prop que o imprima.** `LIST` sai pelo rótulo do catálogo (`options`/`list` da Entity) e `BOOL` por Sim/Não — em coluna (`table.columns`, `header.fields`) e em item de layout (`items`, `after`, `table.after`, header) alike, porque os dois caminhos usam o mesmo passo (`core/resolve.field_display_fn`). Código fora do catálogo cai no valor cru, como na listagem. Antes de `1.26.10.08.0005` só as colunas traduziam, e o mesmo field saía `1` num lugar e `Fornecidas pelo Cliente` no outro.
 
@@ -773,6 +790,9 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0007
+- **`wrap`: a frase de documento não nasce mais cortada.** `cell` do fpdf2 não quebra linha — o texto passa reto e a ponta sai da folha. Medido no COMPRA: a frase de cancelamento dava 206mm contra 190mm úteis, e a de devolução estourava com motivo longo (255mm). `wrap: True` troca `cell` por `multi_cell` na largura da zona e vale nos três renderizadores (linha de texto, item `TEXT`, item `FIELD`/`FIELDS`); **ausente é `cell`**, ou seja, o comportamento de sempre. A prop não precisou de dataclass: `wrap` já sobrevive ao `_apply_entity` por `item.update(cfg)`. Junto veio a **linguagem de template nas linhas de texto** de `before`/`after` (`{campo}`, `{campo:brl}`, `{campo|fallback}` e o catálogo `labels`), e um rótulo de catálogo agora aceita `{campo}` dentro dele (segunda passada, com guarda de recursão em `core.text.LABEL_DEPTH`). Isso permitiu declarar a frase do COMPRA como catálogo de `status` em vez de um dict montado em Python — e o texto passou a ser do report, ao lado do layout que o imprime. Efeito colateral bom: o `(não informado)` que era `obs = ... or '(não informado)'` virou `{observacao|(não informado)}`, a mesma sintaxe do resto do framework. Prova: 18 cenários de COMPRA (6 status × motivo vazio/curto/longo), **14 byte-idênticos** e 4 mudados — exatamente as 4 frases que estouravam, agora em 2 linhas com a ponta no lugar; mais `wrap` nos três renderizadores e a guarda de `wrap` não-booleano. Este report era o de menos cobertura do projeto: o snapshot gravava `"before": "<fn _report_before>"`, o nome da função, nunca o conteúdo.
 
 ### 1.26.10.08.0006
 - **`LINE`/`BOX`/`CIRCLE` declarados em números, e a régua deixou de exigir número mágico.** As factories de grade viraram variádicas como `TABS`/`IND`/`POS` (a lista solta continua valendo): `LINE(c, r, +cols, +rows)` — o 3º e 4º são **deltas** a partir da origem, e omissão vale 0, o que torna `LINE(10, 5)` um **ponto** (antes era `ValueError: linha nula`; agora sai um disco de raio `col_w/8`, que acompanha o pitch da fonte — um `line` degenerado emitiria um subcaminho de comprimento zero e não pintaria nada). `LINE()` pega a largura da zona (a indentação vigente ou, sem ela, a última tabela), `LINE(True)` a da página inteira, e `LINE(w)` equivale a `LINE(PCOL, PROW, w)` — essas três referências só divergem onde a tabela é mais estreita que a página ou o `IND` recua, e é por isso que o harness monta esse cenário. `LINE` desenha e avança uma linha; espaço extra é `LF(n)`, que compõe exatamente o que `rows_before`/`rows_after` faziam (medido). `when` passou a valer também para `LINE`/`BOX`/`CIRCLE` — era aceito e ignorado. `body.before`/`body.after` **recusam** item nomeando a prop (são linhas de texto) em vez de virarem linha em branco, e `table.extend` passa a usar `LINE()` no lugar da string `'LINE'`, que eram dois nomes para a mesma régua. Equivalência: 4 reports + 41 casos, 20 forms, 15 listas, RQ, moeda, parse e calc byte a byte, mais 40+ medições de coordenada das formas.

@@ -1197,14 +1197,46 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
         _table_close(pdf, x_start, total_w)
 
 
+def _want_wrap(cfg, prop, label=''):
+    """`wrap` declarado? Ausente = não quebra (o que `cell` sempre fez).
+
+    A prop é binária de propósito: `rows` responderia "quantas linhas", e isso
+    traz a pergunta de altura mínima ou caixa fixa junto. Quem só precisa do
+    texto não vazar precisa de uma escolha só.
+    """
+    w = cfg.get('wrap')
+    if w is None:
+        return False
+    if not isinstance(w, bool):
+        raise ValueError(f"report '{label}': '{prop}' espera wrap booleano, veio {w!r}")
+    return w
+
+
+def _wrap_width(pdf, cols=None):
+    """Largura de quebra: a prop `width` (em colunas) ou o resto da zona."""
+    if cols:
+        return cols * _col_unit(pdf)
+    _x0, right = _flow_zone(pdf)
+    return max(right - pdf.get_x(), 1.0)
+
+
 def _render_table_lines(pdf, lines, instance=None, prop='body.after'):
     """Renderiza lista de linhas (before_table / after_table).
 
-    São LINHAS DE TEXTO (`text`/`font_*`/`align`/`width`), não a lista de items:
-    um `LINE` aqui não é erro de tipo hoje, ele vira uma linha em branco — o
-    pior tipo de falha. Nomear a prop é o que evita isso; os items de verdade
-    vivem em `header` (lista), `body.items` e `body.table.after`.
+    São LINHAS DE TEXTO (`text`/`font_*`/`align`/`width`/`wrap`/`labels`), não a
+    lista de items: um `LINE` aqui não é erro de tipo hoje, ele vira uma linha
+    em branco — o pior tipo de falha. Nomear a prop é o que evita isso; os items
+    de verdade vivem em `header` (lista), `body.items` e `body.table.after`.
+
+    O texto passa pelo mesmo avaliador dos items (`core.text.render`), então
+    `{campo}`, `{campo:brl}`, `{campo|fallback}` e o catálogo `labels` funcionam
+    igual em `TEXT` e aqui. Uma frase de documento é o caso que pede os dois: o
+    catálogo escolhe o texto pelo status e o `wrap` impede que a ponta saia da
+    página. `labels` é `{campo: catálogo}` — o mesmo mapa que o `TEXT` item deriva
+    da Entity sozinho; aqui o report declara, porque a frase é do documento e
+    não do cadastro do campo.
     """
+    from ajsystem.core.text import render as _trender
     for line in lines or []:
         if isinstance(line, dict):
             from ajsystem.defs.report import ITEM_KINDS as _KINDS
@@ -1217,6 +1249,11 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after'):
         text = line.get('text', '')
         if callable(text) and instance:
             text = text(instance)
+        elif text:
+            from ajsystem.core.text import dotted_get as _dg
+            text = _trender(text,
+                            lambda k: _dg(instance, k) if instance is not None else None,
+                            line.get('labels') or line.get('_fmt_opts'))
         text = text or ''
         size = line.get('font_size', 10)
         style = line.get('font_style', '')
@@ -1227,7 +1264,14 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after'):
             continue
         pdf.ln(GAP_TEXT_LINE)
         pdf.set_font(FONT_FAMILY, style, size)
-        pdf.cell(w, size * 0.5, text, align=align, new_x="LMARGIN", new_y="NEXT")
+        if _want_wrap(line, prop):
+            # `cell` não quebra (fpdf2): o texto vaza para fora da página e a
+            # ponta some. `multi_cell` quebra na largura da zona e cresce, que
+            # é o que uma frase precisa.
+            pdf.multi_cell(w or _wrap_width(pdf), size * 0.5, text, align=align,
+                           new_x="LMARGIN", new_y="NEXT")
+        else:
+            pdf.cell(w, size * 0.5, text, align=align, new_x="LMARGIN", new_y="NEXT")
         if text:
             _mark_content(pdf)
 
@@ -1595,6 +1639,19 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         lw = (pdf.get_string_width(lbl + ': ') + 2) if lbl else 0
         _apply_font(pdf, _ff, _fs, _fst)
         vw = pdf.get_string_width(txt or '') + 2
+        if _want_wrap(cfg, kind, label):
+            # Rótulo na primeira linha (como `cell`), valor quebrando no resto da
+            # zona. `FIELD` sempre aperta o valor na largura do texto; aqui ele
+            # passa a ocupar a linha, que é o que uma frase precisa.
+            if lbl:
+                pdf.set_font(_ff, "B", _fs)
+                pdf.cell(lw, ROW_CELL, lbl + ': ', new_x="END")
+                _apply_font(pdf, _ff, _fs, _fst)
+            pdf.multi_cell(_wrap_width(pdf, cfg.get('width')), ROW_CELL, txt,
+                           new_x="LMARGIN", new_y="NEXT")
+            if txt:
+                _mark_content(pdf)
+            return
         if not _fixed and pdf.get_x() + lw + vw > right + 0.01 and pdf.get_x() > _x0 + 0.01:
             pdf.ln(ROW_CELL)  # pcol+1>ncol -> pcol=1, prow+=1
             pdf.set_x(_x0)
@@ -1613,6 +1670,19 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         _ff, _fs, _fst = _font_default(pdf)
         _ff = _fam or _ff
         pdf.set_font(_ff, cfg.get('font_style', _fst) or _fst, cfg.get('font_size', _fs))
+        if _want_wrap(cfg, kind, label):
+            # `wrap`: quebra na zona em vez de cortar a ponta. `multi_cell`
+            # ocupa a linha toda, então `align` R/C passa a valer no texto
+            # quebrado também — e `_cut_to_fit` some de propósito, que era ele
+            # que comia o resto da frase.
+            if not _fixed and pdf.get_x() > _x0 + 0.01 and cfg.get('width') is None:
+                pdf.set_x(_x0)
+            pdf.multi_cell(_wrap_width(pdf, cfg.get('width')), ROW_CELL, txt,
+                           align=cfg.get('align', 'L'),
+                           new_x="LMARGIN" if not _fixed else "END", new_y="NEXT")
+            if txt:
+                _mark_content(pdf)
+            return
         _w = cfg.get('width')
         if _w is not None:
             if isinstance(_w, bool) or not isinstance(_w, (int, float)) or _w <= 0:

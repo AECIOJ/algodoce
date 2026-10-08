@@ -1,30 +1,40 @@
 from ajsystem.defs.report import *
 
+# Nome do DOCUMENTO por status. `STATUS_COMPRA` (app/extends/constants.py) é o
+# rótulo do ESTADO — é o que a coluna `status` mostra ("Cancelado"); aqui é o
+# nome do documento impresso ("Cancelamento de Pedido"). São vocabulários de
+# propósito diferente, por isso ficam separados e não se misturam.
+DOCUMENTO = {0: 'Orçamento', 1: 'Pedido',
+             6: 'Cancelamento de Pedido', 9: 'Devolução de Pedido'}
 
-def _fornecedor_nome(compra):
-    return compra.fornecedor.nome if compra and compra.fornecedor else '-'
+# Frase de abertura do documento, escolhida pelo status. `{observacao}` entra no
+# MEIO dela, e é por isso que isto é catálogo de `status` e não um texto fixo:
+# o report resolve por `{status}` e o catálogo devolve a frase já montada. O
+# `wrap` abaixo existe porque a frase do cancelamento é mais larga que a área
+# útil da página (206mm contra 190mm) — sem ele, a ponta saía da folha.
+FRASE = {
+    0: 'Solicitamos o orçamento referente aos seguintes itens:',
+    1: 'Conforme negociação anterior, solicitamos o fornecimento dos seguintes itens:',
+    6: 'Conforme conversado anteriormente, por motivo de {observacao|(não informado)}, solicitamos o cancelamento do pedido com os seguintes itens:',
+    9: 'Conforme conversado anteriormente, por motivo de {observacao|(não informado)}, estamos devolvendo os seguintes itens:',
+}
 
 
 def _report_title(compra):
-    t = {0: 'Orçamento', 1: 'Pedido', 6: 'Cancelamento de Pedido', 9: 'Devolução de Pedido'}
-    return f'{t.get(compra.status, "Compra")} #{compra.id}'
+    return f'{DOCUMENTO.get(compra.status, "Compra")} #{compra.id}'
 
 
 def _report_before(compra):
-    if compra.status not in (0, 1, 6, 9):
+    # Faturado (2) e Recebido (8) não são pedidos: não há frase a pedir, e o
+    # bloco inteiro some. A lista de status mora no catálogo acima — não num
+    # tuple repetido, que é o que divergia quando entrava status novo.
+    if compra.status not in FRASE:
         return []
-    obs = compra.observacao or '(não informado)'
-    txt = {
-        0: 'Solicitamos o orçamento referente aos seguintes itens:',
-        1: 'Conforme negociação anterior, solicitamos o fornecimento dos seguintes itens:',
-        6: f'Conforme conversado anteriormente, por motivo de {obs}, solicitamos o cancelamento do pedido com os seguintes itens:',
-        9: f'Conforme conversado anteriormente, por motivo de {obs}, estamos devolvendo os seguintes itens:',
-    }.get(compra.status)
     return [
         {'text': ''},
-        {'text': _fornecedor_nome, 'font_size': 12, 'font_style': 'B', 'align': 'C'},
+        {'text': '{fornecedor.nome|-}', 'font_size': 12, 'font_style': 'B', 'align': 'C'},
         {'text': ''},
-        {'text': txt},
+        {'text': '{status}', 'labels': {'status': FRASE}, 'wrap': True},
     ]
 
 

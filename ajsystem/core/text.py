@@ -16,6 +16,10 @@ import re
 _COND_RE = re.compile(r'{\?([\w.]+):((?:[^{}]|\{[^{}]*\})*)}')
 _FIELD_RE = re.compile(r'{([\w.]+)(?::([^{}|]*))?(?:\|([^{}]*))?}')
 
+# Passadas extras para um rótulo de catálogo que traz `{campo}` dentro dele
+# (frase de documento). Um catálogo que se referencia sai no limite.
+LABEL_DEPTH = 3
+
 
 def dotted_get(obj, path):
     """getattr encadeado com navegação segura (None no meio -> None)."""
@@ -38,7 +42,14 @@ def eval_when(obj, when):
 
 
 def render(tpl, get, labels=None):
-    """Monta o texto. get(campo)->valor; labels={campo: {valor: rótulo}}."""
+    """Monta o texto. get(campo)->valor; labels={campo: {valor: rótulo}}.
+
+    O rótulo de catálogo pode ter `{campo}` dentro dele, e aí precisa de uma
+    segunda passada: é assim que uma frase de documento vira catálogo (o status
+    escolhe a frase, o motivo entra no meio dela). A segunda passada é limitada
+    por `LABEL_DEPTH`, porque catálogo que se referencia sozinho existe e o
+    `re.sub` não para sozinho.
+    """
     labels = labels or {}
 
     def _cond(m):
@@ -72,6 +83,15 @@ def render(tpl, get, labels=None):
         return _val(m.group(1), m.group(2) or '', m.group(3))
 
     try:
-        return _FIELD_RE.sub(_sub, t)
+        out = _FIELD_RE.sub(_sub, t)
+        # Só a segunda passada quando entrou rótulo de catálogo: sem isso, todo
+        # template passa a pagar uma varredura à toa.
+        if labels and out != t:
+            for _ in range(LABEL_DEPTH - 1):
+                novo = _FIELD_RE.sub(_sub, out)
+                if novo == out:
+                    break
+                out = novo
+        return out
     except (ValueError, KeyError):
         return t
