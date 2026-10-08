@@ -11,8 +11,12 @@ DOCUMENTO = {0: 'Orçamento', 1: 'Pedido',
 # `status` e não texto fixo: o report resolve por `{status}` e recebe a frase já
 # montada. O MOTIVO não vem aqui dentro: ele é longo demais para a linha (soube
 # passar de 250mm com um motivo só), e a frase só aponta para o bloco
-# `Observações`, no fim do documento. O `wrap` abaixo continua necessário
-# porque a frase aponta para longe e ainda passa da área útil.
+# `Observações`, no fim do documento.
+#
+# Este catálogo é TAMBÉM a lista de status que têm frase — o `when` dos itens
+# do preâmbulo é `{'status': FRASE}`. Faturado (2) e Recebido (8) não estão
+# aqui, então nome e frase somem, sem um `if status not in (...)` em Python
+# para divergir do texto.
 FRASE = {
     0: 'Solicitamos o orçamento referente aos seguintes itens:',
     1: 'Conforme negociação anterior, solicitamos o fornecimento dos seguintes itens:',
@@ -20,23 +24,16 @@ FRASE = {
     9: 'Conforme conversado anteriormente, por motivo abaixo discriminado em observações, estamos devolvendo os seguintes itens:',
 }
 
+# Largura dos dois blocos de texto do documento, em colunas da grade. Uma
+# constante porque o requisito é que tenham o MESMO recuo das margens: com a
+# largura no próprio item (e não numa zona `IND`, que vaza para o que vem
+# depois e depende de ordem), os dois centralizam com a mesma sobra de cada
+# lado.
+LEITURA = 80
+
 
 def _report_title(compra):
     return f'{DOCUMENTO.get(compra.status, "Compra")} #{compra.id}'
-
-
-def _report_before(compra):
-    # Faturado (2) e Recebido (8) não são pedidos: não há frase a pedir, e o
-    # bloco inteiro some. A lista de status mora no catálogo acima — não num
-    # tuple repetido, que é o que divergia quando entrava status novo.
-    if compra.status not in FRASE:
-        return []
-    return [
-        {'text': ''},
-        {'text': '{fornecedor.nome|-}', 'font_size': 12, 'font_style': 'B', 'align': 'C'},
-        {'text': ''},
-        {'text': '{status}', 'labels': {'status': FRASE}, 'wrap': True},
-    ]
 
 
 COMPRA = {
@@ -51,7 +48,14 @@ COMPRA = {
         LF(2)
     ],
     'body': {
-        'before': _report_before,
+        'before': [
+            MEMO('{fornecedor.nome|-}', LEITURA, {'align': 'C', 'font_size': 12,
+                                                 'font_style': 'B',
+                                                 'when': {'status': FRASE}}),
+            LF(1, {'when': {'status': FRASE}}),
+            MEMO('{status}', LEITURA, {'labels': {'status': FRASE}, 'align': 'J',
+                                       'when': {'status': FRASE}}),
+        ],
         'table': {
             'columns': {
                 'insumo.nome':   {'label': 'Insumo', 'width': 50},
@@ -60,24 +64,17 @@ COMPRA = {
                 'CompraItem.valor': {'width': 20, 'agg': 'sum'},
             },
             'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
-            'after': [{'TEXT': {'text': ''}},
-                      {'TEXT': {'text': '_' * 40, 'align': 'C'}},
-                      {'TEXT': {'text': 'Acréscimo: {acrescimo:brl}', 'align': 'R', 'when': 'acrescimo'}},
-                      {'TEXT': {'text': 'Desconto: {desconto:brl}', 'align': 'R', 'when': 'desconto', 'rows_after': 1}},
-                      {'TEXT': {'text': 'Total: {total:brl|R$ 0,00}', 'align': 'R', 'font_size': 11, 'font_style': 'B'}},
-                      # O motivo do cancelamento/devolução, aqui no fim em vez de
-                      # no meio da frase de abertura. `body.after` serviria, mas
-                      # ele renderiza ANTES deste bloco (ver pdf.py): o lugar do
-                      # "depois da tabela" de verdade é `table.after`.
-                      #
-                      # `rows_before` e não `LF(2)`: o respiro tem de sumir
-                      # junto com o bloco, e `LF` não tem `when` — o rows_before
-                      # do item é descartado junto com o item quando o `when`
-                      # falha. `wrap` porque a observação é livre e pode ser
-                      # bem maior que a página.
-                      {'TEXT': {'text': 'Observações', 'when': 'observacao',
-                                'rows_before': 2, 'font_style': 'B'}},
-                      {'TEXT': {'text': '{observacao}', 'when': 'observacao', 'wrap': True}}],
+            'extend': [([1, 3], 'Acréscimo', {'align': 'R', 'when': 'acrescimo'}),
+                       (4, '{acrescimo}', {'when': 'acrescimo'}),
+                       ([1, 3], 'Desconto', {'align': 'R', 'when': 'desconto'}),
+                       (4, '{desconto}', {'when': 'desconto'}),
+                       ([1, 3], 'Total', {'align': 'R', 'font_style': 'B'}),
+                       (4, '{total}', {'font_style': 'B'})],
+            'after': [
+                LF(2, {'when': 'observacao'}),
+                MEMO('{observacao}', LEITURA, {'label': 'Obs.:', 'align': 'J',
+                                              'when': 'observacao'}),
+            ],
         },
     },
 }

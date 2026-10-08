@@ -381,6 +381,38 @@ def _apply_entity(raw, entity):
 
     # header.fields (dict) ou header=[...] (lista: FIELDs resolvidos na Entity)
     header = out.get('header')
+    def _resolve_fields(items):
+        """`FIELD` solto na lista vira FIELD resolvido — a MESMA rotina do
+        header, agora compartilhada com `items`/`before`/`after`.
+
+        Sem isto o mesmo campo imprimia rótulo no header e CÓDIGO nas outras
+        props (o buraco que o `LIST/BOOL` de 052ec2b fechou só no caminho do
+        `FIELDS`). E é por aqui, e não por `_field_item`, porque as duas rotinas
+        decidem diferente: `_field_item` não resolve caminho pontilhado de
+        relação (`'items.qtd'` ficava cru em vez de virar `OrcamentoItem.qtd`).
+        """
+        from ajsystem.defs.report import parse_report_item as _pri
+        _flist, _fpos = [], []
+        for _i, _it in enumerate(items or []):
+            try:
+                _ri = _pri(_it, raw.get('label'))
+            except ValueError:
+                continue
+            if _ri.kind == 'FIELD':
+                _flist.append(_it if isinstance(_it, str)
+                              else {'field': _ri.name, **_ri.config})
+                _fpos.append(_i)
+        if not _flist:
+            return items
+        _fspecs = _resolve_map(_flist) or {}
+        _out = list(items)
+        for _i, _it in zip(_fpos, _flist):
+            _key = _it if isinstance(_it, str) else (_it.get('field') or next(iter(_it)))
+            _sp = dict(_fspecs.get(_key, {}))
+            _out[_i] = ({'field': _sp.pop('field', _key), **_sp}
+                        if isinstance(_it, dict) else {'field': _key, **_sp})
+        return _out
+
     if isinstance(header, dict):
         specs = _resolve_map(header.get('fields'))
         if specs is not None:
@@ -389,26 +421,8 @@ def _apply_entity(raw, entity):
     elif isinstance(header, list):
         from ajsystem.defs.report import parse_report_item as _pri
         header = _expand_fields_list(header, entity, raw.get('label'), _pname, _pmodel)
-        _flist, _fpos = [], []
-        for _i, _it in enumerate(header):
-            try:
-                _ri = _pri(_it, raw.get('label'))
-            except ValueError:
-                continue
-            if _ri.kind == 'FIELD':
-                _flist.append(_it if isinstance(_it, str) else {'field': _ri.name, **_ri.config})
-                _fpos.append(_i)
-        if _flist:
-            _fspecs = _resolve_map(_flist) or {}
-            _header = list(header)
-            for _i, _it in zip(_fpos, _flist):
-                _key = _it if isinstance(_it, str) else (_it.get('field') or next(iter(_it)))
-                _sp = dict(_fspecs.get(_key, {}))
-                _header[_i] = ({'field': _sp.pop('field', _key), **_sp}
-                               if isinstance(_it, dict) else {'field': _key, **_sp})
-            out['header'] = _header
-        _attach_text_opts(out.get('header') if isinstance(out.get('header'), list) else None,
-                          entity, raw.get('label'))
+        out['header'] = _resolve_fields(header)
+        _attach_text_opts(out.get('header'), entity, raw.get('label'))
 
     # body.table.columns + body.table.hierarchy
     body = out.get('body')
@@ -507,17 +521,34 @@ def _apply_entity(raw, entity):
                 src_model = source
         if isinstance(body.get('items'), list):
             body['items'] = _expand_fields_list(body['items'], entity, raw.get('label'), _pname, _pmodel)
+            body['items'] = _resolve_fields(body['items'])
             body['items'] = _attach_field_mask(body['items'], entity, raw.get('label'))
         _attach_text_opts(body.get('items'), entity, raw.get('label'))
-        _after = body.get('after')
-        if isinstance(_after, list):
-            body['after'] = _expand_fields_list(_after, entity, raw.get('label'), _pname, _pmodel)
-            body['after'] = _attach_field_mask(body['after'], entity, raw.get('label'))
-            _attach_text_opts(body['after'], entity, raw.get('label'))
+        # `before` e `after` do corpo resolvem igual a `items`/`table.after`.
+        # Sem isso o item do preâmbulo chegava cru ao renderizador: um FIELD de
+        # LIST saía com o código em vez do rótulo, e o catálogo declarado no
+        # report (`options`) era ignorado. Callable NÃO entra aqui — ela é
+        # chamada por instância no meio da renderização (ver o fail-fast em
+        # `gerar_pdf_relatorio`), então um item devolvido por ela não tem como
+        # ser resolvido contra a Entity.
+        for _k in ('before', 'after'):
+            _v = body.get(_k)
+            if isinstance(_v, list):
+                body[_k] = _expand_fields_list(_v, entity, raw.get('label'), _pname, _pmodel)
+                body[_k] = _attach_field_mask(body[_k], entity, raw.get('label'))
+                _attach_text_opts(body[_k], entity, raw.get('label'))
+        for _k in ('before', 'after'):
+            _v = body.get(_k)
+            if isinstance(_v, list):
+                body[_k] = _expand_fields_list(_v, entity, raw.get('label'), _pname, _pmodel)
+                body[_k] = _resolve_fields(body[_k])
+                body[_k] = _attach_field_mask(body[_k], entity, raw.get('label'))
+                _attach_text_opts(body[_k], entity, raw.get('label'))
         _tbl = body.get('table') or {}
         _tbl_after = _tbl.get('after')
         if isinstance(_tbl_after, list):
             _tbl['after'] = _expand_fields_list(_tbl_after, entity, raw.get('label'), _pname, _pmodel)
+            _tbl['after'] = _resolve_fields(_tbl['after'])
             _tbl['after'] = _attach_field_mask(_tbl['after'], entity, raw.get('label'))
             _attach_text_opts(_tbl['after'], entity, raw.get('label'))
         out['body'] = body

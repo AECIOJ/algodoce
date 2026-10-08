@@ -13,7 +13,7 @@ from typing import Optional, Callable, Union
 # entrega SÓ os aliases de declaração; o resto (Report*, parse_*, contrato
 # DOM) é import explícito, como o motor já faz.
 __all__ = [
-    'LOGO', 'TITLE', 'TEXT', 'TABS', 'IND', 'FIELD', 'TEXTS',
+    'LOGO', 'TITLE', 'TEXT', 'TABS', 'IND', 'FIELD', 'TEXTS', 'MEMO',
     'CR', 'LF', 'FF', 'FIELDS', 'FONT', 'POS',
     'LINE', 'BOX', 'CIRCLE', 'IMAGE',
     'PCOL', 'PROW', 'LTB', 'RTB', 'NCOL',
@@ -109,7 +109,8 @@ def parse_header_field(item) -> ReportField:
 
 
 ITEM_KINDS = ('FIELD', 'TEXT', 'IMAGE', 'LINE', 'BOX', 'CIRCLE', 'LOGO', 'TITLE',
-              'TABS', 'POS', 'FIELDS', 'FONT', 'IND', 'TEXTS', 'CR', 'LF', 'FF')
+              'TABS', 'POS', 'FIELDS', 'FONT', 'IND', 'TEXTS', 'CR', 'LF', 'FF',
+              'MEMO')
 
 
 @dataclass
@@ -190,6 +191,27 @@ def FIELD(name, props=None):
     return {name: dict(_check_props('FIELD', props, ''))}
 
 
+def MEMO(text, width, props=None):
+    """Factory pura: MEMO('...', 80, {...}) == {'MEMO': {'text': '...', 'width': 80, ...}}.
+
+    Bloco de parágrafo: quebra por palavra numa largura (`width` em colunas da
+    grade) e **centraliza o bloco na área livre** da zona corrente. É o que o
+    `IND` não fazia direito: `IND` abre uma zona que vaza para os itens
+    seguintes e depende de ordem, enquanto `MEMO` tem a largura no próprio item.
+
+    Props: `align` (L/C/R/J — `J` só justifica quando o espaço esticado fica
+    legível, ver `JUSTIFY_MAX`), `font_size`, `font_style`, `label` (legenda
+    acima do bloco), `when`, `labels` (catálogo `{campo: {valor: rótulo}}`).
+    O texto passa pelo mesmo avaliador de `TEXT`: `{campo}`, `{campo:brl}`,
+    `{campo|fallback}` e `{?campo:...}`.
+    """
+    if not isinstance(text, str):
+        raise ValueError("MEMO: texto deve ser str")
+    if isinstance(width, bool) or not isinstance(width, (int, float)) or width <= 0:
+        raise ValueError(f"MEMO: width deve ser cols > 0, veio {width!r}")
+    return {'MEMO': {'text': text, 'width': width, **_check_props('MEMO', props or {}, '')}}
+
+
 def TEXTS(*items):
     """Factory pura: TEXTS('a', ('b', 'quando.c'), {'text': 'd', ...}).
 
@@ -222,11 +244,18 @@ def CR():
     return {'CR': {}}
 
 
-def LF(n=1):
-    """Factory pura: avança n linhas (default 1)."""
+def LF(n=1, props=None):
+    """Factory pura: avança n linhas (default 1). `props` = `when` etc.
+
+    O `when` aqui é o que permite um espaçamento que SOME junto com o bloco
+    condicional ao redor — `LF(1, {'when': ...})`. Sem ele, o respiro ficaria
+    para sempre num documento que não tem preâmbulo.
+    """
+    if isinstance(n, dict) and props is None:
+        props, n = n, 1
     if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 1:
         raise ValueError("LF: exige n >= 1")
-    return {'LF': {'lines': n}}
+    return {'LF': {'lines': n, **_check_props('LF', props or {}, '')}}
 
 
 def FF():
@@ -414,6 +443,15 @@ def parse_report_item(it, label='') -> ReportItem:
                     if not isinstance(v, list):
                         raise ValueError(f"report '{label}': 'TEXTS' exige lista")
                     return ReportItem(kind=k, name=k, config={'items': list(v)})
+                if k == 'MEMO':
+                    if not isinstance(v, dict):
+                        raise ValueError(f"report '{label}': 'MEMO' exige dict")
+                    if not isinstance(v.get('text'), str):
+                        raise ValueError(f"report '{label}': 'MEMO' exige 'text' str")
+                    _mw = v.get('width')
+                    if isinstance(_mw, bool) or not isinstance(_mw, (int, float)) or _mw <= 0:
+                        raise ValueError(f"report '{label}': 'MEMO' exige 'width' cols > 0")
+                    return ReportItem(kind=k, name=k, config=v)
                 if k in ('CR', 'FF'):
                     return ReportItem(kind=k, name=k, config={})
                 if k == 'LF':

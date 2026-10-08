@@ -1220,13 +1220,115 @@ def _wrap_width(pdf, cols=None):
     return max(right - pdf.get_x(), 1.0)
 
 
-def _render_table_lines(pdf, lines, instance=None, prop='body.after'):
-    """Renderiza lista de linhas (before_table / after_table).
+# Espaço esticado pode no máximo DOBRAR (fração do espaço natural). Passando
+# disso o olho lê "palavra        palavra" e não texto justificado — a 60 cols a
+# sobra é 213% do espaço e o bloco serrilhado fica melhor que os buracos.
+# `multi_cell` do fpdf2 DOCUMENTA `J: justify` mas NÃO implementa: escreve cada
+# linha no x dela (medido, 102.5mm e 99.2mm numa coluna de 105.9mm), então
+# justificar é nosso.
+JUSTIFY_MAX = 1.0
 
-    São LINHAS DE TEXTO (`text`/`font_*`/`align`/`width`/`wrap`/`labels`), não a
-    lista de items: um `LINE` aqui não é erro de tipo hoje, ele vira uma linha
-    em branco — o pior tipo de falha. Nomear a prop é o que evita isso; os items
-    de verdade vivem em `header` (lista), `body.items` e `body.table.after`.
+
+def _wrap_linhas(pdf, txt, avail):
+    """Quebra `txt` por palavra em linhas que caibam em `avail` mm.
+
+    A casa só tinha `_cut_to_fit` (corte seco); parágrafo precisa de quebra de
+    verdade. Palavra maior que a linha entra inteira e transborda — partir no
+    meio de palavra em documento é pior que estourar a margem.
+    """
+    palavras = (txt or '').split()
+    if not palavras:
+        return []
+    linhas, atual = [], palavras[0]
+    for p in palavras[1:]:
+        if pdf.get_string_width(atual + ' ' + p) + 2 <= avail:
+            atual += ' ' + p
+        else:
+            linhas.append(atual)
+            atual = p
+    linhas.append(atual)
+    return linhas
+
+
+def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align):
+    """Desenha as linhas do bloco em `x`, largura `w`, linha de altura `h`.
+
+    `J` distribui a sobra entre os espaços — só quando a estica fica dentro de
+    `JUSTIFY_MAX`; acima disso cai em `L`, que é o que o olho prefere a um
+    texto "justificado" com buracos. Quebra de página entre linhas como o resto
+    do report (`_check_page_break`).
+    """
+    espaco = pdf.get_string_width(' ')
+    n_linhas = len(linhas)
+    for i, ln in enumerate(linhas):
+        _check_page_break(pdf, h)
+        pdf.set_font(font, style, size)
+        lw = pdf.get_string_width(ln) + 2
+        extra = 0.0
+        if align == 'J' and i < n_linhas - 1 and ' ' in ln:
+            n_esp = ln.count(' ')
+            sobra = w - lw
+            if sobra > 0:
+                cand = sobra / n_esp
+                if cand <= JUSTIFY_MAX * espaco:
+                    extra = cand
+        if align == 'C':
+            x_linha = x + (w - lw) / 2
+        elif align == 'R':
+            x_linha = x + (w - lw)
+        else:
+            x_linha = x
+        if extra:
+            # palavra a palavra: cada célula leva a largura da palavra mais o
+            # espaço (esticado) que vem depois dela.
+            palavras = ln.split(' ')
+            ult = len(palavras) - 1
+            pdf.set_x(x_linha)
+            for k, palavra in enumerate(palavras):
+                ww = pdf.get_string_width(palavra) + 2
+                if k < ult:
+                    ww += espaco + extra
+                pdf.cell(ww, h, palavra, new_x='END', new_y='TOP')
+            pdf.ln(h)
+        else:
+            pdf.set_x(max(x_linha, 0))
+            pdf.cell(lw, h, ln, new_x='END', new_y='TOP')
+            pdf.ln(h)
+    if linhas:
+        _mark_content(pdf)
+    return pdf.get_y()
+
+
+def _lines_de_callable(fn, instance, prop, label=''):
+    """Chama a função de `before`/`after` e recusa item de volta.
+
+    A função é chamada aqui, por instância, no meio da renderização — depois de
+    `_apply_entity`, que é onde o item vira FIELD resolvido (label, catálogo,
+    `calc`). Então item devolvido por callable não tem como ser resolvido: um
+    LIST sairia com o código em vez do rótulo. Recusar aqui é melhor que deixar
+    o item sair errado; a lista (não a função) é o caminho do item.
+    """
+    out = (fn(instance) or []) if instance is not None else []
+    for line in out:
+        if _is_item(line, label):
+            raise ValueError(
+                f"report '{label}': '{prop}' como função devolve LINHAS DE TEXTO; "
+                f"item ({type(line).__name__}) não tem como ser resolvido contra a "
+                f"Entity aí (a função roda depois do apply). Use a lista.")
+    return out
+
+
+def _render_table_lines(pdf, lines, instance=None, prop='body.after', report=None):
+    """Renderiza `body.before` / `body.after`: LINHAS DE TEXTO **ou** items.
+
+    `text`/`font_*`/`align`/`width`/`wrap`/`labels` desenham uma linha de texto
+    (avulsa, solta do resto do documento); qualquer item de `header`/`items`/
+    `table.after` passa pelo mesmo `_render_items` das outras props — é o que
+    permite declarar o preâmbulo do documento na mesma gramática do resto, em
+    vez de montar em Python. O que NÃO entra é item vindo de callable: a função
+    é chamada por instância no meio da renderização, então o item não passa por
+    `_apply_entity` e sairia com o código cru em vez do rótulo (ver o fail-fast
+    em `gerar_pdf_relatorio`).
 
     O texto passa pelo mesmo avaliador dos items (`core.text.render`), então
     `{campo}`, `{campo:brl}`, `{campo|fallback}` e o catálogo `labels` funcionam
@@ -1237,15 +1339,16 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after'):
     não do cadastro do campo.
     """
     from ajsystem.core.text import render as _trender
-    for line in lines or []:
-        if isinstance(line, dict):
-            from ajsystem.defs.report import ITEM_KINDS as _KINDS
-            for _k in line:
-                if _k in _KINDS or (_k.isalpha() and _k == _k.upper()):
-                    raise ValueError(
-                        f"report: '{prop}' recebe linhas de texto; {_k!r} é item e "
-                        f"vale em 'header' (lista), 'body.items' ou "
-                        f"'body.table.after'")
+    for i, line in enumerate(lines or []):
+        if _is_item(line):
+            # `before`/`after` aceitam ITEM e linha de texto na mesma lista. Era
+            # o contrário que valia: recusar item aqui foi a primeira metade da
+            # correção (o item virava linha em branco, que é a pior falha), mas
+            # a recusa empurrou o autor a montar o documento em Python. Agora a
+            # lista é a mesma gramática de `header`/`items`/`table.after`, e a
+            # linha de texto continua o que salva a indentação e o espaçador.
+            _render_items(pdf, [line], instance, report, reset_tabs=False)
+            continue
         text = line.get('text', '')
         if callable(text) and instance:
             text = text(instance)
@@ -1274,6 +1377,39 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after'):
             pdf.cell(w, size * 0.5, text, align=align, new_x="LMARGIN", new_y="NEXT")
         if text:
             _mark_content(pdf)
+
+
+# Props que fazem uma entrada ser LINHA DE TEXTO e não item. Fechado de
+# propósito: `{'text': 'linha'}` e `{'campo': {...}}` são a mesma forma para o
+# `_split_item` (dict de uma chave), e sem esta lista o texto mais comum do
+# report viraria FIELD chamado `text`.
+_TEXT_LINE_KEYS = frozenset(('text', 'font_size', 'font_style', 'align',
+                             'width', 'wrap', 'labels', '_fmt_opts'))
+
+
+def _is_item(ent, label=''):
+    """A entrada é um ITEM (`header`/`items`/`table.after`), e não uma linha de
+    texto?
+
+    Duas regras, na ordem: props de linha de texto ganham de item (o texto
+    avulso é mais comum que o item no `before`), e o resto pergunta ao
+    `_split_item` em vez de reimplementar o critério — foi o segundo bug da
+    mesma família do `LIST/BOOL`: o classificador antigo só reconhecia chave
+    MAIÚSCULA, e `FIELD('x', {...})` produz `{'x': {...}}` (minúscula), que
+    caía no caminho de linha de texto e imprimia NADA. Quem decide passa a ser a
+    mesma função que renderiza.
+    """
+    if isinstance(ent, str) or callable(ent):
+        return True
+    if isinstance(ent, dict):
+        if _TEXT_LINE_KEYS & set(ent):
+            return False
+        try:
+            _split_item(ent, label)
+        except ValueError:
+            return False
+        return True
+    return False
 
 
 
@@ -1731,7 +1867,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 pdf._gridfont = _resolve_font(cfg, label)
             col_w = _col_unit(pdf)
             continue
-        if kind in ('FIELD', 'TEXT', 'LINE', 'BOX', 'CIRCLE') and cfg.get('when') is not None:
+        if kind in ('FIELD', 'TEXT', 'LINE', 'BOX', 'CIRCLE', 'MEMO', 'LF') and cfg.get('when') is not None:
             from ajsystem.core.text import eval_when as _ew
             if not _ew(instance, cfg['when']):
                 continue
@@ -1786,6 +1922,36 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                         continue
                 _place_item(pdf, 'TEXT', 'text', _tcfg, label, line=False)
                 _render_flow_item(pdf, 'TEXT', 'text', _tcfg, instance, label, col_w)
+            continue
+        if kind == 'MEMO':
+            from ajsystem.core.text import render as _mrender, dotted_get as _mdg
+            _txt = _mrender(cfg.get('text', ''),
+                            lambda k: _mdg(instance, k) if instance is not None else None,
+                            cfg.get('labels') or cfg.get('_fmt_opts'))
+            _ff, _fs, _fst = _font_default(pdf)
+            _size = cfg.get('font_size', _fs)
+            _style = cfg.get('font_style', _fst) or _fst
+            _x0, _right = _flow_zone(pdf)
+            # largura do bloco, sem passar da zona; centralizado na área livre.
+            # `IND` resolveria o mesmo recuo, mas abriria uma zona que vaza para
+            # os itens seguintes e depende de ordem — aqui a largura é do item.
+            _w = min(cfg.get('width', 0) * _col_unit(pdf), _right - _x0)
+            _bx = _x0 + (_right - _x0 - _w) / 2
+            _lbl = cfg.get('label') or ''
+            if _lbl:
+                pdf.set_font(_ff, 'B', _size)
+                pdf.set_x(_bx)
+                pdf.cell(pdf.get_string_width(_lbl) + 2, ROW_CELL, _lbl,
+                         new_x="END", new_y="NEXT")
+            # A fonte ANTES de medir: `_wrap_linhas` decide onde quebrar pelo
+            # `get_string_width`, e medir na fonte anterior produz linhas mais
+            # largas que o bloco (o bloco saía com 154mm num espaço de 141mm).
+            pdf.set_font(_ff, _style, _size)
+            _linhas = _wrap_linhas(pdf, _txt, _w) if _txt else []
+            if _linhas:
+                _draw_bloco(pdf, _linhas, _bx, _w, ROW_CELL, _ff, _size, _style,
+                            cfg.get('align', 'L'))
+                pdf.set_x(_flow_zone(pdf)[0])
             continue
         if kind == 'CR':
             pdf.set_x(_flow_zone(pdf)[0])  # volta à 1ª coluna, mesma linha
@@ -1910,9 +2076,10 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     _body = _report_body(report)
     _before = getattr(_body, 'before', None) if _body else None
     if callable(_before) and instance:
-        _before = _before(instance) or []
+        _before = _lines_de_callable(_before, instance, 'body.before',
+                                     report.label if report else '')
     if _before:
-        _render_table_lines(pdf, _before, instance, prop='body.before')
+        _render_table_lines(pdf, _before, instance, prop='body.before', report=report)
 
     # Itens inline em ordem (body.items), antes da tabela
     _items = getattr(_body, 'items', None) if _body else None
@@ -1933,9 +2100,10 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     # After table (do corpo)
     _after = getattr(_body, 'after', None) if _body else None
     if callable(_after) and instance:
-        _after = _after(instance) or []
+        _after = _lines_de_callable(_after, instance, 'body.after',
+                                    report.label if report else '')
     if _after:
-        _render_table_lines(pdf, _after, instance, prop='body.after')
+        _render_table_lines(pdf, _after, instance, prop='body.after', report=report)
     if tbl.after and instance:
         if isinstance(tbl.after, list):
             pdf.ln(GAP_AFTER_TABLE)  # respiro pós-régua, igual ao ramo string

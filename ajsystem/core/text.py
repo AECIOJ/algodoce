@@ -32,11 +32,31 @@ def dotted_get(obj, path):
 
 
 def eval_when(obj, when):
-    """when = path str avaliado truthy (pontilhado ok). Ausente = sempre."""
+    """`when` = path str (pontilhado, truthy) **ou** dict `{campo: valores}`.
+
+    O dict é o mesmo formato que o Schema já usava (`{'ativo': True, 'tipo':
+    [1, 2]}` em `app/routes/sys/*`); aqui ele permite dizer "este item só para
+    os status que estão neste catálogo", o que deixa o CATÁLOGO ser a única
+    fonte da verdade em vez de um `if status not in (...)` em Python.
+    `{'status': FRASE}` casa quando `FRASE` é lista/conjunto/dict (chaves).
+    Ausente = sempre.
+    """
     if when is None:
         return True
+    if isinstance(when, dict):
+        for campo, alvo in when.items():
+            v = dotted_get(obj, campo)
+            if isinstance(alvo, dict):
+                if v not in alvo:
+                    return False
+            elif isinstance(alvo, (list, tuple, set, frozenset)):
+                if v not in alvo:
+                    return False
+            elif v != alvo:
+                return False
+        return True
     if not isinstance(when, str) or not when:
-        raise ValueError(f"when deve ser path str, veio {when!r}")
+        raise ValueError(f"when deve ser path str ou dict, veio {when!r}")
     v = dotted_get(obj, when)
     return bool(v) and v != ''
 
