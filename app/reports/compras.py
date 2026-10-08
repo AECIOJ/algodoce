@@ -48,11 +48,13 @@ COMPRA = {
         LF(2)
     ],
     'body': {
+        # Preâmbulo: só a frase, na mesma medida do bloco de observações lá no
+        # fim. O NOME do fornecedor não entra aqui — o cabeçalho já o imprime
+        # (`FIELDS('fornecedor_id')`), e repetir a mesma coisa no meio do
+        # documento só gastava uma linha. Faturado (2) e Recebido (8) não
+        # estão no catálogo, então o `when` some com a frase, sem um
+        # `if status not in (...)` para divergir do texto.
         'before': [
-            MEMO('{fornecedor.nome|-}', LEITURA, {'align': 'C', 'font_size': 12,
-                                                 'font_style': 'B',
-                                                 'when': {'status': FRASE}}),
-            LF(1, {'when': {'status': FRASE}}),
             MEMO('{status}', LEITURA, {'labels': {'status': FRASE}, 'align': 'J',
                                        'when': {'status': FRASE}}),
         ],
