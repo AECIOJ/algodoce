@@ -399,6 +399,18 @@ def build_field_config(name: str, cfg: dict) -> dict:
     return props
 
 
+def resolve_field_mask(name, cfg, inputs=None):
+    """Máscara de exibição de um campo, sem precisar materializar o `Field`.
+
+    Mesma precedência de `Field.__post_init__`: explícita (Entity/Schema/Query)
+    > catálogo do input > default numérico de `decimals`. Quem só precisa da
+    máscara (o report, ao montar `format`/`format` de célula) usava
+    `build_field` só para ler este atributo — a materialização inteira do field
+    para uma prop não é o preço de uma pergunta.
+    """
+    return build_field(name, cfg or {}, inputs=inputs).mask or None
+
+
 def build_field(name: str, cfg: dict, inputs=None) -> Field:
     """Instancia um `Field` a partir de uma config de entrada.
 

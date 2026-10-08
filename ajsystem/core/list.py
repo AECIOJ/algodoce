@@ -9,7 +9,7 @@ import re
 from ajsystem import locales as i18n
 from ajsystem.defs.data import (
     Field, _resolve_fieldset, _entidade_fields, build_field,
-    normalize_fieldspec,
+    normalize_fieldspec, _build_fields_from_names,
 )
 from ajsystem.core.utils import currency_symbol
 from ajsystem.defs.list import List, parse_list  # re-export (dataclass em `defs`)
@@ -368,7 +368,7 @@ def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_manage
             pos_m = True
         if pos_managed is not None:
             pos_m = bool(pos_managed)
-        fields = _build_fields_from_merged(spec, merged_entity, pos_m)
+        fields = _build_fields_from_names(spec, merged_entity, pos_m)
     else:
         # Lista ou dict (pode ser multi-entity no spec mas single no merged)
         # Tenta usar normalize_fieldspec com full_schema se spec for multi-entity dict
@@ -394,21 +394,6 @@ def resolve_column_configs(merged_entity: dict, spec, principal=None, pos_manage
     return fields
 
 
-def _build_fields_from_merged(field_names: list, merged: dict, pos_managed: bool,
-                             inputs=None) -> list:
-    """Helper para construir Fields de merged single-entity.
-
-    `inputs` são as camadas do catálogo (`App.inputs` + o `Inputs` da rota),
-    repassadas ao `build_field` para o `Field` resolver o input com elas.
-    """
-    from ajsystem.defs.data import build_field
-    fields = []
-    for name in field_names:
-        base = merged.get(name, {}) or {}
-        base = base if isinstance(base, dict) else {}
-        if pos_managed and base.get('memory'):
-            continue  # campo `memory`: só onde citado explicitamente
-        f = build_field(name, base, inputs=inputs)
-        f._pos_managed = pos_managed
-        fields.append(f)
-    return fields
+# A construção de Fields a partir de nomes + merged fica em
+# `defs/data._build_fields_from_names` (usada por `normalize_fieldspec` também).
+# `_build_fields_from_merged` duplicava esse corpo e saiu.

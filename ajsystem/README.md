@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0002 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0003 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0002`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0003`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -751,6 +751,9 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0003
+- **Três passos de resolução de field deixaram de ter cópia própria.** `core/list.py` tinha um `_build_fields_from_merged` idêntico ao `defs/data._build_fields_from_names` (mesmo `merged.get`, mesmo skip de `memory`, mesmo `_pos_managed`) — o de `list.py` saiu e passou a importar o de `data.py`. A decisão de apresentação (máscara → moeda via `@M(id)`; `NUM`→`brl`; `DATA`/`date`→data; `INT`→centro) estava escrita duas vezes com o mesmo encadeamento, em `do_report._infer_presentation` e `search._fmt_cell`; virou `core/resolve.field_presentation`, chamada pelos dois. E `defs/data.resolve_field_mask` responde "qual a máscara deste field" sem materializar o `Field` — o `do_report._field_mask` montava um field inteiro só para ler `.mask`. Equivalência por harness: 4 reports + 12 casos sintéticos, 20 forms, 15 listas, camada RQ e 352 combinações de célula da busca (`search._fmt_cell`) saem idênticos.
 
 ### 1.26.10.08.0002
 - **O report passou a ler a fonte `select` pela máquina (`core/resolve.py`).** O que era `_disp_map`/`_computed` reimplementados à mão em `do_report._apply_entity` virou as primitivas `select_entry_props`/`select_entry_computed`, as mesmas que `query_select_layer` usa — o report continua passando `format` na lista de chaves porque a prop é dele, não da listagem. O merge do report segue *overlay* (Entity/Schema < select < inline), então ele **não** foi para `apply_field_layers`, que é fill-gap; a docstring do módulo registra a distinção. Equivalência provada por harness: os 4 reports do app e 10 casos sintéticos (props inline, `format` explícito vs máscara, coluna nova do select, `levels`/`hierarchy`, chave pontuada, header dict/lista, `text`) resolvem byte a byte igual, e as 20 forms + 15 listas do app (outros consumidores da máquina) também.

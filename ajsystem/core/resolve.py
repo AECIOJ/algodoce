@@ -51,6 +51,34 @@ def select_entry_computed(entry):
     return entry.over is not None or bool(entry.agg) or bool(entry.calc)
 
 
+# ── apresentação inferida de um campo (a decisão, não o texto final) ─────────
+# Um único lugar decide o que a cfg de um campo significa para exibição. Antes
+# isso estava escrito duas vezes com o mesmo encadeamento: `do_report`
+# (`_infer_presentation`, que produz `format`/`align`) e `search` (`_fmt_cell`,
+# que formata o valor). Divergir entre os dois era só questão de tempo.
+def field_presentation(cfg):
+    """`(format, align)` inferidos da cfg de um campo, ou `None` se não houver.
+
+    A ordem é a precedência de exibição do motor: a `mask` manda (moeda via
+    `@M(id)`, alinhado à direita), depois o `type`/`input` do campo, e o tipo
+    semalignamento próprio fica sem `format` (o chamador decide o texto).
+    """
+    from ajsystem.core.formats import mask_money_id
+    from ajsystem.core.utils import normalize_currency
+    cfg = cfg or {}
+    cur = mask_money_id(cfg.get('mask'))
+    if cur:
+        return normalize_currency(cur), 'right'
+    t, inp = cfg.get('type'), cfg.get('input')
+    if t == 'NUM':
+        return 'brl', 'right'
+    if t == 'DATA' or inp == 'date':
+        return 'datetime', 'right'
+    if t == 'INT':
+        return None, 'center'
+    return None, None
+
+
 def apply_field_layers(field_names, layers):
     """RS/RE — preenche props de `field_names` por camadas (fill-gap + validação).
 

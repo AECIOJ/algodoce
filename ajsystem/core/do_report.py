@@ -244,7 +244,13 @@ def _apply_entity(raw, entity):
     except Exception:
         _pmodel = None
 
-    # Defaults vindos das entradas do select (props de apresentação da query),
+    from ajsystem.core.resolve import (
+    field_presentation,
+    select_entry_computed as _computed_e,
+    select_entry_props as _props_e,
+)
+
+# Defaults vindos das entradas do select (props de apresentação da query),
     # via `core.resolve` — as mesmas primitivas que a listagem usa em
     # `query_select_layer`. Precedência: Entity/Schema -> entrada (query) ->
     # inline do relatório.
@@ -252,8 +258,6 @@ def _apply_entity(raw, entity):
     _computed = set()
     try:
         from ajsystem.defs.qspec import parse_select as _ps
-        from ajsystem.core.resolve import (select_entry_computed as _computed_e,
-                                           select_entry_props as _props_e)
         _src = (out.get('body') or {}).get('source') if isinstance(out.get('body'), dict) else None
         if isinstance(_src, dict) and 'select' in _src and 'from' in _src:
             for _e in _ps(_src.get('select')):
@@ -275,20 +279,9 @@ def _apply_entity(raw, entity):
         _computed = set()
 
     def _infer_presentation(cfg):
-        from ajsystem.core.utils import normalize_currency
-        from ajsystem.core.formats import mask_money_id
-        t, inp = cfg.get('type'), cfg.get('input')
-        # moeda vem da `mask` (`@M(id)`) — `currency` não é prop declarativa.
-        cur = mask_money_id(cfg.get('mask'))
-        fmt = align = None
-        if cur:
-            fmt, align = normalize_currency(cur), 'right'
-        elif t == 'NUM':
-            fmt, align = 'brl', 'right'
-        elif t == 'DATA' or inp == 'date':
-            fmt, align = 'datetime', 'right'
-        elif t == 'INT':
-            align = 'center'
+        # A decisão é genérica (máscara → moeda; type/input → formato):
+        # `core.resolve.field_presentation`, compartilhada com a busca.
+        fmt, align = field_presentation(cfg)
         return {'format': fmt, 'align': align}
 
     def _resolve_map(items):
@@ -1014,18 +1007,20 @@ def _report_inputs():
 
 
 def _field_mask(name, cfg):
-    """Máscara do campo: o `Field` materializa o default do tipo (catálogo) e a
-    cfg (Entity/Schema/query/report) vence por cima. A máscara vive no field —
-    o formatter não re-deriva do catálogo. `number` sem moeda recebe a máscara
-    default de `decimals` (milhar na renderização). Falha -> None."""
+    """Máscara do campo: a derivação é a do `Field` (tipo/catálogo/decimals) e a
+    cfg (Entity/Schema/query/report) vence por cima. O separador de milhar é
+    aplicado na renderização. Falha -> None.
+
+    `resolve_field_mask` é genérico — a materialização do `Field` que a versão
+    anterior fazia aqui era o custo de não existir uma pergunta genérica.
+    """
     if not isinstance(cfg, dict):
         return None
     try:
-        from ajsystem.defs.data import build_field
+        from ajsystem.defs.data import resolve_field_mask
         _tipos, _pagina = _report_inputs()
         _camadas = tuple(c for c in (_tipos, _pagina) if c)
-        _f = build_field(name, cfg, inputs=_camadas or None)
-        return _f.mask or None
+        return resolve_field_mask(name, cfg, inputs=_camadas or None)
     except Exception:
         return None
 

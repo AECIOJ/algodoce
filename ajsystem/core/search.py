@@ -20,6 +20,9 @@ exigidos, retorna `{'need': [...]}` para o cliente pedir ao usuário.
 """
 import re
 
+from ajsystem.core.formats import mask_money_id
+from ajsystem.core.resolve import field_presentation
+
 _OPS = ('NOT IN', 'IN', '>=', '<=', '!=', '=', '>', '<', 'IS NOT NULL', 'IS NULL')
 _COND_RE = re.compile(
     r'^\s*([A-Za-z_][A-Za-z0-9_.]*)\s*(NOT IN|IN|>=|<=|!=|=|>|<|IS NOT NULL|IS NULL)\s*(.*?)\s*$',
@@ -159,20 +162,19 @@ def _py_match(value, op, raw):
 
 
 def _fmt_cell(value, cfg):
-    from ajsystem.core.utils import fmt_money, fmt_date, fmt_datetime
+    from ajsystem.core.utils import fmt_date, fmt_datetime, fmt_money
     if value is None:
         return '—'
-    from ajsystem.core.formats import mask_money_id
-    # moeda da `mask` (`@M(id)`) — `currency` não é prop declarativa.
+    # A decisão (máscara → moeda; type/input → data) é genérica e vive em
+    # `core.resolve.field_presentation`, compartilhada com o report.
+    fmt, _align = field_presentation(cfg)
     code = mask_money_id((cfg or {}).get('mask'))
     if code:
         return fmt_money(value, code)
-    t = (cfg or {}).get('type')
-    inp = (cfg or {}).get('input')
     if hasattr(value, 'strftime'):
-        if t == 'DATA' or inp == 'date':
-            return fmt_date(value)
-        return fmt_datetime(value)
+        # `field_presentation` devolve 'datetime' exatamente quando o campo é
+        # data sem hora (type DATA / input date) — que é o caso de `fmt_date`.
+        return fmt_date(value) if fmt == 'datetime' else fmt_datetime(value)
     if isinstance(value, float):
         s = f'{value:,.2f}'
         return s.replace(',', 'X').replace('.', ',').replace('X', '.')
