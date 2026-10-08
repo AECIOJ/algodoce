@@ -29,7 +29,7 @@ FRASE = {
 # largura no próprio item (e não numa zona `IND`, que vaza para o que vem
 # depois e depende de ordem), os dois centralizam com a mesma sobra de cada
 # lado.
-LEITURA = 80
+LARGURA = 80
 
 
 def _report_title(compra):
@@ -55,7 +55,7 @@ COMPRA = {
         # estão no catálogo, então o `when` some com a frase, sem um
         # `if status not in (...)` para divergir do texto.
         'before': [
-            MEMO('{status}', LEITURA, {'labels': {'status': FRASE}, 'align': 'J',
+            MEMO('{status}', LARGURA, {'labels': {'status': FRASE}, 'align': 'J',
                                        'when': {'status': FRASE}}),
         ],
         'table': {
@@ -74,7 +74,7 @@ COMPRA = {
                        (4, '{total}', {'font_style': 'B'})],
             'after': [
                 LF(2, {'when': 'observacao'}),
-                MEMO('{observacao}', LEITURA, {'label': 'Obs.:', 'align': 'J',
+                MEMO('{observacao}', LARGURA, {'label': 'Obs.:', 'align': 'J',
                                               'when': 'observacao'}),
             ],
         },

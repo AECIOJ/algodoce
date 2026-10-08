@@ -427,12 +427,13 @@ O rótulo de catálogo pode ter `{campo}` dentro dele, e aí o avaliador faz uma
 **`MEMO(texto, width)` — o parágrafo do documento.** Um item de texto com medida: quebra por palavra, **centraliza o bloco na área livre** da zona, e `align: 'J'` justifica as linhas (menos a última). É o que o `IND` não resolvia: `IND` abre uma zona que **vaza** para os itens seguintes e depende de ordem (`LTB`/`RTB` só valem depois que a tabela desenhou), enquanto `MEMO` tem a largura no próprio item. Dois blocos com o mesmo `width` ficam com o mesmo recuo das margens por construção — é assim que o preâmbulo e o bloco de observações do COMPRA se alinham sem número mágico.
 
 ```python
-LEITURA = 80                      # cols da grade
+LARGURA = 80                      # cols da grade
 
-'before': [MEMO('{fornecedor.nome|-}', LEITURA, {'align': 'C', 'font_size': 12, 'font_style': 'B'}),
-           LF(1),
-           MEMO('{status}', LEITURA, {'labels': {'status': FRASE}, 'align': 'J'})],
-'after':  [MEMO('{observacao}', LEITURA, {'label': 'Obs.:', 'align': 'J'})]
+'before': [MEMO('{status}', LARGURA, {'labels': {'status': FRASE}, 'align': 'J',
+                                       'when': {'status': FRASE}})],
+'after':  [LF(2, {'when': 'observacao'}),
+           MEMO('{observacao}', LARGURA, {'label': 'Obs.:', 'align': 'J',
+                                         'when': 'observacao'})]
 ```
 
 `align: 'J'` é um **pedido**, não uma garantia: o espaço só estica até `JUSTIFY_MAX` (o espaço pode no máximo dobrar) e, acima disso, a linha cai em `L`. Passando disso o olho lê "palavra␣␣␣␣␣palavra" e não texto justificado — medido a 60 cols a sobra é 213% do espaço, e bloco serrilhado fica melhor que buraco. O `multi_cell` do fpdf2 **documenta** `J: justify` mas não implementa (escreve cada linha no x dela: 102.5mm e 99.2mm numa coluna de 105.9mm), então a justificação é nossa, palavra a palavra.
