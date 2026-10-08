@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.07.0005 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.07.0005`) — formato `1.aa.mm.dd.bbbb` (`aa` ano, `mm` mês, `dd` dia, `bbbb` builder do dia). Incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0001`) — formato `1.aa.mm.dd.bbbb`: **ciclo** `1`, **ano** `aa`, **mês** `mm`, **dia** `dd` e **seq no dia** `bbbb` (4 dígitos, com zero à esquerda). A sequência reinicia em `0001` a cada dia novo; dentro do mesmo dia, incremente `bbbb` **quando o assunto mudar** (mesmo assunto no mesmo dia mantém a versão). Histórico na seção 6. Versão do app hospedeiro em `APP['version']` (`app/config.py`, `{cycle, year, month, number}` → lê-se `1.aa.mm-build`; bump via script de bump do host).
 
 ---
 
@@ -746,13 +746,13 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 
 > **Legado:** `CURRENCY`/`DEFAULT_CURRENCY` seguem em `constants.py` só como compatibilidade — a formatação passou a ler `MONEY`/`DEFAULT_MONEY` (masks) e o dataclass `Field` **não tem mais `currency`** (a moeda vem da `mask`, via `@M(id)`; `Field.currency` é derivada pelo motor). `normalize_currency` aceita ids ISO (`'BRL'`), legados `1`/`True`/`'brl'` e (`2`/`3`→`'USD'`/`'EUR'` se existirem); `0`/`None` = desligado.
 
-> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `{cycle, year, month, number}`) — sem arquivo próprio; bump via script de bump do host. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:413`) valida chaves (`FieldConfigError`).
+> **Versionamento:** toda mudança em `Field`/`Form`/`Report` exige bump em `ajsystem/version` e neste README. A versão é `ciclo.ano.mes.dia.seq` (`1.26.10.08.0001`): o dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo — um bump no mesmo dia só acontece quando o assunto muda, e nesse caso é o `seq` que sobe (`.0002`, `.0003`…), não o dia. A versão do **app hospedeiro** é separada, em `APP['version']` (`app/config.py`, `{cycle, year, month, number}`) — sem arquivo próprio; bump via script de bump do host. `FIELD_TYPES`/`_FIELD_KEYS` (`data.py:413`) valida chaves (`FieldConfigError`).
 
 ---
 
 ## 6. Histórico de versões
 
-### 1.26.10.07.0005
+### 1.26.10.08.0001
 - **Cálculo de `calc` lê o valor *desformatado* do input (`parseNumText`/`parseNumField` em `static/js/formats.js`).** O `on_set` de `produto_id` (itens do orçamento) copia `data-preco` do `<option>` — `str(Decimal)`, `'6.00'` — direto pro input, e `parseNum` lia o ponto como milhar pt-BR: `100 × 600 = 60.000,00` em vez de `600,00`. A leitura do input numérico passou a ser a regra de `_coerce` (`core/form.py`) e de `as_num` (`core/utils.py`): vírgula presente = decimal do app (ponto é milhar); sem vírgula, ponto é decimal. No lado da escrita, `numToInput`/`numToInputFor` põem no input o valor na convenção do campo alvo (`numToInputFor(target, val)` em `itOnSetBind` e `itUpdateZerados`), espelhando `fmt_num`. `parseNum` ficou como era (ler exibição/ordenar coluna), e `parse_brl` passou a fazer o que o docstring já prometia. `'1.000'` segue ambíguo por construção: sem vírgula é lido como `1.0`, igual o servidor.
 
 ### 1.26.10.07.0004
