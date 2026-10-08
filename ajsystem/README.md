@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0001 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0002 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0001`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0002`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -752,8 +752,11 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 
 ## 6. Histórico de versões
 
+### 1.26.10.08.0002
+- **O report passou a ler a fonte `select` pela máquina (`core/resolve.py`).** O que era `_disp_map`/`_computed` reimplementados à mão em `do_report._apply_entity` virou as primitivas `select_entry_props`/`select_entry_computed`, as mesmas que `query_select_layer` usa — o report continua passando `format` na lista de chaves porque a prop é dele, não da listagem. O merge do report segue *overlay* (Entity/Schema < select < inline), então ele **não** foi para `apply_field_layers`, que é fill-gap; a docstring do módulo registra a distinção. Equivalência provada por harness: os 4 reports do app e 10 casos sintéticos (props inline, `format` explícito vs máscara, coluna nova do select, `levels`/`hierarchy`, chave pontuada, header dict/lista, `text`) resolvem byte a byte igual, e as 20 forms + 15 listas do app (outros consumidores da máquina) também.
 ### 1.26.10.08.0001
 - **Cálculo de `calc` lê o valor *desformatado* do input (`parseNumText`/`parseNumField` em `static/js/formats.js`).** O `on_set` de `produto_id` (itens do orçamento) copia `data-preco` do `<option>` — `str(Decimal)`, `'6.00'` — direto pro input, e `parseNum` lia o ponto como milhar pt-BR: `100 × 600 = 60.000,00` em vez de `600,00`. A leitura do input numérico passou a ser a regra de `_coerce` (`core/form.py`) e de `as_num` (`core/utils.py`): vírgula presente = decimal do app (ponto é milhar); sem vírgula, ponto é decimal. No lado da escrita, `numToInput`/`numToInputFor` põem no input o valor na convenção do campo alvo (`numToInputFor(target, val)` em `itOnSetBind` e `itUpdateZerados`), espelhando `fmt_num`. `parseNum` ficou como era (ler exibição/ordenar coluna), e `parse_brl` passou a fazer o que o docstring já prometia. `'1.000'` segue ambíguo por construção: sem vírgula é lido como `1.0`, igual o servidor.
+
 
 ### 1.26.10.07.0004
 - **Células `calc` da lista passam a renderizar pela máscara.** O ramo `col.calc` de `list.html` só formatava `B/X/R` e data — um `@M` (ex. `MVALOR` no `total` de orçamentos) caía no valor cru. O fallback dos 5 ramos de calc (linha, detail, card, cardonly) virou `_cv|format(col.mask) if col.mask … else _cv`, e o filtro Jinja `format` (= `core.formats.format`) foi registrado no `init`. Resultado: `total` (agg) sai `R$ 1.234,50`, e qualquer coluna calc com máscara numérica `0/9` passa a agrupar milhar. Sem regressão em calc sem máscara (reproduz `{{ _cv }}`).

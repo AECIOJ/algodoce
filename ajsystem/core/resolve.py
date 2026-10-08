@@ -16,8 +16,39 @@ informada pelo chamador — ex.: `[Schema, layer, Entity]` = Schema vence nos
 conflitos, equivalente exato ao `{**Entity, **layer, **Schema}` atual (prova:
 a projeção por chave é idêntica, pois todo conflito é decidido pela camada mais
 alta que declara a chave, em qualquer um dos dois modelos).
+
+O report não usa `apply_field_layers` — o merge dele é *overlay* (a camada mais
+alta é a última a ser aplicada: Entity/Schema < select < inline do relatório) e
+lida `format`, prop que a listagem não tem. O que ele toma emprestado da máquina
+são as primitivas da fonte `select` (`select_entry_props`/
+`select_entry_computed`), compartilhadas com `query_select_layer`: o que era
+`_disp_map`/`_computed` reimplementados à mão em `do_report`.
 """
 from ajsystem.defs.data import validate_field_config
+
+# Props de apresentação que uma entrada de `select` pode declarar sobre a
+# Entity. `format` fica de fora porque é prop do report e não da listagem —
+# quem precisa dele passa a chave (ver `select_entry_props`).
+SELECT_PROPS = ('label', 'width', 'align')
+
+
+def select_entry_props(entry, keys=SELECT_PROPS):
+    """Props declaradas por uma entrada do select (`label`/`width`/`align`).
+
+    Sai só o que a entrada declara: entrada sem a prop não gera a chave.
+    `keys` deixa o report pedir também o `format`, que a listagem não tem.
+    """
+    props = {}
+    for k in keys:
+        v = getattr(entry, k, None)
+        if v is not None:
+            props[k] = v
+    return props
+
+
+def select_entry_computed(entry):
+    """A entrada traz o valor pronto da query (`over`/`agg`/`calc`)?"""
+    return entry.over is not None or bool(entry.agg) or bool(entry.calc)
 
 
 def apply_field_layers(field_names, layers):
@@ -63,15 +94,9 @@ def query_select_layer(entries, base_merged, schema_entity):
     """
     out = dict(base_merged)
     for e in entries:
-        if e.name in out and (e.over is not None or e.agg or e.calc):
+        if e.name in out and select_entry_computed(e):
             out[e.name] = {k: v for k, v in out[e.name].items() if k != 'calc'}
-        props = {}
-        if e.label is not None:
-            props['label'] = e.label
-        if e.width is not None:
-            props['width'] = e.width
-        if e.align is not None:
-            props['align'] = e.align
+        props = select_entry_props(e)
         if e.name not in out:
             cfg = {'type': 'TEXT', 'pos_list': e.pos_list, **props}
             cfg.setdefault('label', e.name)

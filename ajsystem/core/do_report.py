@@ -244,27 +244,25 @@ def _apply_entity(raw, entity):
     except Exception:
         _pmodel = None
 
-    # Defaults vindos das entradas do select (props de apresentação da query).
-    # Precedência: Entity/Schema -> entrada (query) -> inline do relatório.
+    # Defaults vindos das entradas do select (props de apresentação da query),
+    # via `core.resolve` — as mesmas primitivas que a listagem usa em
+    # `query_select_layer`. Precedência: Entity/Schema -> entrada (query) ->
+    # inline do relatório.
     _disp_map = {}
     _computed = set()
     try:
         from ajsystem.defs.qspec import parse_select as _ps
+        from ajsystem.core.resolve import (select_entry_computed as _computed_e,
+                                           select_entry_props as _props_e)
         _src = (out.get('body') or {}).get('source') if isinstance(out.get('body'), dict) else None
         if isinstance(_src, dict) and 'select' in _src and 'from' in _src:
             for _e in _ps(_src.get('select')):
-                _d = {}
-                if _e.label is not None:
-                    _d['label'] = _e.label
-                if _e.width is not None:
-                    _d['width'] = _e.width
-                if _e.align is not None:
-                    _d['align'] = _e.align
-                if _e.format is not None:
-                    _d['format'] = _e.format
+                # o report tem a prop `format` (a listagem não), por isso as
+                # 4 chaves em vez do `SELECT_PROPS` da máquina.
+                _d = _props_e(_e, ('label', 'width', 'align', 'format'))
                 if _d:
                     _disp_map[_e.name] = _d
-                if _e.over is not None or _e.agg or _e.calc:
+                if _computed_e(_e):
                     _computed.add(_e.name)
             _hier = (_src.get('levels', _src.get('hierarchy')) or {})
             _blevels = ((out.get('body') or {}).get('levels') or {})
