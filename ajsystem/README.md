@@ -388,6 +388,8 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
 | `TEXTS(*itens)` / `CR()` / `LF(n?)` / `FF()` | bloco de textos; retorno; avanço; quebra de página (corpo) | `CR` = volta à 1ª coluna; `LF()` = 1 linha; `FF` no header = erro |
 
+> **Todo field mostra o valor de exibição, em qualquer prop que o imprima.** `LIST` sai pelo rótulo do catálogo (`options`/`list` da Entity) e `BOOL` por Sim/Não — em coluna (`table.columns`, `header.fields`) e em item de layout (`items`, `after`, `table.after`, header) alike, porque os dois caminhos usam o mesmo passo (`core/resolve.field_display_fn`). Código fora do catálogo cai no valor cru, como na listagem. Antes de `1.26.10.08.0005` só as colunas traduziam, e o mesmo field saía `1` num lugar e `Fornecidas pelo Cliente` no outro.
+
 ### 5.9 `Button` — `ajsystem/defs/buttons.py:85` `class Button`
 
 O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
