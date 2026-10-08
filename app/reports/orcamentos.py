@@ -25,14 +25,18 @@ ORCAMENTO = {
             'totals': {'label': 'Total', 'align': 'R', 'span': 3},
             'after': [
                     IND(LTB,RTB),
-                    FIELDS(('Evento.tipo', {'label': 'Evento', 'when': 'evento.tipo'}),
-                           ('Evento.tema', {'when': 'evento.tema'}),
-                           ('Evento.local', {'when': 'evento.local'}),
-                           ('Evento.convidados', {'when': 'evento.convidados'}),
-                           ('Evento.cerimonial', {'when': 'evento.cerimonial'}),
-                           ('Evento.obs', {'when': 'evento.obs', 'rows_after': 1})),
-                      {'TEXT': {'text': 'Data: {evento.data:%d/%m/%Y} {evento.hora:%H:%M}', 'when': 'evento.data'}},
-                      {'TEXT': {'text': 'Forminhas: {forminhas}  Forma de Pagamento: {carteira.nome|50% no pedido + 50% na entrega}'}}],
+                    FIELDS(
+                        'forminhas','carteira_id',                    
+                        ('Evento.tipo', {'label': 'Evento', 'when': 'evento.tipo'}),
+                        ('Evento.tema', {'when': 'evento.tema'}),
+                        ('Evento.data', {'when': 'evento.data'}),
+                        ('Evento.hora', {'when': 'evento.data'}),
+                        ('Evento.local', {'when': 'evento.local'}),
+                        ('Evento.convidados', {'when': 'evento.convidados'}),
+                        ('Evento.cerimonial', {'when': 'evento.cerimonial'}),
+                        ('Evento.obs', {'when': 'evento.obs'})
+                    ),
+            ]
         },
     },
 }

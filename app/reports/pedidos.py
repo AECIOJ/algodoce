@@ -30,16 +30,19 @@ PEDIDO = {
                        ([1, 3], 'Total', {'align': 'R', 'font_style': 'B'}),
                        (4, '{total}', {'font_style': 'B'})],
             'after': [
-                IND(LTB,RTB),
-                FIELDS(('Evento.tipo', {'label': 'Evento', 'when': 'evento.tipo'}),
-                       ('Evento.tema', {'when': 'evento.tema'}),
-                       ('Evento.data', {'when': 'evento.data'}),
-                       ('Evento.hora', {'when': 'evento.data'}),
-                       ('Evento.local', {'when': 'evento.local'}),
-                       ('Evento.convidados', {'when': 'evento.convidados'}),
-                       ('Evento.cerimonial', {'when': 'evento.cerimonial'}),
-                       ('Evento.obs', {'when': 'evento.obs'})),
-                      {'TEXT': {'text': 'Forminhas: {forminhas} | Forma de Pagamento: {carteira.nome|-}'}}],
+                    IND(LTB,RTB),
+                    FIELDS(
+                        'forminhas','carteira_id',                    
+                        ('Evento.tipo', {'label': 'Evento', 'when': 'evento.tipo'}),
+                        ('Evento.tema', {'when': 'evento.tema'}),
+                        ('Evento.data', {'when': 'evento.data'}),
+                        ('Evento.hora', {'when': 'evento.data'}),
+                        ('Evento.local', {'when': 'evento.local'}),
+                        ('Evento.convidados', {'when': 'evento.convidados'}),
+                        ('Evento.cerimonial', {'when': 'evento.cerimonial'}),
+                        ('Evento.obs', {'when': 'evento.obs'})
+                    ),
+            ]
         },
     },
 }
