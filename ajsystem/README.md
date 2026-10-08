@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0008 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0009 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0008`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0009`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -383,7 +383,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `PROW`/`PCOL` | constantes (`defs/report.py`) | posição corrente em grade, em `pos`/`location`/`TABS` (só literais; `PCOL±N` só em `TABS`) |
 | `LTB`/`RTB`/`NCOL` | constantes (bordas da última tabela; área útil se nenhuma) | `IND([LTB, RTB])`; `NCOL` = cols da área útil |
 | `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
-| `MEMO(texto, width, props?)` | bloco de parágrafo: quebra por palavra numa medida e **centraliza na área livre** | `width` em cols; `align` L/C/R/J; `label` = legenda acima; `labels` = catálogo `{campo: {valor: rótulo}}` |
+| `MEMO(texto, width, props?)` | bloco de parágrafo: quebra por palavra numa medida e **centraliza na área livre** | `width` em cols; `align` L/C/R/**J (default)**; `label` = legenda acima; `labels` = catálogo `{campo: {valor: rótulo}}` |
 | `LINE/BOX/CIRCLE(*args)` | grid em números: `LINE(c, r, +cols, +rows[, 'queda'])`; uma lista solta também vale | ver **Régua e formas posicionadas** abaixo |
 | `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
 | `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
@@ -424,19 +424,18 @@ FRASE = {0: 'Solicitamos o orçamento referente aos seguintes itens:',
 
 O rótulo de catálogo pode ter `{campo}` dentro dele, e aí o avaliador faz uma segunda passada (`core.text.LABEL_DEPTH`, com guarda de recursão para catálogo que se referencia). Seguro no app: **0 dos 57 rótulos** dos catálogos têm `{`.
 
-**`MEMO(texto, width)` — o parágrafo do documento.** Um item de texto com medida: quebra por palavra, **centraliza o bloco na área livre** da zona, e `align: 'J'` justifica as linhas (menos a última). É o que o `IND` não resolvia: `IND` abre uma zona que **vaza** para os itens seguintes e depende de ordem (`LTB`/`RTB` só valem depois que a tabela desenhou), enquanto `MEMO` tem a largura no próprio item. Dois blocos com o mesmo `width` ficam com o mesmo recuo das margens por construção — é assim que o preâmbulo e o bloco de observações do COMPRA se alinham sem número mágico.
+**`MEMO(texto, width)` — o parágrafo do documento.** Um item de texto com medida: quebra por palavra, **centraliza o bloco na área livre** da zona, e **`align` é `'J'` por default** — parágrafo se justifica, e `L` é a exceção declarada. (A última linha nunca é justificada, como em tipografia.) É o que o `IND` não resolvia: `IND` abre uma zona que **vaza** para os itens seguintes e depende de ordem (`LTB`/`RTB` só valem depois que a tabela desenhou), enquanto `MEMO` tem a largura no próprio item. Dois blocos com o mesmo `width` ficam com o mesmo recuo das margens por construção — é assim que o preâmbulo e o bloco de observações do COMPRA se alinham sem número mágico.
 
 ```python
 LARGURA = 80                      # cols da grade
 
-'before': [MEMO('{status}', LARGURA, {'labels': {'status': FRASE}, 'align': 'J',
+'before': [MEMO('{status}', LARGURA, {'labels': {'status': FRASE},
                                        'when': {'status': FRASE}})],
 'after':  [LF(2, {'when': 'observacao'}),
-           MEMO('{observacao}', LARGURA, {'label': 'Obs.:', 'align': 'J',
-                                         'when': 'observacao'})]
+           MEMO('{observacao}', LARGURA, {'label': 'Obs.:', 'when': 'observacao'})]
 ```
 
-`align: 'J'` é um **pedido**, não uma garantia: o espaço só estica até `JUSTIFY_MAX` (o espaço pode no máximo dobrar) e, acima disso, a linha cai em `L`. Passando disso o olho lê "palavra␣␣␣␣␣palavra" e não texto justificado — medido a 60 cols a sobra é 213% do espaço, e bloco serrilhado fica melhor que buraco. O `multi_cell` do fpdf2 **documenta** `J: justify` mas não implementa (escreve cada linha no x dela: 102.5mm e 99.2mm numa coluna de 105.9mm), então a justificação é nossa, palavra a palavra.
+Justificar é um **pedido com sanidade**, não uma garantia: o espaço só estica até `JUSTIFY_MAX` (o espaço pode no máximo dobrar) e, acima disso, a linha cai em `L`. Passando disso o olho lê "palavra␣␣␣␣␣palavra" e não texto justificado — medido a 60 cols a sobra é 213% do espaço, e bloco serrilhado fica melhor que buraco. O `multi_cell` do fpdf2 **documenta** `J: justify` mas não implementa (escreve cada linha no x dela: 102.5mm e 99.2mm numa coluna de 105.9mm), então a justificação é nossa, palavra a palavra.
 
 **`when` aceita `{campo: valores}`.** Além do path (`'observacao'`), o item aceita o mesmo formato que o Schema já usava: `{'ativo': True, 'tipo': [1, 2]}` — e com o dicionário como alvo, `{'status': FRASE}` quer dizer "só nos status que estão neste catálogo". Foi o que deixou o catálogo ser a única fonte de verdade do COMPRA: o `FRASE` diz o texto *e* quais status têm frase, sem um `if status not in (...)` em Python para divergir. `LF` ganhou props pelo mesmo motivo (o respiro de um bloco condicional precisa sumir com ele).
 
@@ -807,6 +806,9 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0009
+- **`align` do `MEMO` passou a ser `'J'` por default.** `MEMO` é parágrafo, e parágrafo se justifica — `L` é a exceção declarada, não o padrão. Como `J` aqui já era um pedido com sanidade (`JUSTIFY_MAX`), o default não produz buraco onde ninguém pediu: no máximo deixa a linha como `L`, que é o mesmo que pedir `L`. Virou constante nomeada (`MEMO_ALIGN`) para o default ter um lugar de verdade, e o COMPRA pode finalmente **omitir** o `'align': 'J'` que repetia nas duas chamadas. Medido: as duas chamadas do COMPRA já passavam `'J'`, então o documento saiu **byte-idêntico** (18 cenários) — o ganho é só de declaração. E o default não fica no ar: o harness compara `MEMO(t)` com `MEMO(t, align='J')` e conta as chamadas de desenho (10 palavra-a-palavra contra 2 da linha inteira), que é a única medida que distingue os dois depois de agrupar por `y`.
 
 ### 1.26.10.08.0008
 - **`MEMO(texto, width)`: o documento tem parágrafo com medida.** Um item de texto que quebra por palavra numa largura e **centraliza o bloco na área livre**, com `align: 'J'` justificando. É a resposta ao que o `IND` não resolvia — `IND` abre uma zona que **vaza** para os itens seguintes e depende de ordem, e `LTB`/`RTB` só valem depois que a tabela desenhou (medido: na 1ª instância dão a área útil inteira, na 2ª dão a tabela). Com a largura no item, dois blocos com o mesmo `width` ficam com o mesmo recuo das margens por construção. A casa não tinha quebra por palavra — só `_cut_to_fit`, que corta — então `_wrap_linhas` entrou junto. E a justificação é nossa: `multi_cell` do fpdf2 **documenta** `J: justify` mas não implementa (medido: 102.5mm e 99.2mm numa coluna de 105.9mm), e `align: 'J'` é um **pedido** — o espaço só estica até o dobro do natural (`JUSTIFY_MAX`), acima disso a linha cai em `L`, porque a 60 cols a sobra é 213% e buraco Justificado se lê pior que serrilhado.

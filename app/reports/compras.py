@@ -55,7 +55,8 @@ COMPRA = {
         # estão no catálogo, então o `when` some com a frase, sem um
         # `if status not in (...)` para divergir do texto.
         'before': [
-            MEMO('{status}', LARGURA, {'labels': {'status': FRASE}, 'align': 'J',
+            # sem `align`: o default do MEMO é 'J' (parágrafo se justifica)
+            MEMO('{status}', LARGURA, {'labels': {'status': FRASE},
                                        'when': {'status': FRASE}}),
         ],
         'table': {
@@ -74,7 +75,7 @@ COMPRA = {
                        (4, '{total}', {'font_style': 'B'})],
             'after': [
                 LF(2, {'when': 'observacao'}),
-                MEMO('{observacao}', LARGURA, {'label': 'Obs.:', 'align': 'J',
+                MEMO('{observacao}', LARGURA, {'label': 'Obs.:',
                                               'when': 'observacao'}),
             ],
         },

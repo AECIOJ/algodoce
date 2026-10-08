@@ -1228,6 +1228,12 @@ def _wrap_width(pdf, cols=None):
 # justificar é nosso.
 JUSTIFY_MAX = 1.0
 
+# `MEMO` é parágrafo, e parágrafo se justifica: `J` é o DEFAULT e `L` é a
+# exceção declarada. E como `J` aqui é um pedido com sanidade (`JUSTIFY_MAX`),
+# o default não Produz buraco onde o autor não pediu — no máximo deixa a linha
+# como `L`, que é a mesma coisa que pedir `L`.
+MEMO_ALIGN = 'J'
+
 
 def _wrap_linhas(pdf, txt, avail):
     """Quebra `txt` por palavra em linhas que caibam em `avail` mm.
@@ -1950,7 +1956,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             _linhas = _wrap_linhas(pdf, _txt, _w) if _txt else []
             if _linhas:
                 _draw_bloco(pdf, _linhas, _bx, _w, ROW_CELL, _ff, _size, _style,
-                            cfg.get('align', 'L'))
+                            cfg.get('align', MEMO_ALIGN))
                 pdf.set_x(_flow_zone(pdf)[0])
             continue
         if kind == 'CR':
