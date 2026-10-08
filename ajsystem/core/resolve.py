@@ -110,6 +110,41 @@ def field_spec_items(spec):
     return out
 
 
+def field_options(cfg):
+    """Catálogo de rótulos de um campo `LIST`/`MULT10` (`options`), ou `{}`.
+
+    Aceita as duas chaves que a Entity usa — `list` e `options` — e dá a
+    precedência de `build_field_config` (`list` sobrescreve `options`). Ler isso
+    à mão estava em seis pontos do report, um deles com a ordem invertida.
+    """
+    cfg = cfg or {}
+    return cfg.get('list') or cfg.get('options') or {}
+
+
+def field_display_fn(cfg, name, i18n=None):
+    """`function(row)` que traduz o valor bruto de um field para exibição.
+
+    `LIST` vira o rótulo do catálogo (código fora do catálogo cai no valor
+    cru, como a listagem) e `BOOL` vira Sim/Não. `None` quando o field não é
+    nenhum dos dois — quem chama aí não precisa traduzir nada.
+
+    Um único passo, antes escrito inline só dentro de `_resolve_map`: as
+    colunas do report traduziam e os itens de layout (`FIELDS`) imprimiam o
+    código, porque passavam por `_field_item`, que não conhecia o catálogo.
+    """
+    cfg = cfg or {}
+    tipo = cfg.get('type')
+    if tipo == 'LIST':
+        opts = field_options(cfg)
+        if opts:
+            return lambda row, f=name, o=opts: o.get(getattr(row, f, None),
+                                                     getattr(row, f, ''))
+    elif tipo == 'BOOL' and i18n is not None:
+        return lambda row, f=name: (
+            i18n.FILTER_YES if getattr(row, f, None) else i18n.NO)
+    return None
+
+
 # ── apresentação inferida de um campo (a decisão, não o texto final) ─────────
 # Um único lugar decide o que a cfg de um campo significa para exibição. Antes
 # isso estava escrito duas vezes com o mesmo encadeamento: `do_report`

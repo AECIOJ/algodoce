@@ -27,6 +27,7 @@ from flask import Response, current_app, render_template, request
 from ajsystem import locales as i18n
 from ajsystem.core.pdf import gerar_pdf_relatorio
 from ajsystem.core.resolve import (
+    field_display_fn,
     field_presentation,
     field_spec_item,
     field_spec_items,
@@ -333,18 +334,15 @@ def _apply_entity(raw, entity):
                     calc = raw_cfg['calc']
                     if isinstance(calc, (str,)) or callable(calc):
                         spec['function'] = calc if callable(calc) else _calc_fn(calc)
-                # BOOL → Sim/Não · LIST → label das options - exclusivamente via Entity
-                # O rótulo vem do catálogo, já resolvido na importação — pode ser
-                # constante de módulo; o lambda aqui existe por `fld`/`opts`.
-                elif raw_cfg.get('type') == 'BOOL':
-                    spec['function'] = lambda row, f=fld: (
-                        i18n.FILTER_YES if getattr(row, f, None) else i18n.NO)
-                    _mapped_label = True
-                elif raw_cfg.get('type') == 'LIST':
-                    opts = raw_cfg.get('list') or raw_cfg.get('options') or {}
-                    if opts:
-                        spec['function'] = lambda row, f=fld, o=opts: (
-                            o.get(getattr(row, f, None), getattr(row, f, '')))
+                else:
+                    # BOOL → Sim/Não · LIST → rótulo do catálogo: passo genérico
+                    # (`core.resolve.field_display_fn`), o mesmo que
+                    # `_field_item` usa — é por isso que coluna e item de
+                    # layout imprimem igual. Fora daqui (calc acima) a Entity
+                    # manda, porque quem calcula o valor é o `calc`.
+                    _disp_fn = field_display_fn(raw_cfg, fld, i18n)
+                    if _disp_fn is not None:
+                        spec['function'] = _disp_fn
                         _mapped_label = True
                 if fld not in _computed and _explicit_fmt is None and not _mapped_label:
                     _fcfg = {**raw_cfg,
@@ -707,6 +705,12 @@ def _field_item(name, cfg, entity, principal_name, principal_model):
     item = {'field': data_path}
     item['label'] = f.label if f is not None else (
         base.get('label') or _auto_label(short))
+    # `LIST` → rótulo do catálogo · `BOOL` → Sim/Não. O passo é o mesmo das
+    # colunas (`core.resolve.field_display_fn`); sem ele, um `FIELDS('forminhas')`
+    # em `after`/`items` imprimia o código enquanto a coluna imprimia o rótulo.
+    _disp_fn = field_display_fn(merged, short, i18n)
+    if _disp_fn is not None and 'function' not in cfg:
+        item['function'] = _disp_fn
     _m = _field_mask(short, merged)
     if _m:
         item['format'] = _m
