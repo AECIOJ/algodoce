@@ -7,16 +7,17 @@ from ajsystem.defs.report import *
 DOCUMENTO = {0: 'Orçamento', 1: 'Pedido',
              6: 'Cancelamento de Pedido', 9: 'Devolução de Pedido'}
 
-# Frase de abertura do documento, escolhida pelo status. `{observacao}` entra no
-# MEIO dela, e é por isso que isto é catálogo de `status` e não um texto fixo:
-# o report resolve por `{status}` e o catálogo devolve a frase já montada. O
-# `wrap` abaixo existe porque a frase do cancelamento é mais larga que a área
-# útil da página (206mm contra 190mm) — sem ele, a ponta saía da folha.
+# Frase de abertura do documento, escolhida pelo status — por isso é catálogo de
+# `status` e não texto fixo: o report resolve por `{status}` e recebe a frase já
+# montada. O MOTIVO não vem aqui dentro: ele é longo demais para a linha (soube
+# passar de 250mm com um motivo só), e a frase só aponta para o bloco
+# `Observações`, no fim do documento. O `wrap` abaixo continua necessário
+# porque a frase aponta para longe e ainda passa da área útil.
 FRASE = {
     0: 'Solicitamos o orçamento referente aos seguintes itens:',
     1: 'Conforme negociação anterior, solicitamos o fornecimento dos seguintes itens:',
-    6: 'Conforme conversado anteriormente, por motivo de {observacao|(não informado)}, solicitamos o cancelamento do pedido com os seguintes itens:',
-    9: 'Conforme conversado anteriormente, por motivo de {observacao|(não informado)}, estamos devolvendo os seguintes itens:',
+    6: 'Conforme conversado anteriormente, por motivo abaixo discriminado em observações, solicitamos o cancelamento do pedido com os seguintes itens:',
+    9: 'Conforme conversado anteriormente, por motivo abaixo discriminado em observações, estamos devolvendo os seguintes itens:',
 }
 
 
@@ -63,7 +64,20 @@ COMPRA = {
                       {'TEXT': {'text': '_' * 40, 'align': 'C'}},
                       {'TEXT': {'text': 'Acréscimo: {acrescimo:brl}', 'align': 'R', 'when': 'acrescimo'}},
                       {'TEXT': {'text': 'Desconto: {desconto:brl}', 'align': 'R', 'when': 'desconto', 'rows_after': 1}},
-                      {'TEXT': {'text': 'Total: {total:brl|R$ 0,00}', 'align': 'R', 'font_size': 11, 'font_style': 'B'}}],
+                      {'TEXT': {'text': 'Total: {total:brl|R$ 0,00}', 'align': 'R', 'font_size': 11, 'font_style': 'B'}},
+                      # O motivo do cancelamento/devolução, aqui no fim em vez de
+                      # no meio da frase de abertura. `body.after` serviria, mas
+                      # ele renderiza ANTES deste bloco (ver pdf.py): o lugar do
+                      # "depois da tabela" de verdade é `table.after`.
+                      #
+                      # `rows_before` e não `LF(2)`: o respiro tem de sumir
+                      # junto com o bloco, e `LF` não tem `when` — o rows_before
+                      # do item é descartado junto com o item quando o `when`
+                      # falha. `wrap` porque a observação é livre e pode ser
+                      # bem maior que a página.
+                      {'TEXT': {'text': 'Observações', 'when': 'observacao',
+                                'rows_before': 2, 'font_style': 'B'}},
+                      {'TEXT': {'text': '{observacao}', 'when': 'observacao', 'wrap': True}}],
         },
     },
 }
