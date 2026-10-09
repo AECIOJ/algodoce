@@ -5,9 +5,10 @@ PEDIDO = {
     'label': 'Pedido',
     'header': [
         LOGO('L', 3),
-        TABS(PCOL+5, PCOL+40),
+        PROW(0),
+        TABS(5, 40),
         TITLES([
-            ('Pedido Nº {id}', {'location': [PCOL, 0]}),
+            'Pedido Nº {id}',
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
         FIELDS(('conta_id', {'tab': 1}),

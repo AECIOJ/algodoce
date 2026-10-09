@@ -15,8 +15,8 @@ COMPRA = {
     'label': 'Compra',
     'header': [
         LOGO('L', 3),
-        TABS(PCOL+5, PCOL+40),
-        POS(PCOL, 0),
+        PROW(0),
+        TABS(5, 40),
         TITLES([
             ('Orçamento #{id}', {'when': 'status == 0'}),
             ('{status == 1 ? Pedido : COMPRA} #{id}', {'when': 'status != 0'}),

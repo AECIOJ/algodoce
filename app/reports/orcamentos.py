@@ -5,9 +5,10 @@ ORCAMENTO = {
     'label': 'Orçamento',
     'header': [
         LOGO('L', 3),
-        TABS(PCOL+5, PCOL+35),
+        PROW(0),
+        TABS(5, 35),
         TITLES([
-            ('Orçamento #{id}', {'location': [PCOL, 0]}),
+            'Orçamento #{id}',
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
         FIELDS(('cliente_nome', {'tab': 1}),

@@ -224,7 +224,10 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0,
     elif any(k in cfg for k in ('location', 'pos')):
         _anchor(pdf, cfg, label)
     else:
-        pdf.set_x(pdf.l_margin)  # bloco: volta à margem, Y flui
+        # Bloco: volta ao INÍCIO DA ZONA (não da margem), e o `w` abaixo é a
+        # sobra dela. Com o logo encolhendo a zona, voltar à margem punha o
+        # título dentro da imagem.
+        pdf.set_x(_flow_zone(pdf)[0])
     if callable(txt) and instance:
         txt = txt(instance)
     elif instance and isinstance(txt, str) and '{' in txt:
@@ -257,10 +260,21 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0,
         _w = _w * _col_unit(pdf)
         pdf.set_font(FONT_FAMILY, style, size)
     else:
-        _w = 0  # coluna corrente até o fim da linha
+        # Só o resto da ZONA — `w = 0` iria até a margem direita e centralizaria
+        # o título no espaço inteiro,atravessando a imagem.
+        _w = _flow_zone(pdf)[1] - pdf.get_x()
     pdf.cell(_w, size * 0.6, txt or '', align=align, new_x="LMARGIN", new_y="NEXT")
     _mark_content(pdf)
-    pdf.ln(GAP_TITLE if first else GAP_SUBTITLE)
+    # O avanço é `rows_after` e o padrão é 1 LINHA — não mais um gap em mm.
+    # `rows_before`/`rows_after` significam avanço de linha, e o título era a
+    # única coisa que ainda espaçava em milímetros (4mm no 1º, 3mm nos demais).
+    # Declarar `rows_after: N` maior afasta mais; `0` cola no próximo item.
+    _ra = cfg.get('rows_after', 1)
+    if isinstance(_ra, bool) or not isinstance(_ra, (int, float)) or _ra < 0:
+        raise ValueError(
+            f"report '{label}': rows_after do TITLE deve ser número >= 0, veio {_ra!r}")
+    if _ra:
+        pdf.ln(_ra * ROW_CELL)
     return drawn + 1
 
 
@@ -273,6 +287,7 @@ def _render_header_items(self, h):
     self._tabs = None
     self._gridfont = None
     self._ind = None
+    self._logo_zone = None
     titles = 0
     for item in items:
         cfg = item.config
@@ -307,8 +322,22 @@ def _render_header_items(self, h):
             loc = cfg.get('location', ['C', 4])
             x, y, w, hh = _image_box(self, loc, logo)
             self.image(logo, x=x, y=y, w=w, h=hh)
-            # Cursor p/ o fim da caixa (PCOL = fim do logo): o próximo item
-            # ancora a partir daqui; sem âncora, o bloco volta à margem.
+            # O logo ENCOLHE A ZONA pelo espaço vago ao lado da imagem, para o
+            # texto que divide a faixa com ele: em 'L' a zona começa na borda
+            # direita da figura, em 'R' termina na borda esquerda. A faixa vale
+            # enquanto o cursor estiver nestas linhas (`_zone_cols`), e 'C' não
+            # indenta nada — sobra igual dos dois lados.
+            _anc = (loc[0] if isinstance(loc, (list, tuple)) and loc else 'C')
+            col_w = _col_unit(self)
+            _c1 = (x - self.l_margin) / col_w
+            _c2 = (x + w - self.l_margin) / col_w
+            self._logo_zone = {
+                'l': _c2 if _anc == 'L' else None,
+                'r': _c1 if _anc == 'R' else None,
+                'y1': y, 'y2': y + hh,
+            }
+            # Cursor p/ o fim da caixa: o próximo item ancora a partir daqui; sem
+            # âncora, o bloco volta ao início da ZONA.
             self.set_xy(x + w, y + hh)
             _mark_content(self)
         elif item.kind == 'TITLE':
@@ -523,14 +552,14 @@ class DocPDFReport(FPDF):
             self.set_font(FONT_FAMILY, h.title_font_style, h.title_font_size)
             self.cell(0, h.title_font_size * 0.6, title, align=h.title_align,
                       new_x="LMARGIN", new_y="NEXT")
-            self.ln(GAP_TITLE)
+            self.ln(ROW_CELL)  # título sempre deixa a PRÓXIMA linha
 
         # Subtitle
         if h.subtitle:
             self.set_font(FONT_FAMILY, "", h.subtitle_font_size)
             self.cell(0, h.subtitle_font_size * 0.5, h.subtitle,
                       align=h.subtitle_align, new_x="LMARGIN", new_y="NEXT")
-            self.ln(GAP_SUBTITLE)
+            self.ln(ROW_CELL)  # idem para o subtítulo
 
         # Header fields
         if h.fields and self._instance:
@@ -740,8 +769,6 @@ ROW_CELL = 6           # altura linha de dados / unidade de grade e de rows_*
 ROW_FOOT = 7           # altura linha de total
 ROW_GROUP_TITLE = 8    # altura título de grupo
 ROW_GROUP_LINE = 7     # altura linha de grupo
-GAP_TITLE = 4          # após título
-GAP_SUBTITLE = 3       # após subtítulo
 GAP_LABEL = 1          # respiro rótulo→valor, em COLS (2.54mm em cpp 0)
 GAP_HEAD_FIELDS = 4    # após fields do cabeçalho
 GAP_TEXT_LINE = 2      # antes de cada linha avulsa
@@ -1521,6 +1548,11 @@ def _split_item(it, label):
         return ('FIELD', it, {})
     if callable(it):
         return ('CALL', getattr(it, '__name__', 'call'), {'fn': it})
+    from ajsystem.defs.report import _CursorExpr as _CE
+    if isinstance(it, _CE):
+        # `PCOL(n)`/`PROW(n)` solto: DIRETIVA de cursor. Dentro de TABS/
+        # location o mesmo objeto é valor — quem resolve é `_resolve_tokens`.
+        return (it.base, it.base, {'offset': it.offset})
     if isinstance(it, dict):
         if 'field' in it:
             return ('FIELD', it.get('field'), {k: v for k, v in it.items() if k != 'field'})
@@ -1531,6 +1563,11 @@ def _split_item(it, label):
                 if k not in _KINDS:
                     raise ValueError(f"report '{label}': elemento '{k}' desconhecido")
                 if k in ('TABS', 'POS', 'IND'):
+                    # Já normalizado (`parse_report_item` entregou
+                    # `{'values': [...]}`) volta como está: é o caminho do
+                    # header, que delega o item desconhecido para cá.
+                    if isinstance(v, dict) and set(v) == {'values'}:
+                        return (k, k, {'values': list(v['values'])})
                     if not isinstance(v, list):
                         raise ValueError(f"report '{label}': '{k}' exige lista")
                     return (k, k, {'values': list(v)})
@@ -1658,13 +1695,45 @@ def _table_edges(pdf):
     return [0, _usable_cols(pdf)]
 
 
-def _flow_zone(pdf):
-    """(x0_mm, right_mm) do fluxo: região IND ou área útil."""
+def _zone_cols(pdf):
+    """(l, r) da zona em COLS: interseção de `IND` com a faixa do logo.
+
+    O `LOGO('L')`/`('R')` não desenha e volta a ignoring: ele **encolhe a zona**
+    pelo espaço vago ao lado da imagem, para o texto que divide a faixa com ele.
+    A faixa é calculada do CURSOR a cada chamada, então sair dela devolve a área
+    útil sozinho — sem comando para desfazer. `IND()` (nu) cancela as duas
+    contribuições, porque é o "restaura a área" que já significa.
+
+    Colunas das duas contribuições são absolutas da margem esquerda (o `IND` é
+    declarado assim, e o logo sai de `resolve_anchor`, que usa `area_cols`), e
+    por isso a interseção é um `max`/`min` e não uma soma — somar daria a zona
+    duas vezes no ponto onde as duas se encontram.
+    """
     ind = getattr(pdf, '_ind', None)
-    if ind is not None:
-        col_w = _col_unit(pdf)
-        return pdf.l_margin + ind[0] * col_w, pdf.l_margin + ind[1] * col_w
-    return pdf.l_margin, pdf.w - pdf.r_margin
+    l = ind[0] if ind else 0.0
+    r = ind[1] if ind else _usable_cols(pdf)
+    logo = getattr(pdf, '_logo_zone', None)
+    if logo is not None and not (logo['y1'] - 0.01 <= pdf.get_y() <= logo['y2'] + 0.01):
+        logo = None      # cursor saiu da faixa do logo
+    if logo:
+        if logo['l'] is not None:
+            l = max(l, logo['l'])
+        if logo['r'] is not None:
+            r = min(r, logo['r'])
+    return l, r
+
+
+def _flow_zone(pdf):
+    """(x0_mm, right_mm) do fluxo: zona (IND ∩ faixa do logo) ou área útil."""
+    col_w = _col_unit(pdf)
+    l, r = _zone_cols(pdf)
+    return pdf.l_margin + l * col_w, pdf.l_margin + r * col_w
+
+
+def _zone_ncols(pdf):
+    """Cols da zona — é contra isto que `location`/`pos`/`TABS` são validados."""
+    l, r = _zone_cols(pdf)
+    return r - l
 
 
 def _resolve_tokens(pdf, values, label):
@@ -1704,7 +1773,11 @@ def _resolve_tokens(pdf, values, label):
 
 
 def _anchor(pdf, cfg, label=''):
-    """Âncora [col, lin] de location/pos (grade, origem área útil)."""
+    """Âncora [col, lin] de location/pos (grade, origem na ZONA).
+
+    Origem na zona e não na margem: com o logo encolhendo a zona, uma posição
+    que ignora isso cairia dentro da imagem. `c2` é a última coluna da zona.
+    """
     loc = cfg.get('location', cfg.get('pos', [0, 0])) or [0, 0]
     if list(loc)[:2] == [0, 0]:
         return
@@ -1716,7 +1789,11 @@ def _anchor(pdf, cfg, label=''):
             raise ValueError(f"report '{label}': âncora [col, lin] inválida: {list(loc)!r}")
     col_w = _col_unit(pdf)
     c, r = _resolve_tokens(pdf, list(loc)[:2], label)
-    pdf.set_xy(pdf.l_margin + c * col_w, pdf.t_margin + r * ROW_CELL)
+    if c > _zone_ncols(pdf) + 0.01:
+        raise ValueError(
+            f"report '{label}': âncora {list(loc)[:2]} na coluna {c:g}, "
+            f"fora da zona ({_zone_ncols(pdf):.1f} cols)")
+    pdf.set_xy(_flow_zone(pdf)[0] + c * col_w, pdf.t_margin + r * ROW_CELL)
 
 
 def _eval_tab_value(pdf, v, label):
@@ -1745,12 +1822,21 @@ def _eval_cursor_str(pdf, m, label):
 
 
 def _tab_x(pdf, tab, label):
-    """X da parada tab:N (1-based). Y segue o fluxo."""
+    """X da parada tab:N (1-based), em cols a partir da ZONA. Y segue o fluxo.
+
+    Relativa à zona, e não à margem: com o logo encolhendo a zona, uma parada
+    absoluta cairia dentro da imagem — e, antes disso, uma parada dentro de um
+    `IND` maior que a zona desenhava FORA dele.
+    """
     tabs = getattr(pdf, '_tabs', None) or []
     if not isinstance(tab, int) or isinstance(tab, bool) or not 1 <= tab <= len(tabs):
         raise ValueError(f"report '{label}': tab:{tab} inválido (TABS tem {len(tabs)} paradas)")
     col_w = _col_unit(pdf)
-    pdf.set_x(pdf.l_margin + tabs[tab - 1] * col_w)
+    if tabs[tab - 1] > _zone_ncols(pdf) + 0.01:
+        raise ValueError(
+            f"report '{label}': parada {tabs[tab - 1]:g} cols fora da zona "
+            f"({_zone_ncols(pdf):.1f} cols)")
+    pdf.set_x(_flow_zone(pdf)[0] + tabs[tab - 1] * col_w)
 
 
 def _elem_location(pdf, kind, cfg, label=''):
@@ -1787,7 +1873,12 @@ def _elem_location(pdf, kind, cfg, label=''):
     ind = getattr(pdf, '_ind', None)
     if ind is not None:
         return [ind[0], r, ind[1] - ind[0], 0]
+    # Sem `IND`: a zona ainda pode estar encolhida pelo logo — usa ela, e só
+    # quando não houver uma última tabela mais estreita.
     esq, dir_ = _table_edges(pdf)
+    if getattr(pdf, '_logo_zone', None) and pdf._table_bounds is None:
+        zl, zr = _zone_cols(pdf)
+        return [zl, r, zr - zl, 0]
     return [esq, r, dir_ - esq, 0]
 
 
@@ -1978,6 +2069,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
         pdf._tabs = None
         pdf._gridfont = None
         pdf._ind = None
+        pdf._logo_zone = None
     col_w = _col_unit(pdf)
     _titulos = 0   # cascata de TITLE desta lista (1º = título, demais = subtítulo)
 
@@ -1992,6 +2084,19 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             else:
                 pdf._gridfont = _resolve_font(cfg, label)
             return _col_unit(pdf), drawn
+        if kind in ('PCOL', 'PROW'):
+            # Diretiva de cursor: `PCOL(n)` = n cols do INÍCIO DA ZONA (que o
+            # logo pode ter encolhido), `PROW(n)` = linha n da margem de topo.
+            _n = cfg.get('offset', 0)
+            if kind == 'PCOL':
+                if _n > _zone_ncols(pdf) + 0.01:
+                    raise ValueError(
+                        f"report '{label}': PCOL({_n:g}) fora da zona "
+                        f"({_zone_ncols(pdf):.1f} cols)")
+                pdf.set_x(_flow_zone(pdf)[0] + _n * col_w)
+            else:
+                pdf.set_y(pdf.t_margin + _n * ROW_CELL)
+            return col_w, drawn
         if kind == 'TABS':
             _stops = [_eval_tab_value(pdf, _s, label) for _s in (cfg.get('values') or [])]
             if sorted(_stops) != list(_stops):
@@ -2163,7 +2268,11 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
         if kind == 'IND':
             _vals = cfg.get('values') or []
             if not _vals:
-                pdf._ind = None  # IND() nu = restaura (margens+área útil)
+                # `IND()` nu = restaura a área útil: cancela o `IND` E o recuo
+                # do logo, para dar para voltar ao que era mesmo estando dentro
+                # da faixa dele.
+                pdf._ind = None
+                pdf._logo_zone = None
                 return col_w, drawn
             if len(list(_vals)) != 2:
                 raise ValueError(f"report '{label}': IND exige [l, r]")
@@ -2176,10 +2285,6 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 raise ValueError(f"report '{label}': IND [{_l}, {_r}] fora da área (ncol={_ncol:.1f})")
             pdf._ind = [_l, _r]
             return col_w, drawn
-        rb, ra = int(cfg.get('rows_before', 0) or 0), int(cfg.get('rows_after', 0) or 0)
-        if rb:
-            pdf.ln(rb * ROW_CELL)
-            pdf.set_x(_flow_zone(pdf)[0])
         _place_item(pdf, kind, name, cfg, label)
         if kind in ('FIELD', 'TEXT'):
             _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=True)
@@ -2229,7 +2334,9 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 continue
         _respiro(pdf, cfg, 'rows_before', label)
         col_w, _titulos = _um_item(kind, name, cfg, col_w, _titulos)
-        _respiro(pdf, cfg, 'rows_after', label)
+        if kind not in ('TITLE', 'TITLES'):
+            # o título já aplicou o próprio `rows_after` (padrão 1 linha)
+            _respiro(pdf, cfg, 'rows_after', label)
 
 
 def _margin_mm(v, label):

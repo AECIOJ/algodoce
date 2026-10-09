@@ -76,10 +76,36 @@ class _CursorExpr:
         return f"{self.base}{sign}{abs(self.offset)}"
 
 
-# Posição corrente do cursor em grade, p/ TABS (forma constante; a string
-# 'PCOL+20' segue válida). Importe no relatório: from ajsystem.defs.report import PCOL
-PCOL = _CursorExpr('PCOL')
-PROW = _CursorExpr('PROW')
+# Posição do cursor em grade, p/ TABS, âncora e como DIRETIVA de item.
+# Dois papéis, mesma função — o contexto decide:
+#   PCOL() / PROW()   -> VALOR: a coluna/linha corrente, usável em `TABS(...)`,
+#                        `location` e `pos` (e ainda soma: `PCOL() + 5`).
+#   PCOL(n) / PROW(n) -> DIRETIVA: item solto que move o cursor — `n` cols a
+#                        partir do INÍCIO DA ZONA, `n` linhas da margem de topo.
+# Sem argumento `n` numa diretiva é a posição inicial da zona / o topo.
+# A string 'PCOL+20' (TABS/âncora) segue válida.
+def PCOL(*n):
+    """PCOL() = coluna corrente (valor); PCOL(n) = move para n cols da zona."""
+    return _CursorExpr('PCOL', *_cursor_offset(n, 'PCOL'))
+
+
+def PROW(*n):
+    """PROW() = linha corrente (valor); PROW(n) = move para a linha n."""
+    return _CursorExpr('PROW', *_cursor_offset(n, 'PROW'))
+
+
+def _cursor_offset(nome, quem):
+    """Valida 0 ou 1 número na diretiva de cursor; devolve (offset,)."""
+    if len(nome) > 1:
+        raise ValueError(f"{quem}: aceita no máximo 1 argumento, veio {len(nome)}")
+    if not nome:
+        return (0,)
+    v = nome[0]
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ValueError(f"{quem}: deslocamento deve ser número, veio {v!r}")
+    return (v,)
+
+
 # Bordas da última tabela impressa (fallback = área útil) e total de cols.
 # LTB/RTB/NCOL valem em âncora, TABS e POS, como PCOL/PROW.
 LTB = _CursorExpr('LTB')
@@ -110,7 +136,7 @@ def parse_header_field(item) -> ReportField:
 
 ITEM_KINDS = ('FIELD', 'TEXT', 'IMAGE', 'LINE', 'BOX', 'CIRCLE', 'LOGO', 'TITLE',
               'TABS', 'POS', 'FIELDS', 'FONT', 'IND', 'TEXTS', 'CR', 'LF', 'FF',
-              'MEMO', 'TITLES')
+              'MEMO', 'TITLES', 'PCOL', 'PROW')
 
 
 @dataclass
@@ -487,6 +513,10 @@ def IMAGE(field, props=None):
 
 def parse_report_item(it, label='') -> ReportItem:
     """Normaliza 1 item -> ReportItem (fail-fast)."""
+    if isinstance(it, _CursorExpr):
+        # `PCOL(n)`/`PROW(n)` solto na lista: diretiva de cursor. Dentro de
+        # TABS/location o mesmo objeto é VALOR — o contexto decide.
+        return ReportItem(kind=it.base, name=it.base, config={'offset': it.offset})
     if isinstance(it, str):
         if it.isupper():
             if it not in ITEM_KINDS:
