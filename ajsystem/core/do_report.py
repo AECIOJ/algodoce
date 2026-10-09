@@ -435,7 +435,8 @@ def _apply_entity(raw, entity):
                 # `calc`, máscara) entra no cfg do item. `width` fica de fora
                 # porque é do bloco, não do campo.
                 _over = {k: v for k, v in _ri.config.items()
-                         if k not in ('width', 'align', 'font_size', 'font_style')}
+                         if k not in ('width', 'align', 'font_size', 'font_style',
+                                         'recuo')}
                 _flist.append({'field': _ri.config['field'], **_over})
                 _fpos.append(_i)
                 _memo.append(_i)

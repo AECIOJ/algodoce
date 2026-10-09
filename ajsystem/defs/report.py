@@ -191,6 +191,28 @@ def FIELD(name, props=None):
     return {name: dict(_check_props('FIELD', props, ''))}
 
 
+def _memo_check(width, recuo, label=''):
+    """Valida `width`/`recuo` do `MEMO` — a MESMA regra na factory e no parse.
+
+    Ficou aqui porque `parse_report` não passa items por `parse_report_item`
+    (é construção de dataclass), e os dois call sites que passam — `_split_item`
+    e `_expand_fields_list` — engolem `ValueError`. Ou seja: validação só no
+    parse não dispara na declaração, que é onde ela tem que doer.
+    """
+    _q = f"report '{label}': " if label else ''
+    if isinstance(width, bool) or not isinstance(width, (int, float)) or width <= 0:
+        raise ValueError(f"{_q}'MEMO' exige 'width' cols > 0, veio {width!r}")
+    if isinstance(recuo, bool) or not isinstance(recuo, (int, float)) or recuo < 0:
+        raise ValueError(f"{_q}'MEMO' exige 'recuo' cols >= 0, veio {recuo!r}")
+    # `recuo` afasta só a 1ª linha, então ela precisa de medida sobrando: recuo
+    # >= width é erro de declaração, e sem este recuso o bloco sai degenerado
+    # (uma palavra por linha).
+    if recuo >= width:
+        raise ValueError(
+            f"{_q}'MEMO' recuo {recuo} >= width {width} — a 1ª linha "
+            f"ficaria sem medida")
+
+
 def MEMO(campo, width, props=None):
     """Factory pura: `MEMO('status', 80, {...})` — um FIELD com medida.
 
@@ -212,12 +234,14 @@ def MEMO(campo, width, props=None):
     `FIELD` de `TEXT`.
 
     Props: `align` (default `'J'` — parágrafo se justifica; `JUSTIFY_MAX` limita
-    o quanto o espaço estica), `font_size`, `font_style`, `label` (legenda
-    acima do bloco; no uso como field, o rótulo do campo), `when`.
+    o quanto o espaço estica), `recuo` (cols, afasta **só a 1ª linha** — é
+    `spaces(recuo) + texto`: a 1ª linha quebra na medida `w - recuo` e as
+    seguintes na do bloco, então a borda direita continua reta), `font_size`,
+    `font_style`, `label` (legenda acima do bloco, que NÃO se move com o
+    recuo; no uso como field, o rótulo do campo), `when`.
     """
-    if isinstance(width, bool) or not isinstance(width, (int, float)) or width <= 0:
-        raise ValueError(f"MEMO: width deve ser cols > 0, veio {width!r}")
     _check_props('MEMO', props or {}, '')
+    _memo_check(width, (props or {}).get('recuo', 0))
     from ajsystem.core.resolve import field_spec_item as _fsi
     achado = _fsi(campo)
     cfg = dict(props or {})
@@ -465,9 +489,7 @@ def parse_report_item(it, label='') -> ReportItem:
                 if k == 'MEMO':
                     if not isinstance(v, dict):
                         raise ValueError(f"report '{label}': 'MEMO' exige dict")
-                    _mw = v.get('width')
-                    if isinstance(_mw, bool) or not isinstance(_mw, (int, float)) or _mw <= 0:
-                        raise ValueError(f"report '{label}': 'MEMO' exige 'width' cols > 0")
+                    _memo_check(v.get('width'), v.get('recuo', 0), label)
                     # `field` = FIELD com medida (a forma normal) · `text` =
                     # TEMPLATE. Exige um dos dois, senão o bloco sai vazio e o
                     # autor não descobre por quê.

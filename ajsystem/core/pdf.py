@@ -838,11 +838,18 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
         # conteúdo entre elas. Fora do `extend` a régua é intenção do autor e
         # desenha sempre.
         if isinstance(it, dict) and 'LINE' in it:
+            if _stayed:
+                # a régua começa uma linha: fecha a anterior, que ficou pela
+                # esquerda. Sem isso ela nasceria por cima do texto daquela.
+                pdf.ln(ROW_CELL)
+                _stayed = False
             if _check_page_break(pdf, ROW_CELL):
                 _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
             _draw_hline(pdf, x_start, total_w)
-            pdf.ln(ROW_CELL)
-            _stayed = False
+            # NÃO avança: a régua no `extend` é DIVISOR, não linha. Ela nasce no
+            # topo da faixa e a linha seguinte se apoia nela — a régua ocupa o
+            # lugar da faixa em branco que o `ln(ROW_CELL)` custaria, que era o
+            # jeito de o autor bancar um separador e ganhar uma linha vazia.
             continue
         if isinstance(it, str):
             if it not in ('LF', 'CR'):
@@ -1235,19 +1242,25 @@ JUSTIFY_MAX = 1.0
 MEMO_ALIGN = 'J'
 
 
-def _wrap_linhas(pdf, txt, avail):
+def _wrap_linhas(pdf, txt, avail, first=None):
     """Quebra `txt` por palavra em linhas que caibam em `avail` mm.
 
     A casa só tinha `_cut_to_fit` (corte seco); parágrafo precisa de quebra de
     verdade. Palavra maior que a linha entra inteira e transborda — partir no
     meio de palavra em documento é pior que estourar a margem.
+
+    `first` é a medida da PRIMEIRA linha, quando ela for menor que as demais —
+    é o que faz o `recuo` do `MEMO`: a 1ª linha cabe em menos, as outras na
+    medida do bloco. É literalmente `spaces(recuo) + texto`: o recuo entra no
+    orçamento da linha, então ela sai mais curta, e as seguintes não se mexem.
     """
     palavras = (txt or '').split()
     if not palavras:
         return []
     linhas, atual = [], palavras[0]
-    for p in palavras[1:]:
-        if pdf.get_string_width(atual + ' ' + p) + 2 <= avail:
+    for k, p in enumerate(palavras[1:]):
+        limite = (first if (not linhas and first is not None) else avail)
+        if pdf.get_string_width(atual + ' ' + p) + 2 <= limite:
             atual += ' ' + p
         else:
             linhas.append(atual)
@@ -1256,34 +1269,42 @@ def _wrap_linhas(pdf, txt, avail):
     return linhas
 
 
-def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align):
+def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align, recuo=0.0):
     """Desenha as linhas do bloco em `x`, largura `w`, linha de altura `h`.
 
     `J` distribui a sobra entre os espaços — só quando a estica fica dentro de
     `JUSTIFY_MAX`; acima disso cai em `L`, que é o que o olho prefere a um
     texto "justificado" com buracos. Quebra de página entre linhas como o resto
     do report (`_check_page_break`).
+
+    `recuo` (mm) afasta SÓ a primeira linha, na medida da linha mais o seu
+    recuo — a borda direita dela continua em `x + w`, porque `(x + recuo) +
+    (w - recuo) = x + w`. O recuo entra como posição, e não como espaços no
+    texto de propósito: se entrasse como texto, o `J` esticaria os espaços do
+    recuo junto e o recuo cresceria só na 1ª linha.
     """
     espaco = pdf.get_string_width(' ')
     n_linhas = len(linhas)
     for i, ln in enumerate(linhas):
         _check_page_break(pdf, h)
         pdf.set_font(font, style, size)
+        lx = x + recuo if (i == 0 and recuo) else x
+        lw_m = w - recuo if (i == 0 and recuo) else w
         lw = pdf.get_string_width(ln) + 2
         extra = 0.0
         if align == 'J' and i < n_linhas - 1 and ' ' in ln:
             n_esp = ln.count(' ')
-            sobra = w - lw
+            sobra = lw_m - lw
             if sobra > 0:
                 cand = sobra / n_esp
                 if cand <= JUSTIFY_MAX * espaco:
                     extra = cand
         if align == 'C':
-            x_linha = x + (w - lw) / 2
+            x_linha = lx + (lw_m - lw) / 2
         elif align == 'R':
-            x_linha = x + (w - lw)
+            x_linha = lx + (lw_m - lw)
         else:
-            x_linha = x
+            x_linha = lx
         if extra:
             # palavra a palavra: cada célula leva a largura da palavra mais o
             # espaço (esticado) que vem depois dela.
@@ -1961,6 +1982,12 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             # os itens seguintes e depende de ordem — aqui a largura é do item.
             _w = min(cfg.get('width', 0) * _col_unit(pdf), _right - _x0)
             _bx = _x0 + (_right - _x0 - _w) / 2
+            # `recuo` (cols) afasta só a PRIMEIRA linha, dentro do bloco: a
+            # centralização acima não muda e `width` continua medindo o bloco
+            # inteiro. A 1ª linha quebra na medida `w - recuo`, o que é
+            # literalmente `spaces(recuo) + texto` sem o justifiable esticar o
+            # recuo. O parse já recusa `recuo >= width`, então aqui dá p/ usá-lo.
+            _recuo = cfg.get('recuo', 0) * _col_unit(pdf)
             _lbl = cfg.get('label') or ''
             if _lbl:
                 pdf.set_font(_ff, 'B', _size)
@@ -1971,10 +1998,10 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             # `get_string_width`, e medir na fonte anterior produz linhas mais
             # largas que o bloco (o bloco saía com 154mm num espaço de 141mm).
             pdf.set_font(_ff, _style, _size)
-            _linhas = _wrap_linhas(pdf, _txt, _w) if _txt else []
+            _linhas = _wrap_linhas(pdf, _txt, _w, first=_w - _recuo) if _txt else []
             if _linhas:
                 _draw_bloco(pdf, _linhas, _bx, _w, ROW_CELL, _ff, _size, _style,
-                            cfg.get('align', MEMO_ALIGN))
+                            cfg.get('align', MEMO_ALIGN), _recuo)
                 pdf.set_x(_flow_zone(pdf)[0])
             continue
         if kind == 'CR':
