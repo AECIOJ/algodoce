@@ -654,7 +654,7 @@ def _infer_source(report, entity):
     return info
 
 
-def _fmt_opts_for(tpl, entity, prefer=None):
+def _fmt_opts_for(tpl, entity, prefer=None, override=None):
     """Mapa {campo: options} p/ templates (LIST da Entity; pontilhado: base).
 
     `prefer` é o NOME da entidade principal do report, e só entra como
@@ -662,10 +662,18 @@ def _fmt_opts_for(tpl, entity, prefer=None):
     num Entity merged o campo é ambíguo e o catálogo não vinha — o `{status}`
     saía com o CÓDIGO. Estreitar o Entity para a principal resolveria o
     título, mas quebraria `{Conta.telefone}`, que é de outra entidade.
+
+    `override` é o catálogo do próprio item (`options`), e vence a Entity: é o
+    que permite o COMPRA imprimir o NOME do documento (`DOCUMENTO`: "Cancelamento
+    de Pedido") onde o campo traria o rótulo do ESTADO (`STATUS_COMPRA`:
+    "Cancelado"). Mesmo caminho do `MEMO`, que já trocava o catálogo do field
+    por `options` — sem ele o título tinha de ser um callable em Python, e a
+    troca de vocabulário ficava escondida dentro dele.
     """
     import re as _re
     out = {}
-    for nm in set(_re.findall(r'{([\w.]+)(?::[^}]*)?}', tpl or '')):
+    campos = set(_re.findall(r'{([\w.]+)(?::[^}]*)?}', tpl or ''))
+    for nm in campos:
         base = nm.split('.')[0]
         mdl = None
         if entity and base in entity and isinstance(entity.get(base), dict):
@@ -682,6 +690,9 @@ def _fmt_opts_for(tpl, entity, prefer=None):
             opts = raw_cfg.get('list') or raw_cfg.get('options')
             if opts:
                 out[nm] = opts
+    if override:
+        for nm in campos:
+            out[nm] = override
     return out
 
 
@@ -903,7 +914,12 @@ def _attach_text_opts(items, entity, label, prefer=None):
                   if _ri.kind == 'TITLES']
         for _c in _texts:
             if isinstance(_c.get('text'), str):
-                _fo = _fmt_opts_for(_c['text'], entity, prefer)
+                _opts = _c.get('options')
+                if _opts is not None and not isinstance(_opts, dict):
+                    raise ValueError(
+                        f"report '{label}': 'options' de TITLE/TEXT deve ser "
+                        f"dict (catálogo {{codigo: rótulo}}), veio {type(_opts).__name__}")
+                _fo = _fmt_opts_for(_c['text'], entity, prefer, _opts)
                 if _fo:
                     _c.setdefault('_fmt_opts', _fo)
 

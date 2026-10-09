@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0013 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0014 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0013`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0014`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -374,7 +374,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | factory | equivale a | exemplo |
 |---|---|---|
 | `'nome'` / `{'total': {...}}` / `FIELD(nome, props?)` | `FIELD` | `'cliente_nome'`, `FIELD('data_pedido', {'tab': 2})` |
-| `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha); `font_size`/`font_style` por título |
+| `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha); `font_size`/`font_style` por título; `options` = catálogo próprio (vence o do field) |
 | `TITLES([...])` | `{'TITLES': [{'TITLE': {...}}, ...]}` | Vários `TITLE` numa tacada: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`. Vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`). A cascata é posicional e o `when` vem **antes** dela |
 | `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'before': 1})` |
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('C', 4)` (âncoras `C/L/R`; ausente não renderiza) |
@@ -390,7 +390,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
 | `TEXTS(*itens)` / `CR()` / `LF(n?)` / `FF()` | bloco de textos; retorno; avanço; quebra de página (corpo) | `CR` = volta à 1ª coluna; `LF()` = 1 linha; `FF` no header = erro |
 
-**Título e subtítulo (`TITLES`).** `TITLE` já era o 1º item de uma lista de
+**Título e subtítulo (`TITLES`).** `options` no `TITLE` troca o catálogo que resolve o `{campo}` do `text` — é o que permite ao COMPRA imprimir o **nome** do documento (`DOCUMENTO`) onde o campo traria o **rótulo** do estado (`STATUS_COMPRA`), sem callable. `TITLE` já era o 1º item de uma lista de
 títulos: o 1º desenhado sai com `title_font_size`/`title_font_style` do header e
 os demais com `subtitle_font_size` — a cascata é **posicional**, e o `when` é
 avaliado **antes** dela, então um subtítulo pulado não vira título grande nem
@@ -837,6 +837,9 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0014
+- **`TITLE` (e `TEXTS`) aceitam `options`: o catálogo do item vence o do field.** Um template resolve `{campo}` pelo catálogo que a Entity traz, e às vezes esse não é o catálogo que o documento quer: no COMPRA o `status` é o ESTADO (`STATUS_COMPRA`: "Cancelado") e o nome impresso é outro vocabulário (`DOCUMENTO`: "Cancelamento de Pedido"). Trocar um pelo outro era um callable em Python — que escondia a troca dentro dele — e agora é `('{status} #{id}', {'options': DOCUMENTO})`, o mesmo caminho que o `MEMO` já usava com `options`. Bônus: a declaração passa a **mostrar** qual vocabulário cada título usa. `options` que não seja dict é recusado nomeando a prop, no apply e no render. O `TEXT` passa a aceitar o mesmo override, e o `callable` continua valendo.
 
 ### 1.26.10.08.0013
 - **`TITLES([...])`: vários `TITLE` numa tacada, com fonte por título.** Como `TEXTS`/`FIELDS`: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`, e vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`) — a lógica do título saiu do header para um helper só, com os defaults chegando por argumento (header: `h.title_font_size`/`h.title_font_style`; corpo: as constantes), porque os dois caminhos têm a mesma cascata e a mesma conta de altura. `font_size`/`font_style` mudam a **fonte** sem mudar a **posição** — quem escreve `'A', ('B', {...})` continua vendo B como subtítulo, com respiro de subtítulo — e são validados no render (`> 0`, `''|B|I|BI`). COMPRA, Orçamento e Pedido ganharam o subtítulo `'Status: {status}'` condicional.

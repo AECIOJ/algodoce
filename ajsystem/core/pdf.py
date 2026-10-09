@@ -243,6 +243,10 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0,
         raise ValueError(f"report '{label}': font_size do TITLE deve ser > 0, veio {size!r}")
     if style not in ('', 'B', 'I', 'BI'):
         raise ValueError(f"report '{label}': font_style do TITLE: ''|B|I|BI, veio {style!r}")
+    if cfg.get('options') is not None and not isinstance(cfg['options'], dict):
+        raise ValueError(
+            f"report '{label}': 'options' do TITLE deve ser dict "
+            f"(catálogo {{codigo: rótulo}}), veio {type(cfg['options']).__name__}")
     # TITLE sempre centralizado por default; outro align só se declarado.
     align = cfg.get('align', 'C')
     pdf.set_font(FONT_FAMILY, style, size)

@@ -14,17 +14,18 @@ PREAMBULO = {
 LARGURA = 84
 
 
-def _report_title(compra):
-    return f'{DOCUMENTO.get(compra.status, "Compra")} #{compra.id}'
-
-
 COMPRA = {
     'label': 'Compra',
     'header': [
         LOGO('L', 3),
         TABS(PCOL+5, PCOL+40),
         TITLES([
-            (_report_title, {'location': [PCOL, 0]}),
+            # O título usa o catálogo do DOCUMENTO (o NOME impresso: "Cancelamento
+            # de Pedido") e o subtítulo o do field (o rótulo do ESTADO:
+            # "Cancelado"). São dois vocabulários de propósito diferente, e o
+            # `options` é o que troca um pelo outro — antes isso era um callable
+            # em Python, que escondia a troca dentro dele.
+            ('{status} #{id}', {'options': DOCUMENTO, 'location': [PCOL, 0]}),
             # Subtítulo sem `location`: ele FLUI logo abaixo do título, que
             # é a mesma medida (o título ocupa a linha inteira). Sem âncora
             # não há linha mágica, e `status > 0` esconde a linha no
