@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0020 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0021 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0020`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0021`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -374,7 +374,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | factory | equivale a | exemplo |
 |---|---|---|
 | `'nome'` / `{'total': {...}}` / `FIELD(nome, props?)` | `FIELD` | `'cliente_nome'`, `FIELD('data_pedido', {'tab': 2})` |
-| `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha); `font_size`/`font_style` por título; `options` = catálogo próprio (vence o do field) |
+| `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha); `style` por título; `options` = catálogo próprio (vence o do field); `mask` = **transform de texto**, e vem `@U` por padrão (título em caixa alta — `mask: ''` devolve como está) |
 | `TITLES([...])` | `{'TITLES': [{'TITLE': {...}}, ...]}` | Vários `TITLE` numa tacada: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`. Vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`). A cascata é posicional e o `when` vem **antes** dela |
 | `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'rows_before': 1})` — a chave é **`rows_before`/`rows_after`**, em **linhas**. `before`/`after` não são lidas (medido: `{'before': 1}` sai em y=10, igual a não declarar; `rows_before: 1` vai a y=16) |
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('L', 3)` (âncoras `C/L/R`; ausente não renderiza). `L` encolhe a zona pela borda direita da figura, `R` pela esquerda, `C` não indenta — vale enquanto o cursor estiver na faixa vertical da imagem, e `IND()` cancela ali mesmo |
@@ -402,7 +402,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `when` | sim | sim | sim | sim | sim | sim (posicional final) | sim | — |
 | `options` | sim | — | sim | sim | — | — | — | — |
 | `function` | sim | — | — | — | — | — | — | — |
-| `format` / `mask` | sim | — | — | — | — | — | — | — |
+| `format` / `mask` | sim | — | `@U` no `TITLE` (só `@U`/`@L`/`@C`/`@T`) | — | — | — | — | — |
 | `style` | sim | sim | sim (cascata) | sim | — | — | — | — |
 | `cpi` / `flags` | sim | sim | sim | sim | — | — | — | **recusa** |
 | `location` / `pos` | sim | sim | sim | — | sim | sim | — | — |
@@ -490,6 +490,17 @@ escrever: `CPI(5)` → *"use CPI(10, 'E')"*.
 | alongamento | `7200 / (avanço × corpo × CPI)` % | 100 (CPI 12, o pitch natural) a 240 (CPI 5) a 6 LPI |
 
 **O glifo é esticado para preencher a célula** (`Tz` no PDF), então o CPI é a largura *de verdade* do caractere e **trocar a fonte não move nada** — muda só a letra desenhada. Por isso o corpo não é prop: `font_size` saiu, e declará-lo quebraria a relação com o LPI (o limite é a tinta ≤ 1,2em, e é o que reprova fonte que não cabe).
+
+**O `TITLE` grita por padrão.** A máscara do título é `@U`, aplicada **depois**
+do template e das substituições — o `@U` tem de valer sobre o texto já
+resolvido, e não sobre o `{campo}` que virou rótulo. A prop `mask` vence:
+`mask: ''` devolve o texto como está, `'@L'` vai para minúscula, `'@C'` para
+capitalizado. Só os **comandos de texto** contam, nunca a parte numérica:
+`format('Orçamento nº 7', '999,999.99')` devolve `'7'` — a máscara numérica
+consome os dígitos do título e deixa só o resto. Aqui a parte numérica é
+ignorada de propósito, então `@U 999,999.99` ainda só grita. Substituir o `@U`
+não é novidade: com o corpo derivado do LPI o título deixou de ser maior, e a
+caixa alta é o que ainda o separa do corpo sem pedir corpo maior.
 
 **Condensed e expanded são as duas pontas do mesmo eixo** (5 e 20), não dois estilos: pedir os dois dá 0,5× × 2× = 1×, que é o normal. O que combina com tudo é o outro eixo, `style`, que muda o **traço**.
 
@@ -1084,6 +1095,29 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0021
+- **O `TITLE` passou a gritar: `mask='@U'` por padrão.** A caixa alta é o que
+  separa o cabeçalho do corpo agora que o **corpo** deixou de fazer esse
+  trabalho: no `.0020` o `TITLE` ficou com o mesmo corpo do texto e só se
+  distinguia pelo CPI expandido, e "Orçamento nº 7" e "STATUS: DEVOLVIDO" saíam
+  do mesmo jeito que uma linha de texto.
+- **A prop `mask` do `TITLE` vence o padrão.** `mask: ''` devolve o texto como
+  está, `'@L'` vai para minúscula, `'@C'` para capitalizado — sem precisar
+  desligar a máscara inteira, que é o que `mask: ''` faz.
+- **A máscara entra DEPOIS do template e das substituições.** Aplicar antes
+  faria o `@U` agir sobre o `{campo}` cru em vez do rótulo que ele virou, e o
+  título sairia gritando o nome do campo em vez do valor (medido: `'Documento
+  nº {id}'` → `'DOCUMENTO Nº 7'`, e não `'DOCUMENTO Nº {ID}'`).
+- **Só os comandos de texto contam, nunca a parte numérica da máscara.** A
+  alternativa era passar o texto por `format()`, e `format('Orçamento nº 7',
+  '999,999.99')` devolve `'7'` — a máscara numérica consome os dígitos do
+  título e deixa só o que sobrou. Aplicando só `@U`/`@L`/`@C`/`@T`, a parte
+  numérica é ignorada de propósito: `@U 999,999.99` ainda só grita, e
+  `@M(BRL) 999,999.99` num título não o destrói.
+- Os três reports do app passaram a sair com o título em caixa alta sem
+  tocar em uma linha: `ORÇAMENTO #7`, `PEDIDO Nº 7`, `COMPRA #7`,
+  `STATUS: DEVOLVIDO`.
 
 ### 1.26.10.08.0020
 - **A matriz de impressora virou a grade: três números e duas letras.** O `CPI` passou a aceitar **só os modos base** — 10 Pica, 12 Elite, 15 Micron — e o resto virou modificador na prop `flags` (`'E'` expandido, `'C'` condensado), escrito `CPI(12, 'EC')`. Antes eram oito valores com nome próprio, e cinco deles (5 · 6 · 7,5 · 17,1 · 20) eram consequência, não escolha: o autor decorria cinco números para ter três densidades.

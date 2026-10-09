@@ -236,6 +236,9 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     if hasattr(pdf, '_title_substitutions'):
         for k, v in pdf._title_substitutions.items():
             txt = (txt or '').replace('{' + k + '}', str(v))
+    # A máscara entra DEPOIS do template e das substituições: o `@U` tem de
+    # valer sobre o texto já resolvido, não sobre o `{campo}` que virou rótulo.
+    txt = _mascara_titulo(txt, cfg, label)
     if 'font_size' in cfg:
         raise ValueError(
             f"report '{label}': font_size saiu — o corpo é derivado do LPI "
@@ -1738,6 +1741,34 @@ def _apply_face(pdf, style='', cpi=None, cfg=None):
     pdf.set_stretching(stretch_pct(info['advance'], body,
                                    _cpi_de(pdf, cfg) if cpi is None else cpi))
     return info
+
+
+# Rótulo de documento é MAIÚSCULO por padrão: é o que separa o cabeçalho do
+# corpo sem precisar de corpo maior, e a grade tirou o corpo maior do título
+# (o que o distinguia era só o CPI expandido). A prop `mask` do `TITLE` vence —
+# `mask: ''` devolve o texto como está, `'@L'` vai para minúscula.
+MASCARA_TITULO = '@U'
+
+
+def _mascara_titulo(txt, cfg, label):
+    """Aplica os COMANDOS DE TEXTO da máscara do `TITLE` (`@U`/`@L`/`@C`/`@T`).
+
+    Só os comandos, nunca a parte numérica: `format('Orçamento nº 7',
+    '999,999.99')` devolve `'7'` — a máscara numérica consome os dígitos do
+    título e o deixa só com o resto. Aqui a parte numérica é ignorada de
+    propósito, então `@U 999,999.99` ainda só grita.
+    """
+    if not txt or not isinstance(txt, str):
+        return txt
+    _mask = cfg.get('mask', MASCARA_TITULO)
+    if _mask is None:
+        return txt
+    if not isinstance(_mask, str):
+        raise ValueError(
+            f"report '{label}': mask do TITLE deve ser str, veio {_mask!r}")
+    from ajsystem.core.formats import parse_mask, _apply_text_cmds
+    _cmds, _, _ = parse_mask(_mask)
+    return _apply_text_cmds(txt, _cmds)
 
 
 def _validate_style(style, label, where='item'):
