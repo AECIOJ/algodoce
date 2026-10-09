@@ -1,34 +1,16 @@
 from ajsystem.defs.report import *
 
-# Nome do DOCUMENTO por status. `STATUS_COMPRA` (app/extends/constants.py) é o
-# rótulo do ESTADO — é o que a coluna `status` mostra ("Cancelado"); aqui é o
-# nome do documento impresso ("Cancelamento de Pedido"). São vocabulários de
-# propósito diferente, por isso ficam separados e não se misturam.
 DOCUMENTO = {0: 'Orçamento', 1: 'Pedido',
              6: 'Cancelamento de Pedido', 9: 'Devolução de Pedido'}
 
-# Frase de abertura do documento, escolhida pelo status — por isso é catálogo de
-# `status` e não texto fixo: o report resolve por `{status}` e recebe a frase já
-# montada. O MOTIVO não vem aqui dentro: ele é longo demais para a linha (soube
-# passar de 250mm com um motivo só), e a frase só aponta para o bloco
-# `Observações`, no fim do documento.
-#
-# Este catálogo é TAMBÉM a lista de status que têm frase — o `when` dos itens
-# do preâmbulo é `{'status': FRASE}`. Faturado (2) e Recebido (8) não estão
-# aqui, então nome e frase somem, sem um `if status not in (...)` em Python
-# para divergir do texto.
-FRASE = {
+PREAMBULO = {
     0: 'Solicitamos o orçamento referente aos seguintes itens:',
     1: 'Conforme negociação anterior, solicitamos o fornecimento dos seguintes itens:',
     6: 'Conforme conversado anteriormente, por motivo abaixo discriminado em observações, solicitamos o cancelamento do pedido com os seguintes itens:',
     9: 'Conforme conversado anteriormente, por motivo abaixo discriminado em observações, estamos devolvendo os seguintes itens:',
 }
 
-# Largura dos dois blocos de texto do documento, em colunas da grade. Uma
-# constante porque o requisito é que tenham o MESMO recuo das margens: com a
-# largura no próprio item (e não numa zona `IND`, que vaza para o que vem
-# depois e depende de ordem), os dois centralizam com a mesma sobra de cada
-# lado.
+
 LARGURA = 84
 
 
@@ -41,16 +23,22 @@ COMPRA = {
     'header': [
         LOGO('L', 3),
         TABS(PCOL+5, PCOL+40),
-        TITLE(_report_title, {'location': [PCOL, 0]}),
-        POS(PCOL,2),
+        TITLES([
+            (_report_title, {'location': [PCOL, 0]}),
+            # Subtítulo sem `location`: ele FLUI logo abaixo do título, que
+            # é a mesma medida (o título ocupa a linha inteira). Sem âncora
+            # não há linha mágica, e `status > 0` esconde a linha no
+            # documento inicial, onde o subtítulo repetiria o título.
+            ('Status: {status}', {'when': 'status > 0'}),
+        ]),
         FIELDS(('fornecedor_id', {'tab': 1}),
                ('data', {'tab': 2})),
         LF(2)
     ],
     'body': {
         'before': [
-            MEMO('status', LARGURA, {'options': FRASE, 'label': '',
-                                     'when': {'status': FRASE}}),
+            MEMO('status', LARGURA, {'recuo':4, 'options': PREAMBULO, 'label': '',
+                                     'when': {'status': PREAMBULO}}),
         ],
         'table': {
             'columns': {
@@ -64,6 +52,7 @@ COMPRA = {
                        (4, '{acrescimo}', {'when': 'acrescimo'}),
                        ([1, 3], 'Desconto', {'align': 'R', 'when': 'desconto'}),
                        (4, '{desconto}', {'when': 'desconto'}),
+                       LINE(),
                        ([1, 3], 'Total', {'align': 'R', 'font_style': 'B', 'when': 'acrescimo or desconto'}),
                        (4, '{total}', {'font_style': 'B', 'when': 'acrescimo or desconto'})],
             'after': [

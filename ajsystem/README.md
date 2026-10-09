@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0012 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0013 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0012`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0013`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -374,7 +374,8 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | factory | equivale a | exemplo |
 |---|---|---|
 | `'nome'` / `{'total': {...}}` / `FIELD(nome, props?)` | `FIELD` | `'cliente_nome'`, `FIELD('data_pedido', {'tab': 2})` |
-| `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha) |
+| `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha); `font_size`/`font_style` por título |
+| `TITLES([...])` | `{'TITLES': [{'TITLE': {...}}, ...]}` | Vários `TITLE` numa tacada: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`. Vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`). A cascata é posicional e o `when` vem **antes** dela |
 | `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'before': 1})` |
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('C', 4)` (âncoras `C/L/R`; ausente não renderiza) |
 | `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(PCOL, PCOL+20)` (crescente; com `tab:N` no item) |
@@ -388,6 +389,24 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
 | `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
 | `TEXTS(*itens)` / `CR()` / `LF(n?)` / `FF()` | bloco de textos; retorno; avanço; quebra de página (corpo) | `CR` = volta à 1ª coluna; `LF()` = 1 linha; `FF` no header = erro |
+
+**Título e subtítulo (`TITLES`).** `TITLE` já era o 1º item de uma lista de
+títulos: o 1º desenhado sai com `title_font_size`/`title_font_style` do header e
+os demais com `subtitle_font_size` — a cascata é **posicional**, e o `when` é
+avaliado **antes** dela, então um subtítulo pulado não vira título grande nem
+come o respiro de subtítulo. `TITLES([...])` é o plural, na forma do `TEXTS`:
+`'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`, e vale em
+**qualquer prop que seja lista de items** (`header`, `body.items`, `before`,
+`after`, `table.after`) — é o mesmo helper de desenho nos dois caminhos, com os
+defaults vindos do header lá e das constantes no corpo. `font_size`/`font_style`
+declarados mudam a **fonte** sem mudar a **posição**, e são validados no render
+(`> 0`, `''|B|I|BI`). O `text` de template sai pelo mesmo avaliador do `TEXT` —
+`'Status: {status}'` vira `Status: Cancelado`, com o catálogo do field — mas
+só resolve quando o nome do campo é **único** no Entity merged; como `status`
+existe em Compra, Orçamento, Pedido e Transação, é a entidade **principal** do
+report que desempata (`_fmt_opts_for(prefer=...)`). No corpo `tab` é **recusado**
+nomeando a prop: as paradas são do header, e ancorar no lugar errado calado é
+pior que não aceitar.
 
 **Régua e formas posicionadas.** A grade é **colunas no horizontal, linhas no vertical** (a coluna é o *pitch* da fonte vigente — `col_w = 25.4/cpp` — então `FONT` muda o alcance horizontal; a linha é `ROW_CELL`, 6mm, fixa). As factories de grade (`LINE`/`BOX`/`CIRCLE`, como `TABS`/`IND`/`POS`) são **variádicas**: declare os números, a lista interna é do motor.
 
@@ -437,7 +456,9 @@ LARGURA = 80                      # cols da grade
 
 Justificar é um **pedido com sanidade**, não uma garantia: o espaço só estica até `JUSTIFY_MAX` (o espaço pode no máximo dobrar) e, acima disso, a linha cai em `L`. Passando disso o olho lê "palavra␣␣␣␣␣palavra" e não texto justificado — medido a 60 cols a sobra é 213% do espaço, e bloco serrilhado fica melhor que buraco. O `multi_cell` do fpdf2 **documenta** `J: justify` mas não implementa (escreve cada linha no x dela: 102.5mm e 99.2mm numa coluna de 105.9mm), então a justificação é nossa, palavra a palavra.
 
-**`when` aceita path, expressão e `{campo: valores}`.** Path (`'observacao'`), expressão booleana (`'acrescimo or desconto'`, `'not x'`, com parênteses) e o mesmo formato que o Schema já usava: `{'ativo': True, 'tipo': [1, 2]}` — e com o dicionário como alvo, `{'status': FRASE}` quer dizer "só nos status que estão neste catálogo". Foi o que deixou o catálogo ser a única fonte de verdade do COMPRA: o `FRASE` diz o texto *e* quais status têm frase, sem um `if status not in (...)` em Python para divergir. `LF` ganhou props pelo mesmo motivo (o respiro de um bloco condicional precisa sumir com ele).
+**`when` aceita path, expressão (com comparação) e `{campo: valores}`.** Path (`'observacao'`), expressão booleana (`'acrescimo or desconto'`, `'not x'`, com parênteses) e o mesmo formato que o Schema já usava: `{'ativo': True, 'tipo': [1, 2]}` — e com o dicionário como alvo, `{'status': FRASE}` quer dizer "só nos status que estão neste catálogo". Foi o que deixou o catálogo ser a única fonte de verdade do COMPRA: o `FRASE` diz o texto *e* quais status têm frase, sem um `if status not in (...)` em Python para divergir. `LF` ganhou props pelo mesmo motivo (o respiro de um bloco condicional precisa sumir com ele).
+
+**Comparação: `>`, `>=`, `<`, `<=`, `==`, `!=`, `=` e `<>`** — `'status > 0'`, `'valor >= 100'`, `'status == 6'`, `'nome != "X"'`. Liga mais forte que `not` (igual ao Python: `not status > 0` é `not (status > 0)`), e mais fraca que `and`/`or`. O lado direito é literal (número, `True`/`False`/`None` ou string **entre aspas**) ou **outro path** (`'valor > minimo'`), que resolve pelo mesmo `dotted_get`. Campo **ausente** não ordena (devolve `false`) nem estoura: `None > 0` em Python é `TypeError`, e aqui a linha inteira sumiria com um erro que ninguém vê; em `==`/`!=` ausente segue a identidade, que é o que `x == None` quer dizer. Operador que não vira comparação (`'status >> 0'`, `'a >'`) **levanta** em vez de cair em `dotted_get` e virar `false` calado.
 
 **Expressão: `or`/`and`/`not` (e `|`/`&`/`!`), sempre inclusivos.** `or` e `|` são **sinônimos exatos** — mesmo regex, mesmo `any()`, resultado idêntico:
 
@@ -816,6 +837,12 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0013
+- **`TITLES([...])`: vários `TITLE` numa tacada, com fonte por título.** Como `TEXTS`/`FIELDS`: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`, e vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`) — a lógica do título saiu do header para um helper só, com os defaults chegando por argumento (header: `h.title_font_size`/`h.title_font_style`; corpo: as constantes), porque os dois caminhos têm a mesma cascata e a mesma conta de altura. `font_size`/`font_style` mudam a **fonte** sem mudar a **posição** — quem escreve `'A', ('B', {...})` continua vendo B como subtítulo, com respiro de subtítulo — e são validados no render (`> 0`, `''|B|I|BI`). COMPRA, Orçamento e Pedido ganharam o subtítulo `'Status: {status}'` condicional.
+- **O `text` do `TITLE` virou template de verdade, e o catálogo do field desambigua.** `'Status: {status}'` saía literalmente: o ramo do título só trocava `{id}`. Agora passa pelo mesmo avaliador do `TEXT`, e o rótulo do LIST vem do field — mas `_fmt_opts_for` exigia nome **único** no Entity merged, e `status` existe em Compra, Orçamento, Pedido e Transação: o `Status:` saía com o código. A entidade **principal** do report passou a ser o desempate (`prefer`), em vez de estreitar o Entity — que resolveria o título e quebraria `{Conta.telefone}`, que é de outra entidade.
+- **`when` com comparação:** `'status > 0'`, `>=`, `<`, `<=`, `==`, `!=`, `=`, `<>`, com o lado direito literal ou outro path. Liga mais forte que `not` e mais fraca que `and`/`or`. Campo ausente não ordena (devolve `false`) nem estoura, porque `None > 0` em Python é `TypeError` e aqui a linha inteira sumiria sem erro visível; em `==`/`!=` ausente segue a identidade. Operador malformado **levanta** em vez de virar `false` calado.
+- **Bug antigo: o parêntese do `when` não fazia nada.** O split de `or`/`and` ignorava profundidade, então `(a or b) and c` cortava no `or` do meio e tratava `(a` como um path — que nunca existe, então a expressão dava `false` sem reclamar, com o parêntese documentado como sintaxe desde sempre. `_split_topo` só divide no nível 0. Este bug apareceu porque a comparação **transformava** o silêncio em `ValueError`, o que seria pior.
 
 ### 1.26.10.08.0012
 - **`MEMO` tem `recuo`: afasta só a primeira linha, em cols.** `MEMO(campo, width, {'recuo': n})` é literalmente `spaces(n) + texto`: a 1ª linha quebra na medida `w - recuo` e as seguintes ficam como estavam, então um parágrafo recuado não é um bloco novo nem muda a centralização — `width` continua medindo o bloco inteiro e o `label` continua na borda dele. O recuo entra como **posição**, e não como espaços no texto, de propósito: se entrasse como texto o `J` esticaria os espaços do recuo junto e ele cresceria só na 1ª linha (medido: 10.6mm em vez de 7.06mm). Por isso o invariante testado não é "a 1ª linha acaba onde acabava" — o recuo muda o **conteúdo** dela e a justificação pode entrar ou não — e sim que a 1ª linha nunca sai do bloco: `(x + recuo) + (w - recuo) = x + w` (medido: a 1ª linha recuada termina em 163.02mm num bloco que vai até 175.61mm). `recuo >= width` é recusado na factory **e** no parse (mesma regra, `_memo_check`), e `recuo` não vira prop do field.

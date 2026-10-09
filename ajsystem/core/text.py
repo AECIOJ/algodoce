@@ -31,14 +31,47 @@ def dotted_get(obj, path):
     return cur
 
 
-# `when` com expressão: `or`/`and`/`not` sobre paths. Precedência NOT > AND > OR,
-# e as duas grafias — `or`/`and`/`not` e `|`/`&`/`!` — valem. Parser próprio em vez
-# de `eval`: o avaliador de `calc` (`do_report._calc_fn`) usa `eval` porque é
-# aritmética com namespace montada, e trazer isso para cá abriria execução de
-# código num módulo genérico que list/select também usam.
+# `when` com expressão: `or`/`and`/`not` sobre paths, mais comparação. Precedência
+# NOT > AND > OR, e as duas grafias — `or`/`and`/`not` e `|`/`&`/`!` — valem. Parser
+# próprio em vez de `eval`: o avaliador de `calc` (`do_report._calc_fn`) usa `eval`
+# porque é aritmética com namespace montada, e trazer isso para cá abriria execução
+# de código num módulo genérico que list/select também usam.
 _OR_RE = re.compile(r'\s+(?:or|\|\|?)\s+|\|\|?')
 _AND_RE = re.compile(r'\s+(?:and|&&)\s+|&')
 _NOT_RE = re.compile(r'^(?:not\s+|!)', re.I)
+# Comparação: `caminho OP valor`. As alternativas mais longas primeiro — sem isso
+# `>=` casaria `>` e sobraria `=` para ser lido como path. O lado direito é literal
+# (número ou string entre aspas) ou outro path, que resolve pelo mesmo `dotted_get`.
+_CMP_RE = re.compile(
+    r'^([\w.]+)\s*(>=|<=|==|!=|<>|<|>|=)\s*'
+    + r"""('[^']*'|"[^"]*"|-?\d+(?:\.\d+)?|True|False|None|[\w.]+)$""")
+# Sobrou operador que não virou comparação: `'status >> 0'`, `'a >'`, `'> 0'`.
+# Sem este erro, o resto caía em `dotted_get`, que devolve None para um path
+# inexistente — e o documento saía silenciosamente errado em vez de reclamar.
+_OP_LEFTOVER_RE = re.compile(r'[<>!=]=?|[<>]')
+
+_CMP_FUNCS = {
+    '>': lambda a, b: a > b, '>=': lambda a, b: a >= b,
+    '<': lambda a, b: a < b, '<=': lambda a, b: a <= b,
+    '=': lambda a, b: a == b, '==': lambda a, b: a == b,
+    '!=': lambda a, b: a != b, '<>': lambda a, b: a != b,
+}
+
+
+def _cmp_operand(tok, obj):
+    """Lado direito da comparação: literal, ou path se não for literal."""
+    if len(tok) >= 2 and tok[0] == tok[-1] and tok[0] in ('"', "'"):
+        return tok[1:-1]
+    if tok == 'True':
+        return True
+    if tok == 'False':
+        return False
+    if tok == 'None':
+        return None
+    try:
+        return int(tok) if tok.isdigit() else float(tok)
+    except ValueError:
+        return dotted_get(obj, tok)
 
 
 def _unparenthesize(expr):
@@ -51,31 +84,90 @@ def _unparenthesize(expr):
     return expr.strip()
 
 
+def _split_topo(expr, pattern):
+    """Divide no `pattern` só no nível de parêntese 0.
+
+    O `re.split` puro quebrava dentro do parêntese: `(a or b) and c` cortava no
+    `or` e tratava `(a` como um path — que não existe, então a expressão dava
+    `False` sem erro nenhum. O parêntese era documentado como sintaxe e não
+    fazia nada; aqui ele passa a valer de verdade.
+    """
+    out, buf, depth, i = [], [], 0, 0
+    for m in pattern.finditer(expr):
+        pedaco = expr[i:m.start()]
+        buf.append(pedaco)
+        depth += pedaco.count('(') - pedaco.count(')')
+        if depth == 0:                     # operador de verdade: separa
+            out.append(''.join(buf))
+            buf = []
+        else:                              # dentro de parêntese: é texto
+            buf.append(m.group(0))
+        i = m.end()
+    resto = expr[i:]
+    buf.append(resto)
+    depth += resto.count('(') - resto.count(')')
+    if depth:
+        raise ValueError(f"when: parêntese desbalanceado em {expr!r}")
+    out.append(''.join(buf))
+    return [p for p in out if p.strip()]
+
+
 def _truth(expr, obj):
-    """Avalia a expressão booleana de um `when` sobre os paths do objeto."""
+    """Avalia a expressão booleana de um `when` sobre os paths do objeto.
+
+    Precedência NOT > AND > OR > comparação (comparação liga mais forte que
+    NOT, como no Python: `not status > 0` é `not (status > 0)`).
+    """
     e = _unparenthesize(str(expr or ''))
     neg = _NOT_RE.match(e)
     if neg:
         return not _truth(e[neg.end():], obj)
-    if _OR_RE.search(e):
-        return any(_truth(p, obj) for p in _OR_RE.split(e) if p.strip())
-    if _AND_RE.search(e):
-        return all(_truth(p, obj) for p in _AND_RE.split(e) if p.strip())
+    # Só desce quando o operador era mesmo de topo. Se todos os `or`/`and`
+    # estavam dentro de parênteses, o split devolve a expressão inteira e
+    # reprocessá-la seria recursão infinita.
+    for _pat, _comb in ((_OR_RE, any), (_AND_RE, all)):
+        if _pat.search(e):
+            partes = _split_topo(e, _pat)
+            if len(partes) > 1:
+                return _comb(_truth(p, obj) for p in partes)
+    m = _CMP_RE.match(e)
+    if m:
+        esq, op, dir_ = m.group(1), m.group(2), m.group(3)
+        a, b = dotted_get(obj, esq), _cmp_operand(dir_, obj)
+        if a is None or b is None:
+            # Ausente não ordena: `None > 0` em Python é TypeError, e aqui a
+            # linha inteira sumiria com um erro que ninguém veria. Ausente é
+            # "não" para ordenação e segue a identidade para `==`/`!=` — que é o
+            # que `x == None` quer dizer.
+            if op in ('!=', '<>'):
+                return a is not b
+            if op in ('=', '=='):
+                return a is b
+            return False
+        try:
+            return bool(_CMP_FUNCS[op](a, b))
+        except TypeError:
+            raise ValueError(
+                f"when: comparação '{esq} {op} {dir_}' é entre tipos "
+                f"incomparáveis ({type(a).__name__} vs {type(b).__name__})")
+    if _OP_LEFTOVER_RE.search(e):
+        raise ValueError(f"when: comparação não reconhecida em {e!r}")
     v = dotted_get(obj, e)
     return bool(v) and v != ''
 
 
 def eval_when(obj, when):
     """`when` = path (pontilhado, truthy) **ou** expressão sobre paths
-    (`'a or b'`, `'a | b'`, `'not a'`, com parênteses) **ou** dict
-    `{campo: valores}`.
+    (`'a or b'`, `'a | b'`, `'not a'`, com parênteses e comparação
+    `'status > 0'`) **ou** dict `{campo: valores}`.
 
     O dict é o mesmo formato que o Schema já usava (`{'ativo': True, 'tipo':
     [1, 2]}`), e com dicionário como alvo `{'status': FRASE}` quer dizer "só nos
     status que estão neste catálogo" — foi o que deixou o CATÁLOGO ser a única
     fonte da verdade em vez de um `if status not in (...)` em Python. Na forma
     dict o alvo é COMPARAÇÃO (`True` casa com campo booleano), não truthiness;
-    para "algum destes" use a expressão (`'acrescimo or desconto'`).
+    para "algum destes" use a expressão (`'acrescimo or desconto'`), e para
+    "maior que" a comparação (`'status > 0'`), que liga mais forte que `not`.
     Ausente = sempre.
     """
     if when is None:

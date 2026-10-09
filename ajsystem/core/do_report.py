@@ -467,7 +467,7 @@ def _apply_entity(raw, entity):
         from ajsystem.defs.report import parse_report_item as _pri
         header = _expand_fields_list(header, entity, raw.get('label'), _pname, _pmodel)
         out['header'] = _resolve_fields(header)
-        _attach_text_opts(out.get('header'), entity, raw.get('label'))
+        _attach_text_opts(out.get('header'), entity, raw.get('label'), _pname)
 
     # body.table.columns + body.table.hierarchy
     body = out.get('body')
@@ -568,7 +568,7 @@ def _apply_entity(raw, entity):
             body['items'] = _expand_fields_list(body['items'], entity, raw.get('label'), _pname, _pmodel)
             body['items'] = _resolve_fields(body['items'])
             body['items'] = _attach_field_mask(body['items'], entity, raw.get('label'))
-        _attach_text_opts(body.get('items'), entity, raw.get('label'))
+        _attach_text_opts(body.get('items'), entity, raw.get('label'), _pname)
         # `before` e `after` do corpo resolvem igual a `items`/`table.after`.
         # Sem isso o item do preâmbulo chegava cru ao renderizador: um FIELD de
         # LIST saía com o código em vez do rótulo, e o catálogo declarado no
@@ -582,14 +582,14 @@ def _apply_entity(raw, entity):
                 body[_k] = _expand_fields_list(_v, entity, raw.get('label'), _pname, _pmodel)
                 body[_k] = _resolve_fields(body[_k])
                 body[_k] = _attach_field_mask(body[_k], entity, raw.get('label'))
-                _attach_text_opts(body[_k], entity, raw.get('label'))
+                _attach_text_opts(body[_k], entity, raw.get('label'), _pname)
         _tbl = body.get('table') or {}
         _tbl_after = _tbl.get('after')
         if isinstance(_tbl_after, list):
             _tbl['after'] = _expand_fields_list(_tbl_after, entity, raw.get('label'), _pname, _pmodel)
             _tbl['after'] = _resolve_fields(_tbl['after'])
             _tbl['after'] = _attach_field_mask(_tbl['after'], entity, raw.get('label'))
-            _attach_text_opts(_tbl['after'], entity, raw.get('label'))
+            _attach_text_opts(_tbl['after'], entity, raw.get('label'), _pname)
         out['body'] = body
 
     return out
@@ -654,8 +654,15 @@ def _infer_source(report, entity):
     return info
 
 
-def _fmt_opts_for(tpl, entity):
-    """Mapa {campo: options} p/ templates (LIST da Entity; pontilhado: base)."""
+def _fmt_opts_for(tpl, entity, prefer=None):
+    """Mapa {campo: options} p/ templates (LIST da Entity; pontilhado: base).
+
+    `prefer` é o NOME da entidade principal do report, e só entra como
+    desempate: `status` existe em Compra, Orçamento, Pedido e Previsão, então
+    num Entity merged o campo é ambíguo e o catálogo não vinha — o `{status}`
+    saía com o CÓDIGO. Estreitar o Entity para a principal resolveria o
+    título, mas quebraria `{Conta.telefone}`, que é de outra entidade.
+    """
     import re as _re
     out = {}
     for nm in set(_re.findall(r'{([\w.]+)(?::[^}]*)?}', tpl or '')):
@@ -666,7 +673,10 @@ def _fmt_opts_for(tpl, entity):
         else:
             hits = [m for m, cfg in (entity or {}).items()
                     if isinstance(cfg, dict) and base in cfg] if entity else []
-            mdl = hits[0] if len(hits) == 1 else None
+            if len(hits) == 1:
+                mdl = hits[0]
+            elif prefer and prefer in hits:
+                mdl = prefer
         if mdl:
             raw_cfg = entity[mdl] if mdl == base else entity[mdl].get(base, {})
             opts = raw_cfg.get('list') or raw_cfg.get('options')
@@ -873,18 +883,29 @@ def _attach_field_mask(items, entity, label):
     return out
 
 
-def _attach_text_opts(items, entity, label):
-    """Anexa _fmt_opts aos TEXT de uma lista de items (in-place, genérico)."""
+def _attach_text_opts(items, entity, label, prefer=None):
+    """Anexa _fmt_opts aos TEXT de uma lista de items (in-place, genérico).
+
+    `TITLE` entra pelo mesmo caminho: `'Status: {status}'` num subtítulo é um
+    template como outro qualquer, e sem o catálogo anexado o `{status}` sairia
+    com o CÓDIGO do LIST (6) em vez do rótulo — que é o mesmo bug que o
+    `MEMO('status')` já tinha, agora no cabeçalho.
+    """
     from ajsystem.defs.report import parse_report_item as _pri
     for it in items or []:
         try:
             _ri = _pri(it, label)
         except ValueError:
             continue
-        if _ri.kind == 'TEXT' and isinstance(_ri.config.get('text'), str):
-            _fo = _fmt_opts_for(_ri.config['text'], entity)
-            if _fo:
-                _ri.config.setdefault('_fmt_opts', _fo)
+        _cfg = _ri.config
+        _texts = [_cfg] if _ri.kind in ('TEXT', 'TITLE') else \
+                 [_pri(s, label).config for s in (_ri.config.get('items') or [])
+                  if _ri.kind == 'TITLES']
+        for _c in _texts:
+            if isinstance(_c.get('text'), str):
+                _fo = _fmt_opts_for(_c['text'], entity, prefer)
+                if _fo:
+                    _c.setdefault('_fmt_opts', _fo)
 
 
 def _cell_text_fn(tpl, entity):

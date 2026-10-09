@@ -13,7 +13,7 @@ from typing import Optional, Callable, Union
 # entrega SÓ os aliases de declaração; o resto (Report*, parse_*, contrato
 # DOM) é import explícito, como o motor já faz.
 __all__ = [
-    'LOGO', 'TITLE', 'TEXT', 'TABS', 'IND', 'FIELD', 'TEXTS', 'MEMO',
+    'LOGO', 'TITLE', 'TITLES', 'TEXT', 'TABS', 'IND', 'FIELD', 'TEXTS', 'MEMO',
     'CR', 'LF', 'FF', 'FIELDS', 'FONT', 'POS',
     'LINE', 'BOX', 'CIRCLE', 'IMAGE',
     'PCOL', 'PROW', 'LTB', 'RTB', 'NCOL',
@@ -110,7 +110,7 @@ def parse_header_field(item) -> ReportField:
 
 ITEM_KINDS = ('FIELD', 'TEXT', 'IMAGE', 'LINE', 'BOX', 'CIRCLE', 'LOGO', 'TITLE',
               'TABS', 'POS', 'FIELDS', 'FONT', 'IND', 'TEXTS', 'CR', 'LF', 'FF',
-              'MEMO')
+              'MEMO', 'TITLES')
 
 
 @dataclass
@@ -153,6 +153,44 @@ def TITLE(text=None, props=None):
     if not ((isinstance(text, str) and text) or callable(text)):
         raise ValueError("TITLE: texto deve ser str não vazia ou callable")
     return {'TITLE': {'text': text, **_check_props('TITLE', props or {}, '')}}
+
+
+def TITLES(*items):
+    """Factory pura: TITLES(['a', ('b', {props})]) = vários TITLE numa tacada.
+
+    Como `TEXTS`/`FIELDS`: item = 'texto' | ('texto', {props}) |
+    {'TITLE': {...}}. O texto pode ser callable (o COMPRA deriva o título do
+    documento), e quem não passar texto usa o rótulo do report.
+
+    A **cascata é posicional e o `when` vem ANTES dela**: um subtítulo pulado
+    não vira título grande. 1º desenhado = `title_font_size`/`title_font_style`,
+    os demais = `subtitle_font_size`. Declarar `font_size`/`font_style` na
+    entrada muda a fonte **sem** mudar a posição — quem escreve `'A', ('B', ...)`
+    continua vendo B como subtítulo, com respiro de subtítulo.
+    """
+    if len(items) == 1 and isinstance(items[0], (list, tuple)):
+        items = tuple(items[0])
+    out = []
+    for it in items:
+        if isinstance(it, str):
+            out.append({'TITLE': {'text': it}})
+        elif callable(it):
+            out.append({'TITLE': {'text': it}})
+        elif isinstance(it, tuple) and len(it) == 2 and isinstance(it[1], dict):
+            _t, _p = it
+            if not (isinstance(_t, str) and _t) and not callable(_t):
+                raise ValueError("TITLES: par deve ser (texto|callable, {props})")
+            out.append({'TITLE': {'text': _t,
+                                  **_check_props('TITLE', _p, '')}})
+        elif isinstance(it, dict) and set(it) == {'TITLE'} and isinstance(it['TITLE'], dict):
+            out.append({'TITLE': dict(it['TITLE'])})
+        else:
+            raise ValueError(
+                "TITLES: item deve ser 'texto', callable, ('texto', {props}) "
+                "ou {'TITLE': {...}}")
+    if not out:
+        raise ValueError("TITLES: exige ao menos um título")
+    return {'TITLES': out}
 
 
 def TEXT(text, props=None):
@@ -485,6 +523,25 @@ def parse_report_item(it, label='') -> ReportItem:
                 if k == 'TEXTS':
                     if not isinstance(v, list):
                         raise ValueError(f"report '{label}': 'TEXTS' exige lista")
+                    return ReportItem(kind=k, name=k, config={'items': list(v)})
+                if k == 'TITLES':
+                    # A lista entra inteira: quem consome é o renderizador, que
+                    # precisa da ORDEM para a cascata (1º = título, demais =
+                    # subtítulo). Validar entrada a entrada aqui é o que dá o
+                    # erro na declaração em vez de no meio do PDF.
+                    if not isinstance(v, list) or not v:
+                        raise ValueError(f"report '{label}': 'TITLES' exige lista não vazia")
+                    for _i, _sub in enumerate(v):
+                        if isinstance(_sub, dict) and set(_sub) == {'TITLE'} \
+                                and isinstance(_sub['TITLE'], dict):
+                            continue
+                        if not ((isinstance(_sub, str) and _sub) or callable(_sub)):
+                            raise ValueError(
+                                f"report '{label}': TITLES[{_i}] deve ser 'texto', "
+                                f"callable ou {{'TITLE': {{...}}}}")
+                    # `list(v)`, e não copia: o apply anexa `_fmt_opts` na
+                    # entrada pelo dict de origem, e uma cópia aqui faria o
+                    # catálogo sumir (o `{status}` sairia com o código).
                     return ReportItem(kind=k, name=k, config={'items': list(v)})
                 if k == 'MEMO':
                     if not isinstance(v, dict):

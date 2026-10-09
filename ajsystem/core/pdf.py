@@ -197,6 +197,69 @@ def _build_header(report: Report) -> '_ReportHeader':
     )
 
 
+def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0,
+                 title_size=None, title_style=None, sub_size=None, sub_style=''):
+    """Desenha 1 TITLE. Devolve quantos títulos já foram desenhados (o próprio
+    contador, quando o `when` pula).
+
+    Um só, para o header e para o corpo: os dois têm a mesma cascata (1º
+    título = grande/negrito, demais = subtítulo) e a mesma conta de `size * 0.6`
+    de altura. Os **defaults chegam por argumento** porque só o header tem
+    `h.title_font_size`/`h.title_font_style`; no corpo são as constantes.
+
+    `font_size`/`font_style` declarados mudam a fonte sem mudar a POSIÇÃO — o
+    1º continua sendo o 1º (respiro de título, estilo padrão), que é o que
+    separa "declarar o tamanho" de "virar subtítulo".
+    """
+    if cfg.get('when') is not None:
+        from ajsystem.core.text import eval_when as _ew
+        if not _ew(instance, cfg['when']):
+            return drawn          # pulado: não gasta a posição da cascata
+    first = drawn == 0
+    txt = cfg.get('text', cfg.get('label', label))
+    if 'tab' in cfg:
+        if any(k in cfg for k in ('location', 'pos')):
+            raise ValueError(f"report '{label}': tab não combina com location/pos")
+        _tab_x(pdf, cfg['tab'], label)
+    elif any(k in cfg for k in ('location', 'pos')):
+        _anchor(pdf, cfg, label)
+    else:
+        pdf.set_x(pdf.l_margin)  # bloco: volta à margem, Y flui
+    if callable(txt) and instance:
+        txt = txt(instance)
+    elif instance and isinstance(txt, str) and '{' in txt:
+        # Template de verdade: `{status}` sai como RÓTULO (o catálogo do field
+        # vem em `_fmt_opts`, anexado no apply) e não como o código. Antes só
+        # `{id}` era trocado, e qualquer outro campo saía cru no título.
+        from ajsystem.core.text import render as _trender, dotted_get as _tdg
+        txt = _trender(txt, lambda k: _tdg(instance, k) if instance is not None else None,
+                       cfg.get('_fmt_opts') or {})
+    if hasattr(pdf, '_title_substitutions'):
+        for k, v in pdf._title_substitutions.items():
+            txt = (txt or '').replace('{' + k + '}', str(v))
+    size = cfg.get('font_size', title_size if first else sub_size)
+    style = cfg.get('font_style', title_style if first else sub_style)
+    if isinstance(size, bool) or not isinstance(size, (int, float)) or size <= 0:
+        raise ValueError(f"report '{label}': font_size do TITLE deve ser > 0, veio {size!r}")
+    if style not in ('', 'B', 'I', 'BI'):
+        raise ValueError(f"report '{label}': font_style do TITLE: ''|B|I|BI, veio {style!r}")
+    # TITLE sempre centralizado por default; outro align só se declarado.
+    align = cfg.get('align', 'C')
+    pdf.set_font(FONT_FAMILY, style, size)
+    _w = cfg.get('width')
+    if _w is not None:
+        if isinstance(_w, bool) or not isinstance(_w, (int, float)) or _w <= 0:
+            raise ValueError(f"report '{label}': width deve ser cols > 0")
+        _w = _w * _col_unit(pdf)
+        pdf.set_font(FONT_FAMILY, style, size)
+    else:
+        _w = 0  # coluna corrente até o fim da linha
+    pdf.cell(_w, size * 0.6, txt or '', align=align, new_x="LMARGIN", new_y="NEXT")
+    _mark_content(pdf)
+    pdf.ln(GAP_TITLE if first else GAP_SUBTITLE)
+    return drawn + 1
+
+
 def _render_header_items(self, h):
     """Header em forma lista: LOGO/TITLE (cascata)/FIELD/TEXT/IMAGE/formas."""
     from ajsystem.defs.report import parse_report_item
@@ -245,44 +308,26 @@ def _render_header_items(self, h):
             self.set_xy(x + w, y + hh)
             _mark_content(self)
         elif item.kind == 'TITLE':
-            if cfg.get('when') is not None:
-                from ajsystem.core.text import eval_when as _ew
-                if not _ew(self._instance, cfg['when']):
-                    continue
-            titles += 1
-            first = titles == 1
-            txt = cfg.get('text', cfg.get('label', label))
-            if 'tab' in cfg:
-                if any(k in cfg for k in ('location', 'pos')):
-                    raise ValueError(f"report '{label}': tab não combina com location/pos")
-                _tab_x(self, cfg['tab'], label)
-            elif any(k in cfg for k in ('location', 'pos')):
-                _anchor(self, cfg, label)
-            else:
-                self.set_x(self.l_margin)  # bloco: volta à margem, Y flui
-            if callable(txt) and self._instance:
-                txt = txt(self._instance)
-            elif self._instance and isinstance(txt, str) and '{id}' in txt:
-                txt = txt.replace('{id}', str(getattr(self._instance, 'id', '')))
-            if hasattr(self, '_title_substitutions'):
-                for k, v in self._title_substitutions.items():
-                    txt = (txt or '').replace('{' + k + '}', str(v))
-            size = h.title_font_size if first else h.subtitle_font_size
-            style = h.title_font_style if first else ''
-            # TITLE sempre centralizado por default; outro align só se declarado.
-            align = cfg.get('align', 'C')
-            self.set_font(FONT_FAMILY, style, size)
-            _w = cfg.get('width')
-            if _w is not None:
-                if isinstance(_w, bool) or not isinstance(_w, (int, float)) or _w <= 0:
-                    raise ValueError(f"report '{label}': width deve ser cols > 0")
-                _w = _w * _col_unit(self)
-                self.set_font(FONT_FAMILY, style, size)
-            else:
-                _w = 0  # coluna corrente até o fim da linha
-            self.cell(_w, size * 0.6, txt or '', align=align, new_x="LMARGIN", new_y="NEXT")
-            _mark_content(self)
-            self.ln(GAP_TITLE if first else GAP_SUBTITLE)
+            titles = _draw_titulo(self, cfg, h, label, instance=self._instance,
+                                  drawn=titles,
+                                  title_size=h.title_font_size,
+                                  title_style=h.title_font_style,
+                                  sub_size=h.subtitle_font_size, sub_style='')
+        elif item.kind == 'TITLES':
+            # Vários TITLE numa tacada. Não delega ao `_render_items`: ali não
+            # existem a cascata nem os defaults do header, e o `text` de
+            # template também não. O `when` de cada entrada é decidido antes do
+            # contador, então subtítulo pulado não vira título grande.
+            for _sub in cfg.get('items') or []:
+                _k, _n, _cfg = _split_item(_sub, label)
+                if _k != 'TITLE':
+                    raise ValueError(
+                        f"report '{label}': TITLES aceita só TITLE, veio {_k!r}")
+                titles = _draw_titulo(self, _cfg, h, label, instance=self._instance,
+                                       drawn=titles,
+                                       title_size=h.title_font_size,
+                                       title_style=h.title_font_style,
+                                       sub_size=h.subtitle_font_size, sub_style='')
         elif item.kind == 'FIELD':
             if self._instance is None:
                 continue  # sem instância: omite (legado do cabeçalho)
@@ -1469,6 +1514,10 @@ def _split_item(it, label):
                     if not isinstance(v, list):
                         raise ValueError(f"report '{label}': 'TEXTS' exige lista")
                     return (k, k, {'items': list(v)})
+                if k == 'TITLES':
+                    if not isinstance(v, list):
+                        raise ValueError(f"report '{label}': 'TITLES' exige lista")
+                    return (k, k, {'items': list(v)})
                 if k in ('CR', 'LF', 'FF'):
                     return (k, k, v if isinstance(v, dict) else {})
                 if k == 'FIELDS':
@@ -1882,6 +1931,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
         pdf._gridfont = None
         pdf._ind = None
     col_w = _col_unit(pdf)
+    _titulos = 0   # cascata de TITLE desta lista (1º = título, demais = subtítulo)
     for it in items or []:
         kind, name, cfg = _split_item(it, label)
         if kind == 'FIELDS':
@@ -1893,7 +1943,8 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 pdf._gridfont = _resolve_font(cfg, label)
             col_w = _col_unit(pdf)
             continue
-        if kind in ('FIELD', 'TEXT', 'LINE', 'BOX', 'CIRCLE', 'MEMO', 'LF') and cfg.get('when') is not None:
+        if kind in ('FIELD', 'TEXT', 'LINE', 'BOX', 'CIRCLE', 'MEMO', 'LF', 'TITLE') \
+                and cfg.get('when') is not None:
             from ajsystem.core.text import eval_when as _ew
             if not _ew(instance, cfg['when']):
                 continue
@@ -1948,6 +1999,36 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                         continue
                 _place_item(pdf, 'TEXT', 'text', _tcfg, label, line=False)
                 _render_flow_item(pdf, 'TEXT', 'text', _tcfg, instance, label, col_w)
+            continue
+        if kind in ('TITLE', 'TITLES'):
+            # Título no corpo é o MESMO desenho do header (mesmo helper, mesma
+            # cascata), com os defaults vindos das constantes: no corpo não há
+            # `header.title_font_size` para consultar. A cascata é desta lista
+            # de items — cada `before`/`after` recomeça, como no header.
+            # `tab` não existe aqui (as paradas são do header), então é recusado
+            # nomeando a prop em vez de ancorar no lugar errado sem avisar.
+            if 'tab' in cfg:
+                raise ValueError(
+                    f"report '{label}': TITLE no corpo não aceita 'tab' — "
+                    f"use 'location'/'pos'")
+            if kind == 'TITLE':
+                _titulos = _draw_titulo(pdf, cfg, None, label, instance=instance,
+                                        drawn=_titulos, title_size=FONT_TITLE,
+                                        title_style='B', sub_size=FONT_SUBTITLE,
+                                        sub_style='')
+            else:
+                for _sub in cfg.get('items') or []:
+                    _k, _n, _cfg = _split_item(_sub, label)
+                    if _k != 'TITLE':
+                        raise ValueError(f"report '{label}': TITLES aceita só TITLE, veio {_k!r}")
+                    if 'tab' in _cfg:
+                        raise ValueError(
+                            f"report '{label}': TITLE no corpo não aceita 'tab' — "
+                            f"use 'location'/'pos'")
+                    _titulos = _draw_titulo(pdf, _cfg, None, label, instance=instance,
+                                            drawn=_titulos, title_size=FONT_TITLE,
+                                            title_style='B', sub_size=FONT_SUBTITLE,
+                                            sub_style='')
             continue
         if kind == 'MEMO':
             from ajsystem.core.text import render as _mrender, dotted_get as _mdg
