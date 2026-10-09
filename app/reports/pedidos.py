@@ -8,10 +8,6 @@ PEDIDO = {
         TABS(PCOL+5, PCOL+40),
         TITLES([
             ('Pedido Nº {id}', {'location': [PCOL, 0]}),
-            # Subtítulo sem `location`: ele FLUI logo abaixo do título, que
-            # é a mesma medida (o título ocupa a linha inteira). Sem âncora
-            # não há linha mágica, e `status > 0` esconde a linha no
-            # documento inicial, onde o subtítulo repetiria o título.
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
         FIELDS(('conta_id', {'tab': 1}),

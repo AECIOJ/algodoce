@@ -742,6 +742,7 @@ ROW_GROUP_TITLE = 8    # altura título de grupo
 ROW_GROUP_LINE = 7     # altura linha de grupo
 GAP_TITLE = 4          # após título
 GAP_SUBTITLE = 3       # após subtítulo
+GAP_LABEL = 1          # respiro rótulo→valor, em COLS (2.54mm em cpp 0)
 GAP_HEAD_FIELDS = 4    # após fields do cabeçalho
 GAP_TEXT_LINE = 2      # antes de cada linha avulsa
 GAP_TEXT_EMPTY = 8     # linha avulsa vazia
@@ -1318,7 +1319,8 @@ def _wrap_linhas(pdf, txt, avail, first=None):
     return linhas
 
 
-def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align, recuo=0.0):
+def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align, recuo=0.0,
+                prefixo=('', '', 0.0)):
     """Desenha as linhas do bloco em `x`, largura `w`, linha de altura `h`.
 
     `J` distribui a sobra entre os espaços — só quando a estica fica dentro de
@@ -1331,14 +1333,25 @@ def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align, recuo=0.0):
     (w - recuo) = x + w`. O recuo entra como posição, e não como espaços no
     texto de propósito: se entrasse como texto, o `J` esticaria os espaços do
     recuo junto e o recuo cresceria só na 1ª linha.
+
+    `prefixo` = `(texto, estilo, largura_mm)` do rótulo, que ocupa o COMEÇO da
+    1ª linha (é o `label` do `MEMO`). A largura vem pronta do caller porque é o
+    mesmo número que a quebra usou em `first` — recalcular aqui seria a chance
+    de a 1ª linha caber na conta e não no desenho. A borda direita da 1ª linha
+    continua em `x + w`: ela perde o prefixo da medida E ganha o prefixo na
+    posição. `C`/`R` alinham o CONJUNTO (rótulo + texto), senão o texto
+    centralizado empurraria para fora do rótulo.
     """
     espaco = pdf.get_string_width(' ')
+    _ptxt, _pstyle, _pw = prefixo if prefixo else ('', '', 0.0)
     n_linhas = len(linhas)
     for i, ln in enumerate(linhas):
         _check_page_break(pdf, h)
         pdf.set_font(font, style, size)
-        lx = x + recuo if (i == 0 and recuo) else x
-        lw_m = w - recuo if (i == 0 and recuo) else w
+        _rec = recuo if i == 0 else 0.0
+        pref_w = _pw if (i == 0 and _ptxt) else 0.0
+        lx = x + _rec
+        lw_m = w - _rec - pref_w
         lw = pdf.get_string_width(ln) + 2
         extra = 0.0
         if align == 'J' and i < n_linhas - 1 and ' ' in ln:
@@ -1349,11 +1362,18 @@ def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align, recuo=0.0):
                 if cand <= JUSTIFY_MAX * espaco:
                     extra = cand
         if align == 'C':
-            x_linha = lx + (lw_m - lw) / 2
+            x_linha = lx + (w - _rec - (pref_w + lw)) / 2
         elif align == 'R':
-            x_linha = lx + (lw_m - lw)
+            x_linha = lx + (w - _rec - (pref_w + lw))
         else:
             x_linha = lx
+        if i == 0 and _ptxt:
+            # o rótulo sai na fonte DELE; o texto começa depois dele
+            pdf.set_font(font, _pstyle, size)
+            pdf.set_x(max(x_linha, 0))
+            pdf.cell(pref_w, h, _ptxt, new_x='END', new_y='TOP')
+            pdf.set_font(font, style, size)
+            x_linha = max(x_linha, 0) + pref_w
         if extra:
             # palavra a palavra: cada célula leva a largura da palavra mais o
             # espaço (esticado) que vem depois dela.
@@ -1851,6 +1871,12 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         _ff, _fs, _fst = _font_default(pdf)
         _ff = _fam or _ff
         pdf.set_font(_ff, "B", _fs)
+        # `+ 2` aqui NÃO é respiro desenhado: o fpdf posiciona a próxima célula
+        # em `new_x="END"`, que é a borda do TEXTO (o respiro real é o
+        # `c_margin` do fpdf). Este `2` é largura de CAIXA, e só entra na conta
+        # de estouro logo abaixo. Por isso não vira `GAP_LABEL`: o respiro em
+        # cols vive no `MEMO`, onde o prefixo é desenhado com a largura que a
+        # quebra usou.
         lw = (pdf.get_string_width(lbl + ': ') + 2) if lbl else 0
         _apply_font(pdf, _ff, _fs, _fst)
         vw = pdf.get_string_width(txt or '') + 2
@@ -1920,6 +1946,24 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
             _mark_content(pdf)
 
 
+def _respiro(pdf, cfg, prop, label=''):
+    """`rows_before`/`rows_after`: n LINHAS de respiro, e o cursor volta para a
+    1ª coluna da zona.
+
+    Função única, chamada nos dois lados do item. Antes o bloco ficava no FIM do
+    laço de `_render_items`, e todo item que dava `continue` (MEMO, TITLE, LF...)
+    simplesmente nunca chegava nele — `rows_before` no `MEMO` era lido e
+    ignorado calado, e o autor tinha de escrever um `LF(1, {'when': ...})` na mão
+    para respirar antes do bloco. Agora a regra é uma só, e vale para todo item.
+    """
+    n = cfg.get(prop, 0) or 0
+    if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
+        raise ValueError(f"report '{label}': {prop} deve ser número >= 0")
+    if n:
+        pdf.ln(n * ROW_CELL)
+        pdf.set_x(_flow_zone(pdf)[0])
+
+
 def _render_items(pdf, items, instance, report, reset_tabs=True):
     """Itens inline em ordem, antes da tabela. rows_before/after em linhas.
 
@@ -1936,28 +1980,24 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
         pdf._ind = None
     col_w = _col_unit(pdf)
     _titulos = 0   # cascata de TITLE desta lista (1º = título, demais = subtítulo)
-    for it in items or []:
-        kind, name, cfg = _split_item(it, label)
-        if kind == 'FIELDS':
-            raise ValueError(f"report '{label}': FIELDS deve ser expandido no apply (do_report)")
+
+    def _um_item(kind, name, cfg, col_w, drawn):
+        """Desenha 1 item. Devolve `(col_w, drawn)`: o `FONT` muda a
+        coluna da fonte e o `TITLE`/`TITLES` o contador da cascata — os
+        dois atravessam o item, então voltam em vez de sumir.
+        """
         if kind == 'FONT':
             if not cfg.get('font') and cfg.get('cpp') is None:
                 pdf._gridfont = None  # FONT() nu = restaura o default
             else:
                 pdf._gridfont = _resolve_font(cfg, label)
-            col_w = _col_unit(pdf)
-            continue
-        if kind in ('FIELD', 'TEXT', 'LINE', 'BOX', 'CIRCLE', 'MEMO', 'LF', 'TITLE') \
-                and cfg.get('when') is not None:
-            from ajsystem.core.text import eval_when as _ew
-            if not _ew(instance, cfg['when']):
-                continue
+            return _col_unit(pdf), drawn
         if kind == 'TABS':
             _stops = [_eval_tab_value(pdf, _s, label) for _s in (cfg.get('values') or [])]
             if sorted(_stops) != list(_stops):
                 raise ValueError(f"report '{label}': TABS deve vir em ordem crescente")
             pdf._tabs = list(_stops)
-            continue
+            return col_w, drawn
         if kind == 'CALL':
             try:
                 _txt = cfg['fn'](instance) if instance is not None else ''
@@ -1967,14 +2007,14 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
                 pdf.cell(0, ROW_CELL, _txt, new_x="LMARGIN", new_y="NEXT")
                 _mark_content(pdf)
-            continue
+            return col_w, drawn
         if kind == 'POS':
             _c, _r = _resolve_tokens(pdf, cfg.get('values'), label)
             for _v in (_c, _r):
                 if isinstance(_v, bool) or not isinstance(_v, (int, float)):
                     raise ValueError(f"report '{label}': POS exige [col, lin]")
             pdf.set_xy(pdf.l_margin + _c * col_w, pdf.t_margin + _r * ROW_CELL)
-            continue
+            return col_w, drawn
         if kind == 'TEXTS':
             for _sub in cfg.get('items', []):
                 if isinstance(_sub, str):
@@ -2003,7 +2043,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                         continue
                 _place_item(pdf, 'TEXT', 'text', _tcfg, label, line=False)
                 _render_flow_item(pdf, 'TEXT', 'text', _tcfg, instance, label, col_w)
-            continue
+            return col_w, drawn
         if kind in ('TITLE', 'TITLES'):
             # Título no corpo é o MESMO desenho do header (mesmo helper, mesma
             # cascata), com os defaults vindos das constantes: no corpo não há
@@ -2016,8 +2056,8 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                     f"report '{label}': TITLE no corpo não aceita 'tab' — "
                     f"use 'location'/'pos'")
             if kind == 'TITLE':
-                _titulos = _draw_titulo(pdf, cfg, None, label, instance=instance,
-                                        drawn=_titulos, title_size=FONT_TITLE,
+                drawn = _draw_titulo(pdf, cfg, None, label, instance=instance,
+                                        drawn=drawn, title_size=FONT_TITLE,
                                         title_style='B', sub_size=FONT_SUBTITLE,
                                         sub_style='')
             else:
@@ -2029,11 +2069,11 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                         raise ValueError(
                             f"report '{label}': TITLE no corpo não aceita 'tab' — "
                             f"use 'location'/'pos'")
-                    _titulos = _draw_titulo(pdf, _cfg, None, label, instance=instance,
-                                            drawn=_titulos, title_size=FONT_TITLE,
+                    drawn = _draw_titulo(pdf, _cfg, None, label, instance=instance,
+                                            drawn=drawn, title_size=FONT_TITLE,
                                             title_style='B', sub_size=FONT_SUBTITLE,
                                             sub_style='')
-            continue
+            return col_w, drawn
         if kind == 'MEMO':
             from ajsystem.core.text import render as _mrender, dotted_get as _mdg
             _campo = cfg.get('field')
@@ -2074,41 +2114,57 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             # recuo. O parse já recusa `recuo >= width`, então aqui dá p/ usá-lo.
             _recuo = cfg.get('recuo', 0) * _col_unit(pdf)
             _lbl = cfg.get('label') or ''
+            # Rótulo = PREFIXO da 1ª linha (era uma linha própria, e o `MEMO`
+            # era o único item que empurrava o texto para baixo — o `FIELD` já
+            # era inline). A 1ª linha quebra na medida que sobra DEPOIS do
+            # rótulo, então o mesmo número (`_lw`) vai para o `first` do wrap e
+            # para o desenho: recalcular em cada lado é a chance de a linha caber
+            # na conta e não no papel.
+            _lw = 0.0
             if _lbl:
                 pdf.set_font(_ff, 'B', _size)
+                _lw = pdf.get_string_width(_lbl) + GAP_LABEL * _col_unit(pdf)
+            if _txt and _lw and _w - _recuo - _lw <= 0:
+                raise ValueError(
+                    f"report '{label}': MEMO sem medida na 1ª linha — "
+                    f"recuo {_recuo:.1f}mm + rótulo {_lw:.1f}mm >= width {_w:.1f}mm")
+            if _lbl and not _txt:
+                # sem texto não há linha para apoiar: o rótulo fica sozinho, como
+                # antes — a linha dele é a largura do rótulo mais o respiro.
+                pdf.set_font(_ff, 'B', _size)
                 pdf.set_x(_bx)
-                pdf.cell(pdf.get_string_width(_lbl) + 2, ROW_CELL, _lbl,
-                         new_x="END", new_y="NEXT")
+                pdf.cell(_lw, ROW_CELL, _lbl, new_x="END", new_y="NEXT")
             # A fonte ANTES de medir: `_wrap_linhas` decide onde quebrar pelo
             # `get_string_width`, e medir na fonte anterior produz linhas mais
             # largas que o bloco (o bloco saía com 154mm num espaço de 141mm).
             pdf.set_font(_ff, _style, _size)
-            _linhas = _wrap_linhas(pdf, _txt, _w, first=_w - _recuo) if _txt else []
+            _linhas = _wrap_linhas(pdf, _txt, _w, first=_w - _recuo - _lw) if _txt else []
             if _linhas:
                 _draw_bloco(pdf, _linhas, _bx, _w, ROW_CELL, _ff, _size, _style,
-                            cfg.get('align', MEMO_ALIGN), _recuo)
+                            cfg.get('align', MEMO_ALIGN), _recuo,
+                            prefixo=(_lbl, 'B', _lw))
                 pdf.set_x(_flow_zone(pdf)[0])
-            continue
+            return col_w, drawn
         if kind == 'CR':
             pdf.set_x(_flow_zone(pdf)[0])  # volta à 1ª coluna, mesma linha
-            continue
+            return col_w, drawn
         if kind == 'LF':
             _n = cfg.get('lines', 1)
             if isinstance(_n, bool) or not isinstance(_n, (int, float)) or _n < 1:
                 raise ValueError(f"report '{label}': LF exige lines >= 1")
             pdf.ln(_n * ROW_CELL)
             pdf.set_x(_flow_zone(pdf)[0])
-            continue
+            return col_w, drawn
         if kind == 'FF':
             if getattr(pdf, '_in_header', False):
                 raise ValueError(f"report '{label}': FF só no corpo (header repete por página)")
             pdf.add_page()
-            continue
+            return col_w, drawn
         if kind == 'IND':
             _vals = cfg.get('values') or []
             if not _vals:
                 pdf._ind = None  # IND() nu = restaura (margens+área útil)
-                continue
+                return col_w, drawn
             if len(list(_vals)) != 2:
                 raise ValueError(f"report '{label}': IND exige [l, r]")
             _l, _r = _resolve_tokens(pdf, list(_vals), label)
@@ -2119,7 +2175,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             if not (_l < _r) or _r > _ncol + 0.01:
                 raise ValueError(f"report '{label}': IND [{_l}, {_r}] fora da área (ncol={_ncol:.1f})")
             pdf._ind = [_l, _r]
-            continue
+            return col_w, drawn
         rb, ra = int(cfg.get('rows_before', 0) or 0), int(cfg.get('rows_after', 0) or 0)
         if rb:
             pdf.ln(rb * ROW_CELL)
@@ -2161,9 +2217,19 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 # zona, para o próximo item não colidir com ela.
                 pdf.ln(ROW_CELL)
                 pdf.set_x(_flow_zone(pdf)[0])
-        if ra:
-            pdf.ln(ra * ROW_CELL)
-            pdf.set_x(_flow_zone(pdf)[0])
+        return col_w, drawn
+    for it in items or []:
+        kind, name, cfg = _split_item(it, label)
+        if kind == 'FIELDS':
+            raise ValueError(f"report '{label}': FIELDS deve ser expandido no apply (do_report)")
+        if kind in ('FIELD', 'TEXT', 'LINE', 'BOX', 'CIRCLE', 'MEMO', 'LF', 'TITLE') \
+                and cfg.get('when') is not None:
+            from ajsystem.core.text import eval_when as _ew
+            if not _ew(instance, cfg['when']):
+                continue
+        _respiro(pdf, cfg, 'rows_before', label)
+        col_w, _titulos = _um_item(kind, name, cfg, col_w, _titulos)
+        _respiro(pdf, cfg, 'rows_after', label)
 
 
 def _margin_mm(v, label):

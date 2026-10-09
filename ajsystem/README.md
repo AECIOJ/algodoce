@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0016 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0017 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0016`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0017`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -384,7 +384,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `PROW`/`PCOL` | constantes (`defs/report.py`) | posição corrente em grade, em `pos`/`location`/`TABS` (só literais; `PCOL±N` só em `TABS`) |
 | `LTB`/`RTB`/`NCOL` | constantes (bordas da última tabela; área útil se nenhuma) | `IND([LTB, RTB])`; `NCOL` = cols da área útil |
 | `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
-| `MEMO(campo, width, props?)` | **um FIELD com medida**: quebra por palavra numa `width` e **centraliza na área livre** | `campo` na gramática de field (`'x'`, `('x', {...})`, `{'x': {...}}`); com `{` vira template. `align` L/C/R/**J (default)**; `options` = override de catálogo |
+| `MEMO(campo, width, props?)` | **um FIELD com medida**: quebra por palavra numa `width` e **centraliza na área livre** | `campo` na gramática de field (`'x'`, `('x', {...})`, `{'x': {...}}`); com `{` vira template. `align` L/C/R/**J (default)**; `options` = override de catálogo; `label` = **prefixo da 1ª linha** (ver abaixo); `recuo` afasta só a 1ª linha |
 | `LINE/BOX/CIRCLE(*args)` | grid em números: `LINE(c, r, +cols, +rows[, 'queda'])`; uma lista solta também vale | ver **Régua e formas posicionadas** abaixo |
 | `IMAGE(campo, props?)` | `{'IMAGE': {'field': campo, ...}}` | `IMAGE('foto', {'location': [...]})` |
 | `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
@@ -395,7 +395,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | prop | FIELD | TEXT | TITLE | MEMO | IMAGE | LINE/BOX/CIRCLE | LF | FONT |
 |---|---|---|---|---|---|---|---|---|
 | `text` | template | obrigatório | sim | ou `field` | — | — | — | — |
-| `label` | sim | — | rótulo alternativo | sim | — | — | — | — |
+| `label` | sim | — | rótulo alternativo | **prefixo da 1ª linha** | — | — | — | — |
 | `align` | `L` | `L` | **`C`** | **`J`** | — | — | — | — |
 | `width` (cols) | sim | sim | sim | **obrigatório** | — | `LINE(w)` | — | — |
 | `wrap` | sim | sim | ignora | ignora | — | — | — | — |
@@ -407,7 +407,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `font` / `cpp` | sim | sim | ignora | ignora | — | — | — | sim |
 | `location` / `pos` | sim | sim | sim | — | sim | sim | — | — |
 | `tab` | sim | sim | **só no header** | — | — | — | — | — |
-| `rows_before` / `rows_after` | sim | sim | **ignora** | **ignora** | sim | sim | — | — |
+| `rows_before` / `rows_after` | sim | sim | sim | sim | sim | sim | sim | sim |
 | `field` | — | — | — | sim | sim | — | — | — |
 | `path` | — | — | — | — | sim | — | — | — |
 | `lines` | — | — | — | — | — | — | 1 | — |
@@ -419,9 +419,17 @@ Regras que a tabela não cabe:
 - **`font`/`cpp` valem para `FIELD`/`TEXT` sem tamanho próprio** e recusam no resto — na tabela (`table.extend`) levantam erro, e no `TITLE`/`MEMO` são ignorados porque a fonte vem da cascata.
 - **`tab` não vale no corpo do `TITLE`**: as paradas são do header, e ancorar no lugar errado calado é pior que recusar.
 - **`location` e `pos` são a mesma prop** (apelido); `tab` não combina com nenhuma das duas.
-- **`rows_before`/`rows_after` contam LINHAS** (`ROW_CELL` = 6mm), enquanto `width` conta **colunas** da grade da fonte vigente. Vale para FIELD, TEXT, IMAGE e formas — **e é ignorado calado em `MEMO` e `TITLE`**, que dão `continue` antes do bloco que aplica o respiro (medido: `MEMO(..., {'rows_before': 2})` continua em y=10, enquanto `TEXT('x', {'rows_before': 2})` vai a y=22). Para dar respiro a um `MEMO`, o item é `LF(n, {'when': ...})` logo antes.
+- **`rows_before`/`rows_after` contam LINHAS** (`ROW_CELL` = 6mm), enquanto `width` conta **colunas** da grade da fonte vigente. Valem para **todo item** — inclusive `MEMO` e `TITLE`, que era onde a prop mais fazia falta e mais surprise entregava: o bloco do respiro ficava no fim do laço de `_render_items`, e todo item que dava `continue` nunca chegava nele, então `MEMO(..., {'rows_before': 2})` era lido e **ignorado calado** (medido: y=10, enquanto `TEXT('x', {'rows_before': 2})` ia a y=22). A regra agora é uma só, num único `_respiro`, chamado dos dois lados do item — e por isso o COMPRA respira com `MEMO(..., {'rows_before': 1})` em vez de um `LF(1, {'when': ...})` escrito à mão com o mesmo `when` repetido. Em `CR`/`LF`/`FF`/`IND`/`TABS`/`POS`/`FONT` o respiro é inútil (o `LF` já **é** o respiro), mas não quebra.
 - **`wrap` é binária** por escolha: `rows` responderia "quantas linhas" e arrastaria altura mínima junto. `MEMO` quebra por `width` sempre, então `wrap` não diz nada lá.
 - **`options` só troca o catálogo**, nunca o valor.
+
+**Rótulo do `MEMO` é prefixo da 1ª linha.** `MEMO('observacao', 84, {'label': 'Obs.:'})` imprime `Obs.: produto esgotado` na mesma linha — o rótulo ocupa o começo da 1ª linha e o texto vem depois dele, quebrando na medida que sobra; as linhas seguintes voltam para a borda do bloco. Era uma linha própria acima do parágrafo, e o `MEMO` era o único item que empurrava o texto para baixo (`FIELD` já era inline). Três decisões:
+
+- **O rótulo é verbatim**: o motor escreve o que o autor declarar, com ou sem dois-pontos. Ele é medido **na fonte dele** (negrito), que é a que sai.
+- **O respiro depois do rótulo é `GAP_LABEL`, em cols** (1 col = 1,7653mm na fonte de referência, `get_string_width('0')`) — e não um `2` fixo em mm, porque assim ele acompanha o pitch de `FONT`/`cpp` como `width` e `recuo`.
+- **Com `recuo`, o rótulo nasce dentro dele** (`x + recuo`), porque `recuo` significa "afasta a primeira linha" e o rótulo é parte dela. Se `recuo + rótulo` não deixar medida para a 1ª linha, o render **levanta** nomeando as duas em vez de degenerar em uma palavra por linha.
+
+Com `align: 'J'` a 1ª linha justifica no que sobra **depois** do rótulo, então a borda direita continua em `x + w` e o rótulo não é esticado; `C`/`R` alinham o conjunto rótulo+texto. Sem texto, o rótulo fica sozinho na linha própria.
 
 **Título e subtítulo (`TITLES`).** `options` no `TITLE` troca o catálogo que resolve o `{campo}` do `text` — é o que permite imprimir o **nome** de um documento ("Cancelamento de Pedido") onde o field traria o **rótulo** do estado ("Cancelado"), sem callable. `TITLE` já era o 1º item de uma lista de
 títulos: o 1º desenhado sai com `title_font_size`/`title_font_style` do header e
@@ -1005,6 +1013,11 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0017
+- **O `label` do `MEMO` virou prefixo da 1ª linha.** `MEMO('observacao', 84, {'label': 'Obs.:'})` sai como `Obs.: produto esgotado` na mesma linha, com as seguintes voltando para a borda do bloco. Era uma linha própria acima do parágrafo — e o `MEMO` era o único item que empurrava o texto para baixo, já que o `FIELD` sempre foi inline. É **mudança de comportamento** de prop documentada. O rótulo é verbatim (com ou sem dois-pontos), medido na fonte que sai, e o `J` justifica no que sobra depois dele: a borda direita da 1ª linha continua em `x + w` e o rótulo não estica. Com `recuo` ele nasce dentro do recuo, porque `recuo` é "afasta a primeira linha" e o rótulo faz parte dela; e `recuo + rótulo` sem medida levanta nomeando as duas, em vez de virar uma palavra por linha.
+- **`rows_before`/`rows_after` valem para todo item.** O bloco do respiro ficava no FIM do laço de `_render_items`, e todo item que dava `continue` nunca chegava nele — então `MEMO(..., {'rows_before': 2})` era lido e **ignorado calado** (medido: y=10, enquanto o mesmo `rows_before` num `TEXT` ia a y=22). A regra agora é uma só, num `_respiro` só, chamado dos dois lados do item. O COMPRA usava um `LF(1, {'when': 'observacao'})` na mão para contornar isso, com o mesmo `when` repetido; agora é `MEMO(..., {'rows_before': 1, 'when': 'observacao'})` — geometria idêntica, um item a menos.
+- **`GAP_LABEL` entra como respiro rótulo→valor, em cols** (1 col = 1,7653mm na fonte de referência, que é `get_string_width('0')`, não `25.4/cpp`). Só o `MEMO` usa, porque só lá o gap é **desenhado**: no `FIELD` o `+ 2` é largura de CAIXA, e o fpdf posiciona a próxima célula em `new_x="END"`, que é a borda do **texto** — o respiro real ali é o `c_margin` da biblioteca. Converter aquele `+ 2` para cols não mudaria nada no papel, só a conta de estouro, e seria afirmar uma coisa falsa.
 
 ### 1.26.10.08.0016
 - **Um avaliador para o framework inteiro: `ajsystem/core/expr.py`.** `avaliar()` devolve o valor, `condicao()` a verdade, e os dois servem `when`, ternário, `calc` da Entity e `calc_value` da list — inclusive no app. Uma gramática só: paths, literais, aritmética, comparação, booleano e função da allowlist, com a precedência do Python. Os dois `eval` do Python (`do_report._calc_fn` e `utils.calc_value`) saíram: o mesmo conceito estava em duas linguagens dentro do motor, e um `eval` a menos num módulo que roda em request. Antes de trocar, o inventário do `calc` do app (`valor + acrescimo - desconto`, `qtd * preco`, `previsto - realizado + variacao`, `divide(valor, qtd_minima)`) foi medido no avaliador novo.
