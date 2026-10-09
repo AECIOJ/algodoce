@@ -1,8 +1,5 @@
 from ajsystem.defs.report import *
 
-DOCUMENTO = {0: 'Orçamento', 1: 'Pedido',
-             6: 'Cancelamento de Pedido', 9: 'Devolução de Pedido'}
-
 PREAMBULO = {
     0: 'Solicitamos o orçamento referente aos seguintes itens:',
     1: 'Conforme negociação anterior, solicitamos o fornecimento dos seguintes itens:',
@@ -19,18 +16,23 @@ COMPRA = {
     'header': [
         LOGO('L', 3),
         TABS(PCOL+5, PCOL+40),
+        POS(PCOL, 0),
+        # O título é o NOME do documento e o subtítulo é o ESTADO. Com o
+        # subtítulo abaixo, o título não precisa mais carregar cada estado:
+        # 'Orçamento' e 'Pedido' dizem o que 0 e 1 já dizem, e de 2 em diante
+        # o estado é informação nova. Por isso os dois cortes são complementares
+        # (`== 0` / `== 1` contra `> 1`).
+        #
+        # Só um título desenha em cada documento, e como o `when` é avaliado
+        # ANTES do contador da cascata, ele sempre sai como título (16pt).
+        # `POS` uma vez no lugar de `location` em cada título: é o mesmo item
+        # que este report usava antes, e o título continua na coluna PCOL,
+        # linha 0 — que só diverge se o LOGO passar a desenhar.
         TITLES([
-            # O título usa o catálogo do DOCUMENTO (o NOME impresso: "Cancelamento
-            # de Pedido") e o subtítulo o do field (o rótulo do ESTADO:
-            # "Cancelado"). São dois vocabulários de propósito diferente, e o
-            # `options` é o que troca um pelo outro — antes isso era um callable
-            # em Python, que escondia a troca dentro dele.
-            ('{status} #{id}', {'options': DOCUMENTO, 'location': [PCOL, 0]}),
-            # Subtítulo sem `location`: ele FLUI logo abaixo do título, que
-            # é a mesma medida (o título ocupa a linha inteira). Sem âncora
-            # não há linha mágica, e `status > 0` esconde a linha no
-            # documento inicial, onde o subtítulo repetiria o título.
-            ('Status: {status}', {'when': 'status > 0'}),
+            ('Orçamento #{id}', {'when': 'status == 0'}),
+            ('Pedido #{id}', {'when': 'status == 1'}),
+            ('COMPRA #{id}', {'when': 'status != 0 and status != 1'}),
+            ('Status: {status}', {'when': 'status > 1'}),
         ]),
         FIELDS(('fornecedor_id', {'tab': 1}),
                ('data', {'tab': 2})),

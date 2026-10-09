@@ -663,12 +663,12 @@ def _fmt_opts_for(tpl, entity, prefer=None, override=None):
     saía com o CÓDIGO. Estreitar o Entity para a principal resolveria o
     título, mas quebraria `{Conta.telefone}`, que é de outra entidade.
 
-    `override` é o catálogo do próprio item (`options`), e vence a Entity: é o
-    que permite o COMPRA imprimir o NOME do documento (`DOCUMENTO`: "Cancelamento
-    de Pedido") onde o campo traria o rótulo do ESTADO (`STATUS_COMPRA`:
-    "Cancelado"). Mesmo caminho do `MEMO`, que já trocava o catálogo do field
-    por `options` — sem ele o título tinha de ser um callable em Python, e a
-    troca de vocabulário ficava escondida dentro dele.
+`override` é o catálogo do próprio item (`options`), e vence a Entity. Serve
+    quando o template precisa de OUTRO vocabulário que não o do field: o nome
+    impresso do documento ("Cancelamento de Pedido") contra o rótulo do estado
+    do mesmo campo ("Cancelado") são catálogos distintos, e é o `options` que
+    troca um pelo outro — mesmo caminho que o `MEMO` já usava. Sem ele a troca
+    tinha de sair num callable em Python, que a escondia.
     """
     import re as _re
     out = {}
