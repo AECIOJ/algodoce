@@ -376,7 +376,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `'nome'` / `{'total': {...}}` / `FIELD(nome, props?)` | `FIELD` | `'cliente_nome'`, `FIELD('data_pedido', {'tab': 2})` |
 | `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha); `font_size`/`font_style` por título; `options` = catálogo próprio (vence o do field) |
 | `TITLES([...])` | `{'TITLES': [{'TITLE': {...}}, ...]}` | Vários `TITLE` numa tacada: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`. Vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`). A cascata é posicional e o `when` vem **antes** dela |
-| `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'before': 1})` |
+| `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'rows_before': 1})` — a chave é **`rows_before`/`rows_after`**, em **linhas**. `before`/`after` não são lidas (medido: `{'before': 1}` sai em y=10, igual a não declarar; `rows_before: 1` vai a y=16) |
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('C', 4)` (âncoras `C/L/R`; ausente não renderiza) |
 | `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(PCOL, PCOL+20)` (crescente; com `tab:N` no item) |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
@@ -390,7 +390,40 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `FIELDS(*itens)` | expande itens de campo; cada um resolve como `columns`/`fields` (list/form) | `FIELDS('cliente_nome', ('data_pedido', {'tab': 1}))` — item `'campo'` ou `('campo', {props})`; `'Entidade'` expande; `'Entidade.campo'` relacionado |
 | `TEXTS(*itens)` / `CR()` / `LF(n?)` / `FF()` | bloco de textos; retorno; avanço; quebra de página (corpo) | `CR` = volta à 1ª coluna; `LF()` = 1 linha; `FF` no header = erro |
 
-**Título e subtítulo (`TITLES`).** `options` no `TITLE` troca o catálogo que resolve o `{campo}` do `text` — é o que permite ao COMPRA imprimir o **nome** do documento (`DOCUMENTO`) onde o campo traria o **rótulo** do estado (`STATUS_COMPRA`), sem callable. `TITLE` já era o 1º item de uma lista de
+**Matriz de props por item.** O que cada kind aceita, o que ele **recusa** e o que **ignora calado** — as três coisas importam, porque prop ignorada é a que dói: o autor acredita que valiu e o documento sai diferente do que ele pediu.
+
+| prop | FIELD | TEXT | TITLE | MEMO | IMAGE | LINE/BOX/CIRCLE | LF | FONT |
+|---|---|---|---|---|---|---|---|---|
+| `text` | template | obrigatório | sim | ou `field` | — | — | — | — |
+| `label` | sim | — | rótulo alternativo | sim | — | — | — | — |
+| `align` | `L` | `L` | **`C`** | **`J`** | — | — | — | — |
+| `width` (cols) | sim | sim | sim | **obrigatório** | — | `LINE(w)` | — | — |
+| `wrap` | sim | sim | ignora | ignora | — | — | — | — |
+| `when` | sim | sim | sim | sim | sim | sim (posicional final) | sim | — |
+| `options` | sim | — | sim | sim | — | — | — | — |
+| `function` | sim | — | — | — | — | — | — | — |
+| `format` / `mask` | sim | — | — | — | — | — | — | — |
+| `font_size` / `font_style` | sim | sim | sim (cascata) | sim | — | — | — | — |
+| `font` / `cpp` | sim | sim | ignora | ignora | — | — | — | sim |
+| `location` / `pos` | sim | sim | sim | — | sim | sim | — | — |
+| `tab` | sim | sim | **só no header** | — | — | — | — | — |
+| `rows_before` / `rows_after` | sim | sim | **ignora** | **ignora** | sim | sim | — | — |
+| `field` | — | — | — | sim | sim | — | — | — |
+| `path` | — | — | — | — | sim | — | — | — |
+| `lines` | — | — | — | — | — | — | 1 | — |
+
+`LOGO` e as formas **não têm prop de tamanho**: `LOGO(ancora, linhas)` vira `location: [ancora, linhas]` e `LINE(c, r, cols, rows)` vira `location: [c, r, cols, rows]`, onde o 3º e o 4º são **deltas** (extensão), não posição final. `width` só existe em `LINE(w)` — a forma "sem coordenada", que só o render resolve. `queda` é o único prop nomeado das formas, e `when` é um `str` posicional final.
+
+Regras que a tabela não cabe:
+
+- **`font`/`cpp` valem para `FIELD`/`TEXT` sem tamanho próprio** e recusam no resto — na tabela (`table.extend`) levantam erro, e no `TITLE`/`MEMO` são ignorados porque a fonte vem da cascata.
+- **`tab` não vale no corpo do `TITLE`**: as paradas são do header, e ancorar no lugar errado calado é pior que recusar.
+- **`location` e `pos` são a mesma prop** (apelido); `tab` não combina com nenhuma das duas.
+- **`rows_before`/`rows_after` contam LINHAS** (`ROW_CELL` = 6mm), enquanto `width` conta **colunas** da grade da fonte vigente. Vale para FIELD, TEXT, IMAGE e formas — **e é ignorado calado em `MEMO` e `TITLE`**, que dão `continue` antes do bloco que aplica o respiro (medido: `MEMO(..., {'rows_before': 2})` continua em y=10, enquanto `TEXT('x', {'rows_before': 2})` vai a y=22). Para dar respiro a um `MEMO`, o item é `LF(n, {'when': ...})` logo antes.
+- **`wrap` é binária** por escolha: `rows` responderia "quantas linhas" e arrastaria altura mínima junto. `MEMO` quebra por `width` sempre, então `wrap` não diz nada lá.
+- **`options` só troca o catálogo**, nunca o valor.
+
+**Título e subtítulo (`TITLES`).** `options` no `TITLE` troca o catálogo que resolve o `{campo}` do `text` — é o que permite imprimir o **nome** de um documento ("Cancelamento de Pedido") onde o field traria o **rótulo** do estado ("Cancelado"), sem callable. `TITLE` já era o 1º item de uma lista de
 títulos: o 1º desenhado sai com `title_font_size`/`title_font_style` do header e
 os demais com `subtitle_font_size` — a cascata é **posicional**, e o `when` é
 avaliado **antes** dela, então um subtítulo pulado não vira título grande nem
@@ -656,6 +689,126 @@ O que decide se um campo "tem valor" são três funções, e confundir duas dela
 O lado do cliente espelha `is_zero_or_empty` em `sys.html` (`IT_EPS`, `itZeroOrEmpty`, `itFilled`, `itEnabledEval`). `IT_EPS` e `ZERO_EPS` são dois literais acoplados: mudar um sem o outro deixa o `disabled` do servidor e o do cliente discordarem.
 
 Em `init.py`, os dois nomes viram filtros Jinja para não tocar nos templates: `btn_empty` = `is_zero_or_empty` e `btn_filled` = a negação. Não há predicado "preenchido" — é `not is_zero_or_empty(v)`.
+
+### 5.9.3 Funções do framework para o app
+
+O que o host (`app/`) pode importar e chamar. Não é a lista do que existe: é a do que é **contrato**. `do_page`/`do_list`/`do_form`/`do_report`, `core/resolve`, `core/list`, `core/qrun` e os internos de `pdf`/`list`/`filters` existem e funcionam, mas são **motor** — mudam com o assunto, e ancorar neles cria dívida. Se faltar algo daqui, o caminho é **adicionar à API**, não importar o interno.
+
+**Expressão — `ajsystem/core/expr.py`.** O avaliador único do framework (ver **when** em 5.8.1): uma gramática para path, literal, aritmética, comparação, booleano e função da allowlist, na precedência do Python. Sem `eval`.
+
+```python
+from ajsystem.core.expr import avaliar, condicao
+
+avaliar('valor + acrescimo - desconto', obj, funcoes={'divide': divide})  # 108.0
+condicao('status > 0 and nome != "X"', obj)                              # True
+condicao('{...}', get=lambda k: ...)   # com getter, sem objeto (é o template)
+```
+
+**Opções e valores — `ajsystem/core/utils.py`.**
+
+```python
+from ajsystem.core.utils import as_options, add_dias, divide, is_zero_or_empty
+
+UND_INSUMO = as_options('Kg', 'G', 'L', 'Ml', 'Un')   # chave pelo slug do rótulo
+TIPO_EVENTO = as_options(('chave_fixa', 'Rótulo'))     # par (chave, rótulo)
+add_dias(q.data_renovacao or q.data_pedido, q.validade or 3)   # dia somado, None→None
+divide(valor, qtd)   # divisão segura: 0 quando o divisor é nulo/zero
+```
+
+`as_options(*itens, slug=True)` monta `{valor: rótulo}` para field `LIST`; a chave deriva do rótulo via `normalizar_slug` (`'Chá de Bebê'` → `cha_de_bebe`), e `slug=False` usa o próprio rótulo. Predicados: `is_null`, `is_empty`, `is_zero_or_empty`, `as_num`, `deep_attr(obj, path)`, `field_value(field, item)`.
+
+**Máscaras e formatação — `ajsystem/core/formats.py` e `defs/masks.py`.**
+
+**`fmt_mask` NÃO é formatador numérico** — é posicionamento de dígitos: tira os não-dígitos do valor e preenche os `9` da máscara (`fmt_mask('1234567', '999.999')` → `'123.456'`). Por isso `fmt_mask(1234.56, MVALOR)` não dá dinheiro: para isso use `fmt_money`, ou a `mask` de um field, que passa pela camada do host (ver **5.14**). `parse_brl` e `fmt_money` falam o formato **canônico** (`'1234.56'`, `'$ 1,234.56'`); a forma brasileira (`'1.234,56'`) é a de exibição, e quem decide é `DECIMAL`/`THOUSAND`/`MONEY` do host. `MVALOR` e afins são escritas no padrão canônico justamente por isso — o motor troca os separadores.
+
+```python
+from ajsystem.core.formats import parse_brl, fmt_money, fmt_mask
+from ajsystem.defs.masks import MVALOR, merge_masks, definir_masks
+
+parse_brl('1234.56')            # 1234.56  (float)
+fmt_money(1234.56, True)        # '$ 1,234.56' (canônico; o host troca DECIMAL/THOUSAND/MONEY)
+fmt_mask('1234567', '999.999')  # '123.456'
+definir_masks(overrides)        # monta a camada do host (no boot do app)
+```
+
+**Carry entre requests — `ajsystem/core/memory.py`.** Guarda o `request.form` numa página e devolve na outra, com TTL.
+
+```python
+from ajsystem.core.memory import store_carry, carry_get, carry_take, carry_renames
+
+carry_token = store_carry(request.form)          # -> str; devolve na URL
+carry = carry_take(request.args.get('carry')) or {}   # pega e CONSOME
+form_preenchido = carry_get(request.args.get('carry'))  # pega sem consumir
+renomes = carry_renames(token)                   # {destino: origem} de __carry_map
+```
+
+**Ordenação e agregação em memória — `ajsystem/core/query.py`.** As mesmas semânticas da `QuerySpec`, para quando os dados já vêm em Python.
+
+```python
+from ajsystem.core.query import order_items, aggregate_rows, group_items
+
+order_items(itens, 'data_pedido desc', fields)     # estável; spec por lista também vale
+aggregate_rows(itens, {'total': {'sum': 'valor'}}, fields)
+group_items(itens, 'tipo', {'titulo': 'titulo', 'subtotal': True}, fields)
+```
+
+**Menu e rota corrente — `ajsystem/core/menu.py`.**
+
+Exigem **contexto de app/request** (`current_app`/`request`) — são para montar o contexto de template, não para script avulso:
+
+```python
+from ajsystem.core.menu import modulo_atual, menus_para_json, url_do_item, item_ativo
+
+contexto = {'modulo': modulo_atual(),
+            'modulo_menus_json': json.dumps(menus_para_json())}
+```
+
+**Segredo — `ajsystem/core/crypto.py`.** `encrypt(plaintext)` / `decrypt(ciphertext)`, para campo de configuração que não vai em claro no banco.
+
+```python
+from ajsystem.core.crypto import encrypt, decrypt
+self.encrypted_value = encrypt(raw) if raw else ''
+```
+
+**Markdown e notificação — `ajsystem/core/content.py` e `core/ntfy.py`.**
+
+```python
+from ajsystem.core.content import render_pagina
+html = render_pagina('termos')    # .md -> HTML sanitizado; None se ausente; recusa '..'
+
+from ajsystem.core.ntfy import notificar
+notificar('alerta', 'Backup', 'Concluído', tags=['white_check_mark'])   # falha calada
+```
+
+**Geometria — `ajsystem/core/geom.py`.** É o que compõe `location`/`LINE()` quando a coordenada é calculada em vez de declarada.
+
+```python
+from ajsystem.core.geom import normalize, to_mm, resolve_anchor
+
+norm = normalize('LINE', [2, 3, 4, 0])        # ('LINE', 2, 3, 4, 0)
+to_mm(norm, 6.0, 2.54)
+# {'x1': 5.08, 'y1': 18.0, 'x2': 15.24, 'y2': 18.0, 'ponto': False}
+```
+
+`to_mm` recebe a altura de linha e a coluna da fonte, e devolve mm mais os pontos de cada extremidade (`x1`/`y1`/`x2`/`y2`) e `ponto` (extensão nula). `resolve_anchor` é o passo que traduz `[âncora, linhas]` na caixa real da imagem.
+
+**Filtros, máscara do host e fontes — `core/filters.py`, `core/adapter.py`, `defs/fonts.py`.**
+
+```python
+from ajsystem.core.filters import resolve_filters, apply_filters
+from ajsystem.core.adapter import masks_override, TEMAS
+from ajsystem.defs.fonts import resolve_font, CPP, DRAFT_COL_MM
+```
+
+`masks_override()` é o dicionário de máscaras do host, consumido por `merge_masks`/`definir_masks` no boot. `resolve_font('DRAFT')` devolve `{family, cpp, col}` (camadas framework < app < página) e só aceita família crua com `cpp` explícito. `DRAFT_COL_MM` e `CPP` são as unidades da grade.
+
+**Registro de model — `ajsystem/defs/data.py`.** `register_model(Model)` liga um model SQLAlchemy ao nome de entidade que o report/list usa.
+
+```python
+from ajsystem.defs.data import register_model, entity_fields
+register_model('compra', Compra)     # nome da ENTIDADE + a classe; liga o model ao report/list
+campos = entity_fields(Compra)         # dicionário campo -> cfg, do próprio model
+```
 
 ### 5.10 `Query`, `Table` e `Session` — `ajsystem/defs/data.py`
 
