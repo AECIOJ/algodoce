@@ -168,16 +168,6 @@ APP = {
     'title': 'Sistema Gerenciador de Doceria',
     'logo': 'icons/Logo.png',
     'tema': 'algodoce',
-    # Idioma do copy do framework. Catálogos em `ajsystem/locales/` (`en`, `pt`).
-    # Consumido por `ajsystem.locales` no import — NÃO é prop do `App`: o catálogo
-    # é resolvido uma vez e congelado, então mudar aqui exige reiniciar o app.
-    # 'pt' já vem com o framework; 'en' entrega os rótulos em inglês sem mudar
-    # código. Não afeta número/moeda/data. Copy que o app escreve direto no spec
-    # fica em português de propósito — o app é quem decide o texto dele.
-    'locale': 'pt',
-    # Versão do app em partes (`cycle`/`year`/`month`/`number`): lê-se
-    # `1.26.10-010`. O motor valida e exibe `Version.text()` no rodapé.
-    # Bump = via script de bump do host (não edite os dígitos à mão).
-    'version': {'cycle': 1, 'year': 26, 'month': 10, 'number': 11},
+    'version': {'cycle': 1, 'year': 26, 'month': 10, 'number': 12},
     'modules': [SITE, SYS, ADMIN],
 }

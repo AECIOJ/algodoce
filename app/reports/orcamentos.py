@@ -4,7 +4,7 @@ from ajsystem.defs.report import *
 ORCAMENTO = {
     'label': 'Orçamento',
     'header': [
-        LOGO('L', 3),
+        LOGO('L', 4),
         PROW(0),
         TABS(1, 30),
         TITLES([

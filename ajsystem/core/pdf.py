@@ -277,18 +277,22 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     # Altura = 1 LINHA da grade. O título não tem corpo maior, então também não
     # ocupa mais que uma linha: expandido é na HORIZONTAL (o CPI), e a altura
     # continua sendo a do corpo.
-    pdf.cell(_w, _row_unit(pdf), txt or '', align=align, new_x="LMARGIN", new_y="NEXT")
+    # ESTACIONA na borda do que desenhou. `align='C'` desenhou a caixa TODA da
+    # zona, então o fim é o fim da LINHA (`RIGHT`) e o próximo item desce;
+    # alinhado à esquerda/direita desenhou só o glifo, então o fim é o fim do
+    # TEXTO (`END`) e o próximo continua na mesma linha, se couber.
+    pdf.cell(_w, _row_unit(pdf), txt or '', align=align,
+             new_x="RIGHT" if align == 'C' else "END", new_y="TOP")
     _mark_content(pdf)
-    # O avanço é `rows_after` e o padrão é 1 LINHA — não mais um gap em mm.
-    # `rows_before`/`rows_after` significam avanço de linha, e o título era a
-    # única coisa que ainda espaçava em milímetros (4mm no 1º, 3mm nos demais).
-    # Declarar `rows_after: N` maior afasta mais; `0` cola no próximo item.
-    _ra = cfg.get('rows_after', 1)
+    # `rows_after` = linhas em branco DEPOIS. Só o Y: um `ln` aqui devolveria o
+    # X à margem e apagaria o estacionamento, e a descida automática do próximo
+    # item cairia na mesma linha do `rows_after: 0`.
+    _ra = cfg.get('rows_after', 0)
     if isinstance(_ra, bool) or not isinstance(_ra, (int, float)) or _ra < 0:
         raise ValueError(
             f"report '{label}': rows_after do TITLE deve ser número >= 0, veio {_ra!r}")
     if _ra:
-        pdf.ln(_ra * _row_unit(pdf))
+        pdf.set_y(pdf.get_y() + _ra * _row_unit(pdf))
     return drawn + 1
 
 
@@ -384,6 +388,9 @@ def _render_header_items(self, h):
         else:
             _render_items(self, [{item.kind: cfg}], self._instance, self._report,
                           reset_tabs=False)
+    # O corpo (e a régua do `header.line`) nasce no Y que o header deixou: se o
+    # último item estacionou cheio, desce antes de devolver.
+    _desce_se_cheia(self)
 
 
 def _report_body(report):
@@ -511,7 +518,7 @@ class DocPDFReport(FPDF):
             if h.line:
                 y = self.get_y()
                 self.line(self.l_margin, y, self.w - self.r_margin, y)
-            return
+            return  # a lista já desceu no fim (`_desce_se_cheia`)
 
         # Resolver logo_width
         logo_w = h.logo_width
@@ -530,6 +537,9 @@ class DocPDFReport(FPDF):
                     self.set_y(y + hh)
             self._render_header_centered(h)
 
+        # Mesmo fechamento da forma lista: quem vem abaixo do header nasce no Y
+        # que ele deixou, e um item estacionado cheio tem de descer antes.
+        _desce_se_cheia(self)
         if h.line:
             y = self.get_y()
             self.line(self.l_margin, y, self.w - self.r_margin, y)
@@ -555,9 +565,11 @@ class DocPDFReport(FPDF):
                 title = title.replace('{id}', str(getattr(self._instance, 'id', '')))
             self.set_xy(right_x, y0)
             _apply_face(self, h.title_style, cpi=5)
+            # Centralizado e da largura da área: estaciona no fim da LINHA.
             self.cell(right_w, _row_unit(self), title, align='C',
-                      new_x="LMARGIN", new_y="NEXT")
-            self.ln(GAP_TITLE_SIDE)
+                      new_x="RIGHT", new_y="TOP")
+            _desce_se_cheia(self)
+            self.set_y(self.get_y() + GAP_TITLE_SIDE)
 
         # Campos do header na área direita
         if h.fields and self._instance:
@@ -580,16 +592,17 @@ class DocPDFReport(FPDF):
                 for k, v in self._title_substitutions.items():
                     title = title.replace('{' + k + '}', str(v))
             _apply_face(self, h.title_style, cpi=5)
+            # `cell(0, …)` ocupa até a margem: centralizado estaciona no fim da
+            # LINHA, alinhado no fim do TEXTO. A linha seguinte vem por conta do
+            # estacionamento — não mais um `ln` cravado aqui.
             self.cell(0, _row_unit(self), title, align=h.title_align,
-                      new_x="LMARGIN", new_y="NEXT")
-            self.ln(_row_unit(self))  # título sempre deixa a PRÓXIMA linha
+                      new_x="RIGHT" if h.title_align == 'C' else "END", new_y="TOP")
 
         # Subtitle
         if h.subtitle:
             _apply_face(self)
-            self.cell(0, _row_unit(self), h.subtitle,
-                      align=h.subtitle_align, new_x="LMARGIN", new_y="NEXT")
-            self.ln(_row_unit(self))  # idem para o subtítulo
+            self.cell(0, _row_unit(self), h.subtitle, align=h.subtitle_align,
+                      new_x="RIGHT" if h.subtitle_align == 'C' else "END", new_y="TOP")
 
         # Header fields
         if h.fields and self._instance:
@@ -1996,6 +2009,31 @@ def _elem_location(pdf, kind, cfg, label=''):
     return [esq, r, dir_ - esq, 0]
 
 
+def _linha_cheia(pdf):
+    """A linha do fluxo ainda tem lugar? O cursor chegou na borda da zona.
+
+    É a ÚNICA pergunta da descida de linha. Um item que ESTACIONA deixa o X na
+    borda da tinta que desenhou — o fim do texto, o fim da caixa, o fim da
+    régua — e o item seguinte desce porque aqui não cabe mais nada. Sem estado e
+    sem contador: o próprio X é o registro do que a linha aguenta.
+    """
+    _x0, right = _flow_zone(pdf)
+    return pdf.get_x() >= right - 0.01
+
+
+def _desce_se_cheia(pdf):
+    """Linha cheia -> uma linha abaixo, na 1ª coluna da zona.
+
+    O `x0` é lido ANTES do `ln` de propósito: a zona logo se estreita quando o
+    cursor sai da faixa do logo, e o item tem de começar onde a linha começou.
+    """
+    if not _linha_cheia(pdf):
+        return
+    x0, _right = _flow_zone(pdf)
+    pdf.ln(_row_unit(pdf))
+    pdf.set_x(x0)
+
+
 def _place_item(pdf, kind, name, cfg, label, line=True):
     """Posicionamento pré-render: âncora, fluxo, linha ou bloco.
 
@@ -2013,10 +2051,16 @@ def _place_item(pdf, kind, name, cfg, label, line=True):
     if 'tab' in cfg:
         if any(k in cfg for k in ('location', 'pos')):
             raise ValueError(f"report '{label}': tab não combina com location/pos")
+        # `tab` só ancora o X, então a descida é DON'T-LOSE: sem ela o item
+        # cai na linha do título estacionado logo acima.
+        _desce_se_cheia(pdf)
         _tab_x(pdf, cfg['tab'], label)
         return
     if any(k in cfg for k in ('location', 'pos')):
+        # Y absoluto: descer aqui seria jogado fora pelo `set_xy`, e perto do
+        # rodapé ainda quebraria a página à toa.
         return
+    _desce_se_cheia(pdf)
     x0, right = _flow_zone(pdf)
     if kind == 'TEXT' and line and cfg.get('width') is None:
         if pdf.get_x() > x0 + 0.01:
@@ -2159,9 +2203,29 @@ def _respiro(pdf, cfg, prop, label=''):
     n = cfg.get(prop, 0) or 0
     if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
         raise ValueError(f"report '{label}': {prop} deve ser número >= 0")
+    # O `rows_before` é o PRIMEIRO a ver a linha, e o `set_x` dele apagaria o
+    # "estacionado" do item anterior. Sem esta descida antes, o
+    # `MEMO(..., {'rows_before': 1})` perderia a linha automática e o `N` viraria
+    # o total — que é o que acontecia antes do estacionamento existir.
+    if prop == 'rows_before':
+        _desce_se_cheia(pdf)
     if n:
         pdf.ln(n * _row_unit(pdf))
         pdf.set_x(_flow_zone(pdf)[0])
+
+
+def _respiro_depois(pdf, cfg, prop, label=''):
+    """`rows_after`: n LINHAS extras depois do item, **sem tocar no X**.
+
+    Não pode ser `ln`: ele devolve o X à margem e apagaria o estacionamento, e a
+    descida automática do próximo item viraria a mesma linha do `rows_after: 0`.
+    Aqui o Y desce e o X fica — que é o que "linha em branco" significa.
+    """
+    n = cfg.get(prop, 0) or 0
+    if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
+        raise ValueError(f"report '{label}': {prop} deve ser número >= 0")
+    if n:
+        pdf.set_y(pdf.get_y() + n * _row_unit(pdf))
 
 
 def _render_items(pdf, items, instance, report, reset_tabs=True):
@@ -2427,10 +2491,12 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                             2 * g['rx'], 2 * g['ry'])
             _mark_content(pdf)
             if kind == 'LINE':
-                # A régua ocupa uma linha: o cursor desce e volta ao início da
-                # zona, para o próximo item não colidir com ela.
-                pdf.ln(_row_unit(pdf))
-                pdf.set_x(_flow_zone(pdf)[0])
+                # Estaciona no FIM da régua — é a linha impressa que ocupa a
+                # linha. `LINE()` tem a largura da página/zona/tabela, então o
+                # fim é a borda e o próximo item desce sozinho; `LINE(30)` deixa
+                # 30 cols à direita e o próximo continua na mesma linha, se
+                # couber. (A caixa do `ponto` degenerado não tem `x2`.)
+                pdf.set_x(ox + g.get('x2', g['x1']))
         return col_w, drawn
     for it in items or []:
         kind, name, cfg = _split_item(it, label)
@@ -2443,9 +2509,11 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 continue
         _respiro(pdf, cfg, 'rows_before', label)
         col_w, _titulos = _um_item(kind, name, cfg, col_w, _titulos)
-        if kind not in ('TITLE', 'TITLES'):
-            # o título já aplicou o próprio `rows_after` (padrão 1 linha)
-            _respiro(pdf, cfg, 'rows_after', label)
+        _respiro_depois(pdf, cfg, 'rows_after', label)
+    # O último item pode ter estacionado, e quem vem depois nasce no Y que esta
+    # lista deixou (a tabela, o corpo, a próxima página): sem esta descida a
+    # tabela sairia em cima do título.
+    _desce_se_cheia(pdf)
 
 
 def _margin_mm(v, label):
