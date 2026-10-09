@@ -397,18 +397,28 @@ def FIELDS(*items):
     return {'FIELDS': {'items': norm}}
 
 
-def CPI(valor=None):
-    """Factory pura: CPI() = restaura (10 CPI); CPI('E') | CPI(5) | CPI(20).
+def CPI(base=None, flags=None):
+    """Factory pura: CPI() = restaura; CPI(12) | CPI(12, 'EC').
 
-    Caracteres por polegada — a largura da CÉLULA da grade. `E` expandido,
-    `N` normal, `S` semi-condensado, `C` condensado. O valor é o próprio CPI,
-    não um índice. Também vale como prop (`{'TEXT': {'cpi': 'E'}}`), aí só para
-    o próprio item.
+    `base` é o MODO BASE da grade — 10 (Pica), 12 (Elite) ou 15 (Micron), e só
+    esses três. A largura da célula sai de `flags`, o modificador:
+
+        '' / 'N'  normal      'E'  expandido (base/2)
+        'C'       condensado  'EC' condensado+expandido (cond/2)
+
+    Onde a matriz de impressora recusa a combinação, o motor fica no base (é o
+    caso do 15 condensado). Também vale como prop (`{'TEXT': {'flags': 'E'}}`),
+    aí só para o próprio item e relativo ao base vigente.
     """
-    from ajsystem.defs.fonts import cpi as _cpi
-    if valor is None:
+    from ajsystem.defs.fonts import cpi as _cpi, flags as _flags
+    if base is None and flags is None:
         return {'CPI': {}}
-    return {'CPI': {'cpi': _cpi(valor)}}
+    if base is None:
+        raise ValueError("CPI: flags sem base — use CPI(10, 'E')")
+    cfg = {'cpi': _cpi(base)}
+    if flags is not None:
+        cfg['flags'] = _flags(flags)
+    return {'CPI': cfg}
 
 
 def LPI(valor=None):
@@ -551,9 +561,9 @@ def parse_report_item(it, label='') -> ReportItem:
                         raise ValueError(f"report '{label}': 'IND' exige [l, r] ou []")
                     return ReportItem(kind=k, name=k, config={'values': list(v)})
                 if k in ('CPI', 'LPI'):
-                    # `CPI()`/`LPI()` nu = restaura o padrão; com valor, o
-                    # normalizador guarda o número (a letra vira número aqui, e
-                    # é por isso que o motor nunca precisa saber de letra).
+                    # `CPI()`/`LPI()` nu = restaura o padrão. O `CPI` guarda o
+                    # BASE e as `flags`; o valor derivado é do motor, e por
+                    # isso o normalizador aqui nunca resolve o modificador.
                     from ajsystem.defs import fonts as _g
                     _chave = 'cpi' if k == 'CPI' else 'lpi'
                     _norm = _g.cpi if k == 'CPI' else _g.lpi
@@ -561,6 +571,9 @@ def parse_report_item(it, label='') -> ReportItem:
                     _cfg = {}
                     if _v is not None:
                         _cfg[_chave] = _norm(_v)
+                    _fl = v.get('flags') if isinstance(v, dict) else None
+                    if _fl is not None:
+                        _cfg['flags'] = _g.flags(_fl)
                     return ReportItem(kind=k, name=k, config=_cfg)
 
                 if k == 'FONT':

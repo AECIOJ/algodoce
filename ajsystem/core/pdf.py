@@ -241,9 +241,16 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
             f"report '{label}': font_size saiu — o corpo é derivado do LPI "
             f"(60/LPI) e vale para todo o documento; use 'cpi' para a largura "
             f"da célula e 'style' para o traço")
-    from ajsystem.defs.fonts import CPI_LETTERS, cpi as _cpi_norm
-    _cascata = {'cpi': 5 if first else 10, 'style': 'B' if first else ''}
-    cpi_t = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else _cascata['cpi']
+    # Cascata por POSIÇÃO e de estilo, não de corpo: 1º = expandido + negrito
+    # (2x a largura do corpo), 2º = normal + negrito, 3º+ = normal. O `flags`
+    # é o modificador da matriz, então o 1º acompanha o base vigente em vez de
+    # ser um número cravado.
+    _cascata = {'flags': 'E' if first else '', 'style': 'B' if first else ''}
+    if 'cpi' in cfg:
+        raise ValueError(
+            f"report '{label}': 'cpi' no TITLE não combina com 'flags' — "
+            f"a cascata escolhe a largura pelo flags ({_cascata['flags'] or 'normal'})")
+    cpi_t = _cpi_de(pdf, {'flags': cfg.get('flags', _cascata['flags'])})
     style = _validate_style(cfg.get('style', _cascata['style']), label, 'TITLE')
     if cfg.get('options') is not None and not isinstance(cfg['options'], dict):
         raise ValueError(
@@ -287,10 +294,12 @@ def _render_header_items(self, h):
     from ajsystem.defs.report import parse_report_item
     from ajsystem.core.text import render as _trender
     label = self._report.label if getattr(self, '_report', None) else ''
-    from ajsystem.defs.fonts import CPI_DEFAULT, LPI_DEFAULT, cpi as _cpi_norm, lpi as _lpi_norm
+    from ajsystem.defs.fonts import (CPI_DEFAULT, LPI_DEFAULT, cpi as _cpi_norm,
+                                     lpi as _lpi_norm)
     items = [parse_report_item(it, label) for it in (h.raw_header or [])]
     self._tabs = None
     self._cpi = CPI_DEFAULT
+    self._flags = ''
     self._lpi = LPI_DEFAULT
     self._ind = None
     self._logo_zone = None
@@ -299,6 +308,7 @@ def _render_header_items(self, h):
         cfg = item.config
         if item.kind == 'CPI':
             self._cpi = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else CPI_DEFAULT
+            self._flags = cfg.get('flags', '')
             continue
         if item.kind == 'LPI':
             self._lpi = _lpi_norm(cfg['lpi']) if 'lpi' in cfg else LPI_DEFAULT
@@ -949,7 +959,7 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
             raise ValueError(f"report '{label}': extend exige (col, texto[, props])")
         _col, _text = it[0], it[1]
         _props = dict(it[2]) if len(it) == 3 else {}
-        for _fk in ('font', 'cpi', 'lpi', 'font_size'):
+        for _fk in ('font', 'cpi', 'flags', 'lpi', 'font_size'):
             if _fk in _props:
                 raise ValueError(
                     f"report '{label}': '{_fk}' não vale em tabela (a grade da "
@@ -1617,9 +1627,32 @@ def _image_box(pdf, location, path):
 
 
 def _cpi(pdf):
-    """CPI vigente (chars/pol). A prop `cpi` do item muda só para ele."""
+    """BASE do CPI vigente (10 Pica · 12 Elite · 15 Micron)."""
     from ajsystem.defs.fonts import CPI_DEFAULT
     return getattr(pdf, '_cpi', CPI_DEFAULT)
+
+
+def _flags(pdf):
+    """Modificadores vigentes (`''` | `'E'` | `'C'` | `'EC'`)."""
+    return getattr(pdf, '_flags', '')
+
+
+def _cpi_de(pdf, cfg=None):
+    """CPI FINAL do desenho: o valor que a coluna vai medir.
+
+    `cfg` é o cfg do item — quando ele declara `cpi`/`flags`, vale só para ele;
+    senão vale o do fluxo. O valor derivado nunca é declarado: sai de
+    `cpi_final(base, flags)`, que é onde a matriz de impressora mora.
+    """
+    from ajsystem.defs.fonts import cpi_final, flags as _flags_norm
+    _base, _fl = _cpi(pdf), _flags(pdf)
+    if cfg:
+        if 'cpi' in cfg:
+            from ajsystem.defs.fonts import cpi as _cpi_norm
+            _base = _cpi_norm(cfg['cpi'])
+        if 'flags' in cfg:
+            _fl = _flags_norm(cfg['flags'])
+    return cpi_final(_base, _fl)
 
 
 def _lpi(pdf):
@@ -1630,8 +1663,8 @@ def _lpi(pdf):
     return getattr(pdf, '_lpi', LPI_DEFAULT)
 
 
-def _col_unit(pdf):
-    """Largura da COLUNA em mm: `25,4 / CPI`.
+def _col_unit(pdf, cfg=None):
+    """Largura da COLUNA em mm: `25,4 / CPI` (o CPI **final** do desenho).
 
     É a grade, não a fonte: o glifo é esticado para ocupar exatamente isto, e
     por isso trocar de fonte não move nada. Antes isto era `get_string_width('0')`
@@ -1656,13 +1689,28 @@ def _size(pdf):
     return 60.0 / _lpi(pdf)
 
 
+def _validate_flags(value, label, where='item'):
+    """`''` | `'N'` | `'E'` | `'C'` | `'EC'` — a matriz de impressora.
+
+    `N` é o "sem modificador" explícito e por isso não combina com E/C: `'NE'`
+    seria pedir normal e expandido juntos, e deixar passar seria uma letra
+    ignorada em silêncio. A ordem também não importa.
+    """
+    from ajsystem.defs.fonts import flags as _flags
+    try:
+        return _flags(value)
+    except ValueError as exc:
+        raise ValueError(
+            f"report '{label}': flags do {where} — {exc}") from None
+
+
 def _font_info(pdf, nome=None):
     """Métricas da família. `nome` wins; sem ele, a que está no `pdf`."""
     from ajsystem.defs.fonts import font
     return font(nome if nome is not None else getattr(pdf, '_fonte', 'courier'))
 
 
-def _apply_face(pdf, style='', cpi=None):
+def _apply_face(pdf, style='', cpi=None, cfg=None):
     """Família + estilo + corpo + alongamento, juntos e NESSA ordem.
 
     Ponto único de aplicação por três motivos, todos medidos:
@@ -1677,8 +1725,10 @@ def _apply_face(pdf, style='', cpi=None):
     3. `set_font` não registra a face: sem `add_font` prévio, `set_font(x, 'I')`
        levanta `Undefined font` do fpdf2 no meio do relatório.
 
-    `cpi` sobrescreve só para este desenho (a prop `cpi` do item), sem mexer no
-    estado do fluxo.
+    `cfg` é o cfg do item: as props `cpi`/`flags` dele valem só para este
+    desenho e não mexem no estado do fluxo — senão um título expandido empurraria
+    a coluna do resto do report. `cpi` pronto sobrescreve tudo (usado pela
+    cascata de título, que já resolveu o valor).
     """
     from ajsystem.defs.fonts import register, stretch_pct
     info = _font_info(pdf)
@@ -1686,7 +1736,7 @@ def _apply_face(pdf, style='', cpi=None):
     body = _size(pdf)
     pdf.set_font(info['core'] or info['family'], style or '', body)
     pdf.set_stretching(stretch_pct(info['advance'], body,
-                                   _cpi(pdf) if cpi is None else cpi))
+                                   _cpi_de(pdf, cfg) if cpi is None else cpi))
     return info
 
 
@@ -1705,18 +1755,6 @@ def _validate_style(style, label, where='item'):
             f"report '{label}': style do {where} deve ser {_ok}, veio {style!r}")
     return style
 
-
-
-def _item_cpi(pdf, cfg, label):
-    """CPI do item: o que a prop `cpi` disser, senão o do fluxo. `None` = fluxo.
-
-    A prop vale só para o próprio desenho — o estado do fluxo não muda, senão um
-    título expandido empurraria a coluna do resto do report.
-    """
-    if 'cpi' not in cfg:
-        return None
-    from ajsystem.defs.fonts import cpi as _cpi
-    return _cpi(cfg['cpi'])
 
 
 def _grid_pos(pdf):
@@ -1980,12 +2018,14 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
     from ajsystem.core.text import render as _trender
     _x0, right = _flow_zone(pdf)
     _fixed = any(k in cfg for k in ('tab', 'location', 'pos'))
-    _cpi_item = _item_cpi(pdf, cfg, label)
     if 'font' in cfg:
         raise ValueError(
             f"report '{label}': a prop 'font' é do report (uma família para o "
             f"documento inteiro); no item use 'cpi'")
-    col_w = _col_unit(pdf) if _cpi_item is None else 25.4 / _cpi_item
+    _fl_item = cfg.get('flags')
+    if _fl_item is not None:
+        _validate_flags(_fl_item, label, kind)
+    col_w = _col_unit(pdf, cfg)
     if kind == 'FIELD':
         if instance is None:
             raise ValueError(f"report '{label}': field '{name}' exige instância (documento)")
@@ -2000,7 +2040,7 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
             val = _dg(instance, cfg.get('field', name) or name)
         txt = _format_cell_value(val, fmt if fmt is not None else cfg.get('mask'))
         lbl = cfg.get('label', name) or ''
-        _apply_face(pdf, 'B', cpi=_cpi_item)
+        _apply_face(pdf, 'B', cfg=cfg)
         # `+ 2` aqui NÃO é respiro desenhado: o fpdf posiciona a próxima célula
         # em `new_x="END"`, que é a borda do TEXTO (o respiro real é o
         # `c_margin` do fpdf). Este `2` é largura de CAIXA, e só entra na conta
@@ -2008,16 +2048,16 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         # cols vive no `MEMO`, onde o prefixo é desenhado com a largura que a
         # quebra usou.
         lw = (pdf.get_string_width(lbl + ': ') + 2) if lbl else 0
-        _apply_face(pdf, '', cpi=_cpi_item)
+        _apply_face(pdf, '', cfg=cfg)
         vw = pdf.get_string_width(txt or '') + 2
         if _want_wrap(cfg, kind, label):
             # Rótulo na primeira linha (como `cell`), valor quebrando no resto da
             # zona. `FIELD` sempre aperta o valor na largura do texto; aqui ele
             # passa a ocupar a linha, que é o que uma frase precisa.
             if lbl:
-                _apply_face(pdf, 'B', cpi=_cpi_item)
+                _apply_face(pdf, 'B', cfg=cfg)
                 pdf.cell(lw, _row_unit(pdf), lbl + ': ', new_x="END")
-                _apply_face(pdf, '', cpi=_cpi_item)
+                _apply_face(pdf, '', cfg=cfg)
             pdf.multi_cell(_wrap_width(pdf, cfg.get('width')), _row_unit(pdf), txt,
                            new_x="LMARGIN", new_y="NEXT")
             if txt:
@@ -2029,9 +2069,9 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         if lw + vw > right - _x0:
             txt, vw = _cut_to_fit(pdf, txt, right - _x0 - lw), right - _x0 - lw
         if lbl:
-            _apply_face(pdf, 'B', cpi=_cpi_item)
+            _apply_face(pdf, 'B', cfg=cfg)
             pdf.cell(lw, _row_unit(pdf), lbl + ': ', new_x="END")
-            _apply_face(pdf, '', cpi=_cpi_item)
+            _apply_face(pdf, '', cfg=cfg)
         pdf.cell(vw, _row_unit(pdf), txt, new_x="END", new_y="TOP")
         if txt:
             _mark_content(pdf)
@@ -2039,7 +2079,7 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         from ajsystem.core.text import dotted_get as _dg
         txt = _trender(cfg.get('text', ''), lambda k: _dg(instance, k) if instance is not None else None, cfg.get('_fmt_opts'))
         _validate_style(cfg.get('style', '') or '', label, 'TEXT')
-        _apply_face(pdf, cfg.get('style', '') or '', cpi=_cpi_item)
+        _apply_face(pdf, cfg.get('style', '') or '', cfg=cfg)
         if _want_wrap(cfg, kind, label):
             # `wrap`: quebra na zona em vez de cortar a ponta. `multi_cell`
             # ocupa a linha toda, então `align` R/C passa a valer no texto
@@ -2057,8 +2097,8 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         if _w is not None:
             if isinstance(_w, bool) or not isinstance(_w, (int, float)) or _w <= 0:
                 raise ValueError(f"report '{label}': width deve ser cols > 0")
-            _w = _w * _col_unit(pdf)
-            _apply_face(pdf, cfg.get('style', '') or '', cpi=_cpi_item)
+            _w = _w * _col_unit(pdf, cfg)
+            _apply_face(pdf, cfg.get('style', '') or '', cfg=cfg)
         elif fill and not _fixed:
             _w = right - pdf.get_x()
             if pdf.get_string_width(txt or '') + 2 > _w:
@@ -2107,6 +2147,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
     if reset_tabs:
         pdf._tabs = None
         pdf._cpi = CPI_DEFAULT
+        pdf._flags = ''
         pdf._lpi = LPI_DEFAULT
         pdf._ind = None
         pdf._logo_zone = None
@@ -2123,6 +2164,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             # `CPI()`/`LPI()` nu volta ao padrão — é o "restaura" do antigo FONT.
             if kind == 'CPI':
                 pdf._cpi = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else CPI_DEFAULT
+                pdf._flags = cfg.get('flags', '')
             else:
                 pdf._lpi = _lpi_norm(cfg['lpi']) if 'lpi' in cfg else LPI_DEFAULT
             return _col_unit(pdf), drawn
@@ -2215,7 +2257,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                     drawn = _draw_titulo(pdf, _cfg, None, label, instance=instance, drawn=drawn)
             return col_w, drawn
         if kind == 'MEMO':
-            _cpi_item = _item_cpi(pdf, cfg, label)
+            _validate_flags(cfg.get('flags'), label, 'MEMO')
             from ajsystem.core.text import render as _mrender, dotted_get as _mdg
             _campo = cfg.get('field')
             if _campo:
@@ -2262,8 +2304,9 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             # na conta e não no papel.
             _lw = 0.0
             if _lbl:
-                _apply_face(pdf, 'B', cpi=_cpi_item)
-                _lw = pdf.get_string_width(_lbl) + GAP_LABEL * _col_unit(pdf)
+                _apply_face(pdf, 'B', cfg=cfg)
+                _lw = (pdf.get_string_width(_lbl)
+                       + GAP_LABEL * _col_unit(pdf, cfg))
             if _txt and _lw and _w - _recuo - _lw <= 0:
                 raise ValueError(
                     f"report '{label}': MEMO sem medida na 1ª linha — "
@@ -2271,13 +2314,13 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             if _lbl and not _txt:
                 # sem texto não há linha para apoiar: o rótulo fica sozinho, como
                 # antes — a linha dele é a largura do rótulo mais o respiro.
-                _apply_face(pdf, 'B', cpi=_cpi_item)
+                _apply_face(pdf, 'B', cfg=cfg)
                 pdf.set_x(_bx)
                 pdf.cell(_lw, _row_unit(pdf), _lbl, new_x="END", new_y="NEXT")
             # A fonte ANTES de medir: `_wrap_linhas` decide onde quebrar pelo
             # `get_string_width`, e medir na fonte anterior produz linhas mais
             # largas que o bloco (o bloco saía com 154mm num espaço de 141mm).
-            _apply_face(pdf, _style, cpi=_cpi_item)
+            _apply_face(pdf, _style, cfg=cfg)
             _linhas = _wrap_linhas(pdf, _txt, _w, first=_w - _recuo - _lw) if _txt else []
             if _linhas:
                 _draw_bloco(pdf, _linhas, _bx, _w, _row_unit(pdf), _style,

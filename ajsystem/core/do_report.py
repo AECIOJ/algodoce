@@ -442,7 +442,8 @@ def _apply_entity(raw, entity):
                 # `calc`, máscara) entra no cfg do item. `width` fica de fora
                 # porque é do bloco, não do campo.
                 _over = {k: v for k, v in _ri.config.items()
-                         if k not in ('width', 'align', 'style', 'cpi', 'recuo')}
+                         if k not in ('width', 'align', 'style', 'cpi',
+                                         'flags', 'recuo')}
                 _flist.append({'field': _ri.config['field'], **_over})
                 _fpos.append(_i)
                 _memo.append(_i)
@@ -487,7 +488,7 @@ def _apply_entity(raw, entity):
                 cols = {}
                 for key, spec in specs.items():
                     spec = dict(spec)
-                    for _fk in ('font', 'cpi', 'lpi', 'font_size'):
+                    for _fk in ('font', 'cpi', 'flags', 'lpi', 'font_size'):
                         if _fk in spec:
                             raise ValueError(
                                 f"report '{raw.get('label')}': '{_fk}' não vale em "

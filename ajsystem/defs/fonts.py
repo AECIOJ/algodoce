@@ -5,9 +5,13 @@ A grade é uma conta só, em polegada:
     coluna = 25,4 / CPI      linha = 25,4 / LPI
     body   = 60 / LPI  (pt)   stretch = 7200 / (advance × body × CPI) %
 
-`CPI` e `LPI` são o **valor real**, nunca um índice: `CPI(5)` é cinco caracteres
-por polegada e não "o quinto degrau". São as duas únicas coisas que decidem a
-geometria, e nenhuma delas depende da font.
+`CPI` e `LPI` são **o valor real**, nunca um índice. São as duas únicas coisas que
+decidem a geometria, e nenhuma delas depende da font.
+
+O `CPI` tem só **três** valores — os modos base da matriz de impressora (10 Pica,
+12 Elite, 15 Micron). Todo o resto é **modificador** (`flags`): `E` expandido e
+`C` condensado, e o motor resolve a combinação. O autor conhece três números;
+`CPI(5)` nem existe, porque se escreve `CPI(10, 'E')`.
 
 **O glifo é esticado para preencher a célula.** O `advance` da font (a largura
 do glifo em `em`) só entra na conta do stretch, que é a correção exata de
@@ -38,19 +42,28 @@ from pathlib import Path
 
 # --- grade -------------------------------------------------------------------
 
-# Letter -> value. `S` de Semi-condensed, que é o termo real de tipografia (e não
-# bate com o `I` de italic, que é do outro eixo).
-CPI_LETTERS = {'E': 5, 'N': 10, 'S': 17, 'C': 20}
-CPI_VALUES = (5, 10, 17, 20)
+# Só os três MODOS BASE, como na matriz de impressora: Pica, Elite e Micron.
+# Todo valor fora daqui é DERIVADO e se escreve com `flags` — `CPI(10, 'E')` em
+# vez de `CPI(5)`. O autor conhece três números; o motor resolve os outros.
+CPI_VALUES = (10, 12, 15)
 CPI_DEFAULT = 10
+
+# O pitch condensado de cada base. `15` está fora DE PROPÓSITO: é a única célula
+# da matriz que a impressora recusa ('Não aceita'), e `cpi_final` devolve o
+# próprio base quando o modo pede condensado a partir daqui.
+CPI_CONDENSED = {10: 17.1, 12: 20}
+
+# Modificadores: `N` normal (ou vazio), `E` expandido, `C` condensado. A ordem
+# não importa — `'EC'` e `'CE'` são o mesmo pedido.
+FLAGS = 'NEC'
 
 LPI_VALUES = (6, 8)
 LPI_DEFAULT = 6
 
 # A tabela escolhe o PRIMEIRO que couber na folha, do mais legível para o mais
-# compacto — então a escada vai do maior para o menor CPI. O `E` (5) fica de
-# fora de propósito: é estilo de título, não pitch de texto corrido.
-TABLE_LADDER = (10, 17, 20)
+# compacto. Entra a escada inteira, inclusive os dois condensados: a densidade da
+# tabela é escolha do motor, então o autor nunca escreve esses números.
+TABLE_LADDER = (10, 12, 15, 17.1, 20)
 
 # Traço do glifo. São as 8 combinações que o fpdf2 sabe desenhar — nem mais nem
 # menos. `U` (underline) estava prometido na docstring e recusado no código.
@@ -64,22 +77,83 @@ INK_MAX = 1.2  # em; ver a conta na docstring do módulo
 
 
 def cpi(value):
-    """Normaliza `CPI`: letter (`E`/`N`/`S`/`C`) ou número. Devolve o valor."""
+    """Normaliza o BASE do `CPI`: só 10, 12 ou 15. Devolve o valor.
+
+    O erro aqui é o mais instrutivo do módulo, porque todo valor derivado
+    continua alcançável por letra: `CPI(5)` diz para escrever `CPI(10, 'E')`.
+    """
     if isinstance(value, str):
-        _v = value.strip().upper()
-        if _v in CPI_LETTERS:
-            return CPI_LETTERS[_v]
         try:
-            value = int(_v)
+            value = float(value.strip())
         except ValueError:
             raise ValueError(
-                f"CPI: {value!r} não é letra ({'|'.join(CPI_LETTERS)}) nem número") from None
+                f"CPI: {value!r} não é número; use um de {list(CPI_VALUES)}"
+            ) from None
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"CPI: {value!r} não é número")
-    if int(value) != value or value not in CPI_VALUES:
+    if value not in CPI_VALUES:
         raise ValueError(
-            f"CPI: {value:g} fora de {list(CPI_VALUES)} (ou letra: {sorted(CPI_LETTERS)})")
+            f"CPI: {value:g} não é um base; use um de {list(CPI_VALUES)}"
+            + _sugere(value))
     return int(value)
+
+
+def _sugere(value):
+    """Se o número é um valor DERIVADO, diz com qual base e flag se escreve."""
+    _v = float(value)
+    for _b in CPI_VALUES:
+        if abs(_v - _b / 2) < 1e-9:
+            return f" (use CPI({_b}, 'E'))"
+        if _b in CPI_CONDENSED:
+            if abs(_v - CPI_CONDENSED[_b]) < 1e-9:
+                return f" (use CPI({_b}, 'C'))"
+            if abs(_v - CPI_CONDENSED[_b] / 2) < 1e-9:
+                return f" (use CPI({_b}, 'EC'))"
+    return ''
+
+
+def flags(value):
+    """Normaliza `flags`: '' | 'N' | 'E' | 'C' | 'EC'. Devolve em caixa alta.
+
+    `N` é o "sem modificador" explícito e por isso **não** combina com `E`/`C`:
+    `'NE'` é pedir normal e expandido ao mesmo tempo, e deixar passar seria uma
+    letra ignorada em silêncio.
+    """
+    if value is None:
+        return ''
+    if not isinstance(value, str):
+        raise ValueError(f"flags: {value!r} não é str de letras ({FLAGS})")
+    _f = value.strip().upper()
+    if not _f or _f == 'N':
+        return ''
+    _bad = [c for c in _f if c not in 'EC']
+    if _bad or len(set(_f)) != len(_f):
+        raise ValueError(
+            f"flags: {value!r} inválido — use 'N', 'E', 'C' ou 'EC' "
+            f"(na ordem que quiser), sem repetir letra")
+    # ordem canônica, para que 'CE' e 'EC' virem a mesma string
+    return ''.join(c for c in 'EC' if c in _f)
+
+
+def cpi_final(base, fl=''):
+    """(base, flags) -> o CPI final. A matriz inteira sai daqui.
+
+        expandido        = base / 2            (exato nos três)
+        condensado       = CPI_CONDENSED[base] ('15' não tem: fica no base)
+        condensado+expand = condensado / 2
+
+    Onde a matriz recusa, devolve o próprio base — é o comportamento pedido, e
+    não é calado para o caso que a matriz aceita.
+    """
+    _b = cpi(base)
+    _f = flags(fl)
+    _e, _c = 'E' in _f, 'C' in _f
+    if _c:
+        _cond = CPI_CONDENSED.get(_b)
+        if _cond is None:      # Micron não aceita condensado
+            return _b
+        return _cond / 2 if _e else _cond
+    return _b / 2 if _e else _b
 
 
 def lpi(value):
@@ -114,19 +188,14 @@ def body_pt(value):
 def stretch_pct(advance, body, value):
     """`Tz` que faz o glifo ocupar exatamente `25,4/CPI` mm.
 
-    `body` é o corpo em PT já vindo de `body_pt(lpi)` — quem chama é que sabe
-    o LPI vigente, e normalizar aqui denovo misturaria os dois eixos.
+    `value` aqui é o CPI **FINAL** (o que `cpi_final` já resolveu), não um base:
+    normalizar de novo pegaria o valor derivado — 5, 7,5, 20 — e recusaria, que é
+    justamente o que a matriz existe para alcançar.
+
+    `body` é o corpo em PT já vindo de `body_pt(lpi)` — quem chama é que sabe o
+    LPI vigente, e normalizar aqui misturaria os dois eixos.
     """
-    return 7200.0 / (advance * body * cpi(value))
-
-
-def cpi_letter(value):
-    """Letra de um CPI, ou o número quando não há nome."""
-    _v = cpi(value)
-    for _k, _n in CPI_LETTERS.items():
-        if _n == _v:
-            return _k
-    return str(_v)
+    return 7200.0 / (advance * body * float(value))
 
 
 # --- catálogo de fonts -------------------------------------------------------

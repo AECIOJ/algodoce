@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0019 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0020 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0019`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0020`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -380,7 +380,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('L', 3)` (âncoras `C/L/R`; ausente não renderiza). `L` encolhe a zona pela borda direita da figura, `R` pela esquerda, `C` não indenta — vale enquanto o cursor estiver na faixa vertical da imagem, e `IND()` cancela ali mesmo |
 | `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(5, 35)` — paradas em cols a partir do **início da zona** (crescentes; com `tab:N` no item) |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
-| `CPI(n?)` / `LPI(n?)` | diretiva de **grade** (`defs/fonts.py`), o contexto decide | `CPI(5)`/`CPI('E')`, `LPI(8)`; nu restaura o padrão (10 CPI / 6 LPI). **O valor é o próprio CPI/LPI**, não um índice. Também valem como prop `cpi` (item); `lpi` não, por ser diretiva só |
+| `CPI(base?, flags?)` / `LPI(n?)` | diretiva de **grade** (`defs/fonts.py`), o contexto decide | `CPI(12)`, `CPI(12, 'EC')`, `LPI(8)`; nu restaura o padrão (10 CPI / 6 LPI). `base` é um dos **três modos base** (10 Pica · 12 Elite · 15 Micron) e `flags` o modificador — ver **A matriz**. As props `cpi`/`flags` valem por item; `lpi` não, por ser diretiva só |
 | `PROW(n?)`/`PCOL(n?)` | **função com dois papéis** (`defs/report.py`), o contexto decide | **valor**: `PCOL()`/`PROW()` = posição corrente em grade, em `TABS`/`location`/`pos` (e ainda soma: `PCOL() + 5`). **Diretiva**: `PCOL(n)`/`PROW(n)` solto na lista de items move o cursor — `n` cols do início da **zona**, `n` linhas da margem de topo. `'PCOL+20'` (string) segue válida em `TABS` |
 | `LTB`/`RTB`/`NCOL` | constantes (bordas da última tabela; área útil se nenhuma) | `IND([LTB, RTB])`; `NCOL` = cols da área útil |
 | `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
@@ -404,7 +404,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `function` | sim | — | — | — | — | — | — | — |
 | `format` / `mask` | sim | — | — | — | — | — | — | — |
 | `style` | sim | sim | sim (cascata) | sim | — | — | — | — |
-| `cpi` | sim | sim | sim | sim | — | — | — | **recusa** |
+| `cpi` / `flags` | sim | sim | sim | sim | — | — | — | **recusa** |
 | `location` / `pos` | sim | sim | sim | — | sim | sim | — | — |
 | `tab` | sim | sim | **só no header** | — | — | — | — | — |
 | `rows_before` / `rows_after` | sim | sim | sim | sim | sim | sim | sim | sim |
@@ -426,7 +426,7 @@ Regras que a tabela não cabe:
 **Rótulo do `MEMO` é prefixo da 1ª linha.** `MEMO('observacao', 84, {'label': 'Obs.:'})` imprime `Obs.: produto esgotado` na mesma linha — o rótulo ocupa o começo da 1ª linha e o texto vem depois dele, quebrando na medida que sobra; as linhas seguintes voltam para a borda do bloco. Era uma linha própria acima do parágrafo, e o `MEMO` era o único item que empurrava o texto para baixo (`FIELD` já era inline). Três decisões:
 
 - **O rótulo é verbatim**: o motor escreve o que o autor declarar, com ou sem dois-pontos. Ele é medido **na fonte dele** (negrito), que é a que sai.
-- **O respiro depois do rótulo é `GAP_LABEL`, em cols** (1 col = `25,4/CPI` = 2,54mm no padrão) — e não um `2` fixo em mm, porque assim ele acompanha o pitch como `width` e `recuo`.
+- **O respiro depois do rótulo é `GAP_LABEL`, em cols** (1 col = `25,4/CPI` = 2,54mm no base padrão) — e não um `2` fixo em mm, porque assim ele acompanha o pitch como `width` e `recuo`.
 - **Com `recuo`, o rótulo nasce dentro dele** (`x + recuo`), porque `recuo` significa "afasta a primeira linha" e o rótulo é parte dela. Se `recuo + rótulo` não deixar medida para a 1ª linha, o render **levanta** nomeando as duas em vez de degenerar em uma palavra por linha.
 
 Com `align: 'J'` a 1ª linha justifica no que sobra **depois** do rótulo, então a borda direita continua em `x + w` e o rótulo não é esticado; `C`/`R` alinham o conjunto rótulo+texto. Sem texto, o rótulo fica sozinho na linha própria.
@@ -462,12 +462,32 @@ leitura, mas é escolha do app, não do motor.
 **Régua e formas posicionadas — a grade CPI × LPI.** Colunas no horizontal,
 linhas no vertical, e **as duas em polegada**:
 
-| | fórmula | valores |
+**A matriz: três números e duas letras.** O `CPI` só aceita os **modos base** —
+o trio da impressora de linha — e o resto é modificador, resolvido no motor:
+
+| base | | `''`/`'N'` | `'E'` expandido | `'C'` condensado | `'EC'` |
+|---|---|---|---|---|---|
+| **10** Pica | | 10 → 2,5400mm | 5 → 5,0800 | 17,1 → 1,4854 | 8,55 → 2,9708 |
+| **12** Elite | | 12 → 2,1167mm | 6 → 4,2333 | 20 → 1,2700 | 10 → 2,5400 |
+| **15** Micron | | 15 → 1,6933mm | 7,5 → 3,3867 | **fica 15** | **fica 15** |
+
+Três regras, e a matriz inteira sai delas: `expanded = base / 2` (exato nos
+três), `condensado = CPI_CONDENSED[base]` (só 10 e 12 têm), e
+`condensado+expandido = condensado / 2`. **Onde a matriz recusa, o motor fica no
+base** — é o caso do Micron condensado, e é pedido, não esquecimento. O `N` é o
+"sem modificador" explícito e por isso **não** combina com `E`/`C`: `'NE'` seria
+pedir normal e expandido ao mesmo tempo. A ordem não importa (`'EC'` ≡ `'CE'`).
+
+Nem todo valor derivado é alcançável por letra: `CPI(13)` só diz que nenhum dos
+três modos serve. Já os que a matriz produzem são todos — e o erro diz com o que
+escrever: `CPI(5)` → *"use CPI(10, 'E')"*.
+
+| | fórmula | |
 |---|---|---|
-| coluna | `25,4 / CPI` | `5` expandido **5,0800mm** · `10` normal **2,5400** · `17` semi-condensado **1,4941** · `20` condensado **1,2700** |
+| coluna | `25,4 / CPI` | o CPI **final**, depois das flags |
 | linha | `25,4 / LPI` | `6` **4,2333mm** · `8` **3,1750** |
 | corpo | `60 / LPI` | 10pt a 6 LPI, 7,5pt a 8 LPI — **derivado**, não declarado |
-| alongamento | `7200 / (avanço × corpo × CPI)` % | 240 / 120 / 70,6 / 60 a 6 LPI |
+| alongamento | `7200 / (avanço × corpo × CPI)` % | 100 (CPI 12, o pitch natural) a 240 (CPI 5) a 6 LPI |
 
 **O glifo é esticado para preencher a célula** (`Tz` no PDF), então o CPI é a largura *de verdade* do caractere e **trocar a fonte não move nada** — muda só a letra desenhada. Por isso o corpo não é prop: `font_size` saiu, e declará-lo quebraria a relação com o LPI (o limite é a tinta ≤ 1,2em, e é o que reprova fonte que não cabe).
 
@@ -477,9 +497,16 @@ As factories de grade (`LINE`/`BOX`/`CIRCLE`, como `TABS`/`IND`/`POS`) são **va
 
 ```python
 CPI()            # volta ao padrão (10 CPI)
-CPI('E')         # expandido — letra ou número valem
+CPI(15)          # Micron: 1,6933mm por caractere
+CPI(12, 'EC')    # Elite condensado+expandido = 10 CPI
 LPI(8)           # linha apertada: 3,1750mm, e o corpo cai para 7,5pt
+
+{'TEXT': {'text': 'x', 'flags': 'E'}}   # prop: expandido do base vigente
 ```
+
+O `TITLE` recusa `cpi` nomeado — a cascata escolhe a largura dele por `flags`
+(1º expandido, 2º e 3º+ normal), e é por isso que ele acompanha o base vigente
+em vez de ser um número cravado.
 
 ```python
 LINE()                      # largura da zona: a indentação vigente (IND) ou,
@@ -1057,6 +1084,18 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0020
+- **A matriz de impressora virou a grade: três números e duas letras.** O `CPI` passou a aceitar **só os modos base** — 10 Pica, 12 Elite, 15 Micron — e o resto virou modificador na prop `flags` (`'E'` expandido, `'C'` condensado), escrito `CPI(12, 'EC')`. Antes eram oito valores com nome próprio, e cinco deles (5 · 6 · 7,5 · 17,1 · 20) eram consequência, não escolha: o autor decorria cinco números para ter três densidades.
+- **A matriz inteira sai de três regras, não de uma tabela de oito.** `expanded = base/2` (exato nos três: 5 · 6 · 7,5), `condensado = CPI_CONDENSED[base]` (só 10 e 12 têm), `condensado+expandido = condensado/2`. O que sobrou de tabela foi uma linha.
+- **Onde a impressora recusa, o motor fica no base.** `CPI(15, 'C')` devolve 15: é a célula que a matriz marca "Não aceita". Comportamento pedido, e **não** é o mesmo que calar um caso que a matriz aceita — `CPI(15, 'E')` continua dando 7,5.
+- **`'N'` é o "sem modificador" explícito e por isso não combina com `E`/`C`.** `'NE'` seria pedir normal e expandido ao mesmo tempo; deixar passar seria uma letra ignorada em silêncio. A ordem também não importa: `'EC'` e `'CE'` são o mesmo pedido e normalizam para a mesma string.
+- **O erro de base virou instrutivo, porque todo valor derivado continua alcançável.** `CPI(5)` → *"5 não é um base; use um de [10, 12, 15] (use CPI(10, 'E'))"*. Um número que a matriz produz tem sempre um caminho; `CPI(13)` — que a matriz não produz — é o único que não recebe sugestão.
+- **O `TITLE` deixou de ter número de CPI.** A cascata é `flags: 'E'` no 1º, e ela acompanha o base vigente: medido 2,00× o corpo em 10→5, 12→6 e 15→7,5. Antes era `5 if first else 10`, com o 5 cravado — trocar o padrão do report deixaria o título mais estreito que o corpo sem ninguém ver.
+- **A escada de auto-fit da tabela ficou completa** (`10, 12, 15, 17,1, 20`), e é motor-interna: a densidade da tabela já era escolha do motor, então nenhum número novo aparece para o autor. **O efeito no app é visível**: as tabelas passam a escolher 15 em vez de 17 — COMPRA e PEDIDO de 167,3mm para **189,7mm** e ORÇAMENTO de 158,4mm para **179,5mm**, com a coluna de dinheiro abrindo de 38,8mm para 44mm. O **fluxo não se move**: o padrão é 10, que é a mesma coluna de 2,5400mm em produção, então `TABS`, `width` em cols e `recuo` ficam idênticos.
+- **`flags` entrou como prop, e `cpi` saiu do `TITLE`.** A cascata escolhe a largura do título por `flags`, então declarar `cpi` lá é recusado nomeando a prop — as duasfalariam pelo mesmo eixo e a última a ser lida venceria sem aviso.
+- **Bug de escopo:** `stretch_pct` normalizava o CPI com `cpi()`, que passou a esperar um **base** — mas o que chega ali já é o **final**. Reprovar os valores derivados (5 · 7,5 · 20) era justamente o que a matriz existe para alcançar, e o sintoma era `CPI: 5 não é um base` no primeiro render. A assinatura ficou `(advance, body, valor_final)` e a docstring avisa.
+- Verificação: as 12 combinações de base×flags com o `Tz` medido no PDF (e o caso de 100% sem `Tz`, que é o default do PDF e não um buraco), o título em 2,00× o corpo nos três bases, a matriz (inclusive `12+'EC' == 10`, dois caminhos e um destino), 7 recusas e as 5 fontes com geometria idêntica (título expandido em x=79,60 nas cinco).
 
 ### 1.26.10.08.0019
 - **A grade virou CPI × LPI, em polegada, e o glifo passa a PREENCHER a coluna.** `col = 25,4/CPI`, `linha = 25,4/LPI`, `corpo = 60/LPI` e `alongamento = 7200/(avanço × corpo × CPI)` — quatro fórmulas, uma conta. O `CPI` deixa de ser a largura *nominal* da coluna e vira a largura **de verdade** do caractere, porque o fpdf2 tem `set_stretching` (o operador `Tz`) e o `get_string_width` já conta o alongamento. Consequência que vale mais que a conta: **trocar a fonte não move nada** — as cinco renderizam o mesmo report com o mesmo `x` no mesmo lugar, e só muda a letra (medido: título expandido centrado em x=79,60 nas cinco).
