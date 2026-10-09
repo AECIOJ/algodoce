@@ -212,11 +212,18 @@ def _data_uri(raw):
 
 
 def _calc_fn(expr):
-    """Converte expressão `calc` da Entity em function(row) para o PDF."""
+    """Converte expressão `calc` da Entity em function(row) para o PDF.
+
+    Mesma gramática do `when` e do ternário (`core/expr.avaliar`), com as
+    funções que o app usa no `calc`. Antes era `eval` do Python com namespace
+    montado — o que fazia o report ter uma linguagem de expressão diferente da
+    do resto do motor, e um `eval` a mais num módulo que roda em request.
+    """
+    from ajsystem.core.expr import avaliar as _avaliar
+    from ajsystem.core.utils import divide as _divide
+
     def fn(row):
-        ns = {t: (getattr(row, t, 0) or 0)
-              for t in re.findall(r'[A-Za-z_][A-Za-z0-9_]*', expr)}
-        return eval(expr, {'__builtins__': {}}, ns)
+        return _avaliar(expr, row, funcoes={'divide': _divide}, rotulo='calc')
     return fn
 
 

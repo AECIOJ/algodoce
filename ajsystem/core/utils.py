@@ -371,11 +371,12 @@ def calc_value(calc, item):
         return calc(item)
     if not isinstance(calc, str):
         return calc
-    names = set(re.findall(r'[A-Za-z_][A-Za-z0-9_]*', calc or ''))
-    ns = {n: (getattr(item, n, None) or 0) for n in names}
-    ns['divide'] = divide
+    # `core/expr.avaliar` é o avaliador do framework: mesma gramática do `when`
+    # e do ternário, mais aritmética. Antes era `eval` do Python com namespace
+    # montado — o mesmo conceito em duas linguagens dentro do motor.
+    from ajsystem.core.expr import avaliar as _avaliar
     try:
-        return eval(calc, {'__builtins__': {}}, ns)
+        return _avaliar(calc, item, funcoes={'divide': divide}, rotulo='calc')
     except Exception:
         return None
 

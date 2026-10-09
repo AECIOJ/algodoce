@@ -8,6 +8,10 @@ Sintaxe (usada em select.calc, coluna text, group text e items):
   '{campo|padrao}'     -> literal quando None/vazio (ex. fallback)
   '{?campo:literal}'   -> inclui o literal (com seus placeholders) só se o
                           campo não for None/vazio (segmento condicional)
+  '{cond ? a : b}'     -> `a` se a expressão `cond` for verdadeira (a MESMA
+                          gramática do `when`: paths, comparação, and/or/not,
+                          parênteses), senão `b`. Os ramos podem ter `{campo}`
+                          e aninhamento é entre chaves: `{c ? x : {c2 ? y : z}}`
 
 Genérico: recebe getter + mapa de labels; não conhece model nem relatório.
 """
@@ -21,139 +25,97 @@ _FIELD_RE = re.compile(r'{([\w.]+)(?::([^{}|]*))?(?:\|([^{}]*))?}')
 LABEL_DEPTH = 3
 
 
-def dotted_get(obj, path):
-    """getattr encadeado com navegação segura (None no meio -> None)."""
-    cur = obj
-    for part in (path or '').split('.'):
-        if cur is None:
-            return None
-        cur = getattr(cur, part, None)
-    return cur
+# `dotted_get` vive em `core/expr.py` (mesma leitura de path do avaliador) e
+# continua exportado aqui: `pdf.py` e `do_report.py` importam deste módulo.
+from ajsystem.core.expr import dotted_get  # noqa: E402,F401
 
 
-# `when` com expressão: `or`/`and`/`not` sobre paths, mais comparação. Precedência
-# NOT > AND > OR, e as duas grafias — `or`/`and`/`not` e `|`/`&`/`!` — valem. Parser
-# próprio em vez de `eval`: o avaliador de `calc` (`do_report._calc_fn`) usa `eval`
-# porque é aritmética com namespace montada, e trazer isso para cá abriria execução
-# de código num módulo genérico que list/select também usam.
-_OR_RE = re.compile(r'\s+(?:or|\|\|?)\s+|\|\|?')
-_AND_RE = re.compile(r'\s+(?:and|&&)\s+|&')
-_NOT_RE = re.compile(r'^(?:not\s+|!)', re.I)
-# Comparação: `caminho OP valor`. As alternativas mais longas primeiro — sem isso
-# `>=` casaria `>` e sobraria `=` para ser lido como path. O lado direito é literal
-# (número ou string entre aspas) ou outro path, que resolve pelo mesmo `dotted_get`.
-_CMP_RE = re.compile(
-    r'^([\w.]+)\s*(>=|<=|==|!=|<>|<|>|=)\s*'
-    + r"""('[^']*'|"[^"]*"|-?\d+(?:\.\d+)?|True|False|None|[\w.]+)$""")
-# Sobrou operador que não virou comparação: `'status >> 0'`, `'a >'`, `'> 0'`.
-# Sem este erro, o resto caía em `dotted_get`, que devolve None para um path
-# inexistente — e o documento saía silenciosamente errado em vez de reclamar.
-_OP_LEFTOVER_RE = re.compile(r'[<>!=]=?|[<>]')
-
-_CMP_FUNCS = {
-    '>': lambda a, b: a > b, '>=': lambda a, b: a >= b,
-    '<': lambda a, b: a < b, '<=': lambda a, b: a <= b,
-    '=': lambda a, b: a == b, '==': lambda a, b: a == b,
-    '!=': lambda a, b: a != b, '<>': lambda a, b: a != b,
-}
+# A expressão booleana (`when`, ternário) e a aritmética (`calc`) são a MESMA
+# gramática, e ela mora em `core/expr.py`: um avaliador só para o framework. Era
+# dois — `_truth` aqui (parser próprio, booleano) e `eval` do Python em
+# `do_report._calc_fn`/`utils.calc_value` (aritmética com namespace montado) —
+# com duas sintaxes e dois conjuntos de bug para o mesmo conceito.
+from ajsystem.core.expr import avaliar as _avaliar, condicao as _condicao  # noqa: E402
 
 
-def _cmp_operand(tok, obj):
-    """Lado direito da comparação: literal, ou path se não for literal."""
-    if len(tok) >= 2 and tok[0] == tok[-1] and tok[0] in ('"', "'"):
-        return tok[1:-1]
-    if tok == 'True':
-        return True
-    if tok == 'False':
-        return False
-    if tok == 'None':
-        return None
-    try:
-        return int(tok) if tok.isdigit() else float(tok)
-    except ValueError:
-        return dotted_get(obj, tok)
-
-
-def _unparenthesize(expr):
-    while len(expr) > 1 and expr.startswith('(') and expr.endswith(')'):
-        inner = expr[1:-1].strip()
-        # só remove se o parêntese realmente envolve a expressão toda
-        if inner.count('(') != inner.count(')'):
-            break
-        expr = inner
-    return expr.strip()
-
-
-def _split_topo(expr, pattern):
-    """Divide no `pattern` só no nível de parêntese 0.
-
-    O `re.split` puro quebrava dentro do parêntese: `(a or b) and c` cortava no
-    `or` e tratava `(a` como um path — que não existe, então a expressão dava
-    `False` sem erro nenhum. O parêntese era documentado como sintaxe e não
-    fazia nada; aqui ele passa a valer de verdade.
-    """
-    out, buf, depth, i = [], [], 0, 0
-    for m in pattern.finditer(expr):
-        pedaco = expr[i:m.start()]
-        buf.append(pedaco)
-        depth += pedaco.count('(') - pedaco.count(')')
-        if depth == 0:                     # operador de verdade: separa
-            out.append(''.join(buf))
-            buf = []
-        else:                              # dentro de parêntese: é texto
-            buf.append(m.group(0))
-        i = m.end()
-    resto = expr[i:]
-    buf.append(resto)
-    depth += resto.count('(') - resto.count(')')
-    if depth:
-        raise ValueError(f"when: parêntese desbalanceado em {expr!r}")
-    out.append(''.join(buf))
-    return [p for p in out if p.strip()]
-
-
-def _truth(expr, obj):
+def _truth(expr, obj=None, get=None):
     """Avalia a expressão booleana de um `when` sobre os paths do objeto.
 
-    Precedência NOT > AND > OR > comparação (comparação liga mais forte que
-    NOT, como no Python: `not status > 0` é `not (status > 0)`).
+    Compatibilidade: a gramática é a de `core/expr.condicao`, com a mesma
+    precedência (OR < AND < NOT < comparação) e os mesmos casos de ausente.
     """
-    e = _unparenthesize(str(expr or ''))
-    neg = _NOT_RE.match(e)
-    if neg:
-        return not _truth(e[neg.end():], obj)
-    # Só desce quando o operador era mesmo de topo. Se todos os `or`/`and`
-    # estavam dentro de parênteses, o split devolve a expressão inteira e
-    # reprocessá-la seria recursão infinita.
-    for _pat, _comb in ((_OR_RE, any), (_AND_RE, all)):
-        if _pat.search(e):
-            partes = _split_topo(e, _pat)
-            if len(partes) > 1:
-                return _comb(_truth(p, obj) for p in partes)
-    m = _CMP_RE.match(e)
-    if m:
-        esq, op, dir_ = m.group(1), m.group(2), m.group(3)
-        a, b = dotted_get(obj, esq), _cmp_operand(dir_, obj)
-        if a is None or b is None:
-            # Ausente não ordena: `None > 0` em Python é TypeError, e aqui a
-            # linha inteira sumiria com um erro que ninguém veria. Ausente é
-            # "não" para ordenação e segue a identidade para `==`/`!=` — que é o
-            # que `x == None` quer dizer.
-            if op in ('!=', '<>'):
-                return a is not b
-            if op in ('=', '=='):
-                return a is b
-            return False
-        try:
-            return bool(_CMP_FUNCS[op](a, b))
-        except TypeError:
-            raise ValueError(
-                f"when: comparação '{esq} {op} {dir_}' é entre tipos "
-                f"incomparáveis ({type(a).__name__} vs {type(b).__name__})")
-    if _OP_LEFTOVER_RE.search(e):
-        raise ValueError(f"when: comparação não reconhecida em {e!r}")
-    v = dotted_get(obj, e)
-    return bool(v) and v != ''
+    return _condicao(expr, obj, get, rotulo='when')
+
+
+# ── Ternário no template ────────────────────────────────────────────────────
+# `{cond ? a : b}` escolhe `a` ou `b` pela MESMA gramática do `when`
+# (paths, comparação, and/or/not, parênteses) — um mecanismo só, não dois.
+#
+# Scanner, e não regex: o ramo pode conter `{campo}` e `:` de format-spec
+# (`{qtd:02d}`), e o que separa os ramos é o `?`/`:` de nível 0. Regex não
+# distingue os dois, e o resultado errado aqui é texto trocado por outro texto
+# — o pior tipo de bug, porque sai bonito.
+def _fecha(tpl, i):
+    """Índice do `}` que fecha o `{` em `i` (None se não fechar)."""
+    prof = 0
+    for j in range(i, len(tpl)):
+        if tpl[j] == '{':
+            prof += 1
+        elif tpl[j] == '}':
+            prof -= 1
+            if prof == 0:
+                return j
+    return None
+
+
+def _pos_topo(texto, alvo):
+    """Primeira posição do caractere no nível 0 (fora de `{...}`), ou -1."""
+    prof = 0
+    for j, ch in enumerate(texto):
+        if ch == '{':
+            prof += 1
+        elif ch == '}':
+            prof -= 1
+        elif ch == alvo and prof == 0:
+            return j
+    return -1
+
+
+def _ternarios(tpl, get):
+    """Resolve `{cond ? a : b}` recursivo, leaving os outros `{...}` intactos."""
+    out, i, n = [], 0, len(tpl or '')
+    while i < n:
+        if tpl[i] != '{':
+            out.append(tpl[i])
+            i += 1
+            continue
+        fim = _fecha(tpl, i)
+        if fim is None:                    # abre sem fechar: não é nosso
+            out.append(tpl[i:])
+            break
+        dentro = tpl[i + 1:fim]
+        # `{?campo:literal}` é a forma de segmento condicional, não ternário.
+        pos = -1 if dentro.startswith('?') else _pos_topo(dentro, '?')
+        if pos < 0:
+            out.append(tpl[i:fim + 1])     # `{campo}`, `{a:spec}`, `{?x:y}`: fica
+            i = fim + 1
+            continue
+        resto = dentro[pos + 1:]
+        sep = _pos_topo(resto, ':')
+        if sep < 0:
+            raise ValueError(f"ternário sem ':' em {{{dentro}}}")
+        # O espaço em volta de `?` e `:` é separador, não conteúdo: sem este
+        # strip o ramo saía como ' Pedido ' e o título levava espaço sobrando.
+        a, b = resto[:sep].strip(), resto[sep + 1:].strip()
+        for nome, ramo in (('a', a), ('b', b)):
+            if _pos_topo(ramo, '?') >= 0 or _pos_topo(ramo, ':') >= 0:
+                raise ValueError(
+                    f"ternário: ramo {nome} de {{{dentro}}} tem '?' ou ':' "
+                    f"no nível 0 — aninhe entre chaves: "
+                    f"{{c ? x : {{c2 ? y : z}}}}")
+        out.append(_ternarios(a if _condicao(dentro[:pos].strip(), get=get) else b, get))
+        i = fim + 1
+    return ''.join(out)
 
 
 def eval_when(obj, when):
@@ -200,12 +162,16 @@ def render(tpl, get, labels=None):
     """
     labels = labels or {}
 
+    # Ternário ANTES de tudo: o ramo escolhido pode ter `{campo}`, que entra
+    # nas passadas seguintes com o catálogo já aplicado.
+    t = _ternarios(tpl or '', get)
+
     def _cond(m):
         fld, lit = m.group(1), m.group(2)
         v = get(fld)
         return lit if v is not None and v != '' else ''
 
-    t = _COND_RE.sub(_cond, tpl or '')
+    t = _COND_RE.sub(_cond, t)
 
     def _val(name, spec, default):
         v = get(name)

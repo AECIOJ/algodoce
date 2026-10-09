@@ -30,8 +30,10 @@ COMPRA = {
         # linha 0 — que só diverge se o LOGO passar a desenhar.
         TITLES([
             ('Orçamento #{id}', {'when': 'status == 0'}),
-            ('Pedido #{id}', {'when': 'status == 1'}),
-            ('COMPRA #{id}', {'when': 'status != 0 and status != 1'}),
+            # O ternário escolhe entre Pedido e COMPRA pela MESMA gramática do
+            # `when` — um mecanismo só. O guard continua sendo `status != 0`
+            # porque o ramo 'COMPRA' cobre tudo que não é 1, status 0 incluído.
+            ('{status == 1 ? Pedido : COMPRA} #{id}', {'when': 'status != 0'}),
             ('Status: {status}', {'when': 'status > 1'}),
         ]),
         FIELDS(('fornecedor_id', {'tab': 1}),

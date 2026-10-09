@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0014 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0016 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0014`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0016`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -458,6 +458,21 @@ Justificar é um **pedido com sanidade**, não uma garantia: o espaço só estic
 
 **`when` aceita path, expressão (com comparação) e `{campo: valores}`.** Path (`'observacao'`), expressão booleana (`'acrescimo or desconto'`, `'not x'`, com parênteses) e o mesmo formato que o Schema já usava: `{'ativo': True, 'tipo': [1, 2]}` — e com o dicionário como alvo, `{'status': FRASE}` quer dizer "só nos status que estão neste catálogo". Foi o que deixou o catálogo ser a única fonte de verdade do COMPRA: o `FRASE` diz o texto *e* quais status têm frase, sem um `if status not in (...)` em Python para divergir. `LF` ganhou props pelo mesmo motivo (o respiro de um bloco condicional precisa sumir com ele).
 
+**Um avaliador só: `ajsystem/core/expr.py`.** `avaliar(expr, obj=None, get=None, funcoes=None, rotulo=...)` devolve o **valor**; `condicao(...)` devolve a verdade. Uma gramática para tudo o que é expressão no framework:
+
+| | |
+|---|---|
+| paths | `valor`, `a.b.c` (de `obj`, ou do getter em `get`) |
+| literais | número, string entre aspas, `True`/`False`/`None` |
+| aritmética | `+ - * / // %`, unário `+`/`-`, parêntese |
+| comparação | `>`, `>=`, `<`, `<=`, `==`, `!=`, `=`, `<>` |
+| booleano | `and`/`or`/`not`, e as grafias `&`, `|`, `||`, `!` |
+| função | só da allowlist do caller (`funcoes=`) |
+
+Precedência do Python, do mais fraco ao mais forte: `or` < `and` < `not` < comparação < `+ -` < `* / // %` < unário < primário. **O `calc` da Entity, o `when`, o ternário do template e o `calc_value` da list usam todos esta função** — usar direto no app também: `from ajsystem.core.expr import avaliar, condicao`. Não é Python: parser próprio, sem `exec`/`eval`, porque o módulo é genérico e `eval` aqui abriria execução de código sem motivo. O que ele não sabe, ele diz: função fora da allowlist, operador desconhecido e tipo incompatível levantam nomeando a expressão.
+
+**Ternário no template: `{cond ? a : b}`.** Escolhe `a` ou `b` pela **mesma** gramática do `when` — paths, comparação, `and`/`or`/`not`, parênteses. Não é um segundo condicional: é a decisão dentro do texto, para quando a escolha muda **uma palavra** e não a linha inteira (o título do COMPRA: `'{status == 1 ? Pedido : COMPRA} #{id}'`, com o `when: 'status != 0'` fazendo o guard que o ramo 'COMPRA' não pode fazer sozinho). Se a escolha muda a **linha** inteira, use `when` por item — aí o que se quer é a linha sumir, não o texto trocar dentro dela. Os ramos aceitam `{campo}` (então `{c ? {nome} : X}` sai com o valor resolvido e o catálogo do LIST), e aninhar é **entre chaves**: `{c ? x : {c2 ? y : z}}`. O espaço em volta de `?` e `:` é separador. Um `?`/`:` de nível 0 dentro de um ramo levanta, porque é ambíguo — melhor do que trocar a palavra errada em silêncio. Scanner, não regex: o ramo pode ter `{qtd:02d}`, e o `:` do format-spec não pode ser confundido com o separador.
+
 **Comparação: `>`, `>=`, `<`, `<=`, `==`, `!=`, `=` e `<>`** — `'status > 0'`, `'valor >= 100'`, `'status == 6'`, `'nome != "X"'`. Liga mais forte que `not` (igual ao Python: `not status > 0` é `not (status > 0)`), e mais fraca que `and`/`or`. O lado direito é literal (número, `True`/`False`/`None` ou string **entre aspas**) ou **outro path** (`'valor > minimo'`), que resolve pelo mesmo `dotted_get`. Campo **ausente** não ordena (devolve `false`) nem estoura: `None > 0` em Python é `TypeError`, e aqui a linha inteira sumiria com um erro que ninguém vê; em `==`/`!=` ausente segue a identidade, que é o que `x == None` quer dizer. Operador que não vira comparação (`'status >> 0'`, `'a >'`) **levanta** em vez de cair em `dotted_get` e virar `false` calado.
 
 **Expressão: `or`/`and`/`not` (e `|`/`&`/`!`), sempre inclusivos.** `or` e `|` são **sinônimos exatos** — mesmo regex, mesmo `any()`, resultado idêntico:
@@ -837,6 +852,27 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0016
+- **Um avaliador para o framework inteiro: `ajsystem/core/expr.py`.** `avaliar()` devolve o valor, `condicao()` a verdade, e os dois servem `when`, ternário, `calc` da Entity e `calc_value` da list — inclusive no app. Uma gramática só: paths, literais, aritmética, comparação, booleano e função da allowlist, com a precedência do Python. Os dois `eval` do Python (`do_report._calc_fn` e `utils.calc_value`) saíram: o mesmo conceito estava em duas linguagens dentro do motor, e um `eval` a menos num módulo que roda em request. Antes de trocar, o inventário do `calc` do app (`valor + acrescimo - desconto`, `qtd * preco`, `previsto - realizado + variacao`, `divide(valor, qtd_minima)`) foi medido no avaliador novo.
+- **O avaliador quase mentiu duas vezes, e as duas são a mesma classe de erro: resultado plausível e errado.** `and` estava com a semântica de `or` — `a and b` devolvia `a` quando `a` era verdade — e `x > 0 and y > 5` dava `True` com `y` falso; uma condição que mente calada é o pior bug que existe. E `not` estava no primário, o que fazia `not status > 0` virar `(not status) > 0`, sempre falso e nunca reclamando. A tabela-verdade de `and`/`or` nos quatro estados de entrada é o teste que pega a primeira, e é o que roda na verificação.
+
+### 1.26.10.08.0015
+- **Um avaliador só: `ajsystem/core/expr.py`.** `avaliar(expr, obj=None, get=None, funcoes=None, rotulo=...)` devolve o **valor**; `condicao(...)` devolve a verdade. Uma gramática para tudo o que é expressão no framework:
+
+| | |
+|---|---|
+| paths | `valor`, `a.b.c` (de `obj`, ou do getter em `get`) |
+| literais | número, string entre aspas, `True`/`False`/`None` |
+| aritmética | `+ - * / // %`, unário `+`/`-`, parêntese |
+| comparação | `>`, `>=`, `<`, `<=`, `==`, `!=`, `=`, `<>` |
+| booleano | `and`/`or`/`not`, e as grafias `&`, `|`, `||`, `!` |
+| função | só da allowlist do caller (`funcoes=`) |
+
+Precedência do Python, do mais fraco ao mais forte: `or` < `and` < `not` < comparação < `+ -` < `* / // %` < unário < primário. **O `calc` da Entity, o `when`, o ternário do template e o `calc_value` da list usam todos esta função** — usar direto no app também: `from ajsystem.core.expr import avaliar, condicao`. Não é Python: parser próprio, sem `exec`/`eval`, porque o módulo é genérico e `eval` aqui abriria execução de código sem motivo. O que ele não sabe, ele diz: função fora da allowlist, operador desconhecido e tipo incompatível levantam nomeando a expressão.
+
+**Ternário no template: `{cond ? a : b}`.** A condição é a **mesma** gramática do `when` — path, comparação, `and`/`or`/`not`, parênteses — e não um segundo condicional: é a decisão **dentro** do texto, para quando muda uma palavra em vez de a linha inteira. No COMPRA o título virou `'{status == 1 ? Pedido : COMPRA} #{id}'` com `when: 'status != 0'` fazendo o guard, porque o ramo 'COMPRA' cobre tudo que não é 1 e status 0 incluído. Para escolha que **some a linha**, `when` por item continua sendo o caminho certo: o que se quer ali é a linha sumir, não o texto trocar dentro dela. Ramos aceitam `{campo}` (e saem com o catálogo do LIST) e aninham entre chaves.
+- **O ternário quase virou bug duas vezes, e agrammar de `when` foi o que segurou.** `_truth` ganhou um getter opcional (`get`) porque `render` não tem objeto — e a folha passou a ler por ele, mas o ramo de comparação continuou em `dotted_get(obj, ...)`: com `obj=None` todo operando esquerdo dava `None` e **toda comparação virava `false` calado**. Depois o espaço em volta de `?` e `:` sobrou no ramo, e o título saiu `' Pedido '`. Os dois são a mesma classe de erro — resultado plausível e errado — então o scanner é por profundidade (`_pos_topo`), não regex: o ramo pode conter `{qtd:02d}`, e o `:` do format-spec confundido com o separador troca a palavra sem reclamar. `?`/`:` de nível 0 dentro de ramo levanta, com a regra de aninhar entre chaves na mensagem.
 
 ### 1.26.10.08.0014
 - **`TITLE` (e `TEXTS`) aceitam `options`: o catálogo do item vence o do field.** Um template resolve `{campo}` pelo catálogo que a Entity traz, e às vezes esse não é o catálogo que o documento quer: o nome impresso de um documento ("Cancelamento de Pedido") e o rótulo do estado do mesmo campo ("Cancelado") são vocabulários distintos. Trocar um pelo outro era um callable em Python — que escondia a troca dentro dele — e agora é `('{status} #{id}', {'options': CATALOGO})`, o mesmo caminho que o `MEMO` já usava com `options`. Bônus: a declaração passa a **mostrar** qual vocabulário cada título usa. `options` que não seja dict é recusado nomeando a prop, no apply e no render. O `TEXT` passa a aceitar o mesmo override, e o `callable` continua valendo.
