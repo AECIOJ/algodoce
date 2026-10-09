@@ -14,7 +14,7 @@ from typing import Optional, Callable, Union
 # DOM) é import explícito, como o motor já faz.
 __all__ = [
     'LOGO', 'TITLE', 'TITLES', 'TEXT', 'TABS', 'IND', 'FIELD', 'TEXTS', 'MEMO',
-    'CR', 'LF', 'FF', 'FIELDS', 'FONT', 'POS',
+    'CR', 'LF', 'FF', 'FIELDS', 'POS', 'CPI', 'LPI',
     'LINE', 'BOX', 'CIRCLE', 'IMAGE',
     'PCOL', 'PROW', 'LTB', 'RTB', 'NCOL',
 ]
@@ -135,8 +135,8 @@ def parse_header_field(item) -> ReportField:
 
 
 ITEM_KINDS = ('FIELD', 'TEXT', 'IMAGE', 'LINE', 'BOX', 'CIRCLE', 'LOGO', 'TITLE',
-              'TABS', 'POS', 'FIELDS', 'FONT', 'IND', 'TEXTS', 'CR', 'LF', 'FF',
-              'MEMO', 'TITLES', 'PCOL', 'PROW')
+              'TABS', 'POS', 'FIELDS', 'IND', 'TEXTS', 'CR', 'LF', 'FF',
+              'MEMO', 'TITLES', 'PCOL', 'PROW', 'CPI', 'LPI')
 
 
 @dataclass
@@ -189,8 +189,8 @@ def TITLES(*items):
     documento), e quem não passar texto usa o rótulo do report.
 
     A **cascata é posicional e o `when` vem ANTES dela**: um subtítulo pulado
-    não vira título grande. 1º desenhado = `title_font_size`/`title_font_style`,
-    os demais = `subtitle_font_size`. Declarar `font_size`/`font_style` na
+    não vira título grande. 1º desenhado = expandido+negrito, 2º =
+    normal+negrito, 3º+ normal. Declarar `style`/`cpi` na
     entrada muda a fonte **sem** mudar a posição — quem escreve `'A', ('B', ...)`
     continua vendo B como subtítulo, com respiro de subtítulo.
     """
@@ -300,8 +300,8 @@ def MEMO(campo, width, props=None):
     Props: `align` (default `'J'` — parágrafo se justifica; `JUSTIFY_MAX` limita
     o quanto o espaço estica), `recuo` (cols, afasta **só a 1ª linha** — é
     `spaces(recuo) + texto`: a 1ª linha quebra na medida `w - recuo` e as
-    seguintes na do bloco, então a borda direita continua reta), `font_size`,
-    `font_style`, `label` (legenda acima do bloco, que NÃO se move com o
+    seguintes na do bloco, então a borda direita continua reta), `style`,
+    `style`, `label` (legenda acima do bloco, que NÃO se move com o
     recuo; no uso como field, o rótulo do campo), `when`.
     """
     _check_props('MEMO', props or {}, '')
@@ -397,22 +397,32 @@ def FIELDS(*items):
     return {'FIELDS': {'items': norm}}
 
 
-def FONT(name=None, cpp=None):
-    """Factory pura: FONT() = restaura; FONT('DRAFT') | FONT('Courier', 0).
+def CPI(valor=None):
+    """Factory pura: CPI() = restaura (10 CPI); CPI('E') | CPI(5) | CPI(20).
 
-    Nome de preset (catálogo framework/app/página) ou família crua (aí cpp
-    é obrigatório). Tradução 1:1 validada pelo normalizador.
+    Caracteres por polegada — a largura da CÉLULA da grade. `E` expandido,
+    `N` normal, `S` semi-condensado, `C` condensado. O valor é o próprio CPI,
+    não um índice. Também vale como prop (`{'TEXT': {'cpi': 'E'}}`), aí só para
+    o próprio item.
     """
-    if name is None and cpp is None:
-        return {'FONT': {}}
-    if not isinstance(name, str) or not name:
-        raise ValueError("FONT: nome deve ser str não vazia")
-    if cpp is not None and cpp not in (0, 1, 2, 3):
-        raise ValueError("FONT: cpp deve ser 0|1|2|3 (10/12/17/20cpp)")
-    cfg = {'font': name}
-    if cpp is not None:
-        cfg['cpp'] = cpp
-    return {'FONT': cfg}
+    from ajsystem.defs.fonts import cpi as _cpi
+    if valor is None:
+        return {'CPI': {}}
+    return {'CPI': {'cpi': _cpi(valor)}}
+
+
+def LPI(valor=None):
+    """Factory pura: LPI() = restaura (6 LPI); LPI(8) = linha mais apertada.
+
+    Linhas por polegada — a altura da LINHA da grade, e com ela o corpo da
+    fonte, que é derivado: 6 LPI -> 10pt, 8 LPI -> 7.5pt. **Não é prop de
+    item**: um item com LPI diferente do resto desalinha a grade vertical e o
+    PROW(n) volta a ler errado. Só diretiva de fluxo.
+    """
+    from ajsystem.defs.fonts import lpi as _lpi
+    if valor is None:
+        return {'LPI': {}}
+    return {'LPI': {'lpi': _lpi(valor)}}
 
 
 def POS(*where):
@@ -540,12 +550,23 @@ def parse_report_item(it, label='') -> ReportItem:
                     if not isinstance(v, list) or (v and len(v) != 2):
                         raise ValueError(f"report '{label}': 'IND' exige [l, r] ou []")
                     return ReportItem(kind=k, name=k, config={'values': list(v)})
+                if k in ('CPI', 'LPI'):
+                    # `CPI()`/`LPI()` nu = restaura o padrão; com valor, o
+                    # normalizador guarda o número (a letra vira número aqui, e
+                    # é por isso que o motor nunca precisa saber de letra).
+                    from ajsystem.defs import fonts as _g
+                    _chave = 'cpi' if k == 'CPI' else 'lpi'
+                    _norm = _g.cpi if k == 'CPI' else _g.lpi
+                    _v = v.get(_chave) if isinstance(v, dict) else v
+                    _cfg = {}
+                    if _v is not None:
+                        _cfg[_chave] = _norm(_v)
+                    return ReportItem(kind=k, name=k, config=_cfg)
+
                 if k == 'FONT':
-                    if not isinstance(v, dict) or not v.get('font'):
-                        raise ValueError(f"report '{label}': 'FONT' exige {{font, ...}}")
-                    if 'cpp' in v and v['cpp'] not in (0, 1, 2, 3):
-                        raise ValueError(f"report '{label}': cpp deve ser 0|1|2|3")
-                    return ReportItem(kind=k, name=k, config=v)
+                    raise ValueError(
+                        f"report '{label}': FONT saiu; use CPI()/LPI() para a grade "
+                        f"e a prop 'font' do report para a família")
                 if k == 'FIELDS':
                     if not isinstance(v, dict):
                         raise ValueError(f"report '{label}': 'FIELDS' exige dict")
@@ -655,8 +676,7 @@ class ReportGroup:
 class ReportText:
     """Texto avulso no relatório."""
     text: str
-    font_size: int = 10
-    font_style: str = ''
+    style: str = ''
     align: str = 'L'
     when: str = 'end_of_report'
 
@@ -707,6 +727,11 @@ class Report:
     page_size: str = 'A4'
     orientation: str = 'portrait'
 
+    # Família da fonte do documento inteiro (catálogo fixo em `defs/fonts.py`;
+    # courier = núcleo do PDF, sem arquivo). Trocar não move nada na grade: o
+    # glifo é esticado para ocupar a mesma célula, só muda a letra desenhada.
+    font: str = 'courier'
+
     # Header (dict consolidado)
     header: Optional[dict] = dc_field(default=None)
 
@@ -715,7 +740,7 @@ class Report:
 
     # Report footer (última linha de cada página) — dict consolidado
     # Chaves: text, show_user, show_datetime, show_company, show_page_number,
-    #         separator, align, font_size. Todos default False (exceto text).
+    #         separator, align. Todos default False (exceto text).
     footer: Optional[dict] = None
 
     # Texts avulsos

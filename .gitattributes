@@ -1,0 +1,5 @@
+# Fonte é binária: sem isso, um dev em Windows com core.autocrlf pode converter
+# as quebras de linha e corromper o arquivo no commit — o build da imagem continua
+# passando e a fonte some só na hora de renderizar o PDF.
+*.ttf binary
+*.otf binary

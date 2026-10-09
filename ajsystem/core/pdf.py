@@ -19,7 +19,7 @@ from ajsystem.defs.report import (
 
 _HEADER_DEFAULTS = {
     'logo': {'position': 'N', 'lines': 2},
-    'title': {'label': None, 'align': 'C', 'font_style': 'B', 'font_size': 16},
+    'title': {'label': None, 'align': 'C', 'style': 'B'},
     'subtitle': None,
     'fields': None,
     'field_columns': 2,
@@ -38,11 +38,9 @@ class _ReportHeader:
     logo_align: str = 'C'
     logo_location: Optional[list] = None
     title: Optional[str] = None
-    title_font_size: int = 16
-    title_font_style: str = 'B'
+    title_style: str = 'B'
     title_align: str = 'C'
     subtitle: Optional[str] = None
-    subtitle_font_size: int = 10
     subtitle_align: str = 'C'
     fields: Optional[list] = None
     field_columns: int = 2
@@ -120,7 +118,6 @@ class _ReportFooter:
     show_page_number: bool = False
     separator: str = ' | '
     align: str = 'C'
-    font_size: int = 8
 
 
 def _build_header(report: Report) -> '_ReportHeader':
@@ -129,10 +126,8 @@ def _build_header(report: Report) -> '_ReportHeader':
         return _ReportHeader(
             show_logo=False,
             logo_path=None,
-            title_font_size=_HEADER_DEFAULTS['title'].get('font_size', 16),
-            title_font_style=_HEADER_DEFAULTS['title'].get('font_style', 'B'),
+            title_style=_HEADER_DEFAULTS['title'].get('style', 'B'),
             title_align=_HEADER_DEFAULTS['title'].get('align', 'C'),
-            subtitle_font_size=10,
             subtitle_align='C',
             raw_header=list(report.header),
         )
@@ -160,19 +155,16 @@ def _build_header(report: Report) -> '_ReportHeader':
     title = (title_cfg.get('label') if isinstance(t_raw, dict) else None) \
         or (t_raw if isinstance(t_raw, str) else None) \
         or report.label
-    title_font_size = title_cfg.get('font_size', h.get('title_font_size', 16))
-    title_font_style = title_cfg.get('font_style', h.get('title_font_style', 'B'))
+    title_style = title_cfg.get('style', h.get('title_style', 'B'))
     title_align = title_cfg.get('align', h.get('title_align', 'C'))
 
     # Subtítulo: dict, str ou None
     sub_cfg = h.get('subtitle')
     if isinstance(sub_cfg, dict):
         subtitle = sub_cfg.get('label')
-        subtitle_font_size = sub_cfg.get('font_size', h.get('subtitle_font_size', 10))
         subtitle_align = sub_cfg.get('align', h.get('subtitle_align', 'C'))
     else:
         subtitle = sub_cfg
-        subtitle_font_size = h.get('subtitle_font_size', 10)
         subtitle_align = h.get('subtitle_align', 'C')
 
     return _ReportHeader(
@@ -183,11 +175,9 @@ def _build_header(report: Report) -> '_ReportHeader':
         logo_align=logo_align,
         logo_location=logo_location,
         title=title,
-        title_font_size=title_font_size,
-        title_font_style=title_font_style,
+        title_style=title_style,
         title_align=title_align,
         subtitle=subtitle,
-        subtitle_font_size=subtitle_font_size,
         subtitle_align=subtitle_align,
         fields=h.get('fields'),
         field_columns=h.get('field_columns', 2),
@@ -197,19 +187,25 @@ def _build_header(report: Report) -> '_ReportHeader':
     )
 
 
-def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0,
-                 title_size=None, title_style=None, sub_size=None, sub_style=''):
+def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     """Desenha 1 TITLE. Devolve quantos títulos já foram desenhados (o próprio
     contador, quando o `when` pula).
 
-    Um só, para o header e para o corpo: os dois têm a mesma cascata (1º
-    título = grande/negrito, demais = subtítulo) e a mesma conta de `size * 0.6`
-    de altura. Os **defaults chegam por argumento** porque só o header tem
-    `h.title_font_size`/`h.title_font_style`; no corpo são as constantes.
+    **A cascata é por POSIÇÃO, e é de estilo — não de corpo:**
 
-    `font_size`/`font_style` declarados mudam a fonte sem mudar a POSIÇÃO — o
-    1º continua sendo o 1º (respiro de título, estilo padrão), que é o que
-    separa "declarar o tamanho" de "virar subtítulo".
+        1º  CPI 5 (expandido) + bold   -> 2x a largura do corpo
+        2º  CPI 10 (normal)    + bold
+        3º+ CPI 10 (normal)
+
+    Antes o 1º era `FONT_TITLE` (16pt) e o resto `FONT_SUBTITLE` (10pt), e o
+    corpo solto com `size * 0.6` de altura — o título ocupava quase duas linhas
+    e a grade vertical não sabia disso. Agora o corpo é `60/LPI` para TUDO, e o
+    que separa o 1º do resto é o CPI: o expandido dobra a largura do glifo, e
+    como a grade estica o glifo para a célula, centralizar continua exato.
+
+    `style`/`cpi` declarados mudam o traço e a célula sem mudar a POSIÇÃO — o
+    1º continua sendo o 1º, que é o que separa "declarar estilo" de "virar
+    subtítulo".
     """
     if cfg.get('when') is not None:
         from ajsystem.core.text import eval_when as _ew
@@ -240,30 +236,38 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0,
     if hasattr(pdf, '_title_substitutions'):
         for k, v in pdf._title_substitutions.items():
             txt = (txt or '').replace('{' + k + '}', str(v))
-    size = cfg.get('font_size', title_size if first else sub_size)
-    style = cfg.get('font_style', title_style if first else sub_style)
-    if isinstance(size, bool) or not isinstance(size, (int, float)) or size <= 0:
-        raise ValueError(f"report '{label}': font_size do TITLE deve ser > 0, veio {size!r}")
-    if style not in ('', 'B', 'I', 'BI'):
-        raise ValueError(f"report '{label}': font_style do TITLE: ''|B|I|BI, veio {style!r}")
+    if 'font_size' in cfg:
+        raise ValueError(
+            f"report '{label}': font_size saiu — o corpo é derivado do LPI "
+            f"(60/LPI) e vale para todo o documento; use 'cpi' para a largura "
+            f"da célula e 'style' para o traço")
+    from ajsystem.defs.fonts import CPI_LETTERS, cpi as _cpi_norm
+    _cascata = {'cpi': 5 if first else 10, 'style': 'B' if first else ''}
+    cpi_t = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else _cascata['cpi']
+    style = _validate_style(cfg.get('style', _cascata['style']), label, 'TITLE')
     if cfg.get('options') is not None and not isinstance(cfg['options'], dict):
         raise ValueError(
             f"report '{label}': 'options' do TITLE deve ser dict "
             f"(catálogo {{codigo: rótulo}}), veio {type(cfg['options']).__name__}")
     # TITLE sempre centralizado por default; outro align só se declarado.
     align = cfg.get('align', 'C')
-    pdf.set_font(FONT_FAMILY, style, size)
+    # A face (família + estilo + corpo + alongamento) ANTES de qualquer
+    # medição: `get_string_width` já conta o alongamento, e medir antes de
+    # esticar daria a largura do glifo cru e centralizaria errado.
+    _apply_face(pdf, style, cpi=cpi_t)
     _w = cfg.get('width')
     if _w is not None:
         if isinstance(_w, bool) or not isinstance(_w, (int, float)) or _w <= 0:
             raise ValueError(f"report '{label}': width deve ser cols > 0")
         _w = _w * _col_unit(pdf)
-        pdf.set_font(FONT_FAMILY, style, size)
     else:
         # Só o resto da ZONA — `w = 0` iria até a margem direita e centralizaria
-        # o título no espaço inteiro,atravessando a imagem.
+        # o título no espaço inteiro, atravessando a imagem.
         _w = _flow_zone(pdf)[1] - pdf.get_x()
-    pdf.cell(_w, size * 0.6, txt or '', align=align, new_x="LMARGIN", new_y="NEXT")
+    # Altura = 1 LINHA da grade. O título não tem corpo maior, então também não
+    # ocupa mais que uma linha: expandido é na HORIZONTAL (o CPI), e a altura
+    # continua sendo a do corpo.
+    pdf.cell(_w, _row_unit(pdf), txt or '', align=align, new_x="LMARGIN", new_y="NEXT")
     _mark_content(pdf)
     # O avanço é `rows_after` e o padrão é 1 LINHA — não mais um gap em mm.
     # `rows_before`/`rows_after` significam avanço de linha, e o título era a
@@ -274,7 +278,7 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0,
         raise ValueError(
             f"report '{label}': rows_after do TITLE deve ser número >= 0, veio {_ra!r}")
     if _ra:
-        pdf.ln(_ra * ROW_CELL)
+        pdf.ln(_ra * _row_unit(pdf))
     return drawn + 1
 
 
@@ -283,19 +287,21 @@ def _render_header_items(self, h):
     from ajsystem.defs.report import parse_report_item
     from ajsystem.core.text import render as _trender
     label = self._report.label if getattr(self, '_report', None) else ''
+    from ajsystem.defs.fonts import CPI_DEFAULT, LPI_DEFAULT, cpi as _cpi_norm, lpi as _lpi_norm
     items = [parse_report_item(it, label) for it in (h.raw_header or [])]
     self._tabs = None
-    self._gridfont = None
+    self._cpi = CPI_DEFAULT
+    self._lpi = LPI_DEFAULT
     self._ind = None
     self._logo_zone = None
     titles = 0
     for item in items:
         cfg = item.config
-        if item.kind == 'FONT':
-            if not cfg.get('font') and cfg.get('cpp') is None:
-                self._gridfont = None  # FONT() nu = restaura o default
-            else:
-                self._gridfont = _resolve_font(cfg, label)
+        if item.kind == 'CPI':
+            self._cpi = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else CPI_DEFAULT
+            continue
+        if item.kind == 'LPI':
+            self._lpi = _lpi_norm(cfg['lpi']) if 'lpi' in cfg else LPI_DEFAULT
             continue
         if item.kind == 'TABS':
             _raw = cfg if isinstance(cfg, list) else cfg.get('values', [])
@@ -313,7 +319,7 @@ def _render_header_items(self, h):
                 if isinstance(_v, bool) or not isinstance(_v, (int, float)):
                     raise ValueError(f"report '{label}': POS exige [col, lin]")
             self.set_xy(self.l_margin + _c * _col_unit(self),
-                        self.t_margin + _r * ROW_CELL)
+                        self.t_margin + _r * _row_unit(self))
             continue
         if item.kind == 'LOGO':
             logo = h.logo_path
@@ -341,11 +347,7 @@ def _render_header_items(self, h):
             self.set_xy(x + w, y + hh)
             _mark_content(self)
         elif item.kind == 'TITLE':
-            titles = _draw_titulo(self, cfg, h, label, instance=self._instance,
-                                  drawn=titles,
-                                  title_size=h.title_font_size,
-                                  title_style=h.title_font_style,
-                                  sub_size=h.subtitle_font_size, sub_style='')
+            titles = _draw_titulo(self, cfg, h, label, instance=self._instance, drawn=titles)
         elif item.kind == 'TITLES':
             # Vários TITLE numa tacada. Não delega ao `_render_items`: ali não
             # existem a cascata nem os defaults do header, e o `text` de
@@ -356,11 +358,7 @@ def _render_header_items(self, h):
                 if _k != 'TITLE':
                     raise ValueError(
                         f"report '{label}': TITLES aceita só TITLE, veio {_k!r}")
-                titles = _draw_titulo(self, _cfg, h, label, instance=self._instance,
-                                       drawn=titles,
-                                       title_size=h.title_font_size,
-                                       title_style=h.title_font_style,
-                                       sub_size=h.subtitle_font_size, sub_style='')
+                titles = _draw_titulo(self, _cfg, h, label, instance=self._instance, drawn=titles)
         elif item.kind == 'FIELD':
             if self._instance is None:
                 continue  # sem instância: omite (legado do cabeçalho)
@@ -418,7 +416,6 @@ def _build_footer(report: Report) -> '_ReportFooter':
         show_page_number=f.get('show_page_number', False),
         separator=f.get('separator', ' | '),
         align=f.get('align', 'C'),
-        font_size=f.get('font_size', 8),
     )
 
 
@@ -428,8 +425,8 @@ class DocPDF(FPDF):
 
     def footer(self):
         self.set_y(FOOTER_Y)
-        self.set_font(FONT_FAMILY, "I", FONT_FOOTER)
-        self.cell(0, LINE_TALL, f"Página {self.page_no()}/{{nb}}", align="C")
+        _apply_face(self, 'I')
+        self.cell(0, _row_unit(self), f"Página {self.page_no()}/{{nb}}", align="C")
 
 
 def _fmt(val):
@@ -445,6 +442,26 @@ def _fmt(val):
 
 class DocPDFReport(FPDF):
     """FPDF subclass that renders header/footer from a Report config."""
+
+    def output(self, *args, **kwargs):
+        """Envolve `output` para calar o `fontTools.subset`.
+
+        O subsetter descarta a tabela `TTFA` (metadado do FontLab que o Hack
+        traz) e avisa em WARNING — 4 linhas por PDF sobre algo que o autor do
+        report não pediu, e que aparece no meio dos logs do app. Silencia só
+        esse logger e só durante o `output`, que é onde o subsetting acontece
+        (não no `add_font`).
+        """
+        import logging
+        _log = logging.getLogger('fontTools.subset')
+        _antes = _log.level
+        # Sem este `if`: o logger nasce em NOTSET (0) e herda do pai, e `0 > 30`
+        # é falso — que é justamente o caso comum, e o aviso vazava.
+        _log.setLevel(logging.ERROR)
+        try:
+            return super().output(*args, **kwargs)
+        finally:
+            _log.setLevel(_antes)
 
     def __init__(self, report: Report, **kwargs):
         page_size = report.page_size
@@ -524,8 +541,8 @@ class DocPDFReport(FPDF):
             elif self._instance and '{id}' in title:
                 title = title.replace('{id}', str(getattr(self._instance, 'id', '')))
             self.set_xy(right_x, y0)
-            self.set_font(FONT_FAMILY, h.title_font_style, h.title_font_size)
-            self.cell(right_w, h.title_font_size * 0.6, title, align='C',
+            _apply_face(self, h.title_style, cpi=5)
+            self.cell(right_w, _row_unit(self), title, align='C',
                       new_x="LMARGIN", new_y="NEXT")
             self.ln(GAP_TITLE_SIDE)
 
@@ -549,17 +566,17 @@ class DocPDFReport(FPDF):
             if hasattr(self, '_title_substitutions'):
                 for k, v in self._title_substitutions.items():
                     title = title.replace('{' + k + '}', str(v))
-            self.set_font(FONT_FAMILY, h.title_font_style, h.title_font_size)
-            self.cell(0, h.title_font_size * 0.6, title, align=h.title_align,
+            _apply_face(self, h.title_style, cpi=5)
+            self.cell(0, _row_unit(self), title, align=h.title_align,
                       new_x="LMARGIN", new_y="NEXT")
-            self.ln(ROW_CELL)  # título sempre deixa a PRÓXIMA linha
+            self.ln(_row_unit(self))  # título sempre deixa a PRÓXIMA linha
 
         # Subtitle
         if h.subtitle:
-            self.set_font(FONT_FAMILY, "", h.subtitle_font_size)
-            self.cell(0, h.subtitle_font_size * 0.5, h.subtitle,
+            _apply_face(self)
+            self.cell(0, _row_unit(self), h.subtitle,
                       align=h.subtitle_align, new_x="LMARGIN", new_y="NEXT")
-            self.ln(ROW_CELL)  # idem para o subtítulo
+            self.ln(_row_unit(self))  # idem para o subtítulo
 
         # Header fields
         if h.fields and self._instance:
@@ -576,7 +593,7 @@ class DocPDFReport(FPDF):
             area_width = self.w - self.l_margin - self.r_margin
         col_w = area_width / num_columns
         y0 = self.get_y()
-        row_h = ROW_CELL
+        row_h = _row_unit(self)
         col = 0
         row = 0
         for rf in parsed:
@@ -584,11 +601,11 @@ class DocPDFReport(FPDF):
             y = y0 + row * row_h
             # Label (bold)
             self.set_xy(x, y)
-            self.set_font(FONT_FAMILY, "B", FONT_FIELD)
+            _apply_face(self, 'B')
             lbl = (rf.label or rf.field or '') + ':'
             self.cell(col_w * 0.4, row_h, lbl, new_x="END")
             # Value
-            self.set_font(FONT_FAMILY, "", FONT_FIELD)
+            _apply_face(self)
             val = self._get_field_value(rf)
             align = 'R' if rf.align == 'right' else 'L'
             self.cell(col_w * 0.6, row_h, val, align=align, new_x="END")
@@ -668,8 +685,8 @@ class DocPDFReport(FPDF):
             parts.append(f"Página {self.page_no()}/{{nb}}")
         if parts:
             self.set_y(FOOTER_Y)
-            self.set_font(FONT_FAMILY, "I", f.font_size)
-            self.cell(0, LINE_TALL, f.separator.join(parts), align=f.align)
+            _apply_face(self, 'I')
+            self.cell(0, _row_unit(self), f.separator.join(parts), align=f.align)
 
 
 def _get_cell_value(row, col: ReportColumn):
@@ -749,27 +766,13 @@ def _format_cell_value(val, fmt: str) -> str:
 
 _MISSING = object()  # sentinela p/ suppress (None é valor válido de comparar)
 
-# ── Medidas fixas do motor (valores idênticos aos literais anteriores) ──────
-# Centralizadas aqui para não espalhar mágicos; viram props de relatório só
-# com aprovação (ver conversa). Nada abaixo muda comportamento.
-FONT_FAMILY = "Helvetica"
-FONT_TITLE = 16        # título do cabeçalho
-FONT_SUBTITLE = 10     # subtítulo
-FONT_FIELD = 9         # fields do cabeçalho (label e valor)
-FONT_HEAD = 9          # cabeçalho das colunas
-FONT_CELL = 9          # célula de dados
-FONT_FOOT = 9          # linha de total
-FONT_GROUP_TITLE = 11  # título de grupo (pos 2)
-FONT_GROUP_TITLE_SMALL = 10  # título fora de pos 2 (defensivo)
-FONT_GROUP_LINE = 9    # linha de grupo (pos 1)
-FONT_ITEMS = 10        # itens inline (field/text)
-FONT_FOOTER = 8        # rodapé de página
-ROW_HEAD = 7           # altura linha de cabeçalho das colunas
-ROW_CELL = 6           # altura linha de dados / unidade de grade e de rows_*
-ROW_FOOT = 7           # altura linha de total
-ROW_GROUP_TITLE = 8    # altura título de grupo
-ROW_GROUP_LINE = 7     # altura linha de grupo
-GAP_LABEL = 1          # respiro rótulo→valor, em COLS (2.54mm em cpp 0)
+# ── Medidas fixas do motor ─────────────────────────────────────────────────
+# As alturas de LINHA (`ROW_CELL`/`ROW_HEAD`/`ROW_FOOT`/`ROW_GROUP_*`/`LINE_TALL`)
+# e os corpos de fonte (`FONT_*`) saíram: a linha é `25,4/LPI` e o corpo é
+# `60/LPI`, ambos derivados (ver `_row_unit`/`_size`). Sobrou só o que é
+# respiro em mm/cols, que não é altura de linha.
+FONT_FAMILY = "Helvetica"          # fallback para texto solto sem grade
+GAP_LABEL = 1          # respiro rótulo→valor, em COLS
 GAP_HEAD_FIELDS = 4    # após fields do cabeçalho
 GAP_TEXT_LINE = 2      # antes de cada linha avulsa
 GAP_TEXT_EMPTY = 8     # linha avulsa vazia
@@ -778,7 +781,6 @@ INDENT_GROUP_TITLE = 2   # recuo título de grupo (mm)
 INDENT_GROUP_LINE = 6    # recuo linha de grupo (mm)
 INDENT_PER_LEVEL = 4     # recuo adicional por nível (mm)
 FOOTER_Y = -15           # recuo do rodapé de página
-LINE_TALL = 10           # altura de linha avulsa larga (rodapé, erro)
 GAP_TITLE_SIDE = 2      # após título no layout logo_left
 GAP_AFTER_TABLE = 4     # antes do texto after da tabela
 GAP_TEXTS = 4           # antes de cada texto avulso
@@ -788,17 +790,17 @@ PAPER_FIT_MSG = ('Largura do papel insuficiente para relatorio. '
                  'Mude orientação ou tipo de papel.')
 
 
-def _calc_col_widths(pdf, cols, cpp=0):
+def _calc_col_widths(pdf, cols, cpi=10):
     """Converte widths (ch) → mm no pitch nominal (tabela sempre draft).
 
-    - Colunas com `width` (ch) → mm exato em 25.4/cpp;
+    - Colunas com `width` (ch) → mm exato em 25.4/CPI;
     - Sem nenhuma width → divisão igual;
     - Com widths parciais → restante dividido entre as sem width;
     - Todas com width → bloco centrado no disponível.
     """
-    from ajsystem.defs.fonts import CPP as _CPP
+    from ajsystem.defs.fonts import col_mm
     avail_w = pdf.w - pdf.l_margin - pdf.r_margin
-    unit = 25.4 / _CPP[cpp]
+    unit = col_mm(cpi)
     n = len(cols)
     conv = [(c.width or 0) * unit for c in cols]
     if not any(c.width for c in cols):
@@ -820,15 +822,19 @@ MIN_COL_CHARS = 6  # piso de legibilidade por coluna (em caracteres)
 
 
 def _fit_table(pdf, cols, label):
-    """Auto-fit: cpp 0→3 (10/12/17/20); primeiro que cabe (total + piso em
-    caracteres). Tabela é sempre draft; font/cpp/size dentro dela = fail-fast."""
-    from ajsystem.defs.fonts import CPP as _CPP
+    """Auto-fit pela escada da grade: primeiro CPI que cabe (total + piso em
+    caracteres). Tabela é sempre draft; font/cpi/lpi dentro dela = fail-fast.
+
+    A escada é {10, 17, 20} — N, S, C. O `E` (5) fica de fora de propósito: é o
+    expandido do título, e uma tabela que auto-fitasse nele sairia com 5,08mm
+    por caractere."""
+    from ajsystem.defs.fonts import TABLE_LADDER, col_mm
     avail_w = pdf.w - pdf.l_margin - pdf.r_margin
-    for cpp in sorted(_CPP):
-        col_widths, total_w, x_start = _calc_col_widths(pdf, cols, cpp)
-        _floor = MIN_COL_CHARS * 25.4 / _CPP[cpp]
+    for cpi in TABLE_LADDER:
+        col_widths, total_w, x_start = _calc_col_widths(pdf, cols, cpi)
+        _floor = MIN_COL_CHARS * col_mm(cpi)
         if total_w <= avail_w + 0.01 and all(w + 0.01 >= _floor for w in col_widths):
-            return col_widths, total_w, x_start, cpp
+            return col_widths, total_w, x_start, cpi
     raise ValueError(f"report '{label}': {PAPER_FIT_MSG}")
 
 
@@ -858,8 +864,8 @@ def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_lin
     """Renderiza cabeçalhos das colunas com linhas horizontais."""
     if draw_top_line:
         _draw_hline(pdf, x_start, total_w)
-    pdf.set_font(FONT_FAMILY, "B", FONT_HEAD)
-    row_h = ROW_HEAD
+    _apply_face(pdf, 'B')
+    row_h = _row_unit(pdf)
     for i, col in enumerate(cols):
         align = 'C' if col.align == 'center' else ('R' if col.align == 'right' else 'L')
         nx = "LMARGIN" if i == len(cols) - 1 else "END"
@@ -872,8 +878,8 @@ def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_lin
 
 def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
     """Renderiza uma linha de dados."""
-    pdf.set_font(FONT_FAMILY, "", FONT_CELL)
-    row_h = ROW_CELL
+    _apply_face(pdf)
+    row_h = _row_unit(pdf)
     if not hasattr(pdf, '_sup_prev'):
         pdf._sup_prev = {}
     for i, col in enumerate(cols):
@@ -918,14 +924,14 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
             if _stayed:
                 # a régua começa uma linha: fecha a anterior, que ficou pela
                 # esquerda. Sem isso ela nasceria por cima do texto daquela.
-                pdf.ln(ROW_CELL)
+                pdf.ln(_row_unit(pdf))
                 _stayed = False
-            if _check_page_break(pdf, ROW_CELL):
+            if _check_page_break(pdf, _row_unit(pdf)):
                 _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
             _draw_hline(pdf, x_start, total_w)
             # NÃO avança: a régua no `extend` é DIVISOR, não linha. Ela nasce no
             # topo da faixa e a linha seguinte se apoia nela — a régua ocupa o
-            # lugar da faixa em branco que o `ln(ROW_CELL)` custaria, que era o
+            # lugar da faixa em branco que o `ln(_row_unit(pdf))` custaria, que era o
             # jeito de o autor bancar um separador e ganhar uma linha vazia.
             continue
         if isinstance(it, str):
@@ -934,7 +940,7 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
                     f"report '{label}': extend aceita tupla, LINE(), LF ou CR "
                     f"(a régua é LINE(), não a string 'LINE')")
             if it == 'LF':
-                pdf.ln(ROW_CELL)
+                pdf.ln(_row_unit(pdf))
             else:
                 pdf.set_x(x_start)
             _stayed = False
@@ -943,11 +949,13 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
             raise ValueError(f"report '{label}': extend exige (col, texto[, props])")
         _col, _text = it[0], it[1]
         _props = dict(it[2]) if len(it) == 3 else {}
-        for _fk in ('font', 'cpp', 'font_size'):
+        for _fk in ('font', 'cpi', 'lpi', 'font_size'):
             if _fk in _props:
-                raise ValueError(f"report '{label}': '{_fk}' não vale em tabela (sempre cpp=0)")
-        if _props.get('font_style') not in (None, '', 'B', 'I', 'BI'):
-            raise ValueError(f"report '{label}': font_style em tabela: ''|B|I|BI")
+                raise ValueError(
+                    f"report '{label}': '{_fk}' não vale em tabela (a grade da "
+                    f"tabela é dela; a fonte é do report)")
+        if _props.get('style') not in (None, '', 'B', 'I', 'BI'):
+            raise ValueError(f"report '{label}': style em tabela: ''|B|I|BI")
         if not isinstance(_text, str):
             raise ValueError(f"report '{label}': texto do extend deve ser str")
         if isinstance(_col, list):
@@ -969,7 +977,7 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
         _when = _props.get('when')
         if _when is not None and not _ew(instance, _when):
             continue
-        if _check_page_break(pdf, ROW_CELL):
+        if _check_page_break(pdf, _row_unit(pdf)):
             _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
         _fo = _props.get('_fmt_opts') or {}
         _m = _re.fullmatch(r'{([\w.]+)}', (_text or '').strip())
@@ -978,40 +986,40 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
             _txt = _format_cell_value(_dg(instance, _m.group(1)) if instance is not None else None, _fmt_dflt)
         else:
             _txt = _trender(_text, lambda k: _dg(instance, k) if instance is not None else None, _fo)
-        pdf.set_font(FONT_FAMILY, _props.get('font_style', ''), FONT_CELL)
+        _apply_face(pdf, _props.get('style', ''))
         pdf.set_x(_x)
         _last_col = _b if isinstance(_col, list) else _col
         _stay = _last_col < n
-        pdf.cell(_w, ROW_CELL, _txt, align=_props.get('align', _align_dflt),
+        pdf.cell(_w, _row_unit(pdf), _txt, align=_props.get('align', _align_dflt),
                  new_x="END" if _stay else "LMARGIN",
                  new_y="TOP" if _stay else "NEXT")
         _stayed = _stay
         if _txt:
             _mark_content(pdf)
     if _stayed:
-        pdf.ln(ROW_CELL)
+        pdf.ln(_row_unit(pdf))
 
 
 def _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w, close=True):
     """Linha de total geral: rótulo nas SPAN primeiras + func por coluna agg."""
     _draw_hline(pdf, x_start, total_w)  # régua antes (interna, sempre)
-    pdf.set_font(FONT_FAMILY, "B", FONT_FOOT)
+    _apply_face(pdf, 'B')
     span = totals.get('span')
     nspan = len(cols) - 1 if span is None else min(span, len(cols) - 1)
     label_w = sum(col_widths[:nspan])
     pdf.set_x(x_start)
-    pdf.cell(label_w, ROW_FOOT, totals.get('label', TOTALS_DEFAULT_LABEL),
+    pdf.cell(label_w, _row_unit(pdf), totals.get('label', TOTALS_DEFAULT_LABEL),
              border=0, align=totals.get('align', 'C'))
     _positions = [i for i, col in enumerate(cols) if i >= nspan and col.agg]
     if not _positions:
         pdf.set_x(x_start + label_w)
-        pdf.cell(total_w - label_w, ROW_FOOT, '', border=0,
+        pdf.cell(total_w - label_w, _row_unit(pdf), '', border=0,
                  new_x="LMARGIN", new_y="NEXT")
     for i in _positions:
         col = cols[i]
         v = _agg_apply(col.agg, agg_values.get(col.field))
         pdf.set_x(x_start + sum(col_widths[:i]))
-        pdf.cell(col_widths[i], ROW_FOOT, _format_cell_value(v, col.format),
+        pdf.cell(col_widths[i], _row_unit(pdf), _format_cell_value(v, col.format),
                  border=0, align="R",
                  **({'new_x': "LMARGIN", 'new_y': "NEXT"} if i == _positions[-1] else {}))
     _mark_content(pdf)
@@ -1070,10 +1078,9 @@ def _group_title(g, val, row=None):
 def _render_group_header(pdf, g, val, xs, tw, pos, row=None):
     txt = apply_transform(_group_title(g, val, row=row), g.get('transform'))
     style = 'B' if g.get('bold', True) else ''
-    size = FONT_GROUP_TITLE if pos == 2 else FONT_GROUP_TITLE_SMALL
     indent = INDENT_GROUP_TITLE if pos == 2 else INDENT_GROUP_LINE
-    height = ROW_GROUP_TITLE if pos == 2 else ROW_GROUP_LINE
-    pdf.set_font(FONT_FAMILY, style, size)
+    height = _row_unit(pdf) if pos == 2 else _row_unit(pdf)
+    _apply_face(pdf, style)
     pdf.set_x(xs + indent)
     pdf.cell(tw - indent, height, txt, border=0,
              new_x="LMARGIN", new_y="NEXT")
@@ -1084,9 +1091,9 @@ def _render_group_line(pdf, g, val, xs, tw, row=None):
     """Linha `pos=1` — interna à tabela, texto corrido na largura da tabela."""
     txt = apply_transform(_group_title(g, val, row=row), g.get('transform'))
     style = 'B' if g.get('bold', True) else ''
-    pdf.set_font(FONT_FAMILY, style, FONT_GROUP_LINE)
+    _apply_face(pdf, style)
     indent = max(1, int(g.get('left', 1) or 1)) * INDENT_PER_LEVEL
-    height = ROW_GROUP_LINE
+    height = _row_unit(pdf)
     pdf.set_x(xs + indent)
     pdf.cell(tw - indent, height, txt, border=0,
              new_x="LMARGIN", new_y="NEXT")
@@ -1107,7 +1114,7 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
         return
     if totals.get('bline'):
         _draw_hline(pdf, xs, sum(cw))
-    pdf.set_font(FONT_FAMILY, "B", FONT_FOOT)
+    _apply_face(pdf, 'B')
     label = totals.get('label', 'Sub-Total')
     if label and row is not None and ('{' in label):
         label = _group_title({**g, 'text': label}, None, row=row)
@@ -1115,18 +1122,18 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
     nspan = len(cols) - 1 if span is None else min(span, len(cols) - 1)
     label_w = sum(cw[:nspan])
     pdf.set_x(xs)
-    pdf.cell(label_w, ROW_FOOT, label, border=0, align=totals.get('align', 'C'))
+    pdf.cell(label_w, _row_unit(pdf), label, border=0, align=totals.get('align', 'C'))
     _positions = [i for i, col in enumerate(cols) if i >= nspan and col.agg]
     if not _positions:
         pdf.set_x(xs + label_w)
-        pdf.cell(sum(cw[nspan:]), ROW_FOOT, '', border=0,
+        pdf.cell(sum(cw[nspan:]), _row_unit(pdf), '', border=0,
                  new_x="LMARGIN", new_y="NEXT")
         return
     for i in _positions:
         col = cols[i]
         v = _agg_apply(col.agg, acc.get(col.field))
         pdf.set_x(xs + sum(cw[:i]))
-        pdf.cell(cw[i], ROW_FOOT, _format_cell_value(v, col.format),
+        pdf.cell(cw[i], _row_unit(pdf), _format_cell_value(v, col.format),
                  border=0, align="R",
                  **({'new_x': "LMARGIN", 'new_y': "NEXT"} if i == _positions[-1] else {}))
     _mark_content(pdf)
@@ -1176,7 +1183,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                         _table_close(pdf, xs, tw)
                         table_open = False
                     if lines_after:
-                        pdf.ln(lines_after * ROW_CELL)
+                        pdf.ln(lines_after * _row_unit(pdf))
                     _render_group_header(pdf, g, vals[i], xs, tw, pos, row)
                     gera_cab = True
                 elif pos == 1:                   # linha — interna a tabela, texto único
@@ -1236,17 +1243,17 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
     pdf._sup_prev = {}
 
     label = report.label if report is not None else ''
-    col_widths, total_w, x_start, _cpp = _fit_table(pdf, cols, label)
+    col_widths, total_w, x_start, _cpi = _fit_table(pdf, cols, label)
     # Bordas reais p/ LTB/RTB em mm (última tabela vence; sem tabela = área
     # útil). Guarda em mm e converte na resolução: âncora/fluxo/IND vivem na
     # unidade da fonte corrente (`_col_unit`), que muda com FONT — gravar já
     # em cols do pitch da tabela brigava com o `ncol` da validação do IND.
     pdf._table_bounds = [x_start, x_start + total_w]
-    pdf._table_cpp = _cpp
+    pdf._table_cpi = _cpi
 
     # Dados — grupos por mudança de valor (specs normalizadas em _apply_entity)
     agg_values = {c.field: [] for c in cols if c.agg}
-    header_h = ROW_HEAD + ROW_CELL
+    header_h = _row_unit(pdf) + _row_unit(pdf)
     gera_cab = True
     gs = [g for g in (_body_table(report).get('levels', _body_table(report).get('hierarchy', [])))
           if isinstance(g, dict) and 'field' in g] \
@@ -1270,7 +1277,7 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
 
     # Linha de total geral — com sua própria linha de fechamento
     if totals is not None:
-        footer_h = ROW_FOOT
+        footer_h = _row_unit(pdf)
         if _check_page_break(pdf, footer_h):
             _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=False)
         _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w,
@@ -1346,7 +1353,7 @@ def _wrap_linhas(pdf, txt, avail, first=None):
     return linhas
 
 
-def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align, recuo=0.0,
+def _draw_bloco(pdf, linhas, x, w, h, style, align, recuo=0.0,
                 prefixo=('', '', 0.0)):
     """Desenha as linhas do bloco em `x`, largura `w`, linha de altura `h`.
 
@@ -1374,7 +1381,7 @@ def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align, recuo=0.0,
     n_linhas = len(linhas)
     for i, ln in enumerate(linhas):
         _check_page_break(pdf, h)
-        pdf.set_font(font, style, size)
+        _apply_face(pdf, style)
         _rec = recuo if i == 0 else 0.0
         pref_w = _pw if (i == 0 and _ptxt) else 0.0
         lx = x + _rec
@@ -1396,10 +1403,10 @@ def _draw_bloco(pdf, linhas, x, w, h, font, size, style, align, recuo=0.0,
             x_linha = lx
         if i == 0 and _ptxt:
             # o rótulo sai na fonte DELE; o texto começa depois dele
-            pdf.set_font(font, _pstyle, size)
+            _apply_face(pdf, _pstyle)
             pdf.set_x(max(x_linha, 0))
             pdf.cell(pref_w, h, _ptxt, new_x='END', new_y='TOP')
-            pdf.set_font(font, style, size)
+            _apply_face(pdf, style)
             x_linha = max(x_linha, 0) + pref_w
         if extra:
             # palavra a palavra: cada célula leva a largura da palavra mais o
@@ -1480,23 +1487,22 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after', report=Non
                             lambda k: _dg(instance, k) if instance is not None else None,
                             line.get('_fmt_opts'))
         text = text or ''
-        size = line.get('font_size', 10)
-        style = line.get('font_style', '')
+        style = line.get('style', '')
         align = line.get('align', 'L')
         w = line.get('width', 0)
         if not text and w == 0:
             pdf.ln(GAP_TEXT_EMPTY)
             continue
         pdf.ln(GAP_TEXT_LINE)
-        pdf.set_font(FONT_FAMILY, style, size)
+        _apply_face(pdf, style)
         if _want_wrap(line, prop):
             # `cell` não quebra (fpdf2): o texto vaza para fora da página e a
             # ponta some. `multi_cell` quebra na largura da zona e cresce, que
             # é o que uma frase precisa.
-            pdf.multi_cell(w or _wrap_width(pdf), size * 0.5, text, align=align,
+            pdf.multi_cell(w or _wrap_width(pdf), _row_unit(pdf), text, align=align,
                            new_x="LMARGIN", new_y="NEXT")
         else:
-            pdf.cell(w, size * 0.5, text, align=align, new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(w, _row_unit(pdf), text, align=align, new_x="LMARGIN", new_y="NEXT")
         if text:
             _mark_content(pdf)
 
@@ -1505,7 +1511,7 @@ def _render_table_lines(pdf, lines, instance=None, prop='body.after', report=Non
 # propósito: `{'text': 'linha'}` e `{'campo': {...}}` são a mesma forma para o
 # `_split_item` (dict de uma chave), e sem esta lista o texto mais comum do
 # report viraria FIELD chamado `text`.
-_TEXT_LINE_KEYS = frozenset(('text', 'font_size', 'font_style', 'align',
+_TEXT_LINE_KEYS = frozenset(('text', 'style', 'cpi', 'align',
                              'width', 'wrap', '_fmt_opts'))
 
 
@@ -1605,80 +1611,119 @@ def _image_box(pdf, location, path):
         _, anchor, lines = norm
         iw, ih = _PIL.open(path).size
         area_cols = (pdf.w - pdf.l_margin - pdf.r_margin) / col_w
-        norm = _gloc('IMAGE', _ra(anchor, lines, iw, ih, ROW_CELL, col_w, area_cols))
-    g = _gmm(norm, ROW_CELL, col_w)
+        norm = _gloc('IMAGE', _ra(anchor, lines, iw, ih, _row_unit(pdf), col_w, area_cols))
+    g = _gmm(norm, _row_unit(pdf), col_w)
     return pdf.l_margin + g['x'], pdf.t_margin + g['y'], g['w'], g['h']
 
 
+def _cpi(pdf):
+    """CPI vigente (chars/pol). A prop `cpi` do item muda só para ele."""
+    from ajsystem.defs.fonts import CPI_DEFAULT
+    return getattr(pdf, '_cpi', CPI_DEFAULT)
+
+
+def _lpi(pdf):
+    """LPI vigente (linhas/pol). Só diretiva `LPI(n)` mexe — nunca prop de item,
+    porque um item com LPI próprio desalinha a grade vertical e o PROW(n) passa
+    a ler a linha errada."""
+    from ajsystem.defs.fonts import LPI_DEFAULT
+    return getattr(pdf, '_lpi', LPI_DEFAULT)
+
+
 def _col_unit(pdf):
-    """Largura da col em mm: nominal (25.4/cpp) sob FONT vigente ou ref fixa.
+    """Largura da COLUNA em mm: `25,4 / CPI`.
 
-    Sem FONT = referência fixa (legado, byte-igual); com FONT, tudo
-    (pos/tab/TABS/widths/ncol) usa o pitch nominal da fonte vigente.
+    É a grade, não a fonte: o glifo é esticado para ocupar exatamente isto, e
+    por isso trocar de fonte não move nada. Antes isto era `get_string_width('0')`
+    sem FONT (1,7653mm) e `25,4/cpp` com — duas contas para a mesma coluna, e a
+    que valia dependia de haver diretiva de fonte no fluxo.
     """
-    spec = getattr(pdf, '_gridfont', None)
-    if spec is None:
-        pdf.set_font(FONT_FAMILY, "", FONT_CELL)  # referência fixa da grade
-        return pdf.get_string_width('0') or 2.0
-    return spec['col']
+    return 25.4 / _cpi(pdf)
 
 
-def _font_layers():
-    """Camadas de fontes: framework < app.extends.fonts < Fonts da rota."""
-    try:
-        from flask import request, current_app
-        from ajsystem.core.adapter import _override_ou
-        from ajsystem.defs.fonts import module_fonts
-        import importlib as _il
-        from ajsystem.core.utils import module_blueprint
-        app_layer = _override_ou('app.extends.fonts', 'Fonts', {}) or {}
-        try:
-            bp_name = request.blueprint
-        except RuntimeError:
-            return ({}, app_layer, {})
-        if not bp_name:
-            return ({}, app_layer, {})
-        bp = current_app.blueprints.get(bp_name)
-        mod = _il.import_module(bp.import_name) if bp is not None else None
-        try:
-            page_layer = module_fonts(mod) if mod is not None else {}
-        except ImportError:
-            page_layer = {}
-        return ({}, app_layer, page_layer)
-    except Exception:
-        return ({}, {}, {})
+def _row_unit(pdf):
+    """Altura da LINHA em mm: `25,4 / LPI`. Substitui a constante `_row_unit(pdf)`."""
+    return 25.4 / _lpi(pdf)
 
 
-def _resolve_font(cfg, label):
-    """{'font': nome, 'cpp':?} -> {family, cpp, col} (fail-fast)."""
-    from ajsystem.defs.fonts import resolve_font as _rf
-    if not isinstance(cfg, dict) or not cfg.get('font'):
-        raise ValueError(f"report '{label}': FONT exige {{font, ...}}")
-    _fw, _app, _page = _font_layers()
-    _extra = {k: v for k, v in cfg.items() if k not in ('font', 'cpp')}
-    if _extra:
-        raise ValueError(f"report '{label}': chaves {sorted(_extra)} inválidas em FONT")
-    return _rf(cfg['font'], cfg.get('cpp'),
-               types=[l for l in (_fw, _app, _page) if l])
+def _size(pdf):
+    """Corpo da fonte em pt, DERIVADO do LPI: `60 / LPI` (6 -> 10pt, 8 -> 7.5pt).
+
+    Não é escolha: é o que faz o glifo caber na linha em qualquer LPI, com a
+    mesma folga (a tinta máxima da fonte ≤ 1,2em é o limite). Por isso
+    `font_size` saiu — declarar um corpo solto quebraria a relação.
+    """
+    return 60.0 / _lpi(pdf)
 
 
-def _font_default(pdf):
-    """(family, size, style) p/ FIELD/TEXT sem tamanho próprio."""
-    spec = getattr(pdf, '_gridfont', None)
-    if spec is None:
-        return (FONT_FAMILY, FONT_ITEMS, '')
-    return (spec['family'], FONT_ITEMS, '')
+def _font_info(pdf, nome=None):
+    """Métricas da família. `nome` wins; sem ele, a que está no `pdf`."""
+    from ajsystem.defs.fonts import font
+    return font(nome if nome is not None else getattr(pdf, '_fonte', 'courier'))
 
 
-def _apply_font(pdf, family, size, style):
-    pdf.set_font(family, style, size)
+def _apply_face(pdf, style='', cpi=None):
+    """Família + estilo + corpo + alongamento, juntos e NESSA ordem.
+
+    Ponto único de aplicação por três motivos, todos medidos:
+
+    1. `get_string_width` já conta o alongamento, então `align='C'`/`'R'` e a
+       justificação saem certos — **desde que o alongamento venha ANTES da
+       medição**, e medir antes de esticar daria a largura do glifo cru.
+    2. O `Tz` é pegadioso: o fpdf2 só o emite na MUDANÇA e o repete no primeiro
+       texto de cada página, e o reset de `_beginpage` não segura. Um desenho que
+       esquecesse de esticar herdaria o do desenho anterior, em silêncio, e o
+       erro atravessaria a quebra de página.
+    3. `set_font` não registra a face: sem `add_font` prévio, `set_font(x, 'I')`
+       levanta `Undefined font` do fpdf2 no meio do relatório.
+
+    `cpi` sobrescreve só para este desenho (a prop `cpi` do item), sem mexer no
+    estado do fluxo.
+    """
+    from ajsystem.defs.fonts import register, stretch_pct
+    info = _font_info(pdf)
+    register(pdf, info['name'])
+    body = _size(pdf)
+    pdf.set_font(info['core'] or info['family'], style or '', body)
+    pdf.set_stretching(stretch_pct(info['advance'], body,
+                                   _cpi(pdf) if cpi is None else cpi))
+    return info
+
+
+def _validate_style(style, label, where='item'):
+    """Centralizada: `''|B|I|U|BI|BU|IU|BIU` — as 8 do fpdf2.
+
+    Antes o `TITLE` e a tabela validavam e `FIELD`/`TEXT` não, então um estilo
+    inválido escapava e explodia dentro do fpdf2, com mensagem de outra
+    biblioteca. E `U` estava prometido na docstring de `defs/fonts.py` e
+    recusado pelo código.
+    """
+    from ajsystem.defs.fonts import STYLES
+    if style not in STYLES:
+        _ok = '|'.join(s if s else "''" for s in STYLES)
+        raise ValueError(
+            f"report '{label}': style do {where} deve ser {_ok}, veio {style!r}")
+    return style
+
+
+
+def _item_cpi(pdf, cfg, label):
+    """CPI do item: o que a prop `cpi` disser, senão o do fluxo. `None` = fluxo.
+
+    A prop vale só para o próprio desenho — o estado do fluxo não muda, senão um
+    título expandido empurraria a coluna do resto do report.
+    """
+    if 'cpi' not in cfg:
+        return None
+    from ajsystem.defs.fonts import cpi as _cpi
+    return _cpi(cfg['cpi'])
 
 
 def _grid_pos(pdf):
     """Cursor corrente em grade (PCOL, PROW)."""
     col_w = _col_unit(pdf)
     return ((pdf.get_x() - pdf.l_margin) / col_w,
-            (pdf.get_y() - pdf.t_margin) / ROW_CELL, col_w)
+            (pdf.get_y() - pdf.t_margin) / _row_unit(pdf), col_w)
 
 
 def _usable_cols(pdf):
@@ -1793,7 +1838,7 @@ def _anchor(pdf, cfg, label=''):
         raise ValueError(
             f"report '{label}': âncora {list(loc)[:2]} na coluna {c:g}, "
             f"fora da zona ({_zone_ncols(pdf):.1f} cols)")
-    pdf.set_xy(_flow_zone(pdf)[0] + c * col_w, pdf.t_margin + r * ROW_CELL)
+    pdf.set_xy(_flow_zone(pdf)[0] + c * col_w, pdf.t_margin + r * _row_unit(pdf))
 
 
 def _eval_tab_value(pdf, v, label):
@@ -1906,7 +1951,7 @@ def _place_item(pdf, kind, name, cfg, label, line=True):
     x0, right = _flow_zone(pdf)
     if kind == 'TEXT' and line and cfg.get('width') is None:
         if pdf.get_x() > x0 + 0.01:
-            pdf.ln(ROW_CELL)
+            pdf.ln(_row_unit(pdf))
         pdf.set_x(x0)
         return
     if kind in ('FIELD', 'TEXT'):
@@ -1935,16 +1980,12 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
     from ajsystem.core.text import render as _trender
     _x0, right = _flow_zone(pdf)
     _fixed = any(k in cfg for k in ('tab', 'location', 'pos'))
-    _fam = None
-    if 'font' in cfg or 'cpp' in cfg:
-        # Override temporário por item (diretiva intacta): família e/ou pitch.
-        from ajsystem.defs.fonts import CPP as _CPP
-        _base = getattr(pdf, '_gridfont', None) or {}
-        _fam = cfg.get('font', _base.get('family', FONT_FAMILY))
-        _c = cfg.get('cpp', _base.get('cpp', 0))
-        if _c not in _CPP:
-            raise ValueError(f"report '{label}': cpp deve ser 0|1|2|3")
-        col_w = 25.4 / _CPP[_c]
+    _cpi_item = _item_cpi(pdf, cfg, label)
+    if 'font' in cfg:
+        raise ValueError(
+            f"report '{label}': a prop 'font' é do report (uma família para o "
+            f"documento inteiro); no item use 'cpi'")
+    col_w = _col_unit(pdf) if _cpi_item is None else 25.4 / _cpi_item
     if kind == 'FIELD':
         if instance is None:
             raise ValueError(f"report '{label}': field '{name}' exige instância (documento)")
@@ -1959,9 +2000,7 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
             val = _dg(instance, cfg.get('field', name) or name)
         txt = _format_cell_value(val, fmt if fmt is not None else cfg.get('mask'))
         lbl = cfg.get('label', name) or ''
-        _ff, _fs, _fst = _font_default(pdf)
-        _ff = _fam or _ff
-        pdf.set_font(_ff, "B", _fs)
+        _apply_face(pdf, 'B', cpi=_cpi_item)
         # `+ 2` aqui NÃO é respiro desenhado: o fpdf posiciona a próxima célula
         # em `new_x="END"`, que é a borda do TEXTO (o respiro real é o
         # `c_margin` do fpdf). Este `2` é largura de CAIXA, e só entra na conta
@@ -1969,39 +2008,38 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         # cols vive no `MEMO`, onde o prefixo é desenhado com a largura que a
         # quebra usou.
         lw = (pdf.get_string_width(lbl + ': ') + 2) if lbl else 0
-        _apply_font(pdf, _ff, _fs, _fst)
+        _apply_face(pdf, '', cpi=_cpi_item)
         vw = pdf.get_string_width(txt or '') + 2
         if _want_wrap(cfg, kind, label):
             # Rótulo na primeira linha (como `cell`), valor quebrando no resto da
             # zona. `FIELD` sempre aperta o valor na largura do texto; aqui ele
             # passa a ocupar a linha, que é o que uma frase precisa.
             if lbl:
-                pdf.set_font(_ff, "B", _fs)
-                pdf.cell(lw, ROW_CELL, lbl + ': ', new_x="END")
-                _apply_font(pdf, _ff, _fs, _fst)
-            pdf.multi_cell(_wrap_width(pdf, cfg.get('width')), ROW_CELL, txt,
+                _apply_face(pdf, 'B', cpi=_cpi_item)
+                pdf.cell(lw, _row_unit(pdf), lbl + ': ', new_x="END")
+                _apply_face(pdf, '', cpi=_cpi_item)
+            pdf.multi_cell(_wrap_width(pdf, cfg.get('width')), _row_unit(pdf), txt,
                            new_x="LMARGIN", new_y="NEXT")
             if txt:
                 _mark_content(pdf)
             return
         if not _fixed and pdf.get_x() + lw + vw > right + 0.01 and pdf.get_x() > _x0 + 0.01:
-            pdf.ln(ROW_CELL)  # pcol+1>ncol -> pcol=1, prow+=1
+            pdf.ln(_row_unit(pdf))  # pcol+1>ncol -> pcol=1, prow+=1
             pdf.set_x(_x0)
         if lw + vw > right - _x0:
             txt, vw = _cut_to_fit(pdf, txt, right - _x0 - lw), right - _x0 - lw
         if lbl:
-            pdf.set_font(_ff, "B", _fs)
-            pdf.cell(lw, ROW_CELL, lbl + ': ', new_x="END")
-            _apply_font(pdf, _ff, _fs, _fst)
-        pdf.cell(vw, ROW_CELL, txt, new_x="END", new_y="TOP")
+            _apply_face(pdf, 'B', cpi=_cpi_item)
+            pdf.cell(lw, _row_unit(pdf), lbl + ': ', new_x="END")
+            _apply_face(pdf, '', cpi=_cpi_item)
+        pdf.cell(vw, _row_unit(pdf), txt, new_x="END", new_y="TOP")
         if txt:
             _mark_content(pdf)
     else:  # TEXT
         from ajsystem.core.text import dotted_get as _dg
         txt = _trender(cfg.get('text', ''), lambda k: _dg(instance, k) if instance is not None else None, cfg.get('_fmt_opts'))
-        _ff, _fs, _fst = _font_default(pdf)
-        _ff = _fam or _ff
-        pdf.set_font(_ff, cfg.get('font_style', _fst) or _fst, cfg.get('font_size', _fs))
+        _validate_style(cfg.get('style', '') or '', label, 'TEXT')
+        _apply_face(pdf, cfg.get('style', '') or '', cpi=_cpi_item)
         if _want_wrap(cfg, kind, label):
             # `wrap`: quebra na zona em vez de cortar a ponta. `multi_cell`
             # ocupa a linha toda, então `align` R/C passa a valer no texto
@@ -2009,7 +2047,7 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
             # que comia o resto da frase.
             if not _fixed and pdf.get_x() > _x0 + 0.01 and cfg.get('width') is None:
                 pdf.set_x(_x0)
-            pdf.multi_cell(_wrap_width(pdf, cfg.get('width')), ROW_CELL, txt,
+            pdf.multi_cell(_wrap_width(pdf, cfg.get('width')), _row_unit(pdf), txt,
                            align=cfg.get('align', 'L'),
                            new_x="LMARGIN" if not _fixed else "END", new_y="NEXT")
             if txt:
@@ -2020,7 +2058,7 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
             if isinstance(_w, bool) or not isinstance(_w, (int, float)) or _w <= 0:
                 raise ValueError(f"report '{label}': width deve ser cols > 0")
             _w = _w * _col_unit(pdf)
-            pdf.set_font(_ff, cfg.get('font_style', _fst) or _fst, cfg.get('font_size', _fs))
+            _apply_face(pdf, cfg.get('style', '') or '', cpi=_cpi_item)
         elif fill and not _fixed:
             _w = right - pdf.get_x()
             if pdf.get_string_width(txt or '') + 2 > _w:
@@ -2028,11 +2066,11 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         else:
             _w = pdf.get_string_width(txt or '') + 2
         if not _fixed and pdf.get_x() + _w > right + 0.01 and pdf.get_x() > _x0 + 0.01:
-            pdf.ln(ROW_CELL)
+            pdf.ln(_row_unit(pdf))
             pdf.set_x(_x0)
         if _w > right - _x0:
             txt, _w = _cut_to_fit(pdf, txt, right - _x0), right - _x0
-        pdf.cell(_w, ROW_CELL, txt, align=cfg.get('align', 'L'), new_x="END", new_y="TOP")
+        pdf.cell(_w, _row_unit(pdf), txt, align=cfg.get('align', 'L'), new_x="END", new_y="TOP")
         if txt:
             _mark_content(pdf)
 
@@ -2051,7 +2089,7 @@ def _respiro(pdf, cfg, prop, label=''):
     if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
         raise ValueError(f"report '{label}': {prop} deve ser número >= 0")
     if n:
-        pdf.ln(n * ROW_CELL)
+        pdf.ln(n * _row_unit(pdf))
         pdf.set_x(_flow_zone(pdf)[0])
 
 
@@ -2065,24 +2103,28 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
     from ajsystem.core.geom import normalize as _gloc, to_mm as _gmm
     from ajsystem.core.text import render as _trender
     label = report.label if report is not None else ''
+    from ajsystem.defs.fonts import CPI_DEFAULT, LPI_DEFAULT, cpi as _cpi_norm, lpi as _lpi_norm
     if reset_tabs:
         pdf._tabs = None
-        pdf._gridfont = None
+        pdf._cpi = CPI_DEFAULT
+        pdf._lpi = LPI_DEFAULT
         pdf._ind = None
         pdf._logo_zone = None
     col_w = _col_unit(pdf)
     _titulos = 0   # cascata de TITLE desta lista (1º = título, demais = subtítulo)
 
     def _um_item(kind, name, cfg, col_w, drawn):
-        """Desenha 1 item. Devolve `(col_w, drawn)`: o `FONT` muda a
-        coluna da fonte e o `TITLE`/`TITLES` o contador da cascata — os
-        dois atravessam o item, então voltam em vez de sumir.
+        """Desenha 1 item. Devolve `(col_w, drawn)`: o `CPI`/`LPI` muda a
+        grade do fluxo e o `TITLE`/`TITLES` o contador da cascata — os dois
+        atravessam o item, então voltam em vez de sumir.
         """
-        if kind == 'FONT':
-            if not cfg.get('font') and cfg.get('cpp') is None:
-                pdf._gridfont = None  # FONT() nu = restaura o default
+        if kind in ('CPI', 'LPI'):
+            # Diretiva de GRADE: muda a célula/coluna do fluxo daqui em diante.
+            # `CPI()`/`LPI()` nu volta ao padrão — é o "restaura" do antigo FONT.
+            if kind == 'CPI':
+                pdf._cpi = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else CPI_DEFAULT
             else:
-                pdf._gridfont = _resolve_font(cfg, label)
+                pdf._lpi = _lpi_norm(cfg['lpi']) if 'lpi' in cfg else LPI_DEFAULT
             return _col_unit(pdf), drawn
         if kind in ('PCOL', 'PROW'):
             # Diretiva de cursor: `PCOL(n)` = n cols do INÍCIO DA ZONA (que o
@@ -2095,7 +2137,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                         f"({_zone_ncols(pdf):.1f} cols)")
                 pdf.set_x(_flow_zone(pdf)[0] + _n * col_w)
             else:
-                pdf.set_y(pdf.t_margin + _n * ROW_CELL)
+                pdf.set_y(pdf.t_margin + _n * _row_unit(pdf))
             return col_w, drawn
         if kind == 'TABS':
             _stops = [_eval_tab_value(pdf, _s, label) for _s in (cfg.get('values') or [])]
@@ -2109,8 +2151,8 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             except Exception:
                 _txt = ''
             if _txt:
-                pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
-                pdf.cell(0, ROW_CELL, _txt, new_x="LMARGIN", new_y="NEXT")
+                _apply_face(pdf)
+                pdf.cell(0, _row_unit(pdf), _txt, new_x="LMARGIN", new_y="NEXT")
                 _mark_content(pdf)
             return col_w, drawn
         if kind == 'POS':
@@ -2118,7 +2160,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             for _v in (_c, _r):
                 if isinstance(_v, bool) or not isinstance(_v, (int, float)):
                     raise ValueError(f"report '{label}': POS exige [col, lin]")
-            pdf.set_xy(pdf.l_margin + _c * col_w, pdf.t_margin + _r * ROW_CELL)
+            pdf.set_xy(pdf.l_margin + _c * col_w, pdf.t_margin + _r * _row_unit(pdf))
             return col_w, drawn
         if kind == 'TEXTS':
             for _sub in cfg.get('items', []):
@@ -2151,9 +2193,8 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             return col_w, drawn
         if kind in ('TITLE', 'TITLES'):
             # Título no corpo é o MESMO desenho do header (mesmo helper, mesma
-            # cascata), com os defaults vindos das constantes: no corpo não há
-            # `header.title_font_size` para consultar. A cascata é desta lista
-            # de items — cada `before`/`after` recomeça, como no header.
+            # cascata por posição). A cascata é desta lista de items — cada
+            # `before`/`after` recomeça, como no header.
             # `tab` não existe aqui (as paradas são do header), então é recusado
             # nomeando a prop em vez de ancorar no lugar errado sem avisar.
             if 'tab' in cfg:
@@ -2161,10 +2202,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                     f"report '{label}': TITLE no corpo não aceita 'tab' — "
                     f"use 'location'/'pos'")
             if kind == 'TITLE':
-                drawn = _draw_titulo(pdf, cfg, None, label, instance=instance,
-                                        drawn=drawn, title_size=FONT_TITLE,
-                                        title_style='B', sub_size=FONT_SUBTITLE,
-                                        sub_style='')
+                drawn = _draw_titulo(pdf, cfg, None, label, instance=instance, drawn=drawn)
             else:
                 for _sub in cfg.get('items') or []:
                     _k, _n, _cfg = _split_item(_sub, label)
@@ -2174,12 +2212,10 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                         raise ValueError(
                             f"report '{label}': TITLE no corpo não aceita 'tab' — "
                             f"use 'location'/'pos'")
-                    drawn = _draw_titulo(pdf, _cfg, None, label, instance=instance,
-                                            drawn=drawn, title_size=FONT_TITLE,
-                                            title_style='B', sub_size=FONT_SUBTITLE,
-                                            sub_style='')
+                    drawn = _draw_titulo(pdf, _cfg, None, label, instance=instance, drawn=drawn)
             return col_w, drawn
         if kind == 'MEMO':
+            _cpi_item = _item_cpi(pdf, cfg, label)
             from ajsystem.core.text import render as _mrender, dotted_get as _mdg
             _campo = cfg.get('field')
             if _campo:
@@ -2203,9 +2239,8 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 _txt = _mrender(cfg.get('text', ''),
                                 lambda k: _mdg(instance, k) if instance is not None else None,
                                 cfg.get('_fmt_opts'))
-            _ff, _fs, _fst = _font_default(pdf)
-            _size = cfg.get('font_size', _fs)
-            _style = cfg.get('font_style', _fst) or _fst
+            _style = cfg.get('style', '') or ''
+            _validate_style(_style, label, 'MEMO')
             _x0, _right = _flow_zone(pdf)
             # largura do bloco, sem passar da zona; centralizado na área livre.
             # `IND` resolveria o mesmo recuo, mas abriria uma zona que vaza para
@@ -2227,7 +2262,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             # na conta e não no papel.
             _lw = 0.0
             if _lbl:
-                pdf.set_font(_ff, 'B', _size)
+                _apply_face(pdf, 'B', cpi=_cpi_item)
                 _lw = pdf.get_string_width(_lbl) + GAP_LABEL * _col_unit(pdf)
             if _txt and _lw and _w - _recuo - _lw <= 0:
                 raise ValueError(
@@ -2236,16 +2271,16 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             if _lbl and not _txt:
                 # sem texto não há linha para apoiar: o rótulo fica sozinho, como
                 # antes — a linha dele é a largura do rótulo mais o respiro.
-                pdf.set_font(_ff, 'B', _size)
+                _apply_face(pdf, 'B', cpi=_cpi_item)
                 pdf.set_x(_bx)
-                pdf.cell(_lw, ROW_CELL, _lbl, new_x="END", new_y="NEXT")
+                pdf.cell(_lw, _row_unit(pdf), _lbl, new_x="END", new_y="NEXT")
             # A fonte ANTES de medir: `_wrap_linhas` decide onde quebrar pelo
             # `get_string_width`, e medir na fonte anterior produz linhas mais
             # largas que o bloco (o bloco saía com 154mm num espaço de 141mm).
-            pdf.set_font(_ff, _style, _size)
+            _apply_face(pdf, _style, cpi=_cpi_item)
             _linhas = _wrap_linhas(pdf, _txt, _w, first=_w - _recuo - _lw) if _txt else []
             if _linhas:
-                _draw_bloco(pdf, _linhas, _bx, _w, ROW_CELL, _ff, _size, _style,
+                _draw_bloco(pdf, _linhas, _bx, _w, _row_unit(pdf), _style,
                             cfg.get('align', MEMO_ALIGN), _recuo,
                             prefixo=(_lbl, 'B', _lw))
                 pdf.set_x(_flow_zone(pdf)[0])
@@ -2257,7 +2292,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             _n = cfg.get('lines', 1)
             if isinstance(_n, bool) or not isinstance(_n, (int, float)) or _n < 1:
                 raise ValueError(f"report '{label}': LF exige lines >= 1")
-            pdf.ln(_n * ROW_CELL)
+            pdf.ln(_n * _row_unit(pdf))
             pdf.set_x(_flow_zone(pdf)[0])
             return col_w, drawn
         if kind == 'FF':
@@ -2300,14 +2335,14 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             _mark_content(pdf)
         else:  # LINE / BOX / CIRCLE
             g = _gmm(_gloc(kind, _elem_location(pdf, kind, cfg, label)),
-                     ROW_CELL, col_w)
+                     _row_unit(pdf), col_w)
             ox, oy = pdf.l_margin, pdf.t_margin
             if kind == 'LINE':
                 if g.get('ponto'):
                     # Extensão (0,0): um `line` degenerado emitiria um
                     # subcaminho de comprimento zero e não pintaria nada —
                     # o ponto vira disco. Raio = 1/8 da coluna, para acompanhar
-                    # o pitch da fonte vigente (col_w = 25.4/cpp).
+                    # o pitch da fonte vigente (col_w = 25.4/CPI).
                     pdf.circle(ox + g['x1'], oy + g['y1'], col_w / 8)
                 else:
                     pdf.line(ox + g['x1'], oy + g['y1'], ox + g['x2'], oy + g['y2'])
@@ -2320,7 +2355,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             if kind == 'LINE':
                 # A régua ocupa uma linha: o cursor desce e volta ao início da
                 # zona, para o próximo item não colidir com ela.
-                pdf.ln(ROW_CELL)
+                pdf.ln(_row_unit(pdf))
                 pdf.set_x(_flow_zone(pdf)[0])
         return col_w, drawn
     for it in items or []:
@@ -2342,7 +2377,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
 def _margin_mm(v, label):
     """Margem em mm ou {'cols': n} (cols draft 2.54mm). Congelada aqui: troca
     de fonte nunca recalcula margem."""
-    from ajsystem.defs.fonts import DRAFT_COL_MM
+    from ajsystem.defs.fonts import col_mm, CPI_DEFAULT
     if isinstance(v, dict):
         if set(v) != {'cols'}:
             raise ValueError(f"report '{label}': margem dict deve ser {{'cols': n}}")
@@ -2365,6 +2400,14 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     pdf = DocPDFReport(report)
     pdf.set_auto_page_break(auto=report.auto_page_break, margin=_mb)
     pdf.set_margins(_ml, _mt, _mr)
+
+    # Família do documento inteiro. Validada aqui (não no 1º desenho) para que
+    # nome errado caia antes de qualquer página sair — e o registro das faces
+    # acontece agora, porque `_beginpage` reseta a fonte e quem tem que
+    # reaplicar depois da quebra é `_apply_face`, sempre.
+    pdf._fonte = _font_info(pdf, report.font)['name']
+    from ajsystem.defs.fonts import register
+    register(pdf, pdf._fonte)
 
     # Aplicar logo customizado
     h_cfg = report.header if isinstance(report.header, dict) else {}
@@ -2396,7 +2439,7 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
         _render_items(pdf, _items, instance, report)
         _bl = _body.get('table') if isinstance(_body, dict) else getattr(_body, 'table', None)
         if isinstance(_bl, dict) and _bl.get('rows_before'):
-            pdf.ln(int(_bl['rows_before']) * ROW_CELL)
+            pdf.ln(int(_bl['rows_before']) * _row_unit(pdf))
 
     # Tabela
     tbl = _build_table(report)
@@ -2404,7 +2447,7 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
         _render_table(pdf, tbl.columns, data, tbl.totals,
                       instance, report=report)
     if tbl.rows_after:
-        pdf.ln(tbl.rows_after * ROW_CELL)
+        pdf.ln(tbl.rows_after * _row_unit(pdf))
 
     # After table (do corpo)
     _after = getattr(_body, 'after', None) if _body else None
@@ -2426,16 +2469,16 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
                     txt = ''
             if txt:
                 pdf.ln(GAP_AFTER_TABLE)
-                pdf.set_font(FONT_FAMILY, "", FONT_ITEMS)
-                pdf.cell(0, ROW_CELL, txt, new_x="LMARGIN", new_y="NEXT")
+                _apply_face(pdf)
+                pdf.cell(0, _row_unit(pdf), txt, new_x="LMARGIN", new_y="NEXT")
 
     # Texts avulsos
     if report.texts:
         for txt in report.texts:
             if txt.when == 'end_of_report':
                 pdf.ln(GAP_TEXTS)
-                pdf.set_font(FONT_FAMILY, txt.font_style, txt.font_size)
-                pdf.cell(0, txt.font_size * 0.5, txt.text, align=txt.align,
+                _apply_face(pdf, txt.style)
+                pdf.cell(0, _row_unit(pdf), txt.text, align=txt.align,
                          new_x="LMARGIN", new_y="NEXT")
 
     return pdf

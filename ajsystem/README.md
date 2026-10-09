@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0018 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0019 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0018`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0019`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -339,7 +339,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | templates | — | `'{total:brl}'`, `'{a.b}'`, `'{?c:…}'`, `'{x\|dflt}'` | `:brl` moeda; path pontilhado com navegação segura; `\|dflt` fallback; labels LIST da Entity |
 | fluxo | — | `FIELD`/`TEXT` seguem na linha | `PCOL` avança pela largura; `pcol+largura>ncol` envolve; maior que a linha trunca; quebra por `rows_after/before` ou posicionamento; sem âncora, `FIELD`/`TEXT` com `width` herda o cursor da zona (só volta à 1ª coluna se o cursor está fora da zona), `TEXT` avulso sem `width` é linha própria (avanço de linha automático quando o fluxo terminou antes dela; `align` vale na zona) e bloco (`IMAGE`/`LINE`/…) volta ao início; sub-item de `TEXTS` flui apertado inline. O "início" é o da **zona**, não o da margem — ver **Zona do logo** |
 | `body.table.totals` | `dict` | `{'label':'TOTAL GERAL','align':'R','span':3}` | linha de total geral (sempre, com régua antes e depois — internas). `agg` na coluna diz O QUÊ; sem `totals` não totaliza. Legado `footer/footer_label` via shim. Réguas seguidas sem conteúdo entre elas saem uma vez só |
-| `body.table.extend` | `list` | `[(col\|[a,b], texto[, props]), 'LINE', 'LF', 'CR']` | linhas **dentro do quadro** depois dos totais (ex.: Acréscimo/Desconto/Total). `when` por linha; placeholder puro `{campo}` herda o `format` da coluna; `font`/`cpp`/`font_size` recusados (tabela = sempre cpp 0) |
+| `body.table.extend` | `list` | `[(col\|[a,b], texto[, props]), 'LINE', 'LF', 'CR']` | linhas **dentro do quadro** depois dos totais (ex.: Acréscimo/Desconto/Total). `when` por linha; placeholder puro `{campo}` herda o `format` da coluna; `font`/`cpi`/`lpi`/`font_size` recusados (a grade da tabela é dela) |
 | `body.table.hierarchy` | `list\|dict` | legado (derivado de `groups` quando ausente) | mantido por compat; prefira `groups` |
 | `body.filter` | `dict\|callable` | `filter_select('tipo')` | modal `choice_modal` + `WHERE` com cast tipado; critério aplicado **antes** da ordenação |
 
@@ -380,7 +380,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('L', 3)` (âncoras `C/L/R`; ausente não renderiza). `L` encolhe a zona pela borda direita da figura, `R` pela esquerda, `C` não indenta — vale enquanto o cursor estiver na faixa vertical da imagem, e `IND()` cancela ali mesmo |
 | `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(5, 35)` — paradas em cols a partir do **início da zona** (crescentes; com `tab:N` no item) |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
-| `FONT(nome, cpp?)` | diretiva de fonte (catálogo `defs/fonts.py` + `extends/fonts.py`) | `FONT('DRAFT')`, `FONT('Courier', 0)` (`cpp` 0..3 = 10/12/17/20; `col=25.4/cpp` nominal; vale p/ `FIELD`/`TEXT` sem tamanho, escopo header/body) |
+| `CPI(n?)` / `LPI(n?)` | diretiva de **grade** (`defs/fonts.py`), o contexto decide | `CPI(5)`/`CPI('E')`, `LPI(8)`; nu restaura o padrão (10 CPI / 6 LPI). **O valor é o próprio CPI/LPI**, não um índice. Também valem como prop `cpi` (item); `lpi` não, por ser diretiva só |
 | `PROW(n?)`/`PCOL(n?)` | **função com dois papéis** (`defs/report.py`), o contexto decide | **valor**: `PCOL()`/`PROW()` = posição corrente em grade, em `TABS`/`location`/`pos` (e ainda soma: `PCOL() + 5`). **Diretiva**: `PCOL(n)`/`PROW(n)` solto na lista de items move o cursor — `n` cols do início da **zona**, `n` linhas da margem de topo. `'PCOL+20'` (string) segue válida em `TABS` |
 | `LTB`/`RTB`/`NCOL` | constantes (bordas da última tabela; área útil se nenhuma) | `IND([LTB, RTB])`; `NCOL` = cols da área útil |
 | `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
@@ -403,8 +403,8 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `options` | sim | — | sim | sim | — | — | — | — |
 | `function` | sim | — | — | — | — | — | — | — |
 | `format` / `mask` | sim | — | — | — | — | — | — | — |
-| `font_size` / `font_style` | sim | sim | sim (cascata) | sim | — | — | — | — |
-| `font` / `cpp` | sim | sim | ignora | ignora | — | — | — | sim |
+| `style` | sim | sim | sim (cascata) | sim | — | — | — | — |
+| `cpi` | sim | sim | sim | sim | — | — | — | **recusa** |
 | `location` / `pos` | sim | sim | sim | — | sim | sim | — | — |
 | `tab` | sim | sim | **só no header** | — | — | — | — | — |
 | `rows_before` / `rows_after` | sim | sim | sim | sim | sim | sim | sim | sim |
@@ -416,7 +416,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 
 Regras que a tabela não cabe:
 
-- **`font`/`cpp` valem para `FIELD`/`TEXT` sem tamanho próprio** e recusam no resto — na tabela (`table.extend`) levantam erro, e no `TITLE`/`MEMO` são ignorados porque a fonte vem da cascata.
+- **`style` é o traço do glifo e `cpi` é a largura da célula — eixos diferentes que combinam livre.** `style` aceita as 8 combinações do fpdf2 (`''|B|I|U|BI|BU|IU|BIU`); `cpi`, a prop de largura, é recusada em `table.extend` porque a grade da tabela é dela. A **fonte** é prop do `Report`, não de item: uma por documento.
 - **`tab` não vale no corpo do `TITLE`**: as paradas são do header, e ancorar no lugar errado calado é pior que recusar.
 - **`location` e `pos` são a mesma prop** (apelido); `tab` não combina com nenhuma das duas.
 - **`rows_before`/`rows_after` contam LINHAS** (`ROW_CELL` = 6mm), enquanto `width` conta **colunas** da grade da fonte vigente. São **avanço de linha e nada mais**: não desenham linha vazia. O `TITLE` tem `rows_after: 1` por padrão (sempre deixa a próxima linha), e `rows_after` maior afasta mais; `0` cola no próximo item. Valem para **todo item** — inclusive `MEMO` e `TITLE`, que era onde a prop mais fazia falta e mais surprise entregava: o bloco do respiro ficava no fim do laço de `_render_items`, e todo item que dava `continue` nunca chegava nele, então `MEMO(..., {'rows_before': 2})` era lido e **ignorado calado** (medido: y=10, enquanto `TEXT('x', {'rows_before': 2})` ia a y=22). A regra agora é uma só, num único `_respiro`, chamado dos dois lados do item — e por isso o COMPRA respira com `MEMO(..., {'rows_before': 1})` em vez de um `LF(1, {'when': ...})` escrito à mão com o mesmo `when` repetido. Em `CR`/`LF`/`FF`/`IND`/`TABS`/`POS`/`FONT` o respiro é inútil (o `LF` já **é** o respiro), mas não quebra.
@@ -426,7 +426,7 @@ Regras que a tabela não cabe:
 **Rótulo do `MEMO` é prefixo da 1ª linha.** `MEMO('observacao', 84, {'label': 'Obs.:'})` imprime `Obs.: produto esgotado` na mesma linha — o rótulo ocupa o começo da 1ª linha e o texto vem depois dele, quebrando na medida que sobra; as linhas seguintes voltam para a borda do bloco. Era uma linha própria acima do parágrafo, e o `MEMO` era o único item que empurrava o texto para baixo (`FIELD` já era inline). Três decisões:
 
 - **O rótulo é verbatim**: o motor escreve o que o autor declarar, com ou sem dois-pontos. Ele é medido **na fonte dele** (negrito), que é a que sai.
-- **O respiro depois do rótulo é `GAP_LABEL`, em cols** (1 col = 1,7653mm na fonte de referência, `get_string_width('0')`) — e não um `2` fixo em mm, porque assim ele acompanha o pitch de `FONT`/`cpp` como `width` e `recuo`.
+- **O respiro depois do rótulo é `GAP_LABEL`, em cols** (1 col = `25,4/CPI` = 2,54mm no padrão) — e não um `2` fixo em mm, porque assim ele acompanha o pitch como `width` e `recuo`.
 - **Com `recuo`, o rótulo nasce dentro dele** (`x + recuo`), porque `recuo` significa "afasta a primeira linha" e o rótulo é parte dela. Se `recuo + rótulo` não deixar medida para a 1ª linha, o render **levanta** nomeando as duas em vez de degenerar em uma palavra por linha.
 
 Com `align: 'J'` a 1ª linha justifica no que sobra **depois** do rótulo, então a borda direita continua em `x + w` e o rótulo não é esticado; `C`/`R` alinham o conjunto rótulo+texto. Sem texto, o rótulo fica sozinho na linha própria.
@@ -449,7 +449,26 @@ report que desempata (`_fmt_opts_for(prefer=...)`). No corpo `tab` é **recusado
 nomeando a prop: as paradas são do header, e ancorar no lugar errado calado é
 pior que não aceitar.
 
-**Régua e formas posicionadas.** A grade é **colunas no horizontal, linhas no vertical** (a coluna é o *pitch* da fonte vigente — `col_w = get_string_width('0')`, 1,7653mm na fonte de referência, que é o **nome da coluna** e não `25.4/cpp`; então `FONT` muda o alcance horizontal; a linha é `ROW_CELL`, 6mm, fixa). As factories de grade (`LINE`/`BOX`/`CIRCLE`, como `TABS`/`IND`/`POS`) são **variádicas**: declare os números, a lista interna é do motor.
+**A grade: CPI × LPI.** Colunas no horizontal, linhas no vertical, e **as duas em polegada**:
+
+| | fórmula | valores |
+|---|---|---|
+| coluna | `25,4 / CPI` | `5` expandido **5,0800mm** · `10` normal **2,5400** · `17` semi-condensado **1,4941** · `20` condensado **1,2700** |
+| linha | `25,4 / LPI` | `6` **4,2333mm** · `8` **3,1750** |
+| corpo | `60 / LPI` | 10pt a 6 LPI, 7,5pt a 8 LPI — **derivado**, não declarado |
+| alongamento | `7200 / (avanço × corpo × CPI)` % | 240 / 120 / 70,6 / 60 a 6 LPI |
+
+**O glifo é esticado para preencher a célula** (`Tz` no PDF), então o CPI é a largura *de verdade* do caractere e **trocar a fonte não move nada** — muda só a letra desenhada. Por isso o corpo não é prop: `font_size` saiu, e declará-lo quebraria a relação com o LPI (o limite é a tinta ≤ 1,2em, e é o que reprova fonte que não cabe).
+
+**Condensed e expanded são as duas pontas do mesmo eixo** (5 e 20), não dois estilos: pedir os dois dá 0,5× × 2× = 1×, que é o normal. O que combina com tudo é o outro eixo, `style`, que muda o **traço**.
+
+As factories de grade (`LINE`/`BOX`/`CIRCLE`, como `TABS`/`IND`/`POS`) são **variádicas**: declare os números, a lista interna é do motor.
+
+```python
+CPI()            # volta ao padrão (10 CPI)
+CPI('E')         # expandido — letra ou número valem
+LPI(8)           # linha apertada: 3,1750mm, e o corpo cai para 7,5pt
+```
 
 ```python
 LINE()                      # largura da zona: a indentação vigente (IND) ou,
@@ -819,10 +838,10 @@ to_mm(norm, 6.0, 2.54)
 ```python
 from ajsystem.core.filters import resolve_filters, apply_filters
 from ajsystem.core.adapter import masks_override, TEMAS
-from ajsystem.defs.fonts import resolve_font, CPP, DRAFT_COL_MM
+from ajsystem.defs.fonts import col_mm, line_mm, body_pt, stretch_pct, FONTS
 ```
 
-`masks_override()` é o dicionário de máscaras do host, consumido por `merge_masks`/`definir_masks` no boot. `resolve_font('DRAFT')` devolve `{family, cpp, col}` (camadas framework < app < página) e só aceita família crua com `cpp` explícito. `DRAFT_COL_MM` e `CPP` são as unidades da grade.
+`masks_override()` é o dicionário de máscaras do host, consumido por `merge_masks`/`definir_masks` no boot. `FONTS` é a lista **fixa** de famílias aceitas (os arquivos acompanham o framework, com a licença de cada uma ao lado); `font()` mede o avanço e a tinta **do próprio arquivo** e recusa o que não for monoespaçada. `col_mm`/`line_mm`/`body_pt`/`stretch_pct` são as quatro fórmulas da grade.
 
 **Registro de model — `ajsystem/defs/data.py`.** `register_model(Model)` liga um model SQLAlchemy ao nome de entidade que o report/list usa.
 
@@ -1028,6 +1047,18 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 
 ## 6. Histórico de versões
 
+### 1.26.10.08.0019
+- **A grade virou CPI × LPI, em polegada, e o glifo passa a PREENCHER a coluna.** `col = 25,4/CPI`, `linha = 25,4/LPI`, `corpo = 60/LPI` e `alongamento = 7200/(avanço × corpo × CPI)` — quatro fórmulas, uma conta. O `CPI` deixa de ser a largura *nominal* da coluna e vira a largura **de verdade** do caractere, porque o fpdf2 tem `set_stretching` (o operador `Tz`) e o `get_string_width` já conta o alongamento. Consequência que vale mais que a conta: **trocar a fonte não move nada** — as cinco renderizam o mesmo report com o mesmo `x` no mesmo lugar, e só muda a letra (medido: título expandido centrado em x=79,60 nas cinco).
+- **O CPI e o LPI são o valor real, não um índice, e `cpp` virou `cpi`.** `CPI(5)` é cinco caracteres por polegada e não "o quinto degrau"; a indireção do índice só servia para mapear `0→10, 1→12, 2→17, 3→20` e podia divergir da conta. A escada ficou `{5, 10, 17, 20}` = expanded/normal/semi-condensed/condensed, com letra (`E`/`N`/`S`/`C`) **e** número aceitos, padrão 10. O `S` é *semi-condensed* porque é o termo real de tipografia — `I` seria *italic*, que é do outro eixo.
+- **A coluna de fluxo tinha duas contas, e a que valia dependia de haver diretiva.** Sem `FONT`, era `get_string_width('0')` = 1,7653mm; com, `25,4/cpp` = 2,54mm. Agora é `25,4/CPI` nos dois casos, e o `get_string_width` some do cálculo da grade — ele media o glifo cru, que é justamente o que a grade corrige.
+- **`font_size` saiu, e com ele os corpos `FONT_*`.** O corpo é derivado do LPI: 6 LPI → 10pt, 8 LPI → 7,5pt. Declarar um corpo solto quebraria a relação, porque o limite é a **tinta ≤ 1,2em** — que decorre de `60/LPI` contra `25,4/LPI`, e é o que garante que qualquer fonte escolhida caiba na linha mais apertada. O `TITLE` deixou de ocupar `size * 0.6` (quase duas linhas) e passou a ocupar **1 linha** como todo mundo; o que o separa do resto não é mais o corpo, é o **CPI expandido**.
+- **`font_style` virou `style`, e ganhou o `U`.** São as 8 combinações que o fpdf2 sabe desenhar. O `U` estava **prometido na docstring e recusado no código** desde sempre — e a validação vivia em três lugares: `TITLE` e a tabela validavam, `FIELD`/`TEXT` não, então um estilo inválido escapava e explodia dentro do fpdf2 com mensagem de outra biblioteca. Agora é uma função só, `_validate_style`.
+- **A fonte virou lista fixa no motor, com os arquivos dentro do framework** (`defs/fonts/`, com a licença de cada uma ao lado, como a OFL exige). Cinco: `courier` (núcleo do PDF, sem arquivo, padrão), `jetbrains`, `hack`, `plex` e `space`. Só entra fonte **monoespaçada** — é o que garante "1 coluna = 1 caractere"; proporcional passaria a exigir a largura do glifo mais largo no lugar do avanço, que é outra conta. `FONT(nome)` e as camadas `app.extends.fonts` saíram: sem família trocável no meio do fluxo, o catálogo não tem o que layerar.
+- **A tinta é medida do DESENHO dos glifos, não do `OS/2` — e isso mudou um veredito.** O `OS/2` da JetBrains Mono diz 1,32em, acima do limite de 1,2, e teria reprovado a fonte; o desenho de verdade para em 0,957em e cabe com folga. `OS/2` é métrica tipográfica, folgada para caber acento e outra escrita. A pior parte é que o erro seria silencioso e plausível: a fonte simplesmente não entraria no catálogo.
+- **O `Tz` é pegadioso, e o reset de página não segura.** O fpdf2 só emite `Tz` na **mudança** e o repete no primeiro texto de cada página; `_beginpage` escreve 100 num estado que é substituído em seguida. Medido: um desenho que não reestica herda o do desenho anterior **e o erro atravessa a quebra de página**. Por isso `_apply_face` é o ponto único — família, estilo, corpo e alongamento juntos, e **antes de medir**, porque `get_string_width` conta o alongamento e medir antes de esticar daria a largura do glifo cru. Verificado página a página: a 2ª reemite `240` e `120` corretamente.
+- **Bugs achados no caminho, todos de escopo:** `_row_unit(pdf)` entrou em seis linhas de métodos onde o objeto é `self` (o header e o rodapé quebravam com `NameError`); `_font_info` validava a fonte **default** em vez da do report, então `'font': 'arial'` passava sem reclamar; `parse_report_item` mandava `None` para o normalizador e `CPI()`/`LPI()` nu — o "restaura" — levantava; e o check de idempotência do `add_font` usava tupla onde o fpdf2 indexa por `nome + style`, disparando `UserWarning` a cada desenho.
+- **O aviso `TTFA NOT subset` do fontTools sumiu.** Ele descarta uma tabela de metadado do FontLab que o Hack traz e gritava 4 linhas por PDF sobre algo que o autor do report não pediu. Os arquivos ficaram intactos — mexer em fonte versionada é problema de manutenção e de nome reservado — e quem cala é o `output()` do `DocPDFReport`, só naquele logger e só durante a geração. Detalhe do mute: o logger nasce em `NOTSET` e herda do pai, então o guarda `if level > WARNING` era falso justamente no caso comum.
+
 ### 1.26.10.08.0018
 - **O `LOGO` passou a ENCOLHER A ZONA, e a zona deixou de ser um detalhe do `IND`.** Antes o logo era só uma figura: o texto ao lado era posicionado na mão, `TABS(PCOL+5, PCOL+40)` mais `POS(PCOL, 0)`, e um número de coluna que só funcionava porque ninguém media a distância entre a margem e a imagem. `LOGO('L')` agora recua a borda esquerda da zona para a borda **direita** da figura (e `R` a direita para a esquerda; `C` não recua), e tudo que se posiciona pela zona mede dentro dela: `TABS`, `location`, `pos`, `LINE`/`BOX`/`IMAGE`, a `width` implícita do `TITLE` e a centralização dele. A zona vale enquanto o cursor estiver na faixa vertical do logo, e `IND()` cancela ali mesmo. Consequência medida: com `LOGO('L', 3)` o título sai em x=70 (era x=10, dentro da imagem) e a 2ª linha de `FIELDS` volta para x=18,83 — a margem, porque a faixa acabou.
 - **A zona valia no papel errado: o logo encolhia a largura, mas o texto ainda era medido pela página.** Duas contas divergiam. `_anchor` validava a coluna contra a área útil inteira, então `location` aceitando `PCOL(120)` e o motor desenhando fora da folha; e `_tab_x`-mediava as paradas a partir da margem esquerda mesmo com o `IND` vigente, que é o que fazia o bloco `after` alinhado por `IND(LTB, RTB)` sair torto. As duas passam a usar `_zone_ncols`, e o erro passa a dizer quantas cols a zona **tem** em vez de reclamar de uma largura que ninguém pediu.
@@ -1134,7 +1165,7 @@ Precedência do Python, do mais fraco ao mais forte: `or` < `and` < `not` < comp
 
 ### 1.26.10.06.0001
 - **Diretivas de fluxo novas: `FONT`, `IND`, `TEXTS`/`CR`/`LF`/`FF` e as âncoras `LTB`/`RTB`/`NCOL`.** `FONT(nome, cpp?)` troca família/pitch no meio do fluxo (`cpp` 0..3 = 10/12/17/20; col nominal `25.4/cpp`; `FONT()` nu restaura o default) sobre o catálogo `defs/fonts.py` + camada `app.extends.fonts` (mesmo merge de `buttons`/`inputs`). `IND([l, r])` delimita a região em que o fluxo flui sem âncora (`IND()` restaura; validação em cols da fonte corrente) e `LTB`/`RTB`/`NCOL` são as bordas da última tabela (área útil se nenhuma) — `IND(LTB, RTB)` alinha o bloco `after` às colunas da tabela. `TEXTS(*itens)` monta blocos de texto (`str` = sempre, `(texto, when)` = condicional, dict = props), `CR()` volta à 1ª coluna, `LF(n)` avança linhas e `FF()` quebra página no corpo. `TABS()`/`IND()` sem parada = restaura (`TABS` sem argumento deixou de ser erro).
-- **`table.extend`: linhas dentro do quadro, depois dos totais.** Tuplas `(col|[a,b], texto[, props])` + `LINE()` (divisor, **não** avança linha)/`'LF'`/`'CR'`; `when` por linha, placeholder puro `{campo}` herda o `format` da coluna, span `[a,b]` centraliza. `font`/`cpp`/`font_size` são recusados na tabela (sempre cpp 0) e `font_style` aceita só `''|B|I|BI`. No `_apply_entity` o `format`/`mask` do campo vira `_fmt_opts` da linha. Pedido/compra passaram a imprimir Acréscimo/Desconto/Total por `extend`, sem helper Python.
+- **`table.extend`: linhas dentro do quadro, depois dos totais.** Tuplas `(col|[a,b], texto[, props])` + `LINE()` (divisor, **não** avança linha)/`'LF'`/`'CR'`; `when` por linha, placeholder puro `{campo}` herda o `format` da coluna, span `[a,b]` centraliza. `font`/`cpi`/`lpi`/`font_size` são recusados na tabela e `style` aceita só `''|B|I|U|BI|BU|IU|BIU`. No `_apply_entity` o `format`/`mask` do campo vira `_fmt_opts` da linha. Pedido/compra passaram a imprimir Acréscimo/Desconto/Total por `extend`, sem helper Python.
 - **`FIELDS` aceita kwargs e dict de cfg.** `FIELDS(a={'tab': 1}, …)` (kwargs, sem chaves; exige modelo `str` ou ausente), `FIELDS({'a': {...}})` ou a forma interna `{'model': …, 'fields': …}`; cfg por campo aceita `label`/`when`/`function` (com `_auto_label` quando não há rótulo) e o `when` posicional vale para todos. Relatórios do app migraram para `from ajsystem.defs.report import *` (`__all__` novo entrega **só** as factories de declaração; `Report*`/`parse_*` seguem import explícito) — `_brl`/`_report_after`/`_event_after`/`_forminhas_carteira` saíram de `pedidos`/`compras` e o bloco do evento virou `IND(LTB, RTB)` + `FIELDS('Evento', tipo={…, 'when': 'evento.tipo'}, …)`.
 - **Controles de régua: `totals.bline` e `groups.gline`.** `bline` = régua antes da linha de subtotal/total; fechamento de grupo usa `gline` (legado `line` traduzido no parse e nas sínteses de `levels`). Réguas seguidas sem conteúdo entre elas saem uma vez só; o total geral ganhou régua antes e depois internas.
 - **Logo e página standalone saíram da declaração do `Report`.** `do_report._resolve_logo` lê `APP.logo` (relativo a `static/`) com fallback `LOGO_FALLBACK` (`static/icons/Logo.png`), e `print_report_page` usa a constante `PRINT_TEMPLATE`. As chaves legadas `print_template`, `logo_path` e `orientation_mutable` são ignoradas no parse (shim) — a última não tinha consumidor e a feature saiu.
