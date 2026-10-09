@@ -14,7 +14,9 @@ Uso nas Entities/Schemas — importe o **nome**:
   - `MCPF`/`MCNPJ`/`MCEP`/`MPLACA`/`MTEL` — documentos (`@R` = não grava
     separadores no banco).
   - `MVALOR` — máscara de valor (canônica em inglês; o motor troca pelos
-    `DECIMAL`/`THOUSAND`).
+    `DECIMAL`/`THOUSAND`). Sem símbolo de moeda: em relatório o `R$` vai no
+    rótulo da coluna, e repeti-lo em cada célula polui a leitura — ainda mais
+    com a grade CPI, onde 3 caracteres a mais numerejam meia coluna.
 """
 
 # ── Formatação (pt-BR) ───────────────────────────────────────────────────────
@@ -33,7 +35,8 @@ MPLACA = '@R AAA-9A99'
 MTEL = '@R (99) 99999-9999'
 
 # ── Valor (numérico canônico) ────────────────────────────────────────────────
-MVALOR = '@M(BRL) 999,999,999.99'
+MVALOR = '999,999.99'
+
 
 # Catálogo efetivo consumido por `defs.masks.definir_masks` (merge do framework).
 # Derivado no próprio import: toda constante (nome maiúsculo) do arquivo entra.

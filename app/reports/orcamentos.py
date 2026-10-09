@@ -6,7 +6,7 @@ ORCAMENTO = {
     'header': [
         LOGO('L', 3),
         PROW(0),
-        TABS(5, 35),
+        TABS(1, 30),
         TITLES([
             'Orçamento #{id}',
             ('Status: {status}', {'when': 'status > 0'}),
@@ -22,8 +22,8 @@ ORCAMENTO = {
             'columns': {
                 'produto_id':     {'width': 44},
                 'qtd':            {'width': 10},
-                'preco':          {'width': 14},
-                'OrcamentoItem.valor': {'width': 14, 'agg': 'sum'},
+                'preco':          {'label': 'Preço (R$)', 'width': 26},
+                'OrcamentoItem.valor': {'label': 'Valor (R$)', 'width': 26, 'agg': 'sum'},
             },
             'totals': {'label': 'Total', 'align': 'R', 'span': 3},
             'after': [

@@ -35,8 +35,8 @@ COMPRA = {
             'columns': {
                 'insumo.nome':   {'label': 'Insumo', 'width': 50},
                 'qtd':           {'width': 10},
-                'preco':         {'width': 20},
-                'CompraItem.valor': {'width': 20, 'agg': 'sum'},
+                'preco':         {'label': 'Preço (R$)', 'width': 26},
+                'CompraItem.valor': {'label': 'Valor (R$)', 'width': 26, 'agg': 'sum'},
             },
             'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
             'extend': [([1, 3], 'Acréscimo', {'align': 'R', 'when': 'acrescimo'}),
@@ -44,8 +44,8 @@ COMPRA = {
                        ([1, 3], 'Desconto', {'align': 'R', 'when': 'desconto'}),
                        (4, '{desconto}', {'when': 'desconto'}),
                        LINE(),
-                       ([1, 3], 'Total', {'align': 'R', 'font_style': 'B', 'when': 'acrescimo or desconto'}),
-                       (4, '{total}', {'font_style': 'B', 'when': 'acrescimo or desconto'})],
+                       ([1, 3], 'Total', {'align': 'R', 'style': 'B', 'when': 'acrescimo or desconto'}),
+                       (4, '{total}', {'style': 'B', 'when': 'acrescimo or desconto'})],
             'after': [
                 MEMO('observacao', LARGURA, {'label': 'Obs.:', 'rows_before': 1,
                                              'when': 'observacao'}),

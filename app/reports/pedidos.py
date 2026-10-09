@@ -22,16 +22,16 @@ PEDIDO = {
             'columns': {
                 'produto.nome':   {'label': 'Produto', 'width': 50},
                 'qtd':            {'width': 10},
-                'preco':          {'width': 20},
-                'PedidoItem.valor': {'width': 20, 'agg': 'sum'},
+                'preco':          {'label': 'Preço (R$)', 'width': 26},
+                'PedidoItem.valor': {'label': 'Valor (R$)', 'width': 26, 'agg': 'sum'},
             },
             'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
             'extend': [([1, 3], 'Acréscimo', {'align': 'R', 'when': 'acrescimo'}),
                        (4, '{acrescimo}', {'when': 'acrescimo'}),
                        ([1, 3], 'Desconto', {'align': 'R', 'when': 'desconto'}),
                        (4, '{desconto}', {'when': 'desconto'}),
-                       ([1, 3], 'Total', {'align': 'R', 'font_style': 'B'}),
-                       (4, '{total}', {'font_style': 'B'})],
+                       ([1, 3], 'Total', {'align': 'R', 'style': 'B'}),
+                       (4, '{total}', {'style': 'B'})],
             'after': [
                     IND(LTB,RTB),
                     FIELDS(

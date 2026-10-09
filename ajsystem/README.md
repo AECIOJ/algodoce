@@ -449,7 +449,18 @@ report que desempata (`_fmt_opts_for(prefer=...)`). No corpo `tab` é **recusado
 nomeando a prop: as paradas são do header, e ancorar no lugar errado calado é
 pior que não aceitar.
 
-**A grade: CPI × LPI.** Colunas no horizontal, linhas no vertical, e **as duas em polegada**:
+**Moeda no rótulo, não na célula.** Coluna de dinheiro que repete `R$ ` em cada
+célula polui a leitura — e com a grade CPI dói mais ainda, porque 3 caracteres a
+mais numerejam meia coluna. O caminho é tirar o símbolo da **máscara** e pô-lo no
+**rótulo**: `'label': 'Valor (R$)'` com a máscara numérica pura. O placeholder do
+`table.extend` e a linha de total **herdam o `format` da coluna**, então ficam
+limpos de graça (medido: `Acréscimo 100,00`, `Total 1.398,56`). O que a máscara
+deixa de carregar não volta sozinho em outro lugar: `Field.currency` vem de
+`@M(id)`, e sem ele a coluna de **lista** perde o símbolo também — a mesma
+leitura, mas é escolha do app, não do motor.
+
+**Régua e formas posicionadas — a grade CPI × LPI.** Colunas no horizontal,
+linhas no vertical, e **as duas em polegada**:
 
 | | fórmula | valores |
 |---|---|---|
