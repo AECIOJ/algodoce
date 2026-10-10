@@ -159,10 +159,16 @@ INPUT_TYPES = {
     # ── data/hora ──
     'date':           {'html_type': 'date', 'size': 12, 'textual': False,
                         'filter_kind': 'date', 'mask': 'dd/mm/yyyy'},
+    # A máscara do `datetime-local` é a do `date` com a hora **sem segundos**:
+    # `ss` existe na gramática, mas em data de negócio ele só polui a coluna —
+    # e é por não declarar máscara nenhuma que o campo saía com o `repr` cru
+    # do Python (`2026-10-09 14:37:52`).
     'datetime-local': {'html_type': 'datetime-local', 'size': 16, 'textual': False,
-                        'filter_kind': 'date'},
+                        'filter_kind': 'date', 'mask': 'dd/mm/yyyy hh:ii'},
+    # `ii` é o minuto; `mm` é o MÊS. Com `hh:mm`, um horário de outubro às
+    # 14:37 saía `14:10` — a hora certa com o mês no lugar do minuto.
     'time':           {'html_type': 'time', 'size': 10, 'textual': False,
-                        'mask': 'hh:mm'},
+                        'mask': 'hh:ii'},
 
     # ── arquivo ──
     'image':          {'html_type': '', 'size': 12, 'textual': False,

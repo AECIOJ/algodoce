@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0023 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0024 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0023`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0024`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -790,6 +790,7 @@ INPUTS[base]  <  app.inputs.Inputs  <  Inputs da rota  <  input_props do campo
 ```
 
 - **`INPUT_TYPES`** (`ajsystem/defs/inputs.py:129`) tem 13 entradas genéricas (`text`, `textarea`, `email`, `tel`, `password`, `number`, `select`, `checkbox`, `multi`, `date`, `datetime-local`, `time`, `image`). O framework não conhece `cpf` nem `cnpj` — são domínio.
+- **As três entradas de data/hora têm máscara default, e nenhuma mostra segundos.** `date` é `dd/mm/yyyy`, `time` é `hh:ii` e `datetime-local` é `dd/mm/yyyy hh:ii`. Os tokens de tempo são `hh` (hora), `ii` (minuto) e `ss` (segundo) — **`mm` é o MÊS**. `ss` existe na gramática mas não entra em nenhum default: em data de negócio ele só polui a coluna. E o `datetime-local` sem máscara não caía num default elegante, caía no **`repr` cru do Python**: um `DATA_HORA` sem `mask` explícita saía como `2026-10-09 14:37:52`.
 - **`Inputs`** (mesmo arquivo) é a camada do **motor**: só o `toggle`. A entrada diverge de `checkbox` declarando `type: 'checkbox'`, e acrescenta `slot: 'bar'`, `route: 'toggle'`, `method: 'POST'`, `label_on`/`label_off` e `badge_off`. `INPUTS` é a soma das duas, já com o `type` resolvido.
 - **`type`** é metadado de qual base usar e sai do merge. Base inexistente **levanta erro dizendo o nome**; entrada sem `type` e com nome novo **também**, porque todo tipo do app diverge de um genérico.
 - **`App.inputs`** (`app/config.py` → `build_app(inputs=…)`) é a camada do app, lida por `core/adapter.py` e fixada como default de processo por `definir_camadas_padrao` no `init.py` — antes de `registrar_modulos`, porque o `Entity` já é expandido no import do model. É onde `cpf`/`cnpj` e a máscara do telefone BR ganham forma: `app/extends/inputs.py`, gêmeo de `app/extends/buttons.py`.
@@ -1134,6 +1135,25 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0024
+- **O `DATA_HORA` saiu sem máscara default, e caía no `repr` cru do Python.**
+  `date` tinha `dd/mm/yyyy` e `time` tinha máscara, mas `datetime-local` ficou de
+  fora do catálogo — e um campo sem `mask` não tem para onde cair: um
+  `DATA_HORA` sem `mask` explícita saía **`2026-10-09 14:37:52`**, `repr` do
+  `datetime`, com os segundos e o separador ISO. Passa a ser
+  **`09/10/2026 14:37`**.
+- **Nenhum dos três defaults mostra segundos.** `date` → `dd/mm/yyyy`, `time` →
+  `hh:ii`, `datetime-local` → `dd/mm/yyyy hh:ii`. O token `ss` continua
+  existindo na gramática — quem quiser o segundo declara a `mask` do campo — mas
+  não entra em nenhum default, porque em data de negócio ele só polui a coluna.
+- **Bug de token: o default do `time` era `hh:mm`, e `mm` é o MÊS.** Um horário
+  de outubro às 14:37 saía **`14:10`** — a hora certa com o mês no lugar do
+  minuto. Agora é `hh:ii`. Afeta `evento.hora` e o `hora` do form de orçamento.
+- No form nada muda: o coercion de data/hora é **fallback** — tenta
+  `datetime.fromisoformat` primeiro e só usa a máscara quando o ISO não bate
+  (`core/form.py:158`), então a máscara nova só acrescenta um caminho de parse
+  em vez de tirar um.
 
 ### 1.26.10.08.0023
 - **Bug: a zona do logo encolhia para dentro da imagem quando o `CPI` mudava
