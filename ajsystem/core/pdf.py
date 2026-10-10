@@ -213,6 +213,14 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
             return drawn          # pulado: não gasta a posição da cascata
     first = drawn == 0
     txt = cfg.get('text', cfg.get('label', label))
+    # A descida vem ANTES de posicionar e ANTES de medir: logo abaixo o `set_x`
+    # devolve o cursor ao início da zona, e a largura é `right - get_x()` — com
+    # a linha cheia ela daria 0, e `cell(0, …)` no fpdf2 é "até a margem", que
+    # centralizaria o título no espaço inteiro. Mora aqui, e não em
+    # `_place_item`, porque no header o `TITLE` é chamado direto: a cascata do
+    # `TITLES` não passa pelo renderizador de itens.
+    if not any(k in cfg for k in ('location', 'pos')):
+        _desce_se_cheia(pdf)
     if 'tab' in cfg:
         if any(k in cfg for k in ('location', 'pos')):
             raise ValueError(f"report '{label}': tab não combina com location/pos")
@@ -291,8 +299,7 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     if isinstance(_ra, bool) or not isinstance(_ra, (int, float)) or _ra < 0:
         raise ValueError(
             f"report '{label}': rows_after do TITLE deve ser número >= 0, veio {_ra!r}")
-    if _ra:
-        pdf.set_y(pdf.get_y() + _ra * _row_unit(pdf))
+    _y_desce(pdf, _ra)
     return drawn + 1
 
 
@@ -2034,6 +2041,18 @@ def _desce_se_cheia(pdf):
     pdf.set_x(x0)
 
 
+def _y_desce(pdf, n_linhas):
+    """Desce o Y sem tocar no X.
+
+    `set_y` e `ln` do fpdf2 **os dois** devolvem o X para a margem — o `set_y`
+    parece só mexer na ordenada, mas volta o cursor e apaga o estacionamento.
+    É por isso que `rows_after` não pode ser nenhum dos dois: tem de ser
+    `set_xy` com o X que já estava.
+    """
+    if n_linhas:
+        pdf.set_xy(pdf.get_x(), pdf.get_y() + n_linhas * _row_unit(pdf))
+
+
 def _place_item(pdf, kind, name, cfg, label, line=True):
     """Posicionamento pré-render: âncora, fluxo, linha ou bloco.
 
@@ -2224,8 +2243,7 @@ def _respiro_depois(pdf, cfg, prop, label=''):
     n = cfg.get(prop, 0) or 0
     if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
         raise ValueError(f"report '{label}': {prop} deve ser número >= 0")
-    if n:
-        pdf.set_y(pdf.get_y() + n * _row_unit(pdf))
+    _y_desce(pdf, n)
 
 
 def _render_items(pdf, items, instance, report, reset_tabs=True):

@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0021 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0022 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0021`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0022`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -337,7 +337,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | `body.table.groups` | `dict\|list` | `{'tipo':{action:1,print:3,text:'{tipo:d}. {tipo}'}}` | control-break: `action` (quando: 1 abre, 2 fecha, ausente = toda linha) × `print` (onde: 0 nunca, 1 coluna, 2 linha, 3 fora da tabela). Legado `{print,place}` traduzido via shim. `order` da fonte tem que abrir com as quebras (senão quebra nomeando). `totals` no grupo = subtotal (`{'label','align','span','bline'}`; ausente = não totaliza; `bline` = régua antes); fechamento do grupo usa `gline` (legado `line` traduzido) |
 | `when` (item) | `str` | `{'TEXT': {'text': '…', 'when': 'evento.tipo'}}` | imprime só se o path (pontilhado ok) for truthy; ausente = sempre |
 | templates | — | `'{total:brl}'`, `'{a.b}'`, `'{?c:…}'`, `'{x\|dflt}'` | `:brl` moeda; path pontilhado com navegação segura; `\|dflt` fallback; labels LIST da Entity |
-| fluxo | — | `FIELD`/`TEXT` seguem na linha | `PCOL` avança pela largura; `pcol+largura>ncol` envolve; maior que a linha trunca; quebra por `rows_after/before` ou posicionamento; sem âncora, `FIELD`/`TEXT` com `width` herda o cursor da zona (só volta à 1ª coluna se o cursor está fora da zona), `TEXT` avulso sem `width` é linha própria (avanço de linha automático quando o fluxo terminou antes dela; `align` vale na zona) e bloco (`IMAGE`/`LINE`/…) volta ao início; sub-item de `TEXTS` flui apertado inline. O "início" é o da **zona**, não o da margem — ver **Zona do logo** |
+| fluxo | — | `FIELD`/`TEXT` seguem na linha | **cada item ESTACIONA na borda do que desenhou** e o próximo desce sozinho se a linha não tem mais lugar — ver **Estacionar**; `PCOL` avança pela largura; `pcol+largura>ncol` envolve; maior que a linha trunca; quebra por `rows_after/before` ou posicionamento; sem âncora, `FIELD`/`TEXT` com `width` herda o cursor da zona (só volta à 1ª coluna se o cursor está fora da zona), `TEXT` avulso sem `width` é linha própria (avanço de linha automático quando o fluxo terminou antes dela; `align` vale na zona) e bloco (`IMAGE`/`LINE`/…) volta ao início; sub-item de `TEXTS` flui apertado inline. O "início" é o da **zona**, não o da margem — ver **Zona do logo** |
 | `body.table.totals` | `dict` | `{'label':'TOTAL GERAL','align':'R','span':3}` | linha de total geral (sempre, com régua antes e depois — internas). `agg` na coluna diz O QUÊ; sem `totals` não totaliza. Legado `footer/footer_label` via shim. Réguas seguidas sem conteúdo entre elas saem uma vez só |
 | `body.table.extend` | `list` | `[(col\|[a,b], texto[, props]), 'LINE', 'LF', 'CR']` | linhas **dentro do quadro** depois dos totais (ex.: Acréscimo/Desconto/Total). `when` por linha; placeholder puro `{campo}` herda o `format` da coluna; `font`/`cpi`/`lpi`/`font_size` recusados (a grade da tabela é dela) |
 | `body.table.hierarchy` | `list\|dict` | legado (derivado de `groups` quando ausente) | mantido por compat; prefira `groups` |
@@ -419,7 +419,7 @@ Regras que a tabela não cabe:
 - **`style` é o traço do glifo e `cpi` é a largura da célula — eixos diferentes que combinam livre.** `style` aceita as 8 combinações do fpdf2 (`''|B|I|U|BI|BU|IU|BIU`); `cpi`, a prop de largura, é recusada em `table.extend` porque a grade da tabela é dela. A **fonte** é prop do `Report`, não de item: uma por documento.
 - **`tab` não vale no corpo do `TITLE`**: as paradas são do header, e ancorar no lugar errado calado é pior que recusar.
 - **`location` e `pos` são a mesma prop** (apelido); `tab` não combina com nenhuma das duas.
-- **`rows_before`/`rows_after` contam LINHAS** (`ROW_CELL` = 6mm), enquanto `width` conta **colunas** da grade da fonte vigente. São **avanço de linha e nada mais**: não desenham linha vazia. O `TITLE` tem `rows_after: 1` por padrão (sempre deixa a próxima linha), e `rows_after` maior afasta mais; `0` cola no próximo item. Valem para **todo item** — inclusive `MEMO` e `TITLE`, que era onde a prop mais fazia falta e mais surprise entregava: o bloco do respiro ficava no fim do laço de `_render_items`, e todo item que dava `continue` nunca chegava nele, então `MEMO(..., {'rows_before': 2})` era lido e **ignorado calado** (medido: y=10, enquanto `TEXT('x', {'rows_before': 2})` ia a y=22). A regra agora é uma só, num único `_respiro`, chamado dos dois lados do item — e por isso o COMPRA respira com `MEMO(..., {'rows_before': 1})` em vez de um `LF(1, {'when': ...})` escrito à mão com o mesmo `when` repetido. Em `CR`/`LF`/`FF`/`IND`/`TABS`/`POS`/`FONT` o respiro é inútil (o `LF` já **é** o respiro), mas não quebra.
+- **`rows_before`/`rows_after` contam LINHAS** (`ROW_CELL` = 6mm), enquanto `width` conta **colunas** da grade da fonte vigente. São **avanço de linha e nada mais**: não desenham linha vazia. **O padrão dos dois é 0** — a linha seguinte já vem de graça, porque o item estacionou (ver **Estacionar**), e `rows_after: N` são N linhas em branco *depois* dela. `rows_before: N` são N *antes*, e são as duas a única forma de pedir respiro. Valem para **todo item** — inclusive `MEMO` e `TITLE`, que era onde a prop mais fazia falta e mais surprise entregava: o bloco do respiro ficava no fim do laço de `_render_items`, e todo item que dava `continue` nunca chegava nele, então `MEMO(..., {'rows_before': 2})` era lido e **ignorado calado** (medido: y=10, enquanto `TEXT('x', {'rows_before': 2})` ia a y=22). A regra agora é uma só, num único `_respiro`, chamado dos dois lados do item — e por isso o COMPRA respira com `MEMO(..., {'rows_before': 1})` em vez de um `LF(1, {'when': ...})` escrito à mão com o mesmo `when` repetido. Em `CR`/`LF`/`FF`/`IND`/`TABS`/`POS`/`FONT` o respiro é inútil (o `LF` já **é** o respiro), mas não quebra.
 - **`wrap` é binária** por escolha: `rows` responderia "quantas linhas" e arrastaria altura mínima junto. `MEMO` quebra por `width` sempre, então `wrap` não diz nada lá.
 - **`options` só troca o catálogo**, nunca o valor.
 
@@ -501,6 +501,36 @@ consome os dígitos do título e deixa só o resto. Aqui a parte numérica é
 ignorada de propósito, então `@U 999,999.99` ainda só grita. Substituir o `@U`
 não é novidade: com o corpo derivado do LPI o título deixou de ser maior, e a
 caixa alta é o que ainda o separa do corpo sem pedir corpo maior.
+
+### Estacionar — a linha é o que o cursor ocupa
+
+Nenhum item decide sozinho se avança uma linha. Todo item **estaciona na borda
+do que desenhou**, e o item seguinte **desce porque não cabe mais nada**. A
+pergunta é uma só — *"a linha ainda tem lugar?"* — e a resposta sai do próprio X,
+sem contador e sem estado:
+
+| item | estaciona em | o que vem depois |
+|---|---|---|
+| `TITLE` `align:'C'` (padrão) | fim da **LINHA** — a caixa é a zona toda | desce |
+| `TITLE` `align:'L'/'R'` | fim do **TEXTO** | continua na mesma linha, se couber |
+| `LINE()` | fim da régua = fim da linha da página/zona/tabela | desce |
+| `LINE(30)` | fim da régua, 30 cols adiante | continua à direita, se couber |
+| `FIELD`/`TEXT` inline | fim do próprio texto | continua na mesma linha |
+| `MEMO`, `BOX`, `CIRCLE` | já descem sozinhos (ou são ancorados) | — |
+
+O `TITLE` centralizado é o caso que mudou: ele ocupava **duas** linhas (a
+célula + `rows_after: 1`), então a cascata do `TITLES` punha uma linha em branco
+entre cada par. Medido antes → depois, a 6 LPI: COMPRA com 1 título 3 → **2**
+linhas de header, com 2 títulos 5 → **3**.
+
+Duas coisas fazem o `align` deixar de ser cosmético no `TITLE`: `align:'L'` com
+`width` declarada deixa o próximo item **na mesma linha**, e é o `width` que
+diz "isto é um pedaço da linha", não o alinhamento.
+
+**`set_y` não desce linha.** O fpdf2 devolve o X para a margem tanto no `set_y`
+quanto no `ln` — o `set_y` parece só mexer na ordenada, mas apaga o
+estacionamento. `rows_after` por isso é `set_xy` com o X que já estava: se
+fosse `ln`, `rows_after: 1` e `rows_after: 0` dariam a mesma linha.
 
 **Condensed e expanded são as duas pontas do mesmo eixo** (5 e 20), não dois estilos: pedir os dois dá 0,5× × 2× = 1×, que é o normal. O que combina com tudo é o outro eixo, `style`, que muda o **traço**.
 
@@ -1095,6 +1125,58 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0022
+- **Nenhum item decide sozinho se avança linha. Todo item ESTACIONA na borda do
+  que desenhou, e o próximo desce porque não cabe mais nada.** A pergunta ficou
+  sendo uma — *"a linha ainda tem lugar?"* — e a resposta sai do próprio X, sem
+  contador e sem estado. O `TITLE` centralizado vai no fim da **linha** (a
+  caixa é a zona toda), o alinhado à esquerda vai no fim do **texto**, e o
+  `LINE` vai no fim da **régua**: `LINE()` tem a largura da zona e fecha a
+  linha; `LINE(30)` deixa 30 cols à direita e o próximo continua nelas.
+- **O `TITLE` deixou de ocupar duas linhas.** Ele somava a própria célula com
+  `rows_after: 1` no padrão, e a cascata do `TITLES` punha uma linha em branco
+  entre cada par de títulos. Medido antes → depois, a 6 LPI: COMPRA com 1
+  título vai de 3 para **2** linhas de header, com 2 títulos de 5 para **3**.
+- **O padrão de `rows_after` foi de 1 para 0**, e a prop virou o que o nome
+  sempre disse: **linhas em branco depois**. A linha seguinte já vem de graça,
+  porque o item estacionou; `rows_after: N` são N a mais. `rows_before: N`
+  continua sendo N antes, e as duas são a única forma de pedir respiro.
+- **`align` deixou de ser cosmético no `TITLE`.** `align:'L'` deixa o próximo
+  item **na mesma linha** — é o `width` declarado que diz "isto é um pedaço da
+  linha", não o alinhamento.
+- **Bug de escopo: `set_y` do fpdf2 devolve o X para a margem, igual ao `ln`.**
+  O `set_y` parece só mexer na ordenada, e foi a escolha óbvia para "descer sem
+  tocar no estacionamento" — mas ele apaga o estacionamento, e `rows_after: 1`
+  e `rows_after: 0` davam a mesma linha. Agora é `set_xy` com o X que já
+  estava (`_y_desce`).
+- **A descida mora dentro do `TITLE`, não só em `_place_item`.** No header o
+  `TITLE` é chamado direto — a cascata do `TITLES` não passa pelo renderizador
+  de itens —, então sem a descida no próprio `_draw_titulo` o 2º título saía na
+  linha do 1º. E ela tem que vir **antes** de posicionar e antes de medir: o
+  `set_x` logo abaixo devolve o cursor ao início da zona, e a largura do título
+  é `right - get_x()` — com a linha cheia ela daria 0, e `cell(0, …)` no fpdf2
+  é "até a margem", que centralizaria o título no espaço inteiro e o faria
+  atravessar o logo.
+- **`tab` ficou de fora do estacionamento, e o grid 2×2 do ORCAMENTO/PEDIDO
+  continua igual.** `tab` é posição absoluta: o autor já manage a linha. O item
+  `tab` ainda **descobre** a linha cheia e desce (senão os fields caem na linha
+  do título), mas não estaciona. `pos`/`location` não descem: o `set_xy` joga
+  fora, e perto do rodapé ainda quebraria a página à toa.
+- **`MEMO` com `rows_before: 1` continua com 1 linha** — o `_respiro` consome a
+  descida pendente antes de aplicar o `N`, senão o `set_x` dele apagava o
+  "estacionado" do item anterior e o `N` virava o total.
+- **O fechamento no fim de cada lista de itens.** O corpo nasce no Y que o
+  header deixou (`add_page` não restaura o Y), então um título estacionado
+  como último item fazia a tabela nascer em cima dele.
+- O header em dict legado saiu junto: tinha o mesmo avanço duplo cravado
+  (`self.ln(_row_unit(self))  # título sempre deixa a PRÓXIMA linha`) e o
+  `GAP_TITLE_SIDE` virou um deslocamento só de Y.
+- Verificação: 22 medições de linha (cascata de 1/2/3 títulos, os três `align`,
+  `rows_after` 0/1/2, `when` falso no meio, `LINE()` × `LINE(30)`, título
+  estacionado seguido de item, `CR`, `LF`, título + `LF`), a matriz de CPI
+  intacta e os 3 reports do app comparados coordenada a coordenada antes e
+  depois — a única diferença é uma linha a menos por título.
 
 ### 1.26.10.08.0021
 - **O `TITLE` passou a gritar: `mask='@U'` por padrão.** A caixa alta é o que
