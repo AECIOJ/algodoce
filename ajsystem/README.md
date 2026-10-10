@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0027 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0028 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0027`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0028`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -545,9 +545,12 @@ TABS(1, 30),                                   # NÚMEROS → define as paradas
 TABS(),                                        #           restaura
 TABS(1, 30),
 TABS('Orçamento'),                             # TEXTO  → imprime
-TABS(('{cliente_nome}', {}), ('{data_pedido}', {})),
-TABS('Cliente: {cliente_nome}', '', '{validade_data}'),
+TABS('{cliente_nome}', '{data_pedido}'),
+TABS('{cliente_telefone}', '{validade_data}'),  # desce sozinho
 ```
+
+**A string nua é a forma normal** — a tupla só aparece quando o elemento leva
+props: `('{data}', {'lf': 1})`, `('{x}', {'style': 'B'})`, `('{x}', 'quando')`.
 
 Misturar número com texto é erro — são dois comandos com o mesmo nome e a mesma
 aridade, e decidir pelo primeiro seria adivinhação.
@@ -555,6 +558,7 @@ aridade, e decidir pelo primeiro seria adivinhação.
 | elemento | vira | rota |
 |---|---|---|
 | `'texto'` | texto | TEXT |
+| `'texto', {props}` | texto + props | TEXT |
 | `'{campo}'` — **token puro** (`^\{\s*[\w.]+\s*\}$`) | campo | **FIELD**: rótulo em negrito, máscara, catálogo `options`, `label` da Entity |
 | `'Cliente: {campo}'` | texto | TEXT — o rótulo sai **no mesmo peso** do valor |
 | `''` | a parada **não existe nesta linha** | não imprime, e o elemento anterior **não é cortado** |
@@ -564,9 +568,21 @@ O token puro é o que preserva o rótulo em negrito: por dentro é o caminho FIE
 de sempre (`_expande_tabs` emite um `FIELDS` de uma entrada, para o caminho
 pontilhado `'{Conta.telefone}'` resolver pelo mesmo ramo de sempre).
 
-**O `TABS` nunca desce de linha sozinho** — imprime na linha corrente. Quem
-desce é o `lf` (prop) ou o `LF(n)` (item), e quem escreve o grid 2×2 coloca o
-`lf` no primeiro elemento da primeira linha.
+**Uma linha nova de `TABS` desce sozinha.** A pergunta é *"o cursor já passou
+da 1ª parada?"* — se passou, a linha nova começaria em cima do que a anterior
+escreveu, e desce. Se não passou, fica onde está: a **1ª linha do header** não
+desce, e a 2ª desce sozinha. É o `lf: -1` automático, e é por isso que um grid
+não declara `lf` para separar as fileiras:
+
+```python
+TABS(1, 30),
+TABS('{cliente_nome}', '{data_pedido}'),   # 1ª parada: fica na linha atual
+TABS('{cliente_telefone}', '{validade_data}'),   # 1ª parada já passou: desce
+```
+
+O `lf` continua valendo por cima: `lf: -1` **é** a descida (e a automática não
+soma outra — ela só age quando não há descida nenhuma), e `lf: 2` deixa duas
+linhas em branco depois.
 
 ### O teto é em COLUNAS, não em milímetros
 
@@ -1202,6 +1218,32 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0028
+- **Uma linha nova de `TABS` desce sozinha.** A pergunta é *"o cursor já
+  passou da 1ª parada?"* — se passou, a linha nova começaria em cima do que a
+  anterior escreveu, e desce; se não passou, fica. A **1ª linha do header** não
+  desce, a **2ª** desce sozinha. É o `lf: -1` automático, e é o `lf` que o
+  `.0026` trouxe deixa de ser necessário para separar as fileiras de um grid.
+- **O `TABS` não é mais dono da descida de linha, e sim da COLUNA.** Antes
+  `.0027` dizia que ele "nunca desce sozinho" e jogava a responsabilidade no
+  autor; a posição na grade já sabe a resposta, e perguntar era mais honesto do
+  que exigir declaração.
+- **Os demais elementos da MESMA linha não descem** — eles andam pela largura,
+  e descer é decisão da LINHA, não do item. Só o primeiro elemento (`_tab == 1`)
+  decide, e os outros mantêm a descida DON'T-LOSE do `.0022`.
+- **A string nua é a forma normal, e sempre foi.** `TABS('{cliente_nome}',
+  '{data_pedido}')` produz byte a byte o mesmo que `TABS(('{cliente_nome}', {}),
+  ('{data_pedido}', {}))` — a tupla vazia nunca teve função, e escrevê-la só
+  confundia. A tupla aparece quando há **props**: `('{d}', {'lf': 1})`.
+- **`lf: -1` não soma com a automática**, e é o certo: ele *é* a descida, então
+  a automática age só quando não houve nenhuma.
+- Migração dos 3 reports: as 10 entradas `('{campo}', {})` viraram
+  `'{campo}'` e os `lf: 1` do grid 2×2 saíram (a automática cobre). Geometria
+  dos headers conferida coordenada a coordenada — **inalterada**.
+- 12 verificações: a 1ª linha não desce e a 2ª/3ª descem, `lf: 2` somando com a
+  automática, `lf: -1` não somando, o grid de string nua com rótulo e máscara
+  nas duas fileiras, e os 6 cenários dos 3 reports.
 
 ### 1.26.10.08.0027
 - **`TABS` passou a fazer dois trabalhos, distinguidos pelo tipo do 1º

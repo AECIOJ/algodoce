@@ -2134,9 +2134,25 @@ def _place_item(pdf, kind, name, cfg, label, line=True):
     if '_tab' in cfg:
         if any(k in cfg for k in ('location', 'pos')):
             raise ValueError(f"report '{label}': tab não combina com location/pos")
-        # A parada só ancora o X, então a descida é DON'T-LOSE: sem ela o item
-        # cai na linha do título estacionado logo acima.
-        _desce_se_cheia(pdf)
+        if cfg['_tab'] == 1:
+            # PRIMEIRO elemento de uma linha de `TABS`: a pergunta é "o cursor
+            # já passou da 1ª parada?". Se passou, a linha nova comecaria em cima
+            # do que a anterior escreveu, e desce. Se não passou — a 1ª linha do
+            # header, ou uma linha depois de um `lf` — fica onde está.
+            #
+            # Isso é o `lf: -1` automático, e é por isso que o `lf` não precisa
+            # mais ser declarado para separar as fileiras de um grid.
+            _x0, _r = _flow_zone(pdf)
+            _stops = getattr(pdf, '_tabs', None) or []
+            _c0 = _x0 + (_stops[0] * _col_unit(pdf) if _stops else 0)
+            if pdf.get_x() > _c0 + 0.01:
+                pdf.ln(_row_unit(pdf))
+                pdf.set_x(_x0)
+        else:
+            # Os demais elementos da MESMA linha ficam na linha: eles andam pela
+            # largura, e a descida é uma decisão da LINHA, não do item. (E aqui a
+            # descida DON'T-LOSE do `.0022` continua valendo.)
+            _desce_se_cheia(pdf)
         _tab_x(pdf, cfg['_tab'], label)
         return
     if any(k in cfg for k in ('location', 'pos')):
