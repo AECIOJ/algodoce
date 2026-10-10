@@ -1219,6 +1219,53 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 
 ## 6. Histórico de versões
 
+### 1.26.10.08.0031
+- **A `width` do field ficou só na COLUNA.** O `.0029` anexou a `width` ao
+  `_resolve_map`, que é a rotina **partilhada** entre `body.table.columns` e os
+  itens de layout (`header.fields`, `items`, `before`, `after`, `table.after`).
+  Na tabela é a medida certa; no fluxo, `width` é prop do **item** — a medida do
+  bloco no `MEMO`, a largura fixa no `FIELD`/`TEXT` — e só o autor a declara. O
+  `MEMO` do preâmbulo do COMPRA saiu com **12** em vez de **84** (12 colunas =
+  30,5mm) e a frase saiu palavra a palavra. Agora `_resolve_map` recebe
+  `colunas=True`, e só `table.columns` o passa. O `MEMO` ainda era o pior caso
+  porque `_resolve_fields` tira a `width` **antes** de chamar o `_resolve_map`
+  ("`width` fica de fora porque é do bloco, não do campo") e funde o resultado
+  de volta com `update` — a do field voltava por baixo. **O mesmo vazamento
+  atingia todo `FIELD`/`FIELDS`** do fluxo, que passava a medir-se pela largura
+  do field em vez de encher a zona.
+- **No app, `LARGURA` do COMPRA foi de 84 para 70.** Com o body no CPI 10, 84
+  colunas são 213,4mm numa página de 190mm úteis (o máximo é 74). Os quatro
+  préâmbulos saem inteiros, em 1 a 3 linhas, sem escrever fora do bloco — e o
+  `J` do `MEMO` estica 0,09mm porque as linhas preenchem o bloco quase exacto
+  (sobra de 0,5mm por linha).
+
+### 1.26.10.08.0030
+- **Header, body e footer entram com o fluxo limpo.** As três secções já
+  limpavam o estado em pontos diferentes, e nenhum deles era o de entrada: o
+  header só limpava quando desenhava (o `header()` volta cedo quando não há
+  `on_each_page`, e a 2ª página nascia com as paradas da 1ª), o footer nunca, e
+  o `body.before` entra por `_render_table_lines`, que preserva o estado entre
+  itens da **própria** secção — de propósito, para vários itens seguirem em
+  linha. O resultado era o `IND` do header empurrar o `body.before`: medido,
+  `IND([20,70])` no header botava um `TEXT` do body em x=61,80mm em vez de
+  11,00mm.
+- **`_reset_fluxo` reune o que header e `_render_items` já faziam** e passa a
+  ser chamado na entrada das três secções: `TABS`, `IND`, a **zona do logo** e
+  a grade, esta ao **CPI 10**. Um helper só, para header, body e footer não
+  divergirem no que esquecem de limpar. A zona do logo entra porque um `IND` do
+  body que intersectasse com a faixa do `LOGO` do header sairia mais estreito
+  do que pediu; a grade volta ao default porque quem quiser outra densidade no
+  body a declara nele, e a conta passa a ser do body em vez de uma herança
+  implícita do cabeçalho.
+- **O app não se moveu:** nenhum dos três headers declara `IND`, e `TABS` só
+  ancora itens `TABS` (não a zona), então os três relatórios saíram com a
+  geometria idêntica antes e depois — conferido texto a texto no PDF.
+- **Uma afirmação minha que este número corrige:** eu escrevi que o reset não
+  mudava o app. Isso sevia para a geometria dos *textos*, e continuava a
+  valer; mas o `MEMO` do `before` herdava o `CPI(12)` do header e passou a
+  desenhar a CPI 10. Para este relatório o texto sai igual (medido: `x=27,26`
+  nos dois), mas um `MEMO` com texto mais justo sentiria a diferença.
+
 ### 1.26.10.08.0029
 - **A coluna da tabela segue o field, e a soma é centralizada.** Era o
   contrário: `_resolve_map` montava `label`/`format`/`function` e **nunca a

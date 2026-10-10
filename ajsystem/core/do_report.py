@@ -348,7 +348,16 @@ def _apply_entity(raw, entity):
         if spec.get('label'):
             spec['width'] = len(str(spec['label'])) + 1
 
-    def _resolve_map(items):
+    def _resolve_map(items, *, colunas=False):
+        # `colunas=True` só para `body.table.columns`. A MESMA rotina resolve
+        # também header/items/before/after, e aí `width` é prop do ITEM — a
+        # medida do bloco no `MEMO`, a largura fixa do fluxo no `FIELD`/`TEXT` —
+        # que só o autor declara. Anexar a width do field nesses caminhos
+        # sobrescrevia a do autor: o `MEMO` do preâmbulo do COMPRA saiu com 12
+        # em vez de 84 (12 colunas = 30,5mm) e a frase saiu palavra a palavra.
+        # `MEMO` ainda agrava: `_resolve_fields` tira a `width` ANTES de chamar
+        # aqui ("width fica de fora porque é do bloco, não do campo") e funde o
+        # resultado de volta com `update`, então a do field voltava por baixo.
         # Lista solta de itens → `{nome: overrides}`: a gramática é a
         # genérica (`core.resolve.field_spec_items`, as formas de
         # `list.columns`). Item que não nomeia um field cai em `_0`, `_1`…,
@@ -424,11 +433,12 @@ def _apply_entity(raw, entity):
                     if _mask:
                         spec.pop('format', None)
                         spec['format'] = _mask
-                # A coluna herda a width do field (a listagem já fazia isso):
+                # A COLUNA herda a width do field (a listagem já fazia isso):
                 # com override explícito do report ela manda, senão vale a do
                 # field. A FK mede o campo exibido (`<rel>.<display>`), que é o
-                # nome que se vê — o `_id` não aparece na tabela.
-                if not spec.get('width'):
+                # nome que se vê — o `_id` não aparece na tabela. Fora das
+                # colunas a prop é do item e quem a declara é o autor.
+                if colunas and not spec.get('width'):
                     _fk = raw_cfg.get('type') == 'FK'
                     _disp = str(spec.get('field') or '')
                     _shown = _disp.split('.')[-1] if _fk and '.' in _disp else fld
@@ -445,14 +455,16 @@ def _apply_entity(raw, entity):
                 spec = {**_disp_map[key], **extra}
                 if 'label' not in spec:
                     spec['label'] = _auto_label(key)
-                _fallback_width_ch(spec, key)
+                if colunas:
+                    _fallback_width_ch(spec, key)
                 resolved[key] = spec
                 continue
             if 'text' in extra:
                 spec = dict(extra)
                 spec.setdefault('label', _auto_label(key))
                 spec['function'] = _cell_text_fn(extra['text'], entity)
-                spec['width'] = _text_width_ch(extra['text'])
+                if colunas:
+                    spec['width'] = _text_width_ch(extra['text'])
                 resolved[key] = spec
                 continue
             if not any(k in extra for k in ('label', 'function')):
@@ -461,11 +473,12 @@ def _apply_entity(raw, entity):
                     f"ambíguo — use 'Model.campo') e sem 'label'/'function' "
                     f"(report '{raw.get('label')}')"
                 )
-            # Coluna sem field resolvido: a largura vem do campo nomeado ou do
-            # rótulo, para não receber o resto da página. Sem `label` sobra
-            # `function` — aí o `_calc_col_widths` ainda cobre o resto.
+            # Item sem field resolvido (só `label`/`function`/`text`): a largura
+            # vem do campo nomeado ou do rótulo, para não receber o resto da
+            # página — mas só na COLUNA, pelo mesmo motivo de cima.
             spec = dict(extra)
-            _fallback_width_ch(spec, key)
+            if colunas:
+                _fallback_width_ch(spec, key)
             resolved[key] = spec
         return resolved
 
@@ -553,7 +566,8 @@ def _apply_entity(raw, entity):
         table = body.get('table')
         if isinstance(table, dict):
             table = dict(table)
-            specs = _resolve_map(table.get('columns'))
+            # ÚNICO caminho onde a `width` sai do field: a coluna da tabela.
+            specs = _resolve_map(table.get('columns'), colunas=True)
             if specs is not None:
                 cols = {}
                 for key, spec in specs.items():

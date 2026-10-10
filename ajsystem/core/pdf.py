@@ -314,17 +314,22 @@ def _reset_fluxo(pdf):
     renascia no footer. Pior na 2ª página: `header()` volta cedo quando não há
     `on_each_page`, e o estado da página anterior atravessava inteiro.
 
-    A grade (`CPI`/`LPI`/`flags`) e a zona do logo andam junto porque é o mesmo
-    reset que `_render_items` já fazia — um helper só, para header, body e
-    footer não divergirem no que esquecem de limpar.
+    Limpa a zona do logo pela mesma razão — ela é do header, e um `IND` do body
+    que intersectasse com a faixa do logo sairia mais estreito do que pediu.
+    A grade volta ao **CPI 10** (`CPI_DEFAULT`): quem quiser outra densidade
+    para o body declara `CPI(...)` nele, e assim a conta é do body e não uma
+    herança implícita do cabeçalho.
+
+    É o mesmo reset que `_render_items` já fazia — um helper só, para header,
+    body e footer não divergirem no que esquecem de limpar.
     """
     from ajsystem.defs.fonts import CPI_DEFAULT, LPI_DEFAULT
     pdf._tabs = None
     pdf._ind = None
+    pdf._logo_zone = None
     pdf._cpi = CPI_DEFAULT
     pdf._flags = ''
     pdf._lpi = LPI_DEFAULT
-    pdf._logo_zone = None
 
 
 def _render_header_items(self, h):
