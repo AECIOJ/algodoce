@@ -1291,10 +1291,11 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 - **A escada media um valor que ela própria recusava.** `TABLE_LADDER` é
   `(10, 12, 15, 17,1, 20)` e os dois últimos são **derivados** (`{10: 17,1,
   12: 20}`), mas `col_mm` era `cpi()` por dentro, que só aceita base: na 4ª
- TIla da escada o `_fit_table` estourava `ValueError` no lugar do recado de
+  etapa da escada o `_fit_table` estourava `ValueError` no lugar do recado de
   "não cabe no papel". `cpi_geom` separa as duas contas — **declarar** segue
   fechado para derivados (`CPI(20)` recusa e sugere `CPI(12,'C')`), **medir**
-  aceita.- **Nenhuma coluna escreve sobre a outra.** Rede final no `_render_data_row` e
+  aceita.
+- **Nenhuma coluna escreve sobre a outra.** Rede final no `_render_data_row` e
   no cabeçalho: o texto é cortado na grade (`_pad_cols`) pelo que cabe na
   célula. A largura vem do field, mas o dado é do app — e dado maior que a
   coluna não passa reto.
@@ -1303,7 +1304,9 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
   escada deixa de ser acionada e a tabela sai centralizada no meio da página
   (132,1 / 172,7 / 119,4mm de 190mm úteis) em vez de esticar para a folha
   inteira. A coluna de dinheiro que estava com `width: 26` passa a ter as 11 ch
-  que a máscara `999,999.99` pede.
+  que a máscara `999,999.99` pede. *(Cifras medidas quando esta versão foi
+  escrita; o `PEDIDO` foi a 68 ch/172,7mm depois, com um `width: 40` declarado
+  na primeira coluna.)*
 
 ### 1.26.10.08.0028
 - **Uma linha nova de `TABS` desce sozinha.** A pergunta é *"o cursor já

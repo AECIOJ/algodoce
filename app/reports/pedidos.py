@@ -6,12 +6,13 @@ PEDIDO = {
     'header': [
         LOGO('L', 4),
         PROW(0),
-        CPI(12),
-        TABS(1, 30),
         TITLES([
             'Pedido Nº {id}',
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
+        LF(1),
+        CPI(10,'C'),
+        TABS(1, 25),
         TABS('{conta_id}', '{pedido_em}'),
         TABS('{Conta.telefone}', '{data_previsao_entrega}'),
         LF(2)
@@ -19,7 +20,7 @@ PEDIDO = {
     'body': {
         'table': {
             'columns': {
-                'produto.nome':   {'label': 'Produto'},
+                'produto_id':     { 'width':40},
                 'qtd':            {},
                 'preco':          {'label': 'Preço (R$)'},
                 'PedidoItem.valor': {'label': 'Valor (R$)', 'agg': 'sum'},

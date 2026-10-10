@@ -8,22 +8,24 @@ PREAMBULO = {
 }
 
 
-LARGURA = 84
+LARGURA = 70
 
 
 COMPRA = {
     'label': 'Compra',
     'header': [
-        LOGO('L', 3),
+        LOGO('L', 4),
         PROW(0),
-        TABS(5, 40),
         TITLES([
             ('Orçamento #{id}', {'when': 'status == 0'}),
             ('{status == 1 ? Pedido : COMPRA} #{id}', {'when': 'status != 0'}),
             ('Status: {status}', {'when': 'status > 1'}),
         ]),
+        LF(1),
+        CPI(12),
+        TABS(1, 30),
         TABS('{fornecedor_id}', '{data}'),
-        LF(2)
+        LF(3)
     ],
     'body': {
         'before': [

@@ -6,13 +6,13 @@ ORCAMENTO = {
     'header': [
         LOGO('L', 4),
         PROW(0),
-        CPI(12),
-        TABS(1, 30),
         TITLES([
             'Orçamento #{id}',
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
         LF(1),
+        CPI(12),
+        TABS(1, 30),
         TABS('{cliente_nome}', '{data_pedido}'),
         TABS('{cliente_telefone}', '{validade_data}'),
         LF(3)
