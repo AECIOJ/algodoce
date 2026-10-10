@@ -305,6 +305,28 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     return drawn + 1
 
 
+def _reset_fluxo(pdf):
+    """Zera o estado do FLUXO ao entrar numa seção: header, body, footer.
+
+    Seções são independentes. `TABS()` e `IND()` são itens de zona do documento,
+    não da seção: o que o header parou empurrava o `body.before` (que entra por
+    `_render_table_lines`, onde o reset não acontece), e o que o body parou
+    renascia no footer. Pior na 2ª página: `header()` volta cedo quando não há
+    `on_each_page`, e o estado da página anterior atravessava inteiro.
+
+    A grade (`CPI`/`LPI`/`flags`) e a zona do logo andam junto porque é o mesmo
+    reset que `_render_items` já fazia — um helper só, para header, body e
+    footer não divergirem no que esquecem de limpar.
+    """
+    from ajsystem.defs.fonts import CPI_DEFAULT, LPI_DEFAULT
+    pdf._tabs = None
+    pdf._ind = None
+    pdf._cpi = CPI_DEFAULT
+    pdf._flags = ''
+    pdf._lpi = LPI_DEFAULT
+    pdf._logo_zone = None
+
+
 def _render_header_items(self, h):
     """Header em forma lista: LOGO/TITLE (cascata)/FIELD/TEXT/IMAGE/formas."""
     from ajsystem.defs.report import parse_report_item
@@ -313,12 +335,7 @@ def _render_header_items(self, h):
     from ajsystem.defs.fonts import (CPI_DEFAULT, LPI_DEFAULT, cpi as _cpi_norm,
                                      lpi as _lpi_norm)
     items = [parse_report_item(it, label) for it in (h.raw_header or [])]
-    self._tabs = None
-    self._cpi = CPI_DEFAULT
-    self._flags = ''
-    self._lpi = LPI_DEFAULT
-    self._ind = None
-    self._logo_zone = None
+    _reset_fluxo(self)
     titles = 0
     for item in items:
         cfg = item.config
@@ -514,6 +531,9 @@ class DocPDFReport(FPDF):
 
     def header(self):
         h = self._header
+        # ANTES do return cedo: a 2ª página com header fora não pode nascer
+        # com as paradas e a indentação que a página anterior deixou.
+        _reset_fluxo(self)
         if not self._is_first_page and not h.on_each_page:
             return
         self._is_first_page = False
@@ -685,6 +705,8 @@ class DocPDFReport(FPDF):
         return str(val)
 
     def footer(self):
+        # Rodapé é seção: entra limpo, como header e body.
+        _reset_fluxo(self)
         f = self._footer_cfg
         parts = []
         if f.text:
@@ -2434,19 +2456,15 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
 
     TABS ([n...], diretiva) ancora X por tab:N (Y no fluxo); POS ([c,r])
     salta o cursor; PROW/PCOL valem em âncora. reset_tabs=False preserva as
-    paradas vigentes (uso interno do header, que renderiza item a item).
+    paradas vigentes (uso interno do header, que renderiza item a item, e dos
+    itens de uma mesma seção).
     """
     from ajsystem.core.geom import normalize as _gloc, to_mm as _gmm
     from ajsystem.core.text import render as _trender
-    label = report.label if report is not None else ''
     from ajsystem.defs.fonts import CPI_DEFAULT, LPI_DEFAULT, cpi as _cpi_norm, lpi as _lpi_norm
+    label = report.label if report is not None else ''
     if reset_tabs:
-        pdf._tabs = None
-        pdf._cpi = CPI_DEFAULT
-        pdf._flags = ''
-        pdf._lpi = LPI_DEFAULT
-        pdf._ind = None
-        pdf._logo_zone = None
+        _reset_fluxo(pdf)
     col_w = _col_unit(pdf)
     _titulos = 0   # cascata de TITLE desta lista (1º = título, demais = subtítulo)
 
@@ -2759,7 +2777,10 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     # Primeira página
     pdf.add_page()
 
-    # Before table (do corpo)
+    # Before table (do corpo). Entrada do BODY: zera o que o header deixou
+    # (`TABS`/`IND` são do documento, não da seção) — `before` entra por
+    # `_render_table_lines`, que preserva o estado entre itens da PRÓPRIA seção.
+    _reset_fluxo(pdf)
     _body = _report_body(report)
     _before = getattr(_body, 'before', None) if _body else None
     if callable(_before) and instance:
