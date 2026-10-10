@@ -221,16 +221,21 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     # `TITLES` não passa pelo renderizador de itens.
     if not any(k in cfg for k in ('location', 'pos')):
         _desce_se_cheia(pdf)
-    if 'tab' in cfg:
-        if any(k in cfg for k in ('location', 'pos')):
-            raise ValueError(f"report '{label}': tab não combina com location/pos")
-        _tab_x(pdf, cfg['tab'], label)
-    elif any(k in cfg for k in ('location', 'pos')):
+    if 'tab' in cfg and any(k in cfg for k in ('location', 'pos')):
+        raise ValueError(f"report '{label}': tab não combina com location/pos")
+    if any(k in cfg for k in ('location', 'pos')):
         _anchor(pdf, cfg, label)
     else:
         # Bloco: volta ao INÍCIO DA ZONA (não da margem), e o `w` abaixo é a
         # sobra dela. Com o logo encolhendo a zona, voltar à margem punha o
         # título dentro da imagem.
+        #
+        # `tab` é IGNORADO no TITLE, e o corpo faz o mesmo. Ancorar a caixa na
+        # tabulação não levava o título para a tabulação: só encurtava a caixa
+        # para `right - tab_x` e deslocava o centro (medido: 91,03mm com
+        # `tab:1` contra 89,76mm sem), e ainda o deixava cruzando a próxima
+        # parada. O `MEMO` já ignorava, por recentralizar na zona — nenhum dos
+        # dois é bloco ancorado, e nenhum dos reportos do app usa `tab` neles.
         pdf.set_x(_flow_zone(pdf)[0])
     if callable(txt) and instance:
         txt = txt(instance)
@@ -810,6 +815,9 @@ _MISSING = object()  # sentinela p/ suppress (None é valor válido de comparar)
 # respiro em mm/cols, que não é altura de linha.
 FONT_FAMILY = "Helvetica"          # fallback para texto solto sem grade
 GAP_LABEL = 1          # respiro rótulo→valor, em COLS
+GAP_TAB = 1            # respiro antes da PRÓXIMA tabulação, em COLS
+                       # (1 col inteira + os 1mm de `c_margin` que a célula da
+                       #  tabela também deixa — o `+2` do `_cut_to_fit`)
 GAP_HEAD_FIELDS = 4    # após fields do cabeçalho
 GAP_TEXT_LINE = 2      # antes de cada linha avulsa
 GAP_TEXT_EMPTY = 8     # linha avulsa vazia
@@ -1981,6 +1989,31 @@ def _tab_x(pdf, tab, label):
     pdf.set_x(_flow_zone(pdf)[0] + tabs[tab - 1] * col_w)
 
 
+def _limite_x(pdf, cfg, label=''):
+    """X onde o item tem que parar: 1 col antes da PRÓXIMA tabulação, ou a margem.
+
+    É a fechadura do corte. O `_cut_to_fit` recebia `right - _x0` — a largura da
+    ZONA INTEIRA — e isso só parecia certo porque item sem âncora sempre quebra
+    de volta para `x0` antes de medir. Com `tab` o X já está no meio da linha e
+    a conta ignorava: medido, `TABS(1, 30)` deixava o texto da tab 1 chegar a
+    168,48mm com a tab 2 em 86,20mm, e o da ÚLTIMA tab a 242,14mm — 42mm além
+    da margem.
+
+    `1 <= tab < len(tabs)` é o "apenas se existir tab 2": na última parada, ou
+    num `TABS(5)` sozinho, o limite é a margem — e essa parte vale para
+    qualquer app, mesmo sem tabulação nenhuma.
+
+    O `GAP_TAB` é 1 coluna inteira; o `+2` do `_cut_to_fit` são os 1mm de
+    `c_margin` de cada lado, os mesmos que a célula da tabela deixa.
+    """
+    _x0, right = _flow_zone(pdf)
+    tab = cfg.get('tab')
+    tabs = getattr(pdf, '_tabs', None) or []
+    if isinstance(tab, int) and not isinstance(tab, bool) and 1 <= tab < len(tabs):
+        return _x0 + (tabs[tab] - 1 - GAP_TAB) * _col_unit(pdf)
+    return right
+
+
 def _elem_location(pdf, kind, cfg, label=''):
     """`location` de LINE/BOX/CIRCLE, resolvendo as formas sem coordenada.
 
@@ -2168,8 +2201,13 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         if not _fixed and pdf.get_x() + lw + vw > right + 0.01 and pdf.get_x() > _x0 + 0.01:
             pdf.ln(_row_unit(pdf))  # pcol+1>ncol -> pcol=1, prow+=1
             pdf.set_x(_x0)
-        if lw + vw > right - _x0:
-            txt, vw = _cut_to_fit(pdf, txt, right - _x0 - lw), right - _x0 - lw
+        # O corte é contra o que SOBRA a partir daqui, não contra a zona
+        # inteira — e o `lw` do rótulo sai da conta, porque só o VALOR é
+        # cortado: o `Nome: ` é a chave que o leitor procura, e cortar o rótulo
+        # deixaria a linha sem identificação.
+        _avail = _limite_x(pdf, cfg, label) - pdf.get_x() - lw
+        if vw > _avail:
+            txt, vw = _cut_to_fit(pdf, txt, _avail), _avail
         if lbl:
             _apply_face(pdf, 'B', cfg=cfg)
             pdf.cell(lw, _row_unit(pdf), lbl + ': ', new_x="END")
@@ -2210,8 +2248,12 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         if not _fixed and pdf.get_x() + _w > right + 0.01 and pdf.get_x() > _x0 + 0.01:
             pdf.ln(_row_unit(pdf))
             pdf.set_x(_x0)
-        if _w > right - _x0:
-            txt, _w = _cut_to_fit(pdf, txt, right - _x0), right - _x0
+        # Mesmo limite do FIELD, e o `width` declarado não escapa dele: um
+        # `{'tab': 1, 'width': 40}` media 101,6mm de caixa e atravessava a tab
+        # 2 mesmo assim — a medida declara o ancho, o limite é o teto.
+        _avail = _limite_x(pdf, cfg, label) - pdf.get_x()
+        if _w > _avail:
+            txt, _w = _cut_to_fit(pdf, txt, _avail), _avail
         pdf.cell(_w, _row_unit(pdf), txt, align=cfg.get('align', 'L'), new_x="END", new_y="TOP")
         if txt:
             _mark_content(pdf)
@@ -2357,13 +2399,9 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
         if kind in ('TITLE', 'TITLES'):
             # Título no corpo é o MESMO desenho do header (mesmo helper, mesma
             # cascata por posição). A cascata é desta lista de items — cada
-            # `before`/`after` recomeça, como no header.
-            # `tab` não existe aqui (as paradas são do header), então é recusado
-            # nomeando a prop em vez de ancorar no lugar errado sem avisar.
-            if 'tab' in cfg:
-                raise ValueError(
-                    f"report '{label}': TITLE no corpo não aceita 'tab' — "
-                    f"use 'location'/'pos'")
+            # `before`/`after` recomeça, como no header. `tab` é ignorado
+            # aqui e no header, pelo mesmo motivo: o título é o bloco
+            # centralizado da zona, e ancorá-lo numa parada não é posicionamento.
             if kind == 'TITLE':
                 drawn = _draw_titulo(pdf, cfg, None, label, instance=instance, drawn=drawn)
             else:

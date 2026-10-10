@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0024 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0025 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0024`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0025`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -378,7 +378,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `TITLES([...])` | `{'TITLES': [{'TITLE': {...}}, ...]}` | Vários `TITLE` numa tacada: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`. Vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`). A cascata é posicional e o `when` vem **antes** dela |
 | `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'rows_before': 1})` — a chave é **`rows_before`/`rows_after`**, em **linhas**. `before`/`after` não são lidas (medido: `{'before': 1}` sai em y=10, igual a não declarar; `rows_before: 1` vai a y=16) |
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('L', 3)` (âncoras `C/L/R`; ausente não renderiza). `L` encolhe a zona pela borda direita da figura, `R` pela esquerda, `C` não indenta — vale enquanto o cursor estiver na faixa vertical da imagem, e `IND()` cancela ali mesmo |
-| `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(5, 35)` — paradas em cols a partir do **início da zona** (crescentes; com `tab:N` no item) |
+| `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(5, 35)` — paradas em cols a partir do **início da zona** (crescentes; com `tab:N` no item). A próxima parada é o **teto do texto** naquele item: 1 col antes dela. Ver **Tabulação tem teto** |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
 | `CPI(base?, flags?)` / `LPI(n?)` | diretiva de **grade** (`defs/fonts.py`), o contexto decide | `CPI(12)`, `CPI(12, 'EC')`, `LPI(8)`; nu restaura o padrão (10 CPI / 6 LPI). `base` é um dos **três modos base** (10 Pica · 12 Elite · 15 Micron) e `flags` o modificador — ver **A matriz**. As props `cpi`/`flags` valem por item; `lpi` não, por ser diretiva só |
 | `PROW(n?)`/`PCOL(n?)` | **função com dois papéis** (`defs/report.py`), o contexto decide | **valor**: `PCOL()`/`PROW()` = posição corrente em grade, em `TABS`/`location`/`pos` (e ainda soma: `PCOL() + 5`). **Diretiva**: `PCOL(n)`/`PROW(n)` solto na lista de items move o cursor — `n` cols do início da **zona**, `n` linhas da margem de topo. `'PCOL+20'` (string) segue válida em `TABS` |
@@ -531,6 +531,49 @@ diz "isto é um pedaço da linha", não o alinhamento.
 quanto no `ln` — o `set_y` parece só mexer na ordenada, mas apaga o
 estacionamento. `rows_after` por isso é `set_xy` com o X que já estava: se
 fosse `ln`, `rows_after: 1` e `rows_after: 0` dariam a mesma linha.
+
+### Tabulação tem teto
+
+Com `TABS(1, 30)` e um item em `tab:1`, o texto **não pode entrar na tab 2**:
+o corte para 1 col antes dela. Sem tabulação seguinte — a última parada, ou um
+`TABS(5)` sozinho — o teto é a margem direita da zona, e essa parte vale para
+qualquer app, mesmo sem `TABS`.
+
+```python
+TABS(1, 30),
+FIELDS(('cliente_nome', {'tab': 1}),      # teto: col 29
+       ('data_pedido',   {'tab': 2})),    # última parada: teto = margem
+```
+
+**O respiro é 1 coluna inteira mais os 1mm de célula.** A coluna é o `GAP_TAB`,
+ao lado do `GAP_LABEL`; os 1mm são o `c_margin` do fpdf2, os mesmos que a
+célula da tabela deixa — e `_cut_to_fit` já os desconta, porque o `+2` dele são
+as duas margens. Medido com `TABS(1, 30)`: tab 2 em 86,20mm, teto em 83,66mm,
+e o texto para em 82,66mm.
+
+Antes disso não havia teto nenhum: o corte recebia `right - _x0`, a **largura da
+zona inteira**, e isso só parecia certo porque item sem âncora sempre quebra de
+volta para `x0` antes de medir. Com `tab` o X já está no meio da linha e a
+conta ignorava — medido, `TABS(1, 30)` deixava o texto da tab 1 chegar a
+**168,48mm** com a tab 2 em 86,20mm, e o da última tab a **242,14mm**, 42mm
+**além da margem**.
+
+Quatro regras em volta disso:
+
+- **Só o valor do `FIELD` é cortado.** O `Nome: ` é a chave que o leitor procura;
+  cortar o rótulo deixaria a linha sem identificação. Se o rótulo sozinho já
+  cruzar o teto, o valor sai vazio.
+- **`width` declara o ancho, o teto é o teto.** `{'tab': 1, 'width': 40}`
+  media 101,6mm de caixa e atravessava a tab 2 mesmo assim; agora a medida vira
+  `min(width, teto - get_x())`.
+- **`wrap: True` não muda**: quebra em `width`, ou na margem. O `wrap` é a
+  opção explícita de "usa a largura disponível" e já usava `right - get_x()`.
+- **`TITLE` e `MEMO` ignoram `tab`.** Nenhum dos dois é bloco ancorado: o
+  título é o bloco centralizado da zona, e ancorar a caixa na parada não o
+  levava para a parada — só encurtava a caixa para `right - tab_x` e deslocava
+  o centro (medido: 91,03mm com `tab:1` contra 89,76mm sem). O `MEMO` já
+  ignorava, por recentralizar na zona. A prop é lida e descartada, **sem erro**,
+  e o corpo do report faz o mesmo.
 
 **Condensed e expanded são as duas pontas do mesmo eixo** (5 e 20), não dois estilos: pedir os dois dá 0,5× × 2× = 1×, que é o normal. O que combina com tudo é o outro eixo, `style`, que muda o **traço**.
 
@@ -1135,6 +1178,44 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0025
+- **A tabulação passou a ter TETO: o texto de um item não entra na próxima
+  parada.** Com `TABS(1, 30)` e um item em `tab:1`, o corte é 1 col antes da tab
+  2 (`GAP_TAB = 1`, ao lado do `GAP_LABEL`). Sem tabulação seguinte — a última
+  parada, ou um `TABS(5)` sozinho — o teto é a margem direita da zona, e essa
+  parte vale para qualquer app, **mesmo sem `TABS`**.
+- **O corte recebia `right - _x0`, a largura da ZONA INTEIRA**, e só parecia
+  certo porque item sem âncora sempre quebra de volta para `x0` antes de medir.
+  Com `tab` o X já está no meio da linha e a conta ignorava: medido, `TABS(1,
+  30)` deixava o texto da tab 1 chegar a **168,48mm** com a tab 2 em 86,20mm, e
+  o da **última** tab a **242,14mm** — 42mm **além da margem**. Agora o teto é
+  `_limite_x(...)`, medido a partir de onde o item começa.
+- **O respiro é 1 coluna inteira mais os 1mm de célula.** Os 1mm são o
+  `c_margin` do fpdf2, os mesmos que a célula da tabela deixa, e `_cut_to_fit`
+  já os desconta — o `+2` dele são as duas margens. Medido: tab 2 em 86,20mm,
+  teto em 83,66mm, texto parando em 82,66mm.
+- **`width` declara o ancho, o teto é o teto.** `{'tab': 1, 'width': 40}`
+  media 101,6mm de caixa e atravessava a tab 2 mesmo assim.
+- **Só o valor do `FIELD` é cortado**, nunca o `Nome: ` — é a chave que o leitor
+  procura, e cortar o rótulo deixaria a linha sem identificação. Se o rótulo
+  sozinho cruzar o teto, o valor sai vazio.
+- **`wrap: True` não muda** (quebra em `width` ou na margem), e `location`/`pos`
+  ganham o teto da margem — hoje um item ancorado que sai da zona estoura a
+  folha.
+- **`TITLE` passou a IGNORAR `tab`, em silêncio, no header e no corpo.** Nem
+  título nem `MEMO` são blocos ancorados. Ancorar a caixa do título na parada
+  não o levava para a parada: só encurtava a caixa para `right - tab_x` e
+  deslocava o centro — medido, **91,03mm com `tab:1` contra 89,76mm sem**, e
+  ainda cruzando a próxima parada. O `MEMO` já ignorava (80,60mm com e sem),
+  por recentralizar na zona. A recusa que o corpo fazia ("TITLE no corpo não
+  aceita 'tab'") saiu junto: header que ignora calado e corpo que explode é
+  incoerente.
+- 16 verificações: o teto em 6 arranjos de `TABS`/`tab` (última parada, tab no
+  meio de três, `TABS` sozinho, `width`+`tab`), o FIELD com rótulo intacto,
+  o `TITLE` com e sem `tab` dando o mesmo x, nada passando da margem, e as
+  regressões de `.0022` (estacionar), `.0023` (zona do logo), `.0020` (matriz)
+  e `.0024` (datas).
 
 ### 1.26.10.08.0024
 - **O `DATA_HORA` saiu sem máscara default, e caía no `repr` cru do Python.**
