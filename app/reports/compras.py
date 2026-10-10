@@ -47,7 +47,7 @@ COMPRA = {
                        ([1, 3], 'Total', {'align': 'R', 'style': 'B', 'when': 'acrescimo or desconto'}),
                        (4, '{total}', {'style': 'B', 'when': 'acrescimo or desconto'})],
             'after': [
-                MEMO('observacao', LARGURA, {'label': 'Obs.:', 'rows_before': 1,
+                MEMO('observacao', LARGURA, {'label': 'Obs.:', 'lf': -1,
                                              'when': 'observacao'}),
             ],
         },

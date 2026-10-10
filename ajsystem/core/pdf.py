@@ -104,8 +104,9 @@ class _ReportTable:
     columns: ReportColumns = None
     totals: Optional[dict] = None
     after: Optional[object] = None
-    rows_before: int = 0
-    rows_after: int = 0
+    # `lf` com sinal: positivo = linhas DEPOIS da tabela, negativo = ANTES.
+    # `[antes, depois]` quando os dois forem preciso (`lf: [1, 2]`).
+    lf: object = 0
 
 
 @dataclass
@@ -297,14 +298,10 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     pdf.cell(_w, _row_unit(pdf), txt or '', align=align,
              new_x="RIGHT" if align == 'C' else "END", new_y="TOP")
     _mark_content(pdf)
-    # `rows_after` = linhas em branco DEPOIS. Só o Y: um `ln` aqui devolveria o
+    # `lf` positivo = linhas em branco DEPOIS. Só o Y: um `ln` aqui devolveria o
     # X à margem e apagaria o estacionamento, e a descida automática do próximo
-    # item cairia na mesma linha do `rows_after: 0`.
-    _ra = cfg.get('rows_after', 0)
-    if isinstance(_ra, bool) or not isinstance(_ra, (int, float)) or _ra < 0:
-        raise ValueError(
-            f"report '{label}': rows_after do TITLE deve ser número >= 0, veio {_ra!r}")
-    _y_desce(pdf, _ra)
+    # item cairia na mesma linha do `lf: 0`.
+    _lf_depois(pdf, cfg, label)
     return drawn + 1
 
 
@@ -437,8 +434,7 @@ def _build_table(report: Report) -> '_ReportTable':
         columns=columns,
         totals=totals,
         after=t.get('after'),
-        rows_before=t.get('rows_before', 0),
-        rows_after=t.get('rows_after', 0),
+        lf=t.get('lf', 0),
     )
 
 
@@ -1187,7 +1183,7 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
 def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                        agg_values, header_h, report):
     """Grupos por mudança de valor do campo (specs normalizadas)."""
-    lines_after = (_body_table(report)).get('rows_after', 0) if report else 0
+    lines_after = _lf_de(_body_table(report), 'depois', report.label if report else '')
     show_lines = bool(report.show_table_lines) if report else False
     prev = [None] * len(gs)
     accs = [{c.field: [] for c in cols if c.agg} for _ in gs]
@@ -2087,7 +2083,7 @@ def _y_desce(pdf, n_linhas):
 
     `set_y` e `ln` do fpdf2 **os dois** devolvem o X para a margem — o `set_y`
     parece só mexer na ordenada, mas volta o cursor e apaga o estacionamento.
-    É por isso que `rows_after` não pode ser nenhum dos dois: tem de ser
+    É por isso que `lf` (o lado "depois") não pode ser nenhum dos dois: tem de ser
     `set_xy` com o X que já estava.
     """
     if n_linhas:
@@ -2259,45 +2255,81 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
             _mark_content(pdf)
 
 
-def _respiro(pdf, cfg, prop, label=''):
-    """`rows_before`/`rows_after`: n LINHAS de respiro, e o cursor volta para a
-    1ª coluna da zona.
+def _lf_de(cfg, lado, label=''):
+    """`lf` de um dicionário (item ou `table`) para UM lado, em linhas.
 
-    Função única, chamada nos dois lados do item. Antes o bloco ficava no FIM do
-    laço de `_render_items`, e todo item que dava `continue` (MEMO, TITLE, LF...)
-    simplesmente nunca chegava nele — `rows_before` no `MEMO` era lido e
-    ignorado calado, e o autor tinha de escrever um `LF(1, {'when': ...})` na mão
-    para respirar antes do bloco. Agora a regra é uma só, e vale para todo item.
+    Três formas, e o sinal é a principal:
+
+        'lf':  2      → 2 linhas DEPOIS
+        'lf': -2      → 2 linhas ANTES
+        'lf': [1, 2]  → [antes, depois]
+
+    A terceira existe porque `table: {'lf': [1, 2]}` é uma declaração
+    legítima (uma tabela pode respirar antes E depois) e não cabe num número com
+    sinal. `0` (ou ausente) é ausência — o antigo `rows_after: 0` já era.
+
+    `lado` decide o sinal: o que é positivo SÓ conta para 'depois' e o que é
+    negativo SÓ para 'antes'. Sem isso os dois lados somavam o mesmo número — e o
+    `lf: 1` de um item o empurrava para baixo em vez de empurrar o próximo.
     """
-    n = cfg.get(prop, 0) or 0
-    if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
-        raise ValueError(f"report '{label}': {prop} deve ser número >= 0")
-    # O `rows_before` é o PRIMEIRO a ver a linha, e o `set_x` dele apagaria o
-    # "estacionado" do item anterior. Sem esta descida antes, o
-    # `MEMO(..., {'rows_before': 1})` perderia a linha automática e o `N` viraria
-    # o total — que é o que acontecia antes do estacionamento existir.
-    if prop == 'rows_before':
-        _desce_se_cheia(pdf)
-    if n:
-        pdf.ln(n * _row_unit(pdf))
-        pdf.set_x(_flow_zone(pdf)[0])
+    # Aceita dict (item, `table`) ou o dataclass `_ReportTable`, que já
+    # carrega o `lf` resolvido — um leitor só para os dois escopos.
+    if isinstance(cfg, dict):
+        v = cfg.get('lf', 0)
+    else:
+        v = getattr(cfg, 'lf', 0)
+    v = v or 0
+    if isinstance(v, (list, tuple)):
+        # A lista já é por lado: `[3, 0]` são 3 ANTES e 0 depois, e um valor
+        # negativo aqui não inverte nada — inverter é do escalar.
+        if len(v) != 2:
+            raise ValueError(
+                f"report '{label}': 'lf' como lista precisa de [antes, depois], "
+                f"veio {list(v)!r}")
+        v = v[0] if lado == 'antes' else v[1]
+        v = v or 0
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise ValueError(
+                f"report '{label}': 'lf' deve ser número ou [antes, depois]; "
+                f"veio {v!r}")
+        return abs(int(v))
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise ValueError(
+            f"report '{label}': 'lf' deve ser número (positivo = depois, "
+            f"negativo = antes) ou [antes, depois]; veio {v!r}")
+    if lado == 'antes':
+        return abs(int(v)) if v < 0 else 0
+    return abs(int(v)) if v > 0 else 0
 
 
-def _respiro_depois(pdf, cfg, prop, label=''):
-    """`rows_after`: n LINHAS extras depois do item, **sem tocar no X**.
+def _lf_antes(pdf, cfg, label=''):
+    """`lf` negativo: `n` linhas ANTES do item, X de volta na 1ª coluna.
+
+    É o primeiro a ver a linha, e o `set_x` apagaria o "estacionado" do item
+    anterior — sem a descida antes, o `MEMO(..., {'lf': -1})` perderia a linha
+    automática e o `-1` viraria o total.
+    """
+    n = _lf_de(cfg, 'antes', label)
+    if not n:
+        return
+    _desce_se_cheia(pdf)
+    pdf.ln(n * _row_unit(pdf))
+    pdf.set_x(_flow_zone(pdf)[0])
+
+
+def _lf_depois(pdf, cfg, label=''):
+    """`lf` positivo: `n` linhas DEPOIS do item, **sem tocar no X**.
 
     Não pode ser `ln`: ele devolve o X à margem e apagaria o estacionamento, e a
-    descida automática do próximo item viraria a mesma linha do `rows_after: 0`.
-    Aqui o Y desce e o X fica — que é o que "linha em branco" significa.
+    descida automática do próximo item viraria a mesma linha do `lf: 0`.
     """
-    n = cfg.get(prop, 0) or 0
-    if isinstance(n, bool) or not isinstance(n, (int, float)) or n < 0:
-        raise ValueError(f"report '{label}': {prop} deve ser número >= 0")
-    _y_desce(pdf, n)
+    n = _lf_de(cfg, 'depois', label)
+    if n:
+        _y_desce(pdf, n)
 
 
 def _render_items(pdf, items, instance, report, reset_tabs=True):
-    """Itens inline em ordem, antes da tabela. rows_before/after em linhas.
+    """Itens inline em ordem, antes da tabela. `lf` antes/depois, em linhas.
 
     TABS ([n...], diretiva) ancora X por tab:N (Y no fluxo); POS ([c,r])
     salta o cursor; PROW/PCOL valem em âncora. reset_tabs=False preserva as
@@ -2571,9 +2603,9 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             from ajsystem.core.text import eval_when as _ew
             if not _ew(instance, cfg['when']):
                 continue
-        _respiro(pdf, cfg, 'rows_before', label)
+        _lf_antes(pdf, cfg, label)
         col_w, _titulos = _um_item(kind, name, cfg, col_w, _titulos)
-        _respiro_depois(pdf, cfg, 'rows_after', label)
+        _lf_depois(pdf, cfg, label)
     # O último item pode ter estacionado, e quem vem depois nasce no Y que esta
     # lista deixou (a tabela, o corpo, a próxima página): sem esta descida a
     # tabela sairia em cima do título.
@@ -2644,16 +2676,21 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     if _items:
         _render_items(pdf, _items, instance, report)
         _bl = _body.get('table') if isinstance(_body, dict) else getattr(_body, 'table', None)
-        if isinstance(_bl, dict) and _bl.get('rows_before'):
-            pdf.ln(int(_bl['rows_before']) * _row_unit(pdf))
+        # NOME com prefixo: a variável local esconderia a FUNÇÃO `_lf_antes`,
+        # que é chamada mais abaixo neste mesmo arquivo.
+        _n_antes = _lf_de(_bl, 'antes', report.label if report else '') if isinstance(_bl, dict) else 0
+        if _n_antes:
+            pdf.ln(_n_antes * _row_unit(pdf))
 
     # Tabela
     tbl = _build_table(report)
     if tbl.columns:
         _render_table(pdf, tbl.columns, data, tbl.totals,
                       instance, report=report)
-    if tbl.rows_after:
-        pdf.ln(tbl.rows_after * _row_unit(pdf))
+    if tbl.lf:
+        _n = _lf_de(tbl, 'depois', report.label if report else '')
+        if _n:
+            pdf.ln(_n * _row_unit(pdf))
 
     # After table (do corpo)
     _after = getattr(_body, 'after', None) if _body else None

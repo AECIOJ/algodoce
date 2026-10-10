@@ -377,7 +377,7 @@ def FIELDS(*items):
     `fields` de list/form: 'campo' simples, 'Entidade' expande a entidade,
     'Entidade.campo' campo relacionado. No dict, chaves de `Field`
     (`label/width/align/mask/decimals/percent`) são override do field;
-    as demais (`tab/location/pos/rows_before/rows_after/when/font*/function`)
+    as demais (`tab/location/pos/lf/when/font*/function`)
     são overlay de report.
     """
     norm = []

@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0025 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0026 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0025`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0026`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -376,7 +376,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `'nome'` / `{'total': {...}}` / `FIELD(nome, props?)` | `FIELD` | `'cliente_nome'`, `FIELD('data_pedido', {'tab': 2})` |
 | `TITLE(texto?, props?)` | `{'TITLE': {'text': texto, ...}}` | `TITLE()` = nu (texto = `label`, sempre centrado salvo `align`); `width` em cols (sem = até o fim da linha); `style` por título; `options` = catálogo próprio (vence o do field); `mask` = **transform de texto**, e vem `@U` por padrão (título em caixa alta — `mask: ''` devolve como está) |
 | `TITLES([...])` | `{'TITLES': [{'TITLE': {...}}, ...]}` | Vários `TITLE` numa tacada: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`. Vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`). A cascata é posicional e o `when` vem **antes** dela |
-| `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'rows_before': 1})` — a chave é **`rows_before`/`rows_after`**, em **linhas**. `before`/`after` não são lidas (medido: `{'before': 1}` sai em y=10, igual a não declarar; `rows_before: 1` vai a y=16) |
+| `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'lf': -1})` — a chave é **`lf`**, em **linhas**: negativo é ANTES, positivo é DEPOIS, e `[antes, depois]` cobre os dois. `before`/`after`/`rows_before`/`rows_after` saem — declará-las dá erro |
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('L', 3)` (âncoras `C/L/R`; ausente não renderiza). `L` encolhe a zona pela borda direita da figura, `R` pela esquerda, `C` não indenta — vale enquanto o cursor estiver na faixa vertical da imagem, e `IND()` cancela ali mesmo |
 | `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(5, 35)` — paradas em cols a partir do **início da zona** (crescentes; com `tab:N` no item). A próxima parada é o **teto do texto** naquele item: 1 col antes dela. Ver **Tabulação tem teto** |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
@@ -407,7 +407,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `cpi` / `flags` | sim | sim | sim | sim | — | — | — | **recusa** |
 | `location` / `pos` | sim | sim | sim | — | sim | sim | — | — |
 | `tab` | sim | sim | **só no header** | — | — | — | — | — |
-| `rows_before` / `rows_after` | sim | sim | sim | sim | sim | sim | sim | sim |
+| `lf` | sim | sim | sim | sim | sim | sim | sim | sim |
 | `field` | — | — | — | sim | sim | — | — | — |
 | `path` | — | — | — | — | sim | — | — | — |
 | `lines` | — | — | — | — | — | — | 1 | — |
@@ -419,7 +419,11 @@ Regras que a tabela não cabe:
 - **`style` é o traço do glifo e `cpi` é a largura da célula — eixos diferentes que combinam livre.** `style` aceita as 8 combinações do fpdf2 (`''|B|I|U|BI|BU|IU|BIU`); `cpi`, a prop de largura, é recusada em `table.extend` porque a grade da tabela é dela. A **fonte** é prop do `Report`, não de item: uma por documento.
 - **`tab` não vale no corpo do `TITLE`**: as paradas são do header, e ancorar no lugar errado calado é pior que recusar.
 - **`location` e `pos` são a mesma prop** (apelido); `tab` não combina com nenhuma das duas.
-- **`rows_before`/`rows_after` contam LINHAS** (`ROW_CELL` = 6mm), enquanto `width` conta **colunas** da grade da fonte vigente. São **avanço de linha e nada mais**: não desenham linha vazia. **O padrão dos dois é 0** — a linha seguinte já vem de graça, porque o item estacionou (ver **Estacionar**), e `rows_after: N` são N linhas em branco *depois* dela. `rows_before: N` são N *antes*, e são as duas a única forma de pedir respiro. Valem para **todo item** — inclusive `MEMO` e `TITLE`, que era onde a prop mais fazia falta e mais surprise entregava: o bloco do respiro ficava no fim do laço de `_render_items`, e todo item que dava `continue` nunca chegava nele, então `MEMO(..., {'rows_before': 2})` era lido e **ignorado calado** (medido: y=10, enquanto `TEXT('x', {'rows_before': 2})` ia a y=22). A regra agora é uma só, num único `_respiro`, chamado dos dois lados do item — e por isso o COMPRA respira com `MEMO(..., {'rows_before': 1})` em vez de um `LF(1, {'when': ...})` escrito à mão com o mesmo `when` repetido. Em `CR`/`LF`/`FF`/`IND`/`TABS`/`POS`/`FONT` o respiro é inútil (o `LF` já **é** o respiro), mas não quebra.
+- **`lf` conta LINHAS da grade** (6 LPI → 4,2333mm), enquanto `width` conta **COLUNAS**. Um número só, com sinal: **`lf: 2` são 2 linhas depois, `lf: -2` são 2 antes**, e **`lf: [1, 2]`** cobre os dois de uma vez — que é o que a chave do `table` precisa, já que uma tabela pode respirar antes e depois e isso não cabe num número com sinal. `0` (ou ausente) é ausência. Vale para **todo item** — `FIELD`, `TEXT`, `MEMO`, `TITLE`, `LINE` — e também para `table: {'lf': …}` e para o `body.table` dos reports agrupados.
+
+  O **sinal também é o que faz o `lf` valer**. O lado "depois" mexe **só no Y**, preservando o estacionamento do `.0022`: um `ln` devolveria o X à margem, apagaria o estacionamento, e a descida automática do próximo item cairia na mesma linha do `lf: 0`. O lado "antes" é o primeiro a ver a linha, então consome a descida pendente **antes** de aplicar o `N` e volta o X para a 1ª coluna — sem isso o `MEMO(..., {'lf': -1})` perderia a linha automática e o `-1` viraria o total.
+
+  `LF(n)` continua sendo o **item** de avanço, e `lf` a **prop**: `LF(1, {'when': …})` ocupa um lugar da lista e precisa do `when` repetido, enquanto `MEMO(..., {'lf': -1, 'when': …})` respira junto com o bloco e some com ele.
 - **`wrap` é binária** por escolha: `rows` responderia "quantas linhas" e arrastaria altura mínima junto. `MEMO` quebra por `width` sempre, então `wrap` não diz nada lá.
 - **`options` só troca o catálogo**, nunca o valor.
 
@@ -519,8 +523,8 @@ sem contador e sem estado:
 | `MEMO`, `BOX`, `CIRCLE` | já descem sozinhos (ou são ancorados) | — |
 
 O `TITLE` centralizado é o caso que mudou: ele ocupava **duas** linhas (a
-célula + `rows_after: 1`), então a cascata do `TITLES` punha uma linha em branco
-entre cada par. Medido antes → depois, a 6 LPI: COMPRA com 1 título 3 → **2**
+célula + o `rows_after: 1` de então), então a cascata do `TITLES` punha uma
+linha em branco entre cada par. Medido antes → depois, a 6 LPI: COMPRA com 1 título 3 → **2**
 linhas de header, com 2 títulos 5 → **3**.
 
 Duas coisas fazem o `align` deixar de ser cosmético no `TITLE`: `align:'L'` com
@@ -529,8 +533,8 @@ diz "isto é um pedaço da linha", não o alinhamento.
 
 **`set_y` não desce linha.** O fpdf2 devolve o X para a margem tanto no `set_y`
 quanto no `ln` — o `set_y` parece só mexer na ordenada, mas apaga o
-estacionamento. `rows_after` por isso é `set_xy` com o X que já estava: se
-fosse `ln`, `rows_after: 1` e `rows_after: 0` dariam a mesma linha.
+estacionamento. O lado "depois" do `lf` por isso é `set_xy` com o X que já
+estava: se fosse `ln`, `lf: 1` e `lf: 0` dariam a mesma linha.
 
 ### Tabulação tem teto
 
@@ -1178,6 +1182,44 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0026
+- **`rows_before`/`rows_after` viraram `lf`, um número só com sinal.**
+  `'lf': 2` são 2 linhas **depois**, `'lf': -2` são 2 **antes**. Um par de props
+  virou uma, e o nome deixou de sugerir contagem de "linhas de formulário" —
+  que o `rows` do `<textarea>` fazia e que o README já precisei avisar que era
+  outra coisa. `0` (ou ausente) é ausência, como `rows_after: 0` era.
+- **`'lf': [antes, depois]` cobre os dois de uma vez.** Existe porque
+  `table: {'rows_before': 1, 'rows_after': 2}` é uma declaração legítima — uma
+  tabela pode respirar antes e depois — e isso não cabe num número com sinal.
+  Vale para a chave do `table` e para a do `body.table` dos reports agrupados
+  (o OPERACOES usa a segunda).
+- **O sinal é o que faz a prop valer.** O lado "depois" mexe **só no Y**,
+  preservando o estacionamento do `.0022`: um `ln` devolveria o X à margem e a
+  descida automática do próximo item cairia na mesma linha do `lf: 0`. O lado
+  "antes" consome a descida pendente **antes** de aplicar o `N` e volta o X
+  para a 1ª coluna — sem isso o `MEMO(..., {'lf': -1})` perderia a linha
+  automática e o `-1` viraria o total.
+- **`_respiro` e `_respiro_depois` viraram uma função só**, com o lado pedido em
+  vez de dois nomes, e `LF(n)` continua sendo o **item** de avanço: `LF(1,
+  {'when': …})` ocupa um lugar da lista e precisa do `when` repetido, enquanto
+  `MEMO(..., {'lf': -1, 'when': …})` respira junto com o bloco e some com ele.
+- **Bug de escopo, e era um erro de leitura de sinal.** `_lf_de` devolvia o
+  número com o sinal em vez do módulo, e o `lf: -1` **subia** uma linha em vez
+  de descer — `pdf.ln(-1 * linha)`. E a forma `[antes, depois]` caía no mesmo
+  teste de sinal, que é do escalar: `[3, 0]` não respirava nada. Os dois agora
+  saem de uma leitura só, com o sinal decidindo o lado.
+- **Shadowing:** a variável local que recebia o `rows_before` da tabela se
+  chamava `_lf_antes`, exatamente o nome da função nova — uma mina no meio de
+  `gerar_pdf_relatorio`, que tem quase 200 linhas.
+- `_ReportTable` deixou de carregar `rows_before`/`rows_after` e carrega `lf`.
+  O leitor `_lf_de` aceita dict (item, `table`) ou o dataclass, para não haver
+  duas regras para o mesmo eixo.
+- Migração: 3 `rows_*` viraram `lf` no app (o `rows_after` do grid 2×2 do
+  PEDIDO e do ORCAMENTO, o `rows_before` do `MEMO` da COMPRA e o
+  `rows_after` da tabela do OPERACOES). 16 verificações: as 8 combinações de
+  `lf` como prop, as 5 como chave de `table`, as 2 recusas e os 6 cenários dos
+  3 reports.
 
 ### 1.26.10.08.0025
 - **A tabulação passou a ter TETO: o texto de um item não entra na próxima

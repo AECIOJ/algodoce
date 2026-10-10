@@ -4,15 +4,16 @@ from ajsystem.defs.report import *
 PEDIDO = {
     'label': 'Pedido',
     'header': [
-        LOGO('L', 3),
+        LOGO('L', 4),
         PROW(0),
-        TABS(5, 40),
+        CPI(12),
+        TABS(1, 30),
         TITLES([
             'Pedido Nº {id}',
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
         FIELDS(('conta_id', {'tab': 1}),
-               ('pedido_em', {'tab': 2, 'rows_after': 1}),
+               ('pedido_em', {'tab': 2, 'lf': 1}),
                ('Conta.telefone', {'tab': 1}),
                ('data_previsao_entrega', {'tab': 2})),
         LF(2)

@@ -6,16 +6,18 @@ ORCAMENTO = {
     'header': [
         LOGO('L', 4),
         PROW(0),
+        CPI(12),
         TABS(1, 30),
         TITLES([
             'Orçamento #{id}',
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
+        LF(1),
         FIELDS(('cliente_nome', {'tab': 1}),
-               ('data_pedido', {'tab': 2, 'rows_after': 1}),
+               ('data_pedido', {'tab': 2, 'lf': 1}),
                ('cliente_telefone', {'tab': 1}),
                ('validade_data', {'tab': 2})),
-        LF(2)
+        LF(3)
     ],
     'body': {
         'table': {
