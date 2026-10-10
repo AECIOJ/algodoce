@@ -32,10 +32,10 @@ COMPRA = {
         ],
         'table': {
             'columns': {
-                'insumo.nome':   {'label': 'Insumo', 'width': 50},
-                'qtd':           {'width': 10},
-                'preco':         {'label': 'Preço (R$)', 'width': 26},
-                'CompraItem.valor': {'label': 'Valor (R$)', 'width': 26, 'agg': 'sum'},
+                'insumo.nome':   {'label': 'Insumo'},
+                'qtd':           {},
+                'preco':         {'label': 'Preço (R$)'},
+                'CompraItem.valor': {'label': 'Valor (R$)', 'agg': 'sum'},
             },
             'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
             'extend': [([1, 3], 'Acréscimo', {'align': 'R', 'when': 'acrescimo'}),

@@ -303,6 +303,51 @@ def _apply_entity(raw, entity):
         fmt, align = field_presentation(cfg)
         return {'format': fmt, 'align': align}
 
+    def _col_width_ch(name, cfg, label=None, display=None):
+        """`ch` da coluna a partir da config do field — a mesma conta da
+        listagem (`core.list.field_width_ch`), com a máscara como mínimo.
+
+        Sem isto a coluna chega sem `width` ao `_calc_col_widths` do PDF e o
+        motor lhe distribui o resto da página, espalhando a tabela. O mínimo
+        pela máscara existe porque o PDF escreve a célula numa linha só: texto
+        maior que a coluna invade a vizinha em vez de quebrar.
+        """
+        from ajsystem.core.list import field_width_ch
+        from ajsystem.defs.data import build_field
+        cfg = dict(cfg or {})
+        if label:
+            cfg['label'] = label
+        try:
+            f = build_field(name or 'campo', cfg)
+        except Exception:
+            return None
+        return field_width_ch(f, fit_mask=True)
+
+    def _text_width_ch(tpl):
+        """`ch` estimada de uma coluna `text`: os literais do template mais um
+        valor típico por `{campo}`."""
+        import re as _re
+        lit = ''.join(m for m in _re.split(r'\{[^{}]*\}', str(tpl or '')))
+        campos = len(_re.findall(r'\{[^{}]*\}', str(tpl or '')))
+        return len(lit) + campos * 8 + 1
+
+    def _fallback_width_ch(spec, key):
+        """Largura de uma coluna que NÃO resolveu na Entity.
+
+        Chave pontada (`Entidade.campo`) nomeia o campo exibido, e é dele que
+        a largura sai — `insumo.nome` é um nome (texto), não as 7 colunas que o
+        rótulo 'Insumo' sugeriria. Sem pista além do rótulo, o rótulo manda.
+        """
+        if spec.get('width'):
+            return
+        if '.' in str(key):
+            w = _col_width_ch(str(key).split('.')[-1], {}, None)
+            if w:
+                spec['width'] = w
+                return
+        if spec.get('label'):
+            spec['width'] = len(str(spec['label'])) + 1
+
     def _resolve_map(items):
         # Lista solta de itens → `{nome: overrides}`: a gramática é a
         # genérica (`core.resolve.field_spec_items`, as formas de
@@ -379,6 +424,18 @@ def _apply_entity(raw, entity):
                     if _mask:
                         spec.pop('format', None)
                         spec['format'] = _mask
+                # A coluna herda a width do field (a listagem já fazia isso):
+                # com override explícito do report ela manda, senão vale a do
+                # field. A FK mede o campo exibido (`<rel>.<display>`), que é o
+                # nome que se vê — o `_id` não aparece na tabela.
+                if not spec.get('width'):
+                    _fk = raw_cfg.get('type') == 'FK'
+                    _disp = str(spec.get('field') or '')
+                    _shown = _disp.split('.')[-1] if _fk and '.' in _disp else fld
+                    _w = _col_width_ch(_shown, raw_cfg if not _fk else {'type': 'TEXT'},
+                                       spec.get('label') if not _fk else None)
+                    if _w:
+                        spec['width'] = _w
                 resolved[key] = spec
                 continue
             # não resolvido na Entity: display do select (nascidos) como default;
@@ -388,12 +445,14 @@ def _apply_entity(raw, entity):
                 spec = {**_disp_map[key], **extra}
                 if 'label' not in spec:
                     spec['label'] = _auto_label(key)
+                _fallback_width_ch(spec, key)
                 resolved[key] = spec
                 continue
             if 'text' in extra:
                 spec = dict(extra)
                 spec.setdefault('label', _auto_label(key))
                 spec['function'] = _cell_text_fn(extra['text'], entity)
+                spec['width'] = _text_width_ch(extra['text'])
                 resolved[key] = spec
                 continue
             if not any(k in extra for k in ('label', 'function')):
@@ -402,7 +461,12 @@ def _apply_entity(raw, entity):
                     f"ambíguo — use 'Model.campo') e sem 'label'/'function' "
                     f"(report '{raw.get('label')}')"
                 )
-            resolved[key] = extra
+            # Coluna sem field resolvido: a largura vem do campo nomeado ou do
+            # rótulo, para não receber o resto da página. Sem `label` sobra
+            # `function` — aí o `_calc_col_widths` ainda cobre o resto.
+            spec = dict(extra)
+            _fallback_width_ch(spec, key)
+            resolved[key] = spec
         return resolved
 
     # header.fields (dict) ou header=[...] (lista: FIELDs resolvidos na Entity)

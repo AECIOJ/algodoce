@@ -884,6 +884,27 @@ def _check_page_break(pdf, needed_h):
     return True
 
 
+def _face_tabela(pdf, style=''):
+    """`_apply_face` no CPI DA TABELA, não no do report.
+
+    A escada escolhe o CPI e mede as células nele; se a fonte do corpo voltasse
+    ao CPI do report, o glifo sairia mais largo que a célula e a coluna
+    escreveria por cima da vizinha. `_table_cpi` vale durante a tabela (ver
+    `_render_table`) — fora dela o atributo não existe e o comportamento é o de
+    sempre.
+    """
+    return _apply_face(pdf, style, cpi=getattr(pdf, '_table_cpi', None))
+
+
+def _celula_cols(pdf, w):
+    """Quantos caracteres da grade cabem numa célula de `w` mm."""
+    from ajsystem.defs.fonts import col_mm
+    cpi_tab = getattr(pdf, '_table_cpi', None)
+    if cpi_tab is None:
+        return 0
+    return int((w + 0.01) / col_mm(cpi_tab))
+
+
 def _mark_content(pdf):
     """Conteúdo impresso: libera a próxima régua."""
     pdf._ruled = False
@@ -902,21 +923,23 @@ def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_lin
     """Renderiza cabeçalhos das colunas com linhas horizontais."""
     if draw_top_line:
         _draw_hline(pdf, x_start, total_w)
-    _apply_face(pdf, 'B')
+    _face_tabela(pdf, 'B')
     row_h = _row_unit(pdf)
     for i, col in enumerate(cols):
         align = 'C' if col.align == 'center' else ('R' if col.align == 'right' else 'L')
         nx = "LMARGIN" if i == len(cols) - 1 else "END"
         ny = "NEXT" if i == len(cols) - 1 else "TOP"
         pdf.set_x(x_start + sum(col_widths[:i]))
-        pdf.cell(col_widths[i], row_h, col.label or col.field, border=0, align=align, new_x=nx, new_y=ny)
+        pdf.cell(col_widths[i], row_h,
+                 _pad_cols(col.label or col.field, _celula_cols(pdf, col_widths[i])),
+                 border=0, align=align, new_x=nx, new_y=ny)
     _mark_content(pdf)
     _draw_hline(pdf, x_start, total_w)
 
 
 def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
     """Renderiza uma linha de dados."""
-    _apply_face(pdf)
+    _face_tabela(pdf)
     row_h = _row_unit(pdf)
     if not hasattr(pdf, '_sup_prev'):
         pdf._sup_prev = {}
@@ -929,6 +952,10 @@ def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
             else:
                 pdf._sup_prev[col.field] = val
         txt = '' if _blank else _format_cell_value(val, col.format)
+        # Rede final contra a escrita na vizinha: se o valor for maior que a
+        # célula, ele é cortado na grade. A largura vem do field, mas o dado é
+        # do app — e dado maior que a coluna não pode passar reto.
+        txt = _pad_cols(txt, _celula_cols(pdf, col_widths[i]))
         align = 'R' if col.align == 'right' else ('C' if col.align == 'center' else 'L')
         nx = "LMARGIN" if i == len(cols) - 1 else "END"
         ny = "NEXT" if i == len(cols) - 1 else "TOP"
@@ -1024,7 +1051,7 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
             _txt = _format_cell_value(_dg(instance, _m.group(1)) if instance is not None else None, _fmt_dflt)
         else:
             _txt = _trender(_text, lambda k: _dg(instance, k) if instance is not None else None, _fo)
-        _apply_face(pdf, _props.get('style', ''))
+        _face_tabela(pdf, _props.get('style', ''))
         pdf.set_x(_x)
         _last_col = _b if isinstance(_col, list) else _col
         _stay = _last_col < n
@@ -1041,7 +1068,7 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
 def _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w, close=True):
     """Linha de total geral: rótulo nas SPAN primeiras + func por coluna agg."""
     _draw_hline(pdf, x_start, total_w)  # régua antes (interna, sempre)
-    _apply_face(pdf, 'B')
+    _face_tabela(pdf, 'B')
     span = totals.get('span')
     nspan = len(cols) - 1 if span is None else min(span, len(cols) - 1)
     label_w = sum(col_widths[:nspan])
@@ -1118,7 +1145,7 @@ def _render_group_header(pdf, g, val, xs, tw, pos, row=None):
     style = 'B' if g.get('bold', True) else ''
     indent = INDENT_GROUP_TITLE if pos == 2 else INDENT_GROUP_LINE
     height = _row_unit(pdf) if pos == 2 else _row_unit(pdf)
-    _apply_face(pdf, style)
+    _face_tabela(pdf, style)
     pdf.set_x(xs + indent)
     pdf.cell(tw - indent, height, txt, border=0,
              new_x="LMARGIN", new_y="NEXT")
@@ -1129,7 +1156,7 @@ def _render_group_line(pdf, g, val, xs, tw, row=None):
     """Linha `pos=1` — interna à tabela, texto corrido na largura da tabela."""
     txt = apply_transform(_group_title(g, val, row=row), g.get('transform'))
     style = 'B' if g.get('bold', True) else ''
-    _apply_face(pdf, style)
+    _face_tabela(pdf, style)
     indent = max(1, int(g.get('left', 1) or 1)) * INDENT_PER_LEVEL
     height = _row_unit(pdf)
     pdf.set_x(xs + indent)
@@ -1152,7 +1179,7 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
         return
     if totals.get('bline'):
         _draw_hline(pdf, xs, sum(cw))
-    _apply_face(pdf, 'B')
+    _face_tabela(pdf, 'B')
     label = totals.get('label', 'Sub-Total')
     if label and row is not None and ('{' in label):
         label = _group_title({**g, 'text': label}, None, row=row)
@@ -1281,14 +1308,35 @@ def _render_table(pdf: DocPDFReport, columns: ReportColumns,
     pdf._sup_prev = {}
 
     label = report.label if report is not None else ''
-    col_widths, total_w, x_start, _cpi = _fit_table(pdf, cols, label)
-    # Bordas reais p/ LTB/RTB em mm (última tabela vence; sem tabela = área
-    # útil). Guarda em mm e converte na resolução: âncora/fluxo/IND vivem na
-    # unidade da fonte corrente (`_col_unit`), que muda com FONT — gravar já
-    # em cols do pitch da tabela brigava com o `ncol` da validação do IND.
+    col_widths, total_w, x_start, cpi_tab = _fit_table(pdf, cols, label)
+    # A escada mede as células no CPI que ela escolheu, mas o glifo continuava
+    # no CPI do report: com a escada mais condensada que a fonte, cada célula
+    # saía estreita demais e o texto de uma coluna escrevia por cima da
+    # vizinha. Esticar para o CPI da tabela enquanto ela desenha — e restaurar
+    # depois, porque o `Tz` é pegajoso — é o que faz `col_widths` valer para o
+    # texto também.
+    _ajustou = cpi_tab != _cpi(pdf)
+    _stretch_antigo = pdf.font_stretching
+    # Antes do desenho: as células se cortam pela grade do CPI da tabela.
     pdf._table_bounds = [x_start, x_start + total_w]
-    pdf._table_cpi = _cpi
+    pdf._table_cpi = cpi_tab
+    if _ajustou:
+        _apply_face(pdf, cpi=cpi_tab)
+    try:
+        _render_table_body(pdf, report, cols, col_widths, total_w, x_start,
+                           data, totals, instance, draw_top_line)
+    finally:
+        if _ajustou:
+            pdf.set_stretching(_stretch_antigo)
 
+
+def _render_table_body(pdf, report, cols, col_widths, total_w, x_start,
+                       data, totals, instance, draw_top_line):
+    """Desenha cabeçalho, dados, totais e extend da tabela.
+
+    Separado de `_render_table` porque o CPI da escada só vale ENQUANTO ela
+    desenha: quem chama restaura o alongamento da fonte ao final.
+    """
     # Dados — grupos por mudança de valor (specs normalizadas em _apply_entity)
     agg_values = {c.field: [] for c in cols if c.agg}
     header_h = _row_unit(pdf) + _row_unit(pdf)

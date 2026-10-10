@@ -170,9 +170,39 @@ def lpi(value):
     return int(value)
 
 
+def cpi_geom(value):
+    """CPI como número, para MEDIR — aceita base, expandido e condensado.
+
+    `cpi` é a porta do que se DECLARA e só deixa passar os bases; medir é outra
+    conta. A escada da tabela (`TABLE_LADDER`) anda por 17.1 e 20, que são
+    valores derivados, e `col_mm` era `cpi()` por dentro: na 4ªTIla da escada
+    estourava `ValueError` no lugar do recado de "não cabe".
+    """
+    if isinstance(value, str):
+        try:
+            value = float(value.strip())
+        except ValueError:
+            raise ValueError(
+                f"CPI: {value!r} não é número; use um de {list(CPI_VALUES)}"
+            ) from None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"CPI: {value!r} não é número")
+    if value in CPI_VALUES:
+        return int(value)
+    for base, cond in CPI_CONDENSED.items():
+        if abs(value - cond) < 1e-9 or abs(value - cond / 2) < 1e-9:
+            return value
+    for base in CPI_VALUES:
+        if abs(value - base / 2) < 1e-9:
+            return value
+    raise ValueError(
+        f"CPI: {value:g} fora da grade; use um de {list(CPI_VALUES)}"
+        + _sugere(value))
+
+
 def col_mm(value):
     """Largura da coluna em mm."""
-    return 25.4 / cpi(value)
+    return 25.4 / cpi_geom(value)
 
 
 def line_mm(value):

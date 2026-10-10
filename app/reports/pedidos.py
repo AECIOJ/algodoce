@@ -19,10 +19,10 @@ PEDIDO = {
     'body': {
         'table': {
             'columns': {
-                'produto.nome':   {'label': 'Produto', 'width': 50},
-                'qtd':            {'width': 10},
-                'preco':          {'label': 'Preço (R$)', 'width': 26},
-                'PedidoItem.valor': {'label': 'Valor (R$)', 'width': 26, 'agg': 'sum'},
+                'produto.nome':   {'label': 'Produto'},
+                'qtd':            {},
+                'preco':          {'label': 'Preço (R$)'},
+                'PedidoItem.valor': {'label': 'Valor (R$)', 'agg': 'sum'},
             },
             'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
             'extend': [([1, 3], 'Acréscimo', {'align': 'R', 'when': 'acrescimo'}),

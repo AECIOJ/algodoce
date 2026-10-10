@@ -20,10 +20,10 @@ ORCAMENTO = {
     'body': {
         'table': {
             'columns': {
-                'produto_id':     {'width': 44},
-                'qtd':            {'width': 10},
-                'preco':          {'label': 'Preço (R$)', 'width': 26},
-                'OrcamentoItem.valor': {'label': 'Valor (R$)', 'width': 26, 'agg': 'sum'},
+                'produto_id':     { 'width':40},
+                'qtd':            {},
+                'preco':          {'label': 'Preço (R$)'},
+                'OrcamentoItem.valor': {'label': 'Valor (R$)', 'agg': 'sum'},
             },
             'totals': {'label': 'Total', 'align': 'R', 'span': 3},
             'after': [

@@ -333,7 +333,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | Chave | Tipo | Valores | Impacto |
 |---|---|---|---|
 | `body.source` | `str\|dict` | `'Tarefa'`, `{'entity':...}` (legado) ou query dict `{select,dist,from,...}` (5.10.1) | `_infer_source` + `_auto_data`; query numera tudo e filtra depois (índice global estável) |
-| `body.table.columns` | `dict\|list` | `{'titulo':{'width':50}}` ou `['indice','nome',{'id':{'width':6}}]` (forma enxuta igual ao `select`) | `_apply_entity` herda `label`/`calc` da `Entity` (Schema vence); coluna computada na query usa o attr direto |
+| `body.table.columns` | `dict\|list` | `{'titulo':{}}` ou `['indice','nome',{'id':{'width':6}}]` (forma enxuta igual ao `select`) | `_apply_entity` herda `label`/`calc`/**`width`** da `Entity` (Schema vence); coluna computada na query usa o attr direto. **Sem `width`, a coluna mede o field** (mesma conta da listagem, com a máscara como mínimo) e a soma é centralizada na área útil — declarar é exceção, não obrigação |
 | `body.table.groups` | `dict\|list` | `{'tipo':{action:1,print:3,text:'{tipo:d}. {tipo}'}}` | control-break: `action` (quando: 1 abre, 2 fecha, ausente = toda linha) × `print` (onde: 0 nunca, 1 coluna, 2 linha, 3 fora da tabela). Legado `{print,place}` traduzido via shim. `order` da fonte tem que abrir com as quebras (senão quebra nomeando). `totals` no grupo = subtotal (`{'label','align','span','bline'}`; ausente = não totaliza; `bline` = régua antes); fechamento do grupo usa `gline` (legado `line` traduzido) |
 | `when` (item) | `str` | `{'TEXT': {'text': '…', 'when': 'evento.tipo'}}` | imprime só se o path (pontilhado ok) for truthy; ausente = sempre |
 | templates | — | `'{total:brl}'`, `'{a.b}'`, `'{?c:…}'`, `'{x\|dflt}'` | `:brl` moeda; path pontilhado com navegação segura; `\|dflt` fallback; labels LIST da Entity |
@@ -351,7 +351,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 |---|---|---|---|---|
 | `field` | `str` | — | `'qtd'` ou `'produto.nome'` | `data_key` |
 | `label` | `str` | `None` | texto; sem ela, `_auto_label`/Entity/entrada do `select` | cabeçalho da coluna |
-| `width` | `float` | `None` | `ch`/`mm` | coluna no PDF |
+| `width` | `float` | `None` | `ch` | coluna no PDF. Ausente = a do field (`field.width` / máscara / maior palavra do rótulo, via `field_width_ch`); a soma define a tabela e ela é centralizada. O texto é cortado no que cabe na grade — **nenhuma coluna escreve na vizinha** |
 | `align` | `str` | `'left'` | `left,center,right` | herdado do `Field.align` (`NUM`→`right`) |
 | `format` | `str` | `None` | formato de data/número | render da célula. `format` do relatório vence; sem ele, a `mask` do Field (Entity/Schema/query/catálogo, ou numérica de `decimals` com milhar) manda; a inferência por type é o último recurso (moeda vem da `mask` via `@M(id)`) |
 | `agg` | `str` | `None` | `sum/count/avg/min/max` | O QUÊ somar (só impressão; o ONDE vai em `totals`) |
@@ -1218,6 +1218,45 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0029
+- **A coluna da tabela segue o field, e a soma é centralizada.** Era o
+  contrário: `_resolve_map` montava `label`/`format`/`function` e **nunca a
+  `width`**, então a coluna chegava sem ela ao `_calc_col_widths` e recebia o
+  `leftover` da página — a tabela se espalhava de margem a margem. Agora a
+  largura sai do field pela **mesma conta da listagem**
+  (`core.list.field_width_ch`, extraída de `field_to_column` para as duas
+  usarem uma só), com a **máscara como mínimo**: o PDF escreve a célula numa
+  linha só, então uma coluna mais estreita que `999.999.999,99` veria o valor
+  derrubar na coluna vizinha em vez de quebrar. Precedência:
+  `width` do report > field > rótulo. Chave pontada (`insumo.nome`) mede o
+  campo exibido; coluna sem field mede o rótulo (ou o template, com 8 chars por
+  `{campo}`). O **fluxo não se move**: `width` em cols e `recuo` seguem na
+  grade do report.
+- **O CPI da escada passou a valer para o glifo, não só para a régua.** A
+  escada escolhe um CPI e media as células nele, mas `_render_table` jogava o
+  valor fora (`_cpi`) e só guardava em `pdf._table_cpi`, que ninguém lia: a
+  fonte continuava no CPI do report, mais larga que a célula, e **uma coluna
+  escrevia por cima da vizinha**. Agora a tabela estica a fonte para o CPI
+  escolhido enquanto desenha (`_face_tabela`) e restaura ao final, porque o
+  `Tz` do fpdf2 é pegajoso. Numa tabela larga a escada escolhe 17,1 e o PDF
+  passa a gravar `Tz 70,18%`.
+- **A escada media um valor que ela própria recusava.** `TABLE_LADDER` é
+  `(10, 12, 15, 17,1, 20)` e os dois últimos são **derivados** (`{10: 17,1,
+  12: 20}`), mas `col_mm` era `cpi()` por dentro, que só aceita base: na 4ª
+ TIla da escada o `_fit_table` estourava `ValueError` no lugar do recado de
+  "não cabe no papel". `cpi_geom` separa as duas contas — **declarar** segue
+  fechado para derivados (`CPI(20)` recusa e sugere `CPI(12,'C')`), **medir**
+  aceita.- **Nenhuma coluna escreve sobre a outra.** Rede final no `_render_data_row` e
+  no cabeçalho: o texto é cortado na grade (`_pad_cols`) pelo que cabe na
+  célula. A largura vem do field, mas o dado é do app — e dado maior que a
+  coluna não passa reto.
+- **No app, os três relatórios pararam de declarar `width`.** As somas caíram
+  de 112/106 ch para **52/68/52 ch**, o que cabe no **CPI 10** do report: a
+  escada deixa de ser acionada e a tabela sai centralizada no meio da página
+  (132,1 / 172,7 / 119,4mm de 190mm úteis) em vez de esticar para a folha
+  inteira. A coluna de dinheiro que estava com `width: 26` passa a ter as 11 ch
+  que a máscara `999,999.99` pede.
 
 ### 1.26.10.08.0028
 - **Uma linha nova de `TABS` desce sozinha.** A pergunta é *"o cursor já

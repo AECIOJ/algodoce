@@ -181,20 +181,38 @@ def _content_width_ch(f):
     return 0
 
 
-def field_to_column(f: Field) -> dict:
-    col = {'label': f.label or f.name, 'field': f.name, 'input': f.input}
-    if getattr(f, 'card_path', None):
-        col['card_path'] = f.card_path
+def field_width_ch(f: Field, *, fit_mask: bool = False) -> int:
+    """`ch` de uma coluna de field — a mesma conta da listagem, reaproveitada
+    pelo report para as `columns`.
+
+    A base é `f.width` (ou o default do input) e a maior palavra do rótulo.
+    `fit_mask=True` soma ainda a largura da máscara: o report precisa disso
+    porque o PDF escreve a célula numa linha só, e texto maior que a coluna
+    invade a vizinha em vez de quebrar. A listagem não usa, porque o HTML
+    resolve o transbordo.
+    """
     DEFAULT_WIDTHS = {'boolean': 6, 'number': 8, 'date': 12, 'select': 15}
     if f.width:
         w = f.width
     else:
         w = _content_width_ch(f) or DEFAULT_WIDTHS.get(f.input, 15)
+    if fit_mask:
+        mask_w = _mask_width_ch(f.mask_display) if f.mask_display else 0
+        if w < mask_w:
+            w = mask_w
     # cabeçalho: a palavra mais longa do label define um mínimo
-    largest_word = max(len(x) for x in (f.label or f.name).split()) if (f.label or f.name) else 3
+    label = f.label or f.name
+    largest_word = max(len(x) for x in label.split()) if label else 3
     if w < largest_word:
         w = largest_word
-    col['width'] = int(w + 1)
+    return int(w + 1)
+
+
+def field_to_column(f: Field) -> dict:
+    col = {'label': f.label or f.name, 'field': f.name, 'input': f.input}
+    if getattr(f, 'card_path', None):
+        col['card_path'] = f.card_path
+    col['width'] = field_width_ch(f)
     if f.align != 'left':
         col['align'] = f.align
     ft = infer_filter_type(f)
