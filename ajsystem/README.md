@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0022 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0023 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0022`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0023`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -570,12 +570,21 @@ O 3º e 4º são **deltas** (extensão a partir da origem), não posição final
 ```python
 LOGO('L', 3),      # zona vira [fim da imagem | margem direita]
 PROW(0),           # diretiva: volta para a linha 0 (o topo da margem)
+CPI(12),           # a zona NÃO se move: ela é a borda da IMAGEM, em mm
 TABS(5, 35),       # paradas em cols a partir do início da zona
 TITLES([
     'Orçamento #{id}',
     ('Status: {status}', {'when': 'status > 0'}),
 ]),
 ```
+
+**A borda do logo é medida em MILÍMETROS, e `CPI` depois do `LOGO` não a move.**
+A imagem já foi desenhada em mm e não se move quando a grade muda; a zona é o
+espaço vago ao lado dela, então é a mesma medida. A conversão de mm para cols
+acontece na hora de usar, com o CPI vigente — foi justamente por guardar a
+borda em cols que a zona **encolhia para dentro da figura** quando o `CPI`
+mudava depois do `LOGO`: medido, com a imagem terminando em 52,33mm, `CPI(12)`
+punha o `FIELD` de tab 1 em x=45,28mm e `CPI(15)` em x=38,22mm.
 
 `LOGO('C')` não indenta (a sobra é igual dos dois lados, e ela some depois). A zona do logo vale **enquanto o cursor estiver na faixa vertical da imagem** — passar da faixa devolve a zona, e é por isso que a 2ª linha de `FIELDS` de um report com logo sai já na margem. `IND()` cancela o recuo do logo ali mesmo, dentro da faixa, que é o jeito de voltar ao que era. `PCOL(n)` fora da zona levanta nomeando as cols disponíveis, e `_tab_x` faz o mesmo com a parada — antes era a largura da página inteira que validava, e a parada "certa" era a que o papel rejeitava.
 
@@ -1125,6 +1134,25 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0023
+- **Bug: a zona do logo encolhia para dentro da imagem quando o `CPI` mudava
+  depois do `LOGO`.** A borda da figura era guardada em **colunas**, calculadas
+  com o CPI do momento em que a imagem foi desenhada, e a zona — que é em cols
+  — a remultiplicava pelo CPI **vigente**. Com CPI menor a conta dava menos
+  milímetros, e a zona passava a começar *dentro* do logo: medido com a imagem
+  terminando em 52,33mm, `CPI(12)` punha o `FIELD` de tab 1 em **45,28mm** e
+  `CPI(15)` em **38,22mm**. Com logo à direita era pior (−24,61mm e −49,22mm),
+  porque a zona é a borda **esquerda** e encolher a levava para dentro da
+  figura por dentro.
+- **A borda do logo passou a ser guardada em mm**, que é a medida em que a
+  imagem foi desenhada, e a conversão para cols acontece em `_zone_cols`, na
+  hora de usar, com o CPI vigente. Medido depois: desvio **0,00mm** para
+  `LOGO('L')` e `LOGO('R')` com CPI 10, 12 e 15. É o que o `CPI(12)` logo
+  abaixo de `LOGO('L', 4)` do ORCAMENTO sempre esteve pedindo.
+- Vale notar o que **não** mudou: `TABS` continua em cols (é declarado em
+  cols, e é o autor que conta), e a caixa da imagem continua sendo resolvida no
+  momento do desenho. O que estava em cols por acidente era a borda dela.
 
 ### 1.26.10.08.0022
 - **Nenhum item decide sozinho se avança linha. Todo item ESTACIONA na borda do

@@ -357,13 +357,17 @@ def _render_header_items(self, h):
             # direita da figura, em 'R' termina na borda esquerda. A faixa vale
             # enquanto o cursor estiver nestas linhas (`_zone_cols`), e 'C' não
             # indenta nada — sobra igual dos dois lados.
+            # Em MM, e não em colunas: a imagem já foi desenhada em milímetros
+            # e não se move quando o CPI muda depois. Guardando em colunas, o
+            # CPI vigente as remultiplicava e a zona ENCOLHIA para dentro da
+            # figura — medido: `CPI(12)` depois do `LOGO` punha o `FIELD` de tab
+            # 1 em x=45,28mm com a imagem terminando em 52,33mm, e `CPI(15)` em
+            # x=38,22mm. Em mm a zona fica colada na imagem, que é o que "o
+            # logo encolhe a zona" quer dizer.
             _anc = (loc[0] if isinstance(loc, (list, tuple)) and loc else 'C')
-            col_w = _col_unit(self)
-            _c1 = (x - self.l_margin) / col_w
-            _c2 = (x + w - self.l_margin) / col_w
             self._logo_zone = {
-                'l': _c2 if _anc == 'L' else None,
-                'r': _c1 if _anc == 'R' else None,
+                'l': x + w if _anc == 'L' else None,
+                'r': x if _anc == 'R' else None,
                 'y1': y, 'y2': y + hh,
             }
             # Cursor p/ o fim da caixa: o próximo item ancora a partir daqui; sem
@@ -1850,10 +1854,14 @@ def _zone_cols(pdf):
     if logo is not None and not (logo['y1'] - 0.01 <= pdf.get_y() <= logo['y2'] + 0.01):
         logo = None      # cursor saiu da faixa do logo
     if logo:
+        # A borda do logo vem em mm (ver `_logo_zone`) e a zona é em COLS: a
+        # conversão é aqui, com o CPI vigente, e não no momento em que a
+        # imagem foi desenhada.
+        col_w = _col_unit(pdf)
         if logo['l'] is not None:
-            l = max(l, logo['l'])
+            l = max(l, (logo['l'] - pdf.l_margin) / col_w)
         if logo['r'] is not None:
-            r = min(r, logo['r'])
+            r = min(r, (logo['r'] - pdf.l_margin) / col_w)
     return l, r
 
 
