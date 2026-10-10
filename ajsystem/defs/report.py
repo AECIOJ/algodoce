@@ -226,13 +226,72 @@ def TEXT(text, props=None):
     return {'TEXT': {'text': text, **_check_props('TEXT', props or {}, '')}}
 
 
-def TABS(*stops):
-    """Factory pura: TABS(22, 48) == {'TABS': [22, 48]}; TABS() = restaura."""
-    if len(stops) == 1 and isinstance(stops[0], (list, tuple)):
-        stops = list(stops[0])
-    else:
-        stops = list(stops)
-    return {'TABS': stops}
+def _e_num_tab(a):
+    """O argumento conta como PARADA de tabulação?
+
+    Número, `PCOL`/`PROW`/`LTB`/`RTB`/`NCOL` (com ou sem `±N`) ou o nome em
+    string (`'PCOL+5'`) — as três últimas são as que `_eval_tab_value` sabe
+    resolver. Qualquer outra string é da forma de impressão.
+    """
+    import re as _re
+    if isinstance(a, bool):
+        return False
+    if isinstance(a, (int, float)):
+        return True
+    if isinstance(a, _CursorExpr):
+        return True
+    return bool(isinstance(a, str)
+                and _re.fullmatch(r'\s*(PCOL|PROW|LTB|RTB|NCOL)\s*([+-]\s*\d+(\.\d+)?)?\s*', a))
+
+
+def _e_tab(el, onde):
+    """Um elemento da forma de impressão do `TABS`.
+
+    Mesma gramática do `TEXTS`: `str` | `(str, {props})` | `(str, 'quando')` |
+    `dict`. Nenhum item de campo — o campo é `{campo}` dentro da string, e quem
+    decide se isso é rota FIELD ou texto é o motor, que é quem sabe se o nome
+    existe na Entity.
+    """
+    if isinstance(el, str):
+        return el
+    if isinstance(el, tuple) and len(el) == 2 and isinstance(el[0], str) \
+            and isinstance(el[1], (dict, str)):
+        return el
+    if isinstance(el, dict):
+        return el
+    raise ValueError(
+        f"{onde}: elemento do TABS deve ser 'texto', ('texto', {props}), "
+        f"('texto', 'quando') ou dict; veio {el!r}")
+
+
+def TABS(*args):
+    """Factory pura, com DOIS trabalhos distinguidos pelo tipo do 1º argumento:
+
+        TABS(22, 48)      números/cursor  → DEFINE as paradas (cols da zona)
+        TABS()                            → restaura (zera as paradas)
+        TABS('a', '', 'b')  texto         → IMPRIME, um elemento por parada
+
+    A forma de impressão usa a gramática do `TEXTS` e o campo é `{campo}` dentro
+    da string: `'{data}'` é rota FIELD (rótulo em negrito, máscara, catálogo) e
+    `'Total: {data}'` é texto. `''` é a parada que **não existe nesta linha** —
+    não imprime, e o elemento anterior não é cortado.
+
+    Misturar número com texto é erro: são dois comandos com o mesmo nome e a
+    mesma aridade, e decidir por "o primeiro" seria adivinhação.
+    """
+    if not args:
+        return {'TABS': {'values': []}}
+    if len(args) == 1 and isinstance(args[0], (list, tuple)) \
+            and not (len(args[0]) == 2 and isinstance(args[0][0], str)):
+        return TABS(*args[0])
+    _nums = [_e_num_tab(a) for a in args]
+    if all(_nums):
+        return {'TABS': {'values': list(args)}}
+    if any(_nums):
+        raise ValueError(
+            "TABS: números definem paradas e textos imprimem — não se mistura. "
+            "Use TABS(1, 30) numa linha e TABS('a', 'b') na outra.")
+    return {'TABS': {'items': [_e_tab(a, 'TABS') for a in args]}}
 
 
 def IND(*bounds):
@@ -552,9 +611,23 @@ def parse_report_item(it, label='') -> ReportItem:
             if k.isupper():
                 if k not in ITEM_KINDS:
                     raise ValueError(f"report '{label}': elemento '{k}' desconhecido")
-                if k in ('TABS', 'POS'):
+                if k == 'TABS':
+                    # Duas formas, escolhidas pela factory: `values` define as
+                    # paradas, `items` imprime. A lista solta segue valendo como
+                    # definição — é o que `{'TABS': [1, 30]}` cru significava.
+                    if isinstance(v, list):
+                        return ReportItem(kind=k, name=k, config={'values': v})
+                    if isinstance(v, dict) and (set(v) & {'values', 'items'}):
+                        return ReportItem(
+                            kind=k, name=k,
+                            config={'values': list(v.get('values') or []),
+                                    'items': list(v.get('items') or [])})
+                    raise ValueError(
+                        f"report '{label}': 'TABS' exige lista de paradas ou "
+                        f"{{'items': [...]}}; veio {v!r}")
+                if k == 'POS':
                     if not isinstance(v, list):
-                        raise ValueError(f"report '{label}': '{k}' exige lista")
+                        raise ValueError(f"report '{label}': 'POS' exige lista")
                     return ReportItem(kind=k, name=k, config={'values': v})
                 if k == 'IND':
                     if not isinstance(v, list) or (v and len(v) != 2):

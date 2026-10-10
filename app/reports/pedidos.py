@@ -12,10 +12,8 @@ PEDIDO = {
             'Pedido Nº {id}',
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
-        FIELDS(('conta_id', {'tab': 1}),
-               ('pedido_em', {'tab': 2, 'lf': 1}),
-               ('Conta.telefone', {'tab': 1}),
-               ('data_previsao_entrega', {'tab': 2})),
+        TABS(('{conta_id}', {}), ('{pedido_em}', {'lf': 1})),
+        TABS(('{Conta.telefone}', {}), ('{data_previsao_entrega}', {})),
         LF(2)
     ],
     'body': {

@@ -13,10 +13,8 @@ ORCAMENTO = {
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
         LF(1),
-        FIELDS(('cliente_nome', {'tab': 1}),
-               ('data_pedido', {'tab': 2, 'lf': 1}),
-               ('cliente_telefone', {'tab': 1}),
-               ('validade_data', {'tab': 2})),
+        TABS(('{cliente_nome}', {}), ('{data_pedido}', {'lf': 1})),
+        TABS(('{cliente_telefone}', {}), ('{validade_data}', {})),
         LF(3)
     ],
     'body': {

@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0026 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0027 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0026`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0027`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -378,7 +378,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `TITLES([...])` | `{'TITLES': [{'TITLE': {...}}, ...]}` | Vários `TITLE` numa tacada: `'texto'`, `('texto', {props})`, callable ou `{'TITLE': {...}}`. Vale em **qualquer prop que seja lista de items** (`header`, `items`, `before`, `after`, `table.after`). A cascata é posicional e o `when` vem **antes** dela |
 | `TEXT(texto, props?)` | `{'TEXT': {'text': texto, ...}}` | `TEXT('Obs: …', {'lf': -1})` — a chave é **`lf`**, em **linhas**: negativo é ANTES, positivo é DEPOIS, e `[antes, depois]` cobre os dois. `before`/`after`/`rows_before`/`rows_after` saem — declará-las dá erro |
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('L', 3)` (âncoras `C/L/R`; ausente não renderiza). `L` encolhe a zona pela borda direita da figura, `R` pela esquerda, `C` não indenta — vale enquanto o cursor estiver na faixa vertical da imagem, e `IND()` cancela ali mesmo |
-| `TABS(*paradas)` | `{'TABS': [...]}` | `TABS(5, 35)` — paradas em cols a partir do **início da zona** (crescentes; com `tab:N` no item). A próxima parada é o **teto do texto** naquele item: 1 col antes dela. Ver **Tabulação tem teto** |
+| `TABS(*args)` | `{'TABS': {...}}` | **Duas coisas, pelo tipo do 1º argumento.** `TABS(5, 35)` (números ou `PCOL`/`NCOL±N`) **define as paradas**, em cols do **início da zona**, crescentes; `TABS()` restaura. `TABS('a', '', 'b')` (texto) **imprime um elemento por parada**, na gramática do `TEXTS`. Ver **Tabulação imprime** |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
 | `CPI(base?, flags?)` / `LPI(n?)` | diretiva de **grade** (`defs/fonts.py`), o contexto decide | `CPI(12)`, `CPI(12, 'EC')`, `LPI(8)`; nu restaura o padrão (10 CPI / 6 LPI). `base` é um dos **três modos base** (10 Pica · 12 Elite · 15 Micron) e `flags` o modificador — ver **A matriz**. As props `cpi`/`flags` valem por item; `lpi` não, por ser diretiva só |
 | `PROW(n?)`/`PCOL(n?)` | **função com dois papéis** (`defs/report.py`), o contexto decide | **valor**: `PCOL()`/`PROW()` = posição corrente em grade, em `TABS`/`location`/`pos` (e ainda soma: `PCOL() + 5`). **Diretiva**: `PCOL(n)`/`PROW(n)` solto na lista de items move o cursor — `n` cols do início da **zona**, `n` linhas da margem de topo. `'PCOL+20'` (string) segue válida em `TABS` |
@@ -406,7 +406,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `style` | sim | sim | sim (cascata) | sim | — | — | — | — |
 | `cpi` / `flags` | sim | sim | sim | sim | — | — | — | **recusa** |
 | `location` / `pos` | sim | sim | sim | — | sim | sim | — | — |
-| `tab` | sim | sim | **só no header** | — | — | — | — | — |
+| `tab` | **saiu** | **saiu** | — | — | — | — | — | Escrever à mão é erro: use `TABS('{campo}', …)` |
 | `lf` | sim | sim | sim | sim | sim | sim | sim | sim |
 | `field` | — | — | — | sim | sim | — | — | — |
 | `path` | — | — | — | — | sim | — | — | — |
@@ -536,48 +536,68 @@ quanto no `ln` — o `set_y` parece só mexer na ordenada, mas apaga o
 estacionamento. O lado "depois" do `lf` por isso é `set_xy` com o X que já
 estava: se fosse `ln`, `lf: 1` e `lf: 0` dariam a mesma linha.
 
-### Tabulação tem teto
+### Tabulação imprime
 
-Com `TABS(1, 30)` e um item em `tab:1`, o texto **não pode entrar na tab 2**:
-o corte para 1 col antes dela. Sem tabulação seguinte — a última parada, ou um
-`TABS(5)` sozinho — o teto é a margem direita da zona, e essa parte vale para
-qualquer app, mesmo sem `TABS`.
+`TABS` faz **dois** trabalhos, distinguidos pelo tipo do primeiro argumento:
+
+```python
+TABS(1, 30),                                   # NÚMEROS → define as paradas
+TABS(),                                        #           restaura
+TABS(1, 30),
+TABS('Orçamento'),                             # TEXTO  → imprime
+TABS(('{cliente_nome}', {}), ('{data_pedido}', {})),
+TABS('Cliente: {cliente_nome}', '', '{validade_data}'),
+```
+
+Misturar número com texto é erro — são dois comandos com o mesmo nome e a mesma
+aridade, e decidir pelo primeiro seria adivinhação.
+
+| elemento | vira | rota |
+|---|---|---|
+| `'texto'` | texto | TEXT |
+| `'{campo}'` — **token puro** (`^\{\s*[\w.]+\s*\}$`) | campo | **FIELD**: rótulo em negrito, máscara, catálogo `options`, `label` da Entity |
+| `'Cliente: {campo}'` | texto | TEXT — o rótulo sai **no mesmo peso** do valor |
+| `''` | a parada **não existe nesta linha** | não imprime, e o elemento anterior **não é cortado** |
+| `(str, {props})` / `(texto, 'quando')` | str + props / + `when` | a gramática do `TEXTS` |
+
+O token puro é o que preserva o rótulo em negrito: por dentro é o caminho FIELD
+de sempre (`_expande_tabs` emite um `FIELDS` de uma entrada, para o caminho
+pontilhado `'{Conta.telefone}'` resolver pelo mesmo ramo de sempre).
+
+**O `TABS` nunca desce de linha sozinho** — imprime na linha corrente. Quem
+desce é o `lf` (prop) ou o `LF(n)` (item), e quem escreve o grid 2×2 coloca o
+`lf` no primeiro elemento da primeira linha.
+
+### O teto é em COLUNAS, não em milímetros
+
+O elemento `i` leva no máximo `paradas[i+1] - paradas[i] - 1` colunas. Sem
+elemento seguinte, ou com `''` no lugar, não há teto — e o texto vai até a
+**margem** da zona, que sempre limita.
 
 ```python
 TABS(1, 30),
-FIELDS(('cliente_nome', {'tab': 1}),      # teto: col 29
-       ('data_pedido',   {'tab': 2})),    # última parada: teto = margem
+TABS('{cliente_nome}', '{data_pedido}'),   # 28 colunas entre as duas paradas
 ```
 
-**O respiro é 1 coluna inteira mais os 1mm de célula.** A coluna é o `GAP_TAB`,
-ao lado do `GAP_LABEL`; os 1mm são o `c_margin` do fpdf2, os mesmos que a
-célula da tabela deixa — e `_cut_to_fit` já os desconta, porque o `+2` dele são
-as duas margens. Medido com `TABS(1, 30)`: tab 2 em 86,20mm, teto em 83,66mm,
-e o texto para em 82,66mm.
+**Por que colunas e não milímetros:** a grade conta células e a célula **é** o
+caractere — o glifo é esticado para preencher a coluna. Medido com
+`TABS(1, 30)`: **28 caracteres nos três CPIs** (10, 12 e 15). O corte em mm
+(`_cut_to_fit`, que desconta o `c_margin` de 2mm) tirava um caractere no
+CPI 15 — os 2mm fixos sendo fração maior de uma célula de 1,69mm. Contando
+células não há fração: ou cabe, ou não cabe.
 
-Antes disso não havia teto nenhum: o corte recebia `right - _x0`, a **largura da
-zona inteira**, e isso só parecia certo porque item sem âncora sempre quebra de
-volta para `x0` antes de medir. Com `tab` o X já está no meio da linha e a
-conta ignorava — medido, `TABS(1, 30)` deixava o texto da tab 1 chegar a
-**168,48mm** com a tab 2 em 86,20mm, e o da última tab a **242,14mm**, 42mm
-**além da margem**.
+Antes disso não havia teto nenhum: o corte recebia `right - _x0`, a **largura
+da zona inteira**, e isso só parecia certo porque item sem âncora sempre quebra
+de volta para `x0` antes de medir. Medido, `TABS(1, 30)` deixava o texto da 1ª
+parada chegar a **168,48mm** com a tab 2 em 86,20mm, e o da última a
+**242,14mm**, 42mm **além da margem**.
 
-Quatro regras em volta disso:
-
-- **Só o valor do `FIELD` é cortado.** O `Nome: ` é a chave que o leitor procura;
-  cortar o rótulo deixaria a linha sem identificação. Se o rótulo sozinho já
-  cruzar o teto, o valor sai vazio.
-- **`width` declara o ancho, o teto é o teto.** `{'tab': 1, 'width': 40}`
-  media 101,6mm de caixa e atravessava a tab 2 mesmo assim; agora a medida vira
-  `min(width, teto - get_x())`.
-- **`wrap: True` não muda**: quebra em `width`, ou na margem. O `wrap` é a
-  opção explícita de "usa a largura disponível" e já usava `right - get_x()`.
-- **`TITLE` e `MEMO` ignoram `tab`.** Nenhum dos dois é bloco ancorado: o
-  título é o bloco centralizado da zona, e ancorar a caixa na parada não o
-  levava para a parada — só encurtava a caixa para `right - tab_x` e deslocava
-  o centro (medido: 91,03mm com `tab:1` contra 89,76mm sem). O `MEMO` já
-  ignorava, por recentralizar na zona. A prop é lida e descartada, **sem erro**,
-  e o corpo do report faz o mesmo.
+**`{campo}` agora leva a máscara.** A máscara do campo entra no template pelo
+mesmo caminho do FIELD — `resolve_field_mask`, com a precedência que já existia
+(`explícita > catálogo do input > decimals`) — e vale quando o template não dá
+spec próprio. Antes `{data_pedido}` saía com o `repr` cru do Python
+(`2026-10-09 14:37:52`); agora sai `09/10/2026 14:37`, em todo template —
+`TITLES`, `MEMO`, `TEXT`, coluna e `table.after`.
 
 **Condensed e expanded são as duas pontas do mesmo eixo** (5 e 20), não dois estilos: pedir os dois dá 0,5× × 2× = 1×, que é o normal. O que combina com tudo é o outro eixo, `style`, que muda o **traço**.
 
@@ -1182,6 +1202,55 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0027
+- **`TABS` passou a fazer dois trabalhos, distinguidos pelo tipo do 1º
+  argumento.** `TABS(1, 30)` (números ou cursor±N) **define as paradas**, como
+  antes; `TABS('a', '', 'b')` (texto) **imprime um elemento por parada**, na
+  gramática do `TEXTS`. Misturar os dois é erro — dois comandos com o mesmo nome
+  e a mesma aridade, e decidir pelo primeiro seria adivinhação.
+- **A prop `tab` saiu.** Escrever à mão dá erro nomeando a prop e apontando
+  `TABS`. Por baixo continua existindo, como a chave interna `_tab`, que o
+  motor injeta: ancorar o X na parada não cambió.
+- **`'{campo}'` como token puro é rota FIELD**, e isso é o que preserva o rótulo
+  em **negrito**, a máscara e o catálogo `options`. `'Cliente: {campo}'` **não**
+  é token puro e sai como texto, com o rótulo no mesmo peso do valor — a
+  escolha fica com quem escreve. Não existe mais `{'field': …}` nem
+  `{'text': …}` como elemento de tabulação: o campo é `{campo}` dentro da
+  string, como em todo template.
+- **`''` é a parada que não existe nesta linha**: não imprime, e o elemento
+  anterior **não é cortado**. Um `''` no FIM é redundante (elemento sem
+  sucessor já significa "sem corte"), então ninguém escreve.
+- **`TABS` nunca desce de linha sozinho** — imprime na linha corrente. Quem
+  desce é o `lf` ou o `LF(n)`, e o grid 2×2 dos reports põe o `lf` no primeiro
+  elemento da primeira linha.
+- **O teto passou a ser contado em COLUNAS, não em milímetros.** O elemento `i`
+  leva no máximo `paradas[i+1] - paradas[i] - 1`. Medido com `TABS(1, 30)`:
+  **28 caracteres nos três CPIs** — 10, 12 e 15. O corte em mm desconta o
+  `c_margin` de 2mm, e 2mm é fração maior de uma célula de 1,69mm, o que tirava
+  um caractere no CPI 15. Contando células não há fração: ou cabe, ou não cabe.
+  `GAP_TAB` e o `_limite_x` foram embora — a folga não é mais uma constante
+  somada no motor, é a contagem das paradas.
+- **`{campo}` passou a levar a máscara do campo**, pelo caminho do FIELD e pela
+  precedência que já existia (`explícita > catálogo do input > decimals`).
+  Antes `{data_pedido}` imprimia o `repr` cru do Python (`2026-10-09
+  14:37:52`); agora `09/10/2026 14:37` — em todo template, não só no TABS.
+  O `render` ganhou um `masks` e o `spec` do template continua vencendo.
+- **O `FIELD` de token puro sai como `FIELDS` de uma entrada**, não como
+  `{'field': …}` cru: o caminho pontilhado (`'{Conta.telefone}'`) é resolvido no
+  ramo de `FIELDS` de `_expand_fields_list`, pelo mesmo caminho que o
+  `FIELDS(...)` de sempre usa. E a expansão do `TABS` roda **antes** dessa e da
+  resolução — depois, o campo chegaria sem rótulo e sem máscara.
+- Bug de escopo: `_val` recebia `spec=''` (o `_sub` passa `m.group(2) or ''`) e
+  o teste de "não há spec" era `is None`. A máscara nunca entrava.
+- Migração dos 3 reports: 10 usos de `tab` viraram `TABS('{campo}', …)`, e o
+  `rows_after` do grid 2×2 (já `lf: 1`) virou um `TABS` por fileira. A
+  geometria dos headers não mudou — conferido coordenada a coordenada.
+- 28 verificações: as duas formas do `TABS`, os quatro tipos de elemento, o teto
+  em colunas nos três CPIs, o `lf` separando fileiras, as 4 recusas (mistura,
+  `tab` à mão, mais elementos que paradas, paradas coladas), a precedência da
+  máscara, o `lf` do `.0026`, a cascata do `.0022`, a matriz do `.0020`, as
+  datas do `.0024` e os 6 cenários dos 3 reports.
 
 ### 1.26.10.08.0026
 - **`rows_before`/`rows_after` viraram `lf`, um número só com sinal.**

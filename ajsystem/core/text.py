@@ -29,6 +29,10 @@ LABEL_DEPTH = 3
 # continua exportado aqui: `pdf.py` e `do_report.py` importam deste módulo.
 from ajsystem.core.expr import dotted_get  # noqa: E402,F401
 
+import datetime as _dt
+# `datetime` é subclasse de `date`, então os três cabem num `isinstance`.
+_DT_TYPES = (_dt.datetime, _dt.date, _dt.time)
+
 
 # A expressão booleana (`when`, ternário) e a aritmética (`calc`) são a MESMA
 # gramática, e ela mora em `core/expr.py`: um avaliador só para o framework. Era
@@ -151,8 +155,10 @@ def eval_when(obj, when):
     return _truth(when, obj)
 
 
-def render(tpl, get, labels=None):
-    """Monta o texto. get(campo)->valor; labels={campo: {valor: rótulo}}.
+def render(tpl, get, labels=None, masks=None):
+    """Monta o texto. get(campo)->valor; labels={campo: {valor: rótulo}};
+    masks={campo: máscara}, que entra como spec padrão quando o campo não traz
+    spec próprio.
 
     O rótulo de catálogo pode ter `{campo}` dentro dele, e aí precisa de uma
     segunda passada: é assim que uma frase de documento vira catálogo (o status
@@ -161,6 +167,7 @@ def render(tpl, get, labels=None):
     `re.sub` não para sozinho.
     """
     labels = labels or {}
+    masks = masks or {}
 
     # Ternário ANTES de tudo: o ramo escolhido pode ter `{campo}`, que entra
     # nas passadas seguintes com o catálogo já aplicado.
@@ -178,9 +185,26 @@ def render(tpl, get, labels=None):
         if v is None or v == '':
             return default if default is not None else ''
         o = labels.get(name)
+        # A máscara da Entity entra como spec PRÓPRIO DEFAULT: só quando o
+        # template não deu spec. Passa pela gramática de máscara (`dd/mm/yyyy`),
+        # e não pelo `format()` do Python — `format(datetime, 'dd/mm/yyyy')`
+        # não existe, e era por isso que `{data}` imprimia o `repr` cru.
+        # `spec` chega como '' quando o campo não traz spec próprio (o `_sub`
+        # passa `m.group(2) or ''`) — então o teste é por FALSY, não por None.
+        _m = masks.get(name)
+        if not spec and _m:
+            spec = _m
         if o is not None and not spec:
             v = o.get(v, v)
         if spec:
+            # Valor de DATA/DATA-HORA/HORA com spec que não é `brl` vai pela
+            # gramática de MÁSCARA, não pelo `format()` do Python — é o que faz
+            # `{d:dd/mm/yyyy}` existir, já que `format(datetime, 'dd/mm/yyyy')`
+            # não existe. Os outros tipos seguem no `format()` normal, para o
+            # `{n:>10}` de um número continuar significando o que sempre significou.
+            if spec != 'brl' and isinstance(v, _DT_TYPES):
+                from ajsystem.core.formats import format as _fmt
+                return _fmt(v, spec)
             if spec == 'brl':
                 from ajsystem.core.formats import fmt_money as _fm
                 try:
@@ -198,9 +222,10 @@ def render(tpl, get, labels=None):
 
     try:
         out = _FIELD_RE.sub(_sub, t)
-        # Só a segunda passada quando entrou rótulo de catálogo: sem isso, todo
-        # template passa a pagar uma varredura à toa.
-        if labels and out != t:
+        # Só a segunda passada quando entrou rótulo de catálogo ou uma máscara
+        # que devolveu texto com `{campo}` dentro: sem isso, todo template passa
+        # a pagar uma varredura à toa.
+        if (labels or masks) and out != t:
             for _ in range(LABEL_DEPTH - 1):
                 novo = _FIELD_RE.sub(_sub, out)
                 if novo == out:

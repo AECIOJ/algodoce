@@ -472,6 +472,12 @@ def _apply_entity(raw, entity):
                 {'field': k, **v} for k, v in specs.items()]}
     elif isinstance(header, list):
         from ajsystem.defs.report import parse_report_item as _pri
+        # O TABS de impressão é expandido PRIMEIRO: os itens que ele vira são
+        # FIELD/TEXT comuns, e precisam passar pela MESMA cadeia do resto — a
+        # expansão de entidade (`Conta.telefone`), a resolução de rótulo e a
+        # máscara. Expandir depois deixaria `('{data_pedido}', …)` com o `repr`
+        # cru e o caminho pontilhado sem resolver.
+        header = _expande_tabs(header, entity, raw.get('label'), _pname)
         header = _expand_fields_list(header, entity, raw.get('label'), _pname, _pmodel)
         out['header'] = _resolve_fields(header)
         _attach_text_opts(out.get('header'), entity, raw.get('label'), _pname)
@@ -501,10 +507,14 @@ def _apply_entity(raw, entity):
             for _ex in table.get('extend') or []:
                 if isinstance(_ex, tuple) and len(_ex) >= 2 and isinstance(_ex[1], str):
                     _fo = _fmt_opts_for(_ex[1], entity)
-                    if _fo:
+                    _mo = _mask_opts_for(_ex[1], entity)
+                    if _fo or _mo:
                         _ex = list(_ex)
                         _pp = dict(_ex[2]) if len(_ex) == 3 else {}
-                        _pp.setdefault('_fmt_opts', _fo)
+                        if _fo:
+                            _pp.setdefault('_fmt_opts', _fo)
+                        if _mo:
+                            _pp.setdefault('_mask_opts', _mo)
                         _ex = tuple([_ex[0], _ex[1], _pp] if len(_ex) == 3 else [_ex[0], _ex[1]])
                 _ext.append(_ex)
             if _ext:
@@ -574,6 +584,7 @@ def _apply_entity(raw, entity):
             if src_model is None and source in entity:
                 src_model = source
         if isinstance(body.get('items'), list):
+            body['items'] = _expande_tabs(body['items'], entity, raw.get('label'), _pname)
             body['items'] = _expand_fields_list(body['items'], entity, raw.get('label'), _pname, _pmodel)
             body['items'] = _resolve_fields(body['items'])
             body['items'] = _attach_field_mask(body['items'], entity, raw.get('label'))
@@ -588,14 +599,16 @@ def _apply_entity(raw, entity):
         for _k in ('before', 'after'):
             _v = body.get(_k)
             if isinstance(_v, list):
-                body[_k] = _expand_fields_list(_v, entity, raw.get('label'), _pname, _pmodel)
+                body[_k] = _expande_tabs(_v, entity, raw.get('label'), _pname)
+                body[_k] = _expand_fields_list(body[_k], entity, raw.get('label'), _pname, _pmodel)
                 body[_k] = _resolve_fields(body[_k])
                 body[_k] = _attach_field_mask(body[_k], entity, raw.get('label'))
                 _attach_text_opts(body[_k], entity, raw.get('label'), _pname)
         _tbl = body.get('table') or {}
         _tbl_after = _tbl.get('after')
         if isinstance(_tbl_after, list):
-            _tbl['after'] = _expand_fields_list(_tbl_after, entity, raw.get('label'), _pname, _pmodel)
+            _tbl['after'] = _expande_tabs(_tbl_after, entity, raw.get('label'), _pname)
+            _tbl['after'] = _expand_fields_list(_tbl['after'], entity, raw.get('label'), _pname, _pmodel)
             _tbl['after'] = _resolve_fields(_tbl['after'])
             _tbl['after'] = _attach_field_mask(_tbl['after'], entity, raw.get('label'))
             _attach_text_opts(_tbl['after'], entity, raw.get('label'), _pname)
@@ -903,6 +916,66 @@ def _attach_field_mask(items, entity, label):
     return out
 
 
+_CAMPO_PURO = re.compile(r'^\s*\{\s*([\w.]+)\s*\}\s*$')
+
+
+def _expande_tabs(items, entity, label, prefer=None):
+    """A forma de IMPRESSÃO do `TABS` vira N itens FIELD/TEXT comuns.
+
+    A expansão acontece AQUI, no apply, e não na hora de desenhar — porque é
+    aqui que a máscara, o catálogo e o rótulo do campo são anexados. Se o motor
+    desenhasse direto, `('{data_pedido}', …)` sairia com o `repr` cru.
+
+    Cada elemento sai com `_tab` (a parada, 1-based) e `_fino` (tem elemento
+    depois que não seja `''`, ou seja: tem teto). O NÚMERO de colunas do teto só
+    é conhecido no render, porque as paradas podem vir de outra linha do report.
+    """
+    out = []
+    for it in items or []:
+        if not (isinstance(it, dict) and len(it) == 1 and 'TABS' in it):
+            out.append(it)
+            continue
+        _v = it['TABS']
+        _els = _v.get('items') if isinstance(_v, dict) else None
+        if not _els:
+            out.append(it)
+            continue
+        _n = len(_els)
+        for _i, _el in enumerate(_els):
+            if _el in ('', ('',)):
+                continue
+            _cfg = {}
+            _txt = None
+            if isinstance(_el, tuple) and len(_el) == 2:
+                _txt, _p = _el[0], _el[1]
+                if isinstance(_p, dict):
+                    _cfg = dict(_p)
+                elif isinstance(_p, str):
+                    _cfg = {'when': _p}
+            elif isinstance(_el, dict):
+                _cfg = dict(_el)
+                _txt = _cfg.get('text')
+            else:
+                _txt = _el
+            _cfg['_tab'] = _i + 1
+            _cfg['_fino'] = (_i + 1 < _n) and (_els[_i + 1] not in ('', ('',)))
+            if 'text' in _cfg or 'field' in _cfg:
+                _item = _cfg
+            else:
+                _m = _CAMPO_PURO.match(_txt or '')
+                # Sai como FIELDS de UMA entrada, não como `{'field': …}` cru:
+                # o caminho pontilhado (`'{Conta.telefone}'`) é resolvido no
+                # ramo de FIELDS de `_expand_fields_list`, pelo mesmo caminho
+                # que o `FIELDS(...)` de sempre usa. `{'field': …}` cru não
+                # passaria por ali, e o campo ficaria sem resolver.
+                _fld = _m.group(1) if _m else None
+                _spec = [( _fld, _cfg)] if _cfg else [ _fld ]
+                _item = ({'FIELDS': {'items': _spec}} if _fld
+                         else {'TEXT': dict(_cfg, text=_txt or '')})
+            out.append(_item)
+    return out
+
+
 def _attach_text_opts(items, entity, label, prefer=None):
     """Anexa _fmt_opts aos TEXT de uma lista de items (in-place, genérico).
 
@@ -931,11 +1004,15 @@ def _attach_text_opts(items, entity, label, prefer=None):
                 _fo = _fmt_opts_for(_c['text'], entity, prefer, _opts)
                 if _fo:
                     _c.setdefault('_fmt_opts', _fo)
+                _mo = _mask_opts_for(_c['text'], entity, prefer, _c.get('mask'))
+                if _mo:
+                    _c.setdefault('_mask_opts', _mo)
 
 
 def _cell_text_fn(tpl, entity):
     """Monta function(row) a partir de template (código montado). Delegado ao
-    avaliador único (core/text); labels LIST via options da Entity."""
+    avaliador único (core/text); labels LIST via options da Entity, e a máscara
+    do campo pelo mesmo caminho do FIELD."""
     import re as _re
     from ajsystem.core.text import render as _render
     _fmt_opts = {}
@@ -952,10 +1029,11 @@ def _cell_text_fn(tpl, entity):
             opts = raw_cfg.get('list') or raw_cfg.get('options')
             if opts:
                 _fmt_opts[nm] = opts
+    _mask_opts = _mask_opts_for(tpl, entity)
 
     def _fn(row):
         from ajsystem.core.text import dotted_get as _dg
-        return _render(tpl, lambda k: _dg(row, k), _fmt_opts)
+        return _render(tpl, lambda k: _dg(row, k), _fmt_opts, _mask_opts)
     return _fn
 
 
@@ -1108,6 +1186,39 @@ def _report_inputs():
         return (inputs, pagina)
     except Exception:
         return (None, {})
+
+
+def _mask_opts_for(tpl, entity, prefer=None, override=None):
+    """`{campo: máscara}` de um template — a máscara que o FIELD usaria.
+
+    Mesma derivação e mesma precedência do `FIELD` (`explícita > catálogo do
+    input > decimals`), porque é `_field_mask` sendo chamada. O que muda é o
+    armazenamento: aqui ela viaja como MAPA, para o `render` aplicar por
+    `{campo}` sem precisar materializar um `Field` por template.
+
+    `override` é o `mask`/`format` do próprio item e vence o da Entity, que é a
+    precedência normal.
+    """
+    import re as _re
+    out = {}
+    for nm in _re.findall(r'{([\w.]+)(?::[^}]*)?}', tpl or ''):
+        base = nm.split('.')[0]
+        cfg = None
+        if entity and base in entity and isinstance(entity.get(base), dict):
+            cfg = entity[base]
+        else:
+            hits = [m for m, c in (entity or {}).items()
+                    if isinstance(c, dict) and base in c] if entity else []
+            if len(hits) == 1:
+                cfg = entity[hits[0]].get(base)
+            elif prefer and prefer in hits:
+                cfg = entity[prefer].get(base)
+        if not isinstance(cfg, dict):
+            continue
+        _m = _field_mask(base, {**cfg, **(override or {})})
+        if _m:
+            out[base] = _m
+    return out
 
 
 def _field_mask(name, cfg):

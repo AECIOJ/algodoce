@@ -246,7 +246,7 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
         # `{id}` era trocado, e qualquer outro campo saía cru no título.
         from ajsystem.core.text import render as _trender, dotted_get as _tdg
         txt = _trender(txt, lambda k: _tdg(instance, k) if instance is not None else None,
-                       cfg.get('_fmt_opts') or {})
+                       cfg.get('_fmt_opts') or {}, cfg.get('_mask_opts') or {})
     if hasattr(pdf, '_title_substitutions'):
         for k, v in pdf._title_substitutions.items():
             txt = (txt or '').replace('{' + k + '}', str(v))
@@ -811,9 +811,6 @@ _MISSING = object()  # sentinela p/ suppress (None é valor válido de comparar)
 # respiro em mm/cols, que não é altura de linha.
 FONT_FAMILY = "Helvetica"          # fallback para texto solto sem grade
 GAP_LABEL = 1          # respiro rótulo→valor, em COLS
-GAP_TAB = 1            # respiro antes da PRÓXIMA tabulação, em COLS
-                       # (1 col inteira + os 1mm de `c_margin` que a célula da
-                       #  tabela também deixa — o `+2` do `_cut_to_fit`)
 GAP_HEAD_FIELDS = 4    # após fields do cabeçalho
 GAP_TEXT_LINE = 2      # antes de cada linha avulsa
 GAP_TEXT_EMPTY = 8     # linha avulsa vazia
@@ -1612,7 +1609,12 @@ def _split_item(it, label):
                 if k in ('TABS', 'POS', 'IND'):
                     # Já normalizado (`parse_report_item` entregou
                     # `{'values': [...]}`) volta como está: é o caminho do
-                    # header, que delega o item desconhecido para cá.
+                    # header, que delega o item desconhecido para cá. O `TABS`
+                    # traz os DOIS lados depois da `.0027` — `values` define as
+                    # paradas e `items` imprime.
+                    if isinstance(v, dict) and (set(v) & {'values', 'items'}):
+                        return (k, k, {'values': list(v.get('values') or []),
+                                       'items': list(v.get('items') or [])})
                     if isinstance(v, dict) and set(v) == {'values'}:
                         return (k, k, {'values': list(v['values'])})
                     if not isinstance(v, list):
@@ -1976,7 +1978,10 @@ def _tab_x(pdf, tab, label):
     """
     tabs = getattr(pdf, '_tabs', None) or []
     if not isinstance(tab, int) or isinstance(tab, bool) or not 1 <= tab <= len(tabs):
-        raise ValueError(f"report '{label}': tab:{tab} inválido (TABS tem {len(tabs)} paradas)")
+        raise ValueError(
+            f"report '{label}': parada {tab} não existe — o TABS tem "
+            f"{len(tabs)} parada(s). Se a linha imprime mais elementos que "
+            f"paradas, declare TABS(...) com mais, ou use '' para pular uma")
     col_w = _col_unit(pdf)
     if tabs[tab - 1] > _zone_ncols(pdf) + 0.01:
         raise ValueError(
@@ -1985,29 +1990,44 @@ def _tab_x(pdf, tab, label):
     pdf.set_x(_flow_zone(pdf)[0] + tabs[tab - 1] * col_w)
 
 
-def _limite_x(pdf, cfg, label=''):
-    """X onde o item tem que parar: 1 col antes da PRÓXIMA tabulação, ou a margem.
+_CAMPO_PURO = __import__('re').compile(r'^\s*\{\s*([\w.]+)\s*\}\s*$')
 
-    É a fechadura do corte. O `_cut_to_fit` recebia `right - _x0` — a largura da
-    ZONA INTEIRA — e isso só parecia certo porque item sem âncora sempre quebra
-    de volta para `x0` antes de medir. Com `tab` o X já está no meio da linha e
-    a conta ignorava: medido, `TABS(1, 30)` deixava o texto da tab 1 chegar a
-    168,48mm com a tab 2 em 86,20mm, e o da ÚLTIMA tab a 242,14mm — 42mm além
-    da margem.
 
-    `1 <= tab < len(tabs)` é o "apenas se existir tab 2": na última parada, ou
-    num `TABS(5)` sozinho, o limite é a margem — e essa parte vale para
-    qualquer app, mesmo sem tabulação nenhuma.
+def _pad_cols(txt, n):
+    """Corta o texto em N COLUNAS da grade — e não em milímetros.
 
-    O `GAP_TAB` é 1 coluna inteira; o `+2` do `_cut_to_fit` são os 1mm de
-    `c_margin` de cada lado, os mesmos que a célula da tabela deixa.
+    A grade conta células, e a célula É o caractere: o glifo é esticado para
+    preencher a coluna, então N colunas são N caracteres em qualquer CPI. Foi
+    medir isso que mostrou que o corte em mm (o `_cut_to_fit`, que desconta o
+    `c_margin` de 2mm) tirava um caractere no CPI 15 — o 2mm fixo sendo fração
+    maior de uma célula de 1,69mm. Aqui não há fração: ou cabe, ou não cabe.
     """
-    _x0, right = _flow_zone(pdf)
-    tab = cfg.get('tab')
-    tabs = getattr(pdf, '_tabs', None) or []
-    if isinstance(tab, int) and not isinstance(tab, bool) and 1 <= tab < len(tabs):
-        return _x0 + (tabs[tab] - 1 - GAP_TAB) * _col_unit(pdf)
-    return right
+    txt = txt or ''
+    if n <= 0:
+        return ''
+    return txt[:n]
+
+
+def _tabs_colas(pdf, cfg, label=''):
+    """Teto de colunas do item: quantas cabem ANTES da próxima parada.
+
+    Sem elemento seguinte, ou com `''` no lugar (a parada que não existe nesta
+    linha), devolve `None` — e `None` é "sem corte": o texto vai até a margem.
+    """
+    _tab = cfg.get('_tab')
+    if not isinstance(_tab, int) or not cfg.get('_fino'):
+        return None
+    _stops = getattr(pdf, '_tabs', None) or []
+    if _tab >= len(_stops):
+        raise ValueError(
+            f"report '{label}': elemento na parada {_tab} e só há "
+            f"{len(_stops)} parada(s) — declare TABS(...) antes")
+    _n = _stops[_tab] - _stops[_tab - 1] - 1
+    if _n <= 0:
+        raise ValueError(
+            f"report '{label}': paradas {_stops[_tab - 1]:g} e {_stops[_tab]:g} "
+            f"estão a 1 coluna — não sobra lugar para texto entre elas")
+    return _n
 
 
 def _elem_location(pdf, kind, cfg, label=''):
@@ -2105,12 +2125,19 @@ def _place_item(pdf, kind, name, cfg, label, line=True):
     - bloco (IMAGE/LINE/BOX/CIRCLE/CALL) = volta ao início, Y flui.
     """
     if 'tab' in cfg:
+        # A prop saiu: quem escreve numa parada é `TABS('{campo}', ...)`, e o
+        # `_tab` injetado é o mesmo mecanismo por baixo. Erro nomeando a prop —
+        # deixar os dois válidos seria pior que qualquer um dos dois.
+        raise ValueError(
+            f"report '{label}': a prop 'tab' saiu — use TABS('{name}', …) na "
+            f"forma de impressão, ou {{'{name}': {{'tab': …}}}} se for item")
+    if '_tab' in cfg:
         if any(k in cfg for k in ('location', 'pos')):
             raise ValueError(f"report '{label}': tab não combina com location/pos")
-        # `tab` só ancora o X, então a descida é DON'T-LOSE: sem ela o item
+        # A parada só ancora o X, então a descida é DON'T-LOSE: sem ela o item
         # cai na linha do título estacionado logo acima.
         _desce_se_cheia(pdf)
-        _tab_x(pdf, cfg['tab'], label)
+        _tab_x(pdf, cfg['_tab'], label)
         return
     if any(k in cfg for k in ('location', 'pos')):
         # Y absoluto: descer aqui seria jogado fora pelo `set_xy`, e perto do
@@ -2148,7 +2175,7 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
     """
     from ajsystem.core.text import render as _trender
     _x0, right = _flow_zone(pdf)
-    _fixed = any(k in cfg for k in ('tab', 'location', 'pos'))
+    _fixed = any(k in cfg for k in ('_tab', 'location', 'pos'))
     if 'font' in cfg:
         raise ValueError(
             f"report '{label}': a prop 'font' é do report (uma família para o "
@@ -2201,9 +2228,13 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         # inteira — e o `lw` do rótulo sai da conta, porque só o VALOR é
         # cortado: o `Nome: ` é a chave que o leitor procura, e cortar o rótulo
         # deixaria a linha sem identificação.
-        _avail = _limite_x(pdf, cfg, label) - pdf.get_x() - lw
-        if vw > _avail:
-            txt, vw = _cut_to_fit(pdf, txt, _avail), _avail
+        _ncols = _tabs_colas(pdf, cfg, label)
+        if _ncols is not None:
+            txt, vw = _pad_cols(txt, _ncols), pdf.get_string_width(_pad_cols(txt, _ncols)) + 2
+        else:
+            _avail = right - pdf.get_x() - lw
+            if vw > _avail:
+                txt, vw = _cut_to_fit(pdf, txt, _avail), _avail
         if lbl:
             _apply_face(pdf, 'B', cfg=cfg)
             pdf.cell(lw, _row_unit(pdf), lbl + ': ', new_x="END")
@@ -2213,7 +2244,8 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
             _mark_content(pdf)
     else:  # TEXT
         from ajsystem.core.text import dotted_get as _dg
-        txt = _trender(cfg.get('text', ''), lambda k: _dg(instance, k) if instance is not None else None, cfg.get('_fmt_opts'))
+        txt = _trender(cfg.get('text', ''), lambda k: _dg(instance, k) if instance is not None else None,
+                           cfg.get('_fmt_opts'), cfg.get('_mask_opts'))
         _validate_style(cfg.get('style', '') or '', label, 'TEXT')
         _apply_face(pdf, cfg.get('style', '') or '', cfg=cfg)
         if _want_wrap(cfg, kind, label):
@@ -2247,9 +2279,14 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
         # Mesmo limite do FIELD, e o `width` declarado não escapa dele: um
         # `{'tab': 1, 'width': 40}` media 101,6mm de caixa e atravessava a tab
         # 2 mesmo assim — a medida declara o ancho, o limite é o teto.
-        _avail = _limite_x(pdf, cfg, label) - pdf.get_x()
-        if _w > _avail:
-            txt, _w = _cut_to_fit(pdf, txt, _avail), _avail
+        _ncols = _tabs_colas(pdf, cfg, label)
+        if _ncols is not None:
+            txt = _pad_cols(txt, _ncols)
+            _w = pdf.get_string_width(txt) + 2
+        else:
+            _avail = right - pdf.get_x()
+            if _w > _avail:
+                txt, _w = _cut_to_fit(pdf, txt, _avail), _avail
         pdf.cell(_w, _row_unit(pdf), txt, align=cfg.get('align', 'L'), new_x="END", new_y="TOP")
         if txt:
             _mark_content(pdf)
@@ -2441,10 +2478,6 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                     _k, _n, _cfg = _split_item(_sub, label)
                     if _k != 'TITLE':
                         raise ValueError(f"report '{label}': TITLES aceita só TITLE, veio {_k!r}")
-                    if 'tab' in _cfg:
-                        raise ValueError(
-                            f"report '{label}': TITLE no corpo não aceita 'tab' — "
-                            f"use 'location'/'pos'")
                     drawn = _draw_titulo(pdf, _cfg, None, label, instance=instance, drawn=drawn)
             return col_w, drawn
         if kind == 'MEMO':
@@ -2471,7 +2504,7 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 # que separa FIELD de TEXT.
                 _txt = _mrender(cfg.get('text', ''),
                                 lambda k: _mdg(instance, k) if instance is not None else None,
-                                cfg.get('_fmt_opts'))
+                                cfg.get('_fmt_opts'), cfg.get('_mask_opts'))
             _style = cfg.get('style', '') or ''
             _validate_style(_style, label, 'MEMO')
             _x0, _right = _flow_zone(pdf)

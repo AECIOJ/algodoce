@@ -22,8 +22,7 @@ COMPRA = {
             ('{status == 1 ? Pedido : COMPRA} #{id}', {'when': 'status != 0'}),
             ('Status: {status}', {'when': 'status > 1'}),
         ]),
-        FIELDS(('fornecedor_id', {'tab': 1}),
-               ('data', {'tab': 2})),
+        TABS(('{fornecedor_id}', {}), ('{data}', {})),
         LF(2)
     ],
     'body': {
