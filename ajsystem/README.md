@@ -1238,6 +1238,18 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
   préâmbulos saem inteiros, em 1 a 3 linhas, sem escrever fora do bloco — e o
   `J` do `MEMO` estica 0,09mm porque as linhas preenchem o bloco quase exacto
   (sobra de 0,5mm por linha).
+- **Os cabeçalhos dos três relatórios passaram a declarar a densidade depois do
+  título** (`LF(1)` e daí `CPI`/`TABS`), em vez de a declarar antes: com o reset
+  de secção a HEADER continua a ter a sua, e escrevê-la uma vez, logo depois do
+  `TITLES`, deixa claro que o corpo é que volta ao CPI 10. O `COMPRA` e o
+  `PEDIDO` passaram a usar `CPI(10,'C')` — a grade continua a ser a do base
+  (25,4/10 = 2,5400mm) e é o **glifo** que condensa; `TABS(1, 25)` mede-se
+  nessa grade, não na do condensado.
+- **Uma coluna FK com `width` declarado** (`'insumo_id': {'width': 35}` no
+  COMPRA) exercita a precedência nova pela parte difícil: a coluna resolve a FK
+  pelo lookup para `insumo.nome`, e o **`width` declarado vence** o do field
+  (que seria 19, o preset `TEXT`). Sem declarado sairia 19 — que é o certo para
+  o `list`, e curto demais para um nome de insumo numa compra impressa.
 
 ### 1.26.10.08.0030
 - **Header, body e footer entram com o fluxo limpo.** As três secções já

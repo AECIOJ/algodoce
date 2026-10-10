@@ -22,8 +22,8 @@ COMPRA = {
             ('Status: {status}', {'when': 'status > 1'}),
         ]),
         LF(1),
-        CPI(12),
-        TABS(1, 30),
+        CPI(10,'C'),
+        TABS(1, 25),
         TABS('{fornecedor_id}', '{data}'),
         LF(3)
     ],
@@ -34,7 +34,7 @@ COMPRA = {
         ],
         'table': {
             'columns': {
-                'insumo.nome':   {'label': 'Insumo'},
+                'insumo_id':     {'width':35},
                 'qtd':           {},
                 'preco':         {'label': 'Preço (R$)'},
                 'CompraItem.valor': {'label': 'Valor (R$)', 'agg': 'sum'},
