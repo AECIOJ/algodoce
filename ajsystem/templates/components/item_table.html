@@ -55,7 +55,7 @@
    pode ter linha de totais e a largura de colunas do Adicionar não é a
    delas. `bottom_left` vem logo depois do Adicionar (prioridade). #}
 {% set _action = _can_edit or bottom_left or bottom_right %}
-<div class="mb-3 child-table-wrap" {% if _totals and not _calc_fields %}data-total-expr="{{ _totals.expr }}" data-total-currency="{{ _totals.currency or '' }}"{% endif %}>
+<div class="mb-3 child-table-wrap" {% if _totals and not _calc_fields %}data-total-expr="{{ _totals.expr }}"{% endif %}>
   {% if title %}{{ fm.section_title(child.label) }}{% endif %}
   {{ fm.render_band(top_left, instance, dom_fields, cls='mb-2') }}
   {{ fm.render_band(top_right, instance, dom_fields, align='right', cls='mb-2') }}
@@ -105,7 +105,7 @@
           </td>
           {% endfor %}
           {% for f in _calc_fields %}
-          <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+          <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{{ fm.fmt_attrs(f)|safe }}>—</span></td>
           {% endfor %}
           {% if not _is_query %}
           {% for f in _hidden_fields %}
@@ -145,7 +145,7 @@
           </td>
           {% endfor %}
           {% for f in _calc_fields %}
-          <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+          <td class="text-right"><span class="it-calc" data-calc="{{ f.calc }}"{{ fm.fmt_attrs(f)|safe }}>—</span></td>
           {% endfor %}
           {% for f in _hidden_fields %}
           {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
@@ -182,8 +182,7 @@
               data-total-field="{{ _f.name }}"
               data-total-fn="{{ _total_fields[_f.name].fn }}"
               {% if _total_fields[_f.name].calc %}data-calc="{{ _total_fields[_f.name].calc }}"{% endif %}
-              {% if _total_fields[_f.name].currency %}data-total-currency="{{ _total_fields[_f.name].currency }}"{% endif %}
-              {% if _total_fields[_f.name].decimals is not none %}data-total-decimals="{{ _total_fields[_f.name].decimals }}"{% endif %}
+              {{ fm.fmt_attrs(_f)|safe }}
               {% if _total_fields[_f.name].target %}data-total-target="{{ _total_fields[_f.name].target }}"{% endif %}>{% if _f.calc %}—{% else %}<span class="it-val">—</span>{% endif %}</td>
           {% else %}
           <td></td>
@@ -236,7 +235,7 @@
             {% for item in items %}
             {% set _ref = item|item_ref(items) %}
             {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
-            <td class="itm-cell" data-crow="{{ _rid }}"><span class="it-calc" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+            <td class="itm-cell" data-crow="{{ _rid }}"><span class="it-calc" data-calc="{{ f.calc }}"{{ fm.fmt_attrs(f)|safe }}>—</span></td>
             {% endfor %}
           </tr>
           {% endfor %}
@@ -275,7 +274,7 @@
       <td class="itm-cell"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %} data-crow="__IDX__">{% if f.readonly %}<span>—</span><input type="hidden" name="{{ _prefix + '__IDX__' + '_' + f.name }}" value="">{% elif f.input == 'multi' %}{{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}{% else %}{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}{% endif %}</td>
       {% endfor %}
       {% for f in _calc_fields %}
-      <td class="itm-cell" data-crow="__IDX__"><span class="it-calc" data-crow="__IDX__" data-calc="{{ f.calc }}"{% if f.currency %} data-calc-currency="{{ f.currency }}"{% endif %}>—</span></td>
+      <td class="itm-cell" data-crow="__IDX__"><span class="it-calc" data-crow="__IDX__" data-calc="{{ f.calc }}"{{ fm.fmt_attrs(f)|safe }}>—</span></td>
       {% endfor %}
       {% for f in _hidden_fields %}
       <td style="display:none">{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}</td>
@@ -300,9 +299,16 @@
 </div>
 {% endmacro %}
 
-{# Rende o valor de um agregado de grupo/total (count, soma ou média, com currency). #}
-{% macro render_agg_total(total) %}
-{% if total is none or total.value is none %}—{% elif total.type in ('sum', 'avg') and total.currency %}{{ total.value|money(total.currency) }}{% else %}{{ total.value }}{% endif %}
+{# Rende o valor de um agregado de grupo/total (count, soma ou média).
+   `f` é o field do agregado, quando o chamador o tem em mãos: é ele que dá a
+   máscara, as casas e a moeda — sem ele, soma/média saíam pelo `currency` do
+   agregado e, na falta dele, crus (`1234.50`). #}
+{% macro render_agg_total(total, f=none) %}
+{% if total is none or total.value is none %}—
+{% elif f is not none and total.type in ('sum', 'avg') %}{{ fm.render_value(total.value, f) }}
+{% elif total.type in ('sum', 'avg') and total.currency %}{{ total.value|money(total.currency) }}
+{% else %}{{ total.value }}
+{% endif %}
 {% endmacro %}
 
 {#
@@ -373,7 +379,7 @@
         <tr class="it-subtotal-row">
           {% for f in _edit_fields %}
           {% if f.name in _totals_spec %}
-          <td class="text-right font-semibold">{{ render_agg_total(_g['totals'].get(f.name)) }}</td>
+          <td class="text-right font-semibold">{{ render_agg_total(_g['totals'].get(f.name), f) }}</td>
           {% else %}
           <td></td>
           {% endif %}
@@ -386,7 +392,7 @@
         <tr class="it-total-row">
           {% for f in _edit_fields %}
           {% if f.name in _totals_spec %}
-          <td class="text-right font-semibold">{{ render_agg_total(_totals.get(f.name)) }}</td>
+          <td class="text-right font-semibold">{{ render_agg_total(_totals.get(f.name), f) }}</td>
           {% else %}
           <td></td>
           {% endif %}
@@ -416,7 +422,7 @@
         <span>{{ i18n.SUBTOTAL }}</span>
         {% for _tlabel in _totals_spec.keys() %}
         {% set _tl = _edit_fields|selectattr('name', 'equalto', _tlabel)|first %}
-        <span class="it-group-sub-val">{{ _tl.display_label if _tl else _tlabel }}: {{ render_agg_total(_g['totals'].get(_tlabel)) }}</span>
+        <span class="it-group-sub-val">{{ _tl.display_label if _tl else _tlabel }}: {{ render_agg_total(_g['totals'].get(_tlabel), _tl) }}</span>
         {% endfor %}
       </div>
     </div>
@@ -426,7 +432,7 @@
       <span>{{ i18n.TOTAL }}</span>
       {% for _tlabel in _totals_spec.keys() %}
       {% set _tl = _edit_fields|selectattr('name', 'equalto', _tlabel)|first %}
-      <span>{{ _tl.display_label if _tl else _tlabel }}: {{ render_agg_total(_totals.get(_tlabel)) }}</span>
+      <span>{{ _tl.display_label if _tl else _tlabel }}: {{ render_agg_total(_totals.get(_tlabel), _tl) }}</span>
       {% endfor %}
     </div>
     {% endif %}

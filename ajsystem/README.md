@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0028 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0034 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0028`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0034`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -269,7 +269,7 @@ Totalização opcional da tabela da sessão — editável (`table`) ou readonly 
 - **lista mista** `['qtd', {'valor': 'total'}]` — o item string soma só a coluna; o item `dict {coluna: campo_master}` soma **e** grava no `<input name="campo_master">` do master (ex.: `total`);
 - **string única** `'valor'` — soma a coluna.
 
-A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` (ex.: `valor = qtd * preco`) usam a própria expressão no total; campos monetários usam a moeda da coluna (`data-total-currency`).
+A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` (ex.: `valor = qtd * preco`) usam a própria expressão no total. Cada célula do total carrega a formatação da coluna — `data-fmt-mask`/`data-fmt-decimals`/`data-fmt-currency`, por `fm.fmt_attrs` (ver **5.14**) — e o JS as aplica com `itFmtByAttrs`; as casas do total vêm de `Field.num_decimals`, não da escala da coluna no banco.
 
 ```python
 # Orcamento — sessão 'Itens do Orçamento' (table editável)
@@ -851,7 +851,7 @@ Gêmeo de `Button`, para o outro lado do formulário: enquanto o botão descreve
 | `align` | `str` | `'left'` | `text-align`; `'right'` do input vence o `'left'` do campo |
 | `slot` | `str` | `'body'` | `body` no corpo do form, `bar` na barra — `bar` **exige** `pos_form: 3` |
 | `boolean` | `bool` | `False` | valor é booleano; ausência no POST = `False` |
-| `number` | `bool` | `False` | formatado por `fmt_num`/`fmt_id` |
+| `number` | `bool` | `False` | input numérico: entra por `fmt_num`, exibe por `render_value` (ver **5.14**) |
 | `multi` | `bool` | `False` | lista de opções marcadas |
 | `masked` | `bool` | `False` | o texto passa por `mask`/`mask_cmd` |
 | `textual` | `bool` | `True` | texto livre — só isso aceita transform `@U/@L/@C/@T` |
@@ -1203,6 +1203,34 @@ Masks = {'DECIMAL': DECIMAL, 'THOUSAND': THOUSAND, 'MONEY': MONEY,
 
 Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para a leitura de volta ser inequívoca. `'1.000'` continua ambíguo por construção: sem vírgula é lido como `1.0`, nos dois lados — quem quiser `1000` escreve `'1000'` ou `'1.000,0'`. Num campo com `decimals`, use `numToInputFor`/`fmtNumBR` para escrever, nunca `String(valor)`: um `Decimal` cru (`'6.00'`) entra no input e sai multiplicado por 100 no `calc`.
 
+**Espaço de input ≠ espaço de exibição — a linha que separa os dois formatadores.** `fmt_num`/`numToInputFor` escrevem **`inp.value`**, na convenção do campo (`dec` = `data-num-decimals`); `render_value`/`itFmtByAttrs` escrevem **`textContent`**, na convenção da máscara (`data-fmt-mask`). Trocar um pelo outro não é detalhe de estilo: `itFmtByAttrs` num campo `percent` colocaria `'12,5%'` dentro do input, duplicando o `%` do span ao lado.
+
+E **`data-num-decimals` tem que existir em todo input numérico, inclusive desabilitado** — é ele que dá a `dec` para o escritor documentado. `calc` (`total`), `readonly` e `_ro_msg` renderizam `disabled`, e todo destino de `data-total-target` é um deles: com o atributo ausente não havia o que ler e a escrita caía em `String(num)`, que perdia a formatação que o servidor tinha acabado de renderizar. As guardas de `disabled`/`readOnly` em `numDecimals` (`static/js/formats.js`) e `calcIsCalc` (`pages/sys.html`) já eram código morto esperando isso.
+
+**Exibição do valor — um passo só.** `fmt_num` é o que entra no `<input>`; o que sai na tela é `components/form_macros.html:render_value(val, f)`, o mesmo passo para o form (campo `readonly`/`calc`), a `item_table` e a listagem/`query` (`pages/list.html:_value_cell` chama e só resolve `calc`/`lookup`/`options`/imagem/booleano). `f` pode ser um `Field` ou a coluna da listagem (`core/list.py:field_to_column`) — os dois expõem `input`/`mask`/`num_decimals`/`currency`/`percent`.
+
+| Ordem | Condição | Filtro | Exemplo |
+|---|---|---|---|
+| 1 | `none` ou string vazia | — | `—`, `''` |
+| 2 | `percent` | `percent` | `12,5%` |
+| 3 | valor tem `strftime` | `mask` se a máscara tem tokens, senão `fmtdate` | `07/03/2026` |
+| 4 | `input == 'number'` | `mask_cmd` (com `num_decimals`) | `1.234,50` · `R$ 1.234,50` · `''` no `@B` zero · `-5,00 D` no `@X` · `1.234` no `ID` |
+| 5 | tem `mask` | `format` | `123.456.789-09` (`@R` de CPF), `João Silva` (`@T`) |
+| 6 | sem máscara | o valor cru | — |
+
+`Field.num_decimals` (`defs/data.py`) é a prop de **exibição** das casas: o `decimals` declarado, ou **0** para input numérico sem casas — o caso de `ID`/`DK`, que `FIELD_TYPES` define como `input: 'number'` sem `decimals` e sem máscara, e portanto não recebem `num_mask`. Sem essa regra o `mask_cmd` recebia `None` e caía no default de 2 casas, e o `#` da listagem virava `6,00`.
+
+Número **não** passa por `fmt_id`: aquele alinha em 7 colunas com NBSP (é layout de id, não de coluna, e numa coluna alinhada à direita pelo CSS o padding vira espaço à esquerda), e agrupando a string inteira punha o separador dentro das casas decimais (`'1.234..50'`) e dentro do texto (`'J.oão'`). `format` só trata número como número quando a máscara tem corpo numérico **ou** não tem transform de texto — `@T` com `1234.50` devolve `'1234.50'`, não `'1.234,50'`.
+
+**O cliente é o segundo renderizador, e ele recebe a máscara.** `calc`, coluna calculada e total são redesenhados no navegador (`itCalcRefresh`/`formCalcRefresh`/`itSessionTotals`), e antes disso só viajavam `data-calc-currency` — emitido **quando a máscara tem `@M`**. Como `MVALOR` é `'999,999.99'` (sem `@M`, de propósito: a moeda vai no rótulo da coluna do relatório), esses pontos caíam em `String(v)` e devolviam o que o servidor tinha acabado de formatar. Por isso o contrato é a **máscara**, não a moeda: `components/form_macros.html:fmt_attrs(f)` emite `data-fmt-mask`/`data-fmt-decimals`/`data-fmt-currency`/`data-fmt-percent` do `Field`, e `pages/sys.html:itFmtByAttrs(el, v, dec)` decide no cliente na **mesma ordem** da tabela acima. Quem declara a máscara manda; um campo numérico sem máscara declarada ainda sai pelas casas, e um `ID` sai inteiro agrupado. As casas saem por `_fmtDec` e não por `fmtNumBR`, porque `fmtNumBR` escreve o input (que sem casas não agrupa de propósito — ver a tabela de leitura/escrita acima) e aqui é `textContent`.
+
+Os dois lados são verificados como par, e nos **dois espaços**: o mesmo `Field` e o mesmo
+valor têm que dar a mesma string de `render_value` (Python) e de `itFmtByAttrs` (JS,
+`textContent`); e o mesmo valor nas mesmas casas, a mesma de `fmt_num` e de
+`numToInputFor` (`inp.value`). A única divergência conhecida é o arredondamento de meio exato (`0.125` em 2 casas, `12.5` em 0): o `%.Nf` do Python arredonda para par e o `toFixed(n)` do JS para cima. Ela é **pré-existente** — o par `fmt_num`/`fmtNumBR` já discordava assim — e só aparece quando o float é exatamente um meio na casa mostrada.
+
+Um agregado de `totals` (`query`/`table`) recebe o `Field` e sai por `render_value` também (`item_table.html:render_agg_total(total, f)`), e as casas do total vêm de `num_decimals`, não da escala da coluna no banco — `compra_itens.qtd` é `NUMERIC(12,3)` com `type: 'NUM'` (2 casas na linha), então o total saía com 3. A grade do modal de busca (`core/search.py:_fmt_cell`) tem o mesmo despacho e usa `format` no ramo numérico.
+
 ### 5.14.1 Constantes `ajsystem/defs/constants.py`
 
 | Constante | Valor | Impacto |
@@ -1218,6 +1246,158 @@ Sem `decimals`, `fmt_num` **não agrupa** (`'1000'`, `'1234,5'`) justamente para
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0034
+- **`total` e `valor` desformatavam no navegador — o `.0033` trocou a linha.**
+  O servidor renderizava `value="1.365,00"` e o JS sobrescrevia com `'1365'`: em
+  `itSessionTotals`, o destino de `data-total-target` era escrito com
+  `numDecimals(el)`, um **leitor** que recusa elemento `disabled` (`formats.js:384`),
+  e todo destino é um campo `readonly`/`calc`, que o `render_field` sempre
+  renderiza `disabled`. Sobrava o `String(num)`, e o `fmtFieldInput` logo abaixo
+  não reparava pelo mesmo motivo. `formCalcRefresh` tinha o erro irmão, pelo
+  outro lado: escrevia `inp.value` com `itFmtByAttrs`, que é o formatador de
+  **exibição** — num campo `percent` isso meteria `'12,5%'` dentro do input,
+  duplicando o `%` do span ao lado. Os dois foram para `numToInputFor`, que é o
+  que o §5.14 manda para `inp.value` (`dec` = `data-num-decimals`).
+- **A peça que faltava: input numérico `disabled` não declarava sua convenção.**
+  `numToInputFor` lê `dec` de `data-num-decimals`, e `render_field` só emitia o
+  atributo no ramo **editável** — nunca em `calc` (`total`), `readonly`
+  (`total` do orçamento) nem `_ro_msg`, e nem no da barra
+  (`render_footer_field`). Sem ele não havia o que ler, então nem a chamada
+  correta resolvia. Os quatro ramos agora emitem
+  `data-num-decimals="{{ field.num_decimals }}"`, e o editável trocou
+  `decimals` por `num_decimals` para o atributo significar a mesma coisa em todo
+  lugar. As guardas de `disabled`/`readOnly` em `numDecimals` e `calcIsCalc`
+  (`pages/sys.html`) já existiam esperando isso — eram código morto. A
+  calculadora não se prende ao campo desabilitado porque `calcIsCalc` já o
+  recusava; `focusout` não dispara em input desabilitado; `itZeroOrEmpty`/
+  `itEnabledEval` leem `el.value` e não olham o atributo.
+- **`numToInput` passou a espelhar `fmt_num`** (`static/js/formats.js`), que o
+  §5.14 já afirmava ser verdade e não era: com `dec = 0` ele agrupava
+  (`numToInput(1000, 0)` → `'1.000'`, contra `'1000'` do `fmt_num`) **e**
+  arredondava (`numToInput(1234.5, 0)` → `'1235'`, contra `'1234,5'`).
+  `'1.000'` volta como `1` — pelo `parseNumText` e pelo `_coerce` no POST, ou
+  seja, `1000` gravava `1`. Sem casas agora não agrupa nem arredonda, como o
+  `fmt_num`, e o round-trip fecha nos dois lados.
+- **Um terceiro ponto de escrita tinha o mesmo defeito:** `searchApplyReplaces`
+  (`pages/sys.html`) escrevia `String(Math.round(v * 100) / 100)` — `'1234.5'`
+  cru — e contava com o `fmtFieldInput` seguinte para normalizar, que não
+  repara em alvo desabilitado. Agora usa `numToInputFor`, mas **só quando o
+  alvo declara `data-num-decimals`**: texto e código (`tel`, `cpf`, `cep`) ficam
+  em `String(v)`, porque passar por `Number` comeria o zero à esquerda de
+  `'01310100'`.
+- **Verificado como par nos dois espaços:** 80 casos de `render_value` ↔
+  `itFmtByAttrs` (`textContent`, 0 divergências reais) e 32 de `fmt_num` ↔
+  `numToInputFor` (`inp.value`, 0 divergências, com round-trip contra o valor
+  nas casas declaradas). E uma simulação do cliente sobre o **HTML real** dos
+  forms de COMPRA/PEDIDO/ORÇAMENTO, rodando o `formCalcRefresh` e o
+  `itSessionTotals` extraídos do `sys.html` contra os inputs que o servidor
+  emitiu: `total` fica `29,00`/`480,00`/`1.365,00`, `valor` fica `29,70`/`480,00`,
+  e o `<tfoot>` sai `3,00`·`29,70`, `133`·`480,00`, `300`·`1.365,00` — o `INT`
+  sem agrupar, como manda a regra. Não há DOM headless aqui: o harness monta um
+  stub mínimo (`getAttribute`/`querySelector*`/`closest`/`value`/`textContent`)
+  a partir das tags do HTML.
+
+### 1.26.10.08.0033
+- **O cliente é o segundo renderizador, e ele não recebia a máscara.** O `.0032`
+  arrumou o servidor (`render_value`), mas `calc`, coluna calculada e total são
+  redesenhados no navegador — e antes disso só viajavam `data-calc-currency`,
+  emitido **quando a máscara tem `@M`**. Como `MVALOR` é `'999,999.99'` (sem
+  `@M`, de propósito: `653a166` pôs a moeda no rótulo da coluna do relatório),
+  `f.currency` era `None` e os quatro pontos caíam em `String(v)`: o input de
+  `total` abria `29` e perdia os centavos (`29.70 - 0.70` → `'29'`), a coluna
+  `valor` dos itens saía `12.5`, e o total do `<tfoot>` saía por
+  `Number(result).toFixed(dec)` — **`1234.50`, com ponto**. Era o `653a166` que
+  tinha deixado os quatro sem fallback.
+- **O contrato com o cliente passou a ser a máscara, não a moeda.**
+  `components/form_macros.html:fmt_attrs(f)` emite `data-fmt-mask` /
+  `data-fmt-decimals` / `data-fmt-currency` / `data-fmt-percent` do `Field`, e
+  entra no input `calc` do form, nas 4 células `it-calc` (item_table) e no
+  `<td class="it-calc-total">`. `pages/sys.html:itFmtByAttrs(el, v, dec)` decide
+  no cliente na **mesma ordem** de `render_value`. `data-calc-currency` e
+  `data-total-currency`/`data-total-decimals` saíram: dois atributos dizendo a
+  mesma coisa é como a divergência entrou. As casas do cliente saem por
+  `_fmtDec` e não por `fmtNumBR`, que escreve o input e sem casas não agrupa de
+  propósito. Passar pela máscara também mata o artefato de float, porque
+  `_renderNumMask`/`_fmtDec` usam `toFixed`.
+- **`Field.num_decimals`** (`defs/data.py`) — a prop de exibição das casas: o
+  `decimals` declarado, ou **0** para input numérico sem casas. É o caso de
+  `ID`/`DK`, que `FIELD_TYPES` define como `input: 'number'` sem `decimals` e sem
+  máscara, então não recebem `num_mask`. Sem a regra, `mask_cmd` recebia `None`
+  e caía no default de 2 casas — foi o que fez a coluna `#` virar `6,00` quando
+  o `.0032` roteou número por `mask_cmd`. `render_value` perdeu o desvio do
+  `fmtid` (que alinhava em 7 colunas com NBSP: numa coluna já alinhada à direita
+  pelo CSS o padding vira espaço à esquerda, e era ele que punha o separador
+  dentro das casas — `'1.234..50'`). `core/list.py:field_to_column` passou a
+  emitir `num_decimals` no lugar de `decimals`.
+- **`_total_decimals` saiu** (`defs/form.py`): preferia a **escala da coluna no
+  banco** quando a Entity não declarava `decimals`, o que discordava da própria
+  linha — `compra_itens.qtd` é `NUMERIC(12,3)` com `type: 'NUM'` (2 casas na
+  linha) e o total saía com 3, por cima do `toFixed` com ponto. O total usa
+  agora `num_decimals`, que é o mesmo número que a linha exibe. E
+  `'currency': bool(getattr(f, 'currency', None))` virou o id, como o ramo
+  vizinho já fazia: com `@M(USD)` num total de entrada em string, emitia
+  `data-total-currency="True"` e o JS resolvia para `BRL`.
+- **`itTotalsRefresh` perdeu o `|| 'brl'`** (`pages/sys.html`): um motor genérico
+  não pode inventar moeda num campo que não pediu nenhuma. O caminho é código
+  morto — `_session_totals` é sempre `{}` (`do_form.py:608`), então
+  `data-total-expr` nunca sai — e foi deixado no lugar por decisão, mas agora
+  degrada para o número cru em vez de `R$`.
+- **Verificado como par, que é o que faltava:** 80 casos do mesmo `Field` com o
+  mesmo valor por `render_value` (Python) e `itFmtByAttrs` (JS, com stub de
+  `getAttribute` — a função só lê atributo, então não precisa de DOM) — 0
+  divergências reais. As 4 do arredondamento de meio exato (`12.5` em 0 casas:
+  `%.0f` do Python arredonda para par, `toFixed(0)` do JS para cima) são
+  **pré-existentes** — o par `fmt_num`/`fmtNumBR` já discordava — e o harness as
+  classifica à parte em vez de escondê-las. Além disso: diff dos `data-*` no
+  form real de COMPRA/PEDIDO/ORÇAMENTO (todo `calc`/coluna/total com
+  `data-fmt-mask`), diff das 6 cadeias de exibição do `.0032` (0 mudança), diff
+  das listagens contra o Postgres (só a coluna `#` perdendo o padding), `env.parse`
+  nos 24 templates, `ast.parse` nos 155 `.py`, import dos 50 módulos e
+  `node --check` nos 8 blocos de `sys.html`.
+
+### 1.26.10.08.0032
+- **O valor gravado não era formatado em três superfícies ao mesmo tempo — a
+  cadeia de exibição nunca roteava o número pela máscara dele.** `NUM` com
+  `mask: MVALOR` saía `1.234..50` no campo `readonly`/`calc` do form e em toda
+  célula do `item_table`, e `1234.50` cru na listagem e na `query`. Duas causas:
+  `render_label` mandava todo campo de `input: 'number'` para `fmt_id`, que
+  agrupava a **string** inteira e punha o separador dentro das casas decimais
+  (`'1.234..50'`) e dentro do texto (`'João da Silva'` → `'J.oão.\xa0da.\xa0Si.lva'`,
+  `True` → `'T.rue'`); e o ramo do valor gravado da listagem — as cinco cópias
+  do encadeamento em `pages/list.html` — só testava `datemask`/`strftime`/`@R` e
+  caía em `{{ _raw }}`. O `.0005` havia ligado `|format` só no ramo `calc`.
+- **`render_value(val, f)` é agora o passo único de exibição** (em
+  `components/form_macros.html`), para `Field` e para a coluna da listagem:
+  `none`/vazio → `percent` → data → `input == 'number'` (`mask_cmd`, que
+  resolve a canônica, o `@M`, o `@B` e o `@X`) → `mask` (`format`) → cru.
+  `render_label` virou uma chamada; `pages/list.html` colapsou as cinco cópias
+  em `_value_cell(item, col, img_h, img_js)`, e `_det_cell` (que
+  `item_table_display` invoca com 3 args) virou um wrapper. O `col.tag` ficou
+  no `<td>` de propósito: ele desenha uma pílula com a largura da coluna, o que
+  não faz sentido no card. Divergências que a unificação resolveu: `_det_cell`
+  não tinha os ramos `currency`/`percent`/`boolean` que os outros quatro tinham.
+- **`fmt_id` parou de agrupar a string inteira** (`core/formats.py`): inteiro
+  como antes (`'  1.234'`, NBSP), fração em 2 casas no `DECIMAL` do app e sem o
+  alinhamento do id, não numérico como `str`. O filtro `fmtid` continua
+  registrado e é o `converter.html` que o usa — id inteiro, inalterado.
+- **`format` só trata número como número quando a máscara manda.** Corpo vazio
+  com transform de texto (`@U`/`@L`/`@C`/`@T`) é instrução de texto: `@T` com
+  `1234.50` devolve `'1234.50'`, não `'1.234,50'`. Espelhado em
+  `static/js/formats.js` — os 15 casos de paridade Python↔JS conferem.
+- **`core/search.py:_fmt_cell`** usa `format` no ramo numérico com máscara
+  (ganha `@M`, `@B`, `@X`) e **não** no de texto/data, cujo caminho é
+  posicionamento de dígitos e devolveria vazio ou lixo. `render_agg_total`
+  (`item_table.html`) recebe o `Field` do agregado e sai por `render_value` —
+  soma/média sem `currency` paravam em `1234.50` cru.
+- **Precedência deliberada:** `percent` e `strftime` vêm antes de `currency` e
+  de `@B`/`@X`. Uma data num campo com `@M` saía `R$ 2026-03-07` e sai
+  `07/03/2026`; `@T`/`@U` passaram a valer na exibição (o valor já vem
+  gravado transformado por `apply_field_transforms`, e os três são idempotentes).
+  Equivalência: 1129 linhas de harness nas 6 cadeias (`render_label`,
+  `_det_cell`/`_value_cell`, `render_agg_total`, `_fmt_cell`, `fmt_id`) × 21
+  campos × 22 valores, com `git archive HEAD` numa árvore paralela como
+  baseline; `env.parse` nos 5 templates tocados, `ast.parse` e import nos .py.
 
 ### 1.26.10.08.0031
 - **A `width` do field ficou só na COLUNA.** O `.0029` anexou a `width` ao

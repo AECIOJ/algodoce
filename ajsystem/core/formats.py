@@ -382,14 +382,18 @@ def format(value, mask):
       (`@M(id)`, separadores do app);
     - string ou número em máscara de texto/documento → `fmt_mask`
       (CPF `999.999.999-99` com `9` = dígito, literais preservados).
+
+    Corpo vazio com transform de texto (`@U`/`@L`/`@C`/`@T` e nada mais) é
+    instrução de **texto**, não formatador: número que chega nele sai como
+    `str` + transform (`@T`, `1234.50` → `'1234.50'`), não `'1.234,50'`.
     """
     if value is None:
         return ''
-    _, display, _ = parse_mask(mask)
+    cmds, display, _ = parse_mask(mask)
     if hasattr(value, 'strftime') and has_date_tokens(display):
         return fmt_mask(value, mask)
-    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool) \
-            and (not display or _is_num_mask(display)):
+    num_mask = _is_num_mask(display) or (not display and not (cmds & set(_TEXT_COMMANDS)))
+    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool) and num_mask:
         return fmt_mask_cmd(value, mask, _mask_decimals(display))
     return fmt_mask(value, mask)
 
@@ -664,9 +668,22 @@ def fmt_num(value, decimals=None, group=False):
 
 
 def fmt_id(value):
+    """Inteiro de exibição com separador de milhar, alinhado à direita em 7.
+
+    Só a parte inteira agrupa: agrupar a string inteira (o jeito antigo) punha o
+    separador dentro das casas decimais e dentro do texto — `1234.50` saía
+    `'1.234..50'` e `'João'` saía `'J.oão'`. Fração sai em 2 casas no `DECIMAL`
+    do app, sem o alinhamento (que é do id); não numérico sai como `str`.
+    """
     if value is None:
         return '0'
-    return ('%7s' % _group_digits(str(value), THOUSAND)).replace(' ', '\u00A0')
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if not num.is_integer():
+        return _fmt_dec(num, 2, True)
+    return ('%7s' % _fmt_dec(num, 0, True)).replace(' ', '\u00A0')
 
 
 # ── Data/hora ────────────────────────────────────────────────────────────────

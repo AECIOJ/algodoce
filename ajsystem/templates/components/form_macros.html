@@ -15,7 +15,7 @@
        oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_TIME }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
 {% elif field.input == 'number' %}
 <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
-       value="{{ val|fmt_num(field.decimals) if val is not none else '' }}"
+       {% if field.num_decimals is not none %}data-num-decimals="{{ field.num_decimals }}"{% endif %} value="{{ val|fmt_num(field.decimals) if val is not none else '' }}"
        oninput="marcarFormAlterado()" onchange="marcarFormAlterado()">
 {% else %}
 <input type="text" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
@@ -72,13 +72,13 @@
 {% endif %}
 {% elif field.calc %}
 {% set _calc_txt = render_label(field, data)|trim %}
-<input type="text" name="{{ ns }}" class="input input-bordered input-sm{% if field.calc is string %} aj-calc{% endif %}" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _calc_txt if _calc_txt and _calc_txt != '—' else '' }}"{% if field.calc is string %} data-calc="{{ field.calc }}"{% endif %}{% if field.currency %} data-calc-currency="{{ field.currency }}"{% endif %} disabled tabindex="-1">
+<input type="text" name="{{ ns }}" class="input input-bordered input-sm{% if field.calc is string %} aj-calc{% endif %}" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _calc_txt if _calc_txt and _calc_txt != '—' else '' }}"{% if field.calc is string %} data-calc="{{ field.calc }}"{% endif %} {% if field.num_decimals is not none %}data-num-decimals="{{ field.num_decimals }}"{% endif %}{{ fmt_attrs(field)|safe }} disabled tabindex="-1">
 {% elif _ro_msg %}
 {% if field.input == 'image' %}
 {{ render_label(field, data) }}
 {% else %}
 {% set _ro_txt = render_label(field, data)|trim %}
-<input type="text" name="{{ ns }}" class="input input-bordered input-sm w-full" value="{{ _ro_txt if _ro_txt and _ro_txt != '—' else '' }}" disabled tabindex="-1">
+<input type="text" name="{{ ns }}" class="input input-bordered input-sm w-full" value="{{ _ro_txt if _ro_txt and _ro_txt != '—' else '' }}" {% if field.num_decimals is not none %}data-num-decimals="{{ field.num_decimals }}"{% endif %} disabled tabindex="-1">
 {% endif %}
 <div class="mt-1 flex items-start gap-1 text-xs font-medium" style="color:color-mix(in srgb,var(--wa) 55%,var(--bc));max-width:100%;">
   <svg class="w-3.5 h-3.5 mt-px flex-none" style="color:var(--wa);" aria-hidden="true"><use href="#i-exclamation-triangle"/></svg>
@@ -87,7 +87,7 @@
 {% else %}
 {% if field.readonly %}
 {% set _ro_txt = render_label(field, data)|trim %}
-<input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _ro_txt if _ro_txt and _ro_txt != '—' else '' }}" disabled tabindex="-1">
+<input type="text" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }};{% if field.align and field.align != 'left' %}text-align:{{ field.align }};{% endif %}" value="{{ _ro_txt if _ro_txt and _ro_txt != '—' else '' }}" {% if field.num_decimals is not none %}data-num-decimals="{{ field.num_decimals }}"{% endif %} disabled tabindex="-1">
 {% else %}
 {{ render_label(field, data) }}
 {% endif %}
@@ -137,7 +137,7 @@
   </label>
 {% elif field.input == 'number' %}
   {% if field.percent %}<div class="relative inline-flex items-center">{% endif %}
-  <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm{% if field.percent %} input-percent{% endif %}{% if field.step is none %} no-spinner{% endif %}" style="width:{{ _iwidth }}{% if field.align and field.align != 'left' %};text-align:{{ field.align }}{% endif %}{% if field.percent %};padding-right:2rem{% endif %}" step="{{ step_val }}" {% if field.decimals is not none %}data-num-decimals="{{ field.decimals }}" {% endif %}value="{{ val|fmt_num(field.decimals) if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str|safe }}{% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}>
+  <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm{% if field.percent %} input-percent{% endif %}{% if field.step is none %} no-spinner{% endif %}" style="width:{{ _iwidth }}{% if field.align and field.align != 'left' %};text-align:{{ field.align }}{% endif %}{% if field.percent %};padding-right:2rem{% endif %}" step="{{ step_val }}" {% if field.num_decimals is not none %}data-num-decimals="{{ field.num_decimals }}" {% endif %}value="{{ val|fmt_num(field.decimals) if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str|safe }}{% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}>
   {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
   {% set _iwidth = (field.width + 5) ~ 'ch' %}
@@ -178,6 +178,75 @@
 {% endif %}
 {% endmacro %}
 
+{#
+  Valor de exibição de um field/coluna — fonte única da cadeia de formatação,
+  usada pelo `render_label` (form e `item_table`) e por `pages/list.html`.
+
+  `f` pode ser um `Field` ou a coluna da listagem (`core/list.py:field_to_column`):
+  os dois expõem `input`/`mask`/`num_decimals`/`currency`/`percent`. O
+  `num_decimals` é a prop de exibição do `Field` (o `decimals` declarado, ou 0
+  para input numérico sem casas — `ID`/`DK`), então nunca é `Undefined` aqui
+  quando o input é numérico: `mask_cmd` não aceita `Undefined` e estoura
+  `ValueError: Format specifier missing precision`.
+
+  Precedência:
+    - `none`/string vazia — nada a formatar (`''` na máscara de data devolveria
+      o literal dela: `'dd/mm/aaaa'`);
+    - `percent` — o sufixo `%` manda sobre a máscara (o campo já tem casas e
+      símbolo na entrada; na exibição é 1 casa + `%`);
+    - `strftime` — data/hora: pela máscara quando ela tem tokens, senão `fmtdate`;
+    - `input == 'number'` — `mask_cmd`, que resolve **tudo** que é número: a
+      máscara canônica (`1.234,50`), o `@M(id)` (`R$ 1.234,50`), `@B` (branco
+      no zero), `@X` (sufixo C/D) e a ausência de máscara (vem de
+      `num_decimals`); um `ID`/`DK` sem casas sai inteiro agrupado (`1.234`);
+    - máscara de texto/data (`@R` de CPF/CNPJ/tel, `@U/@L/@C/@T`) — `format`;
+    - sem máscara — o valor cru.
+
+  Repare que número **não** passa por `fmtid`: aquele alinha em 7 colunas com
+  NBSP (é layout de id, não de coluna), e agrupando a string inteira punha o
+  separador dentro das casas decimais (`'1.234..50'`) e dentro do texto
+  (`'J.oão'`).
+#}
+{% macro render_value(val, f) %}
+{%- if val is none or (val is string and not val|trim) -%}
+{{ val if val is not none else '—' }}
+{%- elif f.percent -%}
+{{ val|percent }}
+{%- elif val.strftime is defined -%}
+{{ val|mask(f.mask) if f.mask is datemask else val|fmtdate }}
+{%- elif f.input == 'number' -%}
+{{ val|mask_cmd(f.mask, f.num_decimals, f.currency if f.currency is defined else none) }}
+{%- elif f.mask -%}
+{{ val|format(f.mask) }}
+{%- else -%}
+{{ val }}
+{%- endif -%}
+{% endmacro %}
+
+{#
+  Metadados de formatação de um field para o CLIENTE — o contrato de
+  `itFmtByAttrs` (`pages/sys.html`), o formatador do segundo renderizador.
+
+  Antes, `calc`, coluna calculada e total só recebiam `data-calc-currency`, que
+  o motor emite **quando a máscara tem `@M`**. Como `MVALOR` é `'999,999.99'`
+  — sem `@M`, de propósito (a moeda vai no rótulo da coluna do relatório) —
+  `f.currency` era `None` e o JS caía em `String(v)`: o input de `total` saía
+  `29` (perdia os centavos), a coluna `valor` dos itens saía `12.5` e o total do
+  `<tfoot>` saía `1234.50`, com ponto. A máscara do campo é que sabe formatar,
+  e ela não viajava.
+
+  Por isso o contrato é a **máscara**, não a moeda: o que o campo declara
+  (`@M`, `@B`, `@X`, `@U`…) viaja inteiro e decide no cliente. `num_decimals`
+  cobre o campo numérico sem máscara declarada, e `data-num-decimals` (o input
+  editável) é o último recurso do JS.
+#}
+{% macro fmt_attrs(f) %}
+{%- if f.mask %} data-fmt-mask="{{ f.mask }}"{% endif -%}
+{%- if f.input == 'number' and f.num_decimals is not none %} data-fmt-decimals="{{ f.num_decimals }}"{% endif -%}
+{%- if f.currency %} data-fmt-currency="{{ f.currency }}"{% endif -%}
+{%- if f.percent %} data-fmt-percent="1"{% endif -%}
+{%- endmacro %}
+
 {% macro render_label(field, data=none, ro=false) %}
 {% set val = (calc_value(field.calc, data) if (field.calc is defined and field.calc and data is not none) else (data|deep_attr(field.name))) if data is not none else (field.default() if field.default is callable else field.default) %}
 {% if field.input == 'image' and val %}
@@ -212,7 +281,7 @@
     {{ _ns.nome if _ns.nome else val }}
   {% endif %}
 {% elif val is not none %}
-  {% if field.mask_cmds and ('B' in field.mask_cmds or 'X' in field.mask_cmds) %}{{ val|mask_cmd(field.mask, field.decimals, field.currency) }}{% elif field.currency %}{{ val|money(field.currency) }}{% elif field.percent %}{{ val|percent }}{% elif val.strftime is defined and field.mask is datemask %}{{ val|mask(field.mask) }}{% elif val.strftime is defined %}{{ val|fmtdate }}{% elif field.mask_display and 'R' in field.mask_cmds %}{{ val|mask(field.mask) }}{% elif field.input == 'number' and field.mask_display and not field.mask_cmds %}{{ val|fmtid }}{% else %}{{ val }}{% endif %}
+  {{ render_value(val, field) }}
 {% else %}—
 {% endif %}
 {% endmacro %}

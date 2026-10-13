@@ -229,8 +229,8 @@ def field_to_column(f: Field) -> dict:
         col['mask_cmds'] = ''.join(sorted(f.mask_cmds))
     if f.mask_display and 'R' in f.mask_cmds:
         col['nowrap'] = True
-    if f.decimals is not None:
-        col['decimals'] = f.decimals
+    if f.num_decimals is not None:
+        col['num_decimals'] = f.num_decimals
     if f.currency:
         col['currency'] = f.currency
     if f.percent:

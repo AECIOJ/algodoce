@@ -31,26 +31,6 @@ def _extract_entity_from_cols(cols, fallback_name: str) -> str:
     return fallback_name
 
 
-def _total_decimals(f, child_model, child_merged=None):
-    """Casas decimais do total de uma coluna, iguais às da linha.
-
-    Precedência: `decimals` declarado na Entity/Schema; senão a escala da
-    coluna NUM no banco (ex.: NUM(12,3) → 3, igual ao exibido na linha).
-    Sem informação → None (JS usa `String`, como antes)."""
-    cfg = (child_merged or {}).get(getattr(f, 'name', None), {}) or {}
-    if 'decimals' in cfg:
-        return cfg['decimals']
-    if child_model is not None:
-        try:
-            t = child_model.__table__.columns[getattr(f, 'name', None)].type
-            scale = getattr(t, 'scale', None)
-            if scale is not None:
-                return scale
-        except Exception:
-            pass
-    return None
-
-
 @dataclass
 class Form:
     # ── Props declarativas (o motor resolve o restante a partir de `fields`) ──
@@ -283,6 +263,10 @@ class Form:
                         resolved_cols = self._resolve_session_cols(child_merged, q_cols, child_ent)
                     q_dict['columns'] = resolved_cols
                     # `totals` para query session (readonly) - mesmo formato da table
+                    # As casas vêm de `Field.num_decimals` (o `decimals` do field, ou 0
+                    # para input numérico sem casas), e NÃO da escala da coluna no
+                    # banco: essa discorda da própria linha — `compra_itens.qtd` é
+                    # `NUMERIC(12,3)` com `type: 'NUM'` e sai com 2 casas nela.
                     spec_totals = q_dict.get('totals')
                     if spec_totals:
                         entries = spec_totals if isinstance(spec_totals, list) else [spec_totals]
@@ -297,7 +281,7 @@ class Form:
                                         'fn': 'sum',
                                         'calc': f.calc if getattr(f, 'calc', None) else None,
                                         'currency': getattr(f, 'currency', None) or None,
-                                        'decimals': _total_decimals(f, child_model, child_merged),
+                                        'decimals': f.num_decimals,
                                         'target': target or None,
                                     }
                             else:
@@ -307,8 +291,8 @@ class Form:
                                 total_map[f.name] = {
                                     'fn': 'sum',
                                     'calc': f.calc if getattr(f, 'calc', None) else None,
-                                    'currency': bool(getattr(f, 'currency', None)),
-                                    'decimals': _total_decimals(f, child_model, child_merged),
+                                    'currency': getattr(f, 'currency', None) or None,
+                                    'decimals': f.num_decimals,
                                 }
                         if total_map:
                             q_dict['total'] = total_map
@@ -328,7 +312,9 @@ class Form:
                 #     item dict {coluna: campo_master} → totaliza E grava no
                 #     input do master (celula `data-total-target`).
                 #   - string única:              'valor'
-                # Sem `totals` nenhuma coluna é totalizada.
+                # Sem `totals` nenhuma coluna é totalizada. As casas vêm de
+                # `Field.num_decimals`, o mesmo número que a linha exibe (ver a
+                # nota da sessão `query` acima, sobre a escala da coluna).
                 spec_totals = t_dict.get('totals')
                 if spec_totals:
                     entries = spec_totals if isinstance(spec_totals, list) else [spec_totals]
@@ -343,7 +329,7 @@ class Form:
                                     'fn': 'sum',
                                     'calc': f.calc if getattr(f, 'calc', None) else None,
                                     'currency': getattr(f, 'currency', None) or None,
-                                    'decimals': _total_decimals(f, child_model, child_merged),
+                                    'decimals': f.num_decimals,
                                     'target': target or None,
                                 }
                         else:
@@ -353,8 +339,8 @@ class Form:
                             total_map[f.name] = {
                                 'fn': 'sum',
                                 'calc': f.calc if getattr(f, 'calc', None) else None,
-                                'currency': bool(getattr(f, 'currency', None)),
-                                'decimals': _total_decimals(f, child_model, child_merged),
+                                'currency': getattr(f, 'currency', None) or None,
+                                'decimals': f.num_decimals,
                             }
                     if total_map:
                         t_dict['total'] = total_map

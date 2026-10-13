@@ -20,7 +20,6 @@ exigidos, retorna `{'need': [...]}` para o cliente pedir ao usuário.
 """
 import re
 
-from ajsystem.core.formats import mask_money_id
 from ajsystem.core.resolve import field_presentation
 
 _OPS = ('NOT IN', 'IN', '>=', '<=', '!=', '=', '>', '<', 'IS NOT NULL', 'IS NULL')
@@ -162,23 +161,32 @@ def _py_match(value, op, raw):
 
 
 def _fmt_cell(value, cfg):
-    from ajsystem.core.utils import fmt_date, fmt_datetime, fmt_money
+    from ajsystem.core.formats import fmt_date, fmt_datetime
+    from ajsystem.core.formats import format as fmt_value
     if value is None:
         return '—'
+    cfg = cfg or {}
+    mask = cfg.get('mask')
     # A decisão (máscara → moeda; type/input → data) é genérica e vive em
     # `core.resolve.field_presentation`, compartilhada com o report.
     fmt, _align = field_presentation(cfg)
-    code = mask_money_id((cfg or {}).get('mask'))
-    if code:
-        return fmt_money(value, code)
     if hasattr(value, 'strftime'):
         # `field_presentation` devolve 'datetime' exatamente quando o campo é
         # data sem hora (type DATA / input date) — que é o caso de `fmt_date`.
         return fmt_date(value) if fmt == 'datetime' else fmt_datetime(value)
+    if mask and not isinstance(value, bool) and (
+            isinstance(value, (int, float)) or hasattr(value, 'quantize')):
+        # Número com máscara declarada: `format` é a fonte única — a canônica
+        # nos separadores do app, o `@M(id)`, o `@B` em branco no zero e o `@X`
+        # com o sufixo C/D. Sem máscara, sobra o swap pt-BR na mão. Texto e data
+        # NÃO passam por `format`: o caminho de texto dele é posicionamento de
+        # dígitos, que com valor não numérico devolve vazio ou lixo.
+        return fmt_value(value, mask)
     if isinstance(value, float):
         s = f'{value:,.2f}'
         return s.replace(',', 'X').replace('.', ',').replace('X', '.')
     if hasattr(value, 'quantize'):
+        # `format` aqui é o builtin (o de máscara está como `fmt_value`).
         s = format(value, 'f')
         if '.' in s:
             s = s.replace('.', ',')

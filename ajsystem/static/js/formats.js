@@ -273,14 +273,18 @@ function _isNumMask(display) {
   if (!display) return false;
   return /^[09,.]*$/.test(display);
 }
+/* Espelho de `core/formats.py:format`. Corpo vazio com transform de texto
+   (`@U`/`@L`/`@C`/`@T` e nada mais) é instrução de TEXTO: número que chega nele
+   sai como `String` + transform, não formatado. */
 function format(value, mask) {
   if (value === null || value === undefined) return '';
-  if (typeof value !== 'number' || isNaN(value)) {
+  var p = _maskParseCommands(mask);
+  var textCmd = /[ULCT]/.test(p.cmds);
+  var numMask = _isNumMask(p.display) || (!p.display && !textCmd);
+  if (typeof value !== 'number' || isNaN(value) || !numMask) {
     if (value instanceof Date && !isNaN(value.getTime())) return fmtMask(value, mask);
     return fmtMask(String(value), mask);
   }
-  var p = _maskParseCommands(mask);
-  if (p.display && !_isNumMask(p.display)) return fmtMask(String(value), mask);
   if (p.cmds.indexOf('B') >= 0 && value === 0) return '';
   var dec = _maskDecimals(p.display);
   var mid = p.money;
@@ -363,7 +367,11 @@ function parseNumField(el) { return el ? parseNumText(el.value) : NaN; }
 function numToInput(v, dec) {
   var n = Number(v);
   if (isNaN(n)) return null;
-  if (dec === null || dec === undefined) {
+  if (dec === null || dec === undefined || dec <= 0) {
+    /* Espelha `fmt_num`: sem casas não arredonda NEM agrupa. Arredondar
+       perderia a fração ('1234.5' → '1235') e agrupar daria '1.000', que sem
+       vírgula é lido como 1.0 — pelo `parseNumText` aqui e pelo `_coerce` no
+       POST, ou seja, 1000 voltaria como 1. */
     if (n % 1 === 0) return String(n);
     return String(n).replace('.', _DEC);
   }

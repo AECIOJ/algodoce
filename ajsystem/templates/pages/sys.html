@@ -447,7 +447,15 @@ function searchApplyReplaces(box, hid, tr) {
     var target = form ? form.querySelector('[name="' + (base ? base + '_' : '') + alvo + '"]') : null;
     if (!target) return;
     var v = raw[fonte];
-    target.value = (typeof v === 'number') ? String(Math.round(v * 100) / 100) : String(v);
+    /* `inp.value` é espaço de input: o número entra na convenção do campo alvo
+       (`numToInputFor`, que lê `data-num-decimals`) e não cru. Só quando o alvo
+       declara essa convenção — texto e código (`tel`, `cpf`, `cep`) ficam em
+       `String(v)`, porque passar por `Number` comeria o zero à esquerda. */
+    var _w = target.getAttribute('data-num-decimals') === null
+      ? null : numToInputFor(target, v);
+    target.value = _w === null
+      ? ((typeof v === 'number') ? String(Math.round(v * 100) / 100) : String(v))
+      : _w;
     fmtFieldInput(target);
     target.dispatchEvent(new Event('input', {bubbles: true}));
     target.dispatchEvent(new Event('change', {bubbles: true}));
@@ -793,7 +801,6 @@ function itTotalsRefresh(wrap) {
   if (!wrap) return;
   var expr = wrap.getAttribute('data-total-expr');
   if (!expr) return;
-  var cur = wrap.getAttribute('data-total-currency') || 'brl';
   var body = wrap.querySelector('.it-desktop tbody[data-rel]');
   if (!body) return;
   var rel = body.getAttribute('data-rel');
@@ -817,7 +824,7 @@ function itTotalsRefresh(wrap) {
     var td = document.createElement('td');
     td.className = 'it-total-cell text-right text-sm font-semibold';
     td.setAttribute('data-crow', c);
-    td.textContent = itFmtMoney(rowTotal, cur);
+    td.textContent = itFmtByAttrs(wrap, rowTotal);
     tr.appendChild(td);
   });
   if (mtable && list.length) {
@@ -837,14 +844,14 @@ function itTotalsRefresh(wrap) {
       var td = document.createElement('td');
       td.className = 'itm-cell it-total-cell text-right text-sm font-semibold';
       td.setAttribute('data-crow', c);
-      td.textContent = itFmtMoney(rowTotal, cur);
+      td.textContent = itFmtByAttrs(wrap, rowTotal);
       trTotal.appendChild(td);
     });
     mtable.querySelector('tbody').appendChild(trTotal);
   }
   var gt = document.createElement('div');
   gt.className = 'it-grand-total text-right text-sm font-bold mt-1';
-  gt.textContent = 'Total geral: ' + itFmtMoney(grand, cur);
+  gt.textContent = 'Total geral: ' + itFmtByAttrs(wrap, grand);
   wrap.appendChild(gt);
   if (window.itmPagerInit) itmPagerInit();
 }
@@ -1008,6 +1015,41 @@ function itUpdateZerados(btn) {
     itToasts('Nenhum preço zerado para atualizar', 'info');
   }
 }
+/* ── formatação do segundo renderizador ────────────────────────────────────
+   O cliente redesenha `calc`, coluna calculada e total quando o form muda, e
+   antes ele só sabia de moeda: `data-calc-currency`, emitido só quando a
+   máscara tem `@M`. Como `MVALOR` é `'999,999.99'` — sem `@M` de propósito —,
+   esses pontos caíam em `String(v)` e devolviam o que o servidor tinha acabado
+   de formatar: o input de `total` virava `29` (sem centavos), a coluna `valor`
+   dos itens `12.5`, e o total do `<tfoot>` saía por `toFixed`, com PONTO.
+
+   `itFmtByAttrs` é o espelho de `render_value` (`components/form_macros.html`):
+   a máscara que o campo declara viaja em `data-fmt-mask` (`fm.fmt_attrs`) e
+   decide no cliente — canônica, `@M`, `@B`, `@X`, nos separadores do
+   `window.AJ_MASK`. Passar pela máscara também mata o artefato de float, porque
+   `_renderNumMask`/`_fmtDec` usam `toFixed`.
+
+   Precedência (a mesma do `render_value`): percent → máscara → moeda → casas →
+   `String`. As casas vêm de `data-fmt-decimals` (`Field.num_decimals`); o
+   `data-num-decimals` do próprio elemento é só o último recurso, e `numDecimals`
+   o recusa quando o elemento está `disabled` — que é o caso do input de `calc`,
+   por isso `data-fmt-decimals` tem de existir.
+
+   As casas saem por `_fmtDec` e **não** por `fmtNumBR`: `fmtNumBR` escreve o
+   input, que sem casas não agrupa de propósito (`'1.000'` sem vírgula seria
+   lido como `1.0` no POST). Aqui é `textContent` — exibição, então agrupa. */
+function itFmtByAttrs(el, v, dec) {
+  if (v === null || v === undefined || (typeof v === 'number' && isNaN(v))) return null;
+  if (el && el.getAttribute('data-fmt-percent')) return _fmtDec(v, 1, true) + '%';
+  var mask = el && el.getAttribute('data-fmt-mask');
+  if (mask) return format(v, mask);
+  var cur = el && el.getAttribute('data-fmt-currency');
+  if (cur) return itFmtMoney(v, cur);
+  var d = el && el.getAttribute('data-fmt-decimals');
+  var n = (d === null || d === undefined || d === '') ? dec : parseInt(d, 10);
+  if (n === null || n === undefined || isNaN(n)) n = numDecimals(el);
+  return (n === null || n === undefined || isNaN(n)) ? String(v) : _fmtDec(v, n, true);
+}
 function itCalcRefresh(wrap) {
   if (!wrap) return;
   var relEl = wrap.querySelector('.it-desktop tbody[data-rel], .it-display tbody[data-rel]');
@@ -1026,8 +1068,8 @@ function itCalcRefresh(wrap) {
     var crow = crowEl ? crowEl.getAttribute('data-crow') : null;
     var expr = cell.getAttribute('data-calc');
     var v = itEval(expr, varsFor(crow, expr));
-    var cur = cell.getAttribute('data-calc-currency');
-    cell.textContent = isNaN(v) ? '—' : (cur ? itFmtMoney(v, cur) : String(v));
+    var txt = itFmtByAttrs(cell, v);
+    cell.textContent = txt === null ? '—' : txt;
   });
   wrap.querySelectorAll('[data-calc-total]').forEach(function(cell) {
     var expr = cell.getAttribute('data-calc');
@@ -1040,10 +1082,14 @@ function itCalcRefresh(wrap) {
       var v = itEval(expr, varsFor(crow, expr));
       if (!isNaN(v)) sum += v;
     });
-    var cur = cell.getAttribute('data-calc-currency');
-    cell.textContent = cur ? itFmtMoney(sum, cur) : String(sum);
+    var txt = itFmtByAttrs(cell, sum);
+    cell.textContent = txt === null ? '—' : txt;
   });
 }
+/* `inp.value` é ESPAÇO DE INPUT, não de exibição: quem escreve é
+   `numToInputFor` (a convenção do campo alvo, `dec` = `data-num-decimals`) e
+   não `itFmtByAttrs`, que responde à máscara e é para `textContent`. Num campo
+   `percent` a diferença aparece logo — o `%` é do span ao lado, não do input. */
 function formCalcRefresh(scope) {
   scope = scope || document.getElementById('main-form') || document;
   scope.querySelectorAll('input.aj-calc[data-calc]').forEach(function(inp) {
@@ -1055,9 +1101,8 @@ function formCalcRefresh(scope) {
       vars[f] = el ? parseNumField(el) : 0;
     });
     var v = itEval(expr, vars);
-    var cur = inp.getAttribute('data-calc-currency');
-    var formatted = isNaN(v) ? '' : (cur ? itFmtMoney(v, cur) : String(v));
-    inp.value = formatted;
+    var written = numToInputFor(inp, v);
+    inp.value = (written === null || isNaN(v)) ? '' : written;
   });
 }
 function itSessionTotals(wrap) {
@@ -1076,7 +1121,6 @@ function itSessionTotals(wrap) {
   wrap.querySelectorAll('[data-total-field]').forEach(function(cell) {
     var fname = cell.getAttribute('data-total-field');
     var fn = cell.getAttribute('data-total-fn') || 'sum';
-    var cur = cell.getAttribute('data-total-currency');
     var expr = cell.getAttribute('data-calc');
     var sum = 0, count = 0, seen = [];
     wrap.querySelectorAll('[data-crow]').forEach(function(el) {
@@ -1099,14 +1143,11 @@ function itSessionTotals(wrap) {
     else if (fn === 'count') result = count;
     else result = sum;
     var _txt;
-    if (cur && fn !== 'count') {
-      _txt = itFmtMoney(result, cur);
-    } else if (fn === 'count') {
+    if (fn === 'count') {
       _txt = String(result);
     } else {
-      var decAttr = cell.getAttribute('data-total-decimals');
-      var dec = decAttr !== null && decAttr !== '' ? parseInt(decAttr, 10) : NaN;
-      _txt = isNaN(dec) ? String(result) : Number(result).toFixed(dec);
+      var _f = itFmtByAttrs(cell, result);
+      _txt = _f === null ? '—' : _f;
     }
     var _tgt = cell.querySelector('.it-val') || cell;
     _tgt.textContent = _txt;
@@ -1115,9 +1156,20 @@ function itSessionTotals(wrap) {
       var num = Number(result) || 0;
       var form = wrap.closest('form');
       (form ? form.querySelectorAll('[name="' + tgt + '"]') : []).forEach(function(inp) {
-        inp.value = (inp.type === 'hidden')
-          ? String(Number(num).toFixed(2))
-          : (cur ? itFmtMoney(num, cur) : String(num));
+        /* Todo destino de `data-total-target` é um input **disabled** (campo
+           `readonly` ou `calc`), e `numDecimals` recusa disabled — daí
+           `numToInputFor`, que lê o atributo direto. Era por aqui que `total` e
+           `valor` perdiam a formatação: `String(num)` e o `fmtFieldInput` logo
+           abaixo não reparava pelo mesmo motivo.
+
+           O hidden vai para o POST e quer o canônico (`1234.50`), que o
+           `_coerce` lê como 1234.50 (sem vírgula, o ponto é decimal). */
+        if (inp.type === 'hidden') {
+          inp.value = String(Number(num).toFixed(2));
+        } else {
+          var _w = numToInputFor(inp, num);
+          inp.value = _w === null ? String(num) : _w;
+        }
         fmtFieldInput(inp);
         inp.dispatchEvent(new Event('input', {bubbles: true}));
       });

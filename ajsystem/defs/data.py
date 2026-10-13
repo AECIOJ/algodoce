@@ -286,6 +286,22 @@ class Field:
         return mask_money_id(self.mask)
 
     @property
+    def num_decimals(self) -> Optional[int]:
+        """Casas decimais de **exibição** de um campo numérico.
+
+        `decimals` declarado quando existe; senão **0** para input numérico sem
+        casas — é o caso de `ID`/`DK` (`FIELD_TYPES['ID']` é `input: 'number'`
+        sem `decimals` e sem máscara, então o `Field` não deriva `num_mask`) —
+        e `None` para o que não é número.
+
+        Existe para que exibição e cliente tenham **uma** resposta, e não duas:
+        sem esta regra, `mask_cmd` recebia `decimals=None` e caía no default de
+        2 casas, e o `#` da listagem virava `6,00`."""
+        if self.decimals is not None:
+            return self.decimals
+        return 0 if self._input_def.number else None
+
+    @property
     def display_label(self) -> str:
         return self.label or _auto_label(self.name)
 
