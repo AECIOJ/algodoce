@@ -15,7 +15,7 @@ PEDIDO = {
         TABS(1, 25),
         TABS('{conta_id}', '{pedido_em}'),
         TABS('{Conta.telefone}', '{data_previsao_entrega}'),
-        LF(2)
+        LF(3)
     ],
     'body': {
         'table': {
