@@ -14,11 +14,11 @@ from ajsystem.defs.data import (
     module_page, resolve_max_width,
 )
 from ajsystem.core.list import (
-    List, build_filter_config, build_field_context, resolve_column_configs,
-    fields_to_columns, _resolve_model, resolve_filter_spec,
+    List, build_field_context, resolve_column_configs,
+    fields_to_columns, _resolve_model,
 )
 from ajsystem.core.resolve import resolve_slots
-from ajsystem.core.filters import resolve_filters
+from ajsystem.core.filters import resolve_filter
 from ajsystem.core.utils import module_blueprint
 
 TAB_TYPES = ('List', 'Filter', 'Report', 'Custom')
@@ -67,13 +67,14 @@ def list_max_width(entity_name: str, module_name: str) -> str:
     return resolve_max_width(lista.get('max_width')) or _total_ch(line_fields, edit_endpoint)
 
 
-def list_fixed_filters(entity_name: str, module_name: str, model=None):
-    """Filtros fixos (`list.filter.fixed`) da listagem do módulo, resolvidos
-    contra `model` (o form usa o próprio). Mesmo pool de `list_max_width`: a
-    spec é validada contra a listagem, e não se lê `default` de field nenhum.
+def list_fixed_conds(entity_name: str, module_name: str, model=None):
+    """Condições fixas (`list.filter.fixed`) da listagem do módulo, compiladas
+    contra `model` (o form usa o próprio). Mesmo pool de `list_max_width`; a
+    leitura da prop `filter` passa pelo ponto único (`core.filters.resolve_filter`).
 
     Guarda de escopo do form (`core.do_form`): abrir um registro que não casa
-    com o WHERE fixo da listagem (ex.: um `tipo` errado em `pagar`) é recusado.
+    com o WHERE fixo da listagem (ex.: um `tipo` errado em `pagar`, ou um
+    movimento de transferência numa lista que os exclui) é recusado.
     """
     mod = importlib.import_module(module_name)
     schema = getattr(mod, 'Schema', None) or {}
@@ -81,10 +82,10 @@ def list_fixed_filters(entity_name: str, module_name: str, model=None):
     lista = page_list_cfg(page)
     _ent, _model, _merged, pool, _fonte = _list_pool(lista, schema, module_name,
                                                      entity_name)
-    _hidden, fixed, _default, _types = resolve_filter_spec(
-        lista.get('filter') or {}, pool, _fonte['pool_entity'])
-    from ajsystem.core.filters import fixed_filters as _ff
-    return _ff(fixed, model or _model)
+    from ajsystem.core.filters import resolve_filter
+    return resolve_filter(lista.get('filter') or {}, pool=pool,
+                          principal=_fonte['pool_entity'],
+                          model=model or _model).fixed
 
 
 def build_tabs(page: dict):
@@ -433,12 +434,6 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
         list_obj.detail_data = detail_data
 
-    _filt_spec = lista.get('filter') or {}
-    _f_hidden, _f_fixed, _f_default, _f_types = resolve_filter_spec(
-        _filt_spec, pool, fonte['pool_entity']
-    )
-    filter_config = build_filter_config(list_obj.fields, hidden=_f_hidden, types=_f_types)
-
     # Campo de impressão com escolha ativo (marcador `_r`): o parâmetro que o
     # relatório injetou na URL não deve virar filtro da listagem, senão o filtro
     # de impressão persistiria na lista ao "Voltar". Resolve-se a listagem sem
@@ -447,15 +442,17 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     rid = request.args.get('_r')
     _print_field = _drp._print_field_of(rid) if rid else None
     _fargs = {k: v for k, v in request.args.items(multi=True) if k != _print_field}
-    initial_filters, active = resolve_filters(filter_config, _fargs, defaults=_f_default)
 
-    from ajsystem.core.filters import fixed_filters as _fixed_filters
-    _fixed = _fixed_filters(_f_fixed, model)
+    _rf = resolve_filter(
+        lista.get('filter') or {}, pool=pool, principal=fonte['pool_entity'],
+        model=model, fields=list_obj.fields, request_args=_fargs)
+    filter_config = _rf.panel
+    initial_filters, active = _rf.initial, _rf.active
 
     def _base_query():
         q = model.query
-        for _mf, _v in _fixed:
-            q = q.filter(_mf == _v)
+        if _rf.fixed:
+            q = q.filter(*_rf.fixed)
         return q
 
     if data is None and _is_query:
@@ -639,12 +636,6 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
             detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
         list_obj.detail_data = detail_data
 
-    _filt_spec = lista.get('filter') or {}
-    _f_hidden, _f_fixed, _f_default, _f_types = resolve_filter_spec(
-        _filt_spec, pool, fonte['pool_entity']
-    )
-    filter_config = build_filter_config(list_obj.fields, hidden=_f_hidden, types=_f_types)
-
     # Campo de impressão com escolha ativo (marcador `_r`): o parâmetro que o
     # relatório injetou na URL não deve virar filtro da listagem, senão o filtro
     # de impressão persistiria na lista ao "Voltar". Resolve-se a listagem sem
@@ -653,19 +644,22 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     rid = request.args.get('_r')
     _print_field = _drp._print_field_of(rid) if rid else None
     _fargs = {k: v for k, v in request.args.items(multi=True) if k != _print_field}
-    initial_filters, active = resolve_filters(filter_config, _fargs, defaults=_f_default)
 
-    from ajsystem.core.filters import fixed_filters as _fixed_filters
     _inversion_resolver = lambda m, n: _inversion_order_attr(lista, merged, m, n)
-    _fixed = _fixed_filters(_f_fixed, model, _inversion_resolver)
+    _rf = resolve_filter(
+        lista.get('filter') or {}, pool=pool, principal=fonte['pool_entity'],
+        model=model, attr_resolver=_inversion_resolver,
+        fields=list_obj.fields, request_args=_fargs)
+    filter_config = _rf.panel
+    initial_filters, active = _rf.initial, _rf.active
     _parent_rel = _inversion_parent_rel(lista, merged, model)
 
     def _base_query():
         q = model.query
         if _parent_rel is not None:
             q = q.join(_parent_rel)
-        for _mf, _v in _fixed:
-            q = q.filter(_mf == _v)
+        if _rf.fixed:
+            q = q.filter(*_rf.fixed)
         return q
 
     def _master_ordering():

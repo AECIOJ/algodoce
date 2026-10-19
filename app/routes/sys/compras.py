@@ -1,7 +1,7 @@
 from flask import flash, redirect, url_for
 
 from ajsystem.core.formats import parse_brl
-from ajsystem.defs.constants import TODAY
+from ajsystem.defs.constants import NOT_EMPTY, TODAY
 from ajsystem import locales as i18n
 from app.models.compra import Compra
 from app.extends.buttons import _sem_financeiro
@@ -189,8 +189,8 @@ Page = {
                            'acrescimo', 'desconto', 'total', 'pedido_em',
                            'faturado_em', 'recebido_em', 'devolvido_em'],
             },
-            'visible': {'transacao_id': {'not_empty': True},
-                        'movto_id': {'not_empty': True}},
+            'visible': {'transacao_id': NOT_EMPTY,
+                        'movto_id': NOT_EMPTY},
             'readonly': _faturado,
             'pre_get': _pre_get,
             'pre_save': _pre_save,

@@ -2,6 +2,7 @@ from flask import request, redirect, url_for, flash, render_template
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
 from ajsystem import locales as i18n
+from ajsystem.defs.constants import NOT_EMPTY
 from app.models.conta import Conta
 from app.models.pedido import Pedido
 from app.models.pedido_item import PedidoItem
@@ -80,7 +81,7 @@ Page = {
                 'bar':    ['status'],
                 'hidden': ['total', 'carteira_id', 'pedido_id'],
             },
-            'visible': {'pedido_id': {'not_empty': True}},
+            'visible': {'pedido_id': NOT_EMPTY},
             'readonly': lambda q: q is not None and q.pedido_id is not None,
             'delete': {
                 'when': lambda q: q.pedido_id is None,

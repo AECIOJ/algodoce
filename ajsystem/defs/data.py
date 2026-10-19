@@ -19,7 +19,8 @@ from dataclasses import dataclass, field, fields as dc_fields
 from pathlib import Path
 from typing import Any, Callable, Optional, Union
 
-from ajsystem.core.utils import is_empty
+from ajsystem.core.utils import is_empty, is_null
+from ajsystem.defs.constants import EMPTY, NOT_EMPTY, NOT_NULL, NULL
 from ajsystem.defs.inputs import Input, resolve_input
 from ajsystem.defs.pages import Page, parse_page
 
@@ -288,6 +289,16 @@ class Field:
         when = getattr(self, '_visible_when', None)
         if when is None:
             return True
+        # Sentinelas (predicado de dado): EMPTY/NOT_EMPTY ↔ is_empty;
+        # NULL/NOT_NULL ↔ is_null. Antes dos ramos dict/callable/str.
+        if when is EMPTY:
+            return is_empty(fv)
+        if when is NOT_EMPTY:
+            return not is_empty(fv)
+        if when is NULL:
+            return is_null(fv)
+        if when is NOT_NULL:
+            return not is_null(fv)
         if isinstance(when, dict):
             # {'not_empty': True} → só quando valor não vazio
             if 'not_empty' in when:

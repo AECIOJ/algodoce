@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0043 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0044 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0043`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0044`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -143,8 +143,9 @@
 
 5. **`visible` — visibilidade condicional (prop da página).**
    ```python
-   # form: {'visible': {'pedido_id': {'not_empty': True}}}
-   # cond: {'not_empty':True} | {'empty':True} | {'field':'valor','op':'not_empty'} | callable(row,val)
+   # form: {'visible': {'pedido_id': NOT_EMPTY}}
+   # cond: NOT_EMPTY | EMPTY | NOT_NULL | NULL           (sentinelas de defs.constants)
+   #     | {'not_empty':True} | {'empty':True} | {'field':'valor','op':'not_empty'} | callable(row,val)
    ```
 
 6. **Menu.**
@@ -265,7 +266,7 @@ O `endpoint` é o do blueprint (`rota.ação`) e o prefixo da URL é o do bluepr
 |---|---|---|---|---|
 | `fields` | `str\|list\|dict` | `None` | Formatos unificados (resolvidos por `normalize_fieldspec`, 5.13):<br/>`'Entidade'` — expande todos<br/>`['campo1','campo2']` — explícitos<br/>`['Entidade.campo1','Outra.campo2']` — multi-entidade com prefixo<br/>`{'Entidade':['c1','c2'],'Outra':['c3']}` — multi-entidade agrupado | define **quais** campos e a **ordem**; a posição vem de `positions` (abaixo) |
 | `positions` | `dict` | `None` | `{bar:[...], footer:[...], body:[...], hidden:[...]}` — mesma família de formatos de `columns`/`line` (§5.6) | onde cada campo vai na tela — ver **Slots do form**, abaixo |
-| `visible` | `dict` | `None` | `{campo: cond}`, `cond` = `not_empty`, `empty`, `{'field','op','value'}`, `callable` | visibilidade condicional — **não** é slot; o campo continua no save |
+| `visible` | `dict` | `None` | `{campo: cond}`, `cond` = `NOT_EMPTY`/`EMPTY`/`NOT_NULL`/`NULL` (sentinelas), `{'not_empty'/'empty'[:bool]}`, `{'field','op','value'}`, `callable` | visibilidade condicional — **não** é slot; o campo continua no save |
 | `sessions` | `dict` | `None` | `{Nome:{fields,table,query,totals,buttons,defaults,on_new,positions,visible}}` (`fields` 1:1 child vs pai, `table` editável, `query` readonly, `defaults`/`on_new` em 5.5.2, `positions`/`visible` próprios da sessão) | `form.html: sessions` + `item_table.html` |
 | `template` | `str` | `None` | path | se setado, ignora `fields` |
 | `flash_ok` | `str` | `None` | mensagem de sucesso do save | flash pós-submit |
@@ -287,7 +288,7 @@ Igual à listagem, a posição é pergunta da **página**, não do `Field`: slot
 `footer` | no **rodapé**, **fora** do `<form id="main-form">` — é o lugar dos toggles, que são POST próprio | — |
 `body` | no **corpo** do form | ✅ |
 `hidden` | fora da tela — e **não grava** (§ save abaixo) | — |
-`visible` | **não é slot**: visibilidade condicional sobre o dado (`not_empty`, `empty`, `{field,op,value}`, `callable`). Um campo na barra ou no corpo pode ter a mesma condição | — |
+`visible` | **não é slot**: visibilidade condicional sobre o dado (`NOT_EMPTY`/`EMPTY`/`NOT_NULL`/`NULL`, `{not_empty,empty}`, `{field,op,value}`, `callable`). Um campo na barra ou no corpo pode ter a mesma condição | — |
 
 Precedência quando o mesmo campo é citado em dois slots: **`hidden` > `bar` > `footer` > `body`**. É total, sem arbitragem em runtime.
 
@@ -302,8 +303,8 @@ Os slots aceitam a mesma família de formatos de `columns` (`normalize_fieldspec
     'positions': {'bar': ['status'], 'footer': ['cancelado'],
                   'hidden': ['valor', 'prazo', 'variacao', 'saldo', 'tipo',
                              'compra_id', 'pedido_id']},
-    'visible': {'pedido_id': {'not_empty': True},
-                'compra_id': {'not_empty': True}},
+    'visible': {'pedido_id': NOT_EMPTY,   # from ajsystem.defs.constants import NOT_EMPTY
+                'compra_id': NOT_EMPTY},
     'sessions': {
         # `Previsões` é `table`: as `positions` da sessão valem para as COLUNAS
         # (a `Previsao`). `id` é a chave do filho — citada em `body` para voltar.
@@ -504,11 +505,30 @@ O que a página **ajusta** mora em `Page.props.list` sob a chave `filter`, um di
 | Chave | Forma | Efeito |
 |---|---|---|
 | `hidden` | fieldspec (`'campo'`, `'Ent.campo'`, lista, `{'Ent': [...]}`) | tira do painel — sem UI. Para uma coluna **visível** cujo filtro não faz sentido (ex.: `indice` em `operacoes`); um campo já no slot `hidden` nem chega aqui |
-| `fixed` | `{campo: valor}` | vira **`WHERE` fixo**, também fora do painel. O valor é do motor (callable é chamado; `None`/campo inexistente ignora). Era `pos_filter: 9` + `default` do `Field` — agora o valor mora **na listagem**, que é quem o usa |
+| `fixed` | `{campo: valor}` ou `OR(...)`/`AND(...)` | vira **`WHERE` fixo**, também fora do painel. Um dict é **AND** das folhas; `OR(...)`/`AND(...)` agrupam (aninháveis). Valor: literal → `=`; sentinelas `NULL`/`NOT_NULL` (↔ `is_null`) e `EMPTY`/`NOT_EMPTY` (↔ `is_empty`); `('op', valor)` com `op` em `=`,`!=`,`>`,`>=`,`<`,`<=`,`like`,`ilike`,`in`,`not in`; lista → `IN`; callable é chamado; `None` **ignora** a folha. Folha que não é field do pool vale como **coluna** do model (ex.: `transferencia_id`, que não é `Field`). Era `pos_filter: 9` + `default` do `Field` — agora o valor mora **na listagem**, que é quem o usa |
 | `default` | `{campo: valor}` | filtro **inicial editável**: nasce aplicado e, ao **limpar**, volta a ele (o `clearFilters` reseta para o default, não para vazio) |
 | `types` | `{tipo: campo\|lista}` | **override** do tipo do widget, para um campo que a inferência classificaria de outro jeito (ex.: `{'checklist': 'status'}`). `tipo` ∈ `FILTER_TYPES` = `text`, `boolean`, `date`, `number`, `select`, `checklist` |
 
-Todo nome é validado contra o **pool** com o mesmo idioma dos slots (`resolve_filter_spec` reusa `slot_spec_items`/`_slot_match`): campo que não existe ou tipo de filtro desconhecido **quebra nomeando**, nada some em silêncio. E `fixed` entra no `hidden` do painel por natureza — um filtro fixo não é editável.
+`hidden`/`default`/`types` são validados contra o **pool** com o mesmo idioma dos slots (`resolve_filter_spec` reusa `slot_spec_items`/`_slot_match`): campo que não existe ou tipo de filtro desconhecido **quebra nomeando**. Em `fixed`, a folha que casa com um field do pool entra no `hidden` do painel (filtro fixo não é editável); a que não casa é resolvida pelo compilador contra as **colunas do model** (`compile_fixed`) — nome que não é coluna quebra nomeando também.
+
+**Sentinelas e agrupamento (`fixed`).** `EMPTY`/`NOT_EMPTY` espelham `is_empty` (`None`, branco ou coleção vazia): em coluna textual viram `col IS NULL OR trim(col) = ''`; nas demais, só `IS NULL`. `NULL`/`NOT_NULL` espelham `is_null` (só `None`, o NULL do banco) — a distinção é a mesma de `core/utils` (`utils.py:77-98`). O `AND` é o default do dict; o `OR` é explícito por função:
+
+```python
+from ajsystem.defs.constants import NULL, NOT_EMPTY, OR, AND
+
+'filter': {
+    # AND implícito — o caso comum
+    'fixed': {'tipo': 'P', 'transferencia_id': NULL},
+}
+
+'filter': {
+    # tipo = 'P' AND (pedido_id IS NULL OR compra_id IS NULL)
+    'fixed': AND({'tipo': 'P'},
+                 OR({'pedido_id': NULL}, {'compra_id': NULL})),
+}
+```
+
+> `OR(...)`/`AND(...)` recebem dicts de folhas ou outros grupos (aninhamento livre); `OR()` vazio ou item que não é dict/grupo quebra nomeando. Um dict **nunca** mistura folhas com grupo — o grupo é sempre um nó.
 
 ```python
 'list': {
@@ -522,7 +542,9 @@ Todo nome é validado contra o **pool** com o mesmo idioma dos slots (`resolve_f
 },
 ```
 
-> **Filtro fixo e escopo do form.** Um `fixed` não é só da listagem: `core.do_form` recusa abrir um registro que não casa com ele (`list_fixed_filters` resolve a mesma spec para o modelo do form). É por isso que o `tipo` de `pagar` continua não abrindo um lançamento de `receber` por URL direta.
+> **Filtro fixo e escopo do form.** Um `fixed` não é só da listagem: `core.do_form` recusa abrir um registro que não casa com ele (`list_fixed_conds` resolve a mesma spec para o modelo do form). É por isso que o `tipo` de `pagar` continua não abrindo um lançamento de `receber` por URL direta — e que um movimento de transferência não abre pelo form de `pagamentos`/`recebimentos`.
+>
+> **Ponto único.** A prop inteira é lida por `core.filters.resolve_filter` (`spec → ResolvedFilter{hidden, fixed, default, types, panel, initial, active}`), consumido por `do_list_normal`/`do_list_master` (render + `WHERE`) e por `list_fixed_conds` (guarda do form). Ninguém mais chama `resolve_filter_spec`/`compile_fixed` avulso.
 
 
 #### Props
@@ -1520,6 +1542,17 @@ Um agregado de `totals` (`query`/`table`) recebe o `Field` e sai por `render_val
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0044
+- **As transferências saíram de `pagamentos`/`recebimentos`.** Um movimento de transferência (`transferencia_id` preenchido) aparecia nas duas pontas — era uma saída e uma entrada como qualquer outra. A resposta não é um `if` na rota nem um `join` solto: é o `WHERE` fixo da listagem (`'fixed': {'tipo': SAIDA, 'transferencia_id': NULL}`). O problema do `fixed`, porém, era o formato: `{campo: valor}` só sabia de folha **igual** e de colunas que fossem `Field` — e `transferencia_id` não é `Field` (é FK crua do `Entity`). Isso abriu o resto desta versão.
+- **Sentinelas de valor em `defs.constants`.** `NULL`/`NOT_NULL` (↔ `is_null`) e `EMPTY`/`NOT_EMPTY` (↔ `is_empty`), singletons com `__repr__`, no mesmo espírito dos atalhos já existentes (`TODAY`). `NULL` é só o NULL do banco; `EMPTY` é `None`, branco ou coleção vazia — a distinção já existia em `core/utils` (`is_null`/`is_empty`) e agora tem forma declarativa. `EMPTY`/`NOT_EMPTY` compilam para `col IS NULL` e, em coluna textual, `OR trim(col) = ''` (espelha o `.strip()` de `is_empty`); em int/FK, só `IS NULL`. `NULL`/`NOT_NULL` são também aceitos em `visible` (idem `_eval_pos_when`).
+- **`fixed` ganhou vocabulário de folha e agrupamento.** Folha: valor literal → `=`, sentinela `NULL`/`NOT_NULL`/`EMPTY`/`NOT_EMPTY`, tupla `('op', valor)` (`=`,`!=`,`>`,`>=`,`<`,`<=`,`like`,`ilike`,`in`,`not in`), lista → `IN`, `callable` chamado no compile, `None` **ignora** a folha. E `OR(*itens)`/`AND(*itens)` (fábricas de `_Grupo`, aninháveis) resolvem o que o dict não resolvia: `{'a': 1}` E `{'tipo': 'S' OU 'E'}`. Um dict é AND implícito; grupo é nó à parte (não se mistura folha com grupo no mesmo dict — erro de sintaxe). `OR()` vazio ou item que não é dict/grupo **quebra nomeando** (`ValueError`/`TypeError`).
+- **`fixed` aceita coluna crua do model, não só `Field`.** O `resolve_filter_spec` continua validando `hidden`/`default`/`types` contra o **pool** (idioma dos slots) e só esconde as folhas de `fixed` que casam com um field; as demais (ex.: `transferencia_id`) são resolvidas por `compile_fixed` contra as **colunas do model**, que dá `ValueError` nomeando o que não existe. É o que permite filtrar por coluna que o form nunca edita.
+- **A prop `filter` passou a ter um ponto único de leitura.** `core.filters.resolve_filter(spec, *, pool, fields=...)` faz spec → `ResolvedFilter{hidden, fixed, default, types, panel, initial, active}` (spec resolvida + `WHERE` compilado + painel + estado do request). `do_list_normal`/`do_list_master` consomem esse objeto (render, `WHERE`) e `core.do_list.list_fixed_conds` é o mesmo caminho sem `fields`, para a guarda do form. Antes a spec era resolvida em `do_list` e recompilada na guarda; agora os dois leem o mesmo `resolve_filter`.
+- **A guarda de escopo do form virou membership por SQL.** `core.do_form` não reconstrói mais o `WHERE` nem reusa `_build_nav` como oráculo: checa `id ∈ SELECT id ... WHERE <conds>` (`db.session.query(model.id).filter(*conds)`) e, se não casa, 302. `_build_nav(model, current_id, conds=None)` passou a navegar a mesma lista de condições (`db.session.query`), então a navegação anterior/próxima respeita o escopo (não pula para um registro agora invisível).
+- **`list_fixed_filters` → `list_fixed_conds`.** O nome acompanha o que devolve: condições SQLAlchemy compiladas (não mais a spec/filtros). `do_form`/`auto._form` passam a usar `fixed_conds`.
+- **Migração no app.** `pagamentos`/`recebimentos` ganharam `'transferencia_id': NULL` no `filter.fixed`; os cinco `visible` que usavam `{'not_empty': True}` (`pedidos`, `compras`, `pagar`, `receber`, `orcamentos`) passaram à sentinela `NOT_EMPTY`.
+- **Verificado.** `compile_fixed` (dict+`NULL`, `NOT_NULL`, `EMPTY`/`NOT_EMPTY` textual com `trim`, `OR`, `AND`+`OR`, tupla de op, `IN`, `None` ignora, nome inválido/`OR()` vazio/item inválido quebrando nomeando) e `_eval_pos_when` com as quatro sentinelas; as 19 listagens e os 15 forms do AlgoDoce em HTTP 200; e o comportamento fim-a-fim: movimentos `#4`/`#5` (transferência) fora de `pagamentos`/`recebimentos` **e** barrados por URL (`/pagamentos/4/editar`, `/recebimentos/5/editar` → 302), `#3` legítimo permanece.
 
 ### 1.26.10.08.0043
 - **O painel de filtros virou prop da PÁGINA: `Page.props.list.filter`.** `Field.pos_filter` (`0` sem filtro, `1` texto, `2` select, `3` checklist, `9` fixo com `WHERE` do `default`) era o último inteiro mágico de posicionamento no `Field`, declarado no Entity/Schema e respondendo "por que esse campo não filtra agora?" longe da listagem. A pergunta é da lista, então a resposta mora nela, no mesmo desenho da §5.6 (§5.6.1). Quatro chaves independentes: `hidden` (fieldspec, tira do painel), `fixed` (`{campo: valor}`, vira `WHERE` e some do painel), `default` (**novo** — filtro inicial editável que volta ao limpar) e `types` (`{tipo: campo|lista}`, override do widget).

@@ -87,21 +87,9 @@ def _is_readonly(form, instance):
     return True
 
 
-def _build_nav(model, current_id, fixed=None):
-    from sqlalchemy import text
-    where = ''
-    params = {}
-    for i, (mf, v) in enumerate(fixed or []):
-        key = getattr(mf, 'key', None) or getattr(mf, 'name', None)
-        if not key:
-            continue
-        where += (' AND ' if where else 'WHERE ') + f'{key} = :p{i}'
-        params[f'p{i}'] = v
-    rows = db.session.execute(
-        text(f'SELECT id FROM {model.__tablename__} {where} ORDER BY id'),
-        params,
-    ).fetchall()
-    ids = [r[0] for r in rows]
+def _build_nav(model, current_id, conds=None):
+    ids = [r[0] for r in
+           db.session.query(model.id).filter(*(conds or [])).order_by(model.id).all()]
     idx = ids.index(current_id) if current_id in ids else -1
     return {
         'first_id': ids[0] if ids else None,

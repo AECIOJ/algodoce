@@ -1,4 +1,4 @@
-from ajsystem.defs.constants import TODAY
+from ajsystem.defs.constants import NOT_EMPTY, TODAY
 from app.extends.masks import MVALOR
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
@@ -73,8 +73,8 @@ Page = {
                 'hidden': ['valor', 'prazo', 'variacao', 'saldo', 'tipo',
                            'compra_id', 'pedido_id'],
             },
-            'visible': {'pedido_id': {'not_empty': True},
-                        'compra_id': {'not_empty': True}},
+            'visible': {'pedido_id': NOT_EMPTY,
+                        'compra_id': NOT_EMPTY},
             'pre_get': pre_get_transacao,
             'post_save': post_save_transacao,
             'sessions': {

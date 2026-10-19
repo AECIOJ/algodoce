@@ -173,10 +173,10 @@ def _generated_crud(mod, slug, botoes_tipos=None, inputs_tipos=None):
         pre_get = _form_config(mod).get('pre_get')
         if callable(pre_get):
             extra.update(pre_get(mod, id) or {})
-        from ajsystem.core.do_list import list_max_width, list_fixed_filters
+        from ajsystem.core.do_list import list_max_width, list_fixed_conds
         return do_form(form, id, extra_ctx=extra,
                        list_max_width=list_max_width(entidade, mod.__name__),
-                       fixed_filters=list_fixed_filters(entidade, mod.__name__, model))
+                       fixed_conds=list_fixed_conds(entidade, mod.__name__, model))
     routes.append(('/novo', 'form', _form))
     routes.append(('/<int:id>/editar', 'form', _form))
 

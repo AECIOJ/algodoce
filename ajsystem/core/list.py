@@ -289,18 +289,20 @@ def filter_modes() -> dict:
     }
 
 
-def _filter_hits(pool, principal, spec, where, slot):
+def _filter_hits(pool, principal, spec, where, slot, missing_ok=False):
     """Fields nomeados por uma spec de filtro, no idioma dos slots.
 
     Reusa `slot_spec_items`/`_slot_match` de `core.resolve`, então `'campo'`,
     `'Entidade.campo'`, lista e dict agrupado valem igual a `line`/`hidden`, e
-    um nome errado/ambíguo levanta erro nomeando as candidatas.
+    um nome errado/ambíguo levanta erro nomeando as candidatas. Com
+    `missing_ok`, um nome ausente devolve `[]` (coluna crua de `fixed`).
     """
     from ajsystem.core.resolve import slot_spec_items, _slot_match, _pool_entities
     entities = _pool_entities(pool)
     out = []
     for ent, name in slot_spec_items(spec, slot, where):
-        out.extend(_slot_match(pool, entities, ent, name, slot, principal, where))
+        out.extend(_slot_match(pool, entities, ent, name, slot, principal, where,
+                               missing_ok=missing_ok))
     return out
 
 
@@ -316,20 +318,32 @@ def resolve_filter_spec(spec, pool, principal=None, where='list.filter'):
     """Resolve a prop `filter` da listagem (§5.6) em `(hidden, fixed, default, types)`.
 
       - `hidden`  — `Field` spec: campos fora do painel de filtros;
-      - `fixed`   — `{campo: valor}`: `WHERE` fixo (também fora do painel);
+      - `fixed`   — árvore de `WHERE` fixo (dict de folhas ou `OR(...)`/`AND(...)`),
+                    também fora do painel; as folhas que não são fields do pool
+                    valem como coluna e o compilador (`core.filters.compile_fixed`)
+                    as resolve contra o model;
       - `default` — `{campo: valor}`: filtro inicial, editável, que volta ao
                     limpar os filtros;
       - `types`   — `{campo: tipo}` derivado de `{tipo: campo|lista}`.
 
-    Nomes validados contra o `pool`: nada some em silêncio.
+    Nomes de `hidden`/`default`/`types` são validados contra o `pool`. Em `fixed`
+    só as folhas que casam com um field do pool viram `hidden`; as demais são
+    validadas adiante contra as colunas do model (nada some em silêncio).
     """
     spec = spec or {}
     if not isinstance(spec, dict):
         raise TypeError(f"{where}: esperava dict; veio {type(spec).__name__}")
     hidden = {f.name for f in _filter_hits(pool, principal, spec.get('hidden'),
                                            where, 'hidden')}
-    fixed = {_filter_one(pool, principal, k, where, 'fixed').name: v
-             for k, v in (spec.get('fixed') or {}).items()}
+    fixed = spec.get('fixed') or {}
+    for _name in _fixed_leaf_names(fixed):
+        _hits = _filter_hits(pool, principal, [_name], where, 'fixed',
+                             missing_ok=True)
+        if len(_hits) > 1:
+            raise ValueError(f"{where}.fixed: {_name!r} nomeia {len(_hits)} "
+                             "campos — use um campo por valor")
+        if len(_hits) == 1:
+            hidden.add(_hits[0].name)
     default = {_filter_one(pool, principal, k, where, 'default').name: v
                for k, v in (spec.get('default') or {}).items()}
     types = {}
@@ -339,8 +353,18 @@ def resolve_filter_spec(spec, pool, principal=None, where='list.filter'):
                              f"{', '.join(FILTER_TYPES)}")
         for f in _filter_hits(pool, principal, fieldspec, where, f'types.{tipo}'):
             types[f.name] = tipo
-    hidden |= set(fixed)
     return hidden, fixed, default, types
+
+
+def _fixed_leaf_names(node):
+    """Nomes das folhas de `filter.fixed` (dict de folhas ou `OR(...)`/`AND(...)`)."""
+    from ajsystem.defs.constants import _Grupo
+    if isinstance(node, _Grupo):
+        for it in node.itens:
+            yield from _fixed_leaf_names(it)
+    elif isinstance(node, dict):
+        for k in node:
+            yield k
 
 
 def build_filter_config(fields, hidden=(), types=None):

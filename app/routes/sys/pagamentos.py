@@ -1,5 +1,5 @@
 from app.models.movimento import Movimento
-from ajsystem.defs.constants import TODAY
+from ajsystem.defs.constants import NULL, TODAY
 from app.extends.constants import SAIDA
 from app.routes.sys.movtos import (
     post_save_movto_link, _pre_get_movto, excluir_movto, _validar_origem_exclusiva,
@@ -46,7 +46,7 @@ Page = {
         },
         'list': {
             'columns': 'Movimento',
-            'filter': {'fixed': {'tipo': SAIDA}},
+            'filter': {'fixed': {'tipo': SAIDA, 'transferencia_id': NULL}},
             'hidden': ['tipo', 'pedido_id', 'compra_id'],
             'card': ['historico'],
             'order': ['data', 'id'],

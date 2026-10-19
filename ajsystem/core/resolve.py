@@ -343,7 +343,8 @@ def _pool_entities(pool):
     return out
 
 
-def _slot_match(pool, entities, ent, name, slot, principal, where='list'):
+def _slot_match(pool, entities, ent, name, slot, principal, where='list',
+                missing_ok=False):
     """Field(s) do pool que um item de slot nomeia.
 
     Leitura de um nome **cru**, na ordem:
@@ -358,6 +359,10 @@ def _slot_match(pool, entities, ent, name, slot, principal, where='list'):
          fonte `query`) é **erro** nomeando as candidatas.
 
     `'Entidade.campo'` sempre qualifica, e é o que desambigua na mão.
+
+    `missing_ok`: um nome/entidade **ausente** devolve `[]` em vez de levantar
+    (usado por `fixed`, cujas folhas podem ser coluna crua do model — não um
+    field do pool). Nome **ambíguo** continua levantando.
     """
     def _err(msg):
         return ValueError(f"{where}.{slot} ({_SLOT_LABELS.get(slot, slot)}): {msg}")
@@ -369,11 +374,15 @@ def _slot_match(pool, entities, ent, name, slot, principal, where='list'):
         return [f for f in pool if getattr(f, '_entity', None) == ent]
     if ent:
         if ent not in entities:
+            if missing_ok:
+                return []
             raise _err(f"entidade {ent!r} não está na listagem ("
                        f"{', '.join(entities) or '—'})")
         hits = [f for f in pool if getattr(f, '_entity', None) == ent
                 and f.name == name]
         if not hits:
+            if missing_ok:
+                return []
             raise _err(f"campo {ent}.{name!r} não está na listagem")
         return hits
     if name in entities:
@@ -382,6 +391,8 @@ def _slot_match(pool, entities, ent, name, slot, principal, where='list'):
     if len(hits) == 1:
         return hits
     if not hits:
+        if missing_ok:
+            return []
         onde = (f' em {principal}' if principal else '')
         raise _err(f"campo {name!r} não está na listagem{onde} "
                    f"(entidades: {', '.join(entities) or '—'})")

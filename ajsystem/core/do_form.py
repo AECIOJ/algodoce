@@ -465,13 +465,15 @@ def _values_differ(a, b):
 
 
 def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None,
-            fixed_filters=None):
+            fixed_conds=None):
     """GET: renderiza o form (novo/editar). POST: valida, salva e redireciona.
 
     `list_max_width`: largura da listagem do mesmo módulo (consumida quando
     `form.max_width` não é declarado), passada por `core.auto._form`.
-    `fixed_filters`: `[(coluna, valor)]` de `list.filter.fixed`, também do
-    `_form` — guarda de escopo (abrir registro fora do WHERE fixo é recusado)."""
+    `fixed_conds`: condições SQL de `list.filter.fixed` (compiladas por
+    `core.filters.compile_fixed`), também do `_form` — guarda de escopo: abrir um
+    registro fora do WHERE fixo (ex.: `tipo` errado, ou um movimento de
+    transferência numa lista que os exclui) é recusado."""
     instance = instance or (form._model.query.get(id) if id is not None else None)
     is_new = instance is None
     ro = _is_readonly(form, instance)
@@ -479,16 +481,16 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None,
     if request.method != "POST":
         form.resolve_query_sessions(instance)
 
-    _fixed = fixed_filters or []
-    if instance is not None and _fixed:
-        for _mf, _v in _fixed:
-            _attr = getattr(_mf, 'key', None) or getattr(_mf, 'name', None)
-            if _attr and getattr(instance, _attr, None) != _v:
-                flash(i18n.MSG_OUT_OF_SCOPE, 'warning')
-                _back = request.referrer
-                if _back and _back.split('?')[0].rstrip('/') != request.url.rstrip('/'):
-                    return redirect(_back)
-                return redirect(url_for(form._redirect))
+    _conds = fixed_conds or []
+    if instance is not None and _conds:
+        _scope_ids = {r[0] for r in
+                      db.session.query(form._model.id).filter(*_conds).all()}
+        if instance.id not in _scope_ids:
+            flash(i18n.MSG_OUT_OF_SCOPE, 'warning')
+            _back = request.referrer
+            if _back and _back.split('?')[0].rstrip('/') != request.url.rstrip('/'):
+                return redirect(_back)
+            return redirect(url_for(form._redirect))
 
     from ajsystem.defs.data import resolve_lookup
     for f in _flat_fields(form):
@@ -624,7 +626,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None,
         flash(form.flash_ok if is_new else form.flash_update, 'success')
         return redirect(url_for(form._redirect))
 
-    nav = _build_nav(form._model, id, _fixed) if id is not None else None
+    nav = _build_nav(form._model, id, _conds) if id is not None else None
     _delete_cfg = _resolve_delete(form.delete, label=form._label)
     _can_delete = (instance is None) or (
         _delete_cfg is not None and _when_allows(_delete_cfg['when'], instance))
