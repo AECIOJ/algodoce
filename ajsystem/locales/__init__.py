@@ -101,6 +101,6 @@ def herdar_catalogo(globals_):
     do catálogo ativo — constantes do framework, sem `LOCALE` (que fica no
     namespace do próprio framework) e sem functions/imports.
     """
-    for nome, valor in vars(_catalogo).items():
-        if not nome.startswith('_') and isinstance(valor, str):
-            globals_[nome] = valor
+    for nome, value in vars(_catalogo).items():
+        if not nome.startswith('_') and isinstance(value, str):
+            globals_[nome] = value

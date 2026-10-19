@@ -11,6 +11,7 @@ from flask_login import current_user
 from fpdf import FPDF
 
 from ajsystem.core.utils import apply_transform, fmt_money, normalize_currency
+from ajsystem.defs.fonts import cpi_final as _cpi_final
 from ajsystem.defs.report import (
     Report, ReportField, ReportColumn, ReportColumns, ReportGroup,
     ReportText, parse_header_field,
@@ -52,6 +53,9 @@ class _ReportHeader:
 
 TOTALS_DEFAULT_LABEL = 'Total'
 TOTALS_FUNCS = ('sum', 'count', 'avg', 'min', 'max')
+# `lf` de tabela ausente = [1, 1]: uma linha antes e uma depois da tabela. O
+# grupo NÃO entra na conta — ele é parte da tabela (ver `_ReportTable`).
+_LF_DEFAULT = 1
 
 
 def _agg_apply(fn, values):
@@ -104,21 +108,49 @@ class _ReportTable:
     columns: ReportColumns = None
     totals: Optional[dict] = None
     after: Optional[object] = None
-    # `lf` com sinal: positivo = linhas DEPOIS da tabela, negativo = ANTES.
-    # `[antes, depois]` quando os dois forem preciso (`lf: [1, 2]`).
-    lf: object = 0
+    # `lf` é da tabela INTEIRA, com ou sem grupos: o grupo é parte dela, não
+    # respiro. Declarado `lf: n` | `lf: -n` | `lf: [antes, depois]`, resolvido
+    # uma vez aqui em dois inteiros (padrão [1, 1]) e aplicado uma vez antes e
+    # uma depois — nunca por grupo.
+    lf_before_table: int = 1
+    lf_after_table: int = 1
+
+
+# Defaults do rodapé. `True` como valor de `Report.footer` é o atalho para os
+# três `show_*` de uma vez (sem `show_company`, que hoje não escreve nada).
+_FOOTER_SHOW_ALL = {'show_user': True, 'show_datetime': True, 'show_page_number': True}
+# O rodapé é a letra mais fina da grade: `CPI(12,'C')` — Elite condensado,
+# CPI efetivo 20 (1,2700mm por caractere). É o menor CPI que a matriz
+# alcança, porque o Micron (15) recusa condensar. A prop `cpi` do dev é
+# um BASE (10/12/15), então declarar sempre abre a letra — o default é
+# o ponto mais fechado, e não um valor que o dev possa repetir.
+_FOOTER_CPI_BASE = 12
+_FOOTER_CPI_FLAGS = 'C'
+_FOOTER_CPI = _cpi_final(_FOOTER_CPI_BASE, _FOOTER_CPI_FLAGS)
+_FOOTER_STYLE = 'I'
+_FOOTER_ALIGN = 'R'
+_FOOTER_STYLES = ('', 'B', 'I', 'BI')
+_FOOTER_ALIGNS = ('L', 'C', 'R', 'J')
 
 
 @dataclass
 class _ReportFooter:
-    """Rodapé de página (interno de renderização)."""
+    """Rodapé de página (interno de renderização).
+
+    `cpi`/`style`/`align` são o que o dev declara para mexer no desenho; os
+    defaults são o do rodapé do framework (15 CPI · itálico · direita). A
+    família e o corpo NÃO são props: vêm do report (`font`, `lpi`), porque o
+    rodapé é parte do mesmo documento — é o ESTILO que o distingue, não a letra.
+    """
     text: Optional[object] = None
     show_user: bool = False
     show_datetime: bool = False
     show_company: bool = False
     show_page_number: bool = False
     separator: str = ' | '
-    align: str = 'C'
+    cpi: int = _FOOTER_CPI
+    style: str = _FOOTER_STYLE
+    align: str = _FOOTER_ALIGN
 
 
 def _build_header(report: Report) -> '_ReportHeader':
@@ -188,7 +220,7 @@ def _build_header(report: Report) -> '_ReportHeader':
     )
 
 
-def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
+def _draw_title(pdf, cfg, h, label='', instance=None, drawn=0):
     """Desenha 1 TITLE. Devolve quantos títulos já foram desenhados (o próprio
     contador, quando o `when` pula).
 
@@ -221,7 +253,7 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     # `_place_item`, porque no header o `TITLE` é chamado direto: a cascata do
     # `TITLES` não passa pelo renderizador de itens.
     if not any(k in cfg for k in ('location', 'pos')):
-        _desce_se_cheia(pdf)
+        _descend_if_full(pdf)
     if 'tab' in cfg and any(k in cfg for k in ('location', 'pos')):
         raise ValueError(f"report '{label}': tab não combina com location/pos")
     if any(k in cfg for k in ('location', 'pos')):
@@ -252,7 +284,7 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
             txt = (txt or '').replace('{' + k + '}', str(v))
     # A máscara entra DEPOIS do template e das substituições: o `@U` tem de
     # valer sobre o texto já resolvido, não sobre o `{campo}` que virou rótulo.
-    txt = _mascara_titulo(txt, cfg, label)
+    txt = _title_mask(txt, cfg, label)
     if 'font_size' in cfg:
         raise ValueError(
             f"report '{label}': font_size saiu — o corpo é derivado do LPI "
@@ -301,7 +333,7 @@ def _draw_titulo(pdf, cfg, h, label='', instance=None, drawn=0):
     # `lf` positivo = linhas em branco DEPOIS. Só o Y: um `ln` aqui devolveria o
     # X à margem e apagaria o estacionamento, e a descida automática do próximo
     # item cairia na mesma linha do `lf: 0`.
-    _lf_depois(pdf, cfg, label)
+    _lf_after(pdf, cfg, label)
     return drawn + 1
 
 
@@ -323,13 +355,12 @@ def _reset_fluxo(pdf):
     É o mesmo reset que `_render_items` já fazia — um helper só, para header,
     body e footer não divergirem no que esquecem de limpar.
     """
-    from ajsystem.defs.fonts import CPI_DEFAULT, LPI_DEFAULT
+    from ajsystem.defs.fonts import CPI_DEFAULT
     pdf._tabs = None
     pdf._ind = None
     pdf._logo_zone = None
     pdf._cpi = CPI_DEFAULT
     pdf._flags = ''
-    pdf._lpi = LPI_DEFAULT
 
 
 def _render_header_items(self, h):
@@ -337,8 +368,7 @@ def _render_header_items(self, h):
     from ajsystem.defs.report import parse_report_item
     from ajsystem.core.text import render as _trender
     label = self._report.label if getattr(self, '_report', None) else ''
-    from ajsystem.defs.fonts import (CPI_DEFAULT, LPI_DEFAULT, cpi as _cpi_norm,
-                                     lpi as _lpi_norm)
+    from ajsystem.defs.fonts import CPI_DEFAULT, cpi as _cpi_norm
     items = [parse_report_item(it, label) for it in (h.raw_header or [])]
     _reset_fluxo(self)
     titles = 0
@@ -347,9 +377,6 @@ def _render_header_items(self, h):
         if item.kind == 'CPI':
             self._cpi = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else CPI_DEFAULT
             self._flags = cfg.get('flags', '')
-            continue
-        if item.kind == 'LPI':
-            self._lpi = _lpi_norm(cfg['lpi']) if 'lpi' in cfg else LPI_DEFAULT
             continue
         if item.kind == 'TABS':
             _raw = cfg if isinstance(cfg, list) else cfg.get('values', [])
@@ -399,7 +426,7 @@ def _render_header_items(self, h):
             self.set_xy(x + w, y + hh)
             _mark_content(self)
         elif item.kind == 'TITLE':
-            titles = _draw_titulo(self, cfg, h, label, instance=self._instance, drawn=titles)
+            titles = _draw_title(self, cfg, h, label, instance=self._instance, drawn=titles)
         elif item.kind == 'TITLES':
             # Vários TITLE numa tacada. Não delega ao `_render_items`: ali não
             # existem a cascata nem os defaults do header, e o `text` de
@@ -410,7 +437,7 @@ def _render_header_items(self, h):
                 if _k != 'TITLE':
                     raise ValueError(
                         f"report '{label}': TITLES aceita só TITLE, veio {_k!r}")
-                titles = _draw_titulo(self, _cfg, h, label, instance=self._instance, drawn=titles)
+                titles = _draw_title(self, _cfg, h, label, instance=self._instance, drawn=titles)
         elif item.kind == 'FIELD':
             if self._instance is None:
                 continue  # sem instância: omite (legado do cabeçalho)
@@ -425,7 +452,7 @@ def _render_header_items(self, h):
                           reset_tabs=False)
     # O corpo (e a régua do `header.line`) nasce no Y que o header deixou: se o
     # último item estacionou cheio, desce antes de devolver.
-    _desce_se_cheia(self)
+    _descend_if_full(self)
 
 
 def _report_body(report):
@@ -452,16 +479,74 @@ def _build_table(report: Report) -> '_ReportTable':
         # Shim legado: footer:true + agg nas colunas -> totals (span legado).
         totals = {'label': t.get('footer_label', TOTALS_DEFAULT_LABEL),
                   'align': 'R', 'span': None}
+    # `lf` ausente = [1, 1]; declarado, a declaração manda. Resolvido aqui (e
+    # não na renderização) para a forma inválida estourar antes de qualquer
+    # página sair.
+    raw_lf = t.get('lf')
+    before, after = (_LF_DEFAULT, _LF_DEFAULT) if raw_lf is None \
+        else _lf_split(raw_lf, t.get('label', ''))
     return _ReportTable(
         columns=columns,
         totals=totals,
         after=t.get('after'),
-        lf=t.get('lf', 0),
+        lf_before_table=before,
+        lf_after_table=after,
     )
 
 
+def _footer_draws(f: Optional['_ReportFooter']) -> bool:
+    """O rodapé escreve alguma coisa?
+
+    Decide se a ÚLTIMA LINHA da página é reservada para ele. As duas metades
+    erram em direções opostas e nenhuma delas é aceitável: reservar sem
+    desenhar custa uma linha de conteúdo à toa, e não reservar quando vai
+    desenhar deixa o rodapé sobrescrever a última linha de dados.
+    """
+    if f is None:
+        return False
+    return bool(f.text or f.show_user or f.show_datetime
+                or f.show_company or f.show_page_number)
+
+
 def _build_footer(report: Report) -> '_ReportFooter':
-    f = report.footer or {}
+    """`footer: True` é o atalho das três flags; dict é a forma explícita.
+
+    `True`/`False`/ausente/dict-vazio são os quatro jeitos de dizer "o rodapé
+    existe?" — os dois últimos significam a mesma coisa (nada ligado), porque
+    `{}` é declaração vazia e o atalho explícito para ligar tudo é `True`.
+    Qualquer outro tipo é erro aqui, no build, e não um `AttributeError`
+    no meio da renderização.
+    """
+    from ajsystem.defs.fonts import cpi as _cpi_norm
+    spec = report.footer
+    if spec is True:
+        f = dict(_FOOTER_SHOW_ALL)
+    elif spec in (None, False, {}):
+        f = {}
+    elif isinstance(spec, dict):
+        f = dict(spec)
+    else:
+        raise TypeError(
+            f"report '{report.label}': 'footer' quer True ou dict "
+            f"(show_*/text/cpi/style/align/separator), veio "
+            f"{type(spec).__name__}: {spec!r}")
+
+    _cpi = f.get('cpi')
+    cpi = _FOOTER_CPI if _cpi is None else _cpi_final(_cpi_norm(_cpi))
+    style = f.get('style', _FOOTER_STYLE)
+    align = f.get('align', _FOOTER_ALIGN)
+    if isinstance(style, str):
+        style = style.upper()
+    if isinstance(align, str):
+        align = align.upper()
+    if style not in _FOOTER_STYLES:
+        raise ValueError(
+            f"report '{report.label}': footer style {style!r} não existe; "
+            f"use um de {list(_FOOTER_STYLES)}")
+    if align not in _FOOTER_ALIGNS:
+        raise ValueError(
+            f"report '{report.label}': footer align {align!r} não existe; "
+            f"use um de {list(_FOOTER_ALIGNS)}")
     return _ReportFooter(
         text=f.get('text'),
         show_user=f.get('show_user', False),
@@ -469,7 +554,9 @@ def _build_footer(report: Report) -> '_ReportFooter':
         show_company=f.get('show_company', False),
         show_page_number=f.get('show_page_number', False),
         separator=f.get('separator', ' | '),
-        align=f.get('align', 'C'),
+        cpi=cpi,
+        style=style,
+        align=align,
     )
 
 
@@ -478,9 +565,10 @@ class DocPDF(FPDF):
         pass
 
     def footer(self):
-        self.set_y(FOOTER_Y)
-        _apply_face(self, 'I')
-        self.cell(0, _row_unit(self), f"Página {self.page_no()}/{{nb}}", align="C")
+        self.set_y(_y_last_line(self, self.b_margin))
+        _apply_face(self, _FOOTER_STYLE, cpi=_FOOTER_CPI)
+        self.cell(0, _row_unit(self), f"Página {self.page_no()}/{{nb}}",
+                  align=_FOOTER_ALIGN)
 
 
 def _fmt(val):
@@ -508,19 +596,25 @@ class DocPDFReport(FPDF):
         """
         import logging
         _log = logging.getLogger('fontTools.subset')
-        _antes = _log.level
+        _before = _log.level
         # Sem este `if`: o logger nasce em NOTSET (0) e herda do pai, e `0 > 30`
         # é falso — que é justamente o caso comum, e o aviso vazava.
         _log.setLevel(logging.ERROR)
         try:
             return super().output(*args, **kwargs)
         finally:
-            _log.setLevel(_antes)
+            _log.setLevel(_before)
 
     def __init__(self, report: Report, **kwargs):
         page_size = report.page_size
         orientation = report.orientation
         super().__init__(orientation=orientation, format=page_size, **kwargs)
+        # Grade vertical do DOCUMENTO (`Report.lpi`), normalizada aqui para que
+        # valor inválido levante na construção — antes de qualquer página sair —
+        # e não no meio do desenho. `_reset_fluxo` já não mexe neste campo:
+        # a linha é uma só para o report inteiro, como a orientação.
+        from ajsystem.defs.fonts import lpi as _lpi_norm
+        self._lpi = _lpi_norm(report.lpi)
         self._report = report
         self._header = _build_header(report)
         self._footer_cfg = _build_footer(report)
@@ -555,7 +649,7 @@ class DocPDFReport(FPDF):
             if h.line:
                 y = self.get_y()
                 self.line(self.l_margin, y, self.w - self.r_margin, y)
-            return  # a lista já desceu no fim (`_desce_se_cheia`)
+            return  # a lista já desceu no fim (`_descend_if_full`)
 
         # Resolver logo_width
         logo_w = h.logo_width
@@ -576,7 +670,7 @@ class DocPDFReport(FPDF):
 
         # Mesmo fechamento da forma lista: quem vem abaixo do header nasce no Y
         # que ele deixou, e um item estacionado cheio tem de descer antes.
-        _desce_se_cheia(self)
+        _descend_if_full(self)
         if h.line:
             y = self.get_y()
             self.line(self.l_margin, y, self.w - self.r_margin, y)
@@ -605,7 +699,7 @@ class DocPDFReport(FPDF):
             # Centralizado e da largura da área: estaciona no fim da LINHA.
             self.cell(right_w, _row_unit(self), title, align='C',
                       new_x="RIGHT", new_y="TOP")
-            _desce_se_cheia(self)
+            _descend_if_full(self)
             self.set_y(self.get_y() + GAP_TITLE_SIDE)
 
         # Campos do header na área direita
@@ -749,8 +843,13 @@ class DocPDFReport(FPDF):
         if f.show_page_number:
             parts.append(f"Página {self.page_no()}/{{nb}}")
         if parts:
-            self.set_y(FOOTER_Y)
-            _apply_face(self, 'I')
+            # A ÚLTIMA linha da página, não um recuo fixo do papel: o Y vem da
+            # contagem da grade feita no setup (`_recalc_break_trigger`), a mesma
+            # que reservou a linha para o rodapé. `set_y` não dispara quebra de
+            # página, e o fpdf2 ignora `will_page_break` com `in_footer` ligado
+            # — desenhar na linha do gatilho é seguro.
+            self.set_y(self._footer_y)
+            _apply_face(self, f.style, cpi=f.cpi)
             self.cell(0, _row_unit(self), f.separator.join(parts), align=f.align)
 
 
@@ -845,7 +944,6 @@ GAP_HEAD_FIELDS_SINGLE = 4  # após fields quando cabeçalho é só da 1ª pági
 INDENT_GROUP_TITLE = 2   # recuo título de grupo (mm)
 INDENT_GROUP_LINE = 6    # recuo linha de grupo (mm)
 INDENT_PER_LEVEL = 4     # recuo adicional por nível (mm)
-FOOTER_Y = -15           # recuo do rodapé de página
 GAP_TITLE_SIDE = 2      # após título no layout logo_left
 GAP_AFTER_TABLE = 4     # antes do texto after da tabela
 GAP_TEXTS = 4           # antes de cada texto avulso
@@ -903,6 +1001,44 @@ def _fit_table(pdf, cols, label):
     raise ValueError(f"report '{label}': {PAPER_FIT_MSG}")
 
 
+def _page_lines(pdf, margin_bottom):
+    """Quantas linhas da grade cabem na página, EXCLUINDO as margens superior e
+    inferior.
+
+    É a contagem que decide onde o rodapé entra: a última dessas linhas é a do
+    rodapé, e o conteúdo para na anterior. `margin_bottom` chega por parâmetro
+    de propósito — depois que o gatilho é ajustado, `pdf.b_margin` já não é a
+    margem declarada, e relê-lo numa segunda chamada derivaria outro número.
+    """
+    row = _row_unit(pdf)
+    return max(1, int((pdf.h - pdf.t_margin - margin_bottom) // row))
+
+
+def _y_last_line(pdf, margin_bottom):
+    """Y do topo da ÚLTIMA linha da página — a linha do rodapé."""
+    return pdf.t_margin + (_page_lines(pdf, margin_bottom) - 1) * _row_unit(pdf)
+
+
+def _recalc_break_trigger(pdf, margin_bottom):
+    """Faz a última linha da página ser do RODAPÉ, e só do rodapé.
+
+    O gatilho de quebra deixa de ser a margem declarada e passa a ser a linha do
+    rodapé: o conteúdo é medido até lá e nunca a toca. Dois atributos são
+    escritos juntos porque DOIS leiem o mesmo número — `_check_page_break` (o
+    motor, na tabela e no body) lê `b_margin`, e `will_page_break` (fpdf2, atrás
+    do `multi_cell` do texto) lê `page_break_trigger`. Se divergissem, o texto
+    quebraria de página num ponto e a tabela noutro.
+
+    Sem rodapé declarado a área útil é a de sempre e nada muda: um report que
+    não pede rodapé não paga a linha.
+    """
+    if not _footer_draws(getattr(pdf, '_footer_cfg', None)):
+        return
+    pdf._footer_y = _y_last_line(pdf, margin_bottom)
+    pdf.page_break_trigger = pdf._footer_y
+    pdf.b_margin = pdf.h - pdf._footer_y
+
+
 def _check_page_break(pdf, needed_h):
     """Verifica se há espaço. Se não, fecha tabela e adiciona página."""
     if pdf.get_y() + needed_h + pdf.b_margin <= pdf.h:
@@ -911,7 +1047,7 @@ def _check_page_break(pdf, needed_h):
     return True
 
 
-def _face_tabela(pdf, style=''):
+def _table_face(pdf, style=''):
     """`_apply_face` no CPI DA TABELA, não no do report.
 
     A escada escolhe o CPI e mede as células nele; se a fonte do corpo voltasse
@@ -923,7 +1059,7 @@ def _face_tabela(pdf, style=''):
     return _apply_face(pdf, style, cpi=getattr(pdf, '_table_cpi', None))
 
 
-def _celula_cols(pdf, w):
+def _cell_cols(pdf, w):
     """Quantos caracteres da grade cabem numa célula de `w` mm."""
     from ajsystem.defs.fonts import col_mm
     cpi_tab = getattr(pdf, '_table_cpi', None)
@@ -950,7 +1086,7 @@ def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_lin
     """Renderiza cabeçalhos das colunas com linhas horizontais."""
     if draw_top_line:
         _draw_hline(pdf, x_start, total_w)
-    _face_tabela(pdf, 'B')
+    _table_face(pdf, 'B')
     row_h = _row_unit(pdf)
     for i, col in enumerate(cols):
         align = 'C' if col.align == 'center' else ('R' if col.align == 'right' else 'L')
@@ -958,7 +1094,7 @@ def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_lin
         ny = "NEXT" if i == len(cols) - 1 else "TOP"
         pdf.set_x(x_start + sum(col_widths[:i]))
         pdf.cell(col_widths[i], row_h,
-                 _pad_cols(col.label or col.field, _celula_cols(pdf, col_widths[i])),
+                 _pad_cols(col.label or col.field, _cell_cols(pdf, col_widths[i])),
                  border=0, align=align, new_x=nx, new_y=ny)
     _mark_content(pdf)
     _draw_hline(pdf, x_start, total_w)
@@ -966,7 +1102,7 @@ def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_lin
 
 def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
     """Renderiza uma linha de dados."""
-    _face_tabela(pdf)
+    _table_face(pdf)
     row_h = _row_unit(pdf)
     if not hasattr(pdf, '_sup_prev'):
         pdf._sup_prev = {}
@@ -982,7 +1118,7 @@ def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
         # Rede final contra a escrita na vizinha: se o valor for maior que a
         # célula, ele é cortado na grade. A largura vem do field, mas o dado é
         # do app — e dado maior que a coluna não pode passar reto.
-        txt = _pad_cols(txt, _celula_cols(pdf, col_widths[i]))
+        txt = _pad_cols(txt, _cell_cols(pdf, col_widths[i]))
         align = 'R' if col.align == 'right' else ('C' if col.align == 'center' else 'L')
         nx = "LMARGIN" if i == len(cols) - 1 else "END"
         ny = "NEXT" if i == len(cols) - 1 else "TOP"
@@ -1078,7 +1214,7 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
             _txt = _format_cell_value(_dg(instance, _m.group(1)) if instance is not None else None, _fmt_dflt)
         else:
             _txt = _trender(_text, lambda k: _dg(instance, k) if instance is not None else None, _fo)
-        _face_tabela(pdf, _props.get('style', ''))
+        _table_face(pdf, _props.get('style', ''))
         pdf.set_x(_x)
         _last_col = _b if isinstance(_col, list) else _col
         _stay = _last_col < n
@@ -1095,7 +1231,7 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
 def _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w, close=True):
     """Linha de total geral: rótulo nas SPAN primeiras + func por coluna agg."""
     _draw_hline(pdf, x_start, total_w)  # régua antes (interna, sempre)
-    _face_tabela(pdf, 'B')
+    _table_face(pdf, 'B')
     span = totals.get('span')
     nspan = len(cols) - 1 if span is None else min(span, len(cols) - 1)
     label_w = sum(col_widths[:nspan])
@@ -1172,7 +1308,7 @@ def _render_group_header(pdf, g, val, xs, tw, pos, row=None):
     style = 'B' if g.get('bold', True) else ''
     indent = INDENT_GROUP_TITLE if pos == 2 else INDENT_GROUP_LINE
     height = _row_unit(pdf) if pos == 2 else _row_unit(pdf)
-    _face_tabela(pdf, style)
+    _table_face(pdf, style)
     pdf.set_x(xs + indent)
     pdf.cell(tw - indent, height, txt, border=0,
              new_x="LMARGIN", new_y="NEXT")
@@ -1183,7 +1319,7 @@ def _render_group_line(pdf, g, val, xs, tw, row=None):
     """Linha `pos=1` — interna à tabela, texto corrido na largura da tabela."""
     txt = apply_transform(_group_title(g, val, row=row), g.get('transform'))
     style = 'B' if g.get('bold', True) else ''
-    _face_tabela(pdf, style)
+    _table_face(pdf, style)
     indent = max(1, int(g.get('left', 1) or 1)) * INDENT_PER_LEVEL
     height = _row_unit(pdf)
     pdf.set_x(xs + indent)
@@ -1206,7 +1342,7 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
         return
     if totals.get('bline'):
         _draw_hline(pdf, xs, sum(cw))
-    _face_tabela(pdf, 'B')
+    _table_face(pdf, 'B')
     label = totals.get('label', 'Sub-Total')
     if label and row is not None and ('{' in label):
         label = _group_title({**g, 'text': label}, None, row=row)
@@ -1233,8 +1369,11 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
 
 def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                        agg_values, header_h, report):
-    """Grupos por mudança de valor do campo (specs normalizadas)."""
-    lines_after = _lf_de(_body_table(report), 'depois', report.label if report else '')
+    """Grupos por mudança de valor do campo (specs normalizadas).
+
+    O grupo é parte da TABELA: o `lf` é dela, uma vez antes e uma depois, e não
+    se repete por grupo. Quem aplica é `gerar_pdf_relatorio`.
+    """
     show_lines = bool(report.show_table_lines) if report else False
     prev = [None] * len(gs)
     accs = [{c.field: [] for c in cols if c.agg} for _ in gs]
@@ -1258,7 +1397,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
         changed = 0 if not started else \
             next((i for i in range(len(gs)) if vals[i] != prev[i]), None)
 
-        opened_linha = False
+        opened_line = False
         skip_row = False
         if changed is not None:
             # fecha do nível mais interno até o primeiro alterado
@@ -1274,8 +1413,6 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                     if table_open:
                         _table_close(pdf, xs, tw)
                         table_open = False
-                    if lines_after:
-                        pdf.ln(lines_after * _row_unit(pdf))
                     _render_group_header(pdf, g, vals[i], xs, tw, pos, row)
                     gera_cab = True
                 elif pos == 1:                   # linha — interna a tabela, texto único
@@ -1439,7 +1576,7 @@ JUSTIFY_MAX = 1.0
 MEMO_ALIGN = 'J'
 
 
-def _wrap_linhas(pdf, txt, avail, first=None):
+def _wrap_lines(pdf, txt, avail, first=None):
     """Quebra `txt` por palavra em linhas que caibam em `avail` mm.
 
     A casa só tinha `_cut_to_fit` (corte seco); parágrafo precisa de quebra de
@@ -1454,19 +1591,19 @@ def _wrap_linhas(pdf, txt, avail, first=None):
     palavras = (txt or '').split()
     if not palavras:
         return []
-    linhas, atual = [], palavras[0]
+    lines, atual = [], palavras[0]
     for k, p in enumerate(palavras[1:]):
-        limite = (first if (not linhas and first is not None) else avail)
+        limite = (first if (not lines and first is not None) else avail)
         if pdf.get_string_width(atual + ' ' + p) + 2 <= limite:
             atual += ' ' + p
         else:
-            linhas.append(atual)
+            lines.append(atual)
             atual = p
-    linhas.append(atual)
-    return linhas
+    lines.append(atual)
+    return lines
 
 
-def _draw_bloco(pdf, linhas, x, w, h, style, align, recuo=0.0,
+def _draw_bloco(pdf, lines, x, w, h, style, align, recuo=0.0,
                 prefixo=('', '', 0.0)):
     """Desenha as linhas do bloco em `x`, largura `w`, linha de altura `h`.
 
@@ -1489,10 +1626,10 @@ def _draw_bloco(pdf, linhas, x, w, h, style, align, recuo=0.0,
     posição. `C`/`R` alinham o CONJUNTO (rótulo + texto), senão o texto
     centralizado empurraria para fora do rótulo.
     """
-    espaco = pdf.get_string_width(' ')
+    space = pdf.get_string_width(' ')
     _ptxt, _pstyle, _pw = prefixo if prefixo else ('', '', 0.0)
-    n_linhas = len(linhas)
-    for i, ln in enumerate(linhas):
+    n_lines = len(lines)
+    for i, ln in enumerate(lines):
         _check_page_break(pdf, h)
         _apply_face(pdf, style)
         _rec = recuo if i == 0 else 0.0
@@ -1501,43 +1638,43 @@ def _draw_bloco(pdf, linhas, x, w, h, style, align, recuo=0.0,
         lw_m = w - _rec - pref_w
         lw = pdf.get_string_width(ln) + 2
         extra = 0.0
-        if align == 'J' and i < n_linhas - 1 and ' ' in ln:
+        if align == 'J' and i < n_lines - 1 and ' ' in ln:
             n_esp = ln.count(' ')
             sobra = lw_m - lw
             if sobra > 0:
                 cand = sobra / n_esp
-                if cand <= JUSTIFY_MAX * espaco:
+                if cand <= JUSTIFY_MAX * space:
                     extra = cand
         if align == 'C':
-            x_linha = lx + (w - _rec - (pref_w + lw)) / 2
+            x_line = lx + (w - _rec - (pref_w + lw)) / 2
         elif align == 'R':
-            x_linha = lx + (w - _rec - (pref_w + lw))
+            x_line = lx + (w - _rec - (pref_w + lw))
         else:
-            x_linha = lx
+            x_line = lx
         if i == 0 and _ptxt:
             # o rótulo sai na fonte DELE; o texto começa depois dele
             _apply_face(pdf, _pstyle)
-            pdf.set_x(max(x_linha, 0))
+            pdf.set_x(max(x_line, 0))
             pdf.cell(pref_w, h, _ptxt, new_x='END', new_y='TOP')
             _apply_face(pdf, style)
-            x_linha = max(x_linha, 0) + pref_w
+            x_line = max(x_line, 0) + pref_w
         if extra:
             # palavra a palavra: cada célula leva a largura da palavra mais o
             # espaço (esticado) que vem depois dela.
             palavras = ln.split(' ')
             ult = len(palavras) - 1
-            pdf.set_x(x_linha)
+            pdf.set_x(x_line)
             for k, palavra in enumerate(palavras):
                 ww = pdf.get_string_width(palavra) + 2
                 if k < ult:
-                    ww += espaco + extra
+                    ww += space + extra
                 pdf.cell(ww, h, palavra, new_x='END', new_y='TOP')
             pdf.ln(h)
         else:
-            pdf.set_x(max(x_linha, 0))
+            pdf.set_x(max(x_line, 0))
             pdf.cell(lw, h, ln, new_x='END', new_y='TOP')
             pdf.ln(h)
-    if linhas:
+    if lines:
         _mark_content(pdf)
     return pdf.get_y()
 
@@ -1764,9 +1901,13 @@ def _cpi_de(pdf, cfg=None):
 
 
 def _lpi(pdf):
-    """LPI vigente (linhas/pol). Só diretiva `LPI(n)` mexe — nunca prop de item,
-    porque um item com LPI próprio desalinha a grade vertical e o PROW(n) passa
-    a ler a linha errada."""
+    """LPI vigente (linhas/pol) — a prop `lpi` do report, resolvida uma vez em
+    `DocPDFReport.__init__`.
+
+    É do documento inteiro, como `orientation`: a grade vertical é uma só, e
+    por isso **não** é prop de item nem diretiva de fluxo. Um item com LPI
+    próprio desalinharia a página — o PROW(n) voltaria a ler a linha errada e a
+    linha do rodapé (que conta as linhas da grade) sairia do lugar."""
     from ajsystem.defs.fonts import LPI_DEFAULT
     return getattr(pdf, '_lpi', LPI_DEFAULT)
 
@@ -1852,10 +1993,10 @@ def _apply_face(pdf, style='', cpi=None, cfg=None):
 # corpo sem precisar de corpo maior, e a grade tirou o corpo maior do título
 # (o que o distinguia era só o CPI expandido). A prop `mask` do `TITLE` vence —
 # `mask: ''` devolve o texto como está, `'@L'` vai para minúscula.
-MASCARA_TITULO = '@U'
+TITLE_MASK = '@U'
 
 
-def _mascara_titulo(txt, cfg, label):
+def _title_mask(txt, cfg, label):
     """Aplica os COMANDOS DE TEXTO da máscara do `TITLE` (`@U`/`@L`/`@C`/`@T`).
 
     Só os comandos, nunca a parte numérica: `format('Orçamento nº 7',
@@ -1865,7 +2006,7 @@ def _mascara_titulo(txt, cfg, label):
     """
     if not txt or not isinstance(txt, str):
         return txt
-    _mask = cfg.get('mask', MASCARA_TITULO)
+    _mask = cfg.get('mask', TITLE_MASK)
     if _mask is None:
         return txt
     if not isinstance(_mask, str):
@@ -2065,7 +2206,7 @@ def _tab_x(pdf, tab, label):
     pdf.set_x(_flow_zone(pdf)[0] + tabs[tab - 1] * col_w)
 
 
-_CAMPO_PURO = __import__('re').compile(r'^\s*\{\s*([\w.]+)\s*\}\s*$')
+_RAW_FIELD = __import__('re').compile(r'^\s*\{\s*([\w.]+)\s*\}\s*$')
 
 
 def _pad_cols(txt, n):
@@ -2148,7 +2289,7 @@ def _elem_location(pdf, kind, cfg, label=''):
     return [esq, r, dir_ - esq, 0]
 
 
-def _linha_cheia(pdf):
+def _line_is_full(pdf):
     """A linha do fluxo ainda tem lugar? O cursor chegou na borda da zona.
 
     É a ÚNICA pergunta da descida de linha. Um item que ESTACIONA deixa o X na
@@ -2160,20 +2301,20 @@ def _linha_cheia(pdf):
     return pdf.get_x() >= right - 0.01
 
 
-def _desce_se_cheia(pdf):
+def _descend_if_full(pdf):
     """Linha cheia -> uma linha abaixo, na 1ª coluna da zona.
 
     O `x0` é lido ANTES do `ln` de propósito: a zona logo se estreita quando o
     cursor sai da faixa do logo, e o item tem de começar onde a linha começou.
     """
-    if not _linha_cheia(pdf):
+    if not _line_is_full(pdf):
         return
     x0, _right = _flow_zone(pdf)
     pdf.ln(_row_unit(pdf))
     pdf.set_x(x0)
 
 
-def _y_desce(pdf, n_linhas):
+def _y_descend(pdf, n_lines):
     """Desce o Y sem tocar no X.
 
     `set_y` e `ln` do fpdf2 **os dois** devolvem o X para a margem — o `set_y`
@@ -2181,8 +2322,8 @@ def _y_desce(pdf, n_linhas):
     É por isso que `lf` (o lado "depois") não pode ser nenhum dos dois: tem de ser
     `set_xy` com o X que já estava.
     """
-    if n_linhas:
-        pdf.set_xy(pdf.get_x(), pdf.get_y() + n_linhas * _row_unit(pdf))
+    if n_lines:
+        pdf.set_xy(pdf.get_x(), pdf.get_y() + n_lines * _row_unit(pdf))
 
 
 def _place_item(pdf, kind, name, cfg, label, line=True):
@@ -2227,14 +2368,14 @@ def _place_item(pdf, kind, name, cfg, label, line=True):
             # Os demais elementos da MESMA linha ficam na linha: eles andam pela
             # largura, e a descida é uma decisão da LINHA, não do item. (E aqui a
             # descida DON'T-LOSE do `.0022` continua valendo.)
-            _desce_se_cheia(pdf)
+            _descend_if_full(pdf)
         _tab_x(pdf, cfg['_tab'], label)
         return
     if any(k in cfg for k in ('location', 'pos')):
         # Y absoluto: descer aqui seria jogado fora pelo `set_xy`, e perto do
         # rodapé ainda quebraria a página à toa.
         return
-    _desce_se_cheia(pdf)
+    _descend_if_full(pdf)
     x0, right = _flow_zone(pdf)
     if kind == 'TEXT' and line and cfg.get('width') is None:
         if pdf.get_x() > x0 + 0.01:
@@ -2383,8 +2524,8 @@ def _render_flow_item(pdf, kind, name, cfg, instance, label, col_w, fill=False):
             _mark_content(pdf)
 
 
-def _lf_de(cfg, lado, label=''):
-    """`lf` de um dicionário (item ou `table`) para UM lado, em linhas.
+def _lf_one_side(cfg, side, label=''):
+    """`lf` de um dict (item ou `table`) para UM lado, em linhas.
 
     Três formas, e o sinal é a principal:
 
@@ -2394,18 +2535,17 @@ def _lf_de(cfg, lado, label=''):
 
     A terceira existe porque `table: {'lf': [1, 2]}` é uma declaração
     legítima (uma tabela pode respirar antes E depois) e não cabe num número com
-    sinal. `0` (ou ausente) é ausência — o antigo `rows_after: 0` já era.
+    sinal. `0` (ou ausente) é ausência.
 
-    `lado` decide o sinal: o que é positivo SÓ conta para 'depois' e o que é
-    negativo SÓ para 'antes'. Sem isso os dois lados somavam o mesmo número — e o
-    `lf: 1` de um item o empurrava para baixo em vez de empurrar o próximo.
+    `side` decide o sinal: o que é positivo SÓ conta para 'after' e o que é
+    negativo SÓ para 'before'. Sem isso os dois lados somavam o mesmo número — e
+    o `lf: 1` de um item o empurrava para baixo em vez de empurrar o próximo.
+
+    Aceita o dict de um ITEM. A tabela não passa por aqui: o `lf` dela é
+    resolvido uma vez em `_build_table` e chega já separado em
+    `lf_before_table`/`lf_after_table`, sem sinal para reinterpretar.
     """
-    # Aceita dict (item, `table`) ou o dataclass `_ReportTable`, que já
-    # carrega o `lf` resolvido — um leitor só para os dois escopos.
-    if isinstance(cfg, dict):
-        v = cfg.get('lf', 0)
-    else:
-        v = getattr(cfg, 'lf', 0)
+    v = cfg.get('lf', 0)
     v = v or 0
     if isinstance(v, (list, tuple)):
         # A lista já é por lado: `[3, 0]` são 3 ANTES e 0 depois, e um valor
@@ -2414,7 +2554,7 @@ def _lf_de(cfg, lado, label=''):
             raise ValueError(
                 f"report '{label}': 'lf' como lista precisa de [antes, depois], "
                 f"veio {list(v)!r}")
-        v = v[0] if lado == 'antes' else v[1]
+        v = v[0] if side == 'before' else v[1]
         v = v or 0
         if isinstance(v, bool) or not isinstance(v, (int, float)):
             raise ValueError(
@@ -2425,35 +2565,67 @@ def _lf_de(cfg, lado, label=''):
         raise ValueError(
             f"report '{label}': 'lf' deve ser número (positivo = depois, "
             f"negativo = antes) ou [antes, depois]; veio {v!r}")
-    if lado == 'antes':
+    if side == 'before':
         return abs(int(v)) if v < 0 else 0
     return abs(int(v)) if v > 0 else 0
 
 
-def _lf_antes(pdf, cfg, label=''):
+def _lf_split(raw, label=''):
+    """`lf` declarado → `(before, after)`, validando os DOIS lados de uma vez.
+
+    Resolver por lado (o que `_lf_one_side` faz) valida só o lado pedido: com
+    `lf: [1, 'x']`, pedir o "antes" devolvia 1 sem nunca olhar o `'x'`. Aqui os
+    dois lados são pedidos, então a forma inteira é conferida no build do report
+    — antes de qualquer página sair.
+    """
+    cfg = raw if isinstance(raw, dict) else {'lf': raw}
+    return (_lf_one_side(cfg, 'before', label),
+            _lf_one_side(cfg, 'after', label))
+
+
+def _space_before(pdf, n):
+    """`n` linhas ANTES, preservando a zona: consome a descida pendente e volta
+    o X para a 1ª coluna.
+
+    É o incremento vertical do motor, e o mesmo para item e para tabela — a
+    diferença é só de onde vem o `n` (`Field`/`Item` vs `_ReportTable`). Sem o
+    `_descend_if_full` o `lf: -1` perderia a linha automática e o `-1` viraria o
+    total; sem o `set_x` o cursor ficaria no fim do item anterior.
+    """
+    if not n:
+        return
+    _descend_if_full(pdf)
+    pdf.ln(n * _row_unit(pdf))
+    pdf.set_x(_flow_zone(pdf)[0])
+
+
+def _space_after(pdf, n):
+    """`n` linhas DEPOIS, **sem tocar no X** (preserva o estacionamento).
+
+    Não pode ser `ln`: ele devolve o X à margem e apagaria o estacionamento, e
+    a descida automática do próximo item viraria a mesma linha do `lf: 0`.
+    """
+    if n:
+        _y_descend(pdf, n)
+
+
+def _lf_before(pdf, cfg, label=''):
     """`lf` negativo: `n` linhas ANTES do item, X de volta na 1ª coluna.
 
     É o primeiro a ver a linha, e o `set_x` apagaria o "estacionado" do item
     anterior — sem a descida antes, o `MEMO(..., {'lf': -1})` perderia a linha
     automática e o `-1` viraria o total.
     """
-    n = _lf_de(cfg, 'antes', label)
-    if not n:
-        return
-    _desce_se_cheia(pdf)
-    pdf.ln(n * _row_unit(pdf))
-    pdf.set_x(_flow_zone(pdf)[0])
+    _space_before(pdf, _lf_one_side(cfg, 'before', label))
 
 
-def _lf_depois(pdf, cfg, label=''):
+def _lf_after(pdf, cfg, label=''):
     """`lf` positivo: `n` linhas DEPOIS do item, **sem tocar no X**.
 
     Não pode ser `ln`: ele devolve o X à margem e apagaria o estacionamento, e a
     descida automática do próximo item viraria a mesma linha do `lf: 0`.
     """
-    n = _lf_de(cfg, 'depois', label)
-    if n:
-        _y_desce(pdf, n)
+    _space_after(pdf, _lf_one_side(cfg, 'after', label))
 
 
 def _render_items(pdf, items, instance, report, reset_tabs=True):
@@ -2466,26 +2638,25 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
     """
     from ajsystem.core.geom import normalize as _gloc, to_mm as _gmm
     from ajsystem.core.text import render as _trender
-    from ajsystem.defs.fonts import CPI_DEFAULT, LPI_DEFAULT, cpi as _cpi_norm, lpi as _lpi_norm
+    from ajsystem.defs.fonts import CPI_DEFAULT, cpi as _cpi_norm
     label = report.label if report is not None else ''
     if reset_tabs:
         _reset_fluxo(pdf)
     col_w = _col_unit(pdf)
-    _titulos = 0   # cascata de TITLE desta lista (1º = título, demais = subtítulo)
+    _titles = 0   # cascata de TITLE desta lista (1º = título, demais = subtítulo)
 
     def _um_item(kind, name, cfg, col_w, drawn):
         """Desenha 1 item. Devolve `(col_w, drawn)`: o `CPI`/`LPI` muda a
         grade do fluxo e o `TITLE`/`TITLES` o contador da cascata — os dois
         atravessam o item, então voltam em vez de sumir.
         """
-        if kind in ('CPI', 'LPI'):
-            # Diretiva de GRADE: muda a célula/coluna do fluxo daqui em diante.
-            # `CPI()`/`LPI()` nu volta ao padrão — é o "restaura" do antigo FONT.
-            if kind == 'CPI':
-                pdf._cpi = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else CPI_DEFAULT
-                pdf._flags = cfg.get('flags', '')
-            else:
-                pdf._lpi = _lpi_norm(cfg['lpi']) if 'lpi' in cfg else LPI_DEFAULT
+        if kind == 'CPI':
+            # Diretiva de GRADE na horizontal: muda a célula/coluna do fluxo daqui
+            # em diante. `CPI()` nu volta ao padrão — é o "restaura" do antigo
+            # FONT. O eixo VERTICAL (LPI) não tem diretiva: é a prop `lpi` do
+            # report, porque a linha é uma só para o documento inteiro.
+            pdf._cpi = _cpi_norm(cfg['cpi']) if 'cpi' in cfg else CPI_DEFAULT
+            pdf._flags = cfg.get('flags', '')
             return _col_unit(pdf), drawn
         if kind in ('PCOL', 'PROW'):
             # Diretiva de cursor: `PCOL(n)` = n cols do INÍCIO DA ZONA (que o
@@ -2559,28 +2730,28 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             # aqui e no header, pelo mesmo motivo: o título é o bloco
             # centralizado da zona, e ancorá-lo numa parada não é posicionamento.
             if kind == 'TITLE':
-                drawn = _draw_titulo(pdf, cfg, None, label, instance=instance, drawn=drawn)
+                drawn = _draw_title(pdf, cfg, None, label, instance=instance, drawn=drawn)
             else:
                 for _sub in cfg.get('items') or []:
                     _k, _n, _cfg = _split_item(_sub, label)
                     if _k != 'TITLE':
                         raise ValueError(f"report '{label}': TITLES aceita só TITLE, veio {_k!r}")
-                    drawn = _draw_titulo(pdf, _cfg, None, label, instance=instance, drawn=drawn)
+                    drawn = _draw_title(pdf, _cfg, None, label, instance=instance, drawn=drawn)
             return col_w, drawn
         if kind == 'MEMO':
             _validate_flags(cfg.get('flags'), label, 'MEMO')
             from ajsystem.core.text import render as _mrender, dotted_get as _mdg
-            _campo = cfg.get('field')
-            if _campo:
+            _field = cfg.get('field')
+            if _field:
                 # FIELD com medida: o valor vem resolvido — `function` (que já
                 # traduz LIST pelo catálogo, vindo da Entity ou do override
                 # `options`) e a máscara. É o mesmo passo do item FIELD.
                 if instance is None:
                     raise ValueError(
-                        f"report '{label}': memo '{_campo}' exige instância (documento)")
+                        f"report '{label}': memo '{_field}' exige instância (documento)")
                 _fn, _fmt = cfg.get('function'), cfg.get('format')
                 try:
-                    _val = _fn(instance) if callable(_fn) else _mdg(instance, _campo)
+                    _val = _fn(instance) if callable(_fn) else _mdg(instance, _field)
                 except Exception:
                     _val = None
                 _txt = _format_cell_value(_val, _fmt if _fmt is not None
@@ -2628,13 +2799,13 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
                 _apply_face(pdf, 'B', cfg=cfg)
                 pdf.set_x(_bx)
                 pdf.cell(_lw, _row_unit(pdf), _lbl, new_x="END", new_y="NEXT")
-            # A fonte ANTES de medir: `_wrap_linhas` decide onde quebrar pelo
+            # A fonte ANTES de medir: `_wrap_lines` decide onde quebrar pelo
             # `get_string_width`, e medir na fonte anterior produz linhas mais
             # largas que o bloco (o bloco saía com 154mm num espaço de 141mm).
             _apply_face(pdf, _style, cfg=cfg)
-            _linhas = _wrap_linhas(pdf, _txt, _w, first=_w - _recuo - _lw) if _txt else []
-            if _linhas:
-                _draw_bloco(pdf, _linhas, _bx, _w, _row_unit(pdf), _style,
+            _lines = _wrap_lines(pdf, _txt, _w, first=_w - _recuo - _lw) if _txt else []
+            if _lines:
+                _draw_bloco(pdf, _lines, _bx, _w, _row_unit(pdf), _style,
                             cfg.get('align', MEMO_ALIGN), _recuo,
                             prefixo=(_lbl, 'B', _lw))
                 pdf.set_x(_flow_zone(pdf)[0])
@@ -2723,13 +2894,13 @@ def _render_items(pdf, items, instance, report, reset_tabs=True):
             from ajsystem.core.text import eval_when as _ew
             if not _ew(instance, cfg['when']):
                 continue
-        _lf_antes(pdf, cfg, label)
-        col_w, _titulos = _um_item(kind, name, cfg, col_w, _titulos)
-        _lf_depois(pdf, cfg, label)
+        _lf_before(pdf, cfg, label)
+        col_w, _titles = _um_item(kind, name, cfg, col_w, _titles)
+        _lf_after(pdf, cfg, label)
     # O último item pode ter estacionado, e quem vem depois nasce no Y que esta
     # lista deixou (a tabela, o corpo, a próxima página): sem esta descida a
     # tabela sairia em cima do título.
-    _desce_se_cheia(pdf)
+    _descend_if_full(pdf)
 
 
 def _margin_mm(v, label):
@@ -2756,8 +2927,11 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     _mb = _margin_mm(report.margin_bottom, report.label)
 
     pdf = DocPDFReport(report)
-    pdf.set_auto_page_break(auto=report.auto_page_break, margin=_mb)
+    # Margens ANTES do gatilho: `_recalc_break_trigger` conta as linhas da
+    # página com a margem de topo já posta e a de base declarada.
     pdf.set_margins(_ml, _mt, _mr)
+    pdf.set_auto_page_break(auto=report.auto_page_break, margin=_mb)
+    _recalc_break_trigger(pdf, _mb)
 
     # Família do documento inteiro. Validada aqui (não no 1º desenho) para que
     # nome errado caia antes de qualquer página sair — e o registro das faces
@@ -2798,22 +2972,17 @@ def gerar_pdf_relatorio(report: Report, data: list = None, logo_path: str = None
     _items = getattr(_body, 'items', None) if _body else None
     if _items:
         _render_items(pdf, _items, instance, report)
-        _bl = _body.get('table') if isinstance(_body, dict) else getattr(_body, 'table', None)
-        # NOME com prefixo: a variável local esconderia a FUNÇÃO `_lf_antes`,
-        # que é chamada mais abaixo neste mesmo arquivo.
-        _n_antes = _lf_de(_bl, 'antes', report.label if report else '') if isinstance(_bl, dict) else 0
-        if _n_antes:
-            pdf.ln(_n_antes * _row_unit(pdf))
 
-    # Tabela
+    # Tabela. O `lf` é DA TABELA — uma vez antes, uma depois, independente de
+    # haver `items` acima ou grupos dentro: o grupo é parte dela (ver
+    # `_ReportTable`). É o mesmo `_space_before`/`_space_after` que o `lf` de
+    # item usa, então o incremento vertical tem um só dono.
     tbl = _build_table(report)
     if tbl.columns:
+        _space_before(pdf, tbl.lf_before_table)
         _render_table(pdf, tbl.columns, data, tbl.totals,
                       instance, report=report)
-    if tbl.lf:
-        _n = _lf_de(tbl, 'depois', report.label if report else '')
-        if _n:
-            pdf.ln(_n * _row_unit(pdf))
+        _space_after(pdf, tbl.lf_after_table)
 
     # After table (do corpo)
     _after = getattr(_body, 'after', None) if _body else None

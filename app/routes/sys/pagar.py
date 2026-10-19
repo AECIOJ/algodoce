@@ -14,9 +14,8 @@ Schema = {
                      'carry': 'conta_id'},
         'operacao_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
                                 'when': 'tipo = 2 AND pai_id IS NOT NULL'}},
-        'historico': {'pos_list': 2},
-        'cancelado': {'pos_list': 0, 'pos_form': 5},
-        'valor': {'readonly': False, 'pos_form': 0, 'carry': 'valor'},
+        'cancelado': {'label': 'Cancelado em'},
+        'valor': {'readonly': False, 'carry': 'valor'},
         'previsto': {'type': 'NUM', 'label': 'Previsto', 'readonly': True,
                      'memory': True, 'mask': MVALOR,
                      'calc': {'type': 'agg', 'source': 'sum(Previsao.previsto)'}},
@@ -24,26 +23,24 @@ Schema = {
                       'memory': True, 'mask': MVALOR,
                       'calc': {'type': 'agg', 'source': 'sum(Previsao.realizado)'}},
         'ratear': {'type': 'NUM', 'label': 'Ratear', 'memory': True, 'mask': MVALOR},
-        'prazo': {'readonly': False, 'pos_form': 0},
+        'prazo': {'readonly': False},
         'variacao': {'calc': {'type': 'agg', 'source': 'sum(Previsao.variacao)',
                               'diff': 'Aviso de Inconsistência: Variação difere da soma das variações das previsões atuais.'},
-                     'readonly': True, 'pos_form': 0},
+                     'readonly': True},
         'saldo': {'calc': {'type': 'agg', 'source': 'sum(Previsao.saldo)',
                            'diff': 'Aviso de Inconsistência: Saldo difere da soma dos saldos das previsões atuais.'},
-                  'readonly': True, 'pos_form': 0},
+                  'readonly': True},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta conta difere do status calculado.'},
-                   'pos_form': 3, 'pos_filter': 3,
                    'tag': {'colors': {0: 'warning', 1: 'warning', 2: 'info', 8: 'error', 9: 'success'}}},
-        'tipo': {'pos_filter': 9, 'default': 'P'},
-        'compra_id': {'pos_list': 1},
-        'recurso_id': {'pos_list': 1,'type': 'FK', 'label': 'Recurso', 'memory': True,
+        'tipo': {'default': 'P'},
+        'recurso_id': {'type': 'FK', 'label': 'Recurso', 'memory': True,
                        'lookup': {'model': 'Recurso', 'display': 'nome', 'fields': ['nome']}},
     },
     'Previsao': {
-        'id': {'pos_form': 1, 'readonly': True, 'label': 'Previsão', 'mask': '999,999'},
+        'id': {'readonly': True, 'label': 'Previsão', 'mask': '999,999'},
         'recurso_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
-        'saldo': {'pos_form': 0},
+        'saldo': {},
     },
 }
 
@@ -61,12 +58,26 @@ Page = {
         'list': {
             'columns': 'Transacao',
             'master': 'Previsao',
-            'order': ['vencimento','id'],
+            'filter': {'fixed': {'tipo': 'P'}, 'types': {'checklist': 'status'}},
+            'line': ['compra_id'],
+            'hidden': ['cancelado', 'tipo'],
             'card': 'Transacao',
+            'order': ['vencimento','id'],
         },
         'form': {
             'max_width':110,
             'fields': 'Transacao',
+            # Onde cada campo vai na tela e sob que condição (5.5). `tipo` é
+            # filtro fixo (`list.filter.fixed`): some do painel e vira WHERE,
+            # então precisa estar em `hidden` para não virar campo do form.
+            'positions': {
+                'bar':    ['status'],
+                'footer': ['cancelado'],
+                'hidden': ['valor', 'prazo', 'variacao', 'saldo', 'tipo',
+                           'compra_id', 'pedido_id'],
+            },
+            'visible': {'pedido_id': {'not_empty': True},
+                        'compra_id': {'not_empty': True}},
             'pre_get': pre_get_transacao,
             'post_save': post_save_transacao,
             'sessions': {
@@ -77,6 +88,7 @@ Page = {
                         'columns': ['Previsao'],
                         'totals': ['previsto', 'realizado', 'variacao', 'saldo'],
                     },
+                    'positions': {'hidden': ['saldo'], 'body': ['id']},
                     # `gerar_previsoes` e `zerar_previsoes` são tipos do app
                     # (app/extends/buttons.py): aqui fica só o que depende do form — a
                     # ação JS, a posição e os campos que habilitam.

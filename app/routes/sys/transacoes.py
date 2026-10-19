@@ -1,22 +1,9 @@
-"""Origem do "Gerar" de contas a receber/pagar (previsão).
-
-Quando o form de Conta a Receber/Pagar é aberto pelo "Gerar" (pedido/compra
-com carteira de previsão), pré-preenche data/tipo/histórico e transfere o
-`prazo_recebimento` da carteira para `transacao.prazo`. As previsões são
-geradas no cliente pelo botão "Gerar" (JS) e persistidas junto com a conta.
-
-Valor/conta_id são importados por `carry` (prop de campo, resolvida pelo
-motor). A origem (`origem_pedido`/`origem_compra`) permanece na query string
-— a `<form>` principal não tem `action` e reenvia os args no POST, usados por
-`post_save_transacao`.
-"""
 from flask import request
 
 from ajsystem.core.extensions import db
 from ajsystem.core.formats import parse_brl
 from ajsystem.defs.constants import TODAY
 from app.models.transacao import Transacao
-
 
 
 def _valor(v):
@@ -27,7 +14,6 @@ def _valor(v):
 
 
 def _num_pt(v):
-    """Numérico tolerante a 'R$ 1.234,56'. Espelha o `num()` em previsoes.js."""
     n = parse_brl(v)
     return 0.0 if n is None else n
 
@@ -40,7 +26,6 @@ def _carry_int(carry, key):
 
 
 def _prazo_carteira(carteira_id):
-    """`(prazo_texto, carteira_id)` da carteira (None se ausente/inválida)."""
     if not carteira_id:
         return None, None
     from app.models.carteira import Carteira
@@ -51,17 +36,6 @@ def _prazo_carteira(carteira_id):
 
 
 def pre_get_transacao(mod, id):
-    """`pre_get` de receber/pagar: pré-preenche mestre + prazo da carteira.
-
-    Valor/conta são preenchidos pelo motor via `carry` (campos `valor`/
-    `conta_id` na Schema). Aqui ficam data/tipo/histórico e o `prazo`
-    transferido de `carteira.prazo_recebimento`. Nada é persistido e nenhuma
-    previsão é criada — o botão "Gerar" (JS) cuida disso no form.
-
-    O JS do "Gerar" não entra aqui: vem da prop `scripts` do Page (ver
-    pagar.py/receber.py), que é injetada em todo form de receber/pagar, novo
-    ou de edição.
-    """
     extra = {}
     if id is not None:
         return extra
@@ -108,14 +82,6 @@ def pre_get_transacao(mod, id):
 
 
 def post_save_transacao(instance, changed, old_vals):
-    """`post_save` de receber/pagar: vincula a transação ao pedido/compra.
-
-    Recalcula os agregados derivados das previsões (variacao, saldo e status).
-    `valor` e `prazo` são alvo/entrada do usuário (vêm do form ou do `carry`)
-    e não são sobrescritos aqui — exceto em conta vinculada, onde `valor` é
-    read-only: novo (origem) mantém o valor do `carry`; edição reverte o
-    valor alterado via POST.
-    """
     from ajsystem.core.memory import carry_take
     carry = carry_take(request.args.get('carry')) or {}
     pid = request.args.get('origem_pedido', type=int)

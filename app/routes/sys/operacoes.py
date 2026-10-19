@@ -12,13 +12,6 @@ Buttons = {
                        'label': 'Plano'},
 }
 
-Schema = {
-    'Operacao': {
-        'indice': {'pos_list': 1, 'pos_filter': 0, 'pos_form': 0},
-    }
-}
-
-
 def _transformar_nome(nome, pai_id):
     if not pai_id:
         return nome.strip().upper()
@@ -56,6 +49,7 @@ Page = {
         'list': {
             'columns': [QPLANO, 'id', 'indice', 'nome', 'tipo',
                         'fator', 'ativa', 'pai_id', 'ordem'],
+            'filter': {'hidden': ['indice']},
             'field_id': 'id',
             'order': ['ordem', 'nome'],
             'buttons': ['imprimir_plano'],
@@ -63,6 +57,7 @@ Page = {
         'form': {
             'max_width': 80,
             'fields': 'Operacao',
+            'positions': {'bar': ['ativa'], 'hidden': ['indice']},
             'pre_save': _pre_save,
             'delete': {
                 'when': [Operacao],

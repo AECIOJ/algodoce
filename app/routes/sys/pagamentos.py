@@ -1,5 +1,6 @@
 from app.models.movimento import Movimento
 from ajsystem.defs.constants import TODAY
+from app.extends.constants import SAIDA
 from app.routes.sys.movtos import (
     post_save_movto_link, _pre_get_movto, excluir_movto, _validar_origem_exclusiva,
 )
@@ -21,7 +22,7 @@ PREVISOES = {
 Schema = {
     'Movimento': {
         'data': {'default': TODAY},
-        'tipo': {'pos_filter': 9, 'default': 'S'},
+        'tipo': {'default': SAIDA},
         'recurso_id': {'lookup': {'display': 'nome', 'fields': ['nome']}},
         'conta_id': {'label': 'Fornecedor',
                      'lookup': {'display': 'nome', 'fields': ['nome'],
@@ -32,9 +33,6 @@ Schema = {
                         'on_set': {'replaces': {'valor': 'saldo'}}},
         'operacao_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
                                    'when': 'tipo = 2 AND ativa = true AND pai_id IS NOT NULL'}},
-        'pedido_id': {'pos_list': 0, 'tag': {'link': 'pedidos.form', 'color': 'info'}},
-        'compra_id': {'pos_list': 0, 'tag': {'link': 'compras.form', 'color': 'info'}},
-        'historico': {'pos_list': 2},
     },
 }
 
@@ -48,10 +46,14 @@ Page = {
         },
         'list': {
             'columns': 'Movimento',
+            'filter': {'fixed': {'tipo': SAIDA}},
+            'hidden': ['tipo', 'pedido_id', 'compra_id'],
+            'card': ['historico'],
             'order': ['data', 'id'],
         },
         'form': {
             'fields': 'Movimento',
+            'positions': {'hidden': ['tipo']},
             'delete': False,
             'pre_get': _pre_get_movto,
             'pre_save': _validar_origem_exclusiva,

@@ -21,10 +21,6 @@ Exemplos:
 from app.extends.masks import MCPF, MCNPJ, MTEL
 
 Inputs = {
-    # Documentos: como `text` com máscara (HTML puro); validadores do framework
-    # tratam `validate: 'cpf'`/`'cnpj'` em outro lugar (se houver). O importante
-    # aqui é `masked` + `mask` + `size`. As máscaras vêm de `app/extends/masks.py`
-    # (`@R` = não grava separadores no banco).
     'cpf': {
         'type': 'text',
         'masked': True,
@@ -43,9 +39,6 @@ Inputs = {
         'filter_kind': 'text',
         'align': 'left',
     },
-    # Telefone BR: traz máscara/validação via catálogo (o `FIELD_TYPES['FONE']`
-    # aponta para `tel` — o app pode sobrescrever `tel` para BR, ou criar
-    # `fone_br`. Como o plano diz override, vamos reforçar `tel` para BR.
     'tel': {
         'type': 'tel',
         'masked': True,

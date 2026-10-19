@@ -71,8 +71,8 @@ def _gerar_chave(ordem=None):
     if ordem not in PERMUTACOES:
         return ""
     now = datetime.now()
-    valores = {"A": str(now.year), "M": f"{now.month:02d}", "H": f"{now.hour:02d}"}
-    return "".join(valores[c] for c in ordem)
+    values = {"A": str(now.year), "M": f"{now.month:02d}", "H": f"{now.hour:02d}"}
+    return "".join(values[c] for c in ordem)
 
 
 def _get_ip():
@@ -111,7 +111,7 @@ def _clear_attempts():
 
 @bp.route("/api/login", methods=["POST"])
 def login():
-    from ajsystem.core.menu import pagina_home
+    from ajsystem.core.menu import home_page
     data = request.get_json(silent=True) or {}
     username = data.get("username", "")
     password = data.get("password", "")
@@ -124,7 +124,7 @@ def login():
         login_user(user, remember=True)
         session['_last_activity'] = time.time()
         _clear_attempts()
-        return jsonify(redirect=pagina_home(APP.module('system')))
+        return jsonify(redirect=home_page(APP.module('system')))
 
     _record_failure()
     count, _ = FAILED_ATTEMPTS.get(_get_ip(), (0, 0))
@@ -138,7 +138,7 @@ def login():
 
 @bp.route("/api/login-sistema", methods=["POST"])
 def login_sistema():
-    from ajsystem.core.menu import pagina_home
+    from ajsystem.core.menu import home_page
     data = request.get_json(silent=True) or {}
     u = data.get("username", "")
     p = data.get("password", "")
@@ -159,12 +159,12 @@ def login_sistema():
     session.permanent = True
     login_user(user, remember=True)
     _clear_attempts()
-    return jsonify(redirect=pagina_home(APP.module('system')))
+    return jsonify(redirect=home_page(APP.module('system')))
 
 
 @bp.route("/api/login-admin", methods=["POST"])
 def login_admin():
-    from ajsystem.core.menu import pagina_home
+    from ajsystem.core.menu import home_page
     data = request.get_json(silent=True) or {}
     u = data.get("username", "")
     p = data.get("password", "")
@@ -189,7 +189,7 @@ def login_admin():
     if admin:
         login_user(admin, remember=True)
     session["seguranca_autenticado"] = True
-    return jsonify(redirect=pagina_home(APP.module('admin')))
+    return jsonify(redirect=home_page(APP.module('admin')))
 
 
 @bp.route("/api/admin-config")
@@ -212,10 +212,10 @@ def chave_diaria():
     if ordem not in PERMUTACOES:
         return jsonify(tem=False)
     now = datetime.now()
-    valores = {"A": str(now.year), "M": f"{now.month:02d}", "H": f"{now.hour:02d}"}
-    chave = "".join(valores[c] for c in ordem)
+    values = {"A": str(now.year), "M": f"{now.month:02d}", "H": f"{now.hour:02d}"}
+    chave = "".join(values[c] for c in ordem)
     label = "Hoje: " + " ".join(_ROTULOS_CHAVE[c] for c in ordem)
-    label += " → " + " ".join(valores[c] for c in ordem)
+    label += " → " + " ".join(values[c] for c in ordem)
     return jsonify(tem=True, chave=chave, ordem=ordem, label=label)
 
 

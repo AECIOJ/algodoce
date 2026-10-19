@@ -1,7 +1,7 @@
 from flask import flash, redirect, url_for
 
 from ajsystem.core.formats import parse_brl
-from ajsystem.defs.constants import TODAY, POS_0_NOT_EMPTY
+from ajsystem.defs.constants import TODAY
 from ajsystem import locales as i18n
 from app.models.compra import Compra
 from app.extends.buttons import _sem_financeiro
@@ -9,8 +9,7 @@ from app.models.compra_item import CompraItem
 from app.reports.compras import COMPRA
 
 
-# Mesma declaração de `pedidos.py`: `report` + `type: 'print'` e a aparência de
-# envio por cima.
+
 Buttons = {
     'enviar_compra': {'type': 'print', 'report': COMPRA, 'label': i18n.SEND,
                       'icon': 'paper-airplane', 'color': 'success',
@@ -25,7 +24,6 @@ def _num(v):
 
 
 def _child_soma(request, rel='items'):
-    """Soma `qtd * preco` das linhas child enviadas no POST (validação)."""
     from re import match as _match
     rows = {}
     for key, val in request.form.items():
@@ -67,8 +65,6 @@ def _faturado(instance):
 
 
 def _pre_get(mod, id):
-    """Self-heal: `faturado_em` órfão (sem contrapartida movto/transacao) é
-    revertido no load do form — evita compra travada como "faturada"."""
     from flask import request
     if id is None or request.method != 'GET':
         return None
@@ -136,36 +132,34 @@ Schema = {
         'fornecedor_id': {'label': 'Fornecedor',
                            'lookup': {'display': 'nome', 'fields': ['nome', 'telefone'],
                                       'when': {'ativo': True, 'tipo': [1, 2]}}},
-        'carteira_id': {'label': 'Pagamento', 'pos_form':0,
+        'carteira_id': {'label': 'Pagamento',
                         'lookup': {'display': 'nome'},
                         'disabled': _financeiro_gerado},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado desta compra difere do status calculado.'},
-                   'pos_form': 3, 'pos_filter': 3, 'tag': {'colors': {0: 'warning', 1: 'info', 2: 'info', 6: 'warning', 8: 'success', 9: 'error'}}},
-        'transacao_id': {'pos_form': POS_0_NOT_EMPTY, 'pos_list': 0,
-                         'tag': {'link': 'pagar.form', 'color': 'info'}},
-        'movto_id': {'pos_form': POS_0_NOT_EMPTY, 'pos_list': 0,
-                     'tag': {'link': 'pagamentos.form', 'color': 'info'}},
+                   'tag': {'colors': {0: 'warning', 1: 'info', 2: 'info', 6: 'warning', 8: 'success', 9: 'error'}}},
+        'transacao_id': {'tag': {'link': 'pagar.form', 'color': 'info'}},
+        'movto_id': {'tag': {'link': 'pagamentos.form', 'color': 'info'}},
 'valor': {'calc': {'type': 'agg', 'source': 'sum(CompraItem.valor)',
                             'diff': 'Aviso de Inconsistência: Total registrado desta compra difere da soma dos itens atuais.'},
-                   'readonly': True, 'pos_form': 0},
-        'acrescimo': {'pos_form': 0},
-        'desconto': {'pos_form': 0},
-        'total': {'calc': 'valor + acrescimo - desconto', 'pos_form': 0},
-        'pedido_em': {'pos_form': 0},
-        'faturado_em': {'pos_form': 0},
-        'cancelado_em': {'pos_form': 5},
-        'recebido_em': {'pos_form': 0},
-        'devolvido_em': {'pos_form': 0},
+                   'readonly': True},
+        'acrescimo': {},
+        'desconto': {},
+        'total': {'calc': 'valor + acrescimo - desconto'},
+        'pedido_em': {},
+        'faturado_em': {},
+        'cancelado_em': {},
+        'recebido_em': {},
+        'devolvido_em': {},
     },
     'CompraItem': {
         'insumo_id': {
             'lookup': {'display': 'nome', 'fields': ['nome']},
         },
-        'valor': {'pos_form': 0},
+        'valor': {},
     },
     'Previsao': {
-        'id': {'pos_form': 1, 'readonly': True, 'label': 'Previsão', 'mask': '999,999'},
+        'id': {'readonly': True, 'label': 'Previsão', 'mask': '999,999'},
     },
 }
 
@@ -179,11 +173,24 @@ Page = {
         },
         'list': {
             'columns': 'Compra',
+            'filter': {'types': {'checklist': 'status'}},
+            'hidden': ['transacao_id', 'movto_id'],
+            'card': ['pedido_em', 'faturado_em', 'cancelado_em',
+                     'recebido_em', 'devolvido_em', 'observacao'],
             'order': ['data', 'id'],
         },
         'form': {
             'max_width':120,
             'fields': 'Compra',
+            'positions': {
+                'bar':    ['status'],
+                'footer': ['cancelado_em'],
+                'hidden': ['transacao_id', 'movto_id', 'carteira_id', 'valor',
+                           'acrescimo', 'desconto', 'total', 'pedido_em',
+                           'faturado_em', 'recebido_em', 'devolvido_em'],
+            },
+            'visible': {'transacao_id': {'not_empty': True},
+                        'movto_id': {'not_empty': True}},
             'readonly': _faturado,
             'pre_get': _pre_get,
             'pre_save': _pre_save,
@@ -195,18 +202,16 @@ Page = {
                         'columns': ['CompraItem'],
                         'totals': ['qtd', {'valor': 'valor'}],
                     },
+                    'positions': {'hidden': ['valor']},
                 },
                 'Financeiro': {
                     'fields': ['valor', 'acrescimo', 'desconto', 'total',
                                'carteira_id', 'transacao_id', 'movto_id'],
                     'query': _query_financeiro,
                     'buttons': [
-                        # Rótulo, ícone (cédula -> moeda), cor e estilo saem do
-                        # tipo `gerar_financeiro` do app. Aqui ficam só o que é
-                        # deste uso: destino, confirmação, visibilidade, campos
-                        # que habilitam e o que é carregado para o formulário.
+
                         {'gerar_financeiro': {
-                            'url': 'compras.gerar_financeiro', 'method': 'POST', 'position': 'right',
+                            'url': 'compras.gerar_financeiro', 'method': 'POST', 'position': 'after',
                             'confirm_msg': 'Gerar o financeiro desta compra?',
                             'visible': _sem_financeiro,
                             'enabled': ['valor', 'carteira_id'],

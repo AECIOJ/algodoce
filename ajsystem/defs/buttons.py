@@ -10,40 +10,45 @@ from ajsystem.core.utils import is_zero_or_empty
 from ajsystem.defs.report import REPORT_CONTENT
 
 # ── Posições de botão ──
-# São 8 nomes, e o MESMO nome se comporta de forma diferente conforme o
-# contexto que vai renderizar o botão (ver `POSITION_CONTEXT`):
+# São 8 nomes; cada um tem um sentido fixo (relativo aos fields ou à tabela) e o
+# contexto (form/sessão) decide apenas QUAIS valem ali (ver `POSITION_CONTEXT`):
 #
-#   form  → as barras do form inteiro (topo e rodapé)
+#   form  → as barras do form (topo/rodapé), as faixas em volta dos fields e o
+#           inline; `before`/`after`/`before_up`/`after_down` são relativos aos
+#           fields, `top_*`/`bottom_*` às barras
 #   sessão com `fields`      → o bloco de fields (o `fields` decide, mesmo
 #                              quando a sessão também tem `table`/`query`)
 #   sessão só com `table/query` → a tabela/query (faixa acima e faixa de ação
-#                              embaixo), não o rótulo da sessão
+#                              embaixo); `before*`/`after*` são erro (sem fields)
 #
-# `before`/`after` são os atalhos sem alinhamento de `top_left`/`bottom_left`;
-# `left`/`right` só existem junto de `fields` (mesma linha do bloco).
-POS_LEFT = 'left'
-POS_RIGHT = 'right'
+# `before`/`after` colocam o botão na MESMA linha dos fields (antes do 1º /
+# depois do último), ao passo que `before_up`/`after_down` são faixas em LINHA
+# PRÓPRIA acima / abaixo dos fields. Os quatro são SEMPRE relativos aos fields —
+# por isso só existem junto de `fields` (não há bloco para encostar sem ele).
+# `top_left`/`top_right` são a faixa acima da TABELA (o "título" dela) e
+# `bottom_left`/`bottom_right` a faixa de ação abaixo da tabela; sem tabela, caem
+# de volta para os fields. No form, `top_left`/`bottom_left` são as BARRAS (fora
+# do `<form>`) e `before`/`after` são inline no bloco de fields.
 POS_BEFORE = 'before'
 POS_AFTER = 'after'
+POS_BEFORE_UP = 'before_up'
+POS_AFTER_DOWN = 'after_down'
 POS_TOP_LEFT = 'top_left'
 POS_TOP_RIGHT = 'top_right'
 POS_BOTTOM_LEFT = 'bottom_left'
 POS_BOTTOM_RIGHT = 'bottom_right'
 
-POSITIONS = (POS_LEFT, POS_RIGHT, POS_BEFORE, POS_AFTER,
+POSITIONS = (POS_BEFORE, POS_AFTER, POS_BEFORE_UP, POS_AFTER_DOWN,
              POS_TOP_LEFT, POS_TOP_RIGHT, POS_BOTTOM_LEFT, POS_BOTTOM_RIGHT)
 
 POSITION_CONTEXT = {
-    # form: só as barras do form inteiro.
-    'form': (POS_TOP_LEFT, POS_TOP_RIGHT, POS_BOTTOM_LEFT, POS_BOTTOM_RIGHT),
-    # sessão só de fields: tudo — `left`/`right` na mesma linha, o resto
-    # acima/abaixo do bloco.
+    # form: as barras (topo/rodapé), as faixas em volta dos fields e o inline.
+    'form': POSITIONS,
+    # sessão só de fields (ou mista, que também tem fields): tudo.
     'fields': POSITIONS,
-    # sessão com table/query e SEM fields: `left`/`right` não têm onde ficar,
-    # porque não existe um bloco de fields para alinhar. Havendo `fields`, o
-    # contexto é 'fields' e o botão vai para o head/tail desse bloco.
-    'table': (POS_BEFORE, POS_AFTER, POS_TOP_LEFT, POS_TOP_RIGHT,
-              POS_BOTTOM_LEFT, POS_BOTTOM_RIGHT),
+    # sessão com table/query e SEM fields: `before*`/`after*` não têm onde ficar,
+    # porque são relativos aos fields. So restam a tabela (top_*) e a ação dela.
+    'table': (POS_TOP_LEFT, POS_TOP_RIGHT, POS_BOTTOM_LEFT, POS_BOTTOM_RIGHT),
 }
 
 
@@ -137,8 +142,8 @@ class Button:
     carry: Optional[dict] = None
     serialize: bool = False
 
-    # ── posicionamento (8 valores; o mesmo nome muda de sentido conforme o
-    #    contexto — ver `POSITION_CONTEXT`) ──
+    # ── posicionamento (8 valores; o contexto decide quais valem — ver
+    #    `POSITION_CONTEXT`) ──
     position: str = POS_TOP_RIGHT
 
     def __post_init__(self):
@@ -155,9 +160,9 @@ class Button:
             )
         if self.report is None or self.render is not None:
             return
-        self.render = (_render_relatorio_filtro(self.report, self.filter_field)
+        self.render = (_render_report_filter(self.report, self.filter_field)
                        if self.filter_field
-                       else _render_relatorio(self.report, guard=_has_items))
+                       else _render_report(self.report, guard=_has_items))
 
     def btn_cls(self) -> str:
         return self.cls or btn_style(self.color, self.variant, self.size)
@@ -443,7 +448,7 @@ def _has_items(instance) -> bool:
     return instance is not None and bool(getattr(instance, 'items', None))
 
 
-def _render_relatorio(report, guard):
+def _render_report(report, guard):
     from ajsystem.core.do_report import print_report
 
     def render(instance):
@@ -453,7 +458,7 @@ def _render_relatorio(report, guard):
     return render
 
 
-def _render_relatorio_filtro(report, field):
+def _render_report_filter(report, field):
     from ajsystem.core.do_report import print_report, filter_select
 
     def render(_instance=None):
@@ -477,8 +482,8 @@ def BTN_PRINT(report, *, filter_field='', guard=None, **overrides) -> Button:
     módulo. Não é para `defs/` não depender de `core/`: `core.utils` já entra no
     topo e `defs/__init__.py` permite a dependência.
     """
-    render = (_render_relatorio_filtro(report, filter_field) if filter_field
-              else _render_relatorio(report, guard=guard or _has_items))
+    render = (_render_report_filter(report, filter_field) if filter_field
+              else _render_report(report, guard=guard or _has_items))
     opts = {'render': render, 'into': REPORT_CONTENT}
     opts.update(overrides)
     return replace(BTN_PRINT_STYLE, **opts)
@@ -591,7 +596,9 @@ def _check_position(btn, where, ctx, has_fields=None, has_table=None):
     `fields` é o que decide: havendo `fields`, o botão é desenhado no bloco de
     campos — mesmo que a sessão também traga `table`/`query`, como em
     `Financeiro` (fields + query). Sem `fields`, o botão pertence à tabela.
-    Valor fora do contexto levanta erro em vez de sumir em silêncio no render.
+    `before`/`after`/`before_up`/`after_down` são sempre relativos aos fields,
+    então não valem numa sessão só de tabela. Valor fora do contexto levanta
+    erro em vez de sumir em silêncio no render.
     """
     pos = btn.position
     if pos not in POSITIONS:
@@ -609,12 +616,16 @@ def _check_position(btn, where, ctx, has_fields=None, has_table=None):
                    "`table`/`query`; esta sessão não tem nenhum dos dois.")
     if pos not in POSITION_CONTEXT[key]:
         if key == 'table':
-            dica = ("em sessão com `table`/`query` use before/after ou "
-                    "top_*/bottom_*.")
+            dica = ("em sessão só de `table`/`query` use top_left/top_right ou "
+                    "bottom_left/bottom_right (não há fields para "
+                    "before/after/before_up/after_down).")
         elif key == 'form':
-            dica = "no form use top_left/top_right/bottom_left/bottom_right."
+            dica = ("no form use before/after (inline), before_up/after_down "
+                    "(faixas dos fields) ou top_left/top_right/bottom_left/"
+                    "bottom_right (barras).")
         else:
-            dica = "em sessão use top_*/bottom_* ou before/after."
+            dica = ("em sessão use before/after (inline), before_up/after_down "
+                    "(faixas dos fields) ou top_*/bottom_*.")
         raise _err(where, btn.label,
                    f"position '{pos}' não vale {dica}")
 

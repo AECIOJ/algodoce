@@ -6,7 +6,6 @@ from app.extends.masks import MVALOR
 
 
 def _validade_data(q):
-    """Data de validade do orçamento = base (renovação ou pedido) + prazo (dias)."""
     if not q:
         return None
     return add_dias(q.data_renovacao or q.data_pedido, q.validade or 3)

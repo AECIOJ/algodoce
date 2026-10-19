@@ -1,10 +1,3 @@
-"""Sincronismo movto <-> previsao (portado de old/ajsystem/sys/movimentos.py).
-
-- criar: soma `variacao` e `valor` no `realizado` da previsão;
-- editar: se o valor mudou (ou trocou a previsão), reverte na antiga e aplica
-  na nova, zerando `variacao` (igual ao antigo);
-- excluir: reverte (via `excluir_movto`, usado pelas rotas custom).
-"""
 from decimal import Decimal
 
 from flask import flash, redirect, url_for
@@ -15,8 +8,6 @@ from app.models.previsao import Previsao
 
 
 def _desvincular_origem(instance, message=True):
-    """Previsão vence: desvincula pedido/compra do movimento e reverte o
-    faturamento vinculado (igual ao excluir_movto), liberando o salvamento."""
     from app.models.pedido import Pedido
     from app.models.compra import Compra
     revertido = []
@@ -44,10 +35,6 @@ def _desvincular_origem(instance, message=True):
 
 
 def _validar_origem_exclusiva(instance, request=None, is_new=None):
-    """"pre_save" de pagamentos/recebimentos: previsão e pedido/compra são
-    mutuamente exclusivos. Como a previsão prevalece, quando ambas estão no
-    POST (ou há origem na query string) desvincula pedido/compra, reverte o
-    faturamento e libera o salvamento em vez de bloquear."""
     if not instance.previsao_id:
         return True
     origem_fluxo = False
@@ -61,15 +48,6 @@ def _validar_origem_exclusiva(instance, request=None, is_new=None):
 
 
 def _pre_get_movto(mod, id):
-    """`pre_get` de recebimentos/pagamentos.
-
-    Quando o form é aberto pelo "Gerar" via Movimento (a vista), pré-preenche
-    o lançamento com a data do pedido/compra. `valor`/`conta_id` são
-    importados pelo motor via `carry` (prop nos campos da Schema; a origem
-    permanece na query string junto com o token). `previsao_id` e o vínculo
-    concorrente ficam ocultos — a origem do fluxo é pedido/compra
-    (mutuamente exclusivo com previsão).
-    """
     from flask import request
     if id is not None:
         return None
@@ -128,7 +106,6 @@ def _link_movto_origem(instance):
 
 
 def post_save_movto_link(instance, changed, old_vals):
-    """`post_save` de recebimentos/pagamentos: sync previsão + vínculo origem."""
     sync_movto_save(instance, changed, old_vals)
     _link_movto_origem(instance)
 
@@ -153,7 +130,6 @@ def _fnum(v):
 
 
 def sync_movto_save(instance, changed, old_vals):
-    """`post_save` de recebimentos/pagamentos (roda após o commit)."""
     old_vals = old_vals or {}
     new_pid = instance.previsao_id
     old_pid = old_vals.get('previsao_id')
@@ -173,9 +149,6 @@ def sync_movto_save(instance, changed, old_vals):
 
 
 def excluir_movto(id, list_endpoint, label='Lançamento'):
-    """Exclui movto revertendo a previsão. O vínculo com pedido/compra cai
-    junto; o faturamento vinculado também é revertido (rollback) — pedido e
-    compra voltam a um estado editável (sem contrapartida não há faturamento)."""
     from app.models.movimento import Movimento
     movto = Movimento.query.get(id)
     if not movto:

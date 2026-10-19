@@ -10,7 +10,10 @@ from typing import Callable, Optional, Union
 
 from ajsystem.core.list import resolve_column_configs, _resolve_model
 from ajsystem.defs.buttons import resolve_buttons
-from ajsystem.defs.data import _auto_label, resolve_entity_fields, normalize_fieldspec
+from ajsystem.core.resolve import apply_positions
+from ajsystem.defs.data import (
+    _auto_label, grupos_memoria, normalize_fieldspec, resolve_entity_fields,
+)
 
 
 def _extract_entity_from_cols(cols, fallback_name: str) -> str:
@@ -31,10 +34,70 @@ def _extract_entity_from_cols(cols, fallback_name: str) -> str:
     return fallback_name
 
 
+# ── SLOTS da tela (`positions` + `visible`) ────────────────────────────────────
+def _pk_names(model):
+    """Nomes da chave primária do model — a regra que esconde o `id`."""
+    table = getattr(model, '__table__', None)
+    if table is None:
+        return ()
+    return tuple(c.name for c in table.primary_key.columns)
+
+
+def _tag_entity(fields, entity_name):
+    """Marca `f._entity` nos fields — é contra isso que `resolve_slots` resolve
+    um nome cru e desempata as entidades da tela. Na listagem quem faz é o
+    `_list_pool`; no form o pool é montado aqui, então a marcação tem de vir
+    junto, para um `positions`/`visible` cru funcionar igual nas duas telas."""
+    if not entity_name:
+        return fields
+    for f in fields or ():
+        f._entity = entity_name
+    return fields
+
+
+def _pos_with_hidden(positions, hidden):
+    """`hidden` da sessão como açúcar de `positions.hidden`."""
+    out = dict(positions or {})
+    if hidden:
+        out['hidden'] = list(out.get('hidden') or []) + list(hidden)
+    return out or None
+
+
+def _filter_pos(pos, names):
+    """Recorta um `positions` pelos nomes que o pool da sessão tem.
+
+    Necessário na herança do mestre: o `hidden` do mestre cita campos que a
+    sessão não exibe (`pedido_em`, `faturado_em`, ...), e citá-los aqui seria
+    erro — a sessão é um recorte, e a regra não pode exigir um campo fora dele.
+    """
+    out = {}
+    for slot, vals in (pos or {}).items():
+        keep = []
+        for v in vals:
+            if not isinstance(v, str):
+                continue
+            nome = v.rsplit('.', 1)[-1]
+            if nome in names:
+                keep.append(v)
+        if keep:
+            out[slot] = keep
+    return out or None
+
+
 @dataclass
 class Form:
     # ── Props declarativas (o motor resolve o restante a partir de `fields`) ──
     fields: Union[str, list, dict, None] = None
+    # Onde cada campo vai na tela: `{'bar': [...], 'footer': [...], 'hidden': [...]}`
+    # (§5.5). É prop da PÁGINA, não do `Field` — a pergunta "este campo entra na
+    # barra?" só tem resposta onde a tela é montada. O que não é citado vai para
+    # o corpo.
+    positions: Optional[dict] = None
+    # Visibilidade condicional, separada de `positions` de propósito: "onde o
+    # campo fica" e "quando o campo aparece" são perguntas diferentes, e um
+    # campo na barra pode depender de `not_empty` do mesmo jeito que um no corpo.
+    # Substituiu o `{pos, when}` que morava dentro de `pos_form`.
+    visible: Optional[dict] = None
     sessions: Optional[dict] = None
     template: Optional[str] = None        # 1ª prop: se setada, demais ignoradas
     flash_ok: Optional[str] = None
@@ -72,6 +135,7 @@ class Form:
         # chamado pelo motor antes de qualquer render.
         self._resolved_buttons = []
         self._resolved_tags = []
+        self._resolved_positions = {}
 
     def resolve(self, entity_name: str, model, schema: dict, blueprint=None,
                  botoes_tipos=None, botoes_page=None,
@@ -123,7 +187,14 @@ class Form:
             self.flash_ok = f'{self._label} incluído!'
         if not self.flash_update:
             self.flash_update = f'{self._label} atualizado!'
-        self._resolved_fields = self._resolve_fields()
+        self._resolved_fields = _tag_entity(self._resolve_fields(), self._entity_name)
+        # SLOTS — a página decide onde cada campo vai (`positions`) e sob que
+        # condição (`visible`); o field recebe `f._slot`/`f._visible_when`, que é
+        # o que o render e o save leem. `default_position` implementa a regra de
+        # motor: a chave primária não é campo de formulário.
+        self._resolved_positions = apply_positions(
+            self._resolved_fields, self.positions, self.visible, 'form',
+            principal=self._entity_name, pk_names=_pk_names(self._model))
         self._resolved_sessions = self._resolve_sessions()
         self._resolved_buttons = resolve_buttons(
             self.buttons, self._bp_name, where='form',
@@ -177,7 +248,15 @@ class Form:
             return resolve_column_configs(merged, spec, principal=merged,
                                           pos_managed=True,
                                           inputs=self._camadas_inputs)
-        return normalize_fieldspec(spec, merged, merged, inputs=self._camadas_inputs)
+        # Lista/dict: `normalize_fieldspec` espera o schema INDEXADO POR
+        # ENTIDADE (`{'Orcamento': {...}}`, e `'Entidade.campo'`/grupo em
+        # MAIÚSCULAS contra a própria entidade). O form tem a fatia só da
+        # entidade principal, então o schema é indexado aqui — sem isso a
+        # forma lista/dict resolvia campo SEM config nenhuma (a `data` virava
+        # input de texto, o textarea perdia o memo, a máscara sumia).
+        full = {self._entity_name or '': merged,
+                **grupos_memoria(self._schema_orig)}
+        return normalize_fieldspec(spec, full, full, inputs=self._camadas_inputs)
 
     def _apply_flash_defaults(self):
         if not self.flash_ok:
@@ -199,6 +278,11 @@ class Form:
                 spec_table = spec.get('table')
                 spec_template = spec.get('template')
                 spec_buttons = spec.get('buttons')
+                spec_defaults = spec.get('defaults')
+                spec_on_new = spec.get('on_new')
+                spec_hidden = spec.get('hidden')
+                spec_visible = spec.get('visible')
+                spec_positions = spec.get('positions')
             else:
                 spec = s_cfg
                 name = getattr(spec, 'name', None) or s_name
@@ -207,6 +291,11 @@ class Form:
                 spec_table = getattr(spec, 'table', None)
                 spec_template = getattr(spec, 'template', None)
                 spec_buttons = getattr(spec, 'buttons', None)
+                spec_defaults = getattr(spec, 'defaults', None)
+                spec_on_new = getattr(spec, 'on_new', None)
+                spec_hidden = getattr(spec, 'hidden', None)
+                spec_visible = getattr(spec, 'visible', None)
+                spec_positions = getattr(spec, 'positions', None)
 
             if spec_template:
                 resolved.append({'name': name, 'template': spec_template})
@@ -360,6 +449,48 @@ class Form:
             # Botões da sessão: `enabled` pode citar campos do mestre ou da
             # própria sessão (ambos renderizam `name=` no mesmo form), e
             # `position` precisa bater com o formato da sessão.
+            # SLOTS da sessão — a tabela tem os seus (só `hidden`; não existe
+            # barra nem rodapé numa tabela de linhas). A chave primária do filho
+            # entra sozinha, pela mesma regra de motor do mestre.
+            _sess_ent = (child_model.__name__ if child_model is not None
+                         else (self._entity_name or None))
+            # `hidden` da sessão é açúcar para `positions.hidden`; `positions`
+            # é a forma completa (permite também `body`, para MOSTRAR um campo
+            # que a regra de motor esconderia).
+            _sess_pos = _pos_with_hidden(spec_positions, spec_hidden)
+            if child_cols:
+                _tag_entity(child_cols, _sess_ent)
+                apply_positions(child_cols, _sess_pos, spec_visible, 'sessao',
+                                principal=_sess_ent,
+                                pk_names=_pk_names(child_model))
+            # `fields` da sessão: os do filho (sessão 1:1) ou um recorte do pai
+            # (agrupamento ou query sobre campos do próprio mestre). Quando os
+            # campos são do PAI, a posição do mestre vale aqui também — é a
+            # mesma tela para o mesmo campo, e evita repetir o `hidden` do
+            # mestre na sessão. A declaração da sessão vence a do mestre.
+            if sess_fields:
+                # `fields` de sessão `table`/`query` vêm do Schema do mestre
+                # (`resolve_column_configs(self._schema, ...)`) → são campos do
+                # PAI. Só a sessão `fields`-com-Entity (1:1) tem campos do filho.
+                _parent_fields = (not is_form) or is_parent
+                _tag_entity(sess_fields, self._entity_name if _parent_fields else _sess_ent)
+                if _parent_fields:
+                    # Campos do PAI: a MESMA tela do mestre para o mesmo campo,
+                    # então herda a posição do mestre — recortada pelo que a
+                    # sessão exibe (o `hidden` do mestre cita campos fora do
+                    # recorte). `positions`/`hidden` da sessão NÃO se aplicam
+                    # aqui: são o recorte do filho (as colunas).
+                    _pool = {getattr(f, 'name', None) for f in sess_fields}
+                    _pos = _filter_pos(self.positions, _pool)
+                    _vis = {k: v for k, v in (self.visible or {}).items() if k in _pool}
+                    _pk = ()
+                else:
+                    _pos = _sess_pos
+                    _vis = spec_visible
+                    _pk = _pk_names(child_model)
+                apply_positions(sess_fields, _pos, _vis, 'sessao',
+                                principal=self._entity_name if _parent_fields else _sess_ent,
+                                pk_names=_pk)
             _sess_names = {getattr(f, 'name', None) for f in (sess_fields or [])} - {None}
             resolved.append({
                 'name': name,
@@ -370,6 +501,8 @@ class Form:
                 'fields': sess_fields,
                 'query': resolved_query,
                 'table': resolved_table,
+                'defaults': dict(spec_defaults or {}),
+                'on_new': dict(spec_on_new or {}),
                 'buttons': resolve_buttons(
                     spec_buttons, self._bp_name, types=self._camadas,
                     where=f"session '{name}'",
@@ -382,8 +515,8 @@ class Form:
 
     def _resolve_parent_link(self, child_model, cols, fallback=''):
         """Descobre o vínculo pai→filho da sessão: o `attr` (relationship no
-        model pai que expõe os filhos) e as colunas com a FK do pai marcadas
-        `pos_form: 0` (campo gerenciado pelo motor).
+        model pai que expõe os filhos) e as colunas com a FK do pai (campo
+        gerenciado pelo motor, que a regra de tipo põe em `hidden`).
 
         Primário: FK column → tabela pai + relationship no mapper. Fallback:
         nome/plural da classe filha, senão `fallback` (nome da sessão).
@@ -434,9 +567,8 @@ class Form:
             if not attr and fallback:
                 attr = fallback
 
-        # overrides de field exclusivamente via Schema: FK do pai deve ser
-        # declarado como `pos_form: 0` na Entity (DK) ou no Schema da página.
-        # Removido patch automático `f.pos_form=0` que mascarava falta de declaração.
+        # Overrides de field vêm do Schema: a FK do pai é `DK` na Entity e a
+        # regra de tipo a põe em `hidden` sem ninguém declarar (§5.5).
         return attr, cols
 
     def _child_merged(self, child_ent):
@@ -445,8 +577,8 @@ class Form:
         return merged, model
 
     def _resolve_session_cols(self, child_merged, cols, child_ent):
-        # Nome do model/entidade → expansão da Entity: pos_form/pos_list atuam
-        # (`_pos_managed=True`). Lista explícita de campos → autoritativa.
+        # Nome do model/entidade → expansão da Entity (`_pos_managed=True`,
+        # pula `memory`). Lista explícita de campos → autoritativa.
         # Passa o schema no formato multi-entidade esperado por normalize_fieldspec
         full_schema = {child_ent: child_merged}
         principal = {child_ent: child_merged}

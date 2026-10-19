@@ -2,8 +2,9 @@
 
 Unifica os antigos `Form.tags`/`List.tags` numa prop `Field.tag`. Uma `Tag`
 descreve como o valor do campo vira um badge (texto + cor), de forma declarativa
-e data-agnóstica. Onde renderizar é definido por `Field.pos_form: 3`
-(barra do form) e `Field.pos_list: 3` (barra da listagem).
+e data-agnóstica. Onde renderizar é definido pelo slot `bar` do form (a tag mora
+na barra, §5.5) e pela `col.tag` da coluna na listagem (o badge desenhado na
+própria célula, com a largura da coluna) — a listagem não tem barra de tags.
 """
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -130,7 +131,8 @@ def tag_text(value, options=None):
 def resolve_tag(spec: Any, value, options=None, text_value=None, instance: Any = None):
     """Resolve `Field.tag` + valor do instance → dict `{text, color}` renderizável.
 
-    É o núcleo compartilhado por form (`pos_form: 3`) e listagem (`pos_list: 3`).
+    É o núcleo compartilhado pela barra do form (slot `bar`, §5.5) e pela coluna
+    da listagem (que desenha o badge com a largura da própria coluna).
     Se `tag.link` for callable, resolve com `instance`.
     """
     tag = parse_tag(spec) if not isinstance(spec, Tag) else spec

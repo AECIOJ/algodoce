@@ -1,22 +1,21 @@
 """SEARCH — buscas declaradas por página para modais de lookup.
 
-Declaração na rota (ex. `recebimentos.py`):
+Declaração na rota, como constante de módulo:
 
-    PREVISOES = {
-        'source': 'Previsao',        # entidade-raiz (uma linha por registro)
-        'join': 'transacao',         # relationship(s) p/ filtros/exibição
-        'columns': ['id', 'documento', 'vencimento', 'previsto',
-                    'realizado', 'variacao', 'saldo'],
-        'when': ["transacao.tipo = 'R'", 'saldo > 0'],   # fixos
-        'params': {'conta_id': 'transacao.conta_id'},     # arg request → igualdade
-        'order': ['vencimento'],
+    ITENS = {
+        'source': 'Entidade',          # entidade-raiz (uma linha por registro)
+        'join': 'Relationship',        # relationship(s) p/ filtros/exibição
+        'columns': ['id', 'campo', 'data', 'valor'],
+        'when': ["rel.tipo = 'X'", 'valor > 0'],   # fixos (SQL)
+        'params': {'chave_id': 'rel.chave_id'},     # arg request → igualdade
+        'order': ['data'],
     }
 
-E o campo usa `lookup: {'display': 'id', 'query': 'PREVISOES'}`.
+E o campo usa `lookup: {'display': 'id', 'query': 'ITENS'}`.
 
 Execução: SQL para o seletivo (join + igualdades/IN em coluna) e Python para o
-computado (`calc` da Entity/property, ex. `saldo`) e formatação. Sem os params
-exigidos, retorna `{'need': [...]}` para o cliente pedir ao usuário.
+computado (`calc` da Entity/property, ex. um total derivado) e formatação. Sem
+os params exigidos, retorna `{'need': [...]}` para o cliente pedir ao usuário.
 """
 import re
 

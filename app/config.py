@@ -137,9 +137,6 @@ SYS = {
                 'Compras':    {'icon': 'bi-bag'},
             },
         },
-        # 'Produção': {
-        #     'icon': 'bi-gear',
-        # },
         'Financeiro': {
             'icon': 'bi-cash-stack',
             'submenus': {
@@ -168,6 +165,6 @@ APP = {
     'title': 'Sistema Gerenciador de Doceria',
     'logo': 'icons/Logo.png',
     'tema': 'algodoce',
-    'version': {'cycle': 1, 'year': 26, 'month': 10, 'number': 12},
+    'version': {'cycle': 1, 'year': 26, 'month': 10, 'number': 15},
     'modules': [SITE, SYS, ADMIN],
 }

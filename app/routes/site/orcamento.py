@@ -5,7 +5,7 @@ from flask import jsonify, redirect, request, session, url_for
 from ajsystem.core import auto
 from ajsystem.core.cart import (
     count_items,
-    minimo_quantidade,
+    min_quantity,
     resolve_cart,
     send_cart,
 )
@@ -47,7 +47,6 @@ Entity = {
 
 
 def _notificar_orcamento(quote):
-    """Notificação ntfy para a doceira (falha silenciosa sem topic configurado)."""
     topic = Configuracao.get("ntfy_topic")
     if not topic:
         return
@@ -81,7 +80,6 @@ def _notificar_orcamento(quote):
 
 
 def _on_send_orcamento(quote):
-    """Evento pós-envio da página: notifica e limpa o carrinho/identificação."""
     _notificar_orcamento(quote)
     session.pop(CART_SESSION_KEY, None)
     session.pop(CLIENT_SESSION_KEY, None)
@@ -130,7 +128,7 @@ def atualizar_item():
         produto = sc['origin_model'].query.get(produto_id)
         if produto is None:
             return jsonify(error='Produto não encontrado.'), 404
-        minima = minimo_quantidade(sc, produto)
+        minima = min_quantity(sc, produto)
         if quantidade < minima:
             return jsonify(
                 error=f'A quantidade mínima para {produto.nome} é {minima} und.'

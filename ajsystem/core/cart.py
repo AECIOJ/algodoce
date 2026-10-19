@@ -148,7 +148,7 @@ def _session_items(sc):
             'produto': obj,
             'quantidade': i.get('quantidade'),
             'observacao': i.get('observacao') or '',
-            'qtd_minima': minimo_quantidade(sc, obj),
+            'qtd_minima': min_quantity(sc, obj),
         })
     return out
 
@@ -260,16 +260,16 @@ def send_cart(mod):
     flash + redirect para a listagem do módulo. Retorna a resposta Flask.
     """
     sc = resolve_cart(mod)
-    cliente = session.get(sc['client_session_key'])
-    if not cliente:
+    customer = session.get(sc['client_session_key'])
+    if not customer:
         return redirect(url_for(f'{_bp()}.list'))
     session_items = session.get(sc['session_key'], [])
     if not session_items:
         return redirect(url_for(f'{_bp()}.list'))
 
     quote = sc['parent_model'](
-        cliente_nome=cliente.get('nome'),
-        cliente_telefone=cliente.get('telefone'),
+        cliente_nome=customer.get('nome'),
+        cliente_telefone=customer.get('telefone'),
         data_pedido=datetime.now(timezone.utc),
     )
     db.session.add(quote)
@@ -308,7 +308,7 @@ def _bp():
     return request.endpoint.rsplit('.', 1)[0] if request.endpoint else ''
 
 
-def minimo_quantidade(sc, obj):
+def min_quantity(sc, obj):
     """Quantidade mínima de um item de origem (coluna `min_field`, default 1)."""
     field = sc.get('min_field')
     if field and hasattr(obj, field):

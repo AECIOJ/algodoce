@@ -328,8 +328,8 @@ def _apply_entity(raw, entity):
         valor típico por `{campo}`."""
         import re as _re
         lit = ''.join(m for m in _re.split(r'\{[^{}]*\}', str(tpl or '')))
-        campos = len(_re.findall(r'\{[^{}]*\}', str(tpl or '')))
-        return len(lit) + campos * 8 + 1
+        fields = len(_re.findall(r'\{[^{}]*\}', str(tpl or '')))
+        return len(lit) + fields * 8 + 1
 
     def _fallback_width_ch(spec, key):
         """Largura de uma coluna que NÃO resolveu na Entity.
@@ -348,7 +348,7 @@ def _apply_entity(raw, entity):
         if spec.get('label'):
             spec['width'] = len(str(spec['label'])) + 1
 
-    def _resolve_map(items, *, colunas=False):
+    def _resolve_map(items, *, columns=False):
         # `colunas=True` só para `body.table.columns`. A MESMA rotina resolve
         # também header/items/before/after, e aí `width` é prop do ITEM — a
         # medida do bloco no `MEMO`, a largura fixa do fluxo no `FIELD`/`TEXT` —
@@ -438,7 +438,7 @@ def _apply_entity(raw, entity):
                 # field. A FK mede o campo exibido (`<rel>.<display>`), que é o
                 # nome que se vê — o `_id` não aparece na tabela. Fora das
                 # colunas a prop é do item e quem a declara é o autor.
-                if colunas and not spec.get('width'):
+                if columns and not spec.get('width'):
                     _fk = raw_cfg.get('type') == 'FK'
                     _disp = str(spec.get('field') or '')
                     _shown = _disp.split('.')[-1] if _fk and '.' in _disp else fld
@@ -455,7 +455,7 @@ def _apply_entity(raw, entity):
                 spec = {**_disp_map[key], **extra}
                 if 'label' not in spec:
                     spec['label'] = _auto_label(key)
-                if colunas:
+                if columns:
                     _fallback_width_ch(spec, key)
                 resolved[key] = spec
                 continue
@@ -463,7 +463,7 @@ def _apply_entity(raw, entity):
                 spec = dict(extra)
                 spec.setdefault('label', _auto_label(key))
                 spec['function'] = _cell_text_fn(extra['text'], entity)
-                if colunas:
+                if columns:
                     spec['width'] = _text_width_ch(extra['text'])
                 resolved[key] = spec
                 continue
@@ -477,7 +477,7 @@ def _apply_entity(raw, entity):
             # vem do campo nomeado ou do rótulo, para não receber o resto da
             # página — mas só na COLUNA, pelo mesmo motivo de cima.
             spec = dict(extra)
-            if colunas:
+            if columns:
                 _fallback_width_ch(spec, key)
             resolved[key] = spec
         return resolved
@@ -567,7 +567,7 @@ def _apply_entity(raw, entity):
         if isinstance(table, dict):
             table = dict(table)
             # ÚNICO caminho onde a `width` sai do field: a coluna da tabela.
-            specs = _resolve_map(table.get('columns'), colunas=True)
+            specs = _resolve_map(table.get('columns'), columns=True)
             if specs is not None:
                 cols = {}
                 for key, spec in specs.items():
@@ -772,8 +772,8 @@ def _fmt_opts_for(tpl, entity, prefer=None, override=None):
     """
     import re as _re
     out = {}
-    campos = set(_re.findall(r'{([\w.]+)(?::[^}]*)?}', tpl or ''))
-    for nm in campos:
+    fields = set(_re.findall(r'{([\w.]+)(?::[^}]*)?}', tpl or ''))
+    for nm in fields:
         base = nm.split('.')[0]
         mdl = None
         if entity and base in entity and isinstance(entity.get(base), dict):
@@ -791,7 +791,7 @@ def _fmt_opts_for(tpl, entity, prefer=None, override=None):
             if opts:
                 out[nm] = opts
     if override:
-        for nm in campos:
+        for nm in fields:
             out[nm] = override
     return out
 
@@ -930,10 +930,10 @@ def _expand_fields_list(items, entity, label, principal_name=None, principal_mod
             out.append(it)
             continue
         for spec in _ri.config.get('items') or []:
-            achado = field_spec_item(spec)
-            if achado is None:
+            found = field_spec_item(spec)
+            if found is None:
                 continue
-            name, cfg = achado
+            name, cfg = found
             if name[:1].isupper():
                 ent_cfg = _related_cfg(name, entity)
                 if ent_cfg:
@@ -994,7 +994,7 @@ def _attach_field_mask(items, entity, label):
     return out
 
 
-_CAMPO_PURO = re.compile(r'^\s*\{\s*([\w.]+)\s*\}\s*$')
+_RAW_FIELD = re.compile(r'^\s*\{\s*([\w.]+)\s*\}\s*$')
 
 
 def _expande_tabs(items, entity, label, prefer=None):
@@ -1040,7 +1040,7 @@ def _expande_tabs(items, entity, label, prefer=None):
             if 'text' in _cfg or 'field' in _cfg:
                 _item = _cfg
             else:
-                _m = _CAMPO_PURO.match(_txt or '')
+                _m = _RAW_FIELD.match(_txt or '')
                 # Sai como FIELDS de UMA entrada, não como `{'field': …}` cru:
                 # o caminho pontilhado (`'{Conta.telefone}'`) é resolvido no
                 # ramo de FIELDS de `_expand_fields_list`, pelo mesmo caminho
@@ -1258,10 +1258,10 @@ def _report_inputs():
         bp = current_app.blueprints.get(bp_name)
         mod = _il.import_module(bp.import_name) if bp is not None else None
         try:
-            pagina = module_inputs(mod) if mod is not None else {}
+            page = module_inputs(mod) if mod is not None else {}
         except ImportError:
-            pagina = {}
-        return (inputs, pagina)
+            page = {}
+        return (inputs, page)
     except Exception:
         return (None, {})
 
@@ -1311,8 +1311,8 @@ def _field_mask(name, cfg):
         return None
     try:
         from ajsystem.defs.data import resolve_field_mask
-        _tipos, _pagina = _report_inputs()
-        _camadas = tuple(c for c in (_tipos, _pagina) if c)
+        _tipos, _page = _report_inputs()
+        _camadas = tuple(c for c in (_tipos, _page) if c)
         return resolve_field_mask(name, cfg, inputs=_camadas or None)
     except Exception:
         return None
@@ -1341,12 +1341,12 @@ def _auto_data(report, data, instance, filter=None):
       - callable `f(model, value=...)` → retorna o critério.
     Se `filter` (arg) vier preenchido, sobrescreve o valor default do dict.
     """
-    filtro = getattr(_body_of(report), 'filter', None) if _body_of(report) else None
+    filter = getattr(_body_of(report), 'filter', None) if _body_of(report) else None
     if isinstance(filter, dict):
         # valores vindos da request (ex. {'tipo': 1}) fundem/sobrescrevem o default
-        filtro = {**(filtro or {}), **filter}
+        filter = {**(filter or {}), **filter}
     elif filter is not None:
-        filtro = filter
+        filter = filter
 
     if data is not None or instance is not None:
         if data is None and instance is not None:
@@ -1366,7 +1366,7 @@ def _auto_data(report, data, instance, filter=None):
         _ename = _src_raw.get('from')
         _model = _rm(_ename if isinstance(_ename, str) else None)
         _cfg = _entity_cfg_for(_ent, _ename)
-        _rows = run_query(_model, _src_raw, entity_cfg=_cfg, extra_where=filtro)
+        _rows = run_query(_model, _src_raw, entity_cfg=_cfg, extra_where=filter)
         _body = _body_of(report)
         _lvl = None
         if isinstance(_body, dict):
@@ -1393,8 +1393,8 @@ def _auto_data(report, data, instance, filter=None):
     from ajsystem.core.list import _resolve_model
     model = _resolve_model(name)
     query = model.query
-    if filtro:
-        query = _apply_report_filter(query, model, filtro)
+    if filter:
+        query = _apply_report_filter(query, model, filter)
     if info['order_mode'] == 'sql':
         out = list(query.order_by(info['order_field']).all())
     else:
@@ -1404,26 +1404,26 @@ def _auto_data(report, data, instance, filter=None):
     return out
 
 
-def _apply_report_filter(query, model, filtro):
+def _apply_report_filter(query, model, filter):
     """Aplica o critério `body.filter` à query.
 
     dict `{campo: valor}` → igualdade (valor None = sem critério no campo);
     callable `f(model, query, value=...)` → retorna a query filtrada.
     """
-    if callable(filtro):
-        crit = filtro(model)
+    if callable(filter):
+        crit = filter(model)
         return crit if crit is not None else query
     from ajsystem.core.qrun import _cast_value
     try:
         _cfg = _entity_cfg_for(_module_entity(report), getattr(model, '__name__', None))
     except Exception:
         _cfg = {}
-    for campo, valor in (filtro or {}).items():
-        if valor is None or valor == '':
+    for field, value in (filter or {}).items():
+        if value is None or value == '':
             continue
-        col = getattr(model, campo, None)
+        col = getattr(model, field, None)
         if col is not None:
-            query = query.filter(col == _cast_value(_cfg.get(campo, {}), valor))
+            query = query.filter(col == _cast_value(_cfg.get(field, {}), value))
     return query
 
 
@@ -1594,7 +1594,7 @@ def choice_modal(title, options, param='tipo', label=None,
     return render_template(
         'components/choice_modal.html',
         uid=uuid.uuid4().hex[:8],
-        title=title,
+        titulo=title,
         label=label,
         options=options,
         param=param,

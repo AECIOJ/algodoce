@@ -21,8 +21,8 @@ def heroicon_filter(name, class_='w-5 h-5'):
 @ajsystem.route('/construcao')
 @login_required
 def construcao():
-    pagina = request.args.get('pagina', '')
-    return render_template('pages/construcao.html', pagina=pagina)
+    page = request.args.get('pagina', '')
+    return render_template('pages/construcao.html', pagina=page)
 
 
 @ajsystem.route('/api/tunnel-url')

@@ -514,17 +514,76 @@ function removeRow(btn) {
   if (mtable && window.itmApplyPage) itmApplyPage(mtable);
   if (window.marcarFormAlterado) marcarFormAlterado();
 }
+var childRowCounters = {};
+/* O que a linha NOVA herda do mestre (`on_new.replaces`, mesmo formato
+   `alvo:fonte` do `data-replaces-map` do `on_set`, ver README 5.5.2).
+   A origem é procurada no MESTRE primeiro e depois na própria linha nova: o
+   inverso quebraria todo mapa `alvo:fonte` com nomes iguais (o mais comum —
+   `data:data`), porque a busca acharia o próprio alvo da linha nova, que está
+   vazio, e nunca chegaria no mestre. A linha fica como segunda opção para
+   "copia de outra coluna da linha".
+   Escreve em TODOS os alvos (desktop e mobile): o `itmApplyPage` só pagina,
+   não sincroniza valor nenhum entre as duas cópias. */
+/* Texto visível de um campo `readonly` na linha nova. A célula readonly é
+ * desenhada como rótulo + hidden (o hidden é quem leva o valor no POST), e o
+ * `<span>` é marcado com `data-readonly-for`/`data-readonly-mask` no template
+ * da linha nova. Só a data precisa de tradução: o input `date` entrega ISO e a
+ * célula mostra dd/mm/aaaa (o mesmo `fmt_date` do servidor). Os demais já
+ * chegam na convenção do campo — o que o `numToInputFor` escreveu no input é o
+ * que se lê, então o texto e o valor não podem divergir. */
+function itReadonlyText(el, v) {
+  var s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    /* `new Date('2026-07-13')` é UTC e o `fmtMask` lê os getters locais: num
+     * fuso negativo daria 12/07. A data é montada em horário local. */
+    var p = s.slice(0, 10).split('-');
+    return format(new Date(+p[0], +p[1] - 1, +p[2]),
+                  el.getAttribute('data-readonly-mask') || 'dd/mm/yyyy');
+  }
+  return s;
+}
+function itOnNewRow(wrap, rel, rid) {
+  var map = wrap && wrap.getAttribute ? wrap.getAttribute('data-new-replaces') : '';
+  if (!map || !rid) return;
+  var form = wrap.closest ? wrap.closest('form') : null;
+  map.split(',').forEach(function (pair) {
+    var parts = pair.split(':');
+    if (parts.length < 2) return;
+    var alvo = parts[0].trim(), fonte = parts[1].trim();
+    var origem = (form ? form.querySelector('[name="' + fonte + '"]') : null)
+              || wrap.querySelector('[name="child_' + rel + '_' + rid + '_' + fonte + '"]');
+    if (!origem) return;
+    var v = origem.value;
+    if (v === null || v === undefined || String(v).trim() === '') return;
+    wrap.querySelectorAll('[name="child_' + rel + '_' + rid + '_' + alvo + '"]').forEach(function (t) {
+      /* `inp.value` é espaço de input: o número entra na convenção do campo
+       * alvo (`numToInputFor`, que lê `data-num-decimals`), nunca cru. */
+      t.value = numToInputFor(t, v) || v;
+      fmtFieldInput(t);
+      t.dispatchEvent(new Event('input', { bubbles: true }));
+      t.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    wrap.querySelectorAll('[data-readonly-for="' + alvo + '"]').forEach(function (s) {
+      var txt = s.querySelector('[data-readonly-text]');
+      if (txt) txt.textContent = itReadonlyText(s, v);
+    });
+  });
+}
 function addChildRow(btn) {
   var wrap = btn.closest('.child-table-wrap') || document.querySelector('.child-table-wrap');
   if (!wrap) return;
   var tbody = wrap.querySelector('.it-desktop tbody[data-rel]');
   if (!tbody) return;
   var rel = tbody.getAttribute('data-rel');
-  var temp = (parseInt(tbody.getAttribute('data-temp') || '0', 10) || 0) - 1;
-  var key = 'n' + temp;
-  tbody.setAttribute('data-temp', String(temp));
+  // Duas sessões `table` no mesmo relationship: o template é o da tabela em que
+  // se clicou (`data-tpl`), não o do `attr`.
+  var tpl = tbody.getAttribute('data-tpl') || rel;
+  // O contador de linha nova é do FORM, não da tabela: duas sessões que
+  // compartilham o relationship gerariam a mesma chave (`n-1` nas duas) e o
+  // POST não distinguiria a linha de uma das outra.
+  var key = 'n' + (childRowCounters[rel] = (childRowCounters[rel] === undefined ? -1 : childRowCounters[rel] - 1));
 
-  var rowTpl = document.getElementById(rel + 'RowTemplate');
+  var rowTpl = document.getElementById(tpl + 'RowTemplate');
   if (rowTpl) {
     var clone = rowTpl.cloneNode(true);
     clone.id = '';
@@ -536,8 +595,9 @@ function addChildRow(btn) {
     clone.setAttribute('data-crow', key);
     tbody.appendChild(clone);
   }
+  itOnNewRow(wrap, rel, key);
 
-  var colTpl = document.getElementById(rel + 'ColumnTemplate');
+  var colTpl = document.getElementById(tpl + 'ColumnTemplate');
   var table = wrap.querySelector('.it-mobile table.itm-table');
   if (colTpl && table) {
     var box = colTpl.cloneNode(true);
@@ -550,7 +610,7 @@ function addChildRow(btn) {
     var cells = Array.prototype.slice.call(box.children);
     box.remove();
     var cellIdx = 0;
-    table.querySelectorAll('tr').forEach(function(tr) {
+    table.querySelectorAll('tr').forEach(function (tr) {
       if (cellIdx >= cells.length) return;
       var cell = cells[cellIdx++];
       cell.classList.add('itm-new');
@@ -558,6 +618,21 @@ function addChildRow(btn) {
       if (anchor) anchor.after(cell);
       else tr.appendChild(cell);
     });
+    /* O que sobrou (hidden de campo — o `tipo` da sessão entra
+     * aqui) não tem `<tr>` correspondente: a tabela mobile não tem linha para
+     * campo oculto. Precisa continuar no DOM, porque é o `defaults` que diz ao
+     * servidor de que sessão é a linha — e no celular a cópia desktop está
+     * `disabled` (`syncChildInputs`), ou seja, não vai no POST. */
+    if (cellIdx < cells.length) {
+      var resto = document.createElement('div');
+      resto.className = 'itm-new-hiddens';
+      resto.style.display = 'none';
+      while (cellIdx < cells.length) resto.appendChild(cells[cellIdx++]);
+      (table.closest('.it-mobile') || table.parentNode).appendChild(resto);
+    }
+    /* Depois das células mobile: o `itOnNewRow` escreve em todos os alvos do
+     * wrap, então os dois layouts saem com o mesmo valor. */
+    itOnNewRow(wrap, rel, key);
   }
   var mtable = wrap.querySelector('.it-mobile table.itm-table');
   if (mtable && window.itmApplyPage) {
@@ -573,6 +648,10 @@ function addChildRow(btn) {
   }, 1200);
   if (window.marcarFormAlterado) marcarFormAlterado();
   if (window.syncChildInputs) syncChildInputs();
+  /* A chave da linha nova (`n-N`). O app que chama `addChildRow` precisa dela
+   * para escrever nos inputs daquela linha pelo nome (`child_<rel>_<key>_<campo>`)
+   * — sem isso teria que raspar o DOM para descobrir. */
+  return key;
 }
 function itSyncValue(el) {
   var cell = el.closest('.it-cell');

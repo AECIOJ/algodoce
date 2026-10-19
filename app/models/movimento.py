@@ -1,4 +1,5 @@
 from ajsystem.core.extensions import db
+from app.extends.constants import ENTRADA, SAIDA, TIPO_MOVTO
 from app.extends.masks import MVALOR
 
 
@@ -30,12 +31,16 @@ class Movimento(db.Model):
                              backref=db.backref("movto", uselist=False))
 
     @property
+    def valor_assinado(self):
+        return (self.valor or 0) * (1 if self.tipo == ENTRADA else -1)
+
+    @property
     def historico_display(self):
         if self.historico:
             return self.historico
         if self.variacao is not None and self.variacao != 0:
             return 'Haver na data' if self.variacao < 0 else 'Acréscimos na data'
-        return 'Pago na data' if self.tipo == 'S' else 'Recebido na data'
+        return 'Pago na data' if self.tipo == SAIDA else 'Recebido na data'
 
     def __repr__(self):
         return f"<Movimento {self.id} {self.tipo} {self.valor}>"
@@ -43,13 +48,14 @@ class Movimento(db.Model):
 
 Entity = {
     'id':           {'type': 'ID', 'width': 7},
-    'tipo':         {'type': 'TEXT', 'width': 4, 'required': True},
     'data':         {'type': 'DATA', 'width': 10, 'required': True},
     'recurso_id':   {'type': 'FK', 'label': 'Recurso', 'width': 15, 'required': True},
     'conta_id':     {'type': 'FK', 'label': 'Conta', 'width': 15},
     'previsao_id':  {'type': 'FK', 'label': 'Previsão', 'width': 10},
     'documento':    {'type': 'TEXT', 'width': 10},
     'valor':        {'type': 'NUM', 'width': 10, 'required': True, 'mask': MVALOR},
+    'tipo':         {'type': 'LIST', 'width': 4, 'required': True,
+                     'options': TIPO_MOVTO},
     'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15},
     'variacao':     {'type': 'NUM', 'label': 'Variação', 'width': 10},
     'historico':    {'type': 'MEMO', 'label': 'Histórico', 'width': 30},

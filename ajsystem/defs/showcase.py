@@ -91,11 +91,11 @@ def resolve_show(cfg):
     if not isinstance(show, dict):
         raise ValueError("SHOWCASE: 'show' deve ser um dict {campo: posição}")
     result = []
-    for campo, pos in show.items():
+    for field, pos in show.items():
         if pos not in SHOWCASE_POSITIONS:
             raise ValueError(
-                f"SHOWCASE: posição inválida {pos!r} para {campo!r} "
+                f"SHOWCASE: posição inválida {pos!r} para {field!r} "
                 f"(válidas: {', '.join(SHOWCASE_POSITIONS)})"
             )
-        result.append((campo, pos))
+        result.append((field, pos))
     return result

@@ -1,7 +1,6 @@
 from flask import flash, redirect, url_for
 
 from ajsystem.core.formats import parse_brl
-from ajsystem.defs.constants import POS_0_NOT_EMPTY
 from ajsystem import locales as i18n
 from app.models.pedido import Pedido
 from app.extends.buttons import _sem_financeiro
@@ -9,10 +8,6 @@ from app.models.pedido_item import PedidoItem
 from app.models.carteira import Carteira
 from app.reports.pedidos import PEDIDO
 
-
-# `report` + `type: 'print'` declara o botão de relatório: `render`, `into` e o
-# `guard` padrão (`_has_items`) saem sozinhos, e o que fica escrito é a
-# aparência de envio (papagaio/verde) em vez do documento azul do `print`.
 Buttons = {
     'enviar_pedido': {'type': 'print', 'report': PEDIDO, 'label': i18n.SEND,
                       'icon': 'paper-airplane', 'color': 'success',
@@ -27,7 +22,6 @@ def _num(v):
 
 
 def _child_soma(request, rel='items'):
-    """Soma `qtd * preco` das linhas child enviadas no POST (validação)."""
     from re import match as _match
     rows = {}
     for key, val in request.form.items():
@@ -67,8 +61,6 @@ def _faturado(instance):
 
 
 def _pre_get(mod, id):
-    """Self-heal: `faturado_em` órfão (sem contrapartida movto/transacao) é
-    revertido no load do form — evita pedido travado como "faturado"."""
     from flask import request
     if id is None or request.method != 'GET':
         return None
@@ -134,27 +126,23 @@ Schema = {
         'conta_id': {'label': 'Cliente',
                       'lookup': {'display': 'nome', 'fields': ['nome', 'telefone'],
                                  'when': {'ativo': True, 'tipo': [0, 1]}}},
-        'carteira_id': {'label': 'Pagamento', 'pos_form': 0,
+        'carteira_id': {'label': 'Pagamento',
                         'lookup': {'display': 'nome'},
                         'disabled': _financeiro_gerado},
-        'pedido_em': {'pos_form': 0,'pos_list': 2},
-        'faturado_em': {'pos_form': 0,'pos_list': 2},
-        'cancelado_em': {'pos_form': 5,'pos_list': 2},
-        'entregue_em': {'pos_form': 0,'pos_list': 2},
+        'pedido_em': {},
+        'faturado_em': {},
+        'cancelado_em': {},
+        'entregue_em': {},
         'valor': {'calc': {'type': 'agg', 'source': 'sum(PedidoItem.valor)',
-                           'diff': 'Aviso de Inconsistência: Valor registrado neste pedido difere da soma dos itens atuais.'},
-                  'pos_form': 0},
-        'acrescimo': {'pos_form': 0},
-        'desconto': {'pos_form': 0},
-        'total': {'calc': 'valor + acrescimo - desconto', 'pos_form': 0},
+                           'diff': 'Aviso de Inconsistência: Valor registrado neste pedido difere da soma dos itens atuais.'}},
+        'acrescimo': {},
+        'desconto': {},
+        'total': {'calc': 'valor + acrescimo - desconto'},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado deste pedido difere do status calculado.'},
-                   'pos_form': 3, 'pos_filter': 3, 'tag': {'colors': {0: 'warning', 1: 'success', 2: 'info', 3: 'info', 8: 'error', 9: 'success'}}},
-        'transacao_id': {'pos_form': POS_0_NOT_EMPTY, 'pos_list': 0,
-                         'tag': {'link': 'receber.form', 'color': 'info'}},
-        'movto_id': {'pos_form': POS_0_NOT_EMPTY, 'pos_list': 0,
-                     'tag': {'link': 'recebimentos.form', 'color': 'info'}},
-        'observacao': {'pos_list': 0},
+                   'tag': {'colors': {0: 'warning', 1: 'success', 2: 'info', 3: 'info', 8: 'error', 9: 'success'}}},
+        'transacao_id': {'tag': {'link': 'receber.form', 'color': 'info'}},
+        'movto_id': {'tag': {'link': 'recebimentos.form', 'color': 'info'}},
     },
     'PedidoItem': {
         'produto_id': {
@@ -163,13 +151,10 @@ Schema = {
                 'preco': 'preco',
             }},
         },
-        'valor': {'pos_form': 0},
+        'valor': {},
     },
     'Previsao': {
-        'id': {'pos_form': 1, 'readonly': True, 'label': 'Previsão', 'mask': '999,999'},
-    },
-    'Evento': {
-        'obs': {'pos_list': 2},
+        'id': {'readonly': True, 'label': 'Previsão', 'mask': '999,999'},
     },
 }
 
@@ -183,11 +168,24 @@ Page = {
         },
         'list': {
             'columns': 'Pedido',
+            'filter': {'types': {'checklist': 'status'}},
+            'hidden': ['transacao_id', 'movto_id', 'observacao'],
+            'card': ['pedido_em', 'faturado_em', 'cancelado_em',
+                     'entregue_em'],
             'order': ['entregue_em'],
         },
         'form': {
             'max_width': 130,
             'fields': 'Pedido',
+            'positions': {
+                'bar':    ['status'],
+                'footer': ['cancelado_em'],
+                'hidden': ['transacao_id', 'movto_id', 'carteira_id', 'valor',
+                           'acrescimo', 'desconto', 'total', 'pedido_em',
+                           'faturado_em', 'entregue_em'],
+            },
+            'visible': {'transacao_id': {'not_empty': True},
+                        'movto_id': {'not_empty': True}},
             'readonly': _faturado,
             'pre_get': _pre_get,
             'pre_save': _pre_save,
@@ -201,6 +199,7 @@ Page = {
                         'columns': ['PedidoItem'],
                         'totals': ['qtd', {'valor': 'valor'}],
                     },
+                    'positions': {'hidden': ['valor']},
                 },
                 'Evento': {
                     'fields': ['Evento'],
@@ -210,12 +209,8 @@ Page = {
                                'carteira_id', 'transacao_id', 'movto_id'],
                     'query': _query_financeiro,
                     'buttons': [
-                        # Rótulo, ícone (cédula -> moeda), cor e estilo saem do
-                        # tipo `gerar_financeiro` do app. Aqui ficam só o que é
-                        # deste uso: destino, confirmação, visibilidade, campos
-                        # que habilitam e o que é carregado para o formulário.
                         {'gerar_financeiro': {
-                            'url': 'pedidos.gerar_financeiro', 'method': 'POST', 'position': 'right',
+                            'url': 'pedidos.gerar_financeiro', 'method': 'POST', 'position': 'after',
                             'confirm_msg': 'Gerar o financeiro deste pedido?',
                             'visible': _sem_financeiro,
                             'enabled': ['total', 'carteira_id'],

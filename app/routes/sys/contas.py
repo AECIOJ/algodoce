@@ -1,13 +1,6 @@
 from app.models.conta import Conta
 from app.models.pedido import Pedido
 
-Schema = {
-    'Conta': {
-        'email': {'pos_list': 2},
-        'endereco': {'pos_list': 2},
-    },
-}
-
 Page = {
     'label': 'Conta',
     'type': 'crud',
@@ -18,11 +11,13 @@ Page = {
         },
         'list': {
             'columns': 'Conta',
+            'card': ['email', 'endereco'],
             'order': ['nome'],
         },
         'form': {
             'max_width': 90,
             'fields': 'Conta',
+            'positions': {'bar': ['ativo']},
             'sessions': {
                 'Pedidos': {
                     'query': {

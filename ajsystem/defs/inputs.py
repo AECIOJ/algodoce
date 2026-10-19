@@ -34,8 +34,8 @@ from typing import Optional, Union
 from ajsystem import locales as i18n
 
 # Slots onde o controle pode ser renderizado. `body` é o corpo do form; `bar` é
-# a `app-bar-right` da página do form — o mesmo slot de `pos_form: 3`, que é o
-# que o `Field` tem que declarar para um input de barra ser aceito.
+# a `app-bar-right` da página do form — o mesmo slot `bar` da página (§5.5), que
+# é onde o campo precisa estar para um input de barra ser aceito.
 INPUT_SLOTS = ('body', 'bar')
 
 # Grupos de comandos de máscara liberados por tipo. `@B/@X` só em `number`;
@@ -182,7 +182,8 @@ INPUT_TYPES = {
 # porque o que ele faz é do motor.
 #
 # `toggle` é o caso: ele não submete o form, aciona uma rota de `core/auto` e
-# mora na barra do form (`slot='bar'` ⇒ o Field declara `pos_form: 3`). Ele é o
+# mora na barra do form (`slot='bar'` ⇒ o campo tem que estar no slot `bar`,
+# §5.5). Ele é o
 # editor padrão do booleano com outra forma — daí o `type: 'checkbox'` e props
 # novas, em vez de repetir o `cls` do checkbox. Se ficasse em `INPUT_TYPES`, um
 # app que não usa toggle ainda carregaria a entrada; é a mesma razão que tirou

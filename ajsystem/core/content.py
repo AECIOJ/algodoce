@@ -39,7 +39,7 @@ def _pasta():
     return os.path.join(current_app.root_path, 'templates')
 
 
-def render_pagina(nome):
+def render_page(nome):
     """Renderiza `<caminho>.md` (relativo à pasta de templates) para HTML
     sanitizado, ou None se ausente. Rejeita caminhos absolutos e `..`."""
     if not isinstance(nome, str) or not _SLUG_OK.match(nome):
@@ -56,10 +56,10 @@ def render_pagina(nome):
         return entrada[1]
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            texto = f.read()
+            text = f.read()
     except OSError:
         return None
-    html = markdown.markdown(texto, extensions=['extra'])
+    html = markdown.markdown(text, extensions=['extra'])
     html = nh3.clean(html, tags=_TAGS, attributes=_ATTRS, link_rel='noopener noreferrer')
     _cache[nome] = (mtime, html)
     return html

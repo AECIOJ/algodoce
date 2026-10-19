@@ -12,7 +12,9 @@ build/
 venv/
 env/
 .venv/
-.env/
+
+# Environment variables & Secrets (Mantenha sempre ignorado!)
+.env
 
 # IDE
 .vscode/
@@ -29,13 +31,15 @@ app/static/uploads/*
 # Dados (user data)
 dados/
 
-# Análise de código (saída do graphify)
-graphify-out/
-
 # Config e planos do opencode (ferramenta, não é do projeto)
 .opencode/
 
-# Build intermediário do CSS pré-compilado do framework (regenerado por npm run build:css:framework)
+# Arquivos gerados por IAs / Contexto
+graphify-out/
+repomix-output.*
+repomix-output/
+
+# Build intermediário do CSS pré-compilado do framework
 app/ajsystem/tailwind.daisyui.framework.json
 
 # Migrations cache
@@ -45,8 +49,5 @@ app/migrations/versions/*.pyc
 .DS_Store
 Thumbs.db
 
-# Docker
-docker-compose.yml
-
-# Environment variables
-.env
+# Docker (Removido o docker-compose.yml para que a estrutura seja versionada)
+docker-compose.override.yml

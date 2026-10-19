@@ -1,8 +1,10 @@
-"""Plano de Contas: QPLANO (fonte, compartilhável list/report) + PLANO (papel).
+"""Duas peças que não podem se separar: a **fonte** (`QPLANO`, um `QuerySpec`
+compartilhado pela listagem e pelo report) e o **papel** (`PLANO`, que só
+aponta para ela).
 
-Código em 3 segmentos: tipo (direto), grupo (denserank por família), index
-(rownumber entre irmãos). O 'indice' montado nasce no select via calc —
-grade e PDF bebem a mesma string, sem N+1.
+O código hierárquico é montado no próprio `select` (`over` + `calc`), então a
+grade e o PDF bebem a mesma string — sem N+1 e sem duas implementações do mesmo
+índice.
 """
 from ajsystem.defs.report import *
 QPLANO = {
@@ -14,12 +16,12 @@ QPLANO = {
         {'grupo': {
             'func': 'denserank',
             'over': {'partition': ['tipo'], 'order': [{'coalesce': ['pai_id', 'id']}]},
-            'pos_list': 0, 'label': 'Grupo', 'width': 8,
+            'label': 'Grupo', 'width': 8,
         }},
         {'index': {
             'func': 'rownumber',
             'over': {'partition': ['tipo', 'pai_id'], 'order': ['ordem', 'id']},
-            'pos_list': 0, 'label': 'Seq', 'width': 8,
+            'label': 'Seq', 'width': 8,
         }},
         {'indice': {
             'calc': '{tipo:d}.{grupo:02d}{?pai_id:.{index:03d}}',
@@ -45,7 +47,7 @@ PLANO = {
     'body': {
         'source': QPLANO,
         'table': {
-            'lf': [0, 1],
+            'lf': -2,
             'groups': {
                 'tipo': {'action': 1, 'print': 3, 'text': '{tipo:d}. {tipo}'},
                 'grupo': {'action': 1, 'print': 2, 'text': '{tipo:d}.{grupo:02d} {nome}'},
@@ -59,5 +61,5 @@ PLANO = {
             ],
         },
     },
-    'footer': {'show_user': True, 'show_datetime': True, 'show_page_number': True},
+    'footer': True,
 }

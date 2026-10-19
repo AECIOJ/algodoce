@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0034 — Manual do Framework
+# AJSYSTEM 1.26.10.08.0043 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0034`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.08.0043`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -16,7 +16,10 @@
    1. `Entity` — base de campos no `model` (`app/models/*.py`).
    2. `Schema` — overrides por página na `route` (`app/routes/sys/*.py`).
    3. `Page` — tipo de página (`crud`, `redirect`, `cart`, `showcase`, `contacts`, `custom`).
-   4. `Field` — `type`, `pos_form/pos_list/pos_filter`, `tag`, `calc`, `lookup`.
+   4. `Field` — `type`, `tag`, `calc`, `lookup`. Onde o campo
+      aparece **na tela** não é do `Field`: são os slots da **página** — na
+      listagem `line`/`card`/`hidden` (§5.6), no form `bar`/`footer`/`body`/
+      `hidden` (§5.5).
 4. **Pré-requisitos.**
    1. Python 3.10+ (o app hospedeiro roda em 3.10.12).
    2. `dict`, `class`, `lambda`, `decorator`.
@@ -121,9 +124,8 @@
 
 2. **Schema override exclusivo.**
    ```python
-   from ajsystem.defs.constants import POS_0_NOT_EMPTY
-   Schema = {'Tarefa':{'feito':{'tag':{'colors':{True:'success'}}},'transacao_id':{'pos_form':POS_0_NOT_EMPTY}}}
-   # POS_0_NOT_EMPTY = {'pos':0,'when':{'not_empty':True}} → pos:0 explícito só quando valor<>null (só form)
+   Schema = {'Tarefa':{'feito':{'tag':{'colors':{True:'success'}}}}}
+   # Posição/visibilidade são prop da PÁGINA, não do Schema — ver 5.5 (form) e 5.6 (lista)
    ```
 
 3. **Page CRUD com sessão.**
@@ -134,14 +136,15 @@
 4. **Calc + tag com link.**
    ```python
    # Entity: 'transacao_id':{'type':'INT','calc':lambda row: row.transacao_id}
-   # Schema: 'transacao_id':{'pos_form':POS_0_NOT_EMPTY,'pos_list':0,'tag':{'link':'receber.form','color':'info'}}
-   # total: 'total':{'type':'NUM','calc':'valor + acrescimo - desconto','pos_form':0}
+   # Schema: 'transacao_id':{'tag':{'link':'receber.form','color':'info'}}
+   # total: 'total':{'type':'NUM','calc':'valor + acrescimo - desconto'}
+   # Onde ele aparece — lista (`hidden`) e form (`positions.hidden`) — é prop da página, não do Schema (5.5/5.6)
    ```
 
-5. **Pos condicional dict.**
+5. **`visible` — visibilidade condicional (prop da página).**
    ```python
-   'pedido_id':{'pos_form':{'pos':0,'when':{'not_empty':True}},'tag':{'link':'pedidos.form'}}
-   # when: {'not_empty':True} | {'empty':True} | {'field':'valor','op':'not_empty'} | callable(row,val) | 'not_empty'/'empty'
+   # form: {'visible': {'pedido_id': {'not_empty': True}}}
+   # cond: {'not_empty':True} | {'empty':True} | {'field':'valor','op':'not_empty'} | callable(row,val)
    ```
 
 6. **Menu.**
@@ -164,7 +167,7 @@
 | Prop | Tipo | Valores possíveis | Impacto visual | Impacto processamento |
 |---|---|---|---|---|
 | `name` | `str` | nome da coluna | — | chave do `Field` |
-| `type` | `str` | `TEXT,MEMO,INT,NUM,PERCENT,PK,ID,DK,FK,DATA,DATA_HORA,HORA,BOOL,FONE,CPF,CNPJ,LIST,MULT10,IMAGE` (`FIELD_TYPES`, **19** entradas) | declara qual **input** do catálogo o campo usa (`BOOL`→`checkbox`, `CPF`→`cpf`, `CNPJ`→`cnpj`, `FONE`→`tel`), e o input traz `width`/máscara/validador | `build_field_config` aplica `FIELD_TYPES`; `DK` força `pos_form:0 pos_filter:0` |
+| `type` | `str` | `TEXT,MEMO,INT,NUM,PERCENT,PK,ID,DK,FK,DATA,DATA_HORA,HORA,BOOL,FONE,CPF,CNPJ,LIST,MULT10,IMAGE` (`FIELD_TYPES`, **19** entradas) | declara qual **input** do catálogo o campo usa (`BOOL`→`checkbox`, `CPF`→`cpf`, `CNPJ`→`cnpj`, `FONE`→`tel`), e o input traz `width`/máscara/validador | `build_field_config` aplica `FIELD_TYPES`; `DK` não é eixo de filtro nem campo de tela (regra de tipo, §5.5/§5.6) |
 | `label` | `str` | texto ou `None` → `_auto_label(name)` | cabeçalho lista/form/report | — |
 | `width` | `int` | `ch` (ex: `6` para `ID`, `12` para `NUM`) | largura input/coluna (`field.width+3 ch`, report mm) | `field_to_column` (`core/list.py:184`) calcula |
 | `align` | `str` | `left,center,right` (`NUM`→`right` automático `data.py:260`) | `text-align` célula/input | — |
@@ -178,22 +181,22 @@
 | `percent` | `bool` | `True` → `12%` | ` %` sufixo | — |
 | `required` | `bool` | `True` → `*` | `*` no label, `required` attr | bloqueia `POST` se vazio |
 | `disabled` | `bool\|callable` | `True` ou `callable(row)->bool` (`_financeiro_gerado`) | `disabled` attr | `form_macros.html:55` avalia `callable` |
-| `readonly` | `bool` | `True` → sempre readonly | branch `pos_form==2/3/readonly` (`form_macros.html:66`) | `do_form.py:485` skip no `POST` se `readonly` |
+| `readonly` | `bool` | `True` → sempre readonly | renderiza rótulo + `<input type=hidden>` (o valor **continua** indo no `POST`) | `form_macros.html:66`; **não** pula o save — quem pula é o `Form.readonly` (callable), em `do_form.py` |
 | `hidden` | `bool` | `True` → `<input type=hidden>` | oculto mas enviado | `do_form.py:457` `extra_ctx['hidden']` |
-| `pos_form` | `int\|dict` | `0` oculto body (visível só em `fields` explícito), `1` visível, `2` readonly sempre, `3` barra/tag, `5` footer, `dict{pos,when}` (`when:{not_empty,empty,field,callable}`) | `init.py:75` `field_body`, `form_macros.html:405` `is_visible_by_pos` | `do_form.py:485` skip no `POST` se barra/readonly |
-| `pos_list` | `int` | `0` oculto lista, `1` coluna, `2` card, `3` barra lista | `do_list.py:68` filtra `pos_list != 0` | `do_list.py` filtra `pos_list` |
-| `pos_filter` | `int` | `0` sem filtro, `1` texto, `2` select, `3` checklist, `9` fixo (`WHERE default`, força `pos_form0/pos_list0` `data.py:214`) | sem UI quando `9` | `filters.py:114` `fixed_filters` injeta `WHERE` |
-| `default` | `any\|callable` | `TODAY` (`date.today`), `lambda:1` | valor inicial | `do_form.py:479` aplica se `None` |
+| `default` | `any\|callable` | `TODAY` (`date.today`), `lambda:1` | valor inicial | `do_form.py:536` aplica se `None` |
 | `rows` | `int` | altura textarea | `rows` attr | — |
 | `lookup` | `bool\|dict\|Lookup` | `True` (defaults) ou `{display,fields,value,when,query}` — **sem `model`**, o alvo vem do FK | `select` (1 campo) vs modal busca (>1) | `resolve_lookup` (`data.py:810`) + `apply_lookup_when` |
 | `validate` | `str` | `cpf,cnpj,placa` (`validators.js`) | erro client `data-err-for` | `core/validators.py` espelha no `POST` |
 | `help` | `str\|list` | texto | botão `?` | — |
 | `on_set` | `dict` | `{replaces:{campo:fonte},disables:[...]}` | `data-replaces-map`, `data-disables` | `itOnSetBind` copia `data-*` da option |
 | `calc` | `str\|callable\|dict` | `'qtd*preco'`, `lambda row:`, `{'type':'agg','source':'sum(Item.valor)'}`, `{'type':'call','source':'calc_status'}` | `aj-calc` (`data-calc`) ou `readonly` | `calc_value` (`do_form.py:471` `diff` flash), `itEval`/`formCalcRefresh` JS |
+
+> **`calc` de coluna que é `property` do model tem de ser virtual.** O motor decide o que é gravável pelo que a config **declara**, não pelo que existe no banco: se o `calc` vier como expressão avaliável de aggregate (`{'type':'agg', 'source': 'sum(Item.valor)'}`), ele é tratado como coluna real e entra no `POST` — num campo que **não é coluna** isso é `setattr` num atributo inexistente, e o registro morre no commit. A forma virtual (`lambda row:`, `string`, `{'type':'call', ...}`) é o que `do_form._calc_virtual` reconhece para pular o save (`do_form.py:63`). Vale para qualquer campo derivado: **ou é `memory`, ou o `calc` é virtual** — nunca os dois. Um `property` que também é `memory` é redundante (o `memory` já o resolve); um `property` com `calc` de aggregate sem `memory` grava onde não há coluna.
 | `carry` | `str` | nome campo origem (`carry` map do botão) | — | `do_form.py:618` `carry_get` importa |
-| `memory` | `bool` | `True` → campo só de memória: renderiza/editável, **não persiste** e não entra em expansão automática (form principal/list/filtro); só aparece onde citado explicitamente (ex.: `session.fields`) | select FK normal | `_save_session_masters` skip; alvo vem do FK em `resolve_lookup`/`_build_lookup` |
+| `memory` | `bool` | `True` → campo só de memória: renderiza/editável, **não persiste** e não entra em expansão automática (form principal/list/filtro); só aparece onde citado explicitamente — `session.fields` ou um bloco `MEMORY` do Schema (**5.5.3**) | select FK normal | `_save_session_masters` e o save do mestre pulam o campo; alvo vem do `lookup.model` (nome de entidade) em `resolve_lookup` |
 | `tag` | `dict\|Tag` | `{colors, color, link, size, preset, text_field, outline, cls}` | `tag-pill` (`width:width+3ch`, `badge`) ou `badge` lista | `tags.py:86` `resolve_link` (`callable` ok) |
-| `_pos_form_when` | `dict` | **interno** — preenchido pelo motor a partir de `pos_form['when']`; não declarar à mão | — | `is_visible_by_pos` |
+| `_slot` | `str` | **interno** — posto por `core/resolve.resolve_slots` a partir dos slots da página; não declarar à mão | — | render + predicado de save (§5.5) |
+| `_visible_when` | `dict` | **interno** — posto por `core/resolve.resolve_visible` a partir de `visible`; não declarar à mão | — | `is_visible_by_pos` |
 
 > `on_set.replaces` alimenta o `lookup` no `resolve_lookup` — é a prop `replaces` do dicionário de lookup, mas **não** uma prop de `Lookup`. Por isso `lookup.model` também não existe: o model alvo é inferido de `fk_target_model` (`data.py:810`).
 
@@ -245,12 +248,25 @@ Page = {'type': 'crud', 'props': {'scripts': ['previsoes', 'rel/gerar']}}
 
 → `static/js/previsoes.js` e `static/js/rel/gerar.js`, resolvidos por `page_scripts` (`data.py:644`) e injetados no ctx como `page_scripts=[{'name','url'}]`. A URL leva **cache-buster por mtime**, então editar o JS dispensa limpeza de cache. Subpastas são permitidas de propósito: é o mesmo caminho de código e evita uma prop separada quando um grupo de helpers crescer.
 
+**Rota fora do CRUD gerado.** `type: 'crud'` gera `list`/`form` (e `delete`/`toggle`) sozinho — mas a **função** do handler é da rota, não do motor. Quando a página precisa de um endpoint que o CRUD não gera (aprovar, renovar, estornar, um POST que dispara uma rotina), o padrão é: a função vive no arquivo da rota, e o `create_app` do host só a registra, porque o motor já registrou o blueprint:
+
+```python
+# app/__init__.py, dentro de create_app()
+from app.routes.sys import orcamentos as _mod
+app.add_url_rule('/orcamentos/<int:id>/aprovar', endpoint='orcamentos.aprovar',
+                 view_func=login_required(_mod.aprovar), methods=('GET', 'POST'))
+```
+
+O `endpoint` é o do blueprint (`rota.ação`) e o prefixo da URL é o do blueprint — `url_for('orcamentos.aprovar', id=…)` funciona de qualquer lugar. Quem chama de dentro do form é um `Button` com `url`/`action` (§5.9), não a spec da Page: a Page descreve a tela, a rota descreve a ação.
+
 ### 5.5 `Form` — `ajsystem/defs/form.py:55` `class Form`
 
 | Prop | Tipo | Default | Valores | Impacto |
 |---|---|---|---|---|
-| `fields` | `str\|list\|dict` | `None` | Formatos unificados (resolvidos por `normalize_fieldspec`, 5.13):<br/>`'Entidade'` — expande todos (pos_managed=True)<br/>`['campo1','campo2']` — explícitos (pos_managed=False)<br/>`['Entidade.campo1','Outra.campo2']` — multi-entidade com prefixo<br/>`{'Entidade':['c1','c2'],'Outra':['c3']}` — multi-entidade agrupado | `_pos_managed` controla se `pos_form/pos_list` filtram |
-| `sessions` | `dict` | `None` | `{Nome:{fields,table,query,totals,buttons}}` (`fields` 1:1 child vs pai, `table` editável, `query` readonly) | `form.html: sessions` + `item_table.html` |
+| `fields` | `str\|list\|dict` | `None` | Formatos unificados (resolvidos por `normalize_fieldspec`, 5.13):<br/>`'Entidade'` — expande todos<br/>`['campo1','campo2']` — explícitos<br/>`['Entidade.campo1','Outra.campo2']` — multi-entidade com prefixo<br/>`{'Entidade':['c1','c2'],'Outra':['c3']}` — multi-entidade agrupado | define **quais** campos e a **ordem**; a posição vem de `positions` (abaixo) |
+| `positions` | `dict` | `None` | `{bar:[...], footer:[...], body:[...], hidden:[...]}` — mesma família de formatos de `columns`/`line` (§5.6) | onde cada campo vai na tela — ver **Slots do form**, abaixo |
+| `visible` | `dict` | `None` | `{campo: cond}`, `cond` = `not_empty`, `empty`, `{'field','op','value'}`, `callable` | visibilidade condicional — **não** é slot; o campo continua no save |
+| `sessions` | `dict` | `None` | `{Nome:{fields,table,query,totals,buttons,defaults,on_new,positions,visible}}` (`fields` 1:1 child vs pai, `table` editável, `query` readonly, `defaults`/`on_new` em 5.5.2, `positions`/`visible` próprios da sessão) | `form.html: sessions` + `item_table.html` |
 | `template` | `str` | `None` | path | se setado, ignora `fields` |
 | `flash_ok` | `str` | `None` | mensagem de sucesso do save | flash pós-submit |
 | `flash_update` | `str` | `None` | mensagem quando o save só atualiza | flash pós-submit |
@@ -260,6 +276,52 @@ Page = {'type': 'crud', 'props': {'scripts': ['previsoes', 'rel/gerar']}}
 | `buttons` | `str\|Button\|list` | `None` | nome de tipo (`'on_off'`, `'delete'`), `{tipo: {overrides}}`, instância `Button` (`BTN_SAVE`, `BTN_PRINT`, `BTN_SEND`…) ou lista de qualquer um | `resolve_buttons` (`defs/buttons.py`); `form.html:nav`/`footer` |
 | `spacing` | `num` | `2` | gap entre campos | `render_fields` |
 | `max_width` | `num` | `None` | largura máxima do form | `resolve_max_width` |
+
+#### Slots do form: onde cada campo aparece
+
+Igual à listagem, a posição é pergunta da **página**, não do `Field`: slots em `Page.props.form.positions`, nunca um inteiro mágico no dataclass. São **quatro** slots e uma prop à parte:
+
+| Slot | Afirmação | Default |
+|---|---|---|
+`bar` | na **barra** do form (ícones/tags, fora do corpo) | — |
+`footer` | no **rodapé**, **fora** do `<form id="main-form">` — é o lugar dos toggles, que são POST próprio | — |
+`body` | no **corpo** do form | ✅ |
+`hidden` | fora da tela — e **não grava** (§ save abaixo) | — |
+`visible` | **não é slot**: visibilidade condicional sobre o dado (`not_empty`, `empty`, `{field,op,value}`, `callable`). Um campo na barra ou no corpo pode ter a mesma condição | — |
+
+Precedência quando o mesmo campo é citado em dois slots: **`hidden` > `bar` > `footer` > `body`**. É total, sem arbitragem em runtime.
+
+Os slots aceitam a mesma família de formatos de `columns` (`normalize_fieldspec`/`field_spec_item`): `'Entidade'`, `'campo'`, `'Entidade.campo'`, lista mista, `{'Entidade': [...]}`, `{'Entidade': '*'}`. Props inline são aceitas e **descartadas** — o slot afirma posição, não apresentação. A resolução de nome cru é a da §5.6: **único** na entidade de `fields` → **único** no pool → na ambiguidade a entidade de `fields` desempata; sem entidade, o autor qualifica.
+
+**A chave não aparece sem querer.** Um form não edita a própria chave, então o campo de sistema vai para `hidden` **sem ninguém declarar**: `type` `ID` (a chave) ou `DK` (a chave derivada que o motor gerencia). É por **tipo**, não por nome: numa tabela de ligação (`ProdutoInsumo`), as duas colunas são FKs e o motor tem que mostrá-las. Quem precisa do contrário **cita** o campo em `body` — a declaração existe, e existir é o que ganha da regra.
+
+```python
+# pagar — a chave do filho volta à tabela da sessão; o resto do sistema some
+'form': {
+    'fields': 'Transacao',
+    'positions': {'bar': ['status'], 'footer': ['cancelado'],
+                  'hidden': ['valor', 'prazo', 'variacao', 'saldo', 'tipo',
+                             'compra_id', 'pedido_id']},
+    'visible': {'pedido_id': {'not_empty': True},
+                'compra_id': {'not_empty': True}},
+    'sessions': {
+        # `Previsões` é `table`: as `positions` da sessão valem para as COLUNAS
+        # (a `Previsao`). `id` é a chave do filho — citada em `body` para voltar.
+        'Previsões': {
+            'fields': [...],                       # campos do PAI (Transacao)
+            'table': {'columns': ['Previsao'], 'totals': [...]},
+            'positions': {'hidden': ['saldo'], 'body': ['id']},
+        },
+    },
+},
+```
+
+**Slots de sessão.** Cada sessão tem os **seus** `positions`/`visible`, com uma superfície mais estreita: só `body` e `hidden` (não há barra nem rodapé numa tabela de linhas). O alvo depende do tipo de sessão:
+
+- **`table`/`query`** — as `positions` da sessão posicionam as **colunas** (o filho). Os `fields` da sessão (que vêm do Schema do mestre) são do **pai** e **herdam** a posição do mestre, recortada pelo que a sessão exibe; a sessão não os reposiciona (o recorte da sessão é o filho).
+- **`fields` sem `table`/`query`** — a sessão é o pool inteiro: as `positions` valem para ele. Com o primeiro item em snake_case de um campo do pai, a sessão agrupa campos do **pai**; com o primeiro item nomeando uma Entity, são campos do **filho**.
+
+**O slot é o predicado de escrita.** No save, gravam `body` e `footer`; `hidden` e `bar` **não** (o campo não existe na tela, e mandar o que veio do POST gravaria `NULL` onde o campo é derivado). O `readonly` **não** entra nesse predicado: ele renderiza rótulo + hidden que ainda submete o valor, então um campo `readonly` no corpo é reenviado e gravado. Quem barra o save inteiro é o `Form.readonly` (callable sobre a instância), que pula tudo exceto `footer`.
 
 ### 5.5.1 `totals` em sessões `table`/`query`
 
@@ -290,24 +352,203 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 },
 ```
 
-### 5.6 `List` — `ajsystem/defs/list.py:15` `class List`
+### 5.5.2 `defaults` e `on_new` em sessões `table`
+
+Duas props que deixam **duas sessões de tabela mirarem o mesmo relationship** — o caso da Transferência, em que "Entradas" e "Saídas" são `Movimento` com `tipo` diferente, e por isso não podem ser distinguidas pelo relationship nem pelo `attr` (que o motor resolve pelo mapper: um só, `movtos`).
+
+| Prop | Tipo | Quando age | O quê |
+|---|---|---|---|
+| `defaults` | `dict` | render + save | campos que a sessão **possui**. Particiona as linhas (só as que batem aparecem e são gravadas), e carimba a linha no save — para campo oculto, que não vem no POST |
+| `on_new` | `dict` | client | o que a linha **nova** herda: `{replaces: {alvo: fonte}}`, mesmo formato do `on_set` (5.13) |
+
+```python
+# Transferência — as duas sessões dividem `movtos`
+NOVO_REGISTRO = {'replaces': {'data': 'data', 'documento': 'documento',
+                               'historico': 'historico'}}
+
+'Entradas': {'table': {'columns': ['Movimento']},
+             'defaults': {'tipo': ENTRADA},
+             'on_new': NOVO_REGISTRO},
+'Saídas':   {'table': {'columns': ['Movimento']},
+             'defaults': {'tipo': SAIDA},
+             'on_new': NOVO_REGISTRO},
+```
+
+**As três garantias de `defaults`** (`core/do_form.py`):
+
+- **render** — `_session_rows` filtra `session['_rows']`, e `item_table.html` usa essa lista quando ela existe (o `_rows` só é setado quando há `defaults`, então sessão sem a prop segue lendo `instance|deep_attr(attr)`);
+- **save, linha postada** — `_save_table_sessions` pula a linha cujo filho não casa com `defaults`: não é desta sessão, então não salva nem exclui. A linha **nova** é reconhecida pelo que ela posta (`_posted_matches`): o `defaults` que não é célula editável viaja como hidden **dentro de um `<td>`** — solto no `<tr>` é HTML inválido e o parser do navegador pode tirá-lo da tabela, e é ele que leva o `tipo` no POST (sem ele a linha nova seria criada duas vezes, uma em cada sessão);
+- **save, exclusão** — a lista de `existing` (linhas do banco ausentes do POST são excluídas) é filtrada pelo mesmo `defaults`, senão "Entradas" apagaria as linhas de "Saídas".
+
+O carimbo é **incondicional**: a sessão é dona do campo, então o que veio no POST não passa por cima.
+
+**`defaults` é identidade, não "campo a zerar".** O mesmo dicionário serve para as três coisas acima, e o filtro compara **todas** as chaves (`_session_matches`): uma chave cujo valor gravado difere do default tira a linha do render e do save. Por isso `'defaults': {'tipo': ENTRADA}` serve e `'defaults': {'conta_id': None}` não — as linhas com `conta_id` gravado deixariam de casar com sessão nenhuma, e o formulário abriria vazio. Para "zerar o que já estava gravado", o caminho é o `post_save` da rota (que roda depois do commit e alcança as linhas por query), não o `defaults`.
+
+**Campo `readonly` na linha nova** — renderiza rótulo + valor e um `<input type="hidden">` que ainda leva o valor no POST (o campo some do POST se for `disabled`, e o `readonly` de linha precisa ser gravado). Na linha **nova** o hidden fica **dentro** de um `<span data-readonly-for="campo" data-readonly-mask="…">`, com o texto em `[data-readonly-text]` — dois motivos:
+
+- o `on_new` escreve o texto (`itReadonlyText`) sem apagar o hidden, que é irmão do texto dentro do mesmo span;
+- no mobile o ColumnTemplate é um `<div>` fora de `<table>`, então o parser **descarta** os `<th>`/`<td>` e mantém só o conteúdo — e o `addChildRow` casa os elementos do template com as linhas da tabela mobile **por posição**. Uma célula que renderiza dois elementos (span + hidden soltos) desloca tudo depois dela. Uma célula = um elemento.
+
+**`on_new`** — o mapa vai para `data-new-replaces` no `.child-table-wrap` (mesmo formato `alvo:fonte` do `data-replaces-map`), e o `itOnNewRow` o aplica no `addChildRow`, depois do clone desktop e depois das células mobile. Três regras:
+
+- **origem**: procurada no **mestre** primeiro e só depois na **própria linha nova**. O inverso quebraria todo mapa com nomes iguais — o mais comum (`data:data`): a busca acharia o próprio alvo da linha nova, que está vazio, e nunca chegaria no mestre. A linha fica como segunda opção para "copia de outra coluna da linha", e mestre em branco **não** sobrescreve o que já veio preenchido;
+- **escrita**: a mesma do `on_set` — `numToInputFor` (que lê `data-num-decimals`, e é o que funciona em campo `disabled`, onde `fmtFieldInput` é no-op) → `fmtFieldInput` → `input`/`change`, para os `it*` do motor reagirem;
+- **todos os alvos**: desktop **e** mobile, porque `itmApplyPage` só pagina — não sincroniza valor nenhum entre as duas cópias. (O `on_set` escreve só no primeiro match; aqui a divergência é deliberada.)
+
+O `on_new` escreve também o **texto** do campo `readonly`: `itReadonlyText` traduz a data que o input `date` entrega em ISO para `dd/mm/aaaa` (o mesmo `fmt_date` do servidor; demais campos saem como vieram, porque o que o `numToInputFor` escreveu no input já é a convenção de exibição). A data é montada em horário local — `new Date('2026-07-13')` é UTC e o `fmtMask` lê os getters locais, o que daria 12/07 num fuso negativo.
+
+`on_new` é client-side: sem JS a linha nova nasce vazia — a mesma classe do `on_set`, que também não roda sem JS.
+
+**`on_new` só alcança a linha nova.** Ele roda no `addChildRow`, ou seja, no instante em que a linha é criada — a linha **já gravada** nunca passa por ele. Se o valor que ela herda puder mudar depois (o mestre é editado, o documento é renumerado, o status avança), a linha velha fica com o valor da época em que foi criada. O caminho para fechar as duas pontas é o **`post_save` da rota**, que roda depois do commit e alcança as linhas por query: ele rebaixa as existentes para o valor novo do mestre. É a divisão: `on_new` cobre a linha que está nascendo, `post_save` cobre as que já estão no banco. Um campo herdado que só o `on_new` escreve é um campo que envelhece.
+
+Os ids dos `<template>` passam a ser por sessão (`data-tpl` no `tbody`), para duas tabelas do mesmo relationship não saírem com `movtosRowTemplate` duplicado no DOM — e a chave da linha nova passou a ser contada **no form inteiro**: com o contador por tabela, as duas sessões geravam a mesma `n-1`.
+
+### 5.5.3 Bloco `MEMORY` — campos que existem só na tela
+
+O `memory` já resolvia "campo editável que não persiste", mas só aparecia citado
+campo a campo (`session.fields=['valor','de','para']`) e com `memory: True`
+repetido em cada campo. O **bloco** resolve os dois: **chave em MAIÚSCULAS** no
+`Schema` cujo valor é um dict de configs é um grupo de memória.
+
+```python
+Schema = {
+    'Transferencia': {...},
+    # chave em MAIÚSCULAS = bloco de memória (não é entidade: não tem model
+    # nem coluna). Cada campo do grupo nasce memory=True.
+    'MEMORY': {
+        'valor': {'type': 'NUM', 'label': 'Valor', 'width': 12, 'mask': MVALOR},
+        'de':   {'type': 'FK', 'label': 'De', 'width': 15,
+                 'lookup': {'model': 'Recurso', 'display': 'nome'}},
+    },
+}
+
+Page = {'props': {'form': {
+    # lista explícita: é o que traz o bloco para dentro do form
+    'fields': {'Transferencia': ['data', 'documento', 'total', 'status', 'historico'],
+               'MEMORY': ['valor', 'de']},
+}}}
+```
+
+- **o que define**: `grupos_memoria` (`defs/data.py`) lê as chaves em MAIÚSCULAS
+  do Schema cujo valor é um dict de configs e carimba `memory: True` em cada
+  campo. O nome da chave é livre (é namespace); `'Transferencia'`/`'Movimento'`
+  são entidades porque não são MAIÚSCULAS.
+- **FK sem coluna**: campo de memória não tem coluna no pai, então não há FK para
+  o motor inferir — o alvo vem do `lookup.model`, que é o **nome** da entidade
+  (`MODEL_MAP`, registrado em `register_model`), não a classe.
+- **não persiste**: os dois loops de save pulam `memory` — o das sessões
+  (`_save_session_masters`) e o do mestre. Sem o do mestre, um bloco no
+  cabeçalho passaria por `setattr` num atributo que o model não tem.
+- **visibilidade**: `memory` é pulado na expansão automática; e o **slot** diz o
+  que é gravável, mesmo em lista explícita — uma lista explícita assume a
+  **ordem**, não o que é campo editável (é por isso que `status`, no slot `bar`,
+  não vira NULL vindo de um POST sem input para ele, §5.5).
+
+**`fields` lista/dict no `Form`** — a forma str (`'fields': 'Tarefa'`) é expansão
+(aparece todo campo da entidade); lista e dict são autoritativas (só os listados).
+O form
+passava o schema **plano** para o `normalize_fieldspec`, que o espera indexado por
+entidade: a lista e o dict resolviam campo **sem config nenhuma** (a `data` virava
+input de texto, o `textarea` perdia o memo). Agora o form indexa a própria fatia
+mais os blocos de memória, o que faz as formas documentadas resolverem config de
+verdade. Com `'Entidade.campo'` a ordem é a dos prefixados primeiro; com o dict
+multi-entidade a ordem é a do spec — use o dict quando a ordem importa.
+
+
+### 5.6 `List` — `ajsystem/defs/list.py:17` `class List`
+
+#### Slots: onde cada campo aparece
+
+A listagem tem duas etapas, e elas respondem perguntas diferentes:
+
+1. **`columns`** — **quem existe**. Entidade = expansão, lista = autoritativa, query dict = fonte do `qrun`; com `master`, as duas entidades da inversão.
+2. **`line` / `card` / `hidden`** — **onde cada um vai**. Slots da **página** (`Page.props.list`), nunca do `Field`: a pergunta "esse campo é coluna aqui?" só tem resposta no lugar onde a lista é montada, e um inteiro mágico espalhado em Entity e Schema obligava a caçar a declaração em três arquivos.
+
+| Slot | Afirmação | Default |
+|---|---|---|
+`line` | **sempre** na grade, e prioridade máxima quando a tela estreita. **Vence `card`** — é como um campo escapa de um `card: 'Entidade'` | — |
+`card` | **sempre** na linha expansória, em qualquer largura | — |
+`hidden` | fora da grade, do card **e do painel de filtros** | — |
+(não citado) | na grade, prioridade normal — colapsa no overflow se a tela estreitar | ✅ |
+
+Precedência quando o mesmo campo é citado em dois slots: **`hidden` > `line` > `card`**. É total, sem arbitragem em runtime.
+
+Os três aceitam a mesma família de formatos de `columns` (`normalize_fieldspec`/`field_spec_item`): `'Entidade'` (expande), `'campo'`, `'Entidade.campo'`, `['campo', 'Entidade.campo']`, `{'Entidade': [...]}`, `{'Entidade': '*'}`. Props inline (`('campo', {props})`, `{alias: {props}}`) são aceitas e **descartadas** — o slot afirma posição, não apresentação.
+
+**Nome cru resolve; só a ambiguidade obriga a qualificar.** Com `master`, as duas entidades da inversão entram no pool, e algumas dividem nomes (`Transferencia`/`Movimento` têm `id`, `data`, `documento` e `historico`; `Transacao`/`Previsao` têm `id` e `variacao`). A leitura de um nome sem prefixo é, nesta ordem: **único** na entidade de `columns` → **único** no pool (de onde vier) → **ambíguo**, e aí a entidade de `columns` desempata, por ser o assunto da lista. Sem entidade em `columns` (lista de campos ou fonte `query`), ambiguidade é erro e o autor qualifica.
+
+```python
+'list': {
+    'master': 'Movimento', 'columns': 'Transferencia',
+    'line': ['id'],                    # ambíguo → Transferencia.id (abre o pai)
+    'hidden': ['documento',            # ambíguo → Transferencia.documento
+               'conta_id', 'previsao_id',       # únicos no pool: são do Movimento
+               'operacao_id', 'variacao', 'pedido_id', 'compra_id'],
+    'card': 'Transferencia',           # o resto do pai
+    'order': ['data', 'id'],
+}
+```
+
+`'Entidade.campo'` é sempre válido e é o desambiguador na mão — que é como se escreve quando a intenção é a entidade que **não** é o assunto: `'hidden': ['Movimento.documento']`.
+
+Toda validação é **fail-fast nomeando**: slot inexistente, campo que não está na listagem, nome ambíguo, `'*'` sem entidade. Não há valor que caia em silêncio (o antigo `pos_list: 3`, documentado e sem consumidor, sumiu junto com a prop).
+
+`hidden` remove o campo da grade, do card **e do painel de filtros**. Para afirmar algo sobre o **painel de filtros** sem mexer nas colunas, a listagem tem a prop `filter` (§5.6.1) — foi para lá que migrou o antigo `Field.pos_filter`.
+
+#### 5.6.1 `filter` — o painel de filtros é da página
+
+O painel nasce do **tipo** de cada campo visível: `infer_filter_type` (não o autor) decide se um campo é eixo de filtro e de que tipo. Regra de motor: a chave derivada (`DK`) e os editores `multi`/`image` **não** filtram; o resto pega o `filter_kind` do input (`boolean`, `date`, `number`, `select`) e o fallback `options`→`select`.
+
+O que a página **ajusta** mora em `Page.props.list` sob a chave `filter`, um dict com quatro chaves independentes:
+
+| Chave | Forma | Efeito |
+|---|---|---|
+| `hidden` | fieldspec (`'campo'`, `'Ent.campo'`, lista, `{'Ent': [...]}`) | tira do painel — sem UI. Para uma coluna **visível** cujo filtro não faz sentido (ex.: `indice` em `operacoes`); um campo já no slot `hidden` nem chega aqui |
+| `fixed` | `{campo: valor}` | vira **`WHERE` fixo**, também fora do painel. O valor é do motor (callable é chamado; `None`/campo inexistente ignora). Era `pos_filter: 9` + `default` do `Field` — agora o valor mora **na listagem**, que é quem o usa |
+| `default` | `{campo: valor}` | filtro **inicial editável**: nasce aplicado e, ao **limpar**, volta a ele (o `clearFilters` reseta para o default, não para vazio) |
+| `types` | `{tipo: campo\|lista}` | **override** do tipo do widget, para um campo que a inferência classificaria de outro jeito (ex.: `{'checklist': 'status'}`). `tipo` ∈ `FILTER_TYPES` = `text`, `boolean`, `date`, `number`, `select`, `checklist` |
+
+Todo nome é validado contra o **pool** com o mesmo idioma dos slots (`resolve_filter_spec` reusa `slot_spec_items`/`_slot_match`): campo que não existe ou tipo de filtro desconhecido **quebra nomeando**, nada some em silêncio. E `fixed` entra no `hidden` do painel por natureza — um filtro fixo não é editável.
+
+```python
+'list': {
+    'columns': 'Transacao',
+    'master': 'Previsao',
+    'filter': {
+        'fixed': {'tipo': 'P'},                 # WHERE tipo = 'P' (era pos_filter: 9)
+        'types': {'checklist': 'status'},       # status filtra por checklist (era pos_filter: 3)
+    },
+    'hidden': ['cancelado', 'tipo'],
+},
+```
+
+> **Filtro fixo e escopo do form.** Um `fixed` não é só da listagem: `core.do_form` recusa abrir um registro que não casa com ele (`list_fixed_filters` resolve a mesma spec para o modelo do form). É por isso que o `tipo` de `pagar` continua não abrindo um lançamento de `receber` por URL direta.
+
+
+#### Props
 
 | Prop | Tipo | Default | Impacto |
 |---|---|---|---|
-| `fields` | `list[Field]` | — | colunas; o motor resolve via `normalize_fieldspec` antes de criar o `List` |
+| `fields` | `list[Field]` | — | colunas + card, na ordem `line` + `card`; o motor resolve via `normalize_fieldspec` antes de criar o `List` |
 | `fields_master` | `list[int]` | — | **computado** — índices de `fields` que são colunas da linha (as demais vão para o card) |
 | `edit_endpoint` | `str` | `None` | endpoint do ícone de editar; `None` esconde a ação |
 | `edit_id_field` | `str` | `'id'` | campo usado na URL de edição |
 | `detail_data` | `str` | `None` | fonte dos campos de detalhe do card |
 | `buttons` | `str\|Button\|list` | `None` | mesmos formatos de `Form.buttons` | `List.resolve_buttons` |
 | `template` | `str` | `None` | template alternativo |
-| `master` | `list` | `None` | colunas da linha mestre |
-| `linha` | `list[int]` | `None` | **computado** — o autor declara `linha: ['nome','data']` com **nomes**; `do_list.py:300` converte para índices |
+| `master` | `str` | `None` | entidade da **linha** na inversão; `columns` passa a ser o pai |
+| `line_idx` | `list[int]` | `None` | **computado** — índices em `master_fields` das colunas pinadas por `line`; o `<th>` ganha `data-pinned` |
 | `card_idx` | `list[int]` | `None` | **computado** — índices de `fields` que caem no card |
 
-> `fields_master`, `linha` e `card_idx` saem do `do_list.py` (`list_obj = List(...)`, `do_list.py:312`). **Não** os declare à mão: a engine sobrescreve. `linha` é a única que aceita nomes na spec, porque a conversão acontece no meio do caminho.
+> `fields_master`, `line_idx` e `card_idx` saem do `do_list.py` (`list_obj = List(...)`). **Não** os declare à mão: a engine sobrescreve. `line`/`card`/`hidden` são declarados na **página** (`Page.props.list`), não aqui.
 
-> `columns` da página (`Page.props.list`) aceita query dict no lugar da entidade (`columns=QPLANO`, ver 5.10.1): os dados vêm do `qrun` e `pos_list` da entrada vale (Schema vence). Com ordem própria, a query entra como item da lista (`columns=[QPLANO, 'id', 'indice', ...]` — no máximo uma query por lista; strings autoritativas, fora do `select` quebra nomeando). Nesse modo `field_id` é exigido para editar (ausente = só-leitura; declarado tem que estar no `select` e ser pk, senão quebra nomeando). Sem query, `edit_id_field` (`'id'`) e o resto seguem como antes.
+#### `line` e a largura da tela
+
+`line_idx` vira `data-pinned` no `<th>`, e o `fitListColumns` (`pages/list.html`) semeia o `keepIdx` com essas colunas **antes** de preencher o resto por largura — são elas que nunca saem quando a tela estreita. Sem `line` declarado vale a prioridade antiga (a primeira coluna de dados fica sempre). O marcador é um **atributo**, não um nome, porque com `master` a mesma tabela tem dois `data-field="id"`.
+
+Todo campo da grade ganha `<td>` no servidor; quem some é o cliente (classe `col-hide`), e a cópia `of-dyn` na linha expansória garante que a coluna não se perca. Antes havia **dois** mecanismos que podiam discordar: o `<thead>` emitia `<th>` para todas as `cols` enquanto o `<td>` saía só para as de `linha`, desalinhando a tabela.
+
+> `columns` da página (`Page.props.list`) aceita query dict no lugar da entidade (`columns=QPLANO`, ver 5.10.1): os dados vêm do `qrun` e a entrada declara `label`/`width`/`align`/`format`. Com ordem própria, a query entra como item da lista (`columns=[QPLANO, 'id', 'indice', ...]` — no máximo uma query por lista; strings autoritativas, fora do `select` quebra nomeando). Nesse modo `field_id` é exigido para editar (ausente = só-leitura; declarado tem que estar no `select` e ser pk, senão quebra nomeando). Sem query, `edit_id_field` (`'id'`) e o resto seguem como antes. A entrada **não** posiciona campo: quem decide é a página, nos slots.
 
 ### 5.7 `Report` — `ajsystem/defs/report.py:135` `class Report`
 
@@ -316,9 +557,10 @@ A linha de totais é renderizada no `<tfoot>` da tabela desktop. Colunas `calc` 
 | `label` | `str` | — | título | cabeçalho do PDF |
 | `page_size` | `str` | `'A4'` | `'A4'`, `'Letter'`… | `fpdf` |
 | `orientation` | `str` | `'portrait'` | `'portrait'`, `'landscape'` | `fpdf` |
+| `lpi` | `int` | `6` | `6` (4,2333mm/linha) · `8` (3,1750mm) | **grade vertical do documento inteiro** — o corpo da fonte (`60/LPI`) e a altura da linha saem daqui; normalizado e validado na construção do PDF |
 | `header` | `dict\|list` | `None` | `{logo, title, fields:[...]}` (legado) ou `[...]` (5.8.1, `LOGO`/`TITLE`/`FIELD`/…) | `do_report.py:_apply_entity` resolve `label` via `Entity`; dict legado sintetiza a lista |
 | `body` | `dict\|ReportBody` | `None` | ver 5.8 | fonte dos dados |
-| `footer` | `dict` | `None` | `{show_user, show_datetime, show_page_number}` | rodapé do PDF |
+| `footer` | `bool\|dict` | `None` | `True` = atalho das 3 flags · `{show_user, show_datetime, show_page_number, show_company, text, separator, cpi, style, align}` | rodapé do PDF, na **última linha** da página — ver 5.8.2 |
 | `texts` | `dict\|list` | `None` | `ReportText` — ver 5.8 | blocos de texto avulso |
 | (template standalone) | — | `PRINT_TEMPLATE` (`components/print_default.html`) | fixo no motor | página standalone (`print_report_page`); a chave legada `print_template` é ignorada no parse |
 | (fragmento) | — | overlay do framework (`print_overlay.html`) | fixo no motor | `print_report` injeta sempre com alternância do container; a chave legada `print_fragment_template` é ignorada no parse |
@@ -380,7 +622,7 @@ String pura ou dict unitário = `FIELD`; MAIÚSCULA = elemento (`None` = nu). Fa
 | `LOGO(ancora, linhas)` | `{'LOGO': {'location': [ancora, linhas]}}` | `LOGO('L', 3)` (âncoras `C/L/R`; ausente não renderiza). `L` encolhe a zona pela borda direita da figura, `R` pela esquerda, `C` não indenta — vale enquanto o cursor estiver na faixa vertical da imagem, e `IND()` cancela ali mesmo |
 | `TABS(*args)` | `{'TABS': {...}}` | **Duas coisas, pelo tipo do 1º argumento.** `TABS(5, 35)` (números ou `PCOL`/`NCOL±N`) **define as paradas**, em cols do **início da zona**, crescentes; `TABS()` restaura. `TABS('a', '', 'b')` (texto) **imprime um elemento por parada**, na gramática do `TEXTS`. Ver **Tabulação imprime** |
 | `POS(col, lin)` | salto avulso do cursor | `POS(22, 0)` |
-| `CPI(base?, flags?)` / `LPI(n?)` | diretiva de **grade** (`defs/fonts.py`), o contexto decide | `CPI(12)`, `CPI(12, 'EC')`, `LPI(8)`; nu restaura o padrão (10 CPI / 6 LPI). `base` é um dos **três modos base** (10 Pica · 12 Elite · 15 Micron) e `flags` o modificador — ver **A matriz**. As props `cpi`/`flags` valem por item; `lpi` não, por ser diretiva só |
+| `CPI(base?, flags?)` | diretiva de **grade** na horizontal (`defs/fonts.py`), o contexto decide | `CPI(12)`, `CPI(12, 'EC')`; nu restaura o padrão (10 CPI). `base` é um dos **três modos base** (10 Pica · 12 Elite · 15 Micron) e `flags` o modificador — ver **A matriz**. As props `cpi`/`flags` valem por item. **O eixo vertical não tem diretiva**: o LPI é a prop `lpi` do report (§5.7), porque a linha é uma só para o documento inteiro |
 | `PROW(n?)`/`PCOL(n?)` | **função com dois papéis** (`defs/report.py`), o contexto decide | **valor**: `PCOL()`/`PROW()` = posição corrente em grade, em `TABS`/`location`/`pos` (e ainda soma: `PCOL() + 5`). **Diretiva**: `PCOL(n)`/`PROW(n)` solto na lista de items move o cursor — `n` cols do início da **zona**, `n` linhas da margem de topo. `'PCOL+20'` (string) segue válida em `TABS` |
 | `LTB`/`RTB`/`NCOL` | constantes (bordas da última tabela; área útil se nenhuma) | `IND([LTB, RTB])`; `NCOL` = cols da área útil |
 | `IND([l, r])` / `IND()` | região do fluxo (não-negativos, `l<r`, dentro da área) | sem âncora flui dentro; `IND()` restaura; escopo por render |
@@ -419,7 +661,13 @@ Regras que a tabela não cabe:
 - **`style` é o traço do glifo e `cpi` é a largura da célula — eixos diferentes que combinam livre.** `style` aceita as 8 combinações do fpdf2 (`''|B|I|U|BI|BU|IU|BIU`); `cpi`, a prop de largura, é recusada em `table.extend` porque a grade da tabela é dela. A **fonte** é prop do `Report`, não de item: uma por documento.
 - **`tab` não vale no corpo do `TITLE`**: as paradas são do header, e ancorar no lugar errado calado é pior que recusar.
 - **`location` e `pos` são a mesma prop** (apelido); `tab` não combina com nenhuma das duas.
-- **`lf` conta LINHAS da grade** (6 LPI → 4,2333mm), enquanto `width` conta **COLUNAS**. Um número só, com sinal: **`lf: 2` são 2 linhas depois, `lf: -2` são 2 antes**, e **`lf: [1, 2]`** cobre os dois de uma vez — que é o que a chave do `table` precisa, já que uma tabela pode respirar antes e depois e isso não cabe num número com sinal. `0` (ou ausente) é ausência. Vale para **todo item** — `FIELD`, `TEXT`, `MEMO`, `TITLE`, `LINE` — e também para `table: {'lf': …}` e para o `body.table` dos reports agrupados.
+- **`lf` conta LINHAS da grade** (6 LPI → 4,2333mm), enquanto `width` conta **COLUNAS**. Um número só, com sinal: **`lf: 2` são 2 linhas depois, `lf: -2` são 2 antes**, e **`lf: [1, 2]`** cobre os dois de uma vez — que é o que a chave do `table` precisa, já que uma tabela pode respirar antes e depois e isso não cabe num número com sinal. Vale para **todo item** — `FIELD`, `TEXT`, `MEMO`, `TITLE`, `LINE` — e também para `table: {'lf': …}` e para o `body.table` dos reports agrupados.
+
+  **No item, `0` (ou ausente) é ausência. Na tabela, ausente é `[1, 1]`.** São duas regras porque a pergunta é outra: o `lf` de um item é um enfeite escolhido por quem escreve, e o da tabela é o **respiro do bloco** — a grade é densa, colada no texto que vem antes e no que vem depois, e é o `lf` que abre e fecha esse respiro. Sem ele a tabela nasce colada. Por isso o padrão interno da tabela é `[1, 1]` (uma linha antes, uma depois), e o item continua ausente por padrão.
+
+  **O `lf` da tabela é DA TABELA — uma vez antes, uma depois, e só isso.** O grupo faz parte dela: um report agrupado não é "várias tabelas", é uma tabela com faixas de cabeçalho repetidas. Por isso o `lf` do `table` **não** é aplicado por grupo nem multiplicado pelo número de tipos: `lf: [0, 1]` numa tabela com 3 grupos deixa 0 antes e 1 depois, não 1 antes e 4 depois. E ele é aplicado **uma vez só**, esteja ou não `body.items` acima — antes, o "antes" vivia pendurado no `items` e o "depois" caía no meio dos grupos, de modo que a mesma declaração produzia três distâncias diferentes conforme a forma do report.
+
+  Por dentro o par vira dois campos, `lf_before_table` e `lf_after_table` (`_ReportTable`), resolvidos uma vez em `_build_table`: `n` → `(0, n)`, `-n` → `(n, 0)`, `[a, b]` → `(a, b)`, ausente → `(1, 1)`. Os dois lados usam o mesmo `_space_before`/`_space_after` que o `lf` de item usa, então o incremento vertical tem um só dono.
 
   O **sinal também é o que faz o `lf` valer**. O lado "depois" mexe **só no Y**, preservando o estacionamento do `.0022`: um `ln` devolveria o X à margem, apagaria o estacionamento, e a descida automática do próximo item cairia na mesma linha do `lf: 0`. O lado "antes" é o primeiro a ver a linha, então consome a descida pendente **antes** de aplicar o `N` e volta o X para a 1ª coluna — sem isso o `MEMO(..., {'lf': -1})` perderia a linha automática e o `-1` viraria o total.
 
@@ -489,7 +737,7 @@ escrever: `CPI(5)` → *"use CPI(10, 'E')"*.
 | | fórmula | |
 |---|---|---|
 | coluna | `25,4 / CPI` | o CPI **final**, depois das flags |
-| linha | `25,4 / LPI` | `6` **4,2333mm** · `8` **3,1750** |
+| linha | `25,4 / LPI` | `6` **4,2333mm** · `8` **3,1750** — o LPI é a prop `lpi` do report |
 | corpo | `60 / LPI` | 10pt a 6 LPI, 7,5pt a 8 LPI — **derivado**, não declarado |
 | alongamento | `7200 / (avanço × corpo × CPI)` % | 100 (CPI 12, o pitch natural) a 240 (CPI 5) a 6 LPI |
 
@@ -623,7 +871,6 @@ As factories de grade (`LINE`/`BOX`/`CIRCLE`, como `TABS`/`IND`/`POS`) são **va
 CPI()            # volta ao padrão (10 CPI)
 CPI(15)          # Micron: 1,6933mm por caractere
 CPI(12, 'EC')    # Elite condensado+expandido = 10 CPI
-LPI(8)           # linha apertada: 3,1750mm, e o corpo cai para 7,5pt
 
 {'TEXT': {'text': 'x', 'flags': 'E'}}   # prop: expandido do base vigente
 ```
@@ -734,6 +981,34 @@ Na forma **dict** o alvo é **comparação**, não truthiness: `{'ativo': True}`
 
 > **Todo field mostra o valor de exibição, em qualquer prop que o imprima.** `LIST` sai pelo rótulo do catálogo (`options`/`list` da Entity) e `BOOL` por Sim/Não — em coluna (`table.columns`, `header.fields`) e em item de layout (`items`, `after`, `table.after`, header) alike, porque os dois caminhos usam o mesmo passo (`core/resolve.field_display_fn`). Código fora do catálogo cai no valor cru, como na listagem. Antes de `1.26.10.08.0005` só as colunas traduziam, e o mesmo field saía `1` num lugar e `Fornecidas pelo Cliente` no outro.
 
+#### 5.8.2 O rodapé — `'footer'`
+
+O rodapé é a **última linha da página**, e a página tem um número finito de linhas: o motor conta quantas cabem entre as margens superior e inferior, na altura de linha do `lpi`, e reserva a última para o rodapé. O conteúdo é medido até a anterior e **nunca a toca**.
+
+**`True` é o atalho das três flags:**
+
+```python
+'footer': True,          # == show_user + show_datetime + show_page_number
+```
+
+Sem rodapé declarado (`None`, `False`, `{}`) a área útil é a de sempre — um report que não pede rodapé não paga a linha.
+
+| chave | default | valores | efeito |
+|---|---|---|---|
+| `show_user` / `show_datetime` / `show_page_number` | `False` | `bool` | os três segmentos do rodapé, unidos por `separator` |
+| `show_company` | `False` | `bool` | reservado; hoje não escreve nada |
+| `text` | `None` | `str` \| `callable` | texto livre, com `{user}` `{datetime}` `{company}` `{page}` `{total}` |
+| `separator` | `' \| '` | `str` | junta os segmentos |
+| `cpi` | `12` + `'C'` = **20** | base `10`, `12`, `15` | largura do caractete do rodapé. O **default é a letra mais fina da grade** (`CPI(12,'C')`, Elite condensado, 1,2700mm) — o menor CPI que a matriz alcança, porque o Micron recusa condensar. O que o dev declara é um **base**, então declarar sempre *abre* a letra |
+| `style` | `'I'` | `''`, `B`, `I`, `BI` | a face; itálico é o padrão do framework |
+| `align` | `'R'` | `L`, `C`, `R`, `J` | alinhamento na página |
+
+**O que o rodapé NÃO tem prop:** família e corpo. Vêm do report (`font` e `lpi`) — o rodapé é parte do mesmo documento, e é o **estilo** que o distingue, não a letra.
+
+`cpi`, `style` e `align` são os overrides: `'footer': {'show_page_number': True, 'align': 'C'}` desenha só o número, ao centro. Com `lpi: 8` a altura cai para 7,5pt e o rodapé fecha a menor letra que a grade permite. Valor fora do catálogo levanta `ValueError` no build (`cpi: 13` → *"não é um base; use um de [10, 12, 15]"*), e `footer` que não for `True` nem dict levanta `TypeError` — no build, não no meio da renderização.
+
+**A contagem é por página, não fixa.** Ela sai de `pdf.h` menos as margens, dividida por `25,4/lpi`: no A4 retrato a 6 LPI são 63 linhas (o rodapé na 63, o conteúdo usa 62); a 8 LPI, 84 linhas. O gatilho de quebra passa a ser essa linha — `b_margin` e `page_break_trigger` escrevem o mesmo número, porque `_check_page_break` (motor) lê um e o `multi_cell` (fpdf2) lê o outro, e se divergissem o texto quebraria num ponto e a tabela noutro.
+
 ### 5.9 `Button` — `ajsystem/defs/buttons.py:85` `class Button`
 
 O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
@@ -760,7 +1035,7 @@ O destino do clique é **exatamente um** entre `action`, `url` ou `render`.
 | `confirm_msg` | `str` | `None` | constante de `ajsystem.locales` | modal de confirmação; `btn.confirm_text()` é pass-through |
 | `carry` | `dict` | `None` | `{campo_destino: campo_origem}` | importa valores do form ao navegar |
 | `serialize` | `bool` | `False` | | serializa o form antes de enviar |
-| `position` | `str` | `'top_right'` | `POSITION_CONTEXT` — `left`, `right`, `before`, `after`, `top_left`, `top_right`, `bottom_left`, `bottom_right` | ver abaixo |
+| `position` | `str` | `'top_right'` | `POSITION_CONTEXT` — `before`, `after`, `before_up`, `after_down`, `top_left`, `top_right`, `bottom_left`, `bottom_right` | ver abaixo |
 
 `resolve_buttons(specs, bp_name, *, where, valid_fields, sess, ctx)` recebe uma **lista** de specs; cada item pode ser instância `Button` (os tipos derivados e `BTN_PRINT`/`BTN_SEND` já são `Button`), nome de tipo (`'delete'`), `{nome: {overrides}}` ou dict custom. Toda chave é validada — chave desconhecida, destino ambíguo (`action`+`url`) ou campo inexistente em `enabled` **levanta erro** em vez de ser descartado em silêncio. Instâncias são copiadas com `replace()` porque a validação normaliza `enabled`/`field`/`url` in-place: sem a cópia, o preset compartilhado seria contaminado pelo primeiro registro que o usasse.
 
@@ -801,20 +1076,20 @@ Buttons = {
 
 Toda entrada de `GENERICOS` ganha sua constante `BTN_<NOME>` por loop, e as globais Jinja saem daí por varredura de prefixo (`BTN_*`, `CONFIRM_*` em `ajsystem/init.py`) — por isso um tipo novo não toca lista de importação. `print` vira `BTN_PRINT_STYLE`, porque `BTN_PRINT` é nome da factory de relatório.
 
-**`position`** — são 8 nomes, e o *mesmo* nome se comporta de forma diferente conforme o contexto que vai renderizar o botão. `_check_position` valida contra a tabela do contexto e **levanta erro** em valor fora dela (nada de sumir em silêncio). O contexto da sessão é decidido pelo formato dela: havendo `fields`, o botão pertence ao bloco de `fields` (mesmo que a sessão também traga `table`/`query`, como em `Financeiro`); sem `fields`, pertence à tabela.
+**`position`** — são 8 nomes, e cada um diz ONDE o botão cai em relação aos **fields** (inline ou faixa) ou à **tabela** (título/ação). `_check_position` valida contra a tabela do contexto e **levanta erro** em valor fora dela (nada de sumir em silêncio). `before`/`after`/`before_up`/`after_down` são **sempre relativos aos fields** — por isso não valem em sessão só de `table`/`query` (não há bloco para encostar). `top_*`/`bottom_*` são relativos à **tabela**, com fallback para os fields quando a sessão não tem tabela. Na **sessão mista** (`fields` + `table`/`query`, ex.: `Financeiro` em pedidos/compras) os dois convivem: `before*`/`after*` nos fields, `top_*`/`bottom_*` na tabela.
 
-| `position` | form | sessão com `fields` | sessão só com `table`/`query` |
-|---|---|---|---|
-| `left` | erro | mesma linha, à esquerda dos fields | erro |
-| `right` | erro | mesma linha, à direita dos fields | erro |
-| `before` | erro | faixa acima dos fields | faixa acima da tabela |
-| `after` | erro | faixa abaixo dos fields | faixa abaixo da tabela |
-| `top_left` | barra de cima, à esquerda | faixa acima, à esquerda | faixa acima da tabela, à esquerda |
-| `top_right` | barra de cima, à direita | faixa acima, à direita | faixa acima da tabela, à direita |
-| `bottom_left` | rodapé do form, à esquerda | faixa abaixo, à esquerda | **faixa de ação: `+ Adicionar` primeiro, depois o botão** |
-| `bottom_right` | rodapé do form, à direita | faixa abaixo, à direita | faixa de ação, encostado à direita |
+| `position` | form | sessão só de `fields` | sessão só de `table`/`query` | sessão mista (`fields` + `table`/`query`) |
+|---|---|---|---|---|
+| `before` | inline, antes do 1º field | inline, antes do 1º field | **erro** (sem fields) | inline, antes do 1º field |
+| `after` | inline, depois do último field | inline, depois do último field | **erro** (sem fields) | inline, depois do último field |
+| `before_up` | faixa acima dos fields | faixa acima dos fields | **erro** (sem fields) | faixa acima dos fields |
+| `after_down` | faixa abaixo dos fields | faixa abaixo dos fields | **erro** (sem fields) | faixa abaixo dos fields |
+| `top_left` | barra de cima, à esquerda | faixa acima dos fields, à esquerda | faixa acima da tabela (título), à esquerda | faixa acima da tabela, à esquerda |
+| `top_right` | barra de cima, à direita | faixa acima dos fields, à direita | faixa acima da tabela, à direita | faixa acima da tabela, à direita |
+| `bottom_left` | rodapé do form, à esquerda | faixa abaixo dos fields, à esquerda | **faixa de ação: `+ Adicionar` primeiro, depois o botão** | faixa de ação, à esquerda |
+| `bottom_right` | rodapé do form, à direita | faixa abaixo dos fields, à direita | faixa de ação, encostado à direita | faixa de ação, encostado à direita |
 
-`before`/`after` são os atalhos sem alinhamento de `top_left`/`bottom_left`. A **faixa de ação** fica dentro do `.child-table-wrap` e **fora** do `<tfoot>` (a tabela pode ter linha de totais, e a largura de colunas do Adicionar não é a delas) e **fora** de `.it-desktop`/`.it-mobile` — por isso o `Adicionar` é renderizado uma vez só e `btn.closest('.child-table-wrap')` funciona nos dois tamanhos de tela. Listagem não usa `position`.
+`before`/`after` são **inline** (mesma linha dos fields, antes do 1º / depois do último) e `before_up`/`after_down` são faixas em linha própria acima/abaixo dos fields; os quatro são **relativos aos fields** em qualquer lugar — form e sessão. `top_*`/`bottom_*` são relativos à **tabela** (faixa-título acima / faixa de ação abaixo) e caem nos fields quando não há tabela. **No form**, porém, `top_left`/`top_right`/`bottom_left`/`bottom_right` são as **BARRAS** (fora do `<form>`), logo **não** são aliases de `before_up`/`after_down` ali. Na **sessão mista** (`fields` + `table`/`query`, ex.: `Financeiro` em pedidos/compras) vale a mesma separação: `before*`/`after*` ficam nos **fields** e os `top_*`/`bottom_*` na **tabela**. A **faixa de ação** fica dentro do `.child-table-wrap` e **fora** do `<tfoot>` (a tabela pode ter linha de totais, e a largura de colunas do Adicionar não é a delas) e **fora** de `.it-desktop`/`.it-mobile` — por isso o `Adicionar` é renderizado uma vez só e `btn.closest('.child-table-wrap')` funciona nos dois tamanhos de tela. Listagem não usa `position`.
 
 Presets são registrados automaticamente como globais Jinja por varredura de prefixo (`BTN_*`, `CONFIRM_*` em `ajsystem/init.py`).
 
@@ -849,7 +1124,7 @@ Gêmeo de `Button`, para o outro lado do formulário: enquanto o botão descreve
 | `cls` | `str` | `'input input-bordered input-sm'` | classe do controle |
 | `size` | `int` | `18` | largura em `ch`; vira `Field.width` quando o campo não declara |
 | `align` | `str` | `'left'` | `text-align`; `'right'` do input vence o `'left'` do campo |
-| `slot` | `str` | `'body'` | `body` no corpo do form, `bar` na barra — `bar` **exige** `pos_form: 3` |
+| `slot` | `str` | `'body'` | `body` no corpo do form, `bar` na barra — o campo tem que estar no slot `bar` (§5.5) |
 | `boolean` | `bool` | `False` | valor é booleano; ausência no POST = `False` |
 | `number` | `bool` | `False` | input numérico: entra por `fmt_num`, exibe por `render_value` (ver **5.14**) |
 | `multi` | `bool` | `False` | lista de opções marcadas |
@@ -880,9 +1155,9 @@ INPUTS[base]  <  app.inputs.Inputs  <  Inputs da rota  <  input_props do campo
 - **`Inputs` da rota** é a variável de módulo lida por `module_inputs`, no mesmo papel que `Schema` e `Buttons` têm na sua rota. A listagem resolve as mesmas camadas por `_camadas_inputs`.
 - **`input_props`** é a última camada e vale só para aquele campo: `{'type': 'BOOL', 'input_props': {'cls': 'meu-toggle'}}`. Chave que não existe em `Input` **levanta erro** com a lista das válidas.
 
-**Resolução** — `Field.input` continua sendo `str` (o *nome* do tipo, porque é isso que o `Schema` e o spec referenciam); o objeto resolvido é `Field.inp`. A resolução é **eager**, no `Field.__post_init__`, e não preguiçosa: `mask`, `validate`, `width` e `align` são computados ali, e um input resolvido depois deixaria a máscara de fora. O `Field` ainda valida três pares que não podem divergir: input de `slot='bar'` sem `pos_form: 3`, comando de máscara não liberado pelo `mask_group`, e `@U/@L/@C/@T` combináveis entre si (são exclusivos).
+**Resolução** — `Field.input` continua sendo `str` (o *nome* do tipo, porque é isso que o `Schema` e o spec referenciam); o objeto resolvido é `Field.inp`. A resolução é **eager**, no `Field.__post_init__`, e não preguiçosa: `mask`, `validate`, `width` e `align` são computados ali, e um input resolvido depois deixaria a máscara de fora. O `Field` ainda valida dois pares que não podem divergir: comando de máscara não liberado pelo `mask_group`, e `@U/@L/@C/@T` combináveis entre si (são exclusivos). O par "input de barra ⇒ campo no slot `bar`" saiu do `Field`: posição é da página, então quem valida é `apply_positions` (superfície `form`, §5.5).
 
-**Toggle** — `{'type': 'BOOL', 'input': 'toggle', 'pos_form': 3}` no model. Renderiza no rodapé do form (`form_macros.html:render_toggle_field`), **fora** do `<form id="main-form">`, porque cada um é um POST próprio. O endpoint é genérico — um por módulo, em `POST /<rota>/<id>/toggle/<campo>` — e valida o `<campo>` da URL contra `Form.toggle_fields` (os campos cujo input declara `route`), então um POST não escolhe coluna arbitrária do model para inverter. É POST e não GET porque muda dados: GET mutante quebra o cache do navegador, o prefetch de link e o back/forward. Respondendo a HTMX, devolve `204` + `HX-Refresh`; fora dela, `302` para o form.
+**Toggle** — `{'type': 'BOOL', 'input': 'toggle'}` no model, com o campo no slot `bar` da página. Renderiza no rodapé do form (`form_macros.html:render_toggle_field`), **fora** do `<form id="main-form">`, porque cada um é um POST próprio. O endpoint é genérico — um por módulo, em `POST /<rota>/<id>/toggle/<campo>` — e valida o `<campo>` da URL contra `Form.toggle_fields` (os campos cujo input declara `route`), então um POST não escolhe coluna arbitrária do model para inverter. É POST e não GET porque muda dados: GET mutante quebra o cache do navegador, o prefetch de link e o back/forward. Respondendo a HTMX, devolve `204` + `HX-Refresh`; fora dela, `302` para o form.
 
 Presets `IN_TEXT`, `IN_TOGGLE`… são gerados em loop a partir de `INPUTS` e publicados como globals Jinja no `init.py` (mesma ideia dos `BTN_*`). São o preset do **framework**; quem customiza escreve `input_props` no campo, que é a última camada do merge e por isso não pode ser enganado por um global.
 
@@ -1113,19 +1388,18 @@ Função interna que centraliza a resolução de `fields`/`columns` em **todos**
 
 #### Formatos Suportados
 
-| Formato | Exemplo | Comportamento | `pos_managed` |
-|---|---|---|---|
-| **Entidade única** | `'Orcamento'` | Expande todos os campos da entidade (respeita `pos_form/pos_list` da Entity) | `True` |
-| **Lista explícita** | `['data', 'total', 'cliente_id']` | Inclui exatamente os campos listados (ignora `pos_*`) | `False` |
-| **Lista com prefixo** | `['Orcamento.data', 'Cliente.nome']` | Campos de entidades diferentes via prefixo `Entidade.campo` | `False` |
-| **Multi-entidade (novo)** | `{'Orcamento': ['data', 'total'], 'Cliente': ['nome', 'telefone']}` | Agrupa por entidade; resolve cada grupo contra seu Schema merged | `False` |
+| Formato | Exemplo | Comportamento |
+|---|---|---|
+| **Entidade única** | `'Orcamento'` | Expande todos os campos da entidade |
+| **Lista explícita** | `['data', 'total', 'cliente_id']` | Inclui exatamente os campos listados |
+| **Lista com prefixo** | `['Orcamento.data', 'Cliente.nome']` | Campos de entidades diferentes via prefixo `Entidade.campo` |
+| **Multi-entidade** | `{'Orcamento': ['data', 'total'], 'Cliente': ['nome', 'telefone']}` | Agrupa por entidade; resolve cada grupo contra seu Schema merged |
 
 #### Regras
 
 1. **Entity/Schema são a base de overrides** — Entity (model) + Schema (rota) = merged config; a entrada do `select` (query) é uma camada de props por cima. Inline dicts em lista são ignorados (warning).
-2. **`pos_managed=True`** (expansão por entidade) → `pos_form=0`/`pos_list=0` ocultam o campo.
-3. **`pos_managed=False`** (lista explícita) → campos aparecem mesmo com `pos_*=0`; a declaração é autoritativa.
-4. **Multi-entidade** — cada entidade resolve contra seu próprio `full_schema[entidade]`. Requer que o Schema da página tenha as entidades declaradas.
+2. **`fields`/`columns` respondem "quem existe e em que ordem"** — não "onde aparece". A posição é dos slots da **página**: listagem `line`/`card`/`hidden` (§5.6), form `bar`/`footer`/`body`/`hidden` (§5.5); vale igual nos dois formatos (expansão ou lista explícita).
+3. **Multi-entidade** — cada entidade resolve contra seu próprio `full_schema[entidade]`. Requer que o Schema da página tenha as entidades declaradas.
 
 #### Exemplo Prático
 
@@ -1246,6 +1520,223 @@ Um agregado de `totals` (`query`/`table`) recebe o `Field` e sai por `render_val
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.08.0043
+- **O painel de filtros virou prop da PÁGINA: `Page.props.list.filter`.** `Field.pos_filter` (`0` sem filtro, `1` texto, `2` select, `3` checklist, `9` fixo com `WHERE` do `default`) era o último inteiro mágico de posicionamento no `Field`, declarado no Entity/Schema e respondendo "por que esse campo não filtra agora?" longe da listagem. A pergunta é da lista, então a resposta mora nela, no mesmo desenho da §5.6 (§5.6.1). Quatro chaves independentes: `hidden` (fieldspec, tira do painel), `fixed` (`{campo: valor}`, vira `WHERE` e some do painel), `default` (**novo** — filtro inicial editável que volta ao limpar) e `types` (`{tipo: campo|lista}`, override do widget).
+- **O tipo do filtro passa a ser inferido, não declarado.** `infer_filter_type` (por tipo de campo: `DK` e os editores `multi`/`image` não filtram; o resto lê o `filter_kind` do input, com fallback `options`→`select`) substitui o par `pos_filter: 1/2/3` + `FIELD_TYPES` — que agora só declara o `input`. `FILTER_TYPES` (`text/boolean/date/number/select/checklist`) é o vocabulário próprio da prop: `checklist` (multi-escolha) não existe como `filter_kind` de input.
+- **`fixed` carrega o valor consigo.** Antes o `WHERE` saía do `field.default` via `fixed_filters(fields, model)`; agora sai do `{campo: valor}` da listagem — o valor e o filtro ficam no mesmo lugar e o `Field` não precisa mais ter `pos_filter` só para ser lido por outra tela. `resolve_filter_spec` valida a spec contra o **pool** (idioma dos slots, `slot_spec_items`/`_slot_match`): nome errado ou tipo desconhecido **quebra nomeando**.
+- **O form mantém a guarda de escopo.** `core.do_form` recusava abrir (302) um registro fora do `pos_filter: 9` lendo o `default` do próprio `Field`; agora lê `list.filter.fixed` pela spec resolvida (`list_fixed_filters`) contra o modelo do form — abrir um `tipo` errado em `pagar`/`receber` continua sendo 302.
+- **Migração no app (12 usos, 8 rotas).** `pos_filter: 3` → `filter.types.checklist` (`status` em `compras`/`pedidos`/`pagar`/`receber`/`transferencias`/`orcamentos`); `pos_filter: 0` → `filter.hidden` (`indice` em `operacoes`, `conta_id` em `transferencias`); `pos_filter: 9` → `filter.fixed` (`tipo` em `pagamentos`/`recebimentos`/`pagar`/`receber`). `pagamentos`/`recebimentos` ganharam `form.positions.hidden: ['tipo']`, que o `pos_filter: 9` escondia sozinho pela regra de campo de sistema — que deixou de citá-lo.
+- **Mortos com a prop:** `Field.pos_filter`, a coerção em `Field.__post_init__`, as entradas `pos_filter` de `FIELD_TYPES` (`DK`/`MULT10`/`IMAGE`) e o ramo `pos_filter == 9` de "campo de sistema" em `core/resolve.apply_positions`. `core/old`-style ramos de `pos_filter == 0` em `field_to_column` foram junto.
+- **Verificado no ambiente de dev.** `ast.parse` limpo; 19 listagens + 15 forms do AlgoDoce em HTTP 200 (test client); o painel não expõe mais `tipo` (fixo), `conta_id`/`indice` (hidden) e mantém o `status` como checklist; o `WHERE` fixo confere com o banco (`pagar` = 1 linha tipo `P`, `receber` = 6 tipo `R`); a guarda de escopo do form responde 302 no `tipo` errado e 200 no certo.
+
+### 1.26.10.08.0042
+- **`Button.position` vira um vocabulário definitivo de 8 nomes**, com o sentido atrelado ao alvo e não ao "contexto": `before`/`after` são **inline** (mesma linha dos fields, antes do 1º / depois do último), `before_up`/`after_down` são faixas em **linha própria** acima/abaixo dos fields, e `top_left`/`top_right`/`bottom_left`/`bottom_right` são o **título** (faixa acima) e a **ação** (faixa abaixo) da **tabela**. Renomeia o vocabulário antigo: `left`→`before`, `right`→`after`, `before`→`before_up`, `after`→`after_down` (§5.9).
+- **`before*`/`after*` são SEMPRE relativos aos fields.** Por isso só valem onde há `fields`: em sessão só de `table`/`query` (e no item de tabela) são **erro** — não há bloco para encostar. `top_*`/`bottom_*` são relativos à **tabela**, com fallback para os fields quando a sessão não tem tabela. Na **sessão mista** (`fields` + `table`/`query`, ex.: `Financeiro`) os dois convivem: `before*`/`after*` nos fields, `top_*`/`bottom_*` na tabela. `POSITION_CONTEXT` passa a ser: `form` = 8, `fields` = 8, `table` = só `top_*`/`bottom_*`.
+- **O form ganha os 8 nomes.** As faixas internas em volta do bloco de fields viram `before_up`/`after_down`, e o form passa a aceitar o inline `before`/`after` (renderizado no `head`/`tail` do `render_fields`, via `render_session_button` — sem `<form>` aninhado). `top_left`/`top_right`/`bottom_left`/`bottom_right` continuam sendo as **BARRAS** do form (fora do `<form>`), logo **não** são aliases das faixas.
+- **Listagem ignora `position`** (como antes): o botão de listagem é só de cabeçalho.
+- **Migração no app:** `right`→`after` em `pedidos` (gerar financeiro), `compras` (gerar financeiro) e `orcamentos` (aprovar); `after`→`after_down` em `transferencias` (lançar transferência, era a faixa abaixo dos fields). Os `top_*`/`bottom_*` existentes não mudam de nome. O harness e os 45 endpoints só diferem em linhas em branco no HTML.
+
+### 1.26.10.08.0041
+- **A posição de um campo no form saiu do `Field` e virou prop da PÁGINA: `bar`/`footer`/`body`/`hidden`, mais `visible`.** `Field.pos_form` (`0` oculto · `1` visível · `2` readonly sempre · `3` barra/tag · `5` rodapé, com a forma `dict{pos,when}`) era o mesmo inteiro mágico que o `pos_list` era na listagem — declarado em Entity e Schema ao mesmo tempo, e respondendo "por que esse campo não aparece?" só num arquivo 50 linhas acima do form. A pergunta é do form, então a resposta mora nele (`Page.props.form`, §5.5), no **mesmo desenho** da §5.6: `positions` posiciona, `normalize_fieldspec`/`field_spec_item` são os mesmos formatos, nome cru resolve e só a ambiguidade obriga a qualificar, e as props inline num slot são descartadas. Precedência total `hidden` > `bar` > `footer` > `body`; quem não é citado vai para o corpo.
+- **A chave some por TIPO, não por nome — e o autor pode trazê-la de volta.** O form não edita a própria chave, então o campo de sistema vai para `hidden` **sem ninguém declarar**: `type` `ID` (a chave) ou `DK` (a chave derivada que o motor gerencia), e qualquer `pos_filter: 9` (filtro fixo). É a tradução fiel do que o catálogo `FIELD_TYPES` declarava como `pos_form: 0`. Ser por **tipo** é o que preserva a tabela de ligação: em `ProdutoInsumo` as duas colunas são FKs e o motor tem que mostrá-las — uma regra "é a pk?" comeria as colunas dela (a chave lá é composta por FKs). Quem precisa do contrário **cita** o campo em `body` (`'Previsões': {'positions': {'body': ['id']}}`): existir vence a regra, e é exatamente o que a `Previsao.id` fazia com `pos_form: 1`.
+- **`visible` é prop separada, não slot.** A condição (`not_empty`, `empty`, `{field,op,value}`, `callable`) é uma resposta sobre o **dado**, não sobre a posição: o mesmo `not_empty` que a `pos_form` `dict` carregava agora vive em `positions['visible']`/`Page.props.form.visible`, e um campo na barra ou no corpo pode tê-la. `POS_0_NOT_EMPTY` (o atalho `{'pos':0,'when':{'not_empty':True}}`) deixou de ter uso e foi removido — a leitura virou `'hidden': ['x'], 'visible': {'x': {'not_empty': True}}`.
+- **Sessões têm os seus slots, numa superfície mais estreita.** Cada sessão aceita `positions`/`visible` próprios, com só `body` e `hidden` (não há barra nem rodapé numa tabela de linhas). O alvo depende do tipo: em `table`/`query` as `positions` posicionam as **colunas** (o filho) e os `fields` da sessão — que vêm do Schema do mestre — **herdam** a posição do mestre, recortada pelo que a sessão exibe (o `hidden` do mestre cita campos fora do recorte, e citá-los ali seria erro); em `fields` sem `table`/`query` a sessão é o pool inteiro (campos do pai, se o primeiro item for um campo dele; do filho, se nomear uma Entity).
+- **O slot é o predicado de escrita; `_pos_managed` saiu.** No save gravam `body` e `footer`; `hidden` e `bar` não — mandar o que veio do POST gravaria `NULL` onde o campo é derivado (um toggle carimba pela rota própria, um campo oculto é do motor). O guard antigo (`if f._pos_managed and f.pos_form not in (1,5)`) consultava `_pos_managed`, que só existia porque uma lista explícita de `fields` desligava o filtro de `pos_form`; com o slot como predicado o guard deixou de consultá-la; a flag segue existindo só na **resolução** de `fields` — `memory` fora da expansão e a lista explícita como autoritativa. **Efeito visível e aceito:** um campo do pai que uma sessão `query`/`table` carregava como *explicitamente não-gerido* (`saved: True`) deixa de ser regravado a partir do hidden — é o mesmo dado da instância, então não muda tela nem valor. O `readonly` **não** entra nesse predicado: renderiza rótulo + `<input type=hidden>` que ainda submete, então um campo `readonly` no corpo é reenviado e gravado; quem barra o save inteiro é o `Form.readonly` (callable sobre a instância), que pula tudo exceto o `footer`.
+- **Um ajuste de comportamento, declarado.** `pos_form: 2` ("readonly que não salvava") foi removido: tinha **um** uso, em `orcamentos`/`Orcamento.validade_data`, e era redundante com `readonly: True` (que é o que a tela quer — o valor é reenviado igual). A troca está no harness como a única divergência de forma esperada.
+- **Mortos com a prop:** `Field.pos_form`, `POS_0_NOT_EMPTY` (`defs/constants.py`), o par "input de barra ⇒ `pos_form: 3`" que o `Field.__post_init__` validava (virou a checagem de slot em `apply_positions`), e a prop interna `_pos_form_when` (substituída por `_visible_when`, posta por `resolve_visible`).
+- **Equivalência provada por harness.** Snapshot semântico (slot + saved + bar + readonly + memory + visible) dos **309** campos dos 15 forms do AlgoDoce contra o `HEAD` (`pos_form` normalizado para o vocabulário novo): **0 divergências reais** (as de `transferencias` são drift alheio — o modelo lá ainda era pré-migração). Os 45 endpoints (15 listagens + 30 forms) respondem 200, `ast.parse`/`jinja.parse`/`node --check` limpos, e a regra de tipo foi confirmada preservando a tabela de ligação `ProdutoInsumo`.
+
+### 1.26.10.08.0040
+- **A posição de um campo na listagem saiu do `Field` e virou prop da PÁGINA: `line`/`card`/`hidden`.** `Field.pos_list` (`0` oculto · `1` coluna · `2` card) era um inteiro mágico declarado em três lugares ao mesmo tempo — Entity, Schema e rota — e responder "por que essa coluna não aparece?" significaba caçar o `pos_list` num Schema que estava 50 linhas acima da lista. A pergunta é da listagem, então a resposta mora nela (`Page.props.list`, §5.6). **Nome cru resolve**: único na entidade de `columns` → único no pool (de onde vier) → na ambiguidade quem desempata é `columns`, por ser o assunto da lista; sem entidade em `columns`, ambiguidade é erro e o autor qualifica. Só `Entidade.campo` é ambíguo de propósito. Precedência total `hidden` > `line` > `card`; o que não é citado vai para a linha.
+- **O que estava quebrado e saiu junto.** (1) `pos_list: 3` era **documentado** (README e `defs/tags.py`) e **sem consumidor nenhum** — o campo passava o filtro `!= 0`, não era `1` nem `2`, e sumia em silêncio; pior, `Field.pos_list` não validava valor nenhum (`validate_field_config` só checa chave), então `'2'` ou `7` caíam no mesmo buraco. Hoje a validação é **fail-fast nomeando** (slot, campo inexistente, nome ambíguo sem desempate). (2) O filtro de `pos_list` só valia com `columns` como nome de entidade, por um gate `any(f._pos_managed)` — **um** campo expandido no meio desligava o filtro dos outros, em silêncio. `_pos_managed` saiu do caminho da listagem. (3) A lógica estava em **4 cópias** (`do_list.py:65/329/572`, uma delas sem o split de card, então `list_max_width` podia divergir da grade real); virou `core/resolve.resolve_slots`, uma fonte só. (4) A precedência na camada `query` era assimétrica — a entrada do `select` forçava `pos_list: 0` mas era **ignorada** em `1`/`2` se o campo já existisse — e a entrada deixou de posicionar: quem posiciona é a página.
+- **`line` é prop nova de verdade, com metade no cliente.** O `linha` antigo era um split de **servidor** entre `<td>` e o overflow, e o ajuste por largura (`fitListColumns`, que já existia e já media) ficava atrás de `not has_card`. Agora o servidor renderiza **todas** as colunas da grade, e quem some é o cliente (`col-hide`), com a cópia `of-dyn` na linha expansória garantindo que nada se perca. Isso mata um bug latente: com `linha` declarado, o `<thead>` emitia `<th>` para todas as `cols` e o `<td>` só para as pinadas — a tabela desalinhava. `line` vira `data-pinned` no `<th>` e semeia o `keepIdx` antes do preenchimento por largura; é **atributo** e não nome porque com `master` a mesma tabela tem dois `data-field="id"` (a `Transferencia.id` e a `Movimento.id` — o marcador por nome pinava as duas).
+- **`pos_filter: 9` parou de esconder coluna sozinho** (mantém o `pos_form: 0`, que é dele). O efeito colateral existia porque a posição era do `Field`; agora quem tira um campo da grade é `hidden`, e as 4 rotas com filtro fixo (`pagar`/`receber`/`pagamentos`/`recebimentos`, o `tipo`) ganharam a linha explícita. **Esta é a única linha que, esquecida, muda a tela** — o `tipo` viraria coluna.
+- **`_list_pool` passou a ser o construtor único do pool**, incluindo a inversão `master` — antes `list_max_width` (que o `do_form` chama para a largura do container) montava só o pool do pai e quebrava com qualquer `hidden` que citasse a entidade do filho. `do_list_normal` e `do_list_master` passaram a reusá-lo, e as 4 cópias de merge cairam para uma. O truque do `fields_all` pré-filtro (que existia só porque `pos_filter: 9` jogava o campo fora do pool) foi junto: os filtros fixos leem o `pool`.
+- **Mortos com a prop:** `SelectEntry.pos_list` (`defs/qspec.py`), os 2 hints de listagem dentro da fonte `QPLANO` compartilhada com o report (que nunca os leu), a prop `card` da `List` (virou slot), a prop `linha` e `List.card_fields` (canal morto no template), `_card_layer` (reimplementação restrita de 3 dos formatos que os slots agora aceitam), e 4 `pos_list` que já eram **no-op** (`Previsao.id`, `Movimento.historico`, `Operacao.indice`, `Transferencia.historico` — redundantes com o default ou com a camada `card`).
+- **Equivalência provada por harness.** Snapshot da **resolução** (colunas com label/width/align/input/stored, ordem do `fields_all`, card-only, detalhe, filtros, `max_width`, endpoint de edição) das 15 listagens do AlgoDoce contra o `HEAD`: **0 divergências** — as 3 invertidas (`pagar`/`receber`/`transferencias`) saem id a id. Snapshot do **HTML** renderizado: 12 das 15 saem **byte a byte** idênticas; as 3 com `line` diferem só pelo `data-pinned` (1 coluna) e pela cópia `of-dyn` da coluna pinada a menos. Mais 12 forms e 15 listagens pelo test client (HTTP 200, `<thead>` conferido). O único desvio real que apareceu no caminho foi o `pos_filter: 9` acima, pego justamente porque a verificação foi feita.
+
+### 1.26.10.08.0039
+- **Bloco `MEMORY` no Schema: chave em MAIÚSCULAS = campos que existem só na
+  tela.** O `memory` (renderiza/editável, não persiste) só aparecia citado campo a
+  campo, com `memory: True` repetido. `grupos_memoria` (`defs/data.py`) lê a chave
+  em MAIÚSCULAS cujo valor é dict de configs e carimba `memory: True` em cada
+  campo do grupo — o nome da chave é livre, é só namespace. Ver 5.5.3.
+- **`fields` lista/dict no `Form` voltou a resolver a config dos campos.** O form
+  entregava o schema plano ao `normalize_fieldspec`, que o espera indexado por
+  entidade: a lista e o dict (formas documentadas) resolviam campo sem config —
+  a `data` virava input de texto e o histórico perdia o textarea. Nenhuma rota do
+  AlgoDoce usava a forma lista/dict, então o conserto não muda nada existente.
+- **`pos_form` passou a mandar no save mesmo em lista explícita.** O guard do
+  loop do mestre era `if f._pos_managed and f.pos_form != 1 and f.pos_form != 5`:
+  com lista explícita (`_pos_managed=False`) ele não segurava, e um campo
+  derivado com `pos_form: 3` (que o form desenha como tag, sem input) virava
+  NULL no banco. Lista explícita assume a ordem, não a regra de gravável.
+- **O save do mestre pula campo `memory`.** O das sessões já pulava
+  (`_save_session_masters`); sem o do mestre, um bloco no cabeçalho passaria por
+  `setattr` num atributo inexistente no model.
+- **`_entidade_principal` ignora chave em MAIÚSCULAS.** A entidade principal do
+  módulo era `next(iter(Schema))`, que num bloco de memória devolveria um nome
+  sem model e quebraria o `_get_model` da rota inteira.
+- **`addChildRow` devolve a chave da linha nova** (`n-N`): o app precisa dela para
+  escrever nos inputs daquela linha pelo nome, sem raspar o DOM.
+
+### 1.26.10.08.0038
+- **Campo `readonly` na linha de sessão agora tem texto, e o `on_new` o escreve.**
+  A célula readonly na linha nova é `<span data-readonly-for data-readonly-mask>`
+  com `[data-readonly-text]` + o `<input type="hidden">` **dentro** do span (antes
+  o hidden era irmão do texto, e a célula renderizava dois elementos). O `on_new`
+  escreve o texto pelo `itReadonlyText`: data ISO vira `dd/mm/aaaa` — montada em
+  **horário local**, porque `new Date('2026-07-13')` é UTC e o `fmtMask` lê os
+  getters locais (daria 12/07 num fuso negativo) — e os demais campos saem como
+  vieram, já que o que o `numToInputFor` escreveu no input é a convenção de exibição.
+- **`addChildRow` não descarta mais o que sobra do template mobile.** No mobile o
+  ColumnTemplate é um `<div>` fora de `<table>`: o parser descarta os `<th>`/`<td>` e
+  o `addChildRow` casa os elementos do template com as linhas da tabela **por
+  posição** — uma célula com dois elementos (readonly) deslocava todas as
+  seguintes, e os hidden que não têm linha correspondente (o `tipo` da sessão, e
+  qualquer campo `pos_form: 0`) sumiam junto com o `box` removido, sem ir no POST
+  (e no celular a cópia desktop está `disabled`, ou seja, também não vai).
+- **`defaults` é identidade de sessão, não "campo a zerar"** — o filtro de
+  `_session_matches` compara todas as chaves, então uma chave cujo valor gravado
+  difere do default esconde a linha do render e do save. Documentado em 5.5.2.
+
+### 1.26.10.08.0037
+- **Duas sessões `table` agora podem mirar o mesmo relationship.** A Transferência
+  do AlgoDoce tem "Entradas" e "Saídas" que são as duas `Movimento` com `tipo`
+  diferente — e o relationship é um só: `_resolve_parent_link` acha o
+  pai→filho pelo mapper, então as duas sessões caíam no mesmo `attr` (`movtos`),
+  no mesmo prefixo de POST (`child_movtos_`) e nas **mesmas linhas**. Pior, a
+  exclusão é "linha do banco ausente no POST": cada sessão apagaria a da outra.
+  As duas props novas resolvem sem HTML nem JS:
+  - **`defaults`** (`dict`) — os campos que a sessão **possui**. O render mostra
+    só as linhas que batem (`_session_rows` preenche `session['_rows']`, e
+    `item_table.html` usa essa lista quando existe). No save, a linha postada
+    cujo filho não casa é de outra sessão e é ignorada — nem salva, nem exclui —
+    e a lista de `existing` da exclusão é filtrada pelo mesmo `defaults`.
+    O valor também é **carimbado** na linha nova antes do check de `required`,
+    que é o que faltava: campo oculto não vem no POST, então a linha nascia com
+    `tipo` nulo e batia no `NOT NULL`.
+  - **`on_new`** (`{replaces: {alvo: fonte}}`) — o que a linha **nova** herda,
+    no mesmo formato do `on_set`. O mapa vira `data-new-replaces` no wrap da
+    tabela e o `itOnNewRow` o aplica no `addChildRow` — a origem é procurada no
+    **mestre** primeiro (o inverso quebraria todo `alvo:fonte` de nomes iguais,
+    como `data:data`) e depois na **própria linha nova**; escreve com a disciplina
+    do `on_set` (`numToInputFor` → `fmtFieldInput` → `input`/`change`) em
+    **todos** os alvos, desktop e mobile, porque o `itmApplyPage` só pagina e não
+    sincroniza valor entre as duas cópias. Client-side, como o `on_set`: sem JS a
+    linha nasce vazia. Ver 5.5.2.
+  - **O hidden do `defaults` saiu de dentro do `<tr>`.** Ele é o que leva o
+    `tipo` da linha no POST, e `<input>` solto entre `<td>` é HTML inválido — o
+    parser do navegador pode tirá-lo da tabela (e sem ele a linha nova seria
+    criada duas vezes, uma em cada sessão). Agora vai dentro de um `<td>`; no
+    mobile, direto do `<div>` do `ColumnTemplate`, que já aceita flow content.
+- **Os `<template>` da linha nova passaram a ser por sessão** (`data-tpl` no
+  `tbody`, lido pelo `addChildRow`): duas tabelas do mesmo relationship saíam
+  com `movtosRowTemplate` duplicado no DOM. O prefixo do POST continua sendo o
+  `attr` — é ele que amarra o input ao filho.
+- **O card do `master` calcula com o PAI, e não com a linha.** `_value_cell`
+  (`list.html`) resolvia o valor por `card_path` (`trf.total`) em todos os ramos
+  — exceto o do `calc`, que recebia a linha (o filho): um `calc` de property no
+  pai estourava com `AttributeError` e o de agregação voltava vazio, sem erro
+  nenhum. Agora o `calc` é avaliado no dono do campo. Foi o que apareceu ao
+  colocar a `Diferença` (soma dos lançamentos) no card da Transferência.
+- **O `defaults` viaja em TODA linha, não só na nova.** Com o hidden só no
+  template `__IDX__`, o POST não trazia o `tipo` das linhas já gravadas: um
+  `pre_save` do app não conseguia somar com sinal e nenhum cliente sabia o sinal
+  da linha salva. Agora sai também no loop das linhas (com o valor do item), o
+  carimbo do save ficou **incondicional** — a sessão é dona do campo, então o que
+  veio no POST não passa por cima — e a renderização do hidden é a mesma nos dois
+  lugares (`_postados`, calculado uma vez no macro).
+- **Não-regressão:** sessão sem `defaults` não ganha `_rows` (segue lendo
+  `instance|deep_attr(attr)`) e o `data-tpl` só muda o id, não o `data-rel` que
+  monta o prefixo.
+
+### 1.26.10.08.0036
+- **O rodapé é a ÚLTIMA LINHA da página, e o motor conta as linhas em vez de
+  adivinhar.** O rodapé vivia em `FOOTER_Y = -15`, que no fpdf2 2.8.7 é
+  `h - 15` — **dentro da margem inferior**, fora da grade, 15mm do papel, onde
+  a maioria das impressoras não garante nada. Agora o motor conta
+  `int((h - t_margin - b_margin) // (25,4/lpi))` e reserva a última dessas
+  linhas: no A4 retrato a 6 LPI são 63 linhas, o rodapé entra na 63 e o
+  conteúdo usa 62. O gatilho de quebra **passa a ser essa linha** — e os dois
+  atributos que o fpdf2 e o motor leem (`page_break_trigger` e `b_margin`)
+  recebem o mesmo número, porque `_check_page_break` lê um e `multi_cell` lê o
+  outro: divergindo, o texto quebraria de página num ponto e a tabela noutro.
+  Medido em report de 4 páginas cheias: y máximo do corpo **267,176mm** contra a
+  linha do rodapé em **272,467mm**, ou seja, nenhum texto do corpo na linha nem
+  abaixo. Report **sem** rodapé não paga a linha — `_recalc_break_trigger`
+  sai antes de tocar em qualquer atributo.
+- **`'footer': True` é o atalho das três flags** (`show_user`, `show_datetime`,
+  `show_page_number`; `show_company` fica fora, e hoje ele não escreve nada).
+  `True`, `False`, ausente e `{}` são os quatro jeitos de perguntar "o rodapé
+  existe?" — `{}` continua sendo declaração vazia. Valor fora de `bool`/`dict`
+  levanta `TypeError` **no build**, e não um `AttributeError: 'bool' object has
+  no attribute 'get'` no meio da renderização.
+- **O rodapé é `CPI(12,'C')`, itálico, à direita** — e `cpi`/`style`/`align`
+  são overrides do dev. Antes era CPI 10 (o do fluxo), itálico fixo e centro,
+  sem como mudar nada disso; o header, no mesmo arquivo, já tinha `style`
+  configurável. O default é a **menor letra que a grade permite**: Elite
+  condensado, CPI efetivo **20** (1,2700mm por caractere), o menor que a
+  matriz alcança — o Micron (15) recusa condensar e volta ao base. Com
+  `lpi: 8` a altura cai para 7,5pt e fecha o par mais fechado do motor. A
+  prop `cpi` do dev é um **base**, então declarar sempre *abre* a letra.
+  `cpi` fora de base levanta o erro do próprio normalizador (`13` → *"não é um
+  base; use um de [10, 12, 15]"*). **Família e corpo não são props**: vêm de
+  `Report.font` e `Report.lpi`, porque o rodapé é parte do mesmo documento — é
+  o estilo que o distingue, não a letra.
+- **`LPI()` saiu como comando; `Report.lpi` entrou como prop.** A grade vertical
+  é uma só para o documento, igual à orientação, e por isso parou de ser
+  diretiva de fluxo — que podia mudar no meio da renderização e fazia a linha
+  do rodapé (que conta linhas) sair do lugar. `lpi` é normalizado e validado na
+  **construção** do PDF, então `lpi: 7` morre antes de qualquer página sair.
+  `_reset_fluxo` deixou de mexer no campo (ele continuava restaurando 6 a cada
+  seção, o que anulava o `LPI(8)` do body na hora do rodapé). `CPI()` continua
+  diretiva: o eixo horizontal é por item mesmo.
+- **`FONT` saiu do código morto.** O caso que apontava o substituto (`use
+  CPI()/LPI()`) estava **depois** do gate `if k not in ITEM_KINDS`, então nunca
+  disparava — quem declarava `FONT` recebia *"elemento 'FONT' desconhecido"*.
+  Removidos (`FONT` e `LPI`) agora são checados **antes** do gate, numa tabela
+  `_REMOVED_ITEMS`, e o erro diz para onde foi.
+- **Não-regressão:** report sem rodapé sai **byte a byte igual** ao de antes da
+  mudança (`f98f4e8acc0be343c98a`), e `footer: True` produz content stream
+  idêntico ao do dict completo. 155 arquivos, 141 imports, 74 respostas de rota
+  (GET e POST) iguais ao HEAD e a matriz do `lf` 4/4 em 1,00.
+
+### 1.26.10.08.0035
+- **O `lf` do `table` passou a ser da TABELA, uma vez antes e uma depois.**
+  A leitura da prop estava certa (`_lf_de` já separava `n`, `-n` e `[a, b]`); o
+  que estava errado era **onde ela era aplicada**. O "antes" vivia pendurado no
+  `if body.items:` — sem `items` a tabela não respirava em cima — e o "depois"
+  caía **entre os grupos**, com o `_walk_field_groups` aplicando um `lf` por
+  tipo. Uma tabela agrupada com 2 tipos e `lf: [0, 1]` rendia 0 antes e **3**
+  depois (2 grupos + 1), e a simples rendia 0 antes, 1 depois e 1 antes se
+  tivesse `items`. Mesma declaração, três distâncias. Agora `_build_table`
+  resolve o par uma vez em `lf_before_table`/`lf_after_table` e o
+  `gerar_pdf_relatorio` aplica `_space_before`/`_space_after` em volta de
+  `_render_table` — os dois lados passam pelo mesmo `_space_*` que o `lf` de
+  item usa, então o incremento vertical tem um só dono. Medido com 13 operações
+  reais, as quatro combinações (simples/agrupada × com/sem `items`) devolvem
+  1,00 linha antes e 1,00 depois.
+- **Ausente na tabela é `[1, 1]`; ausente no item continua ausência.** O
+  padrão do `table` é o **respiro do bloco**: a grade é densa e nasce colada no
+  texto que a precede e no que a segue, e é o `lf` que abre e fecha esse espaço.
+  No item o `lf` é enfeite de quem escreve, e o padrão segue sendo nada. Por
+  isso ausente numa tabela rende +2 linhas frente a `[0, 0]`, e o `PLANO` do
+  app — que declara `lf: [0, 1]` — fica com 0 antes e 1 depois.
+- **Identificadores com nome em português foram para inglês.** Só o código:
+  funções (`render_pagina`→`render_page`, `montar_blueprint`→`build_blueprint`,
+  `_linha_cheia`→`_line_is_full`, `_desce_se_cheia`→`_descend_if_full`,
+  `_lf_de`→`_lf_one_side`, `fecha_tabela`→`close_table`, `nova_pagina`→
+  `new_page`, …) e variáveis/locais (`_titulos`, `n_linhas`, `colunas`,
+  `valores`, `grupo`, …). **Não** são identificador: chave de `jsonify`/
+  `render_template` (`pagina=`, `titulo=`, `tem_usuario=` — contrato com o
+  template e o JS), coluna de ORM (`cliente_nome`, `valor`), chave de i18n e
+  chave de dicionário de dados — esses ficaram. A renomeação foi feita por AST,
+  não por replace de texto, justamente para não tocar string: `valor` é nome de
+  coluna em `produtos`, e um replace cego quebraria o SQL. Os 4 reports do app
+  saem com o **conteúdo desenhado idêntico** (hash do content stream
+  descomprimido, com o timestamp de minuto do rodapé normalizado).
 
 ### 1.26.10.08.0034
 - **`total` e `valor` desformatavam no navegador — o `.0033` trocou a linha.**

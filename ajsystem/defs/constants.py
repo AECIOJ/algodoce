@@ -17,9 +17,5 @@ CURRENCY = {
 }
 DEFAULT_CURRENCY = 1
 
-# pos_form dict para campo `pos:0` explícito só quando valor não vazio (usado em transacao_id/movto_id)
-# Exclusivamente via Schema, só afeta `form` (semântica de pos_form)
-POS_0_NOT_EMPTY = {'pos': 0, 'when': {'not_empty': True}}
-
 # Default de campo `data` em forms novos: callable (não congela no import).
 TODAY = date.today

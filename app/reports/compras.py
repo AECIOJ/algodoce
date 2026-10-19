@@ -22,13 +22,13 @@ COMPRA = {
             ('Status: {status}', {'when': 'status > 1'}),
         ]),
         LF(1),
-        CPI(10,'C'),
-        TABS(1, 25),
+        CPI(15),
+        TABS(1, 40),
         TABS('{fornecedor_id}', '{data}'),
-        LF(3)
     ],
     'body': {
         'before': [
+            LF(3),
             MEMO('status', LARGURA, {'recuo':4, 'options': PREAMBULO, 'label': '',
                                      'when': {'status': PREAMBULO}}),
         ],
@@ -53,4 +53,5 @@ COMPRA = {
             ],
         },
     },
+    'footer': True,
 }

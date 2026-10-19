@@ -11,8 +11,8 @@ ORCAMENTO = {
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
         LF(1),
-        CPI(12),
-        TABS(1, 30),
+        CPI(15),
+        TABS(1, 40),
         TABS('{cliente_nome}', '{data_pedido}'),
         TABS('{cliente_telefone}', '{validade_data}'),
         LF(3)
@@ -42,4 +42,6 @@ ORCAMENTO = {
             ]
         },
     },
+    'footer': True,
+
 }

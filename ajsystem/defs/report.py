@@ -14,7 +14,7 @@ from typing import Optional, Callable, Union
 # DOM) é import explícito, como o motor já faz.
 __all__ = [
     'LOGO', 'TITLE', 'TITLES', 'TEXT', 'TABS', 'IND', 'FIELD', 'TEXTS', 'MEMO',
-    'CR', 'LF', 'FF', 'FIELDS', 'POS', 'CPI', 'LPI',
+    'CR', 'LF', 'FF', 'FIELDS', 'POS', 'CPI',
     'LINE', 'BOX', 'CIRCLE', 'IMAGE',
     'PCOL', 'PROW', 'LTB', 'RTB', 'NCOL',
 ]
@@ -136,7 +136,16 @@ def parse_header_field(item) -> ReportField:
 
 ITEM_KINDS = ('FIELD', 'TEXT', 'IMAGE', 'LINE', 'BOX', 'CIRCLE', 'LOGO', 'TITLE',
               'TABS', 'POS', 'FIELDS', 'IND', 'TEXTS', 'CR', 'LF', 'FF',
-              'MEMO', 'TITLES', 'PCOL', 'PROW', 'CPI', 'LPI')
+              'MEMO', 'TITLES', 'PCOL', 'PROW', 'CPI')
+
+# Elementos que SAIRAM, com o que os substitui. O caso tem de ser checado
+# ANTES do gate de `ITEM_KINDS`, senão o dev recebe "elemento desconhecido" e
+# não descobre para onde foi — que era o que acontecia com `FONT`.
+_REMOVED_ITEMS = {
+    'FONT': "use CPI() para a largura e a prop 'font' do report para a família",
+    'LPI': ("a grade vertical é do report inteiro agora; use a prop 'lpi' do "
+            "report (6 = 4,2333mm, 8 = 3,1750mm)"),
+}
 
 
 @dataclass
@@ -336,7 +345,7 @@ def _memo_check(width, recuo, label=''):
             f"ficaria sem medida")
 
 
-def MEMO(campo, width, props=None):
+def MEMO(field, width, props=None):
     """Factory pura: `MEMO('status', 80, {...})` — um FIELD com medida.
 
     `campo` aceita a MESMA gramática que `field_spec_item` (a de `FIELD`,
@@ -366,16 +375,16 @@ def MEMO(campo, width, props=None):
     _check_props('MEMO', props or {}, '')
     _memo_check(width, (props or {}).get('recuo', 0))
     from ajsystem.core.resolve import field_spec_item as _fsi
-    achado = _fsi(campo)
+    found = _fsi(field)
     cfg = dict(props or {})
-    if achado and '{' not in (achado[0] or ''):
-        nome, overrides = achado
+    if found and '{' not in (found[0] or ''):
+        nome, overrides = found
         # a gramática resolve o nome; os overrides do campo entram junto, como
         # em `FIELD('status', {'options': ...})`.
         return {'MEMO': {'field': nome, 'width': width, **overrides, **cfg}}
-    if isinstance(campo, str):
-        return {'MEMO': {'text': campo, 'width': width, **cfg}}
-    raise ValueError(f"MEMO: campo deve ser nome de field ou template, veio {campo!r}")
+    if isinstance(field, str):
+        return {'MEMO': {'text': field, 'width': width, **cfg}}
+    raise ValueError(f"MEMO: campo deve ser nome de field ou template, veio {field!r}")
 
 
 def TEXTS(*items):
@@ -444,10 +453,10 @@ def FIELDS(*items):
         # `FIELDS` aceita só as duas formas curtas: a forma longa (dict) é das
         # props que recebem lista solta. A DECISÃO ("isto nomeia um field?") é a
         # genérica; a política (recusar) é do factory.
-        achado = None if isinstance(it, dict) else field_spec_item(it)
-        if achado is None:
+        found = None if isinstance(it, dict) else field_spec_item(it)
+        if found is None:
             raise ValueError("FIELDS: item deve ser 'campo' ou ('campo', {props})")
-        nome, props = achado
+        nome, props = found
         if not nome:
             raise ValueError("FIELDS: nome de campo não pode ser vazio")
         norm.append(nome if not props else (nome, props))
@@ -478,20 +487,6 @@ def CPI(base=None, flags=None):
     if flags is not None:
         cfg['flags'] = _flags(flags)
     return {'CPI': cfg}
-
-
-def LPI(valor=None):
-    """Factory pura: LPI() = restaura (6 LPI); LPI(8) = linha mais apertada.
-
-    Linhas por polegada — a altura da LINHA da grade, e com ela o corpo da
-    fonte, que é derivado: 6 LPI -> 10pt, 8 LPI -> 7.5pt. **Não é prop de
-    item**: um item com LPI diferente do resto desalinha a grade vertical e o
-    PROW(n) volta a ler errado. Só diretiva de fluxo.
-    """
-    from ajsystem.defs.fonts import lpi as _lpi
-    if valor is None:
-        return {'LPI': {}}
-    return {'LPI': {'lpi': _lpi(valor)}}
 
 
 def POS(*where):
@@ -598,6 +593,9 @@ def parse_report_item(it, label='') -> ReportItem:
         return ReportItem(kind=it.base, name=it.base, config={'offset': it.offset})
     if isinstance(it, str):
         if it.isupper():
+            if it in _REMOVED_ITEMS:
+                raise ValueError(
+                    f"report '{label}': {it} saiu — {_REMOVED_ITEMS[it]}")
             if it not in ITEM_KINDS:
                 raise ValueError(f"report '{label}': elemento '{it}' desconhecido")
             return ReportItem(kind=it, name=it, config={})
@@ -609,6 +607,9 @@ def parse_report_item(it, label='') -> ReportItem:
         if len(it) == 1:
             (k, v), = it.items()
             if k.isupper():
+                if k in _REMOVED_ITEMS:
+                    raise ValueError(
+                        f"report '{label}': {k} saiu — {_REMOVED_ITEMS[k]}")
                 if k not in ITEM_KINDS:
                     raise ValueError(f"report '{label}': elemento '{k}' desconhecido")
                 if k == 'TABS':
@@ -633,26 +634,20 @@ def parse_report_item(it, label='') -> ReportItem:
                     if not isinstance(v, list) or (v and len(v) != 2):
                         raise ValueError(f"report '{label}': 'IND' exige [l, r] ou []")
                     return ReportItem(kind=k, name=k, config={'values': list(v)})
-                if k in ('CPI', 'LPI'):
-                    # `CPI()`/`LPI()` nu = restaura o padrão. O `CPI` guarda o
-                    # BASE e as `flags`; o valor derivado é do motor, e por
-                    # isso o normalizador aqui nunca resolve o modificador.
+                if k == 'CPI':
+                    # `CPI()` nu = restaura o padrão. O `CPI` guarda o BASE e
+                    # as `flags`; o valor derivado é do motor, e por isso o
+                    # normalizador aqui nunca resolve o modificador.
                     from ajsystem.defs import fonts as _g
-                    _chave = 'cpi' if k == 'CPI' else 'lpi'
-                    _norm = _g.cpi if k == 'CPI' else _g.lpi
-                    _v = v.get(_chave) if isinstance(v, dict) else v
+                    _v = v.get('cpi') if isinstance(v, dict) else v
                     _cfg = {}
                     if _v is not None:
-                        _cfg[_chave] = _norm(_v)
+                        _cfg['cpi'] = _g.cpi(_v)
                     _fl = v.get('flags') if isinstance(v, dict) else None
                     if _fl is not None:
                         _cfg['flags'] = _g.flags(_fl)
                     return ReportItem(kind=k, name=k, config=_cfg)
 
-                if k == 'FONT':
-                    raise ValueError(
-                        f"report '{label}': FONT saiu; use CPI()/LPI() para a grade "
-                        f"e a prop 'font' do report para a família")
                 if k == 'FIELDS':
                     if not isinstance(v, dict):
                         raise ValueError(f"report '{label}': 'FIELDS' exige dict")
@@ -754,8 +749,8 @@ class ReportGroup:
     position: str = 'titulo'
     subtotal: bool = True
     total: bool = True
-    fecha_tabela: bool = False
-    nova_pagina: bool = False
+    close_table: bool = False
+    new_page: bool = False
 
 
 @dataclass
@@ -812,6 +807,13 @@ class Report:
     # Página
     page_size: str = 'A4'
     orientation: str = 'portrait'
+
+    # Linhas por polegada da grade vertical — a altura da LINHA (`25,4/LPI`) e,
+    # com ela, o corpo da fonte, que é DERIVADO (`60/LPI`): 6 -> 10pt,
+    # 8 -> 7,5pt. É prop do report inteiro, igual à orientação: a grade
+    # vertical é uma só para o documento, e um item com LPI próprio desalinharia
+    # a página (o PROW(n) voltaria a ler a linha errada). Só 6 ou 8.
+    lpi: int = 6
 
     # Família da fonte do documento inteiro (catálogo fixo em `defs/fonts.py`;
     # courier = núcleo do PDF, sem arquivo). Trocar não move nada na grade: o

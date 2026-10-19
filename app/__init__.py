@@ -113,8 +113,8 @@ def create_app():
 
         from ajsystem.core import adapter
         adapter.set_tunnel_url_provider(lambda: get_tunnel_url(force=True))
-        from ajsystem.core.content import render_pagina
-        adapter.set_markdown_loader(render_pagina)
+        from ajsystem.core.content import render_page
+        adapter.set_markdown_loader(render_page)
 
         register_model('category', Categoria)
         register_model('categoria', Categoria)

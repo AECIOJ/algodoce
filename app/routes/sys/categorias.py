@@ -40,6 +40,7 @@ Page = {
         'form': {
             'max_width':70,
             'fields': 'Categoria',
+            'positions': {'bar': ['ativo']},
             'delete': {
                 'when': {Produto},
                 'msg_ok': 'Categoria excluída!',

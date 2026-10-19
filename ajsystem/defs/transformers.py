@@ -19,7 +19,7 @@ _MASK_TRANSFORM = {'U': 'upper', 'L': 'lower', 'C': 'cap', 'T': 'title'}
 
 def infer_transform(f):
     """Transform de texto de um `Field` resolvido (None → sem transform)."""
-    if f.pos_form != 1 or f.readonly or f.hidden:
+    if getattr(f, '_slot', 'body') != 'body' or f.readonly or f.hidden:
         return None
     if not f.inp.textual:
         return None

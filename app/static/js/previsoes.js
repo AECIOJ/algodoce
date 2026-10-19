@@ -1,21 +1,10 @@
-/* Botão "Gerar" das previsões em Contas a Receber/Pagar.
+/* Monta as linhas filhas a partir de campos do mestre.
  *
- * Client-side: monta as linhas na tabela de previsões distribuindo o `ratear`
- * (valor a ratear, campo só-exibição do mestre) conforme o `prazo`; preenche
- * vencimento, previsto, recurso e documento (fatura/P#/C# + parcela); o Salvar
- * do form persiste tudo junto. Mantém ao vivo os agregados só-exibição
- * (previsto/realizado/variacao/saldo) e o `ratear` (= valor − previsto).
- * Espelha app/extends/utils.parse_prazo_recebimento (sem data de entrega).
- *
- * O estado dos botões NÃO é calculado aqui: vem de `Button.enabled` nas specs de
- * app/routes/sys/{pagar,receber}.py (Gerar = 6 campos preenchidos; Zerar = só
- * com realizado e varição agregados zerados) e é reavaliado por
- * `itEnabledEval` (sys.html) — que dispara nos mesmos eventos `input`/`change`
- * que esta arquivo escuta. Por isso `setField`/`setNumField` continuam
- * disparando os dois eventos.
- *
- * Carregado em receber/pagar pela prop `scripts` do Page (ver pagar.py/receber.py);
- * o motor resolve o caminho e o `?v=` sozinho.
+ * O estado dos botões NÃO é calculado aqui: vem de `Button.enabled` nas specs da
+ * rota e é reavaliado por `itEnabledEval`, que dispara nos mesmos eventos
+ * `input`/`change` que este arquivo escuta. Por isso `setField`/`setNumField`
+ * continuam disparando **os dois** eventos — se disparassem só um, o botão
+ * ficaria desatualizado em relação ao que a tela mostra.
  */
 (function () {
   'use strict';
@@ -159,8 +148,7 @@
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  /* Base do `documento` das parcelas: fatura informada → fatura/parcela; de
-   * pedido/compra → P#<id>/parcela ou C#<id>/parcela; avulsa sem fatura → '' */
+  /* Base do `documento` das parcelas: o que a origem fornecer, senão vazio. */
   function baseDocumento() {
     var fatura = String(val('fatura') || '').trim();
     if (fatura) return fatura;

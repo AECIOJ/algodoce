@@ -82,16 +82,15 @@ def init_app(app):
     # contexto. Acesso nos templates: `{{ i18n.SAVE }}`.
     app.jinja_env.globals.update(locales.para_jinja())
     def _is_field_body(f):
-        if not getattr(f, '_pos_managed', True):
-            return True
-        if getattr(f, '_pos_form_when', None) is not None:
-            # visibilidade condicional via `when` (ex.: POS_0_NOT_EMPTY);
-            # o `when` decide (is_visible_by_pos), independente do pos_form da expansão
-            return True
-        return (getattr(f, 'pos_form', 1) or 0) not in (3, 5) and bool(getattr(f, 'pos_form', 1))
+        # Só o corpo. `bar` e `footer` têm render próprio, e `hidden` com
+        # condição (`visible`) é decidido em `is_visible_by_pos`, que avalia o
+        # dado — por isso um campo `hidden` COM condição passa por aqui e é
+        # filtrado logo abaixo, em vez de sumir antes de ter valor pra avaliar.
+        if getattr(f, '_slot', 'body') != 'body' and getattr(f, '_visible_when', None) is None:
+            return False
+        return True
     _jinja_field_body = _is_field_body
-    _jinja_field_row = (lambda f: bool(getattr(f, 'pos_form', 1))
-                        if getattr(f, '_pos_managed', True) else True)
+    _jinja_field_row = lambda f: getattr(f, '_slot', 'body') != 'hidden'
     app.jinja_env.tests['field_body'] = _jinja_field_body
     app.jinja_env.tests['field_row'] = _jinja_field_row
     app.jinja_env.filters['fields_to_columns'] = fields_to_columns

@@ -6,6 +6,11 @@ CARTEIRA_GERAR = {0: "Movimento", 1: "Previsão"}
 
 CARTEIRA_USO = {0: "Pedido", 1: "Pedido e Compra", 2: "Compra"}
 
+
+ENTRADA = 'E'
+SAIDA = 'S'
+TIPO_MOVTO = {ENTRADA: 'E', SAIDA: 'S'}
+
 FORMINHAS = {0: "Simples (Inclusa)", 1: "Fornecidas pelo Cliente"}
 
 PRODUCAO_ETAPAS = {0: "Preparação", 1: "Montagem", 2: "Embalagem"}
@@ -24,11 +29,11 @@ STATUS_PREVISAO = {0: "Editando", 1: "Pendente", 2: "Parcial", 8: "Cancelado",
 
 STATUS_PRODUCAO = {0: "Executando", 9: "Finalizado"}
 
+STATUS_TRANSFERENCIA = {0: "Editando", 1: "Pendente", 9: "Fechada"}
+
 TIPO_CONTA = {0: "Cliente", 1: "Cliente/Fornecedor", 2: "Fornecedor"}
 
-# Tipos de evento do formulário público de orçamento (valores gravados em
-# `Evento.tipo`). O painel (sys) mantém o próprio vocabulário em
-# app/routes/sys/orcamentos.py.
+
 TIPO_EVENTO = as_options(
     'Aniversário', 'Casamento', 'Chá de Bebê', 'Chá de Panela',
     'Confraternização', 'Formatura', '15 anos', 'Café', 'Outros')

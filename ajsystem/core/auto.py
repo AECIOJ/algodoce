@@ -83,6 +83,12 @@ def _entidade_principal(mod):
         fields = form.get('fields')
         if isinstance(fields, str):
             return fields
+        if isinstance(fields, dict):
+            # forma multi-entidade: a primeira chave que seja entidade de
+            # verdade (bloco em MAIÚSCULAS é memória, não entidade)
+            for nome in fields:
+                if not (isinstance(nome, str) and nome.isupper()):
+                    return nome
     lista = _lista_config(mod)
     if isinstance(lista, dict):
         fields = lista.get('fields')
@@ -94,9 +100,10 @@ def _entidade_principal(mod):
             if isinstance(primeira, str):
                 return primeira.split('.', 1)[0]
     entidades = getattr(mod, 'Schema', {}) or {}
-    if entidades:
-        return next(iter(entidades))
-    return None
+    # Chave em MAIÚSCULAS é bloco de memória (`grupos_memoria`), não entidade:
+    # pegá-la aqui quebraria o `_get_model` do módulo inteiro.
+    return next((k for k in entidades if not (isinstance(k, str) and k.isupper())),
+                None)
 
 
 def _get_model(mod):
@@ -166,8 +173,10 @@ def _generated_crud(mod, slug, botoes_tipos=None, inputs_tipos=None):
         pre_get = _form_config(mod).get('pre_get')
         if callable(pre_get):
             extra.update(pre_get(mod, id) or {})
-        from ajsystem.core.do_list import list_max_width
-        return do_form(form, id, extra_ctx=extra, list_max_width=list_max_width(entidade, mod.__name__))
+        from ajsystem.core.do_list import list_max_width, list_fixed_filters
+        return do_form(form, id, extra_ctx=extra,
+                       list_max_width=list_max_width(entidade, mod.__name__),
+                       fixed_filters=list_fixed_filters(entidade, mod.__name__, model))
     routes.append(('/novo', 'form', _form))
     routes.append(('/<int:id>/editar', 'form', _form))
 
@@ -218,7 +227,7 @@ def _generated_crud(mod, slug, botoes_tipos=None, inputs_tipos=None):
     return routes
 
 
-def montar_blueprint(mod, slug=None, url_prefix=None, login=True, label=None,
+def build_blueprint(mod, slug=None, url_prefix=None, login=True, label=None,
                     botoes_tipos=None, inputs_tipos=None):
     existente = module_blueprint(mod)
     if existente is not None:
@@ -337,11 +346,11 @@ def registrar_modulos(app, modulo_menu, modulo_ini='app.routes.sys', login=True,
             prefix = f'/{base}'
             if not route and any(r.rule == f'/{base}/' for r in app.url_map.iter_rules()):
                 prefix = f'/site{prefix}'
-            bp = montar_blueprint(mod, slug=bp_slug, url_prefix=prefix, label=label,
+            bp = build_blueprint(mod, slug=bp_slug, url_prefix=prefix, label=label,
                                   login=login, botoes_tipos=botoes_tipos,
                                   inputs_tipos=inputs_tipos)
         else:
-            bp = montar_blueprint(mod, bp_slug, label=label, login=login,
+            bp = build_blueprint(mod, bp_slug, label=label, login=login,
                                   botoes_tipos=botoes_tipos,
                                   inputs_tipos=inputs_tipos)
         if bp is None:
@@ -373,10 +382,10 @@ def _registrar_rotas_automaticas(app):
         @app.route('/sistema')
         @login_required
         def _site_sistema():
-            from ajsystem.core.menu import pagina_home
+            from ajsystem.core.menu import home_page
             from ajsystem.core.adapter import APP
             try:
-                url = pagina_home(APP.module('system'))
+                url = home_page(APP.module('system'))
             except Exception:
                 url = None
             if url:

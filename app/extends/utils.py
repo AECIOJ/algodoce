@@ -22,16 +22,6 @@ def num0(v):
 
 
 def parse_prazo_recebimento(texto, data_base, data_entrega=None, total=0.0):
-    """Interpreta o prazo de uma carteira e gera os vencimentos.
-
-    Formatos aceitos (case-insensitive):
-        vazio      -> à vista, vencimento na data base.
-        "N"        -> único vencimento em N dias (ex.: "30").
-        "Nx"       -> N parcelas iguais a cada 30 dias (ex.: "3x" -> 30/60/90).
-        "P/E"      -> metade na data base e metade na entrega.
-        "A/B"      -> vencimentos em A e B dias (ex.: "0/15").
-        outro      -> fallback: à vista na data base.
-    """
     if not texto or not texto.strip():
         return [{"vencimento": data_base, "previsto": round(total, 2)}]
     texto = texto.strip().upper()

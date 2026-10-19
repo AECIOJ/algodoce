@@ -59,7 +59,7 @@ def _truth(expr, obj=None, get=None):
 # (`{qtd:02d}`), e o que separa os ramos é o `?`/`:` de nível 0. Regex não
 # distingue os dois, e o resultado errado aqui é texto trocado por outro texto
 # — o pior tipo de bug, porque sai bonito.
-def _fecha(tpl, i):
+def _close(tpl, i):
     """Índice do `}` que fecha o `{` em `i` (None se não fechar)."""
     prof = 0
     for j in range(i, len(tpl)):
@@ -72,10 +72,10 @@ def _fecha(tpl, i):
     return None
 
 
-def _pos_topo(texto, alvo):
+def _pos_topo(text, alvo):
     """Primeira posição do caractere no nível 0 (fora de `{...}`), ou -1."""
     prof = 0
-    for j, ch in enumerate(texto):
+    for j, ch in enumerate(text):
         if ch == '{':
             prof += 1
         elif ch == '}':
@@ -93,7 +93,7 @@ def _ternarios(tpl, get):
             out.append(tpl[i])
             i += 1
             continue
-        fim = _fecha(tpl, i)
+        fim = _close(tpl, i)
         if fim is None:                    # abre sem fechar: não é nosso
             out.append(tpl[i:])
             break
@@ -139,8 +139,8 @@ def eval_when(obj, when):
     if when is None:
         return True
     if isinstance(when, dict):
-        for campo, alvo in when.items():
-            v = dotted_get(obj, campo)
+        for field, alvo in when.items():
+            v = dotted_get(obj, field)
             if isinstance(alvo, dict):
                 if v not in alvo:
                     return False

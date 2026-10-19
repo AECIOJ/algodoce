@@ -1,5 +1,4 @@
 from ajsystem.core.extensions import db
-from ajsystem.defs.constants import POS_0_NOT_EMPTY
 from app.extends.constants import TIPO_TRANSACAO, STATUS_PREVISAO
 from app.extends.masks import MVALOR
 
@@ -33,7 +32,6 @@ class Transacao(db.Model):
                                 order_by="Previsao.vencimento, Previsao.id")
 
     def calc_prazo(self):
-        """Resumo dos vencimentos em dias a partir de `data` (ex.: '30/60/90')."""
         if not self.previsoes:
             return ''
         return '/'.join(str((p.vencimento - self.data).days) for p in self.previsoes)
@@ -68,10 +66,10 @@ Entity = {
     'cancelado':    {'type': 'DATA', 'width': 12},
     'status':       {'type': 'LIST', 'width': 10, 'options': STATUS_PREVISAO},
     'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9,
-                     'pos_form': POS_0_NOT_EMPTY, 'readonly': True,
-                     'pos_list': 0, 'tag': {'link': 'pedidos.form', 'color': 'info'}},
+                     'readonly': True,
+                     'tag': {'link': 'pedidos.form', 'color': 'info'}},
     'compra_id':    {'type': 'FK', 'label': 'Compra', 'width': 9,
-                     'pos_form': POS_0_NOT_EMPTY, 'readonly': True,
-                     'pos_list': 0, 'tag': {'link': 'compras.form', 'color': 'info'}},
+                     'readonly': True,
+                     'tag': {'link': 'compras.form', 'color': 'info'}},
     'historico':    {'type': 'MEMO', 'width': 40},
 }

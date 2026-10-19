@@ -20,7 +20,15 @@
 {% macro item_table_edit(instance, child, ro=false, title=true, top_left=[], top_right=[], bottom_left=[], bottom_right=[], dom_fields=none) %}
 {% set _rel = child.attr or child.name %}
 {% set _raw = instance|deep_attr(_rel) %}
-{% if child.single %}
+{# Chave dos `<template>`: o nome da sessão quando existe, senão o `attr`.
+   Duas sessões `table` podem mirar o mesmo relationship (ex.: "Entradas" e
+   "Saídas" sobre `movtos`) — com a chave da sessão os ids não colidem, e o
+   `addChildRow` clona sempre o template da tabela em que se clicou. #}
+{% set _tpl = (child.get('name')|lower|replace(' ', '_')|replace('-', '_')) if child.get('name') else _rel %}
+{% if child.get('_rows') is not none %}
+{% set items = child['_rows'] %}
+{% set _single = false %}
+{% elif child.single %}
 {% set items = [_raw] if _raw is not none else [none] %}
 {% set _single = true %}
 {% elif _raw is none %}
@@ -46,6 +54,15 @@
 {% endif %}
 {% set _edit_fields = _display_fields|rejectattr('hidden')|select('field_row')|list %}
 {% set _calc_fields = _display_fields|selectattr('calc')|list %}
+{# `on_new.replaces`: o que a linha NOVA herda, no formato `alvo:fonte` do
+   `on_set` (README 5.13). Aplicado pelo `itOnNewRow` no `addChildRow`. #}
+{% set _newr = (child.get('on_new') or {}).get('replaces') %}
+{% set _nrm = namespace(s='') %}
+{% if _newr %}{% for _nk, _nv in _newr.items() %}{% if _nv is string %}{% if _nrm.s %}{% set _nrm.s = _nrm.s + ',' %}{% endif %}{% set _nrm.s = _nrm.s ~ _nk ~ ':' ~ _nv %}{% endif %}{% endfor %}{% endif %}
+{# Campos do `defaults` da sessão que NÃO são célula nem hidden: viajam como
+   hidden de cada linha (nova e gravada). Sem isso o valor do servidor não
+   chegaria no POST e nenhum cliente saberia o sinal da linha. #}
+{% set _postados = _edit_fields|map(attribute='name')|list + _hidden_fields|map(attribute='name')|list %}
 {% set _prefix = 'child_' + _rel + '_' %}
 {% set _totals = _session_totals.get(_rel) if _session_totals is defined else none %}
 {# Faixa de ação embaixo da tabela: `bottom_left`/`bottom_right` e o Adicionar.
@@ -55,7 +72,7 @@
    pode ter linha de totais e a largura de colunas do Adicionar não é a
    delas. `bottom_left` vem logo depois do Adicionar (prioridade). #}
 {% set _action = _can_edit or bottom_left or bottom_right %}
-<div class="mb-3 child-table-wrap" {% if _totals and not _calc_fields %}data-total-expr="{{ _totals.expr }}"{% endif %}>
+<div class="mb-3 child-table-wrap"{% if _nrm.s %} data-new-replaces="{{ _nrm.s }}"{% endif %}{% if _totals and not _calc_fields %} data-total-expr="{{ _totals.expr }}"{% endif %}>
   {% if title %}{{ fm.section_title(child.label) }}{% endif %}
   {{ fm.render_band(top_left, instance, dom_fields, cls='mb-2') }}
   {{ fm.render_band(top_right, instance, dom_fields, align='right', cls='mb-2') }}
@@ -74,7 +91,7 @@
           {% if _can_edit %}<th class="text-sm" style="width:52px;"></th>{% endif %}
         </tr>
       </thead>
-      <tbody id="{{ _rel }}TableBody" data-rel="{{ _rel }}" data-temp="0">
+      <tbody id="{{ _tpl }}TableBody" data-rel="{{ _rel }}" data-tpl="{{ _tpl }}">
         {% for item in items %}
         {% set _ref = item|item_ref(items) %}
         {% if _ref is none %}{% set _rid = 'n' ~ loop.index0 %}{% else %}{% set _rid = _ref %}{% endif %}
@@ -114,6 +131,15 @@
           {% endif %}
           {% if _can_edit %}
           <td class="text-center">
+            {# Hidden do `defaults` DENTRO do `<td>`: solto no `<tr>` é HTML
+               inválido e o parser do navegador pode tirá-lo da tabela — e é ele
+               que leva o `tipo` da linha no POST. #}
+            {% for _dk, _dv in (child.get('defaults') or {}).items() %}
+            {% if _dk not in _postados %}
+            {% set _dv_row = item|deep_attr(_dk) if item is not none else _dv %}
+            <input type="hidden" name="{{ _prefix + _rid + '_' + _dk }}" value="{{ _dv_row if _dv_row is not none else _dv }}">
+            {% endif %}
+            {% endfor %}
             <button type="button" class="btn btn-outline btn-error btn-xs" onclick='confirmRemoveRow(this, {{ i18n.REMOVE_ITEM|tojson }})' title="{{ i18n.ROW_REMOVE }}">
               <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
             </button>
@@ -125,13 +151,19 @@
       {% if _can_edit or (child.table and child.table.total is mapping) or (child.query and child.query.total is mapping) %}
       <tfoot>
         {% if _can_edit %}
-        <tr id="{{ _rel }}RowTemplate" style="display:none" data-crow="__IDX__">
+        <tr id="{{ _tpl }}RowTemplate" style="display:none" data-crow="__IDX__">
           {% for f in _edit_fields %}
           {% set _dtw = ('min-width:calc(' ~ ((f.width or 12) + 5) ~ 'ch + 2.2rem);') if f.input in ('date', 'time', 'datetime-local') else '' %}
           <td{% if (f.align and f.align != 'left') or _dtw %} style="{% if f.align and f.align != 'left' %}text-align:{{ f.align }};{% endif %}{{ _dtw }}"{% endif %}>
             {% if f.readonly %}
-            {{ fm.render_label(f, none) }}
-            <input type="hidden" name="{{ _prefix + '__IDX__' + '_' + f.name }}" value="">
+            {# Campo somente leitura na linha nova: o hidden vai **dentro** do
+               `<span>`, e não ao lado dele. A célula precisa renderizar UM
+               elemento só — no mobile o `<td>`/`<th>` do ColumnTemplate cai no
+               parser (fora de tabela) e o `addChildRow` casa os elementos do
+               template com as linhas por posição; com dois elementos, tudo
+               depois da célula sai deslocado. O texto fica em `[data-readonly-text]`
+               para o `on_new` escrever sem apagar o hidden. #}
+            <span data-readonly-for="{{ f.name }}" data-readonly-mask="{{ f.mask or '' }}"><span data-readonly-text>—</span><input type="hidden" name="{{ _prefix + '__IDX__' + '_' + f.name }}" value=""></span>
             {% elif f.input == 'multi' %}
             {{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}
             {% elif f.input in ('checkbox', 'boolean', 'image') %}
@@ -151,6 +183,14 @@
           {{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}
           {% endfor %}
           <td class="text-center">
+            {# Hidden do `defaults` da linha nova (o mesmo do loop de linhas,
+               dentro do `<td>` — solto no `<tr>` o parser do navegador pode
+               tirá-lo da tabela, e é ele que leva o `tipo` no POST). #}
+            {% for _dk, _dv in (child.get('defaults') or {}).items() %}
+            {% if _dk not in _postados %}
+            <input type="hidden" name="{{ _prefix + '__IDX__' + '_' + _dk }}" value="{{ _dv }}">
+            {% endif %}
+            {% endfor %}
             <button type="button" class="btn btn-outline btn-error btn-xs" onclick='confirmRemoveRow(this, {{ i18n.REMOVE_ITEM|tojson }})' title="{{ i18n.ROW_REMOVE }}">
               <svg class="w-4 h-4" aria-hidden="true"><use href="#i-minus"/></svg>
             </button>
@@ -261,7 +301,7 @@
       {% endif %}
     </div>
     {% if _can_edit %}
-    <div id="{{ _rel }}ColumnTemplate" style="display:none">
+    <div id="{{ _tpl }}ColumnTemplate" style="display:none">
       <th class="itm-item" data-crow="__IDX__">
         <div class="itm-item-head">
           <span class="itm-item-num"># novo</span>
@@ -271,13 +311,21 @@
         </div>
       </th>
       {% for f in _edit_fields %}
-      <td class="itm-cell"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %} data-crow="__IDX__">{% if f.readonly %}<span>—</span><input type="hidden" name="{{ _prefix + '__IDX__' + '_' + f.name }}" value="">{% elif f.input == 'multi' %}{{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}{% else %}{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}{% endif %}</td>
+      <td class="itm-cell"{% if f.align and f.align != 'left' %} style="text-align:{{ f.align }}"{% endif %} data-crow="__IDX__">{% if f.readonly %}<span data-readonly-for="{{ f.name }}" data-readonly-mask="{{ f.mask or '' }}"><span data-readonly-text>—</span><input type="hidden" name="{{ _prefix + '__IDX__' + '_' + f.name }}" value=""></span>{% elif f.input == 'multi' %}{{ fm.render_multi_ctl(f, none, name_prefix=_prefix + '__IDX__' + '_') }}{% else %}{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}{% endif %}</td>
       {% endfor %}
       {% for f in _calc_fields %}
       <td class="itm-cell" data-crow="__IDX__"><span class="it-calc" data-crow="__IDX__" data-calc="{{ f.calc }}"{{ fm.fmt_attrs(f)|safe }}>—</span></td>
       {% endfor %}
       {% for f in _hidden_fields %}
       <td style="display:none">{{ fm.render_field(f, none, ro=false, name_prefix=_prefix + '__IDX__' + '_', show_label=false) }}</td>
+      {% endfor %}
+      {# Hidden do `defaults` na linha nova do mobile. Fica como filho direto do
+         `<div>` (válido, e sem `<td>` novo — que desalinaria a coluna das
+         linhas que já existem na tabela mobile). #}
+      {% for _dk, _dv in (child.get('defaults') or {}).items() %}
+      {% if _dk not in _postados %}
+      <input type="hidden" name="{{ _prefix + '__IDX__' + '_' + _dk }}" value="{{ _dv }}">
+      {% endif %}
       {% endfor %}
     </div>
     {% endif %}

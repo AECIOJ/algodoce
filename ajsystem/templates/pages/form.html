@@ -75,7 +75,19 @@
     <form method="POST" id="main-form" class="p-2 pb-3 w-full">
       {% if instance %}{% endif %}
 
-      {{ fm.render_fields(form._resolved_fields, data=instance, ro=ro, spacing=form.spacing, ro_fields=ro_fields|default(none)) }}
+      {# Botões do form em volta do bloco de campos:
+           before/after       → inline (mesma linha dos fields, antes do 1º /
+                                depois do último);
+           before_up/after_down → faixas em linha própria acima/abaixo dos fields.
+         Tudo dentro do `<form>` (render_session_button usa postTo, sem `<form>`
+         aninhado) — os `top_*`/`bottom_*` do form ficam nas barras, fora daqui. #}
+      {% set _form_pre = form._resolved_buttons | selectattr('position', 'equalto', 'before') | list %}
+      {% set _form_pos = form._resolved_buttons | selectattr('position', 'equalto', 'after') | list %}
+      {% set _form_head %}{% if _form_pre %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _form_pre %}{{ fm.render_session_button(btn, instance, dom_fields=form._resolved_fields) }}{% endfor %}</div>{% endif %}{% endset %}
+      {% set _form_tail %}{% if _form_pos %}<div class="flex items-center gap-2 self-start" style="margin-top:1.35rem;">{% for btn in _form_pos %}{{ fm.render_session_button(btn, instance, dom_fields=form._resolved_fields) }}{% endfor %}</div>{% endif %}{% endset %}
+      {{ fm.render_band(form._resolved_buttons | selectattr('position', 'equalto', 'before_up') | list, instance, dom_fields=form._resolved_fields, cls='mb-2') }}
+      {{ fm.render_fields(form._resolved_fields, data=instance, ro=ro, spacing=form.spacing, ro_fields=ro_fields|default(none), head=_form_head, tail=_form_tail) }}
+      {{ fm.render_band(form._resolved_buttons | selectattr('position', 'equalto', 'after_down') | list, instance, dom_fields=form._resolved_fields, cls='mt-2') }}
       {% if form._resolved_sessions %}{{ fm.render_sessions(form._resolved_sessions, data=instance, ro=ro, ro_fields=ro_fields|default(none), master_fields=form._resolved_fields) }}{% endif %}
     </form>
   </div>

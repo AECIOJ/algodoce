@@ -15,20 +15,22 @@ from ajsystem.core.utils import currency_symbol
 from ajsystem.defs.list import List, parse_list  # re-export (dataclass em `defs`)
 
 
+# Tipos de filtro que uma coluna pode receber — o vocabulário da prop `filter`
+# da PÁGINA (§5.6). `checklist` (multi-escolha) não existe como `filter_kind` de
+# input, por isso a tupla é própria e não a `FILTER_KINDS` do catálogo.
+FILTER_TYPES = ('text', 'boolean', 'date', 'number', 'select', 'checklist')
+
+
 def infer_filter_type(f: Field):
-    inf = f.pos_filter
-    if inf == 0 or inf == 9:
-        return None
-    if inf == 1:
-        # Filtro de texto renderiza o input como texto mesmo em data/número
-        # (é o usuário que digita), então `select` cai em 'text'.
-        kind = f.inp.filter_kind
-        return 'text' if kind == 'select' else kind
-    if inf == 2:
-        return 'boolean' if f.inp.boolean else 'select'
-    if inf == 3:
-        return 'checklist'
-    if f.inp.multi:
+    """Tipo de filtro inferido do field — o que vale quando a página não cita o
+    campo em `filter.types`.
+
+    Regra de motor: a chave derivada (`DK`) e os editores `multi`/`image` não
+    são eixo de filtro. Antes isso vinha de `pos_filter: 0` no catálogo de
+    tipos; agora o catálogo só declara o `input`, e a decisão de "não filtra"
+    é daqui.
+    """
+    if getattr(f, '_type', None) == 'DK' or f.inp.multi or f.input == 'image':
         return None
     # A ordem importa: `boolean`/`date`/`number` vencem `options` (um booleano
     # com `options` é checklist de filtro, não select), então o `filter_kind` do
@@ -62,7 +64,7 @@ def _lookup_filter_options(f: Field):
     `f.lookup` é o dict resolvido por `resolve_lookup` (inclui `target`,
     `display`, `value` e opcional `when`). O `when` filtra a lista — o valor
     selecionado é a CHAVE (`value`, normalmente `id`); o filtro aplica sobre a
-    coluna FK. `pos_filter: 1` força texto e `pos_filter: 0` retira do painel.
+    coluna FK. Quem tira o campo do painel é `filter.hidden` na página.
     """
     lk = getattr(f, 'lookup', None)
     if not isinstance(lk, dict):
@@ -218,8 +220,6 @@ def field_to_column(f: Field) -> dict:
     ft = infer_filter_type(f)
     if ft:
         col['filter'] = ft
-    elif f.pos_filter == 0:
-        col['filter'] = False
     fo = field_filter_options(f)
     if fo:
         col['filter_options'] = fo
@@ -289,7 +289,67 @@ def filter_modes() -> dict:
     }
 
 
-def build_filter_config(fields):
+def _filter_hits(pool, principal, spec, where, slot):
+    """Fields nomeados por uma spec de filtro, no idioma dos slots.
+
+    Reusa `slot_spec_items`/`_slot_match` de `core.resolve`, então `'campo'`,
+    `'Entidade.campo'`, lista e dict agrupado valem igual a `line`/`hidden`, e
+    um nome errado/ambíguo levanta erro nomeando as candidatas.
+    """
+    from ajsystem.core.resolve import slot_spec_items, _slot_match, _pool_entities
+    entities = _pool_entities(pool)
+    out = []
+    for ent, name in slot_spec_items(spec, slot, where):
+        out.extend(_slot_match(pool, entities, ent, name, slot, principal, where))
+    return out
+
+
+def _filter_one(pool, principal, key, where, slot):
+    hits = _filter_hits(pool, principal, [key], where, slot)
+    if len(hits) != 1:
+        raise ValueError(f"{where}.{slot}: {key!r} nomeia {len(hits)} campos — "
+                         "use um campo por valor")
+    return hits[0]
+
+
+def resolve_filter_spec(spec, pool, principal=None, where='list.filter'):
+    """Resolve a prop `filter` da listagem (§5.6) em `(hidden, fixed, default, types)`.
+
+      - `hidden`  — `Field` spec: campos fora do painel de filtros;
+      - `fixed`   — `{campo: valor}`: `WHERE` fixo (também fora do painel);
+      - `default` — `{campo: valor}`: filtro inicial, editável, que volta ao
+                    limpar os filtros;
+      - `types`   — `{campo: tipo}` derivado de `{tipo: campo|lista}`.
+
+    Nomes validados contra o `pool`: nada some em silêncio.
+    """
+    spec = spec or {}
+    if not isinstance(spec, dict):
+        raise TypeError(f"{where}: esperava dict; veio {type(spec).__name__}")
+    hidden = {f.name for f in _filter_hits(pool, principal, spec.get('hidden'),
+                                           where, 'hidden')}
+    fixed = {_filter_one(pool, principal, k, where, 'fixed').name: v
+             for k, v in (spec.get('fixed') or {}).items()}
+    default = {_filter_one(pool, principal, k, where, 'default').name: v
+               for k, v in (spec.get('default') or {}).items()}
+    types = {}
+    for tipo, fieldspec in (spec.get('types') or {}).items():
+        if tipo not in FILTER_TYPES:
+            raise ValueError(f"{where}.types: tipo {tipo!r} desconhecido — use "
+                             f"{', '.join(FILTER_TYPES)}")
+        for f in _filter_hits(pool, principal, fieldspec, where, f'types.{tipo}'):
+            types[f.name] = tipo
+    hidden |= set(fixed)
+    return hidden, fixed, default, types
+
+
+def build_filter_config(fields, hidden=(), types=None):
+    """Config do painel de filtros a partir dos fields da listagem.
+
+    `hidden` são os nomes fora do painel (`filter.hidden`/`filter.fixed`) e
+    `types` o override de tipo por nome (`filter.types`); sem override, o tipo
+    é inferido (`infer_filter_type`).
+    """
     if isinstance(fields, dict):
         if 'fields' in fields:
             field_list = _resolve_fieldset(fields)
@@ -300,7 +360,9 @@ def build_filter_config(fields):
 
     config = {}
     for f in field_list:
-        ftype = infer_filter_type(f)
+        if f.name in hidden:
+            continue
+        ftype = (types or {}).get(f.name) or infer_filter_type(f)
         if not ftype:
             continue
         cfg = {'type': ftype, 'modes': filter_modes().get(ftype, [])}

@@ -63,10 +63,10 @@ def _active_field(model):
 def _validate_show_fields(sc, model):
     """Valida que os campos de `show` existem na entidade/modelo."""
     cols = model_columns(model)
-    for campo, _pos in sc['show']:
-        if campo not in cols:
+    for field, _pos in sc['show']:
+        if field not in cols:
             raise ValueError(
-                f"SHOWCASE: campo {campo!r} de 'show' não existe em "
+                f"SHOWCASE: campo {field!r} de 'show' não existe em "
                 f"{model.__name__}"
             )
 
@@ -110,11 +110,11 @@ def resolve_showcase(mod):
     if not isinstance(fields_cfg, dict):
         fields_cfg = {}
 
-    def _is_image(campo):
-        cfg = fields_cfg.get(campo)
+    def _is_image(field):
+        cfg = fields_cfg.get(field)
         if isinstance(cfg, dict) and cfg.get('type') == 'IMAGE':
             return True
-        return campo in ('imagem', 'image')
+        return field in ('imagem', 'image')
 
     image_field = next(
         (c for c, _pos in sc['show'] if _is_image(c)), None
@@ -141,23 +141,23 @@ def resolve_showcase(mod):
     return sc
 
 
-def _map_produto(sc, produto, itens_qtd):
+def _product_map(sc, product, itens_qtd):
     """Mapeia um item da entidade p/ o dict consumido pela template.
 
     Chaves por posição (`title`, `left`, `right`, `qty`), `id`, `categoria`,
     `image_url` (quando houver imagem) e `fields` (campo → valor) para os
     demais layouts. `qty` vira o mínimo (default 1).
     """
-    d = {'id': produto.id, 'fields': {}}
+    d = {'id': product.id, 'fields': {}}
     d['categoria'] = (
-        getattr(produto, sc['category_field'], None)
+        getattr(product, sc['category_field'], None)
         if sc['category_field'] else None
     )
-    d['qtd_orcamento'] = itens_qtd.get(produto.id, '')
+    d['qtd_orcamento'] = itens_qtd.get(product.id, '')
     image_field = sc['image_field']
-    for campo, pos in sc['show']:
-        val = getattr(produto, campo, None)
-        d['fields'][campo] = val
+    for field, pos in sc['show']:
+        val = getattr(product, field, None)
+        d['fields'][field] = val
         if pos == 'qty':
             d['qty'] = int(val or 1)
         else:
@@ -219,7 +219,7 @@ def showcase_context(mod):
     identify_url = url_for(f'{bp}.identificar') if sc['client_fields'] else None
     return {
         'showcase': sc,
-        'produtos': [_map_produto(sc, p, itens_qtd) for p in produtos],
+        'produtos': [_product_map(sc, p, itens_qtd) for p in produtos],
         'categorias': [
             {'id': c.id, 'nome': getattr(c, 'nome', str(c.id))} for c in categorias
         ],
@@ -240,24 +240,24 @@ def make_add(sc):
     item_id = sc['item_id']
 
     def add(id):
-        produto = model.query.get_or_404(id)
+        product = model.query.get_or_404(id)
         data = request.get_json(silent=True) or {}
-        quantidade = int(data.get('quantidade', 1))
+        quantity = int(data.get('quantidade', 1))
         observacao = data.get('observacao', '')
 
         if sc['client_fields'] and not session.get(sc['client_session_key']):
             return jsonify(error='identifique-se'), 401
 
-        for campo, pos in sc['show']:
+        for field, pos in sc['show']:
             if pos == 'qty':
-                minima = int(getattr(produto, campo, None) or 1)
-                if quantidade < minima:
-                    titulo = next(
-                        (getattr(produto, c, None) for c, p in sc['show'] if p == 'title'),
+                minimum = int(getattr(product, field, None) or 1)
+                if quantity < minimum:
+                    title = next(
+                        (getattr(product, c, None) for c, p in sc['show'] if p == 'title'),
                         str(id),
                     )
                     return jsonify(
-                        error=f'A quantidade mínima para {titulo} é {minima} und.'
+                        error=f'A quantidade mínima para {title} é {minimum} und.'
                     ), 400
                 break
 
@@ -265,7 +265,7 @@ def make_add(sc):
         found = False
         for i in items:
             if i.get(item_id) == id:
-                i['quantidade'] += quantidade
+                i['quantidade'] += quantity
                 if observacao:
                     i['observacao'] = observacao
                 found = True
@@ -273,7 +273,7 @@ def make_add(sc):
         if not found:
             items.append({
                 item_id: id,
-                'quantidade': quantidade,
+                'quantidade': quantity,
                 'observacao': observacao or None,
             })
         session[sc['session_key']] = items
@@ -292,36 +292,36 @@ def make_update(sc):
     item_id = sc['item_id']
 
     def update(id):
-        produto = model.query.get_or_404(id)
+        product = model.query.get_or_404(id)
         data = request.get_json(silent=True) or {}
 
         min_field = next(
             (c for c, p in sc['show'] if p == 'qty'), None
         )
-        minima = int(getattr(produto, min_field, None) or 1) if min_field else 1
+        minimum = int(getattr(product, min_field, None) or 1) if min_field else 1
 
         if 'quantidade' in data:
             try:
-                quantidade = int(data['quantidade'])
+                quantity = int(data['quantidade'])
             except (TypeError, ValueError):
                 return jsonify(error=i18n.ERR_INVALID_QTY), 400
-            if quantidade < minima:
-                titulo = next(
-                    (getattr(produto, c, None) for c, p in sc['show'] if p == 'title'),
+            if quantity < minimum:
+                title = next(
+                    (getattr(product, c, None) for c, p in sc['show'] if p == 'title'),
                     str(id),
                 )
                 return jsonify(
-                    error=f'A quantidade mínima para {titulo} é {minima} und.'
+                    error=f'A quantidade mínima para {title} é {minimum} und.'
                 ), 400
         else:
-            quantidade = None
+            quantity = None
 
         observacao = data.get('observacao')
         items = session.get(sc['session_key'], [])
         for i in items:
             if i.get(item_id) == id:
-                if quantidade is not None:
-                    i['quantidade'] = quantidade
+                if quantity is not None:
+                    i['quantidade'] = quantity
                 if observacao is not None:
                     i['observacao'] = observacao.strip() or None
                 break

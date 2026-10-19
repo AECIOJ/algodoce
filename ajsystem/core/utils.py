@@ -22,7 +22,7 @@ from ajsystem.core.formats import (  # noqa: F401
 from ajsystem.defs.constants import CONNECTORS, CURRENCY, DEFAULT_CURRENCY  # noqa: F401
 
 
-def as_options(*itens, slug=True):
+def as_options(*items, slug=True):
     """Dict de opções {valor: rótulo} para fields `LIST` (varargs, sem `[]`).
 
     Cada item é um rótulo — a chave deriva do rótulo via `normalizar_slug`
@@ -31,7 +31,7 @@ def as_options(*itens, slug=True):
     `slug=False` usa o próprio rótulo como chave (identidade).
     """
     opts = {}
-    for item in itens:
+    for item in items:
         if isinstance(item, (tuple, list)):
             key, label = item
         else:
@@ -408,12 +408,12 @@ def item_ref(item, siblings):
     return '-'.join(str(v) for v in vals) if vals else None
 
 
-def preco_unit(valor, qtd):
-    if not valor:
+def preco_unit(value, qtd):
+    if not value:
         return 0
     if not qtd:
-        return float(valor)
-    return float(valor) / float(qtd)
+        return float(value)
+    return float(value) / float(qtd)
 
 
 def query_label(cfg, key):
@@ -426,12 +426,12 @@ def query_label(cfg, key):
     return _title_case(key) if key else ''
 
 
-def list_table(valores: dict):
+def list_table(values: dict):
     """Cria uma CTE SQL (colunas `codigo`/`descricao`) a partir de um dict
     de valores, para uso em joins de listas de referência."""
     from sqlalchemy import select, union_all, literal
     ctes = [
         select(literal(k).label('codigo'), literal(v).label('descricao'))
-        for k, v in valores.items()
+        for k, v in values.items()
     ]
     return union_all(*ctes).cte('list_table')

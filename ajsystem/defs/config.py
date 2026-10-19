@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 # Valor especial para `LayoutTitle.text`: resolve para `APP.title` no render.
-TEXTO_APP = 'app_title'
+APP_TEXT = 'app_title'
 
 
 @dataclass
@@ -101,11 +101,11 @@ class Version:
 
     def __post_init__(self):
         for chave in ('cycle', 'year', 'month', 'number'):
-            valor = getattr(self, chave)
-            if not isinstance(valor, int) or isinstance(valor, bool):
+            value = getattr(self, chave)
+            if not isinstance(value, int) or isinstance(value, bool):
                 raise ValueError(
                     f"APP['version']['{chave}'] deve ser int, veio "
-                    f"{valor!r}. Edite APP['version'] em app/config.py.")
+                    f"{value!r}. Edite APP['version'] em app/config.py.")
         if not 1 <= self.month <= 12:
             raise ValueError(
                 f"APP['version']['month'] deve ser 1–12, veio {self.month}.")

@@ -19,8 +19,13 @@
 #}
 {% macro _value_cell(item, col, img_h=60, img_js=true) %}
 {%- set _raw = item|deep_attr(col.card_path or col.field) -%}
+{# No `master`, `card_path` traz o campo do PAI (`trf.total`). Os ramos abaixo
+   leem `_raw` e saem; o do `calc` calculava com a LINHA (o filho), então um
+   campo calculado do pai recebia o objeto errado — `calc` de property estourava
+   e o de agregação voltava vazio. `_owner` é o dono do campo. #}
+{%- set _owner = item|deep_attr(col.card_path.rsplit('.', 1)[0]) if col.card_path and '.' in col.card_path else item -%}
 {%- if col.calc and not col.stored -%}
-{{ fm.render_value(calc_value(col.calc, item), col) }}
+{{ fm.render_value(calc_value(col.calc, _owner), col) }}
 {%- elif col.lookup and col.lookup.path -%}
 {% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}
 {%- elif col.options and _raw is not none -%}
@@ -45,14 +50,20 @@
 {% set edit_endpoint = LIST.edit_endpoint %}
 {% set edit_id_field = LIST.edit_id_field if LIST.edit_id_field is not none else 'id' %}
 {% set act_ch = 16 if edit_endpoint else 0 %}
-{% set has_card = LIST.linha is not none or (card_fields is not none and card_fields) or (detail_fields is not none and detail_data is not none) %}
-{% set default_adaptive = not has_card %}
+{# `has_card` é só "tem o que abrir embaixo da linha": card e/ou detalhe. A
+   largura da tela NÃO entra — o ajuste por largura (`fitListColumns`) roda em
+   toda listagem, e quem decide o que sai quando estreita é `LIST.line`. #}
+{% set has_card = (LIST.card_idx is not none) or (detail_fields is not none and detail_data is not none) %}
 {% set exp_ch = 3 %}
 {% set tot_ch = (cols | sum(attribute='width')) + act_ch + exp_ch %}
 {% set _mw = max_width if max_width else (tot_ch ~ 'ch') %}
-{% set card_cols = (card_fields | fields_to_columns) if card_fields else [] %}
 {% set cardonly_cols = (cardonly_fields | fields_to_columns) if cardonly_fields else [] %}
 {% set det_cols = (detail_fields | fields_to_columns) if detail_fields else [] %}
+{# `LIST.line_idx` são os índices, em `master_fields`, das colunas que a página
+   fixou em `line`. Vai por ÍNDICE e não por nome porque com `master` o mesmo
+   nome existe nas duas pontas (`id`, `historico`) — e o `Movimento.id` e o
+   `Transferencia.id` são dois `data-field="id"" na mesma tabela. #}
+{% set _pinned = LIST.line_idx if LIST.line_idx is not none else [] %}
 
 {% block head_extra %}
 {{ super() }}
@@ -117,13 +128,13 @@
   {% call tb.render_tab_panel(t) %}
     {% if t.type == 'List' %}
     <div class="page-list-inner">
-      <div class="list-table-wrap{% if default_adaptive %} adaptive{% endif %}{% if cardonly_cols %} has-cardonly{% endif %}">
+      <div class="list-table-wrap adaptive{% if cardonly_cols %} has-cardonly{% endif %}">
         <table class="table table-sm table-pin-rows sortable list-table" style="background:var(--fallback-b1, oklch(var(--b1)));">
           <thead>
             <tr>
               <th class="row-expand-col" style="width:{{ exp_ch }}ch;"></th>
               {% for col in cols %}
-              <th style="width:{{ col.width }}ch;{% if col.align is defined and col.align != 'left' %}text-align:{{ col.align }};{% endif %}{% if col.nowrap %}white-space:nowrap;{% endif %}" data-field="{{ col.field }}">{{ col.label }}</th>
+              <th{% if loop.index0 in _pinned %} data-pinned{% endif %} style="width:{{ col.width }}ch;{% if col.align is defined and col.align != 'left' %}text-align:{{ col.align }};{% endif %}{% if col.nowrap %}white-space:nowrap;{% endif %}" data-field="{{ col.field }}">{{ col.label }}</th>
               {% endfor %}
               {% if edit_endpoint %}<th class="col-actions" style="width:{{ act_ch }}ch;">{{ i18n.ACTIONS }}</th>{% endif %}
             </tr>
@@ -137,7 +148,10 @@
                 <span class="collapse-icon" data-expand-toggle="{{ _row_id }}" style="cursor:pointer;">▶</span>
               </td>
               {% for col in cols %}
-              {% if LIST.linha is none or loop.index0 in LIST.linha %}
+              {# Toda coluna da grade ganha `<td>`: quem some quando a tela
+                 estreita é decisão do `fitListColumns` (classe `col-hide`), não
+                 do servidor — era aqui que `<th>` e `<td>` saíam em contagens
+                 diferentes quando a prop `linha` estava declarada. #}
               <td{% if col.align is defined and col.align != 'left' %} style="text-align:{{ col.align }}"{% endif %}{% if col.nowrap %} class="whitespace-nowrap"{% endif %} data-field="{{ col.field }}">
                 {% set _raw = item|deep_attr(col.card_path or col.field) %}
                 {% if col.tag %}
@@ -149,7 +163,6 @@
                 {% else %}{{ _value_cell(item, col, img_h=60, img_js=true) }}
                 {% endif %}
               </td>
-              {% endif %}
               {% endfor %}
               {% if edit_endpoint %}
               <td class="col-actions">
@@ -165,10 +178,16 @@
               <td class="row-expand-col" style="width:0;overflow:hidden;padding:0;border-left:none;border-right:none;"></td>
               <td colspan="{{ cols|length + (1 if edit_endpoint else 0) }}" style="border-left:none;border-right:none;">
                 <div class="detail-overflow">
+                  {# Cópia das colunas da grade na linha expansória: o que o
+                     `fitListColumns` tira da grade tem que aparecer aqui, senão
+                     a coluna simplesmente some. Todas são candidatas —
+                     `of-dyn` é a classe que esconde as que couberam — exceto as
+                     pinadas em `line`, que nunca saem. Sem `line` declarado,
+                     nenhuma é pinada e todas ficam candidatas. #}
                   {% for col in cols %}
-                  {% if LIST.linha is none or loop.index0 not in LIST.linha %}
+                  {% if loop.index0 not in _pinned %}
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
-                  <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
+                  <div data-field="{{ col.field }}" class="overflow-field of-dyn{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
                     <div class="overflow-value">{{ _value_cell(item, col, img_h=40, img_js=true) }}
                     </div>
@@ -178,14 +197,6 @@
                   {% for col in cardonly_cols %}
                   {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field card-only{% if col.input == 'textarea' %} memo{% endif %}">
-                    <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{{ _value_cell(item, col, img_h=40, img_js=true) }}
-                    </div>
-                  </div>
-                  {% endfor %}
-                  {% for col in card_cols %}
-                  {% set _raw = item|deep_attr(col.card_path or col.field) %}
-                  <div data-field="{{ col.field }}" class="overflow-field{% if default_adaptive %} of-dyn{% endif %}{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
                     <div class="overflow-value">{{ _value_cell(item, col, img_h=40, img_js=true) }}
                     </div>
@@ -435,7 +446,6 @@ document.addEventListener('DOMContentLoaded', function () {
   {% endif %}
 });
 
-{% if default_adaptive %}
 function fitListColumns() {
   var isMobile = window.innerWidth <= 991.98;
   document.querySelectorAll('table.list-table').forEach(function (table) {
@@ -449,12 +459,30 @@ function fitListColumns() {
     var hasActions = ths[ths.length - 1].textContent.trim() === 'Ações';
     var actionIdx = hasActions ? ths.length - 1 : -1;
     var expandIdx = 0;
+
+    // `data-pinned` no `<th>` = a página fixou a coluna em `line`. São as que
+    // NUNCA saem: o `keepIdx` nasce delas, e só o resto disputa a largura que
+    // sobrar. Sem nenhuma pinada, vale a prioridade antiga — a primeira coluna
+    // de dados fica sempre. Vai por atributo e não por nome porque com `master`
+    // a mesma tabela tem dois `data-field="id"`.
+    var pinned = [];
+    ths.forEach(function (th, idx) {
+      if (idx === expandIdx || idx === actionIdx) return;
+      if (th.hasAttribute('data-pinned')) pinned.push(idx);
+    });
     var idIdx = null;
-    for (var i = 1; i < ths.length; i++) {
-      if (i === actionIdx) continue;
-      idIdx = i;
-      break;
+    if (!pinned.length) {
+      for (var i = 1; i < ths.length; i++) {
+        if (i === actionIdx) continue;
+        idIdx = i;
+        break;
+      }
     }
+    // Nunca-sai: as de `line`, mais o trio estrutural (expandir e ações; e a
+    // primeira coluna quando não há `line`). É o que o laço de aperto nunca tira.
+    var fixedIdx = pinned.slice();
+    if (actionIdx >= 0) fixedIdx.push(actionIdx);
+    if (idIdx !== null) fixedIdx.push(idIdx);
 
     function applyKeep(keepIdx) {
       var hiddenFields = [];
@@ -493,11 +521,19 @@ function fitListColumns() {
     var widths = ths.map(function (th) { return th.offsetWidth; });
     var keepIdx = [expandIdx];
     var used = (widths[expandIdx] || 0);
-    if (actionIdx >= 0) { keepIdx.push(actionIdx); used += widths[actionIdx] || 0; }
-    if (idIdx !== null) { keepIdx.push(idIdx); used += widths[idIdx] || 0; }
+    // As de `line` entram primeiro e por inteiro: são a afirmação da página de
+    // "isto fica visível". Se nem elas cabem, o laço de aperto abaixo é quem
+    // decide — mas nunca com o resto stealing a largura delas.
+    pinned.forEach(function (idx) {
+      if (keepIdx.indexOf(idx) !== -1) return;
+      keepIdx.push(idx);
+      used += widths[idx] || 0;
+    });
+    if (actionIdx >= 0 && keepIdx.indexOf(actionIdx) === -1) { keepIdx.push(actionIdx); used += widths[actionIdx] || 0; }
+    if (idIdx !== null && keepIdx.indexOf(idIdx) === -1) { keepIdx.push(idIdx); used += widths[idIdx] || 0; }
 
     for (var k = expandIdx + 1; k < ths.length; k++) {
-      if (k === actionIdx || k === idIdx) continue;
+      if (keepIdx.indexOf(k) !== -1) continue;
       if (used + (widths[k] || 0) <= avail) {
         keepIdx.push(k);
         used += widths[k] || 0;
@@ -512,8 +548,7 @@ function fitListColumns() {
       guard++;
       var drop = -1;
       for (var j = keepIdx.length - 1; j >= 0; j--) {
-        var idx = keepIdx[j];
-        if (idx !== expandIdx && idx !== actionIdx && idx !== idIdx) { drop = j; break; }
+        if (fixedIdx.indexOf(keepIdx[j]) === -1) { drop = j; break; }
       }
       if (drop === -1) break;
       keepIdx.splice(drop, 1);
@@ -532,6 +567,5 @@ document.addEventListener('DOMContentLoaded', function () {
   {% endif %}
   window.addEventListener('resize', function () { clearTimeout(window._fitListT); window._fitListT = setTimeout(fitListColumns, 150); });
 });
-{% endif %}
 </script>
 {% endblock %}

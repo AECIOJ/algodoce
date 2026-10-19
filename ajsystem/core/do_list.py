@@ -15,8 +15,9 @@ from ajsystem.defs.data import (
 )
 from ajsystem.core.list import (
     List, build_filter_config, build_field_context, resolve_column_configs,
-    fields_to_columns, _resolve_model,
+    fields_to_columns, _resolve_model, resolve_filter_spec,
 )
+from ajsystem.core.resolve import resolve_slots
 from ajsystem.core.filters import resolve_filters
 from ajsystem.core.utils import module_blueprint
 
@@ -59,16 +60,31 @@ def list_max_width(entity_name: str, module_name: str) -> str:
     page = module_page(mod)
     lista = page_list_cfg(page)
     bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
-    model = _resolve_model(entity_name)
-    merged = resolve_entity_fields(schema, model, entity_name)
-    fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged, inputs=_camadas_inputs(module_name))
-    if not any(f._pos_managed for f in fields):
-        line_fields = list(fields)
-    else:
-        fields = [f for f in fields if f.pos_list != 0]
-        line_fields = [f for f in fields if f.pos_list == 1] or fields
+    _ent, _model, _merged, pool, _fonte = _list_pool(lista, schema, module_name,
+                                                     entity_name)
+    line_fields = resolve_slots(lista, pool, _fonte['pool_entity'])['line']
     edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
     return resolve_max_width(lista.get('max_width')) or _total_ch(line_fields, edit_endpoint)
+
+
+def list_fixed_filters(entity_name: str, module_name: str, model=None):
+    """Filtros fixos (`list.filter.fixed`) da listagem do módulo, resolvidos
+    contra `model` (o form usa o próprio). Mesmo pool de `list_max_width`: a
+    spec é validada contra a listagem, e não se lê `default` de field nenhum.
+
+    Guarda de escopo do form (`core.do_form`): abrir um registro que não casa
+    com o WHERE fixo da listagem (ex.: um `tipo` errado em `pagar`) é recusado.
+    """
+    mod = importlib.import_module(module_name)
+    schema = getattr(mod, 'Schema', None) or {}
+    page = module_page(mod)
+    lista = page_list_cfg(page)
+    _ent, _model, _merged, pool, _fonte = _list_pool(lista, schema, module_name,
+                                                     entity_name)
+    _hidden, fixed, _default, _types = resolve_filter_spec(
+        lista.get('filter') or {}, pool, _fonte['pool_entity'])
+    from ajsystem.core.filters import fixed_filters as _ff
+    return _ff(fixed, model or _model)
 
 
 def build_tabs(page: dict):
@@ -170,45 +186,116 @@ def _inversion_order_precedence(child_model, principal_model, name):
     return 2
 
 
-def _card_layer(card_spec, merged, row_entity):
-    """Prop `card` do list → camada de config para `resolve_entity_fields`.
+def _pool_entity(lista, entity_name):
+    """A entidade que `columns` nomeia, ou `None`.
 
-    A camada entra entre Entity e Schema (`{**Entity, **card, **Schema}`): marca
-    `pos_list: 2` (card) nos campos citados; o Schema por cima vence sempre.
-    Formatos aceitos (mesma família de `fields`/`columns`):
-      - `'Entity'`            → todos os campos da entidade
-      - `['f1', 'Ent.f2']`    → nomes simples (entidade das linhas) ou com prefixo
-      - `{'Entity': ['f1']}`  → agrupado por entidade
-    Retorna `{entidade: {campo: cfg}}` (vazio se a prop não existir).
+    É a que um nome CRU de slot resolve: `columns: 'Transferencia'` numa lista
+    invertida (`master: 'Movimento'`) significa que a lista é sobre a
+    Transferência, então `hidden: ['documento']` é o dela — mesmo tendo
+    `documento` nas duas pontas. Só `columns` string conta: `fields` é alias
+    legado e pode ser lista, e `columns` lista/`query` não nomeia entidade
+    alguma.
     """
-    if not card_spec:
-        return {}
-    out = {}
+    return entity_name if isinstance(lista.get('columns'), str) else None
 
-    def _push(entity, name):
-        if name:
-            out.setdefault(entity, {})[name] = {'pos_list': 2}
 
-    if isinstance(card_spec, str):
-        for name in merged.get(card_spec, {}) or {}:
-            _push(card_spec, name)
-    elif isinstance(card_spec, list):
-        for item in card_spec:
-            if not isinstance(item, str):
-                continue
-            if '.' in item:
-                ent, name = item.split('.', 1)
-                _push(ent, name)
-            else:
-                _push(row_entity, item)
-    elif isinstance(card_spec, dict):
-        for ent, names in card_spec.items():
-            if isinstance(names, list):
-                for name in names:
-                    _push(ent, name)
-            else:
-                _push(row_entity, ent)
-    return {k: v for k, v in out.items() if v}
+def _list_pool(lista, schema, module_name, entity_name):
+    """POOL — os fields que a listagem considera, antes dos slots.
+
+    `columns` é quem decide **quem existe** na listagem (entidade = expansão,
+    lista = autoritativa, query dict = fonte do `qrun`; com `master`, as duas
+    entidades da inversão); os slots `line`/`card`/`hidden` só distribuem o que
+    está aqui. Cada field sai com `_entity` preenchido — é contra isso que um nome
+    de slot é resolvido, e é por isso que este é o construtor **único** do pool:
+    `list_max_width` (o `do_form` pede a largura da listagem da rota) monta o
+    mesmo pool que a listagem, master incluído.
+
+    `fonte['pool_entity']` é a entidade que `columns` nomeia (a que um nome cru
+    de slot resolve) — `None` quando `columns` é lista ou fonte `query`.
+    `fonte['master']` é o nome da entidade da linha na inversão, quando há.
+
+    Devolve `(entity_name, model, merged, pool, fonte)`; `fonte` traz também o
+    que a fonte `query` acrescenta (`is_query`/`colspec`/`colorder`), para o
+    chamador não ter que reparsear `columns`.
+    """
+    from ajsystem.defs.qspec import is_query_dict as _is_q
+    _colspec = lista.get('columns', lista.get('fields', entity_name))
+    # Forma enxuta fonte+ordem: query dict como item da lista; as strings dão
+    # recorte/ordem autoritativos. No máximo uma query por lista.
+    _colorder = None
+    if isinstance(_colspec, list):
+        _qs = [it for it in _colspec if _is_q(it)]
+        if len(_qs) > 1:
+            raise ValueError("list: no máximo uma query em columns (multi-fonte é fase futura)")
+        if _qs:
+            _colspec = _qs[0]
+            _colorder = []
+            for it in lista.get('columns'):
+                if _is_q(it):
+                    continue
+                if not isinstance(it, str):
+                    raise ValueError(f"list: com query, item deve ser str (campo), veio {type(it).__name__}")
+                _colorder.append(it)
+    _is_query = _is_q(_colspec)
+    if _is_query and isinstance(_colspec.get('from'), str):
+        entity_name = _colspec['from']
+    inputs = _camadas_inputs(module_name)
+    master_name = lista.get('master') or None
+
+    if master_name:
+        # Inversão: as linhas são do filho (`master`), a entidade da rota é o
+        # pai. As duas entram no pool, filho primeiro (que é a ordem das colunas).
+        parent_model = _resolve_model(entity_name)
+        model = _resolve_model(master_name)
+        merged = {
+            entity_name: resolve_entity_fields(schema, parent_model, entity_name),
+            master_name: resolve_entity_fields(schema, model, master_name),
+        }
+
+        def _tagged(ent):
+            cfgs = resolve_column_configs(merged, ent, principal=merged, inputs=inputs)
+            for f in cfgs:
+                f._entity = ent
+            return cfgs
+
+        if isinstance(_colspec, str) and _colspec == entity_name:
+            pool = _tagged(master_name) + _tagged(entity_name)
+        else:
+            pool = resolve_column_configs(merged, _colspec, principal=merged,
+                                          inputs=inputs)
+        return entity_name, model, merged, pool, {
+            'is_query': False, 'colspec': _colspec, 'colorder': None,
+            'pool_entity': _pool_entity(lista, entity_name), 'master': master_name,
+            'parent_model': parent_model,
+        }
+
+    model = _resolve_model(entity_name)
+    # RS/RE — camadas Schema e Entity sobre os fields da entidade, via
+    # `core.resolve.apply_field_layers` (Schema vence conflitos).
+    merged = resolve_entity_fields(schema, model, entity_name)
+    if _is_query:
+        from ajsystem.defs.qspec import parse_select as _ps
+        from ajsystem.core.resolve import query_select_layer as _rq
+        _qentries = list(_ps(_colspec.get('select')))
+        # RQ — camada da fonte query sobre a Entity/Schema (query vence,
+        # destilando `calc` quando a query computa; label/width/align da query).
+        _merged_q = _rq(_qentries, merged)
+        shown = [e.name for e in _qentries]
+        if _colorder:
+            _sel = {e.name for e in _qentries}
+            for _fn in _colorder:
+                if _fn not in _sel:
+                    raise ValueError(f"list: field '{_fn}' não está no select da query")
+            shown = list(_colorder)
+        pool = resolve_column_configs(_merged_q, shown, principal=_merged_q, inputs=inputs)
+    else:
+        pool = resolve_column_configs(merged, _colspec, principal=merged, inputs=inputs)
+    for f in pool:
+        f._entity = entity_name
+    return entity_name, model, merged, pool, {
+        'is_query': _is_query, 'colspec': _colspec, 'colorder': _colorder,
+        'pool_entity': _pool_entity(lista, entity_name), 'master': None,
+    }
 
 
 def _camadas_botoes(module_name):
@@ -221,13 +308,13 @@ def _camadas_botoes(module_name):
     """
     from ajsystem.defs.buttons import module_buttons
     botoes = current_app.extensions.get('botoes')
-    pagina = {}
+    page = {}
     if module_name:
         try:
-            pagina = module_buttons(importlib.import_module(module_name))
+            page = module_buttons(importlib.import_module(module_name))
         except ImportError:
-            pagina = {}
-    return botoes, pagina
+            page = {}
+    return botoes, page
 
 
 def _camadas_inputs(module_name):
@@ -241,13 +328,13 @@ def _camadas_inputs(module_name):
     """
     from ajsystem.defs.inputs import module_inputs
     inputs = current_app.extensions.get('inputs')
-    pagina = {}
+    page = {}
     if module_name:
         try:
-            pagina = module_inputs(importlib.import_module(module_name))
+            page = module_inputs(importlib.import_module(module_name))
         except ImportError:
-            pagina = {}
-    return inputs, pagina
+            page = {}
+    return inputs, page
 
 
 def do_list(entity_name: str, module_name: str, data=None, **extra):
@@ -270,84 +357,18 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     lista = page_list_cfg(page)
     bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
 
-    from ajsystem.defs.qspec import is_query_dict as _is_q
-    _colspec = lista.get('columns', lista.get('fields', entity_name))
-    # Forma enxuta fonte+ordem: query dict como item da lista; as strings dão
-    # recorte/ordem autoritativos. No máximo uma query por lista.
-    _colorder = None
-    if isinstance(_colspec, list):
-        _qs = [it for it in _colspec if _is_q(it)]
-        if len(_qs) > 1:
-            raise ValueError("list: no máximo uma query em columns (multi-fonte é fase futura)")
-        if _qs:
-            _colspec = _qs[0]
-            _colorder = []
-            for it in lista.get('columns'):
-                if _is_q(it):
-                    continue
-                if not isinstance(it, str):
-                    raise ValueError(f"list: com query, item deve ser str (campo), veio {type(it).__name__}")
-                _colorder.append(it)
-    _is_query = _is_q(_colspec)
-    if _is_query:
-        _from = _colspec.get('from')
-        if isinstance(_from, str):
-            entity_name = _from
-        # field_id: ausente = só-leitura; declarado = tem que estar no select e ser pk
-        _fid = lista.get('field_id', lista.get('edit_id_field'))
-        if 'field_id' not in lista and 'edit_id_field' not in lista:
-            _fid = None
-    model = _resolve_model(entity_name)
-    # RS/RE — camadas Schema (e `card`) e Entity sobre os fields da entidade,
-    # via `core.resolve.apply_field_layers` (Schema vence conflitos).
-    merged = resolve_entity_fields(schema, model, entity_name)
-    card_layer = _card_layer(lista.get('card'), {entity_name: merged}, entity_name)
-    if card_layer:
-        merged = resolve_entity_fields(schema, model, entity_name, card_layer)
-
-    if _is_query:
-        from ajsystem.defs.qspec import parse_select as _ps
-        from ajsystem.core.resolve import query_select_layer as _rq
-        _qentries = list(_ps(_colspec.get('select')))
-        # RQ — camada da fonte query sobre a Entity/Schema (query vence,
-        # destilando `calc` quando a query computa; label/width/align da query).
-        _merged_q = _rq(_qentries, merged, schema.get(entity_name, {}) or {})
-        _shown = [e.name for e in _qentries]
-        if _colorder:
-            _sel = {e.name for e in _qentries}
-            for _fn in _colorder:
-                if _fn not in _sel:
-                    raise ValueError(f"list: field '{_fn}' não está no select da query")
-            _shown = list(_colorder)
-            fields = resolve_column_configs(_merged_q, _shown, principal=_merged_q, inputs=_camadas_inputs(module_name))
-        else:
-            fields = resolve_column_configs(_merged_q, _shown, principal=_merged_q, inputs=_camadas_inputs(module_name))
-            fields = [f for f in fields if f.pos_list != 0]
-    else:
-        fields = resolve_column_configs(merged, lista.get('columns', lista.get('fields', entity_name)), principal=merged, inputs=_camadas_inputs(module_name))
-    fields_all = list(fields)
-    if not any(f._pos_managed for f in fields):
-        # lista explícita de campos → autoritativa (pos_list não filtra)
-        line_fields = list(fields)
-        cardonly_fields = []
-    else:
-        fields = [f for f in fields if f.pos_list != 0]
-        line_fields = [f for f in fields if f.pos_list == 1]
-        cardonly_fields = [f for f in fields if f.pos_list == 2]
-        if not line_fields:
-            line_fields, cardonly_fields = fields, []
-
-    card_fields = None
+    # POOL (quem existe) → SLOTS (onde cada um vai). Ver `_list_pool`.
+    entity_name, model, merged, pool, fonte = _list_pool(lista, schema,
+                                                         module_name, entity_name)
+    _is_query, _colspec = fonte['is_query'], fonte['colspec']
+    slots = resolve_slots(lista, pool, fonte['pool_entity'])
+    line_fields, cardonly_fields = slots['line'], slots['card']
 
     all_fields = line_fields + cardonly_fields
     stored_cols = {c.name for c in model.__table__.columns}
     for f in all_fields:
         f.stored = f.name in stored_cols
     fields_master = list(range(1, len(line_fields) + 1))
-
-    linha_names = lista.get('linha') or []
-    linha_names = [n.split('.', 1)[-1] for n in linha_names]
-    linha_indices = [i for i, f in enumerate(line_fields) if f.name in linha_names] if linha_names else None
 
     if _is_query:
         _fid = lista.get('field_id', lista.get('edit_id_field'))
@@ -380,7 +401,9 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         edit_endpoint=edit_endpoint,
         edit_id_field=(lista.get('field_id', lista.get('edit_id_field', 'id')) if _is_query and edit_endpoint else lista.get('edit_id_field', 'id')),
         template=lista.get('template'),
-        linha=linha_indices,
+        line_idx=([i for i, f in enumerate(line_fields)
+                  if id(f) in {id(p) for p in slots['pinned']}]
+                 if slots['pinned'] else None),
         card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1))
                   if len(all_fields) > len(line_fields) else None),
         buttons=lista.get('buttons'),
@@ -410,7 +433,11 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
         list_obj.detail_data = detail_data
 
-    filter_config = build_filter_config(list_obj.fields)
+    _filt_spec = lista.get('filter') or {}
+    _f_hidden, _f_fixed, _f_default, _f_types = resolve_filter_spec(
+        _filt_spec, pool, fonte['pool_entity']
+    )
+    filter_config = build_filter_config(list_obj.fields, hidden=_f_hidden, types=_f_types)
 
     # Campo de impressão com escolha ativo (marcador `_r`): o parâmetro que o
     # relatório injetou na URL não deve virar filtro da listagem, senão o filtro
@@ -420,10 +447,10 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     rid = request.args.get('_r')
     _print_field = _drp._print_field_of(rid) if rid else None
     _fargs = {k: v for k, v in request.args.items(multi=True) if k != _print_field}
-    initial_filters, active = resolve_filters(filter_config, _fargs)
+    initial_filters, active = resolve_filters(filter_config, _fargs, defaults=_f_default)
 
     from ajsystem.core.filters import fixed_filters as _fixed_filters
-    _fixed = _fixed_filters(fields_all, model)
+    _fixed = _fixed_filters(_f_fixed, model)
 
     def _base_query():
         q = model.query
@@ -503,14 +530,13 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         FILTERS=filter_config,
         page_scripts=page_scripts(page),
         ctx=ctx,
-        title=title,
+        titulo=title,
         new_url=new_url,
         new_label=new_label,
         max_width=(resolve_max_width(lista.get('max_width'))
                   or _list_default_max_width(list_obj)),
         detail_fields=detail_fields,
         detail_data=detail_data,
-        card_fields=card_fields,
         cardonly_fields=cardonly_fields,
         buttons=buttons,
         auto_report=auto_report,
@@ -523,11 +549,11 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
 
     As linhas passam a ser os registros do filho (`master`); a entidade da
     rota (`entity_name`) é o pai alcançado por relação. Regras da inversão:
-      - colunas: começam pelos campos da entidade `master` (pos_list), seguidas
-        dos campos do pai;
+      - colunas: começam pelos campos da entidade `master`, seguidas dos campos
+        do pai (é o pool que os slots `line`/`card`/`hidden` distribuem);
       - ordenação: campos da entidade `master` primeiro, depois os do pai
         (requer `JOIN` com o pai para alcançar as colunas dele);
-      - filtros continuam pelos campos em pos_list (resolvendo colunas do pai
+      - filtros continuam pelos fields do pool (resolvendo colunas do pai
         pela relação).
     """
     mod = importlib.import_module(module_name)
@@ -538,49 +564,15 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
 
     master_name = lista.get('master') or None
-    principal_model = _resolve_model(entity_name)
-    child_model = _resolve_model(master_name)
-    model = child_model
-    _merged0 = {
-        entity_name: resolve_entity_fields(schema, principal_model, entity_name),
-        master_name: resolve_entity_fields(schema, child_model, master_name),
-    }
-    card_layer = _card_layer(lista.get('card'), _merged0, master_name)
-    if card_layer:
-        merged = {
-            entity_name: resolve_entity_fields(schema, principal_model, entity_name, card_layer),
-            master_name: resolve_entity_fields(schema, child_model, master_name, card_layer),
-        }
-    else:
-        merged = _merged0
+    # POOL (filho primeiro, depois o pai) + merged das duas — mesmo caminho do
+    # `do_list_normal`, para que `list_max_width` (que só o pai) e a listagem
+    # resolvam exatamente o mesmo conjunto de fields.
+    entity_name, model, merged, pool, fonte = _list_pool(lista, schema,
+                                                         module_name, entity_name)
+    principal_model = fonte['parent_model']
 
-    spec = lista.get('columns', lista.get('fields', entity_name))
-
-    def _resolve_tagged(entity_key):
-        cfgs = resolve_column_configs(merged, entity_key, principal=merged, inputs=_camadas_inputs(module_name))
-        for f in cfgs:
-            f._entity = entity_key
-        return cfgs
-
-    if isinstance(spec, str) and spec == entity_name:
-        # colunas master primeiro: todos os campos da entidade `master`
-        # (pos_list), seguidos dos campos do pai.
-        fields = _resolve_tagged(master_name) + _resolve_tagged(entity_name)
-    else:
-        fields = resolve_column_configs(merged, spec, principal=merged, inputs=_camadas_inputs(module_name))
-    fields_all = list(fields)
-    if not any(f._pos_managed for f in fields):
-        # lista explícita de campos → autoritativa (pos_list não filtra)
-        line_fields = list(fields)
-        cardonly_fields = []
-    else:
-        fields = [f for f in fields if f.pos_list != 0]
-        line_fields = [f for f in fields if f.pos_list == 1]
-        cardonly_fields = [f for f in fields if f.pos_list == 2]
-        if not line_fields:
-            line_fields, cardonly_fields = fields, []
-
-    card_fields = None
+    slots = resolve_slots(lista, pool, fonte['pool_entity'])
+    line_fields, cardonly_fields = slots['line'], slots['card']
 
     all_fields = line_fields + cardonly_fields
     stored_cols = {c.name for c in model.__table__.columns}
@@ -597,10 +589,6 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
             f.card_path = f'{parent_rel}.{f.name}'
             if f.lookup and isinstance(f.lookup, dict) and f.lookup.get('path'):
                 f.lookup['path'] = f'{parent_rel}.{f.lookup["path"]}'
-
-    linha_names = lista.get('linha') or []
-    linha_names = [n.split('.', 1)[-1] for n in linha_names]
-    linha_indices = [i for i, f in enumerate(line_fields) if f.name in linha_names] if linha_names else None
 
     edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
 
@@ -619,7 +607,9 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         edit_endpoint=edit_endpoint,
         edit_id_field=lista.get('edit_id_field', f'{parent_rel}.id' if parent_rel else 'id'),
         template=lista.get('template'),
-        linha=linha_indices,
+        line_idx=([i for i, f in enumerate(line_fields)
+                  if id(f) in {id(p) for p in slots['pinned']}]
+                 if slots['pinned'] else None),
         card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1))
                   if len(all_fields) > len(line_fields) else None),
         buttons=lista.get('buttons'),
@@ -649,7 +639,11 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
             detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
         list_obj.detail_data = detail_data
 
-    filter_config = build_filter_config(list_obj.fields)
+    _filt_spec = lista.get('filter') or {}
+    _f_hidden, _f_fixed, _f_default, _f_types = resolve_filter_spec(
+        _filt_spec, pool, fonte['pool_entity']
+    )
+    filter_config = build_filter_config(list_obj.fields, hidden=_f_hidden, types=_f_types)
 
     # Campo de impressão com escolha ativo (marcador `_r`): o parâmetro que o
     # relatório injetou na URL não deve virar filtro da listagem, senão o filtro
@@ -659,11 +653,11 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     rid = request.args.get('_r')
     _print_field = _drp._print_field_of(rid) if rid else None
     _fargs = {k: v for k, v in request.args.items(multi=True) if k != _print_field}
-    initial_filters, active = resolve_filters(filter_config, _fargs)
+    initial_filters, active = resolve_filters(filter_config, _fargs, defaults=_f_default)
 
     from ajsystem.core.filters import fixed_filters as _fixed_filters
     _inversion_resolver = lambda m, n: _inversion_order_attr(lista, merged, m, n)
-    _fixed = _fixed_filters(fields_all, model, _inversion_resolver)
+    _fixed = _fixed_filters(_f_fixed, model, _inversion_resolver)
     _parent_rel = _inversion_parent_rel(lista, merged, model)
 
     def _base_query():
@@ -746,14 +740,13 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         FILTERS=filter_config,
         page_scripts=page_scripts(page),
         ctx=ctx,
-        title=title,
+        titulo=title,
         new_url=new_url,
         new_label=new_label,
         max_width=(resolve_max_width(lista.get('max_width'))
                   or _list_default_max_width(list_obj)),
         detail_fields=detail_fields,
         detail_data=detail_data,
-        card_fields=card_fields,
         cardonly_fields=cardonly_fields,
         buttons=buttons,
         auto_report=auto_report,

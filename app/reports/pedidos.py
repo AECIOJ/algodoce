@@ -11,8 +11,8 @@ PEDIDO = {
             ('Status: {status}', {'when': 'status > 0'}),
         ]),
         LF(1),
-        CPI(10,'C'),
-        TABS(1, 25),
+        CPI(15),
+        TABS(1, 40),
         TABS('{conta_id}', '{pedido_em}'),
         TABS('{Conta.telefone}', '{data_previsao_entrega}'),
         LF(3)
@@ -48,4 +48,6 @@ PEDIDO = {
             ]
         },
     },
+    'footer': True,
+
 }

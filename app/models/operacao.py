@@ -21,8 +21,7 @@ class Operacao(db.Model):
 
 Entity = {
     'id':     {'type': 'ID', 'width': 6},
-    # Sem 'calc': o índice ('1.01.001') vem montado da query (QPLANO via
-    # over+calc, passo único). A entrada segue dando label/largura.
+
     'indice': {'type': 'TEXT', 'label': 'Índice', 'width': 6},
     'nome':   {'type': 'TEXT', 'width': 25, 'mask': '@T'},
     'tipo':   {'type': 'LIST', 'width': 12, 'options': TIPO_OPERACAO},
@@ -30,5 +29,5 @@ Entity = {
     'pai_id': {'type': 'FK', 'label': 'Superior', 'width': 30,
                'lookup': {'display': 'nome', 'when': {'pai_id': None}}},
     'ordem':  {'type': 'INT', 'width': 8},
-    'ativa':  {'type': 'BOOL', 'input': 'toggle', 'width': 8, 'pos_form': 3},
+    'ativa':  {'type': 'BOOL', 'input': 'toggle', 'width': 8},
 }

@@ -31,8 +31,8 @@ from ajsystem.defs.buttons import BTN_FIRST, BTN_LAST, BTN_NEXT, BTN_PREVIOUS
 # (sem `nav` o destino é '#'), já "Anterior"/"Próximo" viram `btn_off` no
 # registro que não tem vizinho. O destino é resolvido AQUI, e não no template,
 # para o `url_for` deixar de ser um detalhe de markup que só o teste de render
-# pega: `_nav_grupos` é testável sem HTML.
-_NAV_GRUPOS = (
+# pega: `_nav_groups` é testável sem HTML.
+_NAV_GROUPS = (
     ('anterior', (('first', 'first_id', False), ('previous', 'prev_id', True))),
     ('proximo', (('next', 'next_id', True), ('last', 'last_id', False))),
 )
@@ -43,7 +43,7 @@ _NAV_PRESETS = {
 }
 
 
-def _nav_grupos(nav, edit_endpoint):
+def _nav_groups(nav, edit_endpoint):
     """Os 2 grupos da navegação de registro, com o destino já resolvido.
 
     Devolve `{'anterior': [...], 'proximo': [...]}`, onde cada item é
@@ -56,8 +56,8 @@ def _nav_grupos(nav, edit_endpoint):
         return {'btn': _NAV_PRESETS[tipo], 'url': _destino,
                 'on': not (opcional and not _id)}
 
-    return {nome: [_um(tipo, attr, opcional) for tipo, attr, opcional in itens]
-            for nome, itens in _NAV_GRUPOS}
+    return {nome: [_um(tipo, attr, opcional) for tipo, attr, opcional in items]
+            for nome, items in _NAV_GROUPS}
 
 
 def _calc_virtual(f):
@@ -88,7 +88,7 @@ def _save_single_sessions(form, instance):
         fields = session.get('fields') or []
         editable = [f for f in fields
                     if getattr(f, '_pos_managed', True) is False
-                    or getattr(f, 'pos_form', None) not in (0, 3)]
+                    or getattr(f, '_slot', 'body') not in ('hidden', 'bar')]
         if not editable:
             continue
         prefix = 'child_' + attr + '_'
@@ -117,7 +117,7 @@ def _save_session_masters(form, instance, old_vals, is_new):
     sem child — ex.: `sessions.Financeiro.fields=['total','carteira_id']`).
 
     Lista explícita → autoritativa: o campo é renderizado/editado acima da
-    tabela child (mesmo com `pos_form: 0` na Schema). Validação igual à do
+    tabela child, no slot que a sessão declarar (`body`). Validação igual à do
     loop principal.
     """
     fields_ok = True
@@ -152,6 +152,44 @@ def _save_session_masters(form, instance, old_vals, is_new):
 _CROW_RE = re.compile(r'^(n-?\d+|\d+)_(.+)$')
 
 
+def _session_matches(row, defaults):
+    """True quando a linha casa com o `defaults` da sessão."""
+    return all(getattr(row, k, None) == v for k, v in defaults.items())
+
+
+def _posted_matches(fmap, defaults, by_input):
+    """A linha NOVA é desta sessão? O `defaults` dela chega no POST (o hidden da
+    linha nova); campo que não chega é do próprio carimbo, e não desqualifica."""
+    for campo, valor in defaults.items():
+        key = fmap.get(campo)
+        if key is None:
+            continue
+        raw = request.form.get(key)
+        if raw == str(valor):
+            continue
+        f = by_input.get(campo)
+        if f is not None and _coerce(raw, f) == valor:
+            continue
+        return False
+    return True
+
+
+def _session_rows(session, instance):
+    """`defaults` da sessão: de quem é cada linha.
+
+    Duas sessões podem mirar o mesmo relationship (ex.: Transferência com
+    "Entradas"/"Saídas" sobre `movtos`): `defaults` é o que separa as linhas de
+    cada uma. O render mostra só as que batem, e `_save_table_sessions` ignora
+    as demais no save (sem salvá-las e sem excluí-las).
+    """
+    defaults = session.get('defaults') or {}
+    if not defaults:
+        return
+    rel = session.get('attr') or session.get('name', '').lower()
+    rows = list(getattr(instance, rel, None) or [])
+    session['_rows'] = [r for r in rows if _session_matches(r, defaults)]
+
+
 def _save_table_sessions(form, instance):
     """Persiste sessões criança 1:N em tabela (ex. Itens do Pedido/Orçamento).
 
@@ -171,6 +209,7 @@ def _save_table_sessions(form, instance):
         rel = session.get('attr') or session.get('name', '')
         if not rel:
             continue
+        defaults = session.get('defaults') or {}
         prefix = 'child_' + rel + '_'
         rows = {}
         rendered = False
@@ -212,6 +251,8 @@ def _save_table_sessions(form, instance):
         is_composite = len(pk_names) > 1
         for crow, fmap in rows.items():
             if crow.startswith('n'):
+                if defaults and not _posted_matches(fmap, defaults, by_input):
+                    continue  # linha nova de outra sessão (`defaults`)
                 child = model()
                 if dk_name:
                     setattr(child, dk_name, instance.id)
@@ -238,6 +279,8 @@ def _save_table_sessions(form, instance):
                     continue
                 if dk_name and getattr(child, dk_name, None) != instance.id:
                     continue  # não pertence a este pai
+                if defaults and not _session_matches(child, defaults):
+                    continue  # linha de outra sessão (`defaults`): não é minha
                 posted_ids.add(cid)
                 posted_crows.add(str(crow))
                 is_new_row = False
@@ -256,6 +299,11 @@ def _save_table_sessions(form, instance):
                     vals[f.name] = False
             if is_new_row and all(is_empty(v) for v in vals.values()):
                 continue  # linha adicionada mas não preenchida
+            # `defaults` carimba o que a sessão possui — incondicional: a sessão é dona
+            # do campo, então o que veio no POST não passa por cima. Antes do
+            # check de `required`, senão a linha nova nasceria sem ele.
+            for k, v in defaults.items():
+                vals[k] = v
             for f in savable:
                 if f.name in vals and f.required and is_empty(vals[f.name]):
                     flash(i18n.MSG_FIELD_REQUIRED.format(field=f.label or f.name), 'warning')
@@ -280,6 +328,10 @@ def _save_table_sessions(form, instance):
                 getattr(model, dk_name) == instance.id).all()
         else:
             existing = list(getattr(instance, rel, []) or [])
+        if defaults:
+            # A exclusão é por sessão: sem o filtro, a sessão "Entradas"
+            # apagaria as linhas de "Saídas" por não estarem no seu POST.
+            existing = [c for c in existing if _session_matches(c, defaults)]
         if is_composite:
             from ajsystem.core.utils import item_ref
             for child in existing:
@@ -302,9 +354,12 @@ def _build_session_groups(session, instance):
     Sessão `query` com `groups` renderiza como tabela readonly agrupada: os
     itens do relacionamento (`attr`) são agrupados pelo campo, na ordem das
     options da Entity. Preenche `session['groups']` (subtotais por grupo) e
-    `session['totals']` (total geral) para o macro `item_table_grouped`."""
+    `session['totals']` (total geral) para o macro `item_table_grouped`.
+
+    Também resolve `defaults`, que particiona as linhas da sessão."""
     if instance is None or not isinstance(session, dict):
         return
+    _session_rows(session, instance)
     q = session.get('query')
     if not isinstance(q, dict) or not q.get('groups'):
         return
@@ -400,7 +455,7 @@ def _build_lookup(form, extra_lookup=None, instance=None):
     return lookup
 
 
-def _valores_diferem(a, b):
+def _values_differ(a, b):
     """True se dois valores de campo diferem em magnitude, normalizando
     None → 0 e trigger type para alinhar int/Decimal de status e somas."""
     try:
@@ -409,20 +464,22 @@ def _valores_diferem(a, b):
         return a != b
 
 
-def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
+def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None,
+            fixed_filters=None):
     """GET: renderiza o form (novo/editar). POST: valida, salva e redireciona.
 
     `list_max_width`: largura da listagem do mesmo módulo (consumida quando
-    `form.max_width` não é declarado), passada por `core.auto._form`."""
+    `form.max_width` não é declarado), passada por `core.auto._form`.
+    `fixed_filters`: `[(coluna, valor)]` de `list.filter.fixed`, também do
+    `_form` — guarda de escopo (abrir registro fora do WHERE fixo é recusado)."""
     instance = instance or (form._model.query.get(id) if id is not None else None)
     is_new = instance is None
     ro = _is_readonly(form, instance)
-    footer_fields = [f for f in _flat_fields(form) if getattr(f, 'pos_form', 1) == 5]
+    footer_fields = [f for f in _flat_fields(form) if getattr(f, '_slot', 'body') == 'footer']
     if request.method != "POST":
         form.resolve_query_sessions(instance)
 
-    from ajsystem.core.filters import fixed_filters as _fixed_filters
-    _fixed = _fixed_filters(form._resolved_fields, form._model)
+    _fixed = fixed_filters or []
     if instance is not None and _fixed:
         for _mf, _v in _fixed:
             _attr = getattr(_mf, 'key', None) or getattr(_mf, 'name', None)
@@ -466,8 +523,8 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
             if not isinstance(calc, dict) or not calc.get('diff'):
                 continue
             gravado = getattr(instance, f.name, None)
-            calculado = calc_value(calc, instance)
-            if _valores_diferem(gravado, calculado):
+            calculated = calc_value(calc, instance)
+            if _values_differ(gravado, calculated):
                 flash(calc['diff'], 'warning')
                 form._inconsistent = True
 
@@ -482,12 +539,22 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
         old_vals = {}
         fields_ok = True
         for f in _flat_fields(form):
-            if getattr(f, '_pos_managed', True) and f.pos_form != 1 and f.pos_form != 5:
+            # O SLOT é o predicado de escrita: `body` e `footer` gravam, os
+            # outros não. `hidden` porque o campo não existe na tela, `bar`
+            # porque é tag/toggle — o form não tem input editável para nenhum
+            # dos dois, e mandar o que veio do POST gravaria NULL onde o campo
+            # é derivado. O `_pos_managed` NÃO é consultado: numa lista
+            # explícita de `fields` ele deixa de mandar na ORDEM, mas o slot
+            # continua dizendo o que é gravável.
+            _slot = getattr(f, '_slot', 'body')
+            if _slot != 'body' and _slot != 'footer':
                 continue
-            if ro and f.pos_form != 5:
+            if ro and _slot != 'footer':
                 continue
             if _calc_virtual(f):
                 continue
+            if getattr(f, 'memory', False):
+                continue  # campo só de memória: renderiza/editável, não persiste
             if f.inp.upload:
                 continue
             if f.inp.multi:
@@ -570,7 +637,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
     _resolved_tags = []
     if instance:
         for f in _flat_fields(form):
-            if not getattr(f, 'tag', None) or f.pos_form != 3:
+            if not getattr(f, 'tag', None) or getattr(f, '_slot', 'body') != 'bar':
                 continue
             _val = (calc_value(f.calc, instance)
                     if getattr(f, 'calc', None) else None)
@@ -592,7 +659,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None):
     # `back_url` é o do host quando a sessão mestre/detalhe passa um.
     _edit_endpoint = (extra_ctx or {}).get('edit_endpoint') or (
         form._redirect.rsplit('.', 1)[0] + '.form')
-    form._nav = _nav_grupos(nav, _edit_endpoint)
+    form._nav = _nav_groups(nav, _edit_endpoint)
     form._back_url = (extra_ctx or {}).get('back_url') or url_for(form._redirect)
 
     ctx = dict(

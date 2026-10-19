@@ -42,7 +42,7 @@ from ajsystem.defs.themes import DEFAULT_TEMAS
 FRAMEWORK = Path(__file__).resolve().parent.parent  # <host>/app/ajsystem
 HOST = FRAMEWORK.parent.parent                      # raiz do host (app/, tailwind.daisyui.json, package.json)
 FRAMEWORK_JSON = FRAMEWORK / "tailwind.daisyui.framework.json"
-GRUPOS = ("marca", "neutras", "feedback", "apoio")
+GROUPS = ("marca", "neutras", "feedback", "apoio")
 DERIVADOS = (("base-200", 0.08), ("base-300", 0.22))
 CONTEUDOS = {
     "primary": "primary-content",
@@ -101,24 +101,24 @@ def _carregar_config(caminho):
 
 def _tema_daisyui(cfg):
     tema = {}
-    for grupo in GRUPOS:
-        for chave, valor in (cfg.get(grupo) or {}).items():
-            if valor:
-                tema[chave] = valor
+    for group in GROUPS:
+        for chave, value in (cfg.get(group) or {}).items():
+            if value:
+                tema[chave] = value
 
     base = tema.get("base-100")
-    texto = tema.get("base-content")
-    if base and texto:
+    text = tema.get("base-content")
+    if base and text:
         for chave, t in DERIVADOS:
-            tema.setdefault(chave, _mix(base, texto, t))
-        tema.setdefault("neutral", _mix(texto, BRANCO, 0.35))
+            tema.setdefault(chave, _mix(base, text, t))
+        tema.setdefault("neutral", _mix(text, BRANCO, 0.35))
 
     for cor, token in CONTEUDOS.items():
         if cor in tema:
             tema.setdefault(token, _conteudo(tema[cor]))
 
-    if texto:
-        tema["--fallback-bc"] = texto
+    if text:
+        tema["--fallback-bc"] = text
     return tema
 
 

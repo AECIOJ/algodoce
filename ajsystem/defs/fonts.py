@@ -338,7 +338,7 @@ def register(pdf, name):
     # esse logger, e volta ao normal na saída.
     import logging
     _log = logging.getLogger('fontTools.subset')
-    _antes = _log.level
+    _before = _log.level
     _log.setLevel(logging.ERROR)
     try:
         for style, path in info['faces'].items():
@@ -348,5 +348,5 @@ def register(pdf, name):
             if name + style not in pdf.fonts:
                 pdf.add_font(name, style, str(path))
     finally:
-        _log.setLevel(_antes)
+        _log.setLevel(_before)
     return info

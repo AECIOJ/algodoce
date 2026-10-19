@@ -12,10 +12,58 @@ from sqlalchemy import Integer as _Integer
 from sqlalchemy import extract
 
 
-def resolve_filters(config, request_args):
-    """Gera (initial_filters, active_filters) a partir do config e query args."""
+def _active_from_args(ftype, name, request_args):
+    """Valor ativo de um filtro a partir dos query args, ou `None` se ausente."""
+    av = request_args.get(name)
+    if av not in (None, ''):
+        if ftype == 'checklist':
+            # checklist: comma-separated string → list para Alpine x-model
+            if isinstance(av, str):
+                return [v.strip() for v in av.split(',') if v.strip() != '']
+            if isinstance(av, (list, tuple)):
+                return [str(v) for v in av if str(v).strip() != '']
+            return [str(av)]
+        return av
+    if ftype == 'number':
+        v1 = request_args.get(f'{name}_val1')
+        if v1 in (None, ''):
+            return None
+        return {'mode': request_args.get(f'{name}_mode', 'igual'),
+                'val1': v1, 'val2': request_args.get(f'{name}_val2') or ''}
+    if ftype == 'date':
+        preset = request_args.get(f'{name}_preset')
+        if not preset:
+            return None
+        entry = {'preset': preset}
+        for k in ('from', 'to', 'mes', 'ano'):
+            v = request_args.get(f'{name}_{k}')
+            if v:
+                entry[k] = v
+        return entry
+    if ftype == 'text':
+        value = request_args.get(f'{name}_value')
+        if value in (None, ''):
+            return None
+        return {'mode': request_args.get(f'{name}_mode', 'contains'), 'value': value}
+    return None
+
+
+def resolve_filters(config, request_args, defaults=None):
+    """Gera (initial_filters, active_filters) a partir do config e query args.
+
+    `defaults` é o `filter.default` da página (`{campo: valor}`): quando o
+    argumento não vem na URL, o valor vira o inicial **e** o ativo — então o
+    filtro nasce aplicado, o usuário pode editar e, ao limpar, ele volta.
+    O campo tem que estar no painel (`config`); um nome fora dele é erro.
+    """
+    defaults = defaults or {}
     initial = {}
     active = {}
+    for name in defaults:
+        if name not in config:
+            raise ValueError(
+                f"filter.default: campo {name!r} não está no painel de filtros "
+                "— só colunas filtráveis aceitam um valor inicial")
     for name, cfg in config.items():
         ftype = cfg.get('type')
         if ftype == 'checklist':
@@ -29,44 +77,12 @@ def resolve_filters(config, request_args):
         else:
             initial[name] = {'mode': 'contains', 'value': ''}
 
-        av = request_args.get(name)
-        if av not in (None, ''):
-            if ftype == 'checklist':
-                # checklist: comma-separated string → list para Alpine x-model
-                if isinstance(av, str):
-                    active[name] = [v.strip() for v in av.split(',') if v.strip() != '']
-                elif isinstance(av, (list, tuple)):
-                    active[name] = [str(v) for v in av if str(v).strip() != '']
-                else:
-                    active[name] = [str(av)]
-            elif ftype in ('boolean', 'select'):
-                active[name] = av
-            else:
-                active[name] = av
-            continue
-        if ftype == 'number':
-            v1 = request_args.get(f'{name}_val1')
-            v2 = request_args.get(f'{name}_val2')
-            mode = request_args.get(f'{name}_mode', 'igual')
-            if v1 in (None, ''):
-                continue
-            entry = {'mode': mode, 'val1': v1, 'val2': v2 or ''}
-            if v1 is not None and v1 != '':
-                active[name] = entry
-        elif ftype == 'date':
-            preset = request_args.get(f'{name}_preset')
-            if preset:
-                entry = {'preset': preset}
-                for k in ('from', 'to', 'mes', 'ano'):
-                    v = request_args.get(f'{name}_{k}')
-                    if v:
-                        entry[k] = v
-                active[name] = entry
-        elif ftype == 'text':
-            value = request_args.get(f'{name}_value')
-            mode = request_args.get(f'{name}_mode', 'contains')
-            if value not in (None, ''):
-                active[name] = {'mode': mode, 'value': value}
+        val = _active_from_args(ftype, name, request_args)
+        if val is not None:
+            active[name] = val
+        elif name in defaults:
+            initial[name] = defaults[name]
+            active[name] = defaults[name]
     return initial, active
 
 
@@ -111,26 +127,23 @@ def _key(value):
     return value
 
 
-def fixed_filters(fields, model, attr_resolver=None):
-    """Filtros fixos (`pos_filter == 9`)... Se `attr_resolver` é dado (inversão
-    `master`), atravessa a relação para campos do pai (ex.: `tipo` no `pagar`
-    invertido); senão usa `getattr` direto — comportamento original intacto."""
-    _resolve = attr_resolver if attr_resolver is not None else (lambda m, f: getattr(m, f, None))
-    """Filtros fixos (`pos_filter == 9`): lista `[(campo_model, valor)]`.
+def fixed_filters(spec, model, attr_resolver=None):
+    """Filtros fixos da listagem (`filter.fixed`) → `[(coluna_model, valor)]`.
 
-    Valor = `default` do field (chamado se callable); `None` → ignora.
-    Campo ausente no model → ignora. Semântica de igualdade (AND com os
-    filtros do usuário); não aparece no painel.
+    `spec` é o `{campo: valor}` declarado na PÁGINA (`Page.props.list`). Se
+    `attr_resolver` é dado (inversão `master`), atravessa a relação para campos
+    do pai (ex.: `tipo` no `pagar` invertido); senão usa `getattr` direto.
+    Valor callable é chamado; `None` ignora o campo, campo ausente no model
+    também. Semântica de igualdade (AND com os filtros do usuário); o campo não
+    aparece no painel.
     """
+    _resolve = attr_resolver if attr_resolver is not None else (lambda m, f: getattr(m, f, None))
     out = []
-    for f in fields or []:
-        if getattr(f, 'pos_filter', None) != 9:
-            continue
-        default = getattr(f, 'default', None)
-        value = default() if callable(default) else default
+    for name, value in (spec or {}).items():
+        value = value() if callable(value) else value
         if value is None:
             continue
-        mf = _resolve(model, getattr(f, 'name', None))
+        mf = _resolve(model, name)
         if mf is None:
             continue
         out.append((mf, _key(value)))

@@ -116,7 +116,7 @@ def do_page(mod):
             abort(404)
         _call_on_show(spec, ctx)
         return render_template(
-            'pages/cart.html', page=spec, module_name=mod.__name__, **ctx,
+            'pages/cart.html', pagina=spec, module_name=mod.__name__, **ctx,
         )
 
     # Vitrine declarativa (Page type='showcase')
@@ -126,7 +126,7 @@ def do_page(mod):
             abort(404)
         _call_on_show(spec, ctx)
         return render_template(
-            'pages/showcase.html', page=spec, module_name=mod.__name__, **ctx,
+            'pages/showcase.html', pagina=spec, module_name=mod.__name__, **ctx,
         )
 
     # Contacts (Page type='contacts')
@@ -134,7 +134,7 @@ def do_page(mod):
         ctx = {'contacts': props}
         _call_on_show(spec, ctx)
         return render_template(
-            'pages/contacts.html', page=spec, module_name=mod.__name__, **ctx,
+            'pages/contacts.html', pagina=spec, module_name=mod.__name__, **ctx,
         )
 
     # Custom (default)
@@ -151,7 +151,7 @@ def do_page(mod):
         ctx = {}
         _call_on_show(spec, ctx)
         return render_template(
-            'pages/markdown.html', content=content, page=spec, module_name=mod.__name__, **ctx,
+            'pages/markdown.html', content=content, pagina=spec, module_name=mod.__name__, **ctx,
         )
 
     if ttype == 'html':
@@ -167,6 +167,6 @@ def do_page(mod):
             if isinstance(extra, dict):
                 ctx.update(extra)
         _call_on_show(spec, ctx)
-        return render_template(tfile, page=spec, module_name=mod.__name__, **ctx)
+        return render_template(tfile, pagina=spec, module_name=mod.__name__, **ctx)
 
     abort(404)

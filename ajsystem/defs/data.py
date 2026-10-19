@@ -38,8 +38,8 @@ FIELD_TYPES = {
     'NUM':       {'input': 'number', 'align': 'right', 'width': 10, 'decimals': 2},
     'PERCENT':   {'input': 'number', 'align': 'right', 'width': 6, 'decimals': 1, 'min': 0, 'max': 100, 'percent': True},
     'PK':        {'input': 'number', 'label': '#'},
-    'ID':        {'input': 'number', 'pos_form': 0, 'label': '#'},
-    'DK':        {'input': 'number', 'pos_form': 0, 'pos_filter': 0},
+    'ID':        {'input': 'number', 'label': '#'},
+    'DK':        {'input': 'number'},
     'FK':        {'input': 'select'},
     'DATA':      {'input': 'date'},
     'DATA_HORA': {'input': 'datetime-local'},
@@ -49,8 +49,8 @@ FIELD_TYPES = {
     'CPF':       {'input': 'cpf'},
     'CNPJ':      {'input': 'cnpj'},
     'LIST':      {'input': 'select'},
-    'MULT10':    {'input': 'multi', 'pos_filter': 0},
-    'IMAGE':     {'input': 'image', 'pos_filter': 0, 'required': False},
+    'MULT10':    {'input': 'multi'},
+    'IMAGE':     {'input': 'image', 'required': False},
 }
 
 # `required` é sempre opt-in: declarado na Entity/Schema via 'required': True.
@@ -172,9 +172,6 @@ class Field:
     disabled: bool = False
     readonly: bool = False
     hidden: bool = False
-    pos_form: Union[int, dict] = 1  # int ou dict {pos:int, when:cond} (exclusivamente via Schema)
-    pos_list: int = 1
-    pos_filter: Optional[int] = None
     default: Any = None
     rows: int = 1
     lookup: Any = None         # complemento de escolha/exibição (dict | Lookup | True)
@@ -187,42 +184,23 @@ class Field:
     tag: Any = None
     memory: bool = False  # campo apenas de memória: renderiza/editável, mas nunca persiste e não entra em expansão automática
 
-    # interno: condição `when` de `pos_form` dict (None | dict | callable | str)
-    _pos_form_when: Any = None
+    # interno: onde o campo cai na tela (`bar`/`footer`/`body`/`hidden` na
+    # listagem; `line`/`card`/`body`/`hidden` no form e nas sessões). Posto por
+    # `core.resolve.apply_positions`, que é quem conhece a tela.
+    _slot: str = 'body'
+    # interno: condição de visibilidade declarada em `visible`
+    # (None | dict | callable | str). Avaliada por `is_visible_by_pos`.
+    _visible_when: Any = None
+    # interno: o `type` de origem (`ID`, `DK`, `FK`, ...), preservado porque a
+    # regra de motor da chave o consulta (`ID`/`DK` = campo de sistema, fora do
+    # form). `FIELD_TYPES` aplica os defaults mas descarta o próprio `type`.
+    _type: Optional[str] = None
 
     # interno: camadas do host (app, rota) + o `Input` resolvido. Ver `inp`.
     _input_camadas: tuple = ()
     _input_def: Optional[Input] = None
 
     def __post_init__(self):
-        # pos_form pode ser dict {pos, when} para visibilidade condicional exclusivamente via Schema
-        if isinstance(self.pos_form, dict):
-            d = self.pos_form
-            self._pos_form_when = d.get('when')
-            # pos pode ser int, True/False
-            pos = d.get('pos', 1)
-            if pos is True:
-                pos = 1
-            elif pos is False:
-                pos = 0
-            self.pos_form = pos
-        if self.pos_filter is True:
-            self.pos_filter = 1
-        elif self.pos_filter is False:
-            self.pos_filter = 0
-        if self.pos_filter == 9:
-            # filtro fixo: gerenciado pelo motor — fora do corpo, da lista
-            # e do painel (a força vence declaração explícita)
-            self.pos_form = 0
-            self.pos_list = 0
-        if self.pos_form is True:
-            self.pos_form = 1
-        elif self.pos_form is False:
-            self.pos_form = 0
-        if self.pos_list is True:
-            self.pos_list = 1
-        elif self.pos_list is False:
-            self.pos_list = 0
         if self.tag is not None:
             from ajsystem.defs.tags import parse_tag
             self.tag = parse_tag(self.tag)
@@ -230,10 +208,6 @@ class Field:
         # `parse_tag` acima: a entrada de um `Input` é o `Field`, não o template.
         self._input_def = resolve_input(self.input, self.input_props,
                                         *self._input_camadas)
-        if self._input_def.slot == 'bar' and self.pos_form != 3:
-            raise ValueError(
-                f"FIELD '{self.name}': input {self.input!r} é de barra — "
-                f"declare 'pos_form': 3.")
         # Máscara (exibição): explícita (Entity/Schema/Query) > catálogo do input
         # (cpf/cnpj/telefone/data/hora) > default numérico de `decimals` (o
         # separador de milhar é aplicado na renderização). `Field` vence o input.
@@ -310,8 +284,8 @@ class Field:
         return self.width
 
     def _eval_pos_when(self, fv, data) -> bool:
-        """Avalia `when` de `pos_form` dict. Retorna True se deve exibir."""
-        when = getattr(self, '_pos_form_when', None)
+        """Avalia a condição declarada em `visible`. True se deve exibir."""
+        when = getattr(self, '_visible_when', None)
         if when is None:
             return True
         if isinstance(when, dict):
@@ -362,22 +336,15 @@ class Field:
                 return is_empty(fv)
         return True
 
-    def is_visible_by_pos(self, fv, data, is_explicit: bool) -> bool:
-        """Visibilidade por `pos_form` + `when` para uso em `render_fields`.
+    def is_visible_by_pos(self, fv, data, is_explicit: bool = False) -> bool:
+        """Visibilidade condicional do campo — o que `visible` declarou.
 
-        - `pos_form 0` em expansão (`_pos_managed=True`) → oculto (field_body False)
-        - `pos_form 0` em lista explícita (`is_explicit=True`) → visível só se `when` permitir (default: `not_empty`)
-        - `pos_form dict {pos, when}` → avalia `when` (ex.: `POS_0_NOT_EMPTY`)
+        Sem `visible`, o campo aparece: quem decide o que existe é o slot
+        (`hidden` tira o campo inteiro da tela), e a condição é a segunda
+        pergunta, independente da posição.
         """
-        # pos_form dict com when: avalia condição
-        if getattr(self, '_pos_form_when', None) is not None:
+        if getattr(self, '_visible_when', None) is not None:
             return self._eval_pos_when(fv, data)
-        # pos_form 0 explícito com tag: historicamente escondia quando vazio via tag patch
-        # agora o `when` acima cobre; fallback para compat: se pos 0 explícito e tag e vazio → esconde
-        # (mantido para campos legados sem `when` mas com tag)
-        if self.pos_form == 0 and is_explicit and self.tag is not None:
-            if is_empty(fv):
-                return False
         return True
 
 
@@ -396,6 +363,7 @@ def build_field_config(name: str, cfg: dict) -> dict:
         defaults = {k: v for k, v in defaults.items() if k != 'required'}
     props = {**defaults, **cfg, 'name': name}
     props.pop('type', None)
+    props['_type'] = field_type
 
     if 'label' not in props:
         props['label'] = _auto_label(name)
@@ -450,7 +418,7 @@ _FIELD_KEYS = (
 )
 
 
-def validate_field_config(cfg: dict, where: str, campo: str) -> None:
+def validate_field_config(cfg: dict, where: str, field: str) -> None:
     """Valida as chaves de um campo contra as props do dataclass `Field`.
 
     Fonte da verdade = o dataclass `Field` (adicionar/mudar uma prop o reflete
@@ -461,12 +429,12 @@ def validate_field_config(cfg: dict, where: str, campo: str) -> None:
     """
     if not isinstance(cfg, dict):
         raise FieldConfigError(
-            f"Config de '{campo}' em {where} deve ser um dict, veio {type(cfg).__name__}"
+            f"Config de '{field}' em {where} deve ser um dict, veio {type(cfg).__name__}"
         )
     for k in cfg:
         if k not in _FIELD_KEYS:
             raise FieldConfigError(
-                f"Chave '{k}' não é válida em {where} ('{campo}'). "
+                f"Chave '{k}' não é válida em {where} ('{field}'). "
                 f"Chaves aceitas: {sorted(_FIELD_KEYS)}"
             )
 
@@ -734,6 +702,37 @@ def page_entity_name(page: dict, default: str = '') -> str:
                 if isinstance(item, str):
                     return item.split('.', 1)[0]
     return default
+
+
+def grupos_memoria(schema: dict) -> dict:
+    """Blocos de **memória** declarados no Schema: chave em MAIÚSCULAS cujo
+    valor é um dict de configs.
+
+        Schema = {
+            'Transferencia': {...},
+            # chave em MAIÚSCULAS = bloco que não persiste
+            'MEMORY': {'valor': {'type': 'NUM', ...}, 'de': {...}},
+        }
+
+    Não é uma entidade: não tem model nem coluna, é só um namespace para campos
+    que existem **na tela** (atalho de digitação, campo de apoio de um cálculo
+    no cliente). Por isso cada campo do grupo nasce `memory=True` — que é a
+    regra declarada em `Field.memory`: renderiza/editável, nunca persiste e não
+    entra na expansão automática (form/list/filtro), só onde for citado.
+
+    O nome da chave é livre (é namespace). O que define é ser MAIÚSCULA e ter
+    dict de configs: `'Transferencia'`/`'Movimento'` são entidades.
+    """
+    out = {}
+    for nome, cfg in (schema or {}).items():
+        if not (isinstance(nome, str) and nome.isupper()):
+            continue
+        if not isinstance(cfg, dict) or not cfg:
+            continue
+        if not all(isinstance(v, dict) for v in cfg.values()):
+            continue  # não é bloco de campos: e.g. config solta em maiúsculas
+        out[nome] = {campo: {**fcfg, 'memory': True} for campo, fcfg in cfg.items()}
+    return out
 
 
 def resolve_entity_fields(schema: dict, model_cls, entity_name: str, layer=None) -> dict:

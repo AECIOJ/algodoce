@@ -28,8 +28,6 @@ class Produto(db.Model):
 
     @property
     def preco(self):
-        """Preço por unidade: o `valor` corresponde à quantidade `qtd_minima`.
-        Campo virtual (derivado) usado como fonte para o item de orçamento."""
         return divide(self.valor, self.qtd_minima)
 
 
@@ -43,9 +41,7 @@ Entity = {
     'preco':       {'type': 'NUM', 'label': 'Preço',
                     'mask': MVALOR, 'calc': 'divide(valor, qtd_minima)'},
     'categoria_id': {'type': 'FK', 'label': 'Categoria', 'width': 12},
-    # `pos_form: 3` = barra do form (o `slot: 'bar'` do input `toggle`), e o
-    # `Field` cobra o par: input de barra sem pos_form 3 não sobe.
-    'ativo':       {'type': 'BOOL', 'input': 'toggle', 'pos_form': 3},
+    'ativo':       {'type': 'BOOL', 'input': 'toggle'},
     'imagem':      {'type': 'IMAGE'},
     'descricao':   {'type': 'MEMO', 'label': 'Descrição', 'rows': 4},
 }

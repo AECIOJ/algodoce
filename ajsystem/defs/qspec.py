@@ -11,10 +11,15 @@ select aceita por campo (estrutura espelha o Field):
   'alias': {agg, field}                   -> agregado GROUP BY (fora de over)
   'alias': {func, over={...}}             -> janela (func explícito, over nunca vazio)
   'alias': {over={agg, field, ...}}       -> agregado em janela
-  'alias': {calc, pos_list, label, ...}   -> montado pós-over + apresentação
+  'alias': {calc, label, width, ...}      -> montado pós-over + apresentação
 
 Ordem do select = ordem de exibição. Avaliação independe dela: overs (e
 aggs) antes dos calcs; calc referencia coluna ou over/agg, nunca outro calc.
+
+A entrada NÃO posiciona campo: se algo é coluna, card ou oculto é a página,
+nos slots `line`/`card`/`hidden` de `Page.props.list` (`core.resolve.
+resolve_slots`). Um `select` compartilhado entre listagem e report é lido
+pelos dois sem que nenhum dos dois precise saber do display do outro.
 """
 from dataclasses import dataclass, field as dc_field
 from typing import Any, Optional
@@ -113,14 +118,15 @@ class OverSpec:
 @dataclass
 class SelectEntry:
     # Estrutura espelha o Field: dado (field/agg/func/over/calc) + apresentação
-    # (label/width/align/format/pos_list) lado a lado, sem sub-dict display.
+    # (label/width/align/format) lado a lado, sem sub-dict display. A posição
+    # (coluna/card/oculto) não mora aqui — é da página que consome (`line`,
+    # `card`, `hidden`).
     name: str
     field: str = ''
     agg: Optional[str] = None
     func: Optional[str] = None
     over: Optional[OverSpec] = None
     calc: Optional[str] = None
-    pos_list: int = 1
     label: Optional[str] = None
     width: Optional[float] = None
     align: Optional[str] = None
@@ -131,8 +137,6 @@ class SelectEntry:
             raise ValueError(f"select '{self.name}': agg desconhecida '{self.agg}'")
         if self.func and self.func not in OVER_FUNCS:
             raise ValueError(f"select '{self.name}': func desconhecida '{self.func}'")
-        if self.pos_list not in (0, 1, 2):
-            raise ValueError(f"select '{self.name}': pos_list deve ser 0|1|2")
         if self.align is not None and self.align not in ('left', 'center', 'right'):
             raise ValueError(f"select '{self.name}': align deve ser left|center|right")
 
@@ -164,7 +168,7 @@ def parse_select(select) -> list:
     raise TypeError(f"select deve ser list ou dict, veio {type(select).__name__}")
 
 
-ENTRY_KEYS = ('field', 'agg', 'func', 'over', 'calc', 'pos_list',
+ENTRY_KEYS = ('field', 'agg', 'func', 'over', 'calc',
               'label', 'width', 'align', 'format')
 
 
@@ -204,7 +208,6 @@ def _parse_entry(alias, cfg) -> SelectEntry:
         func = None
     return SelectEntry(name=alias, field=fld, agg=agg, func=func,
                        over=over_spec, calc=cfg.get('calc'),
-                       pos_list=int(cfg.get('pos_list', 1)),
                        label=cfg.get('label'), width=cfg.get('width'),
                        align=cfg.get('align'), format=cfg.get('format'))
 

@@ -5,9 +5,6 @@ from app.models.orcamento_item import OrcamentoItem
 
 Schema = {
     'Produto': { 
-        'qtd_receita': {'pos_form' : 0 },
-        'preco': {'pos_list': 1},
-        'descricao': {'pos_list': 2},
         },
 }
 
@@ -21,11 +18,16 @@ Page = {
         },
         'list': {
             'columns': 'Produto',
+            'card': ['descricao'],
             'order': ['nome'],
         },
         'form': {
             'max_width': 115,
             'fields': 'Produto',
+            'positions': {'hidden': ['qtd_receita'], 'bar': ['ativo']},
+            # `qtd_receita` é campo do pai usado só na sessão de insumos: fica
+            # oculto no cabeçalho e citado explicitamente na sessão, que é
+            # autoritativa (5.5.2).
             'delete': {
                 'when': [PedidoItem, OrcamentoItem],
                 'msg_ok': 'Produto excluído!',

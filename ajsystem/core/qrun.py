@@ -35,18 +35,18 @@ def apply_where(query, model, where, entity_cfg):
     if isinstance(where, dict):
         where = [where]
     for cond in where:
-        for campo, valor in (cond or {}).items():
-            if valor is None or valor == '':
+        for field, value in (cond or {}).items():
+            if value is None or value == '':
                 continue
-            col = getattr(model, campo, None)
+            col = getattr(model, field, None)
             if col is None:
                 continue
-            cfg = (entity_cfg or {}).get(campo, {})
-            if isinstance(valor, (list, tuple, set)):
-                vals = [_cast_value(cfg, v) for v in valor]
+            cfg = (entity_cfg or {}).get(field, {})
+            if isinstance(value, (list, tuple, set)):
+                vals = [_cast_value(cfg, v) for v in value]
                 query = query.filter(col.in_(vals))
             else:
-                query = query.filter(col == _cast_value(cfg, valor))
+                query = query.filter(col == _cast_value(cfg, value))
     return query
 
 
