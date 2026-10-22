@@ -45,7 +45,9 @@ Page = {
         },
         'list': {
             'columns': 'Movimento',
-            'filter': {'fixed': {'tipo': ENTRADA, 'transferencia_id': NULL}},
+            'filter': {
+                'default': {'data': {'preset': 'mes_ano'}},
+                'fixed': {'tipo': ENTRADA, 'transferencia_id': NULL}},
             'hidden': ['tipo', 'pedido_id', 'compra_id'],
             'card': ['historico'],
             'order': ['data', 'id'],

@@ -367,10 +367,13 @@ def resolve_filter_spec(spec, pool, principal=None, where='list.filter'):
 
 
 def _fixed_leaf_names(node):
-    """Nomes das folhas de `filter.fixed` (dict de folhas ou `OR(...)`/`AND(...)`)."""
+    """Nomes das folhas de `filter.fixed` (dict/lista ou `OR(...)`/`AND(...)`)."""
     from ajsystem.defs.constants import _Grupo
     if isinstance(node, _Grupo):
         for it in node.itens:
+            yield from _fixed_leaf_names(it)
+    elif isinstance(node, (list, tuple)):
+        for it in node:
             yield from _fixed_leaf_names(it)
     elif isinstance(node, dict):
         for k in node:

@@ -1331,23 +1331,71 @@ def _entity_cfg_for(entity, entity_name):
     return {}
 
 
+def _is_query_filter(obj):
+    """Distingue o retorno de um callable que já é uma `Query` de um spec."""
+    return obj is not None and hasattr(obj, 'filter') and hasattr(obj, 'all')
+
+
+def _resolve_filter_callable(filter, model):
+    """Avalia `body.filter`/argumento callable com o model do relatório."""
+    return filter(model) if callable(filter) else filter
+
+
+def _as_filter_node(filter):
+    """Lista no topo é AND; converte para o nó de grupo da gramática."""
+    if isinstance(filter, (list, tuple)):
+        if not filter:
+            return None
+        from ajsystem.defs.constants import AND
+        return AND(*filter)
+    return filter
+
+
+def _combine_report_filter(default, extra):
+    """Combina o filtro declarado no relatório com o filtro da request.
+
+    Dois dicts fazem merge raso (a chave da request vence); qualquer outra
+    combinação vira `AND`, para que um `OR`/`AND` declarado continue valendo.
+    """
+    default = _as_filter_node(default)
+    extra = _as_filter_node(extra)
+    if default is None:
+        return extra
+    if extra is None:
+        return default
+    if isinstance(default, dict) and isinstance(extra, dict):
+        return {**default, **extra}
+    from ajsystem.defs.constants import AND
+    return AND(default, extra)
+
+
+def _report_filter(report, model, extra=None):
+    """Resolve `body.filter` + filtro explícito para o model do relatório."""
+    body = _body_of(report)
+    if isinstance(body, dict):
+        declared = body.get('filter')
+    else:
+        declared = getattr(body, 'filter', None)
+    declared = _resolve_filter_callable(declared, model)
+    extra = _resolve_filter_callable(extra, model)
+    if _is_query_filter(declared) or _is_query_filter(extra):
+        if declared is not None and extra is not None:
+            raise TypeError(
+                "body.filter: callable que devolve Query não pode ser "
+                "combinado com outro filtro")
+        return declared if declared is not None else extra
+    return _combine_report_filter(declared, extra)
+
+
 def _auto_data(report, data, instance, filter=None):
     """Precedência do datasource: `data` explícito → `instance.<data_attr>` →
-    `body.source` (entity). Ordenação declarada por `source.order`: coluna →
-    `order_by` SQL; calc → `sorted` python-side.
+    `body.source` (entity/query). Ordenação declarada por `source.order`.
 
-    `filter` aplica o critério `body.filter` à query antes da ordenação:
-      - dict `{campo: valor}` → igualdade (`model.campo == valor`);
-      - callable `f(model, value=...)` → retorna o critério.
-    Se `filter` (arg) vier preenchido, sobrescreve o valor default do dict.
+    `body.filter` é o filtro padrão; `filter` (request, ex. `filter_select`) é
+    combinado com ele — dicts fazem merge (a request vence) e as demais formas
+    viram `AND`. Callable recebe o model e devolve o spec (ou uma Query, quando
+    não há combinação).
     """
-    filter = getattr(_body_of(report), 'filter', None) if _body_of(report) else None
-    if isinstance(filter, dict):
-        # valores vindos da request (ex. {'tipo': 1}) fundem/sobrescrevem o default
-        filter = {**(filter or {}), **filter}
-    elif filter is not None:
-        filter = filter
-
     if data is not None or instance is not None:
         if data is None and instance is not None:
             info = _infer_source(report, _module_entity(report))
@@ -1355,8 +1403,7 @@ def _auto_data(report, data, instance, filter=None):
         return data
 
     # Fonte nova: query dict {select, dist, from, ...} (QPLANO) -> qrun genérico.
-    # Índice global estável: numera tudo, filtra depois (filtro funde por cima).
-    # levels mora no body do relatório (apresentação), não na query.
+    # O filtro entra antes dos OVERs, então a numeração enxerga o recorte.
     from ajsystem.defs.qspec import is_query_dict
     _src_raw = _source_of(report)
     if isinstance(_src_raw, dict) and is_query_dict(_src_raw):
@@ -1366,7 +1413,12 @@ def _auto_data(report, data, instance, filter=None):
         _ename = _src_raw.get('from')
         _model = _rm(_ename if isinstance(_ename, str) else None)
         _cfg = _entity_cfg_for(_ent, _ename)
-        _rows = run_query(_model, _src_raw, entity_cfg=_cfg, extra_where=filter)
+        _filter = _report_filter(report, _model, filter)
+        if _is_query_filter(_filter):
+            raise TypeError(
+                "body.filter: callable que devolve Query não é suportado "
+                "quando body.source é um QuerySpec")
+        _rows = run_query(_model, _src_raw, entity_cfg=_cfg, extra_where=_filter)
         _body = _body_of(report)
         _lvl = None
         if isinstance(_body, dict):
@@ -1393,8 +1445,9 @@ def _auto_data(report, data, instance, filter=None):
     from ajsystem.core.list import _resolve_model
     model = _resolve_model(name)
     query = model.query
-    if filter:
-        query = _apply_report_filter(query, model, filter)
+    _filter = _report_filter(report, model, filter)
+    if _filter is not None:
+        query = _apply_report_filter(query, model, _filter, report)
     if info['order_mode'] == 'sql':
         out = list(query.order_by(info['order_field']).all())
     else:
@@ -1404,26 +1457,28 @@ def _auto_data(report, data, instance, filter=None):
     return out
 
 
-def _apply_report_filter(query, model, filter):
-    """Aplica o critério `body.filter` à query.
+def _apply_report_filter(query, model, filter, report=None):
+    """Aplica o spec literal de `body.filter` à query do relatório.
 
-    dict `{campo: valor}` → igualdade (valor None = sem critério no campo);
-    callable `f(model, query, value=...)` → retorna a query filtrada.
+    Callable já foi resolvido por `_report_filter`; uma Query devolvida por ele
+    é usada como está (compatibilidade). O restante entra na gramática
+    compartilhada (`compile_conditions`), com cast pelo tipo do field.
     """
-    if callable(filter):
-        crit = filter(model)
-        return crit if crit is not None else query
+    if filter is None:
+        return query
+    if _is_query_filter(filter):
+        return filter
+    from ajsystem.core.filters import compile_conditions
     from ajsystem.core.qrun import _cast_value
     try:
-        _cfg = _entity_cfg_for(_module_entity(report), getattr(model, '__name__', None))
+        _cfg = _entity_cfg_for(_module_entity(report),
+                               getattr(model, '__name__', None))
     except Exception:
         _cfg = {}
-    for field, value in (filter or {}).items():
-        if value is None or value == '':
-            continue
-        col = getattr(model, field, None)
-        if col is not None:
-            query = query.filter(col == _cast_value(_cfg.get(field, {}), value))
+    cast = lambda name, value: _cast_value((_cfg or {}).get(name, {}), value)
+    for cond in compile_conditions(
+            filter, model, cast=cast, where='report.body.filter'):
+        query = query.filter(cond)
     return query
 
 
@@ -1445,13 +1500,15 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
 
     Contrato para uso em botões (`action`): recebe o dict do relatório,
     os dados já construídos pelo app e retorna o fragmento; string vazia
-    não injeta nada. `filter` (dict {campo: valor} ou callable) aplica o
-    critério `body.filter` à query antes da ordem. Falha → view padrão
-    `print_erro.html` com `msg`.
+    não injeta nada. `filter` usa a gramática literal compartilhada
+    (dict/lista/`OR`/`AND`, sentinelas/operadores) e é combinado com
+    `body.filter` antes da ordenação. Falha → view padrão `print_erro.html`
+    com `msg`.
 
     `filter` também aceita o predicado `filter_select(campo)`: sem valor na
     request devolve um modal de escolha (render interno) e, após a escolha
     (`_printing=True`), aplica `WHERE campo = valor` no `source` e gera o PDF.
+    O critério entra como filtro explícito (merge/AND com `body.filter`).
     O predicado pode ser passado no 2º posicional (`print_report(PLANO, fs)`)
     ou via `filter=fs` — os dois são normalizados para o argumento filter.
     """

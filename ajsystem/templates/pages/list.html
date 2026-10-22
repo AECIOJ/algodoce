@@ -13,14 +13,17 @@
 <div class="filter-next-line{% if in_block %} filter-next-in-block{% endif %}"
      x-show="!hasRowEditing && !next.armed">
   <div class="filter-next-compact">
-    <select class="select select-bordered select-sm w-full"
-            x-show="isFirstLine()" x-model="next.f"
-            @change="startFirst()" aria-label="{{ i18n.FILTER_FIELD }}">
-      <option value="">{{ i18n.FILTER_SELECT_FIELD }}</option>
-      <template x-for="(cfg, name) in fields" :key="name">
-        <option :value="name" :selected="String(name) === String(next.f)" x-text="cfg.label || name"></option>
-      </template>
-    </select>
+    <div class="filter-next-first" x-show="isFirstLine()">
+      <select class="select select-bordered select-sm w-full filter-first-field"
+              x-model="next.f" @change="startFirst()"
+              aria-label="{{ i18n.FILTER_FIELD }}">
+        <option value="">{{ i18n.FILTER_SELECT_FIELD }}</option>
+        <template x-for="(cfg, name) in fields" :key="name">
+          <option :value="name" :selected="String(name) === String(next.f)" x-text="cfg.label || name"></option>
+        </template>
+      </select>
+      <span class="filter-first-actions" aria-hidden="true"></span>
+    </div>
     <select class="select select-bordered select-sm filter-conn-select"
             x-show="!isFirstLine()" x-model="next.value"
             @change="chooseNext($event.target.value)"
@@ -247,18 +250,28 @@
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
 .list-table-wrap { width: fit-content; min-width: 100%; }
-.list-filter-wrap { width: 100%; max-width: 100%; margin-inline: auto; }
+.list-filter-wrap {
+  --filter-grid-cols: 3.5rem minmax(10ch, 1.6fr) minmax(16ch, 1.2fr) minmax(12ch, 1fr) minmax(12ch, 1fr) auto;
+  width: 100%; max-width: 100%; margin-inline: auto;
+}
 .list-filter-wrap .filter-group { width: 100%; min-width: 0; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
-.list-filter-wrap .filter-grid {
+.list-filter-wrap .filter-grid,
+.list-filter-wrap .filter-next-first {
   display: grid;
-  grid-template-columns: 3.5rem minmax(10ch, 1.6fr) minmax(16ch, 1.2fr) minmax(12ch, 1fr) minmax(12ch, 1fr) auto;
+  grid-template-columns: var(--filter-grid-cols);
   gap: .25rem;
   align-items: start;
   width: 100%;
   min-width: 0;
 }
-.list-filter-wrap .filter-grid > * { min-width: 0; }
+.list-filter-wrap .filter-grid > *,
+.list-filter-wrap .filter-next-first > * { min-width: 0; }
+.list-filter-wrap .filter-next-first .filter-first-field { grid-column: 2; }
+.list-filter-wrap .filter-next-first .filter-first-actions {
+  grid-column: 6;
+  min-width: 6.25rem;
+}
 .list-filter-wrap .filter-grid .col-span-2 { grid-column: span 2; }
 .list-filter-wrap .filter-grid .select,
 .list-filter-wrap .filter-grid .input { width: 100%; min-width: 0; }
@@ -336,9 +349,7 @@
   color: #6b7280;
 }
 @media (max-width: 767.98px) {
-  .list-filter-wrap .filter-grid {
-    grid-template-columns: 3.25rem minmax(0, 1fr) auto;
-  }
+  .list-filter-wrap { --filter-grid-cols: 3.25rem minmax(0, 1fr) auto; }
   .list-filter-wrap .filter-grid .cell-conn { grid-column: 1; grid-row: 1; }
   .list-filter-wrap .filter-grid .cell-field { grid-column: 2; grid-row: 1; }
   .list-filter-wrap .filter-grid .cell-actions { grid-column: 3; grid-row: 1; justify-self: end; }
@@ -346,6 +357,7 @@
   .list-filter-wrap .filter-grid .cell-v1 { grid-column: 1 / -1; grid-row: 3; }
   .list-filter-wrap .filter-grid .cell-v2 { grid-column: 1 / -1; grid-row: 4; }
   .list-filter-wrap .filter-grid .col-span-2 { grid-column: 1 / -1; }
+  .list-filter-wrap .filter-next-first .filter-first-actions { grid-column: 3; }
   .list-filter-wrap .filter-block-footer { flex-wrap: wrap; }
   .list-filter-wrap .filter-grouped > .filter-grid,
   .list-filter-wrap .filter-grouped > .filter-next-line > .filter-grid {

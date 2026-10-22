@@ -4,9 +4,9 @@ Genérico: não cita entidade do app. Recebe model + QuerySpec + entity_cfg
 ({campo: cfg} p/ cast) e devolve linhas (instâncias + attrs computados).
 
 Fase 1: WHERE/ORDER/LIMIT/GROUP BY no SQL; OVER avaliado em passo único
-em Python sobre o resultado (1 query, sem N+1). O spec já é o final
-(func/agg/over/display); o pushdown p/ OVER SQL puro (OVER no banco +
-CTE recursiva) entra na fase 2 sem mudar o spec.
+em Python sobre o resultado (1 query, sem N+1). `where`/`extra_where` usam
+a gramática literal dos filtros (AND/OR/sentinelas/operadores); `extra_conditions`
+recebe condições já compiladas. O filtro entra antes dos OVERs.
 """
 from collections import defaultdict
 
@@ -30,23 +30,21 @@ def _cast_value(cfg, value):
 
 
 def apply_where(query, model, where, entity_cfg):
+    """Aplica um spec de WHERE na gramática compartilhada dos filtros.
+
+    Aceita dict/lista (AND implícito), `OR(...)`/`AND(...)`, sentinelas e
+    operadores — a mesma gramática de `list.filter.fixed` e `body.filter`.
+    O valor é convertido pelo tipo do field via `_cast_value` (exceto
+    `like`/`ilike`, que recebem o padrão textual).
+    """
     if not where:
         return query
-    if isinstance(where, dict):
-        where = [where]
-    for cond in where:
-        for field, value in (cond or {}).items():
-            if value is None or value == '':
-                continue
-            col = getattr(model, field, None)
-            if col is None:
-                continue
-            cfg = (entity_cfg or {}).get(field, {})
-            if isinstance(value, (list, tuple, set)):
-                vals = [_cast_value(cfg, v) for v in value]
-                query = query.filter(col.in_(vals))
-            else:
-                query = query.filter(col == _cast_value(cfg, value))
+    from ajsystem.core.filters import compile_conditions
+    cfg = entity_cfg or {}
+    cast = lambda name, value: _cast_value(cfg.get(name, {}), value)
+    conds = compile_conditions(where, model, cast=cast, where='query.where')
+    for cond in conds:
+        query = query.filter(cond)
     return query
 
 
@@ -322,13 +320,22 @@ def build_levels(rows, pk='id', parent='pai_id', rn_attr='rn',
 build_hierarchy = build_levels  # alias legado
 
 
-def run_query(model, spec, entity_cfg=None, extra_where=None):
-    """Executa QuerySpec sobre model. Devolve list de instâncias (+ attrs over)."""
+def run_query(model, spec, entity_cfg=None, extra_where=None,
+              extra_conditions=None):
+    """Executa QuerySpec sobre model. Devolve list de instâncias (+ attrs over).
+
+    `extra_where` usa a gramática declarativa dos filtros; `extra_conditions`
+    recebe condições SQLAlchemy já compiladas (ex.: `list.filter.fixed`) e as
+    aplica antes dos OVERs, para que janelas e `calc` enxerguem o recorte.
+    """
     qs = parse_query(spec)
     from sqlalchemy import func as _fn
+    extra_conditions = [c for c in (extra_conditions or []) if c is not None]
     query = model.query
     query = apply_where(query, model, qs.where, entity_cfg)
     query = apply_where(query, model, extra_where, entity_cfg)
+    if extra_conditions:
+        query = query.filter(*extra_conditions)
 
     # GROUP BY + aggs fora de over -> agregação SQL (reduz linhas)
     group_fields = list(qs.groups or [])
@@ -352,6 +359,8 @@ def run_query(model, spec, entity_cfg=None, extra_where=None):
             q = model.query.with_entities(*cols)
             q = apply_where(q, model, qs.where, entity_cfg)
             q = apply_where(q, model, extra_where, entity_cfg)
+            if extra_conditions:
+                q = q.filter(*extra_conditions)
             if group_fields:
                 q = q.group_by(*[getattr(model, g) for g in group_fields
                                  if getattr(model, g, None) is not None])

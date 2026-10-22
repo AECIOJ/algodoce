@@ -514,7 +514,11 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
 
     if data is None and _is_query:
         from ajsystem.core.qrun import run_query as _rq
-        data = _rq(model, _colspec, entity_cfg=merged)
+        _extra_conds = list(_rf.fixed)
+        if _rf.filter_cond is not None:
+            _extra_conds.append(_rf.filter_cond)
+        data = _rq(model, _colspec, entity_cfg=merged,
+                   extra_conditions=_extra_conds)
     if data is None:
         ordering = lista.get('order', []) or lista.get('ordering', [])
         if isinstance(ordering, str):

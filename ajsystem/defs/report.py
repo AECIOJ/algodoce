@@ -7,7 +7,7 @@ Cada sistema declara relatórios via:
 E o motor `ajsystem.core.pdf.gerar_pdf_relatorio(report, ...)` os renderiza.
 """
 from dataclasses import dataclass, field as dc_field
-from typing import Optional, Callable, Union
+from typing import Any, Optional, Callable, Union
 
 # Import único nos relatórios do app: `from ajsystem.defs.report import *`
 # entrega SÓ os aliases de declaração; o resto (Report*, parse_*, contrato
@@ -777,9 +777,10 @@ class ReportBody:
     table: Optional[dict] = None
     before: Optional[object] = None
     after: Optional[object] = None
-    # Filtro aplicado pelo motor na query (dict de igualdade `{campo: valor}`
-    # ou callable). O valor pode vir da request na impressão (ex.: tipo).
-    filter: Optional[Union[dict, Callable]] = None
+    # Filtro padrão do source na gramática literal compartilhada (dict/lista
+    # ou OR(...)/AND(...), com sentinelas/operadores) ou callable(model). O
+    # filtro da request (ex.: filter_select('tipo')) é combinado com ele.
+    filter: Optional[Any] = None
     # Numeração hierárquica (apresentação, genérica): {using, pk, parent,
     # group, root, child, target, maxdepth}. Ver QPLANO/PLANO no app.
     levels: Optional[dict] = dc_field(default=None)

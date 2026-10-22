@@ -131,7 +131,8 @@ Page = {
         'list': {
             'columns': 'Transferencia',
             'master': 'Movimento',
-            'filter': {'types': {'checklist': 'status'}, 'hidden': ['conta_id']},
+            'filter': {'types': {'checklist': 'status'}, 'hidden': ['conta_id'],
+                       'default': {'data': {'preset': 'mes_ano'}}},
             'line': ['id'],
             'hidden': ['documento', 'conta_id', 'previsao_id',
                        'operacao_id', 'variacao', 'pedido_id', 'compra_id'],

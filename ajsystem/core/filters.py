@@ -567,13 +567,15 @@ def _empty_cond(col, negate=False):
     return ~cond if negate else cond
 
 
-def _leaf_cond(col, value, where='list.filter.fixed'):
+def _leaf_cond(col, value, where='list.filter.fixed', cast=None):
     """Condição SQL de uma folha `<campo>: <valor>`; `None` manda ignorar.
 
     Vocabulário do valor: literal → `=`; `NULL`/`NOT_NULL` → `IS [NOT] NULL`;
     `EMPTY`/`NOT_EMPTY` → `is_empty`/`not is_empty`; `('op', valor)` com `op` em
     `_OPS_LEAF`/`in`/`not in`; lista/tupla/set → `IN`; callable (resolvido antes);
-    `None` → ignora a folha.
+    `None` → ignora a folha. `cast` é opcional e recebe o valor já sem o
+    envelope do operador; sem ele, o literal escalar usa `_key` (a coerção do
+    filtro de painel) e as formas de operador/lista ficam intactas, como antes.
     """
     from ajsystem.defs.constants import EMPTY, NOT_EMPTY, NOT_NULL, NULL
     if value is None:
@@ -591,7 +593,7 @@ def _leaf_cond(col, value, where='list.filter.fixed'):
         operand = value[1]
         if op in ('in', 'not in'):
             seq = operand if isinstance(operand, (list, tuple, set, frozenset)) else [operand]
-            vals = [v for v in seq if v is not None]
+            vals = [cast(v) if cast else v for v in seq if v is not None]
             if not vals:
                 return None
             return col.in_(vals) if op == 'in' else ~col.in_(vals)
@@ -600,21 +602,31 @@ def _leaf_cond(col, value, where='list.filter.fixed'):
             raise ValueError(
                 f"{where}: operador {value[0]!r} desconhecido — use "
                 f"{', '.join(sorted(_OPS_LEAF))}, 'in'/'not in'")
+        # LIKE/ILIKE recebem padrão textual; converter pelo tipo do field
+        # estragaria padrões numéricos ('123' → 123) sem ganho.
+        if op not in ('like', 'ilike') and cast is not None:
+            operand = cast(operand)
         return fn(col, operand)
     if isinstance(value, (list, tuple, set, frozenset)):
-        vals = [v for v in value if v is not None]
+        vals = [cast(v) if cast else v for v in value if v is not None]
         return col.in_(vals) if vals else None
-    return col == _key(value)
+    return col == (cast(value) if cast else _key(value))
 
 
-def _compile_node(node, model, resolve, where):
+def _compile_node(node, model, resolve, where, cast=None):
     from ajsystem.defs.constants import _Grupo
     if isinstance(node, _Grupo):
-        conds = [c for c in (_compile_node(it, model, resolve, where)
+        conds = [c for c in (_compile_node(it, model, resolve, where, cast)
                              for it in node.itens) if c is not None]
         if not conds:
             return None
         return or_(*conds) if node.op == 'or' else and_(*conds)
+    if isinstance(node, (list, tuple)):
+        conds = [c for c in (_compile_node(it, model, resolve, where, cast)
+                             for it in node) if c is not None]
+        if not conds:
+            return None
+        return conds[0] if len(conds) == 1 else and_(*conds)
     if isinstance(node, dict):
         conds = []
         for name, value in node.items():
@@ -625,30 +637,45 @@ def _compile_node(node, model, resolve, where):
             if col is None:
                 raise ValueError(
                     f"{where}: {name!r} não é coluna de {model.__name__}")
-            leaf = _leaf_cond(col, value, where)
+            leaf_cast = (lambda v, _n=name: cast(_n, v)) if cast else None
+            leaf = _leaf_cond(col, value, where, leaf_cast)
             if leaf is not None:
                 conds.append(leaf)
         if not conds:
             return None
         return conds[0] if len(conds) == 1 else and_(*conds)
-    raise TypeError(f"{where}: esperava dict ou OR(...)/AND(...); veio "
+    raise TypeError(f"{where}: esperava dict, lista ou OR(...)/AND(...); veio "
                     f"{type(node).__name__}")
 
 
-def compile_fixed(spec, model, attr_resolver=None, where='list.filter.fixed'):
-    """`list.filter.fixed` (dict de folhas ou `OR(...)`/`AND(...)`) → condições.
+def compile_conditions(spec, model, *, resolve=None, cast=None,
+                       where='filter'):
+    """Spec literal → lista com a condição SQL única (ou vazia).
 
-    Um dict é AND das folhas; `OR(...)`/`AND(...)` agrupam (aninháveis). O dict
-    é o caso comum (AND implícito). `attr_resolver` atravessa a relação filho→pai
-    na inversão (`master`). Folha cujo valor é `None` é ignorada; nome que não
-    é coluna do model levanta erro nomeando (nada some em silêncio).
+    Gramática compartilhada por `list.filter.fixed`, `report.body.filter` e
+    `QuerySpec.where`: dict é AND das folhas, lista é AND dos itens e
+    `OR(...)`/`AND(...)` agrupam (aninháveis). `resolve(model, nome)` acha a
+    coluna; `cast(nome, valor)` opcional converte o literal pelo tipo do field.
+    Sem `cast`, o literal escalar mantém a coerção `_key` do filtro de painel e
+    operador/lista ficam intactos.
     """
     if not spec:
         return []
-    resolve = attr_resolver if attr_resolver is not None else (
+    resolve = resolve if resolve is not None else (
         lambda m, f: getattr(m, f, None))
-    cond = _compile_node(spec, model, resolve, where)
+    cond = _compile_node(spec, model, resolve, where, cast)
     return [cond] if cond is not None else []
+
+
+def compile_fixed(spec, model, attr_resolver=None, where='list.filter.fixed'):
+    """`list.filter.fixed` (dict/lista ou `OR(...)`/`AND(...)`) → condições.
+
+    Um dict/lista é AND das folhas; `OR(...)`/`AND(...)` agrupam (aninháveis).
+    `attr_resolver` atravessa a relação filho→pai na inversão (`master`). Folha
+    cujo valor é `None` é ignorada; nome que não é coluna do model levanta erro
+    nomeando (nada some em silêncio).
+    """
+    return compile_conditions(spec, model, resolve=attr_resolver, where=where)
 
 
 def _filter_conditions(model_field, ftype, cfg_value):

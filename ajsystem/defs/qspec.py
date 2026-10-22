@@ -6,6 +6,10 @@ o motor resolve via parse_* (idempotente) e executa em core/qrun.
 Ordem das props de query espelha o SQL:
   select, dist, from, join, where, groups, order, limit
 
+`where` usa a gramática literal dos filtros (dict/lista = AND,
+OR(...)/AND(...), sentinelas, operadores e IN); o executor compila com cast
+pelo tipo do field e aplica antes dos OVERs.
+
 select aceita por campo (estrutura espelha o Field):
   'nome'                                  -> coluna pura
   'alias': {agg, field}                   -> agregado GROUP BY (fora de over)
