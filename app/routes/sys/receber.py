@@ -1,4 +1,4 @@
-from ajsystem.defs.constants import NOT_EMPTY, TODAY
+from ajsystem.defs.constants import NOT_EMPTY, OR, TODAY
 from app.extends.masks import MVALOR
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
@@ -56,7 +56,15 @@ Page = {
         'list': {
             'columns': 'Transacao',
             'master': 'Previsao',
-            'filter': {'fixed': {'tipo': 'R'}, 'types': {'checklist': 'status'}},
+            'filter': {
+                'fixed': {'tipo': 'R'},
+                'types': {'checklist': 'status'},
+                'default': OR(
+                    {'data': {'preset': 'mes_ano'}},
+                    {'vencimento': {'preset': 'mes_ano'}},
+                    {'saldo': {'mode': 'maior_que', 'val1': 0}},
+                ),
+            },
             'line': ['pedido_id'],
             'hidden': ['cancelado', 'tipo'],
             'card': 'Transacao',

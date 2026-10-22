@@ -1,3 +1,6 @@
+from sqlalchemy import func
+from sqlalchemy.ext.hybrid import hybrid_property
+
 from ajsystem.core.extensions import db
 from app.extends.masks import MVALOR
 
@@ -26,9 +29,14 @@ class Previsao(db.Model):
         base = float(self.previsto) + float(self.variacao or 0)
         return 9 if float(self.realizado) >= base else 2
 
-    @property
+    @hybrid_property
     def saldo(self):
         return float(self.previsto) + float(self.variacao or 0) - float(self.realizado or 0)
+
+    @saldo.expression
+    def saldo(cls):
+        return (func.coalesce(cls.previsto, 0) + func.coalesce(cls.variacao, 0)
+                - func.coalesce(cls.realizado, 0))
 
 
 Entity = {
@@ -41,5 +49,5 @@ Entity = {
     'realizado':    {'type': 'NUM', 'label': 'Realizado', 'mask': MVALOR},
     'variacao':     {'type': 'NUM', 'label': 'Variação', 'mask': MVALOR},
     'saldo':        {'type': 'NUM', 'label': 'Saldo', 'mask': MVALOR,
-                     'calc': 'previsto - realizado + variacao'},
+                     'calc': 'previsto - (realizado or 0) + (variacao or 0)'},
 }

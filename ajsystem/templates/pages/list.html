@@ -5,6 +5,182 @@
 {% import "components/tabs.html" as tb with context %}
 
 {#
+  Linha compacta de adição: é o único ponto de adição. Mostra primeiro só o
+  select E/OU (ou só o campo, quando é a primeira linha). O botão `)` aparece
+  quando há um bloco aberto ou uma sequência de linhas soltas para agrupar.
+#}
+{% macro filter_next_compact(in_block=false) %}
+<div class="filter-next-line{% if in_block %} filter-next-in-block{% endif %}"
+     x-show="!hasRowEditing && !next.armed">
+  <div class="filter-next-compact">
+    <select class="select select-bordered select-sm w-full"
+            x-show="isFirstLine()" x-model="next.f"
+            @change="startFirst()" aria-label="{{ i18n.FILTER_FIELD }}">
+      <option value="">{{ i18n.FILTER_SELECT_FIELD }}</option>
+      <template x-for="(cfg, name) in fields" :key="name">
+        <option :value="name" :selected="String(name) === String(next.f)" x-text="cfg.label || name"></option>
+      </template>
+    </select>
+    <select class="select select-bordered select-sm filter-conn-select"
+            x-show="!isFirstLine()" x-model="next.value"
+            @change="chooseNext($event.target.value)"
+            aria-label="{{ i18n.FILTER_BLOCK_CONNECTOR }}">
+      <option value="" disabled>{{ i18n.FILTER_NEXT_PLACEHOLDER }}</option>
+      <template x-for="opt in nextOptions()" :key="opt.value">
+        <option :value="opt.value" :selected="opt.value === next.value" x-text="opt.label"></option>
+      </template>
+    </select>
+    <button type="button" class="btn btn-sm btn-outline filter-close-btn"
+            x-show="!isFirstLine() && canClose()" @click="closeRun()"
+            title="{{ i18n.FILTER_BLOCK_CLOSE }}" aria-label="{{ i18n.FILTER_BLOCK_CLOSE }}">)</button>
+  </div>
+</div>
+{% endmacro %}
+
+{#
+  Grade de edição da linha seguinte. Fica dentro de bloco agrupado aberto,
+  acima do rodapé, ou abaixo do bloco quando a linha é solta/raiz.
+#}
+{% macro filter_next_grid(in_block=false) %}
+<div class="filter-next-line filter-next-grid-line{% if in_block %} filter-next-in-block{% endif %}"
+     x-show="!hasRowEditing && next.armed">
+  <div class="filter-grid">
+    <div class="cell-conn">
+      <select class="select select-bordered select-sm w-full"
+              x-show="!isFirstLine()"
+              x-model="next.value" @change="chooseNext($event.target.value)"
+              aria-label="{{ i18n.FILTER_BLOCK_CONNECTOR }}">
+        <option value="" disabled>{{ i18n.FILTER_NEXT_PLACEHOLDER }}</option>
+        <template x-for="opt in nextOptions()" :key="opt.value">
+          <option :value="opt.value" :selected="opt.value === next.value" x-text="opt.label"></option>
+        </template>
+      </select>
+    </div>
+
+    <div class="cell-field" x-show="next.armed">
+      <select class="select select-bordered select-sm w-full" x-model="next.f"
+              @change="initVal(next)" aria-label="{{ i18n.FILTER_FIELD }}">
+        <option value="">{{ i18n.FILTER_SELECT_FIELD }}</option>
+        <template x-for="(cfg, name) in fields" :key="name">
+          <option :value="name" :selected="String(name) === String(next.f)" x-text="cfg.label || name"></option>
+        </template>
+      </select>
+    </div>
+
+    <div class="cell-opt" x-show="next.f">
+      <template x-if="next.f && fields[next.f] && (fields[next.f].type === 'text' || fields[next.f].type === 'number')">
+        <select class="select select-bordered select-sm w-full" x-model="next.v.mode" aria-label="{{ i18n.FILTER_FIELD }}">
+          <template x-for="m in fields[next.f].modes" :key="m[0]">
+            <option :value="m[0]" :selected="next.v && m[0] === next.v.mode" x-text="m[1]"></option>
+          </template>
+        </select>
+      </template>
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'date'">
+        <select class="select select-bordered select-sm w-full" x-model="next.v.preset" @change="onPreset(next)" aria-label="{{ i18n.FILTER_FIELD }}">
+          <template x-for="m in fields[next.f].modes" :key="m[0]">
+            <option :value="m[0]" :selected="next.v && m[0] === next.v.preset" x-text="m[1]"></option>
+          </template>
+        </select>
+      </template>
+    </div>
+
+    <div class="cell-v1" x-show="next.f" :class="spansTwo(next) ? 'col-span-2' : ''">
+      <div class="min-w-0">
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'text'">
+        <input type="text" class="input input-bordered input-sm w-full" x-model="next.v.value" placeholder="{{ i18n.VALUE }}" aria-label="{{ i18n.VALUE }}">
+      </template>
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'number'">
+        <input type="number" class="input input-bordered input-sm w-full" x-model="next.v.val1" placeholder="{{ i18n.VALUE_1 }}" step="any" aria-label="{{ i18n.VALUE_1 }}">
+      </template>
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'boolean'">
+        <div class="flex flex-wrap gap-1">
+          <button type="button" class="btn btn-sm flex-1 border"
+                  :class="next.v === '' ? 'btn-primary text-primary-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'"
+                  @click="next.v = ''">{{ i18n.FILTER_ALL }}</button>
+          <button type="button" class="btn btn-sm flex-1 border"
+                  :class="next.v === 'true' ? 'btn-success text-success-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'"
+                  @click="next.v = 'true'">{{ i18n.FILTER_YES }}</button>
+          <button type="button" class="btn btn-sm flex-1 border"
+                  :class="next.v === 'false' ? 'btn-error text-error-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'"
+                  @click="next.v = 'false'">{{ i18n.NO }}</button>
+        </div>
+      </template>
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'select'">
+        <select class="select select-bordered select-sm w-full" x-model="next.v" aria-label="{{ i18n.VALUE }}">
+          <option value="">{{ i18n.FILTER_ALL }}</option>
+          <template x-for="(opt, val) in (fields[next.f].options || {})" :key="val">
+            <option :value="val" :selected="String(val) === String(next.v)" x-text="opt"></option>
+          </template>
+        </select>
+      </template>
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'checklist'">
+        <div class="flex flex-wrap gap-x-2 gap-y-0.5 border rounded p-1 min-w-0">
+          <template x-for="(opt, val) in (fields[next.f].options || {})" :key="val">
+            <label class="flex items-center gap-1 text-xs min-w-0">
+              <input type="checkbox" class="checkbox checkbox-xs" :value="val" x-model="next.v">
+              <span class="break-words" x-text="opt"></span>
+            </label>
+          </template>
+        </div>
+      </template>
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'date'">
+        <input type="number" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'mes'"
+               x-model="next.v.mes" min="1" max="12" placeholder="{{ i18n.MONTH_RANGE }}" aria-label="{{ i18n.MONTH_RANGE }}">
+        <input type="number" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'mes_ano'"
+               x-model="next.v.mes" min="1" max="12" placeholder="{{ i18n.FILTER_MONTH }}" aria-label="{{ i18n.FILTER_MONTH }}">
+        <input type="number" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'mes_ano_anterior'"
+               x-model="next.v.mes" min="1" max="12" placeholder="{{ i18n.FILTER_MONTH }}" aria-label="{{ i18n.FILTER_MONTH }}">
+        <input type="number" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'ano'"
+               x-model="next.v.ano" min="2000" max="2099" placeholder="{{ i18n.YEAR_RANGE }}" aria-label="{{ i18n.YEAR_RANGE }}">
+        <input type="date" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'a_partir_de'"
+               x-model="next.v.from" placeholder="{{ i18n.FILTER_FROM }}" aria-label="{{ i18n.FILTER_FROM }}">
+        <input type="date" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'ate_a_data_de'"
+               x-model="next.v.to" placeholder="{{ i18n.FILTER_UNTIL }}" aria-label="{{ i18n.FILTER_UNTIL }}">
+        <input type="date" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'periodo'"
+               x-model="next.v.from" placeholder="{{ i18n.FROM }}" aria-label="{{ i18n.FROM }}">
+      </template>
+      </div>
+    </div>
+
+    <div class="cell-v2" x-show="next.f && !spansTwo(next)">
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'number' && next.v && next.v.mode === 'entre'">
+        <input type="number" class="input input-bordered input-sm w-full" x-model="next.v.val2" placeholder="{{ i18n.VALUE_2 }}" step="any" aria-label="{{ i18n.VALUE_2 }}">
+      </template>
+      <template x-if="next.f && fields[next.f] && fields[next.f].type === 'date'">
+        <input type="number" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'mes_ano'"
+               x-model="next.v.ano" min="2000" max="2099" placeholder="{{ i18n.FILTER_YEAR }}" aria-label="{{ i18n.FILTER_YEAR }}">
+        <input type="number" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'mes_ano_anterior'"
+               x-model="next.v.ano" min="2000" max="2099" placeholder="{{ i18n.FILTER_YEAR }}" aria-label="{{ i18n.FILTER_YEAR }}">
+        <input type="date" class="input input-bordered input-sm w-full"
+               x-show="next.v && next.v.preset === 'periodo'"
+               x-model="next.v.to" placeholder="{{ i18n.TO }}" aria-label="{{ i18n.TO }}">
+      </template>
+    </div>
+
+    <div class="cell-actions flex items-center gap-1 min-w-[6.25rem] justify-end" x-show="next.f">
+      <button type="button" class="btn btn-sm btn-ghost text-error" @click="cancelNext()"
+              title="{{ i18n.CLEAR }}">{{ heroicon('xmark', 'w-3.5 h-3.5') }}</button>
+      <button type="button" class="btn btn-sm btn-primary"
+              x-show="hasValue(next)" @click="okNext(true)"
+              title="{{ i18n.FILTER_ADD }}" aria-label="{{ i18n.FILTER_ADD }}">{{ heroicon('plus', 'w-3.5 h-3.5') }}</button>
+      <button type="button" class="btn btn-sm btn-outline filter-close-btn"
+              x-show="hasValue(next)" @click="closeNext()"
+              title="{{ i18n.FILTER_BLOCK_CLOSE }}" aria-label="{{ i18n.FILTER_BLOCK_CLOSE }}">)</button>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{#
   Célula de valor da listagem — fonte única dos cinco pontos que a imprimem
   (`<td>` principal, detalhe, card-only e card, mais a tabela transposta via
   `_det_cell`). A formatação do valor é uma só, `fm.render_value` (morada em
@@ -71,8 +247,111 @@
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
 .list-table-wrap { width: fit-content; min-width: 100%; }
-.list-filter-wrap { width: fit-content; }
+.list-filter-wrap { width: 100%; max-width: 100%; margin-inline: auto; }
+.list-filter-wrap .filter-group { width: 100%; min-width: 0; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
+.list-filter-wrap .filter-grid {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(10ch, 1.6fr) minmax(16ch, 1.2fr) minmax(12ch, 1fr) minmax(12ch, 1fr) auto;
+  gap: .25rem;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+.list-filter-wrap .filter-grid > * { min-width: 0; }
+.list-filter-wrap .filter-grid .col-span-2 { grid-column: span 2; }
+.list-filter-wrap .filter-grid .select,
+.list-filter-wrap .filter-grid .input { width: 100%; min-width: 0; }
+.list-filter-wrap input[type="number"]::-webkit-outer-spin-button,
+.list-filter-wrap input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.list-filter-wrap input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.list-filter-wrap .filter-block-wrap { width: 100%; min-width: 0; }
+.list-filter-wrap .filter-block { width: 100%; min-width: 0; }
+.list-filter-wrap .filter-line {
+  flex: 1 1 auto;
+  height: 1px;
+  min-width: .5rem;
+  background: currentColor;
+  opacity: .4;
+}
+.list-filter-wrap .filter-block-footer {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  margin: .15rem 0 .5rem;
+  color: #6b7280;
+}
+.list-filter-wrap .filter-block-connector {
+  font-size: .72rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #6b7280;
+  margin-top: .15rem;
+}
+.list-filter-wrap .filter-block-header {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  min-width: 0;
+  margin: .1rem 0 .2rem;
+  color: #6b7280;
+}
+.list-filter-wrap .filter-grouped > .filter-grid,
+.list-filter-wrap .filter-grouped > .filter-next-line > .filter-grid {
+  padding-left: .85rem;
+}
+.list-filter-wrap .filter-next-line { width: 100%; min-width: 0; margin-top: .15rem; }
+.list-filter-wrap .filter-next-grid-line { margin-top: .1rem; }
+.list-filter-wrap .filter-next-compact {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  min-width: 0;
+}
+.list-filter-wrap .filter-conn-select {
+  width: auto;
+  min-width: 4.25rem;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.list-filter-wrap .filter-close-btn {
+  flex: none;
+  min-width: 2.25rem;
+  padding-inline: .5rem;
+  font-weight: 700;
+}
+.list-filter-wrap .filter-next-line .cell-conn .flex { min-width: 0; }
+.list-filter-wrap .filter-next-in-block { margin-bottom: .1rem; }
+.list-filter-wrap .filter-paren {
+  flex: none;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1;
+  color: #6b7280;
+}
+@media (max-width: 767.98px) {
+  .list-filter-wrap .filter-grid {
+    grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  }
+  .list-filter-wrap .filter-grid .cell-conn { grid-column: 1; grid-row: 1; }
+  .list-filter-wrap .filter-grid .cell-field { grid-column: 2; grid-row: 1; }
+  .list-filter-wrap .filter-grid .cell-actions { grid-column: 3; grid-row: 1; justify-self: end; }
+  .list-filter-wrap .filter-grid .cell-opt { grid-column: 1 / -1; grid-row: 2; }
+  .list-filter-wrap .filter-grid .cell-v1 { grid-column: 1 / -1; grid-row: 3; }
+  .list-filter-wrap .filter-grid .cell-v2 { grid-column: 1 / -1; grid-row: 4; }
+  .list-filter-wrap .filter-grid .col-span-2 { grid-column: 1 / -1; }
+  .list-filter-wrap .filter-block-footer { flex-wrap: wrap; }
+  .list-filter-wrap .filter-grouped > .filter-grid,
+  .list-filter-wrap .filter-grouped > .filter-next-line > .filter-grid {
+    padding-left: .5rem;
+  }
+}
 .list-table th.col-hide, .list-table td.col-hide { display: none; }
 @media (max-width: 991.98px) {
   .list-table .col-actions {
@@ -102,7 +381,7 @@
     <div class="page-list-header gap-2 flex-wrap flex items-center">
       <div role="tablist" class="tabs tabs-bordered">
         {% for t in TABS %}
-        {{ tb.render_tab_button(t, icon=('funnel' if (t.type == 'Filter' and active_filters) else none)) }}
+        {{ tb.render_tab_button(t, icon=('funnel' if (t.type == 'Filter' and (active_filters or (default_on and initial_filters))) else none)) }}
         {% endfor %}
       </div>
       <div class="flex items-center gap-1 flex-wrap justify-end ml-auto">
@@ -222,110 +501,217 @@
       </div>
     {% elif t.type == 'Filter' %}
     <div class="flex flex-col items-center">
-      <div class="list-filter-wrap">
-        <div class="flex flex-col gap-2 p-2">
-          {% for name, cfg in FILTERS.items() %}
-          {% set label = cfg.label or name | capitalize %}
-          {% set ftype = cfg.type %}
-          <div class="filter-group">
-            <label class="text-sm font-semibold mb-1 block">{{ label }}</label>
-            {% if ftype == 'text' %}
-            <div class="flex gap-1">
-              <select class="select select-bordered select-sm flex-none w-auto" x-model="filters['{{ name }}'].mode">
-                {% for val, label_mode in cfg.get('modes', [('igual','Igual a'),('contains','Contém'),('starts','Começa')]) %}
-                <option value="{{ val }}">{{ label_mode }}</option>
-                {% endfor %}
-              </select>
-              <input type="text" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].value" placeholder="{{ i18n.VALUE }}">
-            </div>
-            {% elif ftype == 'number' %}
-            <div class="flex gap-1 flex-nowrap">
-              <select class="select select-bordered select-sm flex-none w-auto" x-model="filters['{{ name }}'].mode"
-                      @change="filters['{{ name }}'].val2 = ''">
-                {% for val, label_mode in cfg.get('modes', [('igual','Igual a'),('entre','Entre'),('maior_que','Maior que'),('maior_igual','Maior ou igual a'),('menor_que','Menor que'),('menor_igual','Menor ou igual a')]) %}
-                <option value="{{ val }}">{{ label_mode }}</option>
-                {% endfor %}
-              </select>
-              <input type="number" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].val1" placeholder="{{ i18n.VALUE_1 }}" step="any">
-              <input type="number" class="input input-bordered input-sm flex-1" x-show="filters['{{ name }}'].mode === 'entre'"
-                     x-model="filters['{{ name }}'].val2" placeholder="{{ i18n.VALUE_2 }}" step="any">
-            </div>
-            {% elif ftype == 'boolean' %}
-            <div class="flex gap-1">
-              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === '' ? 'btn-primary text-primary-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = ''">{{ i18n.FILTER_ALL }}</button>
-              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === 'true' ? 'btn-success text-success-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = 'true'">{{ i18n.FILTER_YES }}</button>
-              <button type="button" class="btn btn-xs flex-1 border" :class="filters['{{ name }}'] === 'false' ? 'btn-error text-error-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'" @click="filters['{{ name }}'] = 'false'">{{ i18n.NO }}</button>
-            </div>
-            {% elif ftype == 'select' %}
-            {% set _opts = cfg.get('options', {}) %}
-            <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}']">
-              <option value="">{{ i18n.FILTER_ALL }}</option>
-              {% if _opts is mapping %}
-              {% for val, opt_label in _opts.items() %}
-              <option value="{{ val }}">{{ opt_label }}</option>
-              {% endfor %}
-              {% else %}
-              {% for opt_label in _opts %}
-              <option value="{{ opt_label }}">{{ opt_label }}</option>
-              {% endfor %}
-              {% endif %}
-            </select>
-            {% elif ftype == 'checklist' %}
-            {% set _opts = cfg.get('options', {}) %}
-            <div class="flex flex-wrap gap-x-3 gap-y-0.5 border rounded p-1.5">
-              {% if _opts is mapping %}
-              {% for val, opt_label in _opts.items() %}
-              <label class="flex items-center gap-1.5 text-xs whitespace-nowrap"><input type="checkbox" class="checkbox checkbox-xs" value="{{ val }}" x-model="filters['{{ name }}']"><span>{{ opt_label }}</span></label>
-              {% endfor %}
-              {% else %}
-              {% for opt_label in _opts %}
-              <label class="flex items-center gap-1.5 text-xs whitespace-nowrap"><input type="checkbox" class="checkbox checkbox-xs" value="{{ opt_label }}" x-model="filters['{{ name }}']"><span>{{ opt_label }}</span></label>
-              {% endfor %}
-              {% endif %}
-            </div>
-            {% elif ftype == 'date' %}
-            <div class="flex flex-col gap-1">
-              <select class="select select-bordered select-sm w-full" x-model="filters['{{ name }}'].preset">
-                {% for val, label_mode in cfg.get('modes', []) %}
-                <option value="{{ val }}">{{ label_mode }}</option>
-                {% endfor %}
-              </select>
-              <input type="number" class="input input-bordered input-sm w-full"
-                     x-show="filters['{{ name }}'].preset === 'mes'"
-                     x-model="filters['{{ name }}'].mes"
-                     min="1" max="12" placeholder="{{ i18n.MONTH_RANGE }}">
-              <div class="flex gap-1" x-show="filters['{{ name }}'].preset === 'mes_ano'">
-                <input type="number" class="input input-bordered input-sm flex-1"
-                       x-model="filters['{{ name }}'].mes" min="1" max="12" placeholder="{{ i18n.FILTER_MONTH }}">
-                <input type="number" class="input input-bordered input-sm flex-1"
-                       x-model="filters['{{ name }}'].ano" min="2000" max="2099" placeholder="{{ i18n.FILTER_YEAR }}">
-              </div>
-              <input type="number" class="input input-bordered input-sm w-full"
-                     x-show="filters['{{ name }}'].preset === 'ano'"
-                     x-model="filters['{{ name }}'].ano"
-                     min="2000" max="2099" placeholder="{{ i18n.YEAR_RANGE }}">
-              <div class="flex gap-1" x-show="filters['{{ name }}'].preset === 'periodo'">
-                <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].from" placeholder="{{ i18n.FROM }}">
-                <input type="date" class="input input-bordered input-sm flex-1" x-model="filters['{{ name }}'].to" placeholder="{{ i18n.TO }}">
-              </div>
-              <input type="date" class="input input-bordered input-sm w-full"
-                     x-show="filters['{{ name }}'].preset === 'a_partir_de'"
-                     x-model="filters['{{ name }}'].from" placeholder="{{ i18n.FILTER_FROM }}">
-              <input type="date" class="input input-bordered input-sm w-full"
-                     x-show="filters['{{ name }}'].preset === 'ate_a_data_de'"
-                     x-model="filters['{{ name }}'].to" placeholder="{{ i18n.FILTER_UNTIL }}">
-            </div>
-            {% endif %}
+      <div class="list-filter-wrap"{% if filter_max_width %} style="max-width:{{ filter_max_width }};"{% endif %}>
+        <div class="flex flex-col gap-2 p-2 min-w-0">
+          {% if FILTERS %}
+          <div x-show="hasDefault" class="flex items-center gap-2 my-1 text-gray-500"
+               role="group" aria-label="{{ i18n.FILTER_DEFAULT_SECTION }}">
+            <span class="filter-paren" x-show="defaultVisible" aria-hidden="true">(</span>
+            <span class="filter-line" aria-hidden="true"></span>
+            <span class="text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap" role="heading" aria-level="3">{{ i18n.FILTER_DEFAULT_SECTION }}</span>
+            <span class="filter-line" aria-hidden="true"></span>
+            <label class="flex items-center flex-none cursor-pointer select-none" title="{{ i18n.FILTER_DEFAULT }}">
+              <input type="checkbox" class="checkbox checkbox-sm" x-model="defaultOn"
+                     @change="_resetNext()"{% if default_on %} checked{% endif %} aria-label="{{ i18n.FILTER_DEFAULT }}">
+            </label>
           </div>
+          <template x-for="block in blocks" :key="block.id">
+            <div class="filter-block-wrap" x-show="blockVisible(block)">
+            <div class="filter-block" :class="block.g ? 'filter-grouped' : ''"
+                 role="group" :aria-label="block.d ? '{{ i18n.FILTER_DEFAULT_SECTION }}' : '{{ i18n.FILTER_BLOCK }}'">
+              <div class="filter-block-connector"
+                   x-show="block.g && !block.d && blockHasPrev(block)"
+                   x-text="connLabel(block.c)"></div>
+              <div class="filter-block-header" x-show="block.g && !block.d">
+                <span class="filter-paren" aria-hidden="true">(</span>
+                <span class="filter-line" aria-hidden="true"></span>
+              </div>
+              <template x-for="(row, ri) in block.rows" :key="row.id">
+                <div class="filter-grid min-w-0">
+                  <div class="cell-conn">
+                    <div x-show="ri === 0" class="flex items-center gap-1 min-w-0">
+                      <span x-show="!block.d && !block.g && blockHasPrev(block)" class="text-sm font-semibold whitespace-nowrap"
+                            x-text="connLabel(block.c)"></span>
+                    </div>
+                    <select x-show="ri > 0 && row.editing" x-model="row.c"
+                            class="select select-bordered select-sm w-full"
+                            :title="row.c === 'or' ? '{{ i18n.FILTER_OR }}' : '{{ i18n.FILTER_AND }}'">
+                      <option value="and">{{ i18n.FILTER_AND }}</option>
+                      <option value="or">{{ i18n.FILTER_OR }}</option>
+                    </select>
+                    <span x-show="ri > 0 && !row.editing" class="text-sm font-semibold"
+                          x-text="row.c === 'or' ? '{{ i18n.FILTER_OR }}' : '{{ i18n.FILTER_AND }}'"></span>
+                  </div>
+
+                  <div class="cell-field">
+                    <select x-show="row.editing" class="select select-bordered select-sm w-full" x-model="row.f" @change="initVal(row)" aria-label="{{ i18n.FILTER_FIELD }}">
+                      <option value="">{{ i18n.FILTER_SELECT_FIELD }}</option>
+                      <template x-for="(cfg, name) in fields" :key="name">
+                        <option :value="name" :selected="String(name) === String(row.f)" x-text="cfg.label || name"></option>
+                      </template>
+                    </select>
+                    <span x-show="!row.editing" class="text-sm font-semibold break-words" x-text="summaryLabel(row)"></span>
+                  </div>
+
+                  <div class="cell-opt">
+                    <template x-if="row.editing && row.f && fields[row.f] && (fields[row.f].type === 'text' || fields[row.f].type === 'number')">
+                      <select class="select select-bordered select-sm w-full" x-model="row.v.mode" aria-label="{{ i18n.FILTER_FIELD }}">
+                        <template x-for="m in fields[row.f].modes" :key="m[0]">
+                          <option :value="m[0]" :selected="row.v && m[0] === row.v.mode" x-text="m[1]"></option>
+                        </template>
+                      </select>
+                    </template>
+                    <template x-if="row.editing && row.f && fields[row.f] && fields[row.f].type === 'date'">
+                      <select class="select select-bordered select-sm w-full" x-model="row.v.preset" @change="onPreset(row)" aria-label="{{ i18n.FILTER_FIELD }}">
+                        <template x-for="m in fields[row.f].modes" :key="m[0]">
+                          <option :value="m[0]" :selected="row.v && m[0] === row.v.preset" x-text="m[1]"></option>
+                        </template>
+                      </select>
+                    </template>
+                    <span x-show="!row.editing" class="text-sm break-words" x-text="summaryMode(row)"></span>
+                  </div>
+
+                  <div class="cell-v1" :class="spansTwo(row) ? 'col-span-2' : ''">
+                    <template x-if="row.editing">
+                    <div class="min-w-0">
+                    <template x-if="row.f && fields[row.f] && fields[row.f].type === 'text'">
+                      <input type="text" class="input input-bordered input-sm w-full" x-model="row.v.value" placeholder="{{ i18n.VALUE }}" aria-label="{{ i18n.VALUE }}">
+                    </template>
+                    <template x-if="row.f && fields[row.f] && fields[row.f].type === 'number'">
+                      <input type="number" class="input input-bordered input-sm w-full" x-model="row.v.val1" placeholder="{{ i18n.VALUE_1 }}" step="any" aria-label="{{ i18n.VALUE_1 }}">
+                    </template>
+                    <template x-if="row.f && fields[row.f] && fields[row.f].type === 'boolean'">
+                      <div class="flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-sm flex-1 border"
+                                :class="row.v === '' ? 'btn-primary text-primary-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'"
+                                @click="row.v = ''">{{ i18n.FILTER_ALL }}</button>
+                        <button type="button" class="btn btn-sm flex-1 border"
+                                :class="row.v === 'true' ? 'btn-success text-success-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'"
+                                @click="row.v = 'true'">{{ i18n.FILTER_YES }}</button>
+                        <button type="button" class="btn btn-sm flex-1 border"
+                                :class="row.v === 'false' ? 'btn-error text-error-content' : 'btn-outline bg-base-100 text-base-content hover:bg-base-200 hover:text-base-content'"
+                                @click="row.v = 'false'">{{ i18n.NO }}</button>
+                      </div>
+                    </template>
+                    <template x-if="row.f && fields[row.f] && fields[row.f].type === 'select'">
+                      <select class="select select-bordered select-sm w-full" x-model="row.v" aria-label="{{ i18n.VALUE }}">
+                        <option value="">{{ i18n.FILTER_ALL }}</option>
+                        <template x-for="(opt, val) in (fields[row.f].options || {})" :key="val">
+                          <option :value="val" :selected="String(val) === String(row.v)" x-text="opt"></option>
+                        </template>
+                      </select>
+                    </template>
+                    <template x-if="row.f && fields[row.f] && fields[row.f].type === 'checklist'">
+                      <div class="flex flex-wrap gap-x-2 gap-y-0.5 border rounded p-1 min-w-0">
+                        <template x-for="(opt, val) in (fields[row.f].options || {})" :key="val">
+                          <label class="flex items-center gap-1 text-xs min-w-0">
+                            <input type="checkbox" class="checkbox checkbox-xs" :value="val" x-model="row.v">
+                            <span class="break-words" x-text="opt"></span>
+                          </label>
+                        </template>
+                      </div>
+                    </template>
+                    <template x-if="row.f && fields[row.f] && fields[row.f].type === 'date'">
+                      <input type="number" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'mes'"
+                             x-model="row.v.mes" min="1" max="12" placeholder="{{ i18n.MONTH_RANGE }}" aria-label="{{ i18n.MONTH_RANGE }}">
+                      <input type="number" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'mes_ano'"
+                             x-model="row.v.mes" min="1" max="12" placeholder="{{ i18n.FILTER_MONTH }}" aria-label="{{ i18n.FILTER_MONTH }}">
+                      <input type="number" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'mes_ano_anterior'"
+                             x-model="row.v.mes" min="1" max="12" placeholder="{{ i18n.FILTER_MONTH }}" aria-label="{{ i18n.FILTER_MONTH }}">
+                      <input type="number" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'ano'"
+                             x-model="row.v.ano" min="2000" max="2099" placeholder="{{ i18n.YEAR_RANGE }}" aria-label="{{ i18n.YEAR_RANGE }}">
+                      <input type="date" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'a_partir_de'"
+                             x-model="row.v.from" placeholder="{{ i18n.FILTER_FROM }}" aria-label="{{ i18n.FILTER_FROM }}">
+                      <input type="date" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'ate_a_data_de'"
+                             x-model="row.v.to" placeholder="{{ i18n.FILTER_UNTIL }}" aria-label="{{ i18n.FILTER_UNTIL }}">
+                      <input type="date" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'periodo'"
+                             x-model="row.v.from" placeholder="{{ i18n.FROM }}" aria-label="{{ i18n.FROM }}">
+                    </template>
+                    </div>
+                    </template>
+                    <span x-show="!row.editing" class="text-sm break-words" x-text="summaryValueOnly(row)"></span>
+                  </div>
+
+                  <div class="cell-v2" x-show="!spansTwo(row)">
+                    <template x-if="row.editing">
+                    <div class="min-w-0">
+                    <template x-if="row.f && fields[row.f] && fields[row.f].type === 'number' && row.v && row.v.mode === 'entre'">
+                      <input type="number" class="input input-bordered input-sm w-full" x-model="row.v.val2" placeholder="{{ i18n.VALUE_2 }}" step="any" aria-label="{{ i18n.VALUE_2 }}">
+                    </template>
+                    <template x-if="row.f && fields[row.f] && fields[row.f].type === 'date'">
+                      <input type="number" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'mes_ano'"
+                             x-model="row.v.ano" min="2000" max="2099" placeholder="{{ i18n.FILTER_YEAR }}" aria-label="{{ i18n.FILTER_YEAR }}">
+                      <input type="number" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'mes_ano_anterior'"
+                             x-model="row.v.ano" min="2000" max="2099" placeholder="{{ i18n.FILTER_YEAR }}" aria-label="{{ i18n.FILTER_YEAR }}">
+                      <input type="date" class="input input-bordered input-sm w-full"
+                             x-show="row.v && row.v.preset === 'periodo'"
+                             x-model="row.v.to" placeholder="{{ i18n.TO }}" aria-label="{{ i18n.TO }}">
+                    </template>
+                    </div>
+                    </template>
+                  </div>
+
+                  <div class="cell-actions flex items-center gap-1 min-w-[4.5rem] justify-end" x-show="!block.d">
+                    <template x-if="row.editing">
+                      <span class="flex items-center gap-1">
+                        <button type="button" class="btn btn-sm btn-ghost text-error" @click="cancelRow(block, row)"
+                                :title="row.prev ? '{{ i18n.CANCEL }}' : '{{ i18n.CLEAR }}'">{{ heroicon('xmark', 'w-3.5 h-3.5') }}</button>
+                        <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1" x-show="hasValue(row)" @click="ok(block, row)">{{ heroicon('check', 'w-3.5 h-3.5') }} {{ i18n.OK }}</button>
+                      </span>
+                    </template>
+                    <template x-if="!row.editing">
+                      <span class="flex items-center gap-1">
+                        <button type="button" class="btn btn-sm btn-ghost" @click="edit(row)" title="{{ i18n.EDIT }}">{{ heroicon('pencil-square', 'w-3.5 h-3.5') }}</button>
+                        <button type="button" class="btn btn-sm btn-ghost text-error" @click="removeRow(block, row)" title="{{ i18n.REMOVE }}">{{ heroicon('xmark', 'w-3.5 h-3.5') }}</button>
+                      </span>
+                    </template>
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="next.armed && block === openBlock && block.g">
+                {{ filter_next_grid(true) }}
+              </template>
+
+              <div class="filter-block-footer" x-show="block.g && block.rows.length">
+                <span class="filter-line" aria-hidden="true"></span>
+                <span class="filter-paren" aria-hidden="true">)</span>
+                <button type="button" class="btn btn-sm btn-ghost text-error"
+                        x-show="!block.d && !hasRowEditing && !next.armed"
+                        @click="deleteBlock(block)" title="{{ i18n.FILTER_BLOCK_DELETE }}" aria-label="{{ i18n.FILTER_BLOCK_DELETE }}">
+                  {{ heroicon('trash', 'w-3.5 h-3.5') }}
+                </button>
+              </div>
+            </div>
+            <template x-if="block === openBlock">
+              {{ filter_next_compact(true) }}
+            </template>
+            </div>
+          </template>
+          <template x-if="!openBlock">
+            {{ filter_next_compact(false) }}
+          </template>
+          <template x-if="!openBlock">
+            {{ filter_next_grid(false) }}
+          </template>
           {% else %}
           <div class="text-gray-500 text-sm p-2">{{ i18n.NO_FILTERS }}</div>
-          {% endfor %}
+          {% endif %}
         </div>
-        <div class="flex gap-2 mt-3 bg-white p-2 border-t" id="page-filter-actions">
-          <button type="button" class="btn btn-outline btn-danger flex-1 inline-flex items-center gap-1" @click="clearFilters()" :disabled="!hasActiveFilters">
+        <div class="flex flex-wrap items-center gap-2 mt-3 bg-white p-2 border-t" id="page-filter-actions">
+          <button type="button" class="btn btn-outline btn-danger flex-1 min-w-[8rem] inline-flex items-center gap-1" @click="clearFilters()" :disabled="!canClear">
             {{ heroicon(BTN_CLEAR.icon, 'w-4 h-4') }} {{ BTN_CLEAR.text() }}
           </button>
-          <button type="button" class="btn btn-primary flex-1 inline-flex items-center gap-1" @click="submitFilters()">
+          <button type="button" class="btn btn-primary flex-1 min-w-[8rem] inline-flex items-center gap-1" @click="submitFilters()">
             {{ heroicon(BTN_APPLY.icon, 'w-4 h-4') }} {{ BTN_APPLY.text() }}
           </button>
         </div>
@@ -346,76 +732,519 @@
 <script>
 function listPage() {
   return {
-    _defaults: {{ initial_filters | tojson | safe }},
-    filters: (function() {
-      var defaults = {{ initial_filters | tojson | safe }};
-      var active = {{ active_filters | tojson | safe }};
-      var filters = {};
-      for (var field in defaults) {
-        var v = active[field];
-        filters[field] = (v !== undefined && v !== null) ? (typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : v) : defaults[field];
+    _fields: {{ FILTERS | tojson | safe }},
+    _initial: {{ initial_filters | tojson | safe }},
+    _defaults: {{ default_filters | tojson | safe }},
+    _active: {{ active_filters | tojson | safe }},
+    blocks: [],
+    defaultOn: {{ 'true' if default_on else 'false' }},
+    next: {value: '', c: 'and', openBlock: false, blockId: null,
+           groupOnly: false, armed: false,
+           f: '', v: null, prev: null, editing: false},
+    _defaultSnapshot: [],
+    _seq: 0,
+    get fields() { return this._fields; },
+    get defaultBlock() {
+      for (var i = 0; i < this.blocks.length; i++) {
+        if (this.blocks[i].d) return this.blocks[i];
       }
-      return filters;
-    })(),
-    get hasActiveFilters() {
-      var d = this._defaults;
-      for (var k in d) {
-        var cur = this.filters[k];
-        var def = d[k];
-        var isEmpty = function(v) {
-          if (v === null || v === undefined) return true;
-          if (Array.isArray(v)) return v.length === 0;
-          if (typeof v === 'object') return Object.values(v).every(function(x){ return x === '' || x === null || x === undefined; });
-          return String(v).trim() === '';
-        };
-        if (!isEmpty(cur) || !isEmpty(def)) {
-          // compara cur vs def
-          if (JSON.stringify(cur) !== JSON.stringify(def)) return true;
+      return null;
+    },
+    get userBlocks() {
+      return this.blocks.filter(function (b) { return !b.d; });
+    },
+    get hasDefault() { return !!(this._initial && this._initial.length); },
+    get hasDefaultRows() {
+      var b = this.defaultBlock;
+      return !!(b && b.rows.length);
+    },
+    get defaultVisible() {
+      return !!(this.defaultOn && this.hasDefaultRows);
+    },
+    get visibleBlocks() {
+      var out = [];
+      if (this.defaultVisible) out.push(this.defaultBlock);
+      return out.concat(this.userBlocks);
+    },
+    get hasVisibleBlocks() { return this.visibleBlocks.length > 0; },
+    get hasActiveDefault() {
+      var self = this, b = this.defaultBlock;
+      return !!(this.defaultOn && b && b.rows.some(function (r) {
+        return self.hasValue(r);
+      }));
+    },
+    _blockFromRows(rows, isDefault, g) {
+      var self = this;
+      var block = {id: ++this._seq, d: !!isDefault, c: 'and', g: !!g,
+                   closed: !!g, rows: []};
+      (rows || []).forEach(function (r) {
+        block.rows.push(self.fromRow(r, isDefault));
+      });
+      return block;
+    },
+    _resetNext() {
+      this.blocks = this.blocks.filter(function (b) {
+        return b.d || !b.g || b.rows.length;
+      });
+      this.next.value = '';
+      this.next.c = 'and';
+      this.next.openBlock = false;
+      this.next.blockId = null;
+      this.next.groupOnly = false;
+      this.next.armed = false;
+      this.next.f = '';
+      this.next.v = null;
+      this.next.prev = null;
+      this.next.editing = false;
+    },
+    init() {
+      var self = this;
+      this.blocks = [];
+      this._defaultSnapshot = [];
+      for (var n in this._fields) {
+        var cfg = this._fields[n];
+        if (Array.isArray(cfg.options)) {
+          var o = {};
+          cfg.options.forEach(function (x) { o[x] = x; });
+          cfg.options = o;
         }
       }
-      // também considera se URL tem filtro ativo (active_filters diferente de defaults)
+      if ((this._defaults || []).length) {
+        var db = this._blockFromRows(this._defaults, true, true);
+        this.blocks.push(db);
+        this._defaultSnapshot = db.rows.map(function (r) {
+          return self._rowValue(r);
+        });
+      }
+      var active = this._active || [];
+      if (active.length && !(active[0] && Array.isArray(active[0].rows))) {
+        active = active.map(function (r) {
+          return {c: r.c || 'and', rows: [r]};
+        });
+      }
+      active.forEach(function (b) {
+        var block = self._blockFromRows(b.rows || [], false, b.g !== false);
+        block.c = b.c || 'and';
+        self.blocks.push(block);
+      });
+      this._resetNext();
+    },
+    get openBlock() {
+      if (this.next.armed) {
+        if (this.next.openBlock) {
+          var id = this.next.blockId;
+          return this.userBlocks.filter(function (b) {
+            return b.id === id;
+          })[0] || null;
+        }
+        if (!this.next.groupOnly) return null;
+      }
+      var users = this.userBlocks;
+      if (!users.length) return null;
+      var last = users[users.length - 1];
+      return (last.g && last.closed) ? null : last;
+    },
+    isFirstLine() {
+      var block = this.openBlock;
+      if (block) return block.rows.length === 0;
+      return this.visibleBlocks.length === 0;
+    },
+    nextOptions() {
+      var and = '{{ i18n.FILTER_AND }}', or = '{{ i18n.FILTER_OR }}';
+      if (this.next.armed ? this.next.groupOnly
+          : !!(this.openBlock && this.openBlock.g)) {
+        return [{value: 'and', label: and}, {value: 'or', label: or}];
+      }
+      return [
+        {value: 'and', label: and},
+        {value: 'and(', label: and + ' ('},
+        {value: 'or', label: or},
+        {value: 'or(', label: or + ' ('}
+      ];
+    },
+    startFirst() {
+      if (!this.next.f) return;
+      this.next.value = 'and';
+      this.next.c = 'and';
+      this.next.openBlock = false;
+      this.next.blockId = null;
+      this.next.groupOnly = false;
+      this.next.armed = true;
+      this.next.prev = null;
+      this.next.editing = true;
+      this.initVal(this.next);
+    },
+    chooseNext(value) {
+      var group = value === 'and(' || value === 'or(';
+      var c = (value === 'or' || value === 'or(') ? 'or' : 'and';
+      var oldId = this.next.blockId;
+      if (oldId != null) {
+        var old = this.blocks.filter(function (b) { return b.id === oldId; })[0];
+        if (old && !old.rows.length) {
+          var oi = this.blocks.indexOf(old);
+          if (oi >= 0) this.blocks.splice(oi, 1);
+        }
+      }
+      this.next.armed = false;
+      this.next.openBlock = false;
+      this.next.blockId = null;
+      this.next.groupOnly = !!(this.openBlock && this.openBlock.g);
+      this.next.value = value;
+      this.next.c = c;
+      this.next.openBlock = group;
+      this.next.armed = true;
+      this.next.f = '';
+      this.next.v = null;
+      this.next.prev = null;
+      this.next.editing = true;
+      if (group) {
+        var block = {id: ++this._seq, d: false, c: c, g: true,
+                     closed: false, rows: []};
+        this.blocks.push(block);
+        this.next.blockId = block.id;
+      }
+    },
+    okNext(keepOpen=false) {
+      if (!this.hasValue(this.next)) return false;
+      var target = null;
+      if (this.next.openBlock) {
+        var id = this.next.blockId;
+        target = this.userBlocks.filter(function (b) {
+          return b.id === id;
+        })[0] || null;
+      } else {
+        var users = this.userBlocks;
+        var last = users[users.length - 1];
+        if (last && (!last.g || !last.closed)) target = last;
+      }
+      if (!target) {
+        target = {id: ++this._seq, d: false, c: this.next.c,
+                  g: !!this.next.openBlock, closed: false, rows: []};
+        this.blocks.push(target);
+        this.next.blockId = target.id;
+      }
+      if (this.next.openBlock) {
+        target.g = true;
+        target.closed = false;
+      }
+      var first = !target.rows.length;
+      target.rows.push({
+        id: ++this._seq, d: false, f: this.next.f,
+        c: first ? 'and' : this.next.c,
+        v: this._clone(this.next.v), prev: this._snapshot(this.next),
+        editing: false
+      });
+      if (keepOpen) this._continueNext(target);
+      else this._resetNext();
+      return true;
+    },
+    _continueNext(block) {
+      this.next.armed = true;
+      this.next.openBlock = !!block.g;
+      this.next.blockId = block.g ? block.id : null;
+      this.next.groupOnly = !!block.g;
+      this.next.value = 'and';
+      this.next.c = 'and';
+      this.next.f = '';
+      this.next.v = null;
+      this.next.prev = null;
+      this.next.editing = true;
+    },
+    closeNext() {
+      if (!this.okNext()) return;
+      this.closeRun();
+    },
+    cancelNext() {
+      var id = this.next.blockId;
+      var block = this.next.openBlock ? this.userBlocks.filter(function (b) {
+        return b.id === id;
+      })[0] : null;
+      if (block && !block.rows.length) {
+        var bi = this.blocks.indexOf(block);
+        if (bi >= 0) this.blocks.splice(bi, 1);
+      }
+      this._resetNext();
+    },
+    get hasRowEditing() {
+      var self = this;
+      return this.userBlocks.some(function (b) {
+        return b.rows.some(function (r) { return r.editing; });
+      });
+    },
+    canClose() {
+      if (this.next.armed || this.hasRowEditing) return false;
+      var users = this.userBlocks;
+      if (!users.length) return false;
+      var last = users[users.length - 1];
+      if (last.g) return !last.closed && last.rows.length > 0;
+      return last.rows.length > 0;
+    },
+    closeRun() {
+      if (!this.canClose()) return;
+      var users = this.userBlocks;
+      var last = users[users.length - 1];
+      if (last.g) {
+        last.closed = true;
+        return;
+      }
+      var run = [];
+      while (this.blocks.length) {
+        var candidate = this.blocks[this.blocks.length - 1];
+        if (candidate.d || candidate.g) break;
+        run.unshift(this.blocks.pop());
+      }
+      if (!run.length) return;
+      var rows = [];
+      run.forEach(function (b) {
+        rows.push.apply(rows, b.rows);
+      });
+      this.blocks.push({id: ++this._seq, d: false, c: run[0].c, g: true,
+                        closed: true, rows: rows});
+      this._resetNext();
+    },
+    blockHasPrev(block) {
+      return this.visibleBlocks.indexOf(block) > 0;
+    },
+    connLabel(c) {
+      return c === 'or' ? '{{ i18n.FILTER_OR }}' : '{{ i18n.FILTER_AND }}';
+    },
+    fromRow(r, isDefault) {
+      var f = r.f, cfg = this._fields[f] || {};
+      var v = r.v;
+      if (cfg.type === 'text') v = v || {mode: 'contains', value: ''};
+      else if (cfg.type === 'number') v = v || {mode: 'igual', val1: '', val2: ''};
+      else if (cfg.type === 'date') v = v || {preset: ''};
+      else if (cfg.type === 'checklist') v = Array.isArray(v) ? v : [];
+      else v = (v === null || v === undefined) ? '' : v;
+      if (cfg.type === 'date') this._fillMesAno(v);
+      return {id: ++this._seq, d: !!isDefault, f: f, c: r.c || 'and', v: v,
+              prev: {f: f, c: r.c || 'and', v: this._clone(v)}, editing: false};
+    },
+    initVal(row) {
+      var cfg = this._fields[row.f] || {};
+      if (cfg.type === 'text') row.v = {mode: 'contains', value: ''};
+      else if (cfg.type === 'number') row.v = {mode: 'igual', val1: '', val2: ''};
+      else if (cfg.type === 'date') row.v = {preset: ''};
+      else if (cfg.type === 'checklist') row.v = [];
+      else row.v = '';
+    },
+    _fillMesAno(v) {
+      if (!v || (v.preset !== 'mes_ano' && v.preset !== 'mes_ano_anterior')) return;
+      var now = new Date();
+      var ref = v.preset === 'mes_ano_anterior'
+        ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
+        : now;
+      if (v.mes === undefined || v.mes === null || v.mes === '') v.mes = ref.getMonth() + 1;
+      if (v.ano === undefined || v.ano === null || v.ano === '') v.ano = ref.getFullYear();
+    },
+    onPreset(row) { this._fillMesAno(row.v); },
+    blockVisible(block) {
+      return block.d ? this.defaultVisible : true;
+    },
+    blockHasValue(block) {
+      var self = this;
+      return block.rows.some(function (r) { return self.hasValue(r); });
+    },
+    deleteBlock(block) {
+      if (block.d) return;
+      if (this.blockHasValue(block) && !window.confirm({{ i18n.FILTER_BLOCK_DELETE_CONFIRM | tojson }})) return;
+      var users = this.userBlocks, i = users.indexOf(block);
+      if (i < 0) return;
+      var next = users[i + 1] || null;
+      if (next) next.c = block.c || 'and';
+      var bi = this.blocks.indexOf(block);
+      if (bi >= 0) this.blocks.splice(bi, 1);
+      if (this.next.openBlock && this.next.blockId === block.id) {
+        this._resetNext();
+      }
+    },
+    hasValue(row) {
+      if (!row.f) return false;
+      var cfg = this._fields[row.f] || {};
+      var v = row.v;
+      if (cfg.type === 'text') return !!(v && String(v.value || '').trim());
+      if (cfg.type === 'number') {
+        if (!v || v.val1 === undefined || v.val1 === null) return false;
+        if (String(v.val1).trim() === '') return false;
+        if (v.mode === 'entre') {
+          if (v.val2 === undefined || v.val2 === null) return false;
+          if (String(v.val2).trim() === '') return false;
+        }
+        return true;
+      }
+      if (cfg.type === 'date') {
+        if (!v || !v.preset) return false;
+        var p = v.preset;
+        if (p === 'mes') return v.mes !== undefined && v.mes !== null && String(v.mes).trim() !== '';
+        if (p === 'ano') return v.ano !== undefined && v.ano !== null && String(v.ano).trim() !== '';
+        if (p === 'mes_ano' || p === 'mes_ano_anterior') {
+          return (v.mes !== undefined && v.mes !== null && String(v.mes).trim() !== '') &&
+                 (v.ano !== undefined && v.ano !== null && String(v.ano).trim() !== '');
+        }
+        if (p === 'periodo') {
+          return ((v.from !== undefined && v.from !== null && String(v.from).trim() !== '') ||
+                  (v.to !== undefined && v.to !== null && String(v.to).trim() !== ''));
+        }
+        if (p === 'a_partir_de') return v.from !== undefined && v.from !== null && String(v.from).trim() !== '';
+        if (p === 'ate_a_data_de') return v.to !== undefined && v.to !== null && String(v.to).trim() !== '';
+        return true;
+      }
+      if (cfg.type === 'checklist') return Array.isArray(v) && v.length > 0;
+      if (cfg.type === 'boolean') return v === 'true' || v === 'false';
+      return v !== null && v !== undefined && String(v).trim() !== '';
+    },
+    ok(block, row) {
+      if (!this.hasValue(row)) return;
+      row.prev = this._snapshot(row);
+      row.editing = false;
+    },
+    edit(row) {
+      row.prev = this._snapshot(row);
+      row.editing = true;
+    },
+    _clone(v) {
+      return (v === null || v === undefined) ? v : JSON.parse(JSON.stringify(v));
+    },
+    _snapshot(row) {
+      return {f: row.f, c: row.c || 'and', v: this._clone(row.v)};
+    },
+    cancelRow(block, row) {
+      if (row.prev) {
+        row.f = row.prev.f;
+        row.c = row.prev.c;
+        row.v = this._clone(row.prev.v);
+        row.editing = false;
+        return;
+      }
+      this.removeRow(block, row);
+    },
+    removeRow(block, row) {
+      var i = block.rows.indexOf(row);
+      if (i < 0) return;
+      block.rows.splice(i, 1);
+      if (block.d || block.rows.length) return;
+      var bi = this.blocks.indexOf(block);
+      if (bi >= 0) this.blocks.splice(bi, 1);
+      if (this.next.openBlock && this.next.blockId === block.id) {
+        this._resetNext();
+      }
+    },
+    summaryLabel(row) {
+      var cfg = this._fields[row.f];
+      return cfg ? (cfg.label || row.f) : row.f;
+    },
+    spansTwo(row) {
+      if (!row.f || !this._fields[row.f]) return false;
+      var t = this._fields[row.f].type, v = row.v || {};
+      if (t === 'text' || t === 'select' || t === 'checklist' || t === 'boolean') return true;
+      if (t === 'number') return v.mode !== 'entre';
+      if (t === 'date') {
+        return ['mes_ano', 'mes_ano_anterior', 'periodo'].indexOf(v.preset) === -1;
+      }
       return false;
     },
-    submitFilters() {
-      var params = new URLSearchParams();
-      for (var field in this.filters) {
-        var val = this.filters[field];
-        if (val === null || val === undefined || val === '' || (typeof val === 'object' && Object.keys(val).length === 0)) continue;
-        if (Array.isArray(val)) {
-          if (val.length) params.set(field, val.join(','));
-        } else if (typeof val === 'object') {
-          if ('value' in val && val.value) {
-            params.set(field + '_value', val.value);
-            if ('mode' in val && val.mode) params.set(field + '_mode', val.mode);
-          }
-          if ('val1' in val && val.val1) {
-            params.set(field + '_val1', val.val1);
-            if ('mode' in val && val.mode) params.set(field + '_mode', val.mode);
-          }
-          if ('val2' in val && val.val2 && val.mode === 'entre') params.set(field + '_val2', val.val2);
-          if ('preset' in val && val.preset) {
-            params.set(field + '_preset', val.preset);
-            if (val.from) params.set(field + '_from', val.from);
-            if (val.to) params.set(field + '_to', val.to);
-            if (val.mes) params.set(field + '_mes', val.mes);
-            if (val.ano) params.set(field + '_ano', val.ano);
-          }
-        } else {
-          params.set(field, val);
+    _modeLabel(cfg, m) {
+      var found = (cfg.modes || []).filter(function (x) { return x[0] === m; })[0];
+      return found ? found[1] : (m || '');
+    },
+    summaryMode(row) {
+      var cfg = this._fields[row.f] || {}, v = row.v || {};
+      if (cfg.type === 'text' || cfg.type === 'number') return this._modeLabel(cfg, v.mode);
+      if (cfg.type === 'date') return this._modeLabel(cfg, v.preset);
+      return '';
+    },
+    summaryValueOnly(row) {
+      var cfg = this._fields[row.f] || {}, v = row.v;
+      if (!v) return '';
+      if (cfg.type === 'text') return v.value || '';
+      if (cfg.type === 'number') {
+        var v1 = (v.val1 === undefined || v.val1 === null) ? '' : v.val1;
+        var v2 = (v.val2 === undefined || v.val2 === null) ? '' : v.val2;
+        return String(v1) + (v.mode === 'entre' ? ' — ' + v2 : '');
+      }
+      if (cfg.type === 'boolean') return v === 'true' ? '{{ i18n.FILTER_YES }}' : (v === 'false' ? '{{ i18n.NO }}' : '{{ i18n.FILTER_ALL }}');
+      if (cfg.type === 'date') {
+        if (v.preset === 'periodo') {
+          if ((v.from || '') && (v.to || '')) return v.from + ' — ' + v.to;
+          return v.from || v.to || '';
         }
+        if (v.preset === 'a_partir_de') return v.from || '';
+        if (v.preset === 'ate_a_data_de') return v.to || '';
+        var parts = [];
+        if (v.preset === 'mes' || v.preset === 'mes_ano' || v.preset === 'mes_ano_anterior') {
+          if (v.mes !== undefined && v.mes !== null && String(v.mes) !== '') parts.push(String(v.mes));
+        }
+        if (v.preset === 'mes_ano' || v.preset === 'mes_ano_anterior' || v.preset === 'ano') {
+          if (v.ano !== undefined && v.ano !== null && String(v.ano) !== '') parts.push(String(v.ano));
+        }
+        return parts.join('/');
+      }
+      if (cfg.type === 'checklist') {
+        var opts = cfg.options || {};
+        return (Array.isArray(v) ? v : []).map(function (x) { return opts[x] || x; }).join(', ');
+      }
+      var opts2 = cfg.options || {};
+      return opts2[v] !== undefined ? opts2[v] : v;
+    },
+    get canClear() {
+      var self = this;
+      var userRows = this.userBlocks.some(function (b) {
+        return b.rows.some(function (r) { return self.hasValue(r); });
+      });
+      var defaults = this.defaultBlock ? this.defaultBlock.rows.map(function (r) {
+        return self._rowValue(r);
+      }) : [];
+      var edited = JSON.stringify(defaults) !== JSON.stringify(this._defaultSnapshot || []);
+      return userRows || (this.hasDefault && (!this.defaultOn || edited));
+    },
+    _rowValue(r) {
+      return {f: r.f, c: r.c || 'and', v: this._clone(r.v)};
+    },
+    submitFilters() {
+      var self = this;
+      if (this.next.armed) {
+        if (this.hasValue(this.next)) this.okNext();
+        else this.cancelNext();
+      }
+      var blocks = [];
+      this.userBlocks.forEach(function (block) {
+        var rows = [];
+        block.rows.forEach(function (r) {
+          if (self.hasValue(r)) rows.push(self._rowValue(r));
+        });
+        if (rows.length) {
+          blocks.push({c: block.c || 'and', g: !!block.g, rows: rows});
+        }
+      });
+      var params = new URLSearchParams(window.location.search);
+      params.delete('_f');
+      params.delete('_df');
+      params.delete('_d');
+      var legacy = ['', '_value', '_mode', '_val1', '_val2', '_preset',
+                    '_from', '_to', '_mes', '_ano'];
+      for (var name in this._fields) {
+        legacy.forEach(function (suf) { params.delete(name + suf); });
+      }
+      if (blocks.length) params.set('_f', JSON.stringify(blocks));
+      if (this.hasDefault) {
+        params.set('_d', this.defaultOn ? '1' : '0');
       }
       var qs = params.toString();
       window.location.href = window.location.pathname + (qs ? '?' + qs : '');
     },
     clearFilters() {
-      // limpa apenas os inputs e permanece na página; só limpa o filtro ao clicar em Aplicar
-      var d = this._defaults;
-      for (var k in d) {
-        var v = d[k];
-        if (Array.isArray(v)) this.filters[k] = [];
-        else if (typeof v === 'object' && v !== null) this.filters[k] = JSON.parse(JSON.stringify(v));
-        else this.filters[k] = v;
+      var self = this;
+      this.blocks = [];
+      this._defaultSnapshot = [];
+      if ((this._defaults || []).length) {
+        var db = this._blockFromRows(this._defaults, true, true);
+        this.blocks.push(db);
+        this._defaultSnapshot = db.rows.map(function (r) {
+          return self._rowValue(r);
+        });
       }
+      this.defaultOn = this.hasDefault;
+      this._resetNext();
     }
   };
 }

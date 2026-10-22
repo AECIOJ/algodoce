@@ -2,7 +2,7 @@ from app.models.transacao import Transacao
 from app.models.previsao import Previsao
 from app.routes.sys.transacoes import (
     pre_get_transacao, post_save_transacao)
-from ajsystem.defs.constants import NOT_EMPTY, TODAY
+from ajsystem.defs.constants import NOT_EMPTY, OR, TODAY
 from app.extends.masks import MVALOR
 
 Schema = {
@@ -58,7 +58,15 @@ Page = {
         'list': {
             'columns': 'Transacao',
             'master': 'Previsao',
-            'filter': {'fixed': {'tipo': 'P'}, 'types': {'checklist': 'status'}},
+            'filter': {
+                'fixed': {'tipo': 'P'},
+                'types': {'checklist': 'status'},
+                'default': OR(
+                    {'data': {'preset': 'mes_ano'}},
+                    {'vencimento': {'preset': 'mes_ano'}},
+                    {'saldo': {'mode': 'maior_que', 'val1': 0}},
+                ),
+            },
             'line': ['compra_id'],
             'hidden': ['cancelado', 'tipo'],
             'card': 'Transacao',

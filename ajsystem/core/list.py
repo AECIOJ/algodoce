@@ -275,8 +275,9 @@ def filter_modes() -> dict:
                  ('ultimos_7_dias', i18n.FILTER_LAST_7),
                  ('mes_atual', i18n.FILTER_THIS_MONTH),
                  ('mes_anterior', i18n.FILTER_LAST_MONTH),
-                 ('mes', i18n.FILTER_MONTH),
                  ('mes_ano', i18n.FILTER_MONTH_YEAR),
+                 ('mes_ano_anterior', i18n.FILTER_MONTH_YEAR_LAST),
+                 ('mes', i18n.FILTER_MONTH),
                  ('ano_atual', i18n.FILTER_THIS_YEAR),
                  ('ano_anterior', i18n.FILTER_LAST_YEAR),
                  ('ano', i18n.FILTER_YEAR),
@@ -322,8 +323,9 @@ def resolve_filter_spec(spec, pool, principal=None, where='list.filter'):
                     também fora do painel; as folhas que não são fields do pool
                     valem como coluna e o compilador (`core.filters.compile_fixed`)
                     as resolve contra o model;
-      - `default` — `{campo: valor}`: filtro inicial, editável, que volta ao
-                    limpar os filtros;
+      - `default` — linhas do filtro inicial (dict de folhas em AND, ou
+                    `OR(...)`/`AND(...)` com valores de filtro), editáveis no
+                    painel e que voltam ao limpar;
       - `types`   — `{campo: tipo}` derivado de `{tipo: campo|lista}`.
 
     Nomes de `hidden`/`default`/`types` são validados contra o `pool`. Em `fixed`
@@ -344,8 +346,16 @@ def resolve_filter_spec(spec, pool, principal=None, where='list.filter'):
                              "campos — use um campo por valor")
         if len(_hits) == 1:
             hidden.add(_hits[0].name)
-    default = {_filter_one(pool, principal, k, where, 'default').name: v
-               for k, v in (spec.get('default') or {}).items()}
+    default_spec = spec.get('default')
+    if default_spec:
+        from ajsystem.core.filters import default_expression_rows
+        default = default_expression_rows(
+            default_spec,
+            lambda name: _filter_one(pool, principal, name, where,
+                                     'default').name,
+            f'{where}.default')
+    else:
+        default = []
     types = {}
     for tipo, fieldspec in (spec.get('types') or {}).items():
         if tipo not in FILTER_TYPES:

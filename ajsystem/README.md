@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.08.0044 — Manual do Framework
+# AJSYSTEM 1.26.10.22.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.08.0044`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.22.0001`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -500,16 +500,17 @@ Toda validação é **fail-fast nomeando**: slot inexistente, campo que não est
 
 O painel nasce do **tipo** de cada campo visível: `infer_filter_type` (não o autor) decide se um campo é eixo de filtro e de que tipo. Regra de motor: a chave derivada (`DK`) e os editores `multi`/`image` **não** filtram; o resto pega o `filter_kind` do input (`boolean`, `date`, `number`, `select`) e o fallback `options`→`select`.
 
-O que a página **ajusta** mora em `Page.props.list` sob a chave `filter`, um dict com quatro chaves independentes:
+O que a página **ajusta** mora em `Page.props.list` sob a chave `filter`, um dict com cinco chaves independentes:
 
 | Chave | Forma | Efeito |
 |---|---|---|
 | `hidden` | fieldspec (`'campo'`, `'Ent.campo'`, lista, `{'Ent': [...]}`) | tira do painel — sem UI. Para uma coluna **visível** cujo filtro não faz sentido (ex.: `indice` em `operacoes`); um campo já no slot `hidden` nem chega aqui |
 | `fixed` | `{campo: valor}` ou `OR(...)`/`AND(...)` | vira **`WHERE` fixo**, também fora do painel. Um dict é **AND** das folhas; `OR(...)`/`AND(...)` agrupam (aninháveis). Valor: literal → `=`; sentinelas `NULL`/`NOT_NULL` (↔ `is_null`) e `EMPTY`/`NOT_EMPTY` (↔ `is_empty`); `('op', valor)` com `op` em `=`,`!=`,`>`,`>=`,`<`,`<=`,`like`,`ilike`,`in`,`not in`; lista → `IN`; callable é chamado; `None` **ignora** a folha. Folha que não é field do pool vale como **coluna** do model (ex.: `transferencia_id`, que não é `Field`). Era `pos_filter: 9` + `default` do `Field` — agora o valor mora **na listagem**, que é quem o usa |
-| `default` | `{campo: valor}` | filtro **inicial editável**: nasce aplicado e, ao **limpar**, volta a ele (o `clearFilters` reseta para o default, não para vazio) |
+| `default` | `{campo: valor}` ou `OR(...)`/`AND(...)` com valores de filtro | filtro **inicial editável**: nasce aplicado e marcado (**PADRÃO**); o painel deixa editar/remover as linhas em memória e, ao **limpar**, restaura o default **declarado**. `OR(...)`/`AND(...)` viram linhas em DNF (AND distribui sobre OR, limite de 128 linhas) |
 | `types` | `{tipo: campo\|lista}` | **override** do tipo do widget, para um campo que a inferência classificaria de outro jeito (ex.: `{'checklist': 'status'}`). `tipo` ∈ `FILTER_TYPES` = `text`, `boolean`, `date`, `number`, `select`, `checklist` |
+| `max_width` | `int` ou string CSS | **cap** de largura do painel — `int` vira `ch`, string CSS (ex.: `'72rem'`) passa como está. Sem a chave (ou `None`), usa o default interno **`88ch`** (`DEFAULT_FILTER_MAX_WIDTH`); o valor declarado pelo app vence. O layout é responsivo (quebra linha), sem rolagem horizontal |
 
-`hidden`/`default`/`types` são validados contra o **pool** com o mesmo idioma dos slots (`resolve_filter_spec` reusa `slot_spec_items`/`_slot_match`): campo que não existe ou tipo de filtro desconhecido **quebra nomeando**. Em `fixed`, a folha que casa com um field do pool entra no `hidden` do painel (filtro fixo não é editável); a que não casa é resolvida pelo compilador contra as **colunas do model** (`compile_fixed`) — nome que não é coluna quebra nomeando também.
+`hidden`/`default`/`types` são validados contra o **pool** com o mesmo idioma dos slots (`resolve_filter_spec` reusa `slot_spec_items`/`_slot_match`): campo que não existe ou tipo de filtro desconhecido **quebra nomeando**. `max_width` é validado por `resolve_max_width` (`int` → `ch`; string CSS; qualquer outro tipo **quebra nomeando**); a ausência (ou `None`) usa `DEFAULT_FILTER_MAX_WIDTH` (`88ch`), e o valor declarado vence. Em `fixed`, a folha que casa com um field do pool entra no `hidden` do painel (filtro fixo não é editável); a que não casa é resolvida pelo compilador contra as **colunas do model** (`compile_fixed`) — nome que não é coluna quebra nomeando também.
 
 **Sentinelas e agrupamento (`fixed`).** `EMPTY`/`NOT_EMPTY` espelham `is_empty` (`None`, branco ou coleção vazia): em coluna textual viram `col IS NULL OR trim(col) = ''`; nas demais, só `IS NULL`. `NULL`/`NOT_NULL` espelham `is_null` (só `None`, o NULL do banco) — a distinção é a mesma de `core/utils` (`utils.py:77-98`). O `AND` é o default do dict; o `OR` é explícito por função:
 
@@ -544,7 +545,75 @@ from ajsystem.defs.constants import NULL, NOT_EMPTY, OR, AND
 
 > **Filtro fixo e escopo do form.** Um `fixed` não é só da listagem: `core.do_form` recusa abrir um registro que não casa com ele (`list_fixed_conds` resolve a mesma spec para o modelo do form). É por isso que o `tipo` de `pagar` continua não abrindo um lançamento de `receber` por URL direta — e que um movimento de transferência não abre pelo form de `pagamentos`/`recebimentos`.
 >
-> **Ponto único.** A prop inteira é lida por `core.filters.resolve_filter` (`spec → ResolvedFilter{hidden, fixed, default, types, panel, initial, active}`), consumido por `do_list_normal`/`do_list_master` (render + `WHERE`) e por `list_fixed_conds` (guarda do form). Ninguém mais chama `resolve_filter_spec`/`compile_fixed` avulso.
+> **Ponto único.** A prop inteira é lida por `core.filters.resolve_filter` (`spec → ResolvedFilter{hidden, fixed, default, types, panel, initial, default_filters, active, default_on, max_width, filter_cond}`), consumido por `do_list_normal`/`do_list_master` (render + `WHERE`) e por `list_fixed_conds` (guarda do form). Ninguém mais chama `resolve_filter_spec`/`compile_fixed` avulso. `initial`/`default_filters` são **linhas** do PADRÃO e `active` são os **blocos** do usuário (ver abaixo); `filter_cond` é o `WHERE` já compilado — quando o default está ligado, o conector do **primeiro bloco efetivo do usuário** liga o PADRÃO ao root: `E` → `and_(default_cond, user_cond)` (o PADRÃO restringe) e `OU` → `or_(default_cond, user_cond)`. O conector não é aplicado duas vezes: `blocks_condition` ignora o primeiro conector do root e `rows_condition` ignora o primeiro de cada bloco.
+
+**Exemplo (Pagar/Receber).** No `master` a linha é a **previsão** e o pai é a transação: `data` é coluna do pai, `vencimento`/`saldo` são da linha. O default combina os três com `OR` e nasce ligado ao filtro do usuário com `AND`; o primeiro E/OU do bloco do usuário pode trocar essa junção para `OR`:
+
+```python
+from ajsystem.defs.constants import OR
+
+'filter': {
+    'fixed': {'tipo': 'P'},
+    'types': {'checklist': 'status'},
+    'default': OR(
+        {'data': {'preset': 'mes_ano'}},
+        {'vencimento': {'preset': 'mes_ano'}},
+        {'saldo': {'mode': 'maior_que', 'val1': 0}},
+    ),
+},
+```
+
+`saldo` é uma `@hybrid_property` em `Previsao` (expressão SQL com `coalesce`), então o mesmo nome serve para ordenar e filtrar a linha; a exibição usa o `calc` nulo-seguro com a mesma conta — o default `saldo > 0` usa o saldo **da previsão** (`previsto + variacao - realizado`), não o agregado da transação. O checkbox **PADRÃO** desliga esse bloco (`_d=0`); as três linhas são somente leitura.
+
+**O painel é um construtor de consulta em linhas e blocos.** A **linha seguinte** é o único ponto de adição: ela mostra primeiro só o campo (lista vazia) ou só o select E/OU (já há itens); escolhido o E/OU, a linha completa abre com campo, modo e valor. `E`/`OU` adiciona uma **linha solta**; `E (`/`OU (` abre um **bloco agrupado**. O `)` ao lado do select fecha o bloco aberto ou agrupa a sequência final de linhas soltas. Dentro de um bloco, as linhas escolhem **E**/**OU** com a linha anterior; o **E** tem prioridade (`a E b OU c` = `(a AND b) OR c`). O desenho é de **um nível**: blocos de linhas, sem bloco dentro de bloco.
+
+- **Abertura e fechamento.** O `(` fica no início da **linha de abertura** do bloco agrupado; o `)` fica no fim da **linha divisória inferior**, nunca nas linhas de condição. Linha solta não tem moldura. O botão `)` da linha de adição só aparece quando há bloco aberto ou sequência final de linhas soltas para fechar/agrupar; ao agrupar, ele cria a moldura.
+- **Adição e rodapé.** A linha compacta de adição fica **abaixo do bloco**, fora do container do bloco, e mostra `+` no select até a escolha do E/OU. Ao adicionar dentro de bloco agrupado aberto, a grade de edição entra **acima do `)`**, dentro da moldura. Na grade de edição, `[+]` confirma a linha e **rearma o editor no mesmo alvo** (bloco agrupado ou sequência solta); `[)]` confirma e fecha o bloco agrupado, ou agrupa a sequência solta; `[✕]` cancela. Linha solta não tem cabeçalho/rodapé (o `[✕]` da própria linha exclui); bloco agrupado abre com `( ———` e fecha com `——— )`, que **não somem** durante a edição/adição, com o `[🗑]` aparecendo quando não há edição em curso.
+- **PADRÃO é somente leitura.** O primeiro bloco é o PADRÃO, com as linhas declaradas e apenas o checkbox de ligar/desligar na linha de abertura. Não tem `[✎]`, `[✕]` nem `[🗑]`; a moldura fecha com `)` sem lixeira. Desligado, as linhas e a moldura somem, mas a linha de abertura com o checkbox continua visível; ligado, o conector do primeiro bloco do usuário (`E`/`OU`) o liga ao root.
+- **Um nível cobre os casos comuns.** `(A E B) OU (C E D)` são dois blocos; `A E (B OU C)` também são dois (o primeiro com `A`, o segundo com `B OU C`). Não é possível aninhar `A E (B OU (C E D))` sem blocos dentro de blocos — fica para uma próxima extensão.
+- **Vazio não vai para a URL.** Linha solta fica em bloco `g:false` (sem moldura, podendo acumular linhas); bloco agrupado leva `g:true`. Linha/bloco sem valor é descartado no **APLICAR**. O servidor tem limites de 32 blocos e 128 linhas (linhas soltas contam como blocos) e recusa bloco vazio ou estruturalmente inválido.
+
+A URL carrega os blocos no arg reservado **`_f`**:
+
+```json
+[
+  {"c": "and", "g": false, "rows": [
+    {"f": "data", "c": "and", "v": {"preset": "mes_ano"}}
+  ]},
+  {"c": "or", "g": true, "rows": [
+    {"f": "saldo", "c": "and", "v": {"mode": "maior_que", "val1": 0}},
+    {"f": "documento", "c": "or", "v": {"mode": "contains", "value": "NF"}}
+  ]}
+]
+```
+
+- No **bloco**, `c` é o elo com o bloco anterior (`and`/`or`); no **primeiro** bloco ele é o elo com o PADRÃO quando ligado (sem PADRÃO, é ignorado). `g` é só visual: `false` é linha solta (um bloco de uma linha), `true` é bloco agrupado; ausente vale `true` para manter o formato antigo. Na **linha**, `c` é o elo com a linha anterior dentro do bloco; na primeira linha ele é ignorado. `v` mantém o shape antigo (texto `{mode,value}`, número `{mode,val1,val2}`, data `{preset,from,to,mes,ano}`, select/boolean escalar, checklist lista).
+- Campo fora do painel, conector inválido, `g` não booleano, bloco vazio, mistura de bloco/linha ou JSON malformado **quebra nomeando** (`list.filter: _f[i].rows[j] campo ...`, `_f[i] bloco vazio`, `_f[i].g esperava booleano`). Nada é descartado em silêncio.
+- **Compatibilidade.** O `_f` antigo, uma lista plana de `{f,c,v}`, continua válido: vira **um** bloco com o conector da primeira linha (parênteses em volta de tudo não mudam a expressão). Sem `_f`, os args por campo do painel antigo (`campo`, `campo_value`, `campo_mode`, `campo_val1/2`, `campo_preset`, `campo_from/to/mes/ano`) viram um bloco em **E**.
+- **Motor.** `parse_json_blocks`/`parse_blocks` leem os blocos; `rows_condition` compila as linhas de um bloco (primeiro conector ignorado); `blocks_condition` compila o root (primeiro conector ignorado) e `first_block_conn` acha o conector do primeiro bloco efetivo para a junção com o PADRÃO. `resolve_filters` devolve `(initial, edited, active, default_on)` com `active` em **blocos**; `do_list` aplica `filter_cond` uma única vez.
+
+**A seção PADRÃO.** Quando a página declara `default`, o topo do painel ganha o bloco **PADRÃO** com as linhas do default, **somente leitura**: não edita, não remove e não recebe "adicionar" (adições vão para o bloco do usuário). Nasce **ligada**; o checkbox na linha de abertura a desliga. O único estado dele na URL é:
+
+- **`_d`** — `0` desliga o PADRÃO; ausente ou `1` liga. Desligado, `filter_cond` é só o filtro do usuário.
+- O antigo `_df` (linhas editadas em memória) **não é mais enviado** pela tela. `_f` continua sendo só o filtro do usuário; o cliente não semeia o default nele.
+
+**LIMPAR** descarta os blocos do usuário, restaura as linhas **declaradas** do PADRÃO e marca o checkbox; só tem efeito ao **APLICAR**. O `canClear` compara o PADRÃO atual com o **declarado** (como ele não é editável, na prática acende com filtro do usuário ou PADRÃO desligado). **APLICAR** confirma a linha seguinte já preenchida, serializa linhas soltas (`g:false`) e blocos (`g:true`), descarta os vazios e remove os args legados. `default` aceita um dict (AND das folhas) ou `OR(...)`/`AND(...)` com valores no shape do painel: o motor converte para **DNF** (`AND` distribui sobre `OR`) e limita a 128 linhas. O valor numérico `0` conta como preenchido (o `hasValue` testa `!== ''`, não truthiness) — é o que faz `saldo > 0` funcionar.
+
+**Catálogo do `date` (14 presets).** `Mês atual`/`Mês anterior` olham **só o mês** (o ano não importa — aniversariantes); `Mês/Ano atual`/`Mês/Ano anterior` olham **mês e ano** (vencimentos) e o widget pré-preenche mês/ano (o "anterior" já vem com o mês anterior). Presets sem parâmetro (`hoje`, `ontem`, `ultimos_7_dias`, `mes_atual`, `mes_anterior`, `mes_ano`, `mes_ano_anterior`, `ano_atual`, `ano_anterior`) não pedem entrada; os demais pedem `mes`, `ano`, `from`/`to` ou ambos:
+
+| Preset | Condição |
+|---|---|
+| `hoje` / `ontem` | `data = hoje` / `data = hoje - 1` |
+| `ultimos_7_dias` | `hoje-6 <= data <= hoje` |
+| `mes_atual` / `mes_anterior` | `EXTRACT(month) = mês` (só mês) |
+| `mes_ano` / `mes_ano_anterior` | `EXTRACT(month) = mês AND EXTRACT(year) = ano` |
+| `mes` | `EXTRACT(month) = mês` informado |
+| `ano_atual` / `ano_anterior` | `EXTRACT(year) = ano` |
+| `ano` | `EXTRACT(year) = ano` informado |
+| `ate_a_data_de` / `a_partir_de` | `data <= to` / `data >= from` |
+| `periodo` | `from <= data <= to` (extremidade vazia é aberta) |
+
+Preset com valor vazio devolve `[]` (linha sem condição) — por isso a linha só é confirmável quando tem valor.
 
 
 #### Props
@@ -1542,6 +1611,86 @@ Um agregado de `totals` (`query`/`table`) recebe o `Field` e sai por `render_val
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.22.0001
+- **Construtor de filtros com a linha seguinte como ponto de adição.** A linha seguinte virou o único ponto de adição, agora **abaixo do bloco** e com `+` no select em vez de "Adicionar": select E/OU (ou só o campo na primeira linha) e, após a escolha, a grade completa. `E`/`OU` cria linha solta; `E (`/`OU (` abre bloco agrupado; `)` separado fecha o bloco aberto ou agrupa a sequência final de linhas soltas. Os parênteses agora emolduram o bloco: `(` no início da linha de abertura e `)` no fim da divisória inferior. Linha solta não tem cabeçalho/rodapé; bloco agrupado do usuário tem só `[🗑]` no rodapé; o PADRÃO ficou somente leitura, com o checkbox na abertura e `)` sem lixeira.
+- **`g` no `_f`.** `parse_json_blocks` passou a preservar e validar `g` por bloco (`false` = linha solta, `true` = agrupado; ausente = `true`), e o cliente serializa `g` junto de `c`/`rows`. `_df` deixou de ser enviado; o PADRÃO não é mais editável em memória.
+- **`[+]`/`[)]` na linha de edição.** O `OK` único da linha seguinte virou dois botões: `[+]` confirma a row e rearma o editor no mesmo bloco/sequência, sem voltar ao select compacto; `[)]` confirma e fecha o bloco agrupado (ou agrupa a sequência solta). O alvo é preservado em `next.openBlock`/`next.blockId`, então o bloco agrupado aceita várias linhas seguidas.
+- **Verificado.** Jinja parse, `ast.parse`, `node --check` e harness do `listPage()` (linha solta sem moldura, grupo com moldura, edição dentro do bloco, `[+]` rearmando o mesmo alvo, `[)]` fechando/agrupando, `closeRun`, commit no APLICAR, PADRÃO, `g` na serialização); `/pagar/`, `/receber/` e `/insumos/` em 200, inclusive `_f` com `g:false`, `g:true` e formato legado.
+
+### 1.26.10.21.0012
+- **PADRÃO ativo por padrão, com toggle.** O estado inicial do checkbox agora nasce direto de `default_on` (`defaultOn: true/false` no `x-data`), sem depender do `init()`, e o input recebe `checked` no HTML quando o servidor resolve o PADRÃO ligado — assim aparece marcado desde o primeiro render. Sem `_d` (ou `_d=1`) o PADRÃO continua ativo; `_d=0` o desliga, e o checkbox na linha de abertura do bloco permite religar/desligar a qualquer momento.
+- **Verificado.** `/pagar/` sem args e com `_d=1` → `defaultOn: true` e `checked`; `?_d=0` → `defaultOn: false` sem `checked`; Jinja parse ok.
+
+### 1.26.10.21.0011
+- **Checkbox do PADRÃO no início do bloco.** O checkbox que liga/desliga o filtro padrão saiu do rodapé (ao lado de **APLICAR**) e foi para o fim da linha de abertura do bloco **Filtro Padrão**, depois da divisória. Sem texto visível, usa `FILTER_DEFAULT` como `title`/`aria-label` para não repetir o título da seção. A linha de abertura saiu do bloco e fica visível sempre que há PADRÃO, mesmo com ele desligado, para o checkbox continuar alcançável (antes ele sumia junto com as linhas).
+- **Verificado.** Jinja parse ok e `git diff --check` limpo.
+
+### 1.26.10.21.0010
+- **Coluna dos presets mais larga.** A coluna `opção` da `.filter-grid` (select de preset do `date`) passou de `minmax(7ch, 1fr)` para `minmax(16ch, 1.2fr)`, cabendo rótulos como `Mês/Ano Anterior` sem corte; as colunas de valor foram para `minmax(12ch, 1fr)` para os inputs de `mes`/`ano`/`from`/`to` não ficarem espremidos.
+- **Largura padrão do painel de 88ch.** `DEFAULT_FILTER_MAX_WIDTH` subiu de `70ch` para `88ch` para a linha da grade respirar; o app continua vencendo ao declarar `filter.max_width`.
+- **Verificado.** Jinja parse ok e `git diff --check` limpo.
+
+### 1.26.10.21.0009
+- **Blocos de filtro com parênteses.** O root de `_f` agora é uma lista de blocos `{c, rows}`; cada bloco é um operando entre parênteses, com linhas em E/OU (E prioritário) e blocos ligados por E/OU (E prioritário). O `(` abre na primeira linha, o `)` fecha na última, e a primeira linha não tem conector; o elo do bloco com o anterior fica no rodapé do anterior. O PADRÃO é o primeiro bloco.
+- **Rodapé e ações.** Cada bloco termina em linha + seletor E/OU + `[+]`; o seletor edita o próximo bloco, o `[+]` (só no último visível) cria um bloco irmão e o `X` remove o bloco do usuário. O rótulo **"Fim do bloco"** foi removido.
+- **Servidor.** `parse_json_blocks` aceita o formato novo e o `_f` plano legado (um bloco); `blocks_condition` compila o root e `first_block_conn` acha o elo com o PADRÃO; limites de 32 blocos/128 linhas; bloco vazio, mistura, conector inválido ou JSON malformado quebra nomeando. `active` agora são **blocos**; `_df` continua em **linhas**.
+- **Verificado.** Parser (legado/novo, erros nomeados e limites); 10 casos HTTP de junção e precedência em `/pagar/`; 15 listagens e 2 forms em 200; harness do `listPage()` com 38 asserções (blocos, rodapé, `[+]`, exclusão, serialização, `_df` e no-default) e `git diff --check` limpo.
+
+### 1.26.10.21.0008
+- **Sem spinner nos valores do filtro.** Os `input[type=number]` do painel (valor 1/2 e mês/ano dos presets) perderam as setas nativas: `::-webkit-inner/outer-spin-button` desligados e `-moz-appearance:textfield`/`appearance:textfield` no escopo `.list-filter-wrap`, sem mexer nos numbers de outras telas.
+- **Verificado.** CSS renderizado em `/pagar/` e `/insumos/`; 15 listagens em 200 e `git diff --check` limpo.
+
+### 1.26.10.21.0007
+- **Placeholder do campo: `Campo:` / `Field:`.** `FILTER_SELECT_FIELD` deixou de ser `Selecione Campo`/`Select field`; o option vazio do select de campo agora mostra **`Campo:`** em pt e **`Field:`** em en.
+- **Verificado.** Render de `/pagar/` e `/insumos/` em 200 com o novo texto; `node --check` do script.
+
+### 1.26.10.21.0006
+- **Ícone de remover/cancelar visível.** As ações chamavam `heroicon('x-mark')`, que gera `<use href="#i-x-mark">`; o sprite só tem **`i-xmark`**, então o `<use>` ficava vazio e o botão parecia invisível. Trocado para `heroicon('xmark')` nas duas ações: remover a linha confirmada e cancelar/limpar a linha em edição.
+- **Verificado.** HTML de `/pagar/`: 7 usos de `#i-xmark`, 0 de `#i-x-mark`, símbolo presente no sprite; 15 listagens em 200 e `git diff --check` limpo.
+
+### 1.26.10.21.0005
+- **Linha nova recolhida com `[+]`.** O rascunho do bloco do usuário nasce só com o botão **`+`** na coluna E/OU (`FILTER_ADD`). Ao clicar, o `+` some e aparecem o conector (quando aplicável) e o select de campo; o `[X]` limpa e recolhe a linha nova. Linhas confirmadas continuam abrindo com o lápis, e o `[X]` restaura o snapshot anterior.
+- **Conector depois do PADRÃO.** `hasActiveDefault`/`showsConnector` decidem quando a coluna aparece: segunda linha em diante, ou primeira linha do usuário quando há PADRÃO ativo com valor. Sem PADRÃO, a primeira linha do usuário não mostra conector (não há com o que ligar).
+- **O primeiro conector do usuário liga os blocos.** `resolve_filter` usa o `c` da primeira linha **efetiva** de `_f` para combinar `default_cond` e `user_cond`: `and` mantém o PADRÃO restringindo; `or` produz `or_(default_cond, user_cond)`. `rows_condition` continua ignorando o primeiro conector dentro do bloco, então não há dupla aplicação. O PADRÃO nasce em `and`; a mudança de contrato está documentada na §5.6.
+- **Verificado.** Harness do `listPage()`: rascunho recolhido, `arm()` revelando campo/conector, `[X]` recolhendo, conector na primeira linha do usuário só com PADRÃO ativo, segunda linha sempre com conector. No servidor, `/pagar/?_f=[id=79,c=and]` retorna 1 linha e `c=or` retorna 4 (PADRÃO OR id), provando a junção; 15 listagens em 200 e `node --check`.
+
+### 1.26.10.21.0004
+- **Divisórias visíveis.** O cabeçalho **`Filtro Padrão`** / `Default filter` e a linha que fecha o bloco padrão passaram a usar `height:1px;background:currentColor;opacity:.4` (em vez de depender só de `border-base-300`), garantindo as três linhas do desenho mesmo em temas claros.
+- **Select de campo com `Selecione Campo` / `Select field`.** O option vazio usa a nova chave `FILTER_SELECT_FIELD`; `FILTER_FIELD` continua como `aria-label` e catálogo.
+- **`[X]` de cancelar/limpar na linha em edição.** Aparece assim que há campo escolhido ou a linha ficou *dirty*. Em linha já confirmada (inclusive PADRÃO), restaura o snapshot anterior (`prev`) e volta ao texto; em linha nova ainda não confirmada, limpa campo/conector/valor. O `[ok]` continua condicionado a `hasValue(row)`. Snapshots são feitos no load, em `edit()` e em `ok()`; `cancelRow()` não remove a linha.
+- **`mes_ano` do PADRÃO pré-preenchido.** `fromRow` chama `_fillMesAno`, que completa mês/ano atuais (ou do mês anterior) quando o default/URL traz só `{preset:'mes_ano'}`. Sem isso o default ficava com `hasValue=false` e era descartado no `_df` ao APLICAR; agora aparece como `10/2026` e serializa os três defaults.
+- **LIMPAR não acende sozinho.** `_initialDefaults` guarda o snapshot já normalizado dos defaults, e `_rowValue` clona `v` (antes devolvia a mesma referência, então editar o default mutava o snapshot e o `canClear` invertia). Agora fica apagado no load, acende ao editar e apaga ao cancelar/limpar.
+- **Verificado.** Harness do `listPage()`: defaults com `hasValue=true`, `cancelRow` restaurando alteração do PADRÃO, X aparecendo ao selecionar campo e limpando a linha nova, `submitFilters()` gerando `_df` com 3 linhas, `canClear` correto no load/edição/cancelamento/limpeza; 15 listagens em 200 e `node --check`.
+
+### 1.26.10.21.0003
+- **Seção PADRÃO com divisória.** Quando há default e ele está ligado, o painel abre com o cabeçalho **`Filtro Padrão`** / `Default filter` entre duas linhas; o fim do bloco padrão ganhou uma divisória de largura total antes do primeiro filtro do usuário. A chave i18n nova é `FILTER_DEFAULT_SECTION` (o checkbox do rodapé continua usando `FILTER_DEFAULT`).
+- **Verificado.** `/pagar/` (com default) e `/insumos/` (sem default) em 200; `FILTER_DEFAULT_SECTION` presente em `pt`/`en`.
+
+### 1.26.10.21.0002
+- **Painel de filtros em grade sem cabeçalho.** A linha do construtor virou uma grade alinhada (`e/ou | campo | opção | valor 1 | valor 2 | ações`) via `.filter-grid`, sem a linha de títulos. O select de campo vazio mostra **`Campo`** / `Field` (`FILTER_FIELD`) no lugar de `—`. `[x]`/`[ok]` só aparecem quando `hasValue(row)` — inclusive datas que exigem parâmetro (`mes`, `ano`, `mes_ano`, `periodo`, `a_partir_de`, `ate_a_data_de`). Ao confirmar, os inputs da linha são trocados pelo **texto** alinhado na mesma grade (campo, operador/preset e valor), com editar/remover nos confirmados. Em telas < 768px a grade empilha sem rolagem horizontal.
+- **Verificado.** Jinja/`node --check`; render das 15 listagens em 200; `hasValue`/`spansTwo`/resumos conferidos via harness do script; `/insumos/`, `/pagar/`, `/receber/`, `/categorias/`, `/orcamentos/` e `/transferencias/` em 200.
+
+### 1.26.10.21.0001
+- **Painel de filtros com largura padrão de 70ch.** `filter.max_width` passou a ter default interno: quando a chave não existe (ou é `None`), `core.filters.resolve_filter` aplica `DEFAULT_FILTER_MAX_WIDTH` (`70ch`). O app continua vencendo ao declarar `filter.max_width` (`int` → `ch`; string CSS), para mais ou para menos. `max_width` inválido segue quebrando nomeando.
+- **A listagem abre espaço para o painel sem alargar a tabela.** `do_list_normal`/`do_list_master` usam `max_width = max(largura da lista, filter.max_width)` no container da página e prendem a aba **Dados** à largura da lista (`tab.max_width`, antes sem consumidor). Assim `/insumos/` (lista 67ch) mostra o painel em 70ch mantendo a tabela em 67ch; `/pagar/` (144ch) mantém a tabela e limita o painel a 70ch. Em telas pequenas o `mw-bound` continua sem cap.
+- **Verificado.** `resolve_filter` para spec ausente/`int`/string/inválido; HTML de `/insumos/`, `/categorias/` e `/pagar/` com `--mw-cap` e estilos das abas conferidos; 15 listagens em 200.
+
+### 1.26.10.19.0002
+- **O `default` agora é uma seção PADRÃO de verdade.** As linhas declaradas aparecem no topo do painel, **editáveis/removíveis em memória**, e nascem ligadas; o checkbox ao lado de **APLICAR** desliga. O estado ganhou dois args reservados: **`_d`** (`0` desliga; ausente/`1` liga) e **`_df`** (JSON das linhas do PADRÃO **editadas em memória**). `_f` continua sendo **só** o bloco do usuário — o cliente não semeia mais o default nele. **LIMPAR** descarta as edições do PADRÃO e restaura as linhas declaradas; **APLICAR** serializa também a linha em edição (não perde o digitado).
+- **O default restringe o filtro do usuário.** `filter_cond = and_(default_cond, user_cond)` quando o PADRÃO está ligado (antes o cliente misturava as linhas). `default` aceita um dict (AND das folhas) ou `OR(...)`/`AND(...)` com valores no shape do painel; o motor converte para **DNF** (`AND` distribui sobre `OR`) com limite de 128 linhas — `default_expression_rows`/`parse_json_rows` são a porta única, e o default declarado continua validado contra o painel.
+- **Layout do painel sem rolagem horizontal.** `.list-filter-wrap` passou a `width: 100%`, o grupo de filtros quebra linha (`flex-wrap`) com `min-w-0`, e o label **`Campo:`** precede o select (a opção vazia é `—`). Nova chave **`filter.max_width`** (`int` → `ch`, ou string CSS) limita a largura do painel; sem ela, 100%.
+- **Número `0` conta como valor.** `hasValue`/resumo do `listPage()` deixaram de usar truthiness: `0` agora é um valor preenchido (essencial para `saldo > 0`). Novo i18n `FILTER_FIELD`/`FILTER_DEFAULT` em `pt`/`en`.
+- **Pagar/Receber ganharam default OR.** `(data mês/ano) OR (vencimento mês/ano) OR (saldo > 0)`, com `data` no pai e `vencimento`/`saldo` na linha. Para o `saldo` valer nos dois lados, `Previsao.saldo` virou **`@hybrid_property`** com expressão SQL (`coalesce(previsto)+coalesce(variacao)-coalesce(realizado)`); sem isso `_inversion_order_attr` devolvia a `property` Python e `?saldo_val1=1` dava 500 (`'>' not supported between property and float`). O mesmo caminho passou a devolver **só atributo usável em SQL** (hybrid/coluna), caindo para a coluna do pai quando o filho é `property` simples — é o que conserta também `status` no `master`. De passagem, o `calc` de exibição do `saldo` da previsão ficou nulo-seguro (`previsto - (realizado or 0) + (variacao or 0)`), que mostrava `—` quando `realizado` era `NULL`.
+- **Verificado.** `ast.parse`/Jinja e `node --check` do script renderizado; smoke do default (DNF, `_d=0`, `_df` editado, `_d` ignorando `_df`, PADRÃO `AND` usuário, `max_width` int/CSS/inválido) e contagem de linhas de Pagar conferida contra SQL independente; `/pagar/` e `/receber/` em 200, inclusive `?saldo_val1=1` e `?status=1`.
+
+### 1.26.10.19.0001
+- **O painel de filtros virou um construtor de consulta.** Cada condição é uma **linha** (campo → operador/valor → **OK**) e a linha seguinte escolhe o conector **E**/**OU** com a anterior; `E` tem prioridade (`a E b OU c` = `(a AND b) OR c`). Os campos, os widgets por tipo e a aba **Filtros** continuam os mesmos — o que muda é que o valor deixou de ser um só por campo e a ordem/ligação passou a ser explícita.
+- **A URL ganhou o arg reservado `_f`.** É um JSON **ordenado** de `{f, c, v}` (`v` no mesmo shape do painel antigo). `parse_rows` valida contra o painel e **quebra nomeando** (`list.filter: _f[i] campo ...` / conector inválido / JSON malformado) — nada some em silêncio. Sem `_f`, os args por campo do painel antigo (`campo`, `campo_value`, `campo_mode`, `campo_val1/2`, `campo_preset`, `campo_from/to/mes/ano`) continuam valendo em **E**, e o `default` segue para os campos que a URL não citou; com `_f` as linhas são a verdade inteira.
+- **Motor.** `core.filters` ganhou `_row`/`parse_rows`/`default_rows`/`rows_condition` (agrupa ANDs consecutivos e abre grupo a cada `or`) e `resolve_filters` devolve `(initial, active)`; `ResolvedFilter` expõe `initial`/`active` (linhas) e `filter_cond` (WHERE compilado). `do_list_normal`/`do_list_master` aplicam `filter_cond` uma vez e **não** percorrem mais campo a campo; `apply_filters` deixou de ser chamado.
+- **Catálogo do `date` corrigido e completado (14 presets).** `Mês atual`/`Mês anterior` passam a olhar **só o mês** (aniversariantes), separados de `Mês/Ano atual`/`Mês/Ano anterior` (mês **e** ano, para vencimentos) — o novo `mes_ano_anterior` fecha a simetria e o widget pré-preenche mês/ano (o anterior com o mês anterior). Os presets que eram no-op (`ultimos_7_dias`, `mes`, `ano`, `ate_a_data_de`, `a_partir_de`, `periodo`) passam a filtrar de verdade, e `mes`/`ano` pedem o valor no widget. Corrigido de passagem o `do_list` que passava o `from` da linha como `hoje` em `filtrar_vencimento_query`; hoje `_date_conds(col, cfg, hoje=None)` recebe o dict inteiro.
+- **UI (`templates/pages/list.html`).** A aba `Filter` foi reescrita com `x-for` de linhas, seletor de campo, resumo por linha (editar/remover), botão OK, conector E/OU e um rascunho sempre no fim; `listPage()` serializa `_f` e remove os args legados dos campos conhecidos ao aplicar. Novo `i18n.FILTER_AND`/`FILTER_OR` e `FILTER_MONTH_YEAR`/`FILTER_MONTH_YEAR_LAST` em `pt`/`en`.
+- **Verificado.** `ast.parse` limpo e Jinja parse ok; 19 listagens e 15 forms em 200; painel não expõe `tipo` (fixo) nem `conta_id`/`indice` (hidden); `_f` fim-a-fim em `/recebimentos/` (`mes_ano`, `mes_atual`, `ano_atual`, `mes OR valor`), fallback legado, `_date_conds` dos 14 presets, `parse_rows` e agrupamento `AND>OR`.
 
 ### 1.26.10.08.0044
 - **As transferências saíram de `pagamentos`/`recebimentos`.** Um movimento de transferência (`transferencia_id` preenchido) aparecia nas duas pontas — era uma saída e uma entrada como qualquer outra. A resposta não é um `if` na rota nem um `join` solto: é o `WHERE` fixo da listagem (`'fixed': {'tipo': SAIDA, 'transferencia_id': NULL}`). O problema do `fixed`, porém, era o formato: `{campo: valor}` só sabia de folha **igual** e de colunas que fossem `Field` — e `transferencia_id` não é `Field` (é FK crua do `Entity`). Isso abriu o resto desta versão.

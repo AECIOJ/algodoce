@@ -51,6 +51,46 @@ def _list_default_max_width(lista: List) -> str:
     return _total_ch(lista.master_fields, lista.edit_endpoint)
 
 
+_CSS_WIDTH_KEYWORDS = {'auto', 'none', 'initial', 'inherit', 'unset',
+                       'revert', 'revert-layer'}
+
+
+def _ch_value(width):
+    """`'67ch'` → `67` (para `tab.max_width`); outra unidade CSS → `None`."""
+    txt = str(width or '').strip()
+    if not txt.endswith('ch'):
+        return None
+    try:
+        num = float(txt[:-2])
+    except ValueError:
+        return None
+    if num <= 0:
+        return None
+    return int(num) if num.is_integer() else num
+
+
+def _list_page_width(lista: List, list_obj: List, tabs, filter_width) -> str:
+    """Largura do container da listagem: a maior entre lista e painel.
+
+    A aba Dados continua presa à largura da lista (`tab.max_width`), então o
+    painel chega ao seu cap (`filter.max_width`) sem alargar a tabela. Quando o
+    cap do painel não é um comprimento CSS utilizável, o container fica na
+    largura da lista.
+    """
+    list_width = (resolve_max_width(lista.get('max_width'))
+                  or _list_default_max_width(list_obj))
+    for tab in tabs:
+        if tab.get('type') == 'List':
+            tab['max_width'] = _ch_value(list_width)
+    filter_width = str(filter_width or '').strip()
+    if not filter_width or filter_width.lower() in _CSS_WIDTH_KEYWORDS:
+        return list_width
+    list_ch, filter_ch = _ch_value(list_width), _ch_value(filter_width)
+    if list_ch is not None and filter_ch is not None:
+        return f'{max(list_ch, filter_ch):g}ch'
+    return f'max({list_width}, {filter_width})'
+
+
 def list_max_width(entity_name: str, module_name: str) -> str:
     """Largura final que a listagem do módulo resolve (max_width explícito ou
     padrão `tot_ch`). O container do meio do form segue essa largura quando
@@ -162,8 +202,20 @@ def _inversion_order_attr(lista, merged, child_model, name):
     são da `Transacao`, não da `Previsao`): então devolve a coluna do pai
     (`Transacao.data`). A query-fonte (`_base_query`) já faz o `JOIN` com o pai
     nesse modo, então a coluna é usável direto em `order_by`/`filter`. Coluna
-    do filho → devolve a coluna do filho; inexistente → `None`."""
-    direct = getattr(child_model, name, None)
+    do filho → devolve a coluna do filho; inexistente → `None`.
+
+    Só devolve atributo **usável em SQL** (`InstrumentedAttribute` ou hybrid):
+    o filho pode ter uma `@property` Python com o mesmo nome de uma coluna do
+    pai (`Previsao.status`, `Previsao.saldo`) e ela não serve para `filter`/
+    `order_by` (era o `TypeError: '>' not supported between ... 'property'`).
+    Nesse caso cai para a coluna do pai. `Previsao.saldo` é hybrid, então ele
+    vence e o filtro usa o saldo da previsão (o mesmo da linha).
+    """
+    def _sql_attr(model, attr_name):
+        attr = getattr(model, attr_name, None)
+        return attr if attr is not None and hasattr(attr, '__clause_element__') else None
+
+    direct = _sql_attr(child_model, name)
     if direct is not None:
         return direct
     from ajsystem.core.list import _resolve_model
@@ -171,7 +223,7 @@ def _inversion_order_attr(lista, merged, child_model, name):
                       if k.lower() == child_model.__name__.lower()), None)
     parent_name = next((k for k in merged if k != child_key), None)
     parent_model = _resolve_model(parent_name) if parent_name else None
-    return getattr(parent_model, name, None) if parent_model is not None else None
+    return _sql_attr(parent_model, name) if parent_model is not None else None
 
 
 def _inversion_order_precedence(child_model, principal_model, name):
@@ -447,12 +499,17 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         lista.get('filter') or {}, pool=pool, principal=fonte['pool_entity'],
         model=model, fields=list_obj.fields, request_args=_fargs)
     filter_config = _rf.panel
-    initial_filters, active = _rf.initial, _rf.active
+    initial_filters, default_filters = _rf.initial, _rf.default_filters
+    active = _rf.active
+    page_max_width = _list_page_width(
+        lista, list_obj, tabs, _rf.max_width if filter_config else None)
 
     def _base_query():
         q = model.query
         if _rf.fixed:
             q = q.filter(*_rf.fixed)
+        if _rf.filter_cond is not None:
+            q = q.filter(_rf.filter_cond)
         return q
 
     if data is None and _is_query:
@@ -470,30 +527,6 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     calc_field = next((f for f in line_fields if callable(getattr(f, 'calc', None))), None)
     if calc_field and data and not _is_query:
         data = sorted(data, key=calc_field.calc)
-
-    from ajsystem.core.filters import apply_filters
-    for field, filter_value in active.items():
-        ftype = filter_config.get(field, {}).get('type', 'text')
-        if ftype == 'date' and isinstance(filter_value, dict):
-            from ajsystem.core.filters import filtrar_vencimento_query
-            query = _base_query()
-            query = filtrar_vencimento_query(query, getattr(model, field),
-                                             filter_value.get('preset'),
-                                             filter_value.get('from'))
-            ord_fb = lista.get('order', ['id']) or lista.get('ordering', ['id'])
-            if isinstance(ord_fb, str):
-                ord_fb = [ord_fb]
-            data = query.order_by(*[getattr(model, c) for c in ord_fb]).all()
-            continue
-        model_field = getattr(model, field, None)
-        if model_field is None:
-            continue
-        query = _base_query()
-        query = apply_filters(query, model_field, ftype, filter_value)
-        ordering = lista.get('order', ['id']) or lista.get('ordering', ['id'])
-        if isinstance(ordering, str):
-            ordering = [ordering]
-        data = query.order_by(*[getattr(model, c) for c in ordering]).all()
 
     ctx = build_field_context(list_obj.fields)
 
@@ -524,14 +557,16 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         data=data,
         active_filters=active,
         initial_filters=initial_filters,
+        default_filters=default_filters,
+        default_on=_rf.default_on,
+        filter_max_width=_rf.max_width,
         FILTERS=filter_config,
         page_scripts=page_scripts(page),
         ctx=ctx,
         titulo=title,
         new_url=new_url,
         new_label=new_label,
-        max_width=(resolve_max_width(lista.get('max_width'))
-                  or _list_default_max_width(list_obj)),
+        max_width=page_max_width,
         detail_fields=detail_fields,
         detail_data=detail_data,
         cardonly_fields=cardonly_fields,
@@ -651,7 +686,10 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         model=model, attr_resolver=_inversion_resolver,
         fields=list_obj.fields, request_args=_fargs)
     filter_config = _rf.panel
-    initial_filters, active = _rf.initial, _rf.active
+    initial_filters, default_filters = _rf.initial, _rf.default_filters
+    active = _rf.active
+    page_max_width = _list_page_width(
+        lista, list_obj, tabs, _rf.max_width if filter_config else None)
     _parent_rel = _inversion_parent_rel(lista, merged, model)
 
     def _base_query():
@@ -660,6 +698,8 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
             q = q.join(_parent_rel)
         if _rf.fixed:
             q = q.filter(*_rf.fixed)
+        if _rf.filter_cond is not None:
+            q = q.filter(_rf.filter_cond)
         return q
 
     def _master_ordering():
@@ -678,29 +718,6 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     calc_field = next((f for f in line_fields if callable(getattr(f, 'calc', None))), None)
     if calc_field and data:
         data = sorted(data, key=calc_field.calc)
-
-    from ajsystem.core.filters import apply_filters
-    for field, filter_value in active.items():
-        ftype = filter_config.get(field, {}).get('type', 'text')
-        if ftype == 'date' and isinstance(filter_value, dict):
-            from ajsystem.core.filters import filtrar_vencimento_query
-            model_field = _inversion_order_attr(lista, merged, model, field)
-            if model_field is None:
-                continue
-            query = _base_query()
-            query = filtrar_vencimento_query(query, model_field,
-                                             filter_value.get('preset'),
-                                             filter_value.get('from'))
-            data = query.order_by(*[_inversion_order_attr(lista, merged, model, c)
-                                    for c in _master_ordering()]).all()
-            continue
-        model_field = _inversion_order_attr(lista, merged, model, field)
-        if model_field is None:
-            continue
-        query = _base_query()
-        query = apply_filters(query, model_field, ftype, filter_value)
-        data = query.order_by(*[_inversion_order_attr(lista, merged, model, c)
-                                for c in _master_ordering()]).all()
 
     ctx = build_field_context(list_obj.fields)
 
@@ -731,14 +748,16 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         data=data,
         active_filters=active,
         initial_filters=initial_filters,
+        default_filters=default_filters,
+        default_on=_rf.default_on,
+        filter_max_width=_rf.max_width,
         FILTERS=filter_config,
         page_scripts=page_scripts(page),
         ctx=ctx,
         titulo=title,
         new_url=new_url,
         new_label=new_label,
-        max_width=(resolve_max_width(lista.get('max_width'))
-                  or _list_default_max_width(list_obj)),
+        max_width=page_max_width,
         detail_fields=detail_fields,
         detail_data=detail_data,
         cardonly_fields=cardonly_fields,
