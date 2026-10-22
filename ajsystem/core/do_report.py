@@ -1217,6 +1217,8 @@ def _synthesize_levels_from_groups(table, body, label):
             _sp = {cname: {'pos': 2 if pr == 3 else 1,
                            'text': g.get('text', cname),
                            'total': False, 'gline': True}}
+            if 'lf' in g:
+                _sp[cname]['lf'] = g['lf']
             if g.get('totals') is not None:
                 if not isinstance(g['totals'], dict):
                     raise ValueError(f"report '{label}': totals de '{cname}' deve ser dict")

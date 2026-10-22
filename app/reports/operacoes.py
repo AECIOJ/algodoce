@@ -47,9 +47,8 @@ PLANO = {
     'body': {
         'source': QPLANO,
         'table': {
-            'lf': -2,
             'groups': {
-                'tipo': {'action': 1, 'print': 3, 'text': '{tipo:d}. {tipo}'},
+                'tipo': {'action': 1, 'print': 3, 'text': '{tipo:d}. {tipo}', 'lf': -1},
                 'grupo': {'action': 1, 'print': 2, 'text': '{tipo:d}.{grupo:02d} {nome}'},
             },
             'columns': [

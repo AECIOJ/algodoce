@@ -1303,6 +1303,19 @@ def _group_title(g, val, row=None):
     return apply_transform(_render(tpl, _get, fmt_opts), g.get('transform'))
 
 
+def _group_space(pdf, g, side, label=''):
+    """`lf` do grupo: negativo antes do título/linha, positivo depois.
+
+    O grupo visível (`print` 1|2|3) é o "item" que respira; `pos=0` (grupo
+    oculto, só total) não imprime cabeçalho e portanto não usa o `lf`.
+    """
+    n = _lf_one_side(g, side, label)
+    if side == 'before':
+        _space_before(pdf, n)
+    else:
+        _space_after(pdf, n)
+
+
 def _render_group_header(pdf, g, val, xs, tw, pos, row=None):
     txt = apply_transform(_group_title(g, val, row=row), g.get('transform'))
     style = 'B' if g.get('bold', True) else ''
@@ -1409,11 +1422,14 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                 if g.get('eject'):
                     pdf.add_page()
                 pos = g['pos']
+                _g_label = report.label if report is not None else ''
                 if pos == 2:                     # titulo
                     if table_open:
                         _table_close(pdf, xs, tw)
                         table_open = False
+                    _group_space(pdf, g, 'before', _g_label)
                     _render_group_header(pdf, g, vals[i], xs, tw, pos, row)
+                    _group_space(pdf, g, 'after', _g_label)
                     gera_cab = True
                 elif pos == 1:                   # linha — interna a tabela, texto único
                     if not table_open:
@@ -1423,7 +1439,16 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                         _render_column_headers(pdf, cols, cw, xs, tw,
                                                draw_top_line=True)
                         gera_cab = False
+                    # O respiro vem DEPOIS do cabeçalho repetido e ANTES do
+                    # título do grupo: é o título que deve descer, não a
+                    # coluna. Se o respiro empurrar a página, o cabeçalho
+                    # volta na página nova antes do título.
+                    _group_space(pdf, g, 'before', _g_label)
+                    if _check_page_break(pdf, header_h):
+                        _render_column_headers(pdf, cols, cw, xs, tw,
+                                               draw_top_line=True)
                     _render_group_line(pdf, g, vals[i], xs, tw, row)
+                    _group_space(pdf, g, 'after', _g_label)
                     # a row que ABRE o nível é a própria linha (consumida como
                     # cabeçalho), não repete como dado na tabela
                     skip_row = True
