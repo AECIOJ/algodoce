@@ -10,7 +10,8 @@ import importlib
 from flask import current_app, render_template, request, url_for
 
 from ajsystem.defs.data import (
-    _auto_label, build_field, page_list_cfg, page_scripts, resolve_entity_fields,
+    _auto_label, build_field, page_filter_cfg, page_list_cfg, page_scripts,
+    resolve_entity_fields,
     module_page, resolve_max_width,
 )
 from ajsystem.core.list import (
@@ -108,7 +109,7 @@ def list_max_width(entity_name: str, module_name: str) -> str:
 
 
 def list_fixed_conds(entity_name: str, module_name: str, model=None):
-    """Condições fixas (`list.filter.fixed`) da listagem do módulo, compiladas
+    """Condições fixas (`filter.fixed`) da listagem do módulo, compiladas
     contra `model` (o form usa o próprio). Mesmo pool de `list_max_width`; a
     leitura da prop `filter` passa pelo ponto único (`core.filters.resolve_filter`).
 
@@ -123,7 +124,7 @@ def list_fixed_conds(entity_name: str, module_name: str, model=None):
     _ent, _model, _merged, pool, _fonte = _list_pool(lista, schema, module_name,
                                                      entity_name)
     from ajsystem.core.filters import resolve_filter
-    return resolve_filter(lista.get('filter') or {}, pool=pool,
+    return resolve_filter(page_filter_cfg(page), pool=pool,
                           principal=_fonte['pool_entity'],
                           model=model or _model).fixed
 
@@ -496,7 +497,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     _fargs = {k: v for k, v in request.args.items(multi=True) if k != _print_field}
 
     _rf = resolve_filter(
-        lista.get('filter') or {}, pool=pool, principal=fonte['pool_entity'],
+        page_filter_cfg(page), pool=pool, principal=fonte['pool_entity'],
         model=model, fields=list_obj.fields, request_args=_fargs)
     filter_config = _rf.panel
     initial_filters, default_filters = _rf.initial, _rf.default_filters
@@ -686,7 +687,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
 
     _inversion_resolver = lambda m, n: _inversion_order_attr(lista, merged, m, n)
     _rf = resolve_filter(
-        lista.get('filter') or {}, pool=pool, principal=fonte['pool_entity'],
+        page_filter_cfg(page), pool=pool, principal=fonte['pool_entity'],
         model=model, attr_resolver=_inversion_resolver,
         fields=list_obj.fields, request_args=_fargs)
     filter_config = _rf.panel

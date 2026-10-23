@@ -67,13 +67,13 @@ Page = {
         },
         'list': {
             'columns': 'Orcamento',
-            'filter': {'types': {'checklist': 'status'}},
             # Onde o campo aparece na listagem é da PÁGINA (5.6), não do Schema:
             # a validade fica fora e a observação só no card.
             'hidden': ['validade'],
             'card': ['observacao'],
             'order': ['id'],
         },
+        'filter': {'types': {'checklist': 'status'}},
         'form': {
             'max_width':115,
             'fields': 'Orcamento',

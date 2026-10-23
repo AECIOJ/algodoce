@@ -470,7 +470,7 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None,
 
     `list_max_width`: largura da listagem do mesmo módulo (consumida quando
     `form.max_width` não é declarado), passada por `core.auto._form`.
-    `fixed_conds`: condições SQL de `list.filter.fixed` (compiladas por
+    `fixed_conds`: condições SQL de `filter.fixed` (compiladas por
     `core.filters.compile_fixed`), também do `_form` — guarda de escopo: abrir um
     registro fora do WHERE fixo (ex.: `tipo` errado, ou um movimento de
     transferência numa lista que os exclui) é recusado."""

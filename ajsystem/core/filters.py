@@ -73,7 +73,7 @@ def _parse_leaf(config, item, label):
     return _row(name, conn, item.get('v'))
 
 
-def parse_json_rows(config, raw, where='list.filter', arg='_f'):
+def parse_json_rows(config, raw, where='filter', arg='_f'):
     """Linhas do builder a partir de um JSON ordenado `[{f,c,v}, ...]`.
 
     Usado pelo PADRÃO (`_df`) e pelo formato legado de `_f`: campo fora do
@@ -96,7 +96,7 @@ def parse_json_rows(config, raw, where='list.filter', arg='_f'):
     ]
 
 
-def parse_json_blocks(config, raw, where='list.filter', arg='_f'):
+def parse_json_blocks(config, raw, where='filter', arg='_f'):
     """Blocos do usuário a partir de `_f` (formato novo ou legado).
 
     Formato novo: `[{"c": "and", "g": true, "rows": [{f,c,v}, ...]}, ...]`.
@@ -165,7 +165,7 @@ def parse_json_blocks(config, raw, where='list.filter', arg='_f'):
     return blocks
 
 
-def parse_blocks(config, request_args, where='list.filter'):
+def parse_blocks(config, request_args, where='filter'):
     """Blocos do usuário a partir da URL; sem `_f`, monta o fallback em E."""
     raw = request_args.get('_f')
     if raw not in (None, ''):
@@ -178,7 +178,7 @@ def parse_blocks(config, request_args, where='list.filter'):
     return [{'c': 'and', 'g': True, 'rows': rows}] if rows else []
 
 
-def default_expression_rows(expr, resolve_name, where='list.filter.default',
+def default_expression_rows(expr, resolve_name, where='filter.default',
                             max_rows=128):
     """`filter.default` (dict ou `OR`/`AND`) → linhas DNF do builder.
 
@@ -240,7 +240,7 @@ def default_rows(config, defaults):
     return rows
 
 
-def resolve_filters(config, request_args, defaults=None, where='list.filter'):
+def resolve_filters(config, request_args, defaults=None, where='filter'):
     """Linhas do painel: `(declarado, padrão efetivo, usuário, ligado?)`.
 
     `defaults` são as linhas de `filter.default` (já normalizadas pela spec).
@@ -262,7 +262,7 @@ def resolve_filters(config, request_args, defaults=None, where='list.filter'):
     return initial, edited, active, default_on
 
 
-def _row_conds(row, config, model, resolve, where='list.filter'):
+def _row_conds(row, config, model, resolve, where='filter'):
     """Condições SQL de uma linha do builder (vazio se o campo não resolve)."""
     name = row.get('f')
     cfg = config.get(name)
@@ -277,7 +277,7 @@ def _row_conds(row, config, model, resolve, where='list.filter'):
     return _filter_conditions(col, ftype, row.get('v')) or []
 
 
-def rows_condition(rows, config, model, attr_resolver=None, where='list.filter'):
+def rows_condition(rows, config, model, attr_resolver=None, where='filter'):
     """Linhas do builder → uma expressão SQL (AND tem prioridade sobre OR).
 
     ANDs consecutivos formam um grupo; cada `or` abre um grupo novo. O
@@ -304,7 +304,7 @@ def rows_condition(rows, config, model, attr_resolver=None, where='list.filter')
 
 
 def blocks_condition(blocks, config, model, attr_resolver=None,
-                     where='list.filter'):
+                     where='filter'):
     """Blocos do usuário → uma expressão SQL (E tem prioridade sobre OU).
 
     Cada bloco é um operando: as linhas internas são compiladas por
@@ -331,7 +331,7 @@ def blocks_condition(blocks, config, model, attr_resolver=None,
 
 
 def first_block_conn(blocks, config, model, attr_resolver=None,
-                     where='list.filter'):
+                     where='filter'):
     """Conector do primeiro bloco que realmente produz condição (ou `and`)."""
     for block in blocks or []:
         if rows_condition(block.get('rows') or [], config, model,
@@ -369,7 +369,7 @@ class ResolvedFilter:
 
 
 def resolve_filter(spec, *, pool, principal=None, model=None, attr_resolver=None,
-                   fields=None, request_args=None, where='list.filter'):
+                   fields=None, request_args=None, where='filter'):
     """Ponto único de entrada da prop `filter` (`fixed` + `default` + resto).
 
     Resolve a spec contra o `pool` (`resolve_filter_spec`), compila o `fixed`
@@ -533,7 +533,7 @@ def _key(value):
     return value
 
 
-def fixed_filters(spec, model, attr_resolver=None, where='list.filter.fixed'):
+def fixed_filters(spec, model, attr_resolver=None, where='filter.fixed'):
     """DEPRECADO — alias de `compile_fixed` (mantido por compatibilidade)."""
     return compile_fixed(spec, model, attr_resolver, where)
 
@@ -567,7 +567,7 @@ def _empty_cond(col, negate=False):
     return ~cond if negate else cond
 
 
-def _leaf_cond(col, value, where='list.filter.fixed', cast=None):
+def _leaf_cond(col, value, where='filter.fixed', cast=None):
     """Condição SQL de uma folha `<campo>: <valor>`; `None` manda ignorar.
 
     Vocabulário do valor: literal → `=`; `NULL`/`NOT_NULL` → `IS [NOT] NULL`;
@@ -652,7 +652,7 @@ def compile_conditions(spec, model, *, resolve=None, cast=None,
                        where='filter'):
     """Spec literal → lista com a condição SQL única (ou vazia).
 
-    Gramática compartilhada por `list.filter.fixed`, `report.body.filter` e
+    Gramática compartilhada por `filter.fixed`, `report.body.filter` e
     `QuerySpec.where`: dict é AND das folhas, lista é AND dos itens e
     `OR(...)`/`AND(...)` agrupam (aninháveis). `resolve(model, nome)` acha a
     coluna; `cast(nome, valor)` opcional converte o literal pelo tipo do field.
@@ -667,8 +667,8 @@ def compile_conditions(spec, model, *, resolve=None, cast=None,
     return [cond] if cond is not None else []
 
 
-def compile_fixed(spec, model, attr_resolver=None, where='list.filter.fixed'):
-    """`list.filter.fixed` (dict/lista ou `OR(...)`/`AND(...)`) → condições.
+def compile_fixed(spec, model, attr_resolver=None, where='filter.fixed'):
+    """`filter.fixed` (dict/lista ou `OR(...)`/`AND(...)`) → condições.
 
     Um dict/lista é AND das folhas; `OR(...)`/`AND(...)` agrupam (aninháveis).
     `attr_resolver` atravessa a relação filho→pai na inversão (`master`). Folha

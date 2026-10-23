@@ -58,25 +58,25 @@ Page = {
         'list': {
             'columns': 'Transacao',
             'master': 'Previsao',
-            'filter': {
-                'fixed': {'tipo': 'P'},
-                'types': {'checklist': 'status'},
-                'default': OR(
-                    {'data': {'preset': 'mes_ano'}},
-                    {'vencimento': {'preset': 'mes_ano'}},
-                    {'saldo': {'mode': 'maior_que', 'val1': 0}},
-                ),
-            },
             'line': ['compra_id'],
             'hidden': ['cancelado', 'tipo'],
             'card': 'Transacao',
             'order': ['vencimento','id'],
         },
+        'filter': {
+            'fixed': {'tipo': 'P'},
+            'types': {'checklist': 'status'},
+            'default': OR(
+                {'data': {'preset': 'mes_ano'}},
+                {'vencimento': {'preset': 'mes_ano'}},
+                {'saldo': {'mode': 'maior_que', 'val1': 0}},
+            ),
+        },
         'form': {
             'max_width':110,
             'fields': 'Transacao',
             # Onde cada campo vai na tela e sob que condição (5.5). `tipo` é
-            # filtro fixo (`list.filter.fixed`): some do painel e vira WHERE,
+            # filtro fixo (`filter.fixed`): some do painel e vira WHERE,
             # então precisa estar em `hidden` para não virar campo do form.
             'positions': {
                 'bar':    ['status'],

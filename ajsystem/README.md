@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.22.0004 — Manual do Framework
+# AJSYSTEM 1.26.10.23.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.22.0004`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.23.0001`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -500,12 +500,12 @@ Toda validação é **fail-fast nomeando**: slot inexistente, campo que não est
 
 O painel nasce do **tipo** de cada campo visível: `infer_filter_type` (não o autor) decide se um campo é eixo de filtro e de que tipo. Regra de motor: a chave derivada (`DK`) e os editores `multi`/`image` **não** filtram; o resto pega o `filter_kind` do input (`boolean`, `date`, `number`, `select`) e o fallback `options`→`select`.
 
-O que a página **ajusta** mora em `Page.props.list` sob a chave `filter`, um dict com cinco chaves independentes:
+O que a página **ajusta** mora em `Page.props` sob a chave `filter` (irmã de `list`), um dict com cinco chaves independentes:
 
 | Chave | Forma | Efeito |
 |---|---|---|
 | `hidden` | fieldspec (`'campo'`, `'Ent.campo'`, lista, `{'Ent': [...]}`) | tira do painel — sem UI. Para uma coluna **visível** cujo filtro não faz sentido (ex.: `indice` em `operacoes`); um campo já no slot `hidden` nem chega aqui |
-| `fixed` | `{campo: valor}`, lista ou `OR(...)`/`AND(...)` | vira **`WHERE` fixo**, também fora do painel. Dict e lista são **AND**; `OR(...)`/`AND(...)` agrupam (aninháveis). Valor: literal → `=`; sentinelas `NULL`/`NOT_NULL` (↔ `is_null`) e `EMPTY`/`NOT_EMPTY` (↔ `is_empty`); `('op', valor)` com `op` em `=`,`!=`,`>`,`>=`,`<`,`<=`,`like`,`ilike`,`in`,`not in`; lista → `IN`; callable é chamado; `None` **ignora** a folha. Folha que não é field do pool vale como **coluna** do model (ex.: `transferencia_id`, que não é `Field`). Era `pos_filter: 9` + `default` do `Field` — agora o valor mora **na listagem**, que é quem o usa |
+| `fixed` | `{campo: valor}`, lista ou `OR(...)`/`AND(...)` | vira **`WHERE` fixo**, também fora do painel. Dict e lista são **AND**; `OR(...)`/`AND(...)` agrupam (aninháveis). Valor: literal → `=`; sentinelas `NULL`/`NOT_NULL` (↔ `is_null`) e `EMPTY`/`NOT_EMPTY` (↔ `is_empty`); `('op', valor)` com `op` em `=`,`!=`,`>`,`>=`,`<`,`<=`,`like`,`ilike`,`in`,`not in`; lista → `IN`; callable é chamado; `None` **ignora** a folha. Folha que não é field do pool vale como **coluna** do model (ex.: `transferencia_id`, que não é `Field`). Era `pos_filter: 9` + `default` do `Field` — agora o valor mora **na página**, que é quem o usa |
 | `default` | `{campo: valor}` ou `OR(...)`/`AND(...)` com valores de filtro | filtro **inicial editável**: nasce aplicado e marcado (**PADRÃO**); o painel deixa editar/remover as linhas em memória e, ao **limpar**, restaura o default **declarado**. `OR(...)`/`AND(...)` viram linhas em DNF (AND distribui sobre OR, limite de 128 linhas) |
 | `types` | `{tipo: campo\|lista}` | **override** do tipo do widget, para um campo que a inferência classificaria de outro jeito (ex.: `{'checklist': 'status'}`). `tipo` ∈ `FILTER_TYPES` = `text`, `boolean`, `date`, `number`, `select`, `checklist` |
 | `max_width` | `int` ou string CSS | **cap** de largura do painel — `int` vira `ch`, string CSS (ex.: `'72rem'`) passa como está. Sem a chave (ou `None`), usa o default interno **`88ch`** (`DEFAULT_FILTER_MAX_WIDTH`); o valor declarado pelo app vence. O layout é responsivo (quebra linha), sem rolagem horizontal |
@@ -543,11 +543,11 @@ from ajsystem.defs.constants import NULL, NOT_EMPTY, OR, AND
 'list': {
     'columns': 'Transacao',
     'master': 'Previsao',
-    'filter': {
-        'fixed': {'tipo': 'P'},                 # WHERE tipo = 'P' (era pos_filter: 9)
-        'types': {'checklist': 'status'},       # status filtra por checklist (era pos_filter: 3)
-    },
     'hidden': ['cancelado', 'tipo'],
+},
+'filter': {
+    'fixed': {'tipo': 'P'},                 # WHERE tipo = 'P' (era pos_filter: 9)
+    'types': {'checklist': 'status'},       # status filtra por checklist (era pos_filter: 3)
 },
 ```
 
@@ -596,7 +596,7 @@ A URL carrega os blocos no arg reservado **`_f`**:
 ```
 
 - No **bloco**, `c` é o elo com o bloco anterior (`and`/`or`); no **primeiro** bloco ele é o elo com o PADRÃO quando ligado (sem PADRÃO, é ignorado). `g` é só visual: `false` é linha solta (um bloco de uma linha), `true` é bloco agrupado; ausente vale `true` para manter o formato antigo. Na **linha**, `c` é o elo com a linha anterior dentro do bloco; na primeira linha ele é ignorado. `v` mantém o shape antigo (texto `{mode,value}`, número `{mode,val1,val2}`, data `{preset,from,to,mes,ano}`, select/boolean escalar, checklist lista).
-- Campo fora do painel, conector inválido, `g` não booleano, bloco vazio, mistura de bloco/linha ou JSON malformado **quebra nomeando** (`list.filter: _f[i].rows[j] campo ...`, `_f[i] bloco vazio`, `_f[i].g esperava booleano`). Nada é descartado em silêncio.
+- Campo fora do painel, conector inválido, `g` não booleano, bloco vazio, mistura de bloco/linha ou JSON malformado **quebra nomeando** (`filter: _f[i].rows[j] campo ...`, `_f[i] bloco vazio`, `_f[i].g esperava booleano`). Nada é descartado em silêncio.
 - **Compatibilidade.** O `_f` antigo, uma lista plana de `{f,c,v}`, continua válido: vira **um** bloco com o conector da primeira linha (parênteses em volta de tudo não mudam a expressão). Sem `_f`, os args por campo do painel antigo (`campo`, `campo_value`, `campo_mode`, `campo_val1/2`, `campo_preset`, `campo_from/to/mes/ano`) viram um bloco em **E**.
 - **Motor.** `parse_json_blocks`/`parse_blocks` leem os blocos; `rows_condition` compila as linhas de um bloco (primeiro conector ignorado); `blocks_condition` compila o root (primeiro conector ignorado) e `first_block_conn` acha o conector do primeiro bloco efetivo para a junção com o PADRÃO. `resolve_filters` devolve `(initial, edited, active, default_on)` com `active` em **blocos**; `do_list` aplica `filter_cond` uma única vez.
 
@@ -1619,6 +1619,12 @@ Um agregado de `totals` (`query`/`table`) recebe o `Field` e sai por `render_val
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.23.0001
+- **A prop `filter` saiu de `list` e virou irmã dela em `Page.props`.** O painel de filtros é da página, não da listagem, então `Page.props.list.filter` passou a `Page.props.filter` — o motor lê pelo novo ponto único `page_filter_cfg` (`defs/data.py`), consumido por `do_list_normal`/`do_list_master` e por `list_fixed_conds` (guarda de escopo do form). `list` fica só com os slots (`columns`/`line`/`card`/`hidden`/`order`), sem misturar o painel.
+- **Migração do app.** As 9 rotas que declaram filtro (`compras`, `operacoes`, `orcamentos`, `pagamentos`, `pagar`, `pedidos`, `receber`, `recebimentos`, `transferencias`) moveram o bloco para fora de `list`; a vitrine (`produtos`) já usava `props.filter` e não mudou.
+- **Erros nomeiam o novo caminho.** Os defaults de `where` em `core/filters.py` e `core/list.py` passaram de `list.filter`/`list.filter.fixed` para `filter`/`filter.fixed`, então as mensagens de validação apontam para a prop no lugar certo.
+- **Verificado.** Jinja parse das 9 rotas, import do app e render das listagens em 200 (com e sem filtro), comparando o `WHERE` fixo (`pagar`/`receber`/`pagamentos`/`recebimentos`) e a guarda do form.
 
 ### 1.26.10.22.0004
 - **`lf` no grupo.** `body.table.groups[campo].lf` passou a ser preservado na síntese de `levels` e aplicado ao redor do título/linha visível do grupo (`-n` antes, `n` depois, `[antes, depois]`), sem alterar o `table.lf` (que continua único para a tabela). No grupo `print:2`, o respiro entra **depois do cabeçalho de colunas repetido e antes do título**; no `PLANO`, `'lf': -1` abre a linha antes do título, inclusive no primeiro grupo.

@@ -33,7 +33,7 @@ def apply_where(query, model, where, entity_cfg):
     """Aplica um spec de WHERE na gramática compartilhada dos filtros.
 
     Aceita dict/lista (AND implícito), `OR(...)`/`AND(...)`, sentinelas e
-    operadores — a mesma gramática de `list.filter.fixed` e `body.filter`.
+    operadores — a mesma gramática de `filter.fixed` e `body.filter`.
     O valor é convertido pelo tipo do field via `_cast_value` (exceto
     `like`/`ilike`, que recebem o padrão textual).
     """
@@ -325,7 +325,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     """Executa QuerySpec sobre model. Devolve list de instâncias (+ attrs over).
 
     `extra_where` usa a gramática declarativa dos filtros; `extra_conditions`
-    recebe condições SQLAlchemy já compiladas (ex.: `list.filter.fixed`) e as
+    recebe condições SQLAlchemy já compiladas (ex.: `filter.fixed`) e as
     aplica antes dos OVERs, para que janelas e `calc` enxerguem o recorte.
     """
     qs = parse_query(spec)

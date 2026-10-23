@@ -45,13 +45,13 @@ Page = {
         },
         'list': {
             'columns': 'Movimento',
-            'filter': {
-                'default': {'data': {'preset': 'mes_ano'}},
-                'fixed': {'tipo': ENTRADA, 'transferencia_id': NULL}},
             'hidden': ['tipo', 'pedido_id', 'compra_id'],
             'card': ['historico'],
             'order': ['data', 'id'],
         },
+        'filter': {
+            'default': {'data': {'preset': 'mes_ano'}},
+            'fixed': {'tipo': ENTRADA, 'transferencia_id': NULL}},
         'form': {
             'fields': 'Movimento',
             'positions': {'hidden': ['tipo']},

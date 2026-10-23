@@ -315,7 +315,7 @@ def _filter_one(pool, principal, key, where, slot):
     return hits[0]
 
 
-def resolve_filter_spec(spec, pool, principal=None, where='list.filter'):
+def resolve_filter_spec(spec, pool, principal=None, where='filter'):
     """Resolve a prop `filter` da listagem (§5.6) em `(hidden, fixed, default, types)`.
 
       - `hidden`  — `Field` spec: campos fora do painel de filtros;

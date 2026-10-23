@@ -49,11 +49,11 @@ Page = {
         'list': {
             'columns': [QPLANO, 'id', 'indice', 'nome', 'tipo',
                         'fator', 'ativa', 'pai_id', 'ordem'],
-            'filter': {'hidden': ['indice']},
             'field_id': 'id',
             'order': ['ordem', 'nome'],
             'buttons': ['imprimir_plano'],
         },
+        'filter': {'hidden': ['indice']},
         'form': {
             'max_width': 80,
             'fields': 'Operacao',

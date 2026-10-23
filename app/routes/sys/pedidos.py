@@ -169,12 +169,12 @@ Page = {
         },
         'list': {
             'columns': 'Pedido',
-            'filter': {'types': {'checklist': 'status'}},
             'hidden': ['transacao_id', 'movto_id', 'observacao'],
             'card': ['pedido_em', 'faturado_em', 'cancelado_em',
                      'entregue_em'],
             'order': ['entregue_em'],
         },
+        'filter': {'types': {'checklist': 'status'}},
         'form': {
             'max_width': 130,
             'fields': 'Pedido',

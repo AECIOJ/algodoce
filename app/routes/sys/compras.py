@@ -173,12 +173,12 @@ Page = {
         },
         'list': {
             'columns': 'Compra',
-            'filter': {'types': {'checklist': 'status'}},
             'hidden': ['transacao_id', 'movto_id'],
             'card': ['pedido_em', 'faturado_em', 'cancelado_em',
                      'recebido_em', 'devolvido_em', 'observacao'],
             'order': ['data', 'id'],
         },
+        'filter': {'types': {'checklist': 'status'}},
         'form': {
             'max_width':120,
             'fields': 'Compra',
