@@ -403,18 +403,29 @@ def _validate_expr_fields(model, entries):
                         raise ValueError(f"over '{e.name}': campo '{f}' não existe em {getattr(model, '__name__', model)}")
 
 
-def _sort_rows(rows, order, model):
+def _sort_rows(rows, order, model, entries=None):
     """Ordenação final incluindo computados (grupo/index) — estável sobre o SQL."""
     from ajsystem.defs.qspec import normalize_order
     okeys = normalize_order(order)
     if not okeys:
         return rows
     cols = set(getattr(model, '__table__', None).columns.keys()) if getattr(model, '__table__', None) is not None else set()
+    # Build sets of names from select entries
+    entry_names = set()  # aliases (e.name)
+    entry_fields = set()  # field paths (e.field)
+    if entries:
+        for e in entries:
+            entry_names.add(e.name)
+            entry_fields.add(e.field or e.name)
     for key in okeys:
         fields = [key[1]] if key[0] == 'field' else list(key[2])
         for f in fields:
-            if f not in cols and not hasattr(rows[0] if rows else object(), f):
-                raise ValueError(f"query.order: campo '{f}' não existe (nem coluna, nem computado)")
+            # Check if field exists in model columns, or as row attribute, or as select entry name, or as select entry field
+            if (f not in cols 
+                and not hasattr(rows[0] if rows else object(), f) 
+                and f not in entry_names 
+                and f not in entry_fields):
+                raise ValueError(f"query.order: campo '{f}' não existe (nem coluna, nem computado, nem entrada do select)")
     return sorted(rows, key=_skey_for(okeys))
 
 
@@ -660,7 +671,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     _validate_calc(qs.entries or [], model)
     rows = _compute_over(rows, qs.entries or [], model)
     rows = _compute_calc(rows, qs.entries or [], model)
-    rows = _sort_rows(rows, qs.order, model)
+    rows = _sort_rows(rows, qs.order, model, qs.entries)
     hier = (spec.get('levels', spec.get('hierarchy')) if isinstance(spec, dict) else None)
     if hier:
         if not isinstance(hier, dict):
@@ -832,18 +843,29 @@ def _validate_expr_fields(model, entries):
                         raise ValueError(f"over '{e.name}': campo '{f}' não existe em {getattr(model, '__name__', model)}")
 
 
-def _sort_rows(rows, order, model):
+def _sort_rows(rows, order, model, entries=None):
     """Ordenação final incluindo computados (grupo/index) — estável sobre o SQL."""
     from ajsystem.defs.qspec import normalize_order
     okeys = normalize_order(order)
     if not okeys:
         return rows
     cols = set(getattr(model, '__table__', None).columns.keys()) if getattr(model, '__table__', None) is not None else set()
+    # Build sets of names from select entries
+    entry_names = set()  # aliases (e.name)
+    entry_fields = set()  # field paths (e.field)
+    if entries:
+        for e in entries:
+            entry_names.add(e.name)
+            entry_fields.add(e.field or e.name)
     for key in okeys:
         fields = [key[1]] if key[0] == 'field' else list(key[2])
         for f in fields:
-            if f not in cols and not hasattr(rows[0] if rows else object(), f):
-                raise ValueError(f"query.order: campo '{f}' não existe (nem coluna, nem computado)")
+            # Check if field exists in model columns, or as row attribute, or as select entry name, or as select entry field
+            if (f not in cols 
+                and not hasattr(rows[0] if rows else object(), f) 
+                and f not in entry_names 
+                and f not in entry_fields):
+                raise ValueError(f"query.order: campo '{f}' não existe (nem coluna, nem computado, nem entrada do select)")
     return sorted(rows, key=_skey_for(okeys))
 
 
@@ -1091,7 +1113,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     _validate_calc(qs.entries or [], model)
     rows = _compute_over(rows, qs.entries or [], model)
     rows = _compute_calc(rows, qs.entries or [])
-    rows = _sort_rows(rows, qs.order, model)
+    rows = _sort_rows(rows, qs.order, model, qs.entries)
     hier = (spec.get('levels', spec.get('hierarchy')) if isinstance(spec, dict) else None)
     if hier:
         if not isinstance(hier, dict):
