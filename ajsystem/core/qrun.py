@@ -264,11 +264,23 @@ def _validate_calc(entries, model):
                 raise ValueError(f"select '{e.name}': calc não pode referenciar outro calc ('{nm}')")
 
 
-def _eval_key(row, key):
+def _eval_key(row, key, entries=None):
     """Avalia 1 chave normalizada ('field'| 'expr') sobre a linha."""
+    from ajsystem.defs.qspec import parse_select
     kind = key[0]
     if kind == 'field':
-        return getattr(row, key[1], None)
+        # Primeiro tenta getattr direto
+        val = getattr(row, key[1], None)
+        if val is not None:
+            return val
+        # Se falhou, tenta encontrar a entrada do select com esse field
+        # e usar o nome (alias) da entrada
+        if entries:
+            for e in entries:
+                if e.field == key[1]:
+                    # Usar o alias da entrada
+                    return getattr(row, e.name, None)
+        return None
     if kind == 'expr' and key[1] == 'coalesce':
         for f in key[2]:
             v = getattr(row, f, None)
@@ -278,14 +290,14 @@ def _eval_key(row, key):
     raise ValueError(f"expressão '{key[1]}' sem avaliador em qrun")
 
 
-def _skey_for(okeys):
+def _skey_for(okeys, entries=None):
     # Convenção do motor (igual a core/query._cmp_value): None vem antes no
     # asc (raiz com pai_id null abre o grupo), por último no desc.
     def _skey(r):
         out = []
         for key in okeys:
             desc = key[-1]
-            v = _eval_key(r, key)
+            v = _eval_key(r, key, entries=entries)
             out.append((v is not None, v) if not desc else (v is None, v))
         return out
     return _skey
@@ -304,7 +316,7 @@ def _compute_over(rows, entries, model=None):
         def _pkey(r):
             return tuple(getattr(r, k, None) for k in part_keys)
 
-        _skey = _skey_for(okeys)
+        _skey = _skey_for(okeys, entries)
 
         groups = defaultdict(list)
         for r in rows:
@@ -426,7 +438,7 @@ def _sort_rows(rows, order, model, entries=None):
                 and f not in entry_names 
                 and f not in entry_fields):
                 raise ValueError(f"query.order: campo '{f}' não existe (nem coluna, nem computado, nem entrada do select)")
-    return sorted(rows, key=_skey_for(okeys))
+    return sorted(rows, key=_skey_for(okeys, entries))
 
 
 def build_levels(rows, pk='id', parent='pai_id', rn_attr='rn',
@@ -704,11 +716,23 @@ def _validate_calc(entries, model):
                 raise ValueError(f"select '{e.name}': calc não pode referenciar outro calc ('{nm}')")
 
 
-def _eval_key(row, key):
+def _eval_key(row, key, entries=None):
     """Avalia 1 chave normalizada ('field'| 'expr') sobre a linha."""
+    from ajsystem.defs.qspec import parse_select
     kind = key[0]
     if kind == 'field':
-        return getattr(row, key[1], None)
+        # Primeiro tenta getattr direto
+        val = getattr(row, key[1], None)
+        if val is not None:
+            return val
+        # Se falhou, tenta encontrar a entrada do select com esse field
+        # e usar o nome (alias) da entrada
+        if entries:
+            for e in entries:
+                if e.field == key[1]:
+                    # Usar o alias da entrada
+                    return getattr(row, e.name, None)
+        return None
     if kind == 'expr' and key[1] == 'coalesce':
         for f in key[2]:
             v = getattr(row, f, None)
@@ -718,14 +742,14 @@ def _eval_key(row, key):
     raise ValueError(f"expressão '{key[1]}' sem avaliador em qrun")
 
 
-def _skey_for(okeys):
+def _skey_for(okeys, entries=None):
     # Convenção do motor (igual a core/query._cmp_value): None vem antes no
     # asc (raiz com pai_id null abre o grupo), por último no desc.
     def _skey(r):
         out = []
         for key in okeys:
             desc = key[-1]
-            v = _eval_key(r, key)
+            v = _eval_key(r, key, entries=entries)
             out.append((v is not None, v) if not desc else (v is None, v))
         return out
     return _skey
@@ -744,7 +768,7 @@ def _compute_over(rows, entries, model=None):
         def _pkey(r):
             return tuple(getattr(r, k, None) for k in part_keys)
 
-        _skey = _skey_for(okeys)
+        _skey = _skey_for(okeys, entries)
 
         groups = defaultdict(list)
         for r in rows:
@@ -866,7 +890,7 @@ def _sort_rows(rows, order, model, entries=None):
                 and f not in entry_names 
                 and f not in entry_fields):
                 raise ValueError(f"query.order: campo '{f}' não existe (nem coluna, nem computado, nem entrada do select)")
-    return sorted(rows, key=_skey_for(okeys))
+    return sorted(rows, key=_skey_for(okeys, entries))
 
 
 def build_levels(rows, pk='id', parent='pai_id', rn_attr='rn',
