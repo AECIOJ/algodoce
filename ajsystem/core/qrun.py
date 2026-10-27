@@ -527,7 +527,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     if extra_conditions:
         query = query.filter(*extra_conditions)
 
-    # Montar lista de colunas do select para with_entities.
+    # Construir lista de colunas para with_entities.
     # Campos com caminho pontilhado (ex.: 'conta.nome') precisam ser selecionados
     # explicitamente com o alias correto (o nome da entrada no select).
     select_cols = []
@@ -547,6 +547,8 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
 
     # Se há campos com caminho pontilhado, usar with_entities para selecionar
     # apenas as colunas necessárias (incluindo as de tabelas joined).
+    # Se não há campos com caminho pontilhado, usar query.all() que seleciona
+    # todas as colunas do model principal.
     has_dotted = any(e.field and '.' in e.field for e in qs.entries or [])
 
     # GROUP BY + aggs fora de over -> agregação SQL (reduz linhas)
@@ -607,7 +609,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
             return rows
 
     # Caminho sem GROUP BY: usar with_entities se há campos com caminho pontilhado,
-    # caso contrário usar query.all() simples.
+    # caso contrário usar query.all() que seleciona todas as colunas do model.
     if has_dotted and select_cols:
         q = query.with_entities(*select_cols)
         ocols, q = _order_cols(q, model, qs.order)
@@ -627,11 +629,6 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
             setattr(r, 'id', getattr(r, 'id', None))
             rows.append(r)
     else:
-        ocols, query = _order_cols(query, model, qs.order)
-        if ocols:
-            query = query.order_by(*ocols)
-        if qs.limit:
-            query = query.limit(int(qs.limit))
         rows = list(query.all())
 
     # If joins were applied, eagerly load joined fields onto instances
@@ -655,7 +652,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
 
     _validate_calc(qs.entries or [], model)
     rows = _compute_over(rows, qs.entries or [], model)
-    rows = _compute_calc(rows, qs.entries or [])
+    rows = _compute_calc(rows, qs.entries or [], model)
     rows = _sort_rows(rows, qs.order, model)
     hier = (spec.get('levels', spec.get('hierarchy')) if isinstance(spec, dict) else None)
     if hier:

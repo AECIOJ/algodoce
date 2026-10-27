@@ -2,7 +2,7 @@ from ajsystem.defs.report import *
 from ajsystem.defs.constants import START, FINISH, NEVER, ROW, INLINE
 QRECEBER = {
     'select': [
-        {'cliente': 'conta.nome'},
+        # {'cliente': 'conta.nome'},
         'vencimento',
         # {'fatura': 'transacao.fatura'},
         'documento',
