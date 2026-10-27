@@ -1,19 +1,20 @@
 from ajsystem.defs.report import *
-from ajsystem.defs.constants import START, FINISH, NEVER, ROW, INLINE, PRINT_INLINE
+from ajsystem.defs.constants import START, FINISH, NEVER, ROW, INLINE
 QRECEBER = {
     'select': [
         {'cliente': 'conta.nome'},
         'vencimento',
-        # {'fatura': 'transacao.fatura'},
+        {'fatura': 'transacao.fatura'},
         'documento',
         'recurso_id',
         'previsto',
         'realizado',
         'variacao',
         'saldo',
+        {'conta': 'transacao.conta_id'}
     ],
     'from': 'Previsao',
-    # 'order': [1, 2],
+    'order': [1, 2],
 }
 
 RECEBER = {
@@ -28,9 +29,9 @@ RECEBER = {
             'groups': {
                 'cliente': {
                     'text': '{conta}. {cliente}',
-                    'on_start': { 'print': PRINT_INLINE, 'lf': -1},
+                    'on_start': {'lf': -1},
                     'on_finish': {'lf': 1},
-                    'totals': {'align': 'R', 'span': 4},
+                    'totals': True,
                 },
             },
             'columns': {
