@@ -527,7 +527,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     if extra_conditions:
         query = query.filter(*extra_conditions)
 
-    # Construir lista de colunas para with_entities.
+    # Construir lista de colunas para with_entities
     # Campos com caminho pontilhado (ex.: 'conta.nome') precisam ser selecionados
     # explicitamente com o alias correto (o nome da entrada no select).
     select_cols = []
@@ -629,6 +629,11 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
             setattr(r, 'id', getattr(r, 'id', None))
             rows.append(r)
     else:
+        ocols, query = _order_cols(query, model, qs.order)
+        if ocols:
+            query = query.order_by(*ocols)
+        if qs.limit:
+            query = query.limit(int(qs.limit))
         rows = list(query.all())
 
     # If joins were applied, eagerly load joined fields onto instances
@@ -638,9 +643,11 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
             relation = join_spec.get('relation')
             if not relation:
                 continue
+            # Eagerly load the relationship for each row
             for row in rows:
                 rel_obj = getattr(row, relation, None)
                 if rel_obj is not None:
+                    # Set joined fields as attributes on the row
                     for attr in dir(rel_obj):
                         if not attr.startswith('_') and attr not in row.__dict__:
                             try:
