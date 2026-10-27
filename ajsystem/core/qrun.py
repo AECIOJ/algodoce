@@ -494,11 +494,6 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     extra_conditions = [c for c in (extra_conditions or []) if c is not None]
     query = model.query
 
-    # Inicializar variáveis para evitar UnboundLocalError
-    select_cols = []
-    select_names = []
-    cols = []
-
     # Normalizar order: índices numéricos (1-based) mapeiam para o nome do
     # campo na mesma posição do select. Ex: [1, 2] -> ['conta.nome', 'vencimento'].
     if qs.order:
@@ -532,7 +527,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     if extra_conditions:
         query = query.filter(*extra_conditions)
 
-    # Coletar colunas do select para with_entities
+    # Montar lista de colunas do select para with_entities.
     # Campos com caminho pontilhado (ex.: 'conta.nome') precisam ser selecionados
     # explicitamente com o alias correto (o nome da entrada no select).
     select_cols = []
@@ -542,18 +537,16 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
             _m, _fname = _resolve_path_model(model, e.field)
             col = getattr(_m, _fname, None)
             if col is not None:
-                cols.append(col.label(e.name))
                 select_cols.append(col.label(e.name))
                 select_names.append(e.name)
         else:
             col = getattr(model, e.field or e.name, None)
             if col is not None:
-                cols.append(col)
                 select_cols.append(col)
-                select_names.append(e.name)
+                select_names.append(e.field or e.name)
 
     # Se há campos com caminho pontilhado, usar with_entities para selecionar
-    # apenas as colunas necessárias (incluindo as de tabelas joined)
+    # apenas as colunas necessárias (incluindo as de tabelas joined).
     has_dotted = any(e.field and '.' in e.field for e in qs.entries or [])
 
     # GROUP BY + aggs fora de over -> agregação SQL (reduz linhas)
@@ -613,7 +606,8 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
                 rows.append(r)
             return rows
 
-    # Caminho sem GROUP BY: usar with_entities se há campos com caminho pontilhado
+    # Caminho sem GROUP BY: usar with_entities se há campos com caminho pontilhado,
+    # caso contrário usar query.all() simples.
     if has_dotted and select_cols:
         q = query.with_entities(*select_cols)
         ocols, q = _order_cols(q, model, qs.order)
@@ -661,7 +655,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
 
     _validate_calc(qs.entries or [], model)
     rows = _compute_over(rows, qs.entries or [], model)
-    rows = _compute_calc(rows, qs.entries or [], model)
+    rows = _compute_calc(rows, qs.entries or [])
     rows = _sort_rows(rows, qs.order, model)
     hier = (spec.get('levels', spec.get('hierarchy')) if isinstance(spec, dict) else None)
     if hier:
@@ -675,255 +669,6 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
                            child_fmt=hier.get('child', '{parent}.{rn:02d}'),
                            target=hier.get('target', 'indice'),
                            max_depth=int(hier.get('maxdepth', 20)))
-    return rows
-
-
-"""QRun — executor genérico de QuerySpec/OverSpec (SQL filtra, janela numera).
-
-Genérico: não cita entidade do app. Recebe model + QuerySpec + entity_cfg
-({campo: cfg} p/ cast) e devolve linhas (instâncias + attrs computados).
-
-Fase 1: WHERE/ORDER/LIMIT/GROUP BY no SQL; OVER avaliado em passo único
-em Python sobre o resultado (1 query, sem N+1). `where`/`extra_where` usam
-a gramática literal dos filtros (AND/OR/sentinelas/operadores); `extra_conditions`
-recebe condições já compiladas. O filtro entra antes dos OVERs.
-"""
-from collections import defaultdict
-
-from ajsystem.defs.qspec import parse_query
-
-
-def _cast_value(cfg, value):
-    if value is None or isinstance(value, (int, float, bool)):
-        return value
-    t = (cfg or {}).get('type')
-    if t in ('INT', 'ID', 'FK', 'LIST'):
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return value
-    if t == 'BOOL':
-        if isinstance(value, str):
-            return value.strip().lower() not in ('', '0', 'false', 'não', 'nao')
-        return bool(value)
-    return value
-
-
-def _resolve_column(model, field_name):
-    """Resolve um campo, tentando também através de relationships (join).
-    
-    Para campos de models relacionados (join), retorna a coluna através
-    do relationship: model.relacionamento.campo.
-    """
-    # Tentar diretamente no model
-    col = getattr(model, field_name, None)
-    if col is not None and hasattr(col, 'type'):
-        return col
-    
-    # Tentar através de relationships (join)
-    # Ex: 'conta_id' pode estar em 'transacao.conta_id'
-    if hasattr(model, '__mapper__'):
-        for rel_name in model.__mapper__.relationships.keys():
-            rel = getattr(model, rel_name, None)
-            if rel is not None:
-                try:
-                    mapper_cls = rel.property.mapper.class_
-                    col = getattr(mapper_cls, field_name, None)
-                    if col is not None and hasattr(col, 'type'):
-                        # Retornar a coluna através do relationship
-                        return getattr(rel, field_name, None) or col
-                except Exception:
-                    pass
-    
-    return None
-
-
-def apply_where(query, model, where, entity_cfg):
-    """Aplica um spec de WHERE na gramática compartilhada dos filtros.
-
-    Aceita dict/lista (AND implícito), `OR(...)`/`AND(...)`, sentinelas e
-    operadores — a mesma gramática de `filter.fixed` e `body.filter`.
-    O valor é convertido pelo tipo do field via `_cast_value` (exceto
-    `like`/`ilike`, que recebem o padrão textual).
-    """
-    if not where:
-        return query
-    from ajsystem.core.filters import compile_conditions
-    cfg = entity_cfg or {}
-    cast = lambda name, value: _cast_value(cfg.get(name, {}), value)
-    
-    # Resolver campos através de relationships (join)
-    def _resolve(m, f):
-        col = _resolve_column(m, f)
-        if col is not None:
-            return col
-        return getattr(m, f, None)
-    
-    conds = compile_conditions(where, model, resolve=_resolve, cast=cast, where='query.where')
-    for cond in conds:
-        query = query.filter(cond)
-    return query
-
-
-
-def _normalize_joins(join_spec):
-    """Normaliza a especificação de join para uma lista de dicts padronizados.
-    
-    Formatos aceitos:
-    - str: 'tabela' -> left join, alias = primeira letra
-    - dict: {'relation': 'tabela', 'type': 'left', 'as': 't', 'on': 'p.id = t.id'}
-    - list: ['tabela', {'relation': 'outra_tabela', 'type': 'full', 'as': 'tx'}]
-    """
-    if join_spec is None:
-        return []
-    if isinstance(join_spec, str):
-        return [{'relation': join_spec, 'type': 'left', 'as': join_spec[0].lower()}]
-    elif isinstance(join_spec, dict):
-        # Dict simples: {'relation': 'tabela', 'as': 'tx'}
-        if 'relation' in join_spec and 'as' not in join_spec:
-            return [{'relation': join_spec['relation'], 'type': 'left', 'as': join_spec.get('as', join_spec['relation'][0].lower())}]
-        # Dict completo
-        return [join_spec]
-    elif isinstance(join_spec, list):
-        results = []
-        for item in join_spec:
-            if isinstance(item, str):
-                results.append({'relation': item, 'type': 'left', 'as': item[0].lower()})
-            elif isinstance(item, dict):
-                results.append(item)
-        return results
-    return []
-
-
-def _apply_join(query, model, join_spec, entity_cfg=None):
-    """Aplica um join ao query SQLAlchemy.
-    
-    join_spec: dict com chaves:
-        - relation: nome do relationship no model
-        - type: 'left'|'inner'|'right'|'full' (default: 'left')
-        - as: alias para o model juntado
-        - on: condição ON personalizada (opcional)
-    """
-    relation = join_spec.get('relation')
-    if not relation:
-        return query
-    
-    type_join = join_spec.get('type', 'left')
-    is_outer = (type_join == 'left')
-    
-    try:
-        # Get the relationship from the model
-        rel_attr = getattr(model, relation)
-        # Apply the join
-        query = query.join(rel_attr, isouter=is_outer)
-    except Exception:
-        pass
-    
-    return query
-
-
-
-def _resolve_join_path_for_query(query, model, field_name):
-    """Aplica joins automáticos para um campo possivelmente pontilhado.
-
-    Ex: 'conta.nome' em Previsao -> faz left join em Previsao.conta e
-    retorna (query, Conta, 'nome'), de modo que a ordenação possa usar
-    a coluna direta do model alvo. Se não conseguir resolver, devolve
-    (query, model, field_name) inalterado.
-    """
-    if '.' not in field_name:
-        return query, model, field_name
-
-    parts = field_name.split('.')
-    current_query = query
-    current_model = model
-
-    for part in parts[:-1]:
-        rel_attr = getattr(current_model, part, None)
-        if rel_attr is None:
-            return current_query, current_model, field_name
-        try:
-            target_model = rel_attr.property.mapper.class_
-        except Exception:
-            return current_query, current_model, field_name
-        try:
-            current_query = current_query.join(rel_attr, isouter=True)
-        except Exception:
-            pass
-        current_model = target_model
-
-    col = getattr(current_model, parts[-1], None)
-    if col is not None and hasattr(col, 'type'):
-        return current_query, current_model, parts[-1]
-
-    return current_query, current_model, field_name
-
-
-def _resolve_path_model(model, field_name):
-    """Resolve o model alvo de um caminho pontilhado sem aplicar join.
-
-    Ex: 'conta.nome' em Previsao -> retorna (Conta, 'nome').
-    Usado apenas para obter o model correto; o join já foi aplicado antes.
-    """
-    if '.' not in field_name:
-        return model, field_name
-
-    parts = field_name.split('.')
-    current_model = model
-
-    for part in parts[:-1]:
-        rel_attr = getattr(current_model, part, None)
-        if rel_attr is None:
-            return current_model, field_name
-        try:
-            current_model = rel_attr.property.mapper.class_
-        except Exception:
-            return current_model, field_name
-
-    col = getattr(current_model, parts[-1], None)
-    if col is not None and hasattr(col, 'type'):
-        return current_model, parts[-1]
-
-    return current_model, field_name
-
-
-def _order_cols(query, model, order):
-    cols = []
-    if not order:
-        return cols, query
-    if isinstance(order, str):
-        order = [order]
-    for item in order:
-        if isinstance(item, dict):
-            fname = item.get('field')
-            desc = (item.get('direction') or 'asc').lower() == 'desc'
-        elif isinstance(item, str):
-            parts = item.split()
-            fname, desc = parts[0], len(parts) > 1 and parts[1].lower() == 'desc'
-        else:
-            continue
-        # Resolver o model alvo para campos pontilhados (join já foi aplicado antes)
-        _m, _fname = _resolve_path_model(model, fname)
-        col = getattr(_m, _fname, None)
-        if col is not None:
-            cols.append(col.desc().nullslast() if desc else col.asc().nullsfirst())
-    return cols, query
-
-
-def _entries_over(entries):
-    return [e for e in entries if e.over is not None]
-
-
-def _compute_calc(rows, entries):
-    """Avalia calc (template) pós-over, em ordem do select. Fonte única p/
-    montados (ex. indice) — grade e relatório bebem o mesmo attr."""
-    import re as _re
-    from ajsystem.core.text import render as _render
-    for e in entries or []:
-        if not e.calc:
-            continue
-        for r in rows:
-            setattr(r, e.name, _render(e.calc, lambda k, _r=r: getattr(_r, k, None)))
     return rows
 
 

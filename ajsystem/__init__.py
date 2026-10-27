@@ -122,4 +122,47 @@ def list_action():
     return jsonify(html=btn.target_html(instance) or '')
 
 
+@ajsystem.route('/report-action')
+@login_required
+def report_action():
+    """Gera o PDF de uma entrada da aba Relatórios (props.report, §5.6.2).
+
+    Parâmetros: page (slug da rota), rp (slug da entrada) + args dos campos
+    declarados em `filter`. O campo vazio ignora a folha; a spec resultante é
+    combinada com o `body.filter` do relatório pelo próprio `print_report`.
+    Devolve o fragmento do overlay (JSON `{html}`), como `/list-action`.
+    """
+    import importlib
+    from ajsystem.core.adapter import ROUTES_BASE
+    from ajsystem.core.auto import _entidade_principal
+    from ajsystem.core.do_list import (_resolve_report_entries,
+                                       report_filter_from_args)
+    from ajsystem.core.do_report import print_report, _print_erro
+    from ajsystem.defs.data import module_page
+    page = request.args.get('page', '') or ''
+    rp = request.args.get('rp', '') or ''
+    if not re.fullmatch(r'[A-Za-z0-9_]+', page) or not rp:
+        return jsonify(error='parâmetros inválidos'), 400
+    try:
+        mod = importlib.import_module(f'{ROUTES_BASE}.sys.{page}')
+    except ImportError:
+        return jsonify(error='página desconhecida'), 404
+    entries = _resolve_report_entries(
+        module_page(mod), getattr(mod, 'Schema', None) or {},
+        mod.__name__, _entidade_principal(mod))
+    entry = next((e for e in entries.values() if e['slug'] == rp), None)
+    if entry is None:
+        return jsonify(html=_print_erro('Relatório não encontrado')), 404
+    # Injeta o título da entrada (chave do dicionário) no relatório
+    report = dict(entry['report'])
+    report['label'] = entry['title']
+    try:
+        html = print_report(report,
+                            filter=report_filter_from_args(entry, request.args) or None,
+                            _printing=True)
+    except Exception:
+        html = _print_erro()
+    return jsonify(html=html)
+
+
 from ajsystem.init import init_app  # noqa: E402  (wiring do framework)

@@ -350,6 +350,50 @@ function itListRender(el) {
     });
 }
 
+/* Aba Relatórios (§5.6.2): coleta os inputs do cartão aberto e gera o PDF
+   via /report-action, reusando o overlay de `reportRender`. Só os campos
+   declarados na entrada são enviados — selects múltiplos vão repetidos. */
+function reportRun(btn) {
+  if (btn.disabled) return;
+  var card = btn.closest('[data-report]');
+  var host = card ? card.closest('[data-report-page]') : null;
+  if (!card || !host) return;
+  var params = new URLSearchParams();
+  params.set('page', host.dataset.reportPage || '');
+  params.set('rp', card.dataset.report || '');
+  card.querySelectorAll('input[name], select[name]').forEach(function (el) {
+    if (el.tagName === 'SELECT' && el.multiple) {
+      Array.prototype.forEach.call(el.selectedOptions, function (o) {
+        if (o.value !== '') params.append(el.name, o.value);
+      });
+      return;
+    }
+    if (el.value === '') return;
+    params.append(el.name, el.value);
+  });
+  btn.disabled = true;
+  fetch('{{ url_for("ajsystem.report_action") }}?' + params.toString())
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d && d.html) reportRender(d.html); })
+    .catch(function () {})
+    .finally(function () { btn.disabled = false; });
+}
+
+/* Limpa os inputs do cartão do relatório (não recarrega a página). */
+function reportClear(btn) {
+  var card = btn.closest('[data-report]');
+  if (!card) return;
+  card.querySelectorAll('input, select').forEach(function (el) {
+    if (el.tagName === 'SELECT' && el.multiple) {
+      Array.prototype.forEach.call(el.options, function (o) { o.selected = false; });
+    } else if (el.tagName === 'SELECT') {
+      el.selectedIndex = 0;
+    } else {
+      el.value = '';
+    }
+  });
+}
+
 /* Fecha o relatório e volta à página sem recarregar; limpa os parâmetros de
    impressão da URL para que um refresh mostre a listagem normal. */
 function closeReport() {

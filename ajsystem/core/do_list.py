@@ -9,10 +9,10 @@ import importlib
 
 from flask import current_app, render_template, request, url_for
 
+from ajsystem import locales as i18n
 from ajsystem.defs.data import (
-    _auto_label, build_field, page_filter_cfg, page_list_cfg, page_scripts,
-    resolve_entity_fields,
-    module_page, resolve_max_width,
+    _auto_label, build_field, page_filter_cfg, page_list_cfg, page_report_cfg,
+    page_scripts, resolve_entity_fields, module_page, resolve_max_width,
 )
 from ajsystem.core.list import (
     List, build_field_context, resolve_column_configs,
@@ -20,9 +20,38 @@ from ajsystem.core.list import (
 )
 from ajsystem.core.resolve import resolve_slots
 from ajsystem.core.filters import resolve_filter
-from ajsystem.core.utils import module_blueprint
+from ajsystem.core.utils import module_blueprint, normalizar_slug
 
 TAB_TYPES = ('List', 'Filter', 'Report', 'Custom')
+
+# Aba Relatórios (§5.6.2): operador declarado por campo em `props.report`.
+# O símbolo é o comparador; em `date`, `>`/`<` são inclusivos (a partir de/até).
+REPORT_OPS = ('=', '!=', '>', '>=', '<', '<=', 'like', '<>')
+
+_REPORT_OPS_BY_TYPE = {
+    'text': ('=', '!=', 'like'),
+    'number': ('=', '!=', '>', '>=', '<', '<=', '<>'),
+    'date': ('=', '!=', '>', '>=', '<', '<=', '<>'),
+    'boolean': ('=', '!='),
+    'select': ('=', '!='),
+    'checklist': ('=', '!='),
+}
+
+_REPORT_OP_LABEL = {
+    'text': {'=': i18n.FILTER_EQ, '!=': i18n.FILTER_NEQ,
+             'like': i18n.FILTER_CONTAINS},
+    'number': {'=': i18n.FILTER_EQ, '!=': i18n.FILTER_NEQ,
+               '>': i18n.FILTER_GT, '>=': i18n.FILTER_GTE,
+               '<': i18n.FILTER_LT, '<=': i18n.FILTER_LTE,
+               '<>': i18n.FILTER_BETWEEN},
+    'date': {'=': i18n.FILTER_ON_DATE, '!=': i18n.FILTER_NEQ,
+             '>': i18n.FILTER_FROM, '>=': i18n.FILTER_FROM,
+             '<': i18n.FILTER_UNTIL, '<=': i18n.FILTER_UNTIL,
+             '<>': i18n.FILTER_PERIOD},
+    'boolean': {'=': i18n.FILTER_EQ, '!=': i18n.FILTER_NEQ},
+    'select': {'=': i18n.FILTER_EQ, '!=': i18n.FILTER_NEQ},
+    'checklist': {'=': i18n.FILTER_CONTAINS, '!=': i18n.FILTER_NEQ},
+}
 
 
 def _default_type(key):
@@ -464,6 +493,11 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     )
     buttons = list_obj.resolve_buttons(bp_name, *_camadas_botoes(module_name))
 
+    report_entries = {}
+    if any(t['type'] == 'Report' for t in tabs):
+        report_entries = _resolve_report_entries(page, schema, module_name,
+                                                entity_name)
+
     detail_fields = None
     detail_data = None
     if 'detail' in lista:
@@ -566,6 +600,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         default_on=_rf.default_on,
         filter_max_width=_rf.max_width,
         FILTERS=filter_config,
+        REPORTS=report_entries,
         page_scripts=page_scripts(page),
         ctx=ctx,
         titulo=title,
@@ -652,6 +687,11 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         buttons=lista.get('buttons'),
     )
     buttons = list_obj.resolve_buttons(bp_name, *_camadas_botoes(module_name))
+
+    report_entries = {}
+    if any(t['type'] == 'Report' for t in tabs):
+        report_entries = _resolve_report_entries(page, schema, module_name,
+                                                entity_name)
 
     detail_fields = None
     detail_data = None
@@ -757,6 +797,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         default_on=_rf.default_on,
         filter_max_width=_rf.max_width,
         FILTERS=filter_config,
+        REPORTS=report_entries,
         page_scripts=page_scripts(page),
         ctx=ctx,
         titulo=title,
@@ -770,3 +811,176 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         auto_report=auto_report,
         **extra,
     )
+
+
+def _report_slug(title):
+    """Slug de URL da entrada (`Gerar` envia `rp=<slug>`)."""
+    import re
+    slug = re.sub(r'[^a-z0-9]+', '-', normalizar_slug(title)).strip('-')
+    return slug or 'relatorio'
+
+
+def _report_filter_pairs(cfg, where):
+    """Normaliza `props.report[..].filter` em `[(entidade|None, campo, op)]`.
+
+    Formas aceitas: a família fieldspec (`'campo'`, lista, `{'Ent': [...]}`,
+    tudo com `=`) ou o dict `{campo: op}` com operador em `REPORT_OPS`.
+    """
+    from ajsystem.core.resolve import slot_spec_items
+    spec = cfg.get('filter')
+    if not spec:
+        return []
+    if isinstance(spec, (str, list, tuple)):
+        return [(ent, name, '=') for ent, name in
+                slot_spec_items(spec, 'filter', where)]
+    if not isinstance(spec, dict):
+        raise TypeError(f"{where}.filter: esperava str, lista ou dict; veio "
+                        f"{type(spec).__name__}")
+    out = []
+    for key, val in spec.items():
+        if isinstance(val, str):
+            if val not in REPORT_OPS:
+                raise ValueError(
+                    f"{where}.filter[{key!r}]: operador {val!r} inválido — "
+                    f"use {', '.join(REPORT_OPS)}")
+            out.extend((ent, name, val) for ent, name in
+                       slot_spec_items([key], 'filter', where))
+        elif isinstance(val, (list, tuple, dict)):
+            # fieldspec agrupado (`{'Entidade': [...]}`) — sem operador, `=`.
+            if isinstance(val, dict) and any(isinstance(v, str) and v in REPORT_OPS
+                                             for v in val.values()):
+                raise ValueError(
+                    f"{where}.filter[{key!r}]: dict aninhado mistura operador — "
+                    "declare um campo por operador")
+            out.extend((ent, name, '=') for ent, name in
+                       slot_spec_items({key: val}, 'filter', where))
+        else:
+            raise TypeError(
+                f"{where}.filter[{key!r}]: esperava operador (str) ou fieldspec; "
+                f"veio {type(val).__name__}")
+    return out
+
+
+def _resolve_report_entries(page, schema, module_name, entity_name):
+    """Resolve `props.report` para a aba Relatórios (`filter` → pool)."""
+    from ajsystem.core.resolve import _pool_entities, _slot_match
+    from ajsystem.core.list import infer_filter_type, field_filter_options
+    from ajsystem.defs.data import resolve_lookup
+    report_cfg = page_report_cfg(page)
+    if not report_cfg:
+        return {}
+    lista = page_list_cfg(page)
+    _ent, model, merged, pool, fonte = _list_pool(lista, schema, module_name,
+                                                  entity_name)
+    principal = fonte.get('pool_entity')
+    entities = _pool_entities(pool)
+    entries = {}
+    seen_slugs = {}
+    for title, cfg in report_cfg.items():
+        where = f"Page.props.report[{title!r}]"
+        if not isinstance(cfg, dict):
+            raise TypeError(f"{where}: deve ser dict, veio {type(cfg).__name__}")
+        if 'report' not in cfg:
+            current_app.logger.warning(
+                f"{where}: chave 'report' ausente — entrada ignorada para o painel")
+            # Ainda assim adicionamos a entrada ao REPORTS para o painel ser
+            # construído; o botão "GERAR" ficará disabled até que se adicione o spec.
+            cfg['report'] = None
+        slug = _report_slug(title)
+        if slug in seen_slugs:
+            raise ValueError(f"{where}: título gera o mesmo slug "
+                             f"{slug!r} de {seen_slugs[slug]!r}")
+        seen_slugs[slug] = title
+        items = []
+        for ent, name, op in _report_filter_pairs(cfg, where):
+            hits = _slot_match(pool, entities, ent, name, 'filter', principal,
+                               where)
+            for f in hits:
+                ftype = infer_filter_type(f)
+                if not ftype:
+                    raise ValueError(
+                        f"{where}.filter[{f.name!r}]: campo não é filtrável "
+                        f"(tipo {getattr(f, '_type', '?')})")
+                if op not in _REPORT_OPS_BY_TYPE[ftype]:
+                    raise ValueError(
+                        f"{where}.filter[{f.name!r}]: operador {op!r} inválido "
+                        f"para {ftype} — use "
+                        f"{', '.join(_REPORT_OPS_BY_TYPE[ftype])}")
+                sql_op = op
+                if ftype == 'date' and op in ('>', '<'):
+                    sql_op = '>=' if op == '>' else '<='
+                item = {
+                    'name': f.name,
+                    'label': getattr(f, 'display_label', None) or f.name,
+                    'type': ftype,
+                    'op': op,
+                    'sql_op': sql_op,
+                    'between': op == '<>',
+                    'mode_label': _REPORT_OP_LABEL[ftype][op],
+                }
+                if ftype in ('select', 'checklist', 'boolean'):
+                    # O pool não resolve `lookup` (só os slots da listagem o
+                    # fazem); sem `target` o FK não tem options no form.
+                    if getattr(f, 'lookup', None) is not None:
+                        ent_name = getattr(f, '_entity', None) or entity_name
+                        resolved = resolve_lookup(f, _resolve_model(ent_name))
+                        if resolved is not None:
+                            f.lookup = resolved
+                    opts = field_filter_options(f)
+                    if opts:
+                        item['options'] = opts
+                items.append(item)
+        entries[title] = {'slug': slug, 'title': title,
+                          'report': cfg['report'], 'fields': items}
+    return entries
+
+
+def report_filter_from_args(entry, args):
+    """Args do form da aba Relatórios → spec literal (gramática compartilhada).
+
+    Só os campos declarados na entrada são lidos; vazio ignora a folha. `<>`
+    vira duas folhas (>=/<=) com as partes preenchidas; `like` ganha `%...%`;
+    select/boolean/checklist viram `in`/`not in`.
+    """
+    from datetime import date as _date
+
+    def filled(v):
+        return v is not None and str(v).strip() != ''
+
+    def typed(f, v):
+        if f['type'] == 'date':
+            try:
+                return _date.fromisoformat(str(v).strip())
+            except (TypeError, ValueError):
+                return v
+        return v
+
+    out = []
+    for f in entry['fields']:
+        name, op = f['name'], f['op']
+        if f['between']:
+            suf = (('_from', '_to') if f['type'] == 'date'
+                   else ('_val1', '_val2'))
+            lo, hi = args.get(name + suf[0]), args.get(name + suf[1])
+            if filled(lo):
+                out.append({name: ('>=', typed(f, lo))})
+            if filled(hi):
+                out.append({name: ('<=', typed(f, hi))})
+            continue
+        if f['type'] == 'checklist':
+            vals = [v for v in args.getlist(name) if filled(v)]
+            if vals:
+                out.append({name: ('in' if op == '=' else 'not in', vals)})
+            continue
+        v = args.get(name)
+        if not filled(v):
+            continue
+        if f['type'] in ('select', 'boolean'):
+            out.append({name: ('in' if op == '=' else 'not in', [v])})
+        elif op == '=':
+            out.append({name: typed(f, v)})
+        elif op == 'like':
+            out.append({name: ('like', f'%{v}%')})
+        else:
+            out.append({name: (f['sql_op'], typed(f, v))})
+    return out

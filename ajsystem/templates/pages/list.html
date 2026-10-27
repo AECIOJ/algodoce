@@ -254,6 +254,22 @@
   --filter-grid-cols: 3.5rem minmax(10ch, 1.6fr) minmax(16ch, 1.2fr) minmax(12ch, 1fr) minmax(12ch, 1fr) auto;
   width: 100%; max-width: 100%; margin-inline: auto;
 }
+.report-card { border: 1px solid var(--fallback-b3, oklch(var(--b3))); border-radius: .5rem; background: var(--fallback-b1, oklch(var(--b1))); }
+.report-card-head { width: 100%; display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; text-align: left; font-weight: 600; }
+.report-card-head:hover { background: var(--fallback-b2, oklch(var(--b2))); }
+.report-caret { display: inline-block; width: 1rem; }
+.report-body { border-top: 1px solid var(--fallback-b3, oklch(var(--b3))); padding: .75rem; }
+.report-fields { display: grid; gap: .5rem; }
+.report-field { display: grid; grid-template-columns: minmax(12ch, 22ch) minmax(0, 1fr); gap: .5rem; align-items: center; }
+.report-label { font-size: .875rem; font-weight: 500; }
+.report-op { display: block; font-size: .7rem; font-weight: 400; color: var(--fallback-bc, oklch(var(--bc)/.65)); }
+.report-input { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.report-input > .input, .report-input > .select { flex: 1 1 auto; min-width: 0; }
+.report-sep { font-size: .75rem; color: var(--fallback-bc, oklch(var(--bc)/.65)); }
+.report-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
+@media (max-width: 640px) {
+  .report-field { grid-template-columns: 1fr; }
+}
 .list-filter-wrap .filter-group { width: 100%; min-width: 0; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
 .list-filter-wrap .filter-grid,
@@ -726,6 +742,104 @@
           <button type="button" class="btn btn-primary flex-1 min-w-[8rem] inline-flex items-center gap-1" @click="submitFilters()">
             {{ heroicon(BTN_APPLY.icon, 'w-4 h-4') }} {{ BTN_APPLY.text() }}
           </button>
+        </div>
+      </div>
+    </div>
+    {% elif t.type == 'Report' %}
+    <div class="flex flex-col items-center"
+         x-data='{ rpOpen: {{ (REPORTS.values()|list|first).slug|tojson if REPORTS else "null" }} }'>
+      <div class="list-filter-wrap"{% if filter_max_width %} style="max-width:{{ filter_max_width }};"{% endif %}>
+        <div class="flex flex-col gap-2 p-2 min-w-0" data-report-page="{{ request.blueprint }}">
+          {% if REPORTS %}
+          {% for rp in REPORTS.values() %}
+          <div class="report-card" data-report="{{ rp.slug }}">
+            <button type="button" class="report-card-head"
+                    @click="rpOpen = (rpOpen === '{{ rp.slug }}' ? null : '{{ rp.slug }}')">
+              <span class="report-caret" x-text="rpOpen === '{{ rp.slug }}' ? '▾' : '▸'">▸</span>
+              <span>{{ rp.title }}</span>
+            </button>
+            <div class="report-body" x-show="rpOpen === '{{ rp.slug }}'">
+              {% if rp.fields %}
+              <div class="report-fields">
+                {% for f in rp.fields %}
+                <div class="report-field">
+                  <label class="report-label" for="rp-{{ rp.slug }}-{{ f.name }}">{{ f.label }}
+                    <span class="report-op">{{ f.mode_label }}</span></label>
+                  <div class="report-input">
+                    {% if f.between %}
+                    <input type="{{ 'date' if f.type == 'date' else 'number' }}"
+                           class="input input-bordered input-sm"
+                           {% if f.type != 'date' %}step="any"{% endif %}
+                           id="rp-{{ rp.slug }}-{{ f.name }}-1"
+                           name="{{ f.name }}{{ '_from' if f.type == 'date' else '_val1' }}"
+                           aria-label="{{ f.label }}">
+                    <span class="report-sep">{{ i18n.TO }}</span>
+                    <input type="{{ 'date' if f.type == 'date' else 'number' }}"
+                           class="input input-bordered input-sm"
+                           {% if f.type != 'date' %}step="any"{% endif %}
+                           id="rp-{{ rp.slug }}-{{ f.name }}-2"
+                           name="{{ f.name }}{{ '_to' if f.type == 'date' else '_val2' }}"
+                           aria-label="{{ f.label }}">
+                    {% elif f.type in ('select', 'boolean', 'checklist') %}
+                    <select class="select select-bordered select-sm"
+                            id="rp-{{ rp.slug }}-{{ f.name }}"
+                            name="{{ f.name }}"
+                            {% if f.type == 'checklist' and f.op == '=' %}multiple size="4"{% endif %}
+                            aria-label="{{ f.label }}">
+                      {% if not (f.type == 'checklist' and f.op == '=') %}
+                      <option value="">{{ i18n.FILTER_ALL }}</option>
+                      {% endif %}
+                      {% if f.options is defined and f.options %}
+                        {% if f.options is mapping %}
+                          {% for val, label in f.options.items() %}
+                          <option value="{{ val }}">{{ label }}</option>
+                          {% endfor %}
+                        {% else %}
+                          {% for val in f.options %}
+                          <option value="{{ val }}">{{ val }}</option>
+                          {% endfor %}
+                        {% endif %}
+                      {% endif %}
+                    </select>
+                    {% elif f.type == 'date' %}
+                    <input type="date" class="input input-bordered input-sm"
+                           id="rp-{{ rp.slug }}-{{ f.name }}"
+                           name="{{ f.name }}" aria-label="{{ f.label }}">
+                    {% elif f.type == 'number' %}
+                    <input type="number" step="any" class="input input-bordered input-sm"
+                           id="rp-{{ rp.slug }}-{{ f.name }}"
+                           name="{{ f.name }}" aria-label="{{ f.label }}">
+                    {% else %}
+                    <input type="text" class="input input-bordered input-sm"
+                           id="rp-{{ rp.slug }}-{{ f.name }}"
+                           name="{{ f.name }}" aria-label="{{ f.label }}">
+                    {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
+<div class="report-actions">
+                <button type="button" class="btn btn-sm btn-ghost inline-flex items-center gap-1"
+                        onclick="reportClear(this)">
+                  {{ heroicon(BTN_CLEAR.icon, 'w-4 h-4') }} {{ BTN_CLEAR.text() }}
+                </button>
+                {% if rp.get('report') %}
+                <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1" onclick="reportRun(this)">
+                  {{ heroicon(BTN_PRINT_STYLE.icon, 'w-4 h-4') }} {{ BTN_PRINT_STYLE.text() }}
+                </button>
+                {% else %}
+                <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1" disabled aria-disabled="true">
+                  {{ heroicon(BTN_PRINT_STYLE.icon, 'w-4 h-4') }} {{ BTN_PRINT_STYLE.text() }}
+                </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div class="text-gray-500 text-sm p-2">{{ i18n.NO_FILTERS }}</div>
+          {% endif %}
         </div>
       </div>
     </div>

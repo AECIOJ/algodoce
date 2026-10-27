@@ -615,6 +615,17 @@ def page_filter_cfg(page: dict) -> dict:
     return fc
 
 
+def page_report_cfg(page: dict) -> dict:
+    """Config da prop `report` de um Page (props.report, irmã de `list`/`filter`)."""
+    rc = page_props(page).get('report')
+    if rc is None:
+        return {}
+    if not isinstance(rc, dict):
+        raise TypeError(
+            f"Page: prop 'report' deve ser dict, veio {type(rc).__name__}")
+    return rc
+
+
 def page_form_cfg(page: dict) -> dict:
     """Config do `form` de um Page (retorna {} se ausente)."""
     props = page_props(page)
