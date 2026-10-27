@@ -165,7 +165,7 @@ def parse_select(select) -> list:
             if cfg is None or isinstance(cfg, str) and not cfg:
                 entries.append(SelectEntry(name=alias, field=alias))
             elif isinstance(cfg, str):
-                entries.append(SelectEntry(name=alias, field=alias))
+                entries.append(SelectEntry(name=alias, field=cfg))
             else:
                 entries.append(_parse_entry(alias, cfg))
         return entries
@@ -177,6 +177,8 @@ ENTRY_KEYS = ('field', 'agg', 'func', 'over', 'calc',
 
 
 def _parse_entry(alias, cfg) -> SelectEntry:
+    if isinstance(cfg, str):
+        return SelectEntry(name=alias, field=cfg)
     if not isinstance(cfg, dict):
         raise TypeError(f"select '{alias}': cfg deve ser dict, veio {type(cfg).__name__}")
     cfg = dict(cfg)

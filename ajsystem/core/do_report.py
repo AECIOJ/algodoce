@@ -200,10 +200,22 @@ def _pdf_bytes(report, data=None, instance=None):
         if isinstance(src, dict):
             data_attr = src.get('data_attr', 'items')
         data = getattr(instance, data_attr, None)
-    logo = _resolve_logo(report)
-    pdf = gerar_pdf_relatorio(report, data, logo, instance=instance)
-    buf = BytesIO()
-    pdf.output(buf)
+    try:
+        logo = _resolve_logo(report)
+    except Exception as _e:
+        _msg = f"BUG no report '{getattr(report,'label','?') if not isinstance(report,dict) else report.get('label')}': falha ao resolver logo. Detalhe: {_e}\n{''.join(_tb.format_tb(_e.__traceback__))}"
+        raise
+    try:
+        pdf = gerar_pdf_relatorio(report, data, logo, instance=instance)
+    except Exception as _e:
+        _msg = f"BUG no report '{getattr(report,'label','?') if not isinstance(report,dict) else report.get('label')}': falha ao gerar PDF. Detalhe: {_e}\n{''.join(_tb.format_tb(_e.__traceback__))}"
+        raise
+    try:
+        buf = BytesIO()
+        pdf.output(buf)
+    except Exception as _e:
+        _msg = f"BUG no report '{getattr(report,'label','?') if not isinstance(report,dict) else report.get('label')}': falha ao escrever PDF no buffer. Detalhe: {_e}\n{''.join(_tb.format_tb(_e.__traceback__))}"
+        raise
     return buf.getvalue()
 
 
@@ -238,8 +250,13 @@ def _apply_entity(raw, entity):
     Sem entity (fora de blueprint) nada é resolvido. Retorna cópia ajustada;
     não muta o declarado.
     """
+    label = raw.get('label') if isinstance(raw, dict) else None
     if not entity:
         return raw
+    # Se já é um dataclass Report (pós-parse_report), converter para dict
+    if hasattr(raw, '__dataclass_fields__'):
+        raw = {k: getattr(raw, k) for k in raw.__dataclass_fields__}
+        label = raw.get('label')
     out = dict(raw)
 
     def _locate(field):
@@ -274,6 +291,7 @@ def _apply_entity(raw, entity):
     # `query_select_layer`. Precedência: Entity/Schema -> entrada (query) ->
     # inline do relatório.
     _disp_map = {}
+    _field_map = {}
     _computed = set()
     try:
         from ajsystem.defs.qspec import parse_select as _ps
@@ -285,6 +303,10 @@ def _apply_entity(raw, entity):
                 _d = _props_e(_e, ('label', 'width', 'align', 'format'))
                 if _d:
                     _disp_map[_e.name] = _d
+                else:
+                    # Garantir que a entrada esteja no _disp_map mesmo sem props
+                    _disp_map[_e.name] = {}
+                _field_map[_e.name] = _e.field or _e.name
                 if _computed_e(_e):
                     _computed.add(_e.name)
             _hier = (_src.get('levels', _src.get('hierarchy')) or {})
@@ -386,6 +408,10 @@ def _apply_entity(raw, entity):
                 # Query (entrada do select) sobre Entity/Schema; report inline por cima.
                 _qp = _disp_map.get(fld) or _disp_map.get(key) or {}
                 spec = {**_base_filtered, **_qp, **extra}
+                # O `field` do ReportColumn deve ser o nome da chave (ex: 'cliente'),
+                # que é o atributo definido no _Row pelo run_query. O caminho SQL
+                # (ex: 'conta.nome') já está em _field_map e é usado pelo qrun
+                # para ordenação/agrupamento; não deve virar o field da coluna.
                 # Máscara manda (genérico, igual à list): format declarado no
                 # relatório vence; máscara (Entity/Schema/query/catálogo) vence
                 # a inferência por type. BOOL/LIST com rótulo não mascaram.
@@ -455,6 +481,265 @@ def _apply_entity(raw, entity):
                 spec = {**_disp_map[key], **extra}
                 if 'label' not in spec:
                     spec['label'] = _auto_label(key)
+                # O `field` deve ser o nome da chave (ex: 'cliente'), que é o
+                # atributo definido no _Row pelo run_query. O caminho SQL
+                # (ex: 'conta.nome') já está em _field_map e é usado pelo qrun.
+                if 'field' not in spec:
+                    spec['field'] = key
+                if columns:
+                    _fallback_width_ch(spec, key)
+                resolved[key] = spec
+                continue
+            if 'text' in extra:
+                spec = dict(extra)
+                spec.setdefault('label', _auto_label(key))
+                spec['function'] = _cell_text_fn(extra['text'], entity)
+                if columns:
+                    spec['width'] = _text_width_ch(extra['text'])
+                resolved[key] = spec
+                continue
+            if not any(k in extra for k in ('label', 'function')):
+                raise KeyError(
+                    f"Campo '{key}' não resolvido na Entity (ausente ou "
+                    f"ambíguo — use 'Model.campo') e sem 'label'/'function' "
+                    f"(report '{raw.get('label')}')"
+                )
+            # Item sem field resolvido (só `label`/`function`/`text`): a largura
+            # vem do campo nomeado ou do rótulo, para não receber o resto da
+            # página — mas só na COLUNA, pelo mesmo motivo de cima.
+            spec = dict(extra)
+            if columns:
+                _fallback_width_ch(spec, key)
+            resolved[key] = spec
+        return resolved
+
+    def _locate(field):
+        # Entity flat: {'campo': cfg} — o nome do campo é a própria chave.
+        if field in entity and isinstance(entity.get(field), dict):
+            return field
+        # Entity legada aninhada: {'Model': {'campo': cfg}}.
+        hits = [m for m, cfg in entity.items()
+                if isinstance(cfg, dict) and field in cfg]
+        if len(hits) == 1:
+            return hits[0]
+        # Mais de um model tem esse nome, e `status` é o caso real (existe em
+        # Compra, Orcamento, Pedido, Transacao e Transferencia). Sem prefixo o
+        # campo é da entidade PRINCIPAL do report — devolver None aqui fazia o
+        # item perder label, catálogo e `calc` de uma vez, e o `status` saía
+        # como código. `_pmodel` é uma CLASSE e `hits` são strings: compara pelo
+        # nome. `_pmodel` é resolvido logo abaixo e as chamadas vêm depois.
+        if _pmodel is not None and _pmodel.__name__ in hits:
+            return _pmodel.__name__
+        return None
+
+    # Entidade principal (campos sem prefixo) do report.
+    from ajsystem.core.list import _resolve_model as _rmodel
+    _pname = _principal_name(out, entity)
+    try:
+        _pmodel = _rmodel(_pname) if _pname else None
+    except Exception:
+        _pmodel = None
+
+    # Defaults vindos das entradas do select (props de apresentação da query),
+    # via `core.resolve` — as mesmas primitivas que a listagem usa em
+    # `query_select_layer`. Precedência: Entity/Schema -> entrada (query) ->
+    # inline do relatório.
+    _disp_map = {}
+    _field_map = {}
+    _computed = set()
+    try:
+        from ajsystem.defs.qspec import parse_select as _ps
+        _src = (out.get('body') or {}).get('source') if isinstance(out.get('body'), dict) else None
+        if isinstance(_src, dict) and 'select' in _src and 'from' in _src:
+            for _e in _ps(_src.get('select')):
+                # o report tem a prop `format` (a listagem não), por isso as
+                # 4 chaves em vez do `SELECT_PROPS` da máquina.
+                _d = _props_e(_e, ('label', 'width', 'align', 'format'))
+                if _d:
+                    _disp_map[_e.name] = _d
+                else:
+                    # Garantir que a entrada esteja no _disp_map mesmo sem props
+                    _disp_map[_e.name] = {}
+                _field_map[_e.name] = _e.field or _e.name
+                if _computed_e(_e):
+                    _computed.add(_e.name)
+            _hier = (_src.get('levels', _src.get('hierarchy')) or {})
+            _blevels = ((out.get('body') or {}).get('levels') or {})
+            if isinstance(_blevels, dict) and _blevels.get('target'):
+                _hier = _blevels
+            if isinstance(_hier, dict) and _hier.get('target'):
+                _computed.add(_hier['target'])
+    except Exception:
+        _disp_map = {}
+        _computed = set()
+
+    def _infer_presentation(cfg):
+        # A decisão é genérica (máscara → moeda; type/input → formato):
+        # `core.resolve.field_presentation`, compartilhada com a busca.
+        fmt, align = field_presentation(cfg)
+        return {'format': fmt, 'align': align}
+
+    def _col_width_ch(name, cfg, label=None, display=None):
+        """`ch` da coluna a partir da config do field — a mesma conta da
+        listagem (`core.list.field_width_ch`), com a máscara como mínimo.
+
+        Sem isto a coluna chega sem `width` ao `_calc_col_widths` do PDF e o
+        motor lhe distribui o resto da página, espalhando a tabela. O mínimo
+        pela máscara existe porque o PDF escreve a célula numa linha só: texto
+        maior que a coluna invade a vizinha em vez de quebrar.
+        """
+        from ajsystem.core.list import field_width_ch
+        from ajsystem.defs.data import build_field
+        cfg = dict(cfg or {})
+        if label:
+            cfg['label'] = label
+        try:
+            f = build_field(name or 'campo', cfg)
+        except Exception:
+            return None
+        return field_width_ch(f, fit_mask=True)
+
+    def _text_width_ch(tpl):
+        """`ch` estimada de uma coluna `text`: os literais do template mais um
+        valor típico por `{campo}`."""
+        import re as _re
+        lit = ''.join(m for m in _re.split(r'\{[^{}]*\}', str(tpl or '')))
+        fields = len(_re.findall(r'\{[^{}]*\}', str(tpl or '')))
+        return len(lit) + fields * 8 + 1
+
+    def _fallback_width_ch(spec, key):
+        """Largura de uma coluna que NÃO resolveu na Entity.
+
+        Chave pontada (`Entidade.campo`) nomeia o campo exibido, e é dele que
+        a largura sai — `insumo.nome` é um nome (texto), não as 7 colunas que o
+        rótulo 'Insumo' sugeriria. Sem pista além do rótulo, o rótulo manda.
+    """
+        if spec.get('width'):
+            return
+        if '.' in str(key):
+            w = _col_width_ch(str(key).split('.')[-1], {}, None)
+            if w:
+                spec['width'] = w
+                return
+        if spec.get('label'):
+            spec['width'] = len(str(spec['label'])) + 1
+
+    def _resolve_map(items, *, columns=False):
+        # `colunas=True` só para `body.table.columns`. A MESMA rotina resolve
+        # também header/items/before/after, e aí `width` é prop do ITEM — a
+        # medida do bloco no `MEMO`, a largura fixa do fluxo no `FIELD`/`TEXT` —
+        # que só o autor declara. Anexar a width do field nesses caminhos
+        # sobrescrevia a do autor: o `MEMO` do preâmbulo do COMPRA saiu com 12
+        # em vez de 84 (12 colunas = 30,5mm) e a frase saiu palavra a palavra.
+        # `MEMO` ainda agrava: `_resolve_fields` tira a `width` ANTES de chamar
+        # aqui ("width fica de fora porque é do bloco, não do campo") e funde o
+        # resultado de volta com `update`, então a do field voltava por baixo.
+        # Lista solta de itens → `{nome: overrides}`: a gramática é a
+        # genérica (`core.resolve.field_spec_items`, as formas de
+        # `list.columns`). Item que não nomeia um field cai em `_0`, `_1`…,
+        # a forma legada em que um dict de props ainda é um campo.
+        if isinstance(items, list):
+            items = field_spec_items(items)
+        if not isinstance(items, dict):
+            return None
+        resolved = {}
+        for key, extra in items.items():
+            extra = dict(extra or {})
+            if '.' in key:
+                model, fld = key.split('.', 1)
+            else:
+                model = _locate(key)
+                fld = key
+            if model and model in entity:
+                # Entity flat ({campo: cfg}): model == fld → a própria entrada é a config.
+                # overrides de field exclusivamente via Schema/Entity: base (Entity+Schema) tem precedência
+                # sobre inline do report para label/format/align (report mantém apenas width/agg/report-specific)
+                raw_cfg = entity[model] if model == fld else entity[model].get(fld, {})
+                base = {'label': raw_cfg.get('label') or _auto_label(fld),
+                        **_infer_presentation(raw_cfg)}
+                # base (Schema) vence para label/format/align; extra (report) mantém width/agg etc.
+                _base_filtered = {k: v for k, v in base.items() if v is not None}
+                # Query (entrada do select) sobre Entity/Schema; report inline por cima.
+                _qp = _disp_map.get(fld) or _disp_map.get(key) or {}
+                spec = {**_base_filtered, **_qp, **extra}
+                # O `field` do ReportColumn deve ser o nome da chave (ex: 'cliente'),
+                # que é o atributo definido no _Row pelo run_query. O caminho SQL
+                # (ex: 'conta.nome') já está em _field_map e é usado pelo qrun
+                # para ordenação/agrupamento; não deve virar o field da coluna.
+                # Máscara manda (genérico, igual à list): format declarado no
+                # relatório vence; máscara (Entity/Schema/query/catálogo) vence
+                # a inferência por type. BOOL/LIST com rótulo não mascaram.
+                _mapped_label = False
+                _explicit_fmt = extra.get('format') or _qp.get('format')
+                # FK → caminho de exibição via relacionamento ('<base>.nome')
+                if (raw_cfg.get('type') == 'FK' and 'field' not in spec
+                        and key.endswith('_id')):
+                    spec['field'] = f'{key[:-3]}.nome'
+                # calc da Entity → function(row) - exclusivamente via Schema/Entity
+                # (report não deve redefinir function quando Entity já tem calc).
+                # Exceção: coluna já computada pela query (over/hierarchy) -> attr
+                # direto (1 query, sem N+1 por célula).
+                if fld in _computed:
+                    spec.pop('function', None)
+                else:
+                    _calc = raw_cfg.get('calc')
+                    # `calc` que o report consegue usar: str (expressão) ou
+                    # callable. `calc` DICT é do formulário (`{'type':'call',
+                    # 'source': ...}`, que recalcula no save) e NÃO vale para
+                    # imprimir — mas ele NÃO pode engolir o campo: antes, caía
+                    # aqui e saía sem `function` e sem cair no display de LIST,
+                    # então um `LIST` com `calc` dict imprimia o CÓDIGO. O
+                    # `status` da Compra é exatamente esse caso (Schema
+                    # declara `calc` dict para o `pre_save` recalcular).
+                    if isinstance(_calc, str) or callable(_calc):
+                        spec['function'] = _calc if callable(_calc) else _calc_fn(_calc)
+                    else:
+                        # BOOL → Sim/Não · LIST → rótulo do catálogo: passo
+                        # genérico (`core.resolve.field_display_fn`), o mesmo
+                        # que `_field_item` usa — é por isso que coluna e item
+                        # de layout imprimem igual. Lê `{**raw_cfg, **extra}`
+                        # para que o `options` do REPORT vença o da Entity,
+                        # como no override de field.
+                        _disp_fn = field_display_fn({**raw_cfg, **extra}, fld, i18n)
+                        if _disp_fn is not None:
+                            spec['function'] = _disp_fn
+                            _mapped_label = True
+                if fld not in _computed and _explicit_fmt is None and not _mapped_label:
+                    _fcfg = {**raw_cfg,
+                             **{k: v for k, v in _qp.items() if k != 'format'}}
+                    if extra.get('mask'):
+                        _fcfg = {**_fcfg, 'mask': extra['mask']}
+                    _mask = _field_mask(fld, _fcfg)
+                    if _mask:
+                        spec.pop('format', None)
+                        spec['format'] = _mask
+                # A COLUNA herda a width do field (a listagem já fazia isso):
+                # com override explícito do report ela manda, senão vale a do
+                # field. A FK mede o campo exibido (`<rel>.<display>`), que é o
+                # nome que se vê — o `_id` não aparece na tabela. Fora das
+                # colunas a prop é do item e quem a declara é o autor.
+                if columns and not spec.get('width'):
+                    _fk = raw_cfg.get('type') == 'FK'
+                    _disp = str(spec.get('field') or '')
+                    _shown = _disp.split('.')[-1] if _fk and '.' in _disp else fld
+                    _w = _col_width_ch(_shown, raw_cfg if not _fk else {'type': 'TEXT'},
+                                       spec.get('label') if not _fk else None)
+                    if _w:
+                        spec['width'] = _w
+                resolved[key] = spec
+                continue
+            # não resolvido na Entity: display do select (nascidos) como default;
+            # text monta a célula via template (ex. código) — senão exige
+            # identidade p/ descartar typo
+            if key in _disp_map:
+                spec = {**_disp_map[key], **extra}
+                if 'label' not in spec:
+                    spec['label'] = _auto_label(key)
+                # O `field` deve ser o nome da chave (ex: 'cliente'), que é o
+                # atributo definido no _Row pelo run_query. O caminho SQL
+                # (ex: 'conta.nome') já está em _field_map e é usado pelo qrun.
+                if 'field' not in spec:
+                    spec['field'] = key
                 if columns:
                     _fallback_width_ch(spec, key)
                 resolved[key] = spec
@@ -566,131 +851,135 @@ def _apply_entity(raw, entity):
         table = body.get('table')
         if isinstance(table, dict):
             table = dict(table)
-            # ÚNICO caminho onde a `width` sai do field: a coluna da tabela.
-            specs = _resolve_map(table.get('columns'), columns=True)
-            if specs is not None:
-                cols = {}
-                for key, spec in specs.items():
-                    spec = dict(spec)
-                    for _fk in ('font', 'cpi', 'flags', 'lpi', 'font_size'):
-                        if _fk in spec:
-                            raise ValueError(
-                                f"report '{raw.get('label')}': '{_fk}' não vale em "
-                                f"tabela (a grade da tabela é dela; a fonte é do report)")
-                    data_key = spec.pop('field', None) or key
-                    cols[data_key] = spec
-                table['columns'] = cols
+        # ÚNICO caminho onde a `width` sai do field: a coluna da tabela.
+        specs = _resolve_map(table.get('columns'), columns=True)
+        if specs is not None:
+            from ajsystem.defs.constants import PRINT_ROW
+            cols = {}
+            for key, spec in specs.items():
+                spec = dict(spec)
+                # print default: PRINT_ROW (1) quando não declarado
+                if 'print' not in spec:
+                    spec['print'] = PRINT_ROW
+                for _fk in ('font', 'cpi', 'flags', 'lpi', 'font_size'):
+                    if _fk in spec:
+                        raise ValueError(
+                            f"report '{raw.get('label')}': '{_fk}' não vale em "
+                            f"tabela (a grade da tabela é dela; a fonte é do report)")
+                data_key = spec.pop('field', None) or key
+                cols[data_key] = spec
+            table['columns'] = cols
 
-            _ext = []
-            for _ex in table.get('extend') or []:
-                if isinstance(_ex, tuple) and len(_ex) >= 2 and isinstance(_ex[1], str):
-                    _fo = _fmt_opts_for(_ex[1], entity)
-                    _mo = _mask_opts_for(_ex[1], entity)
-                    if _fo or _mo:
-                        _ex = list(_ex)
-                        _pp = dict(_ex[2]) if len(_ex) == 3 else {}
-                        if _fo:
-                            _pp.setdefault('_fmt_opts', _fo)
-                        if _mo:
-                            _pp.setdefault('_mask_opts', _mo)
-                        _ex = tuple([_ex[0], _ex[1], _pp] if len(_ex) == 3 else [_ex[0], _ex[1]])
-                _ext.append(_ex)
-            if _ext:
-                table['extend'] = _ext
-            _synthesize_levels_from_groups(table, out.get('body') or {}, raw.get('label'))
-            hier = table.get('levels', table.get('hierarchy'))
-            if hier:
-                items = (hier.items() if isinstance(hier, dict)
-                         else [(k, v) for h in hier for k, v in (h or {}).items()])
-                specs = []
-                for field, o in items:
-                    o = dict(o or {})
-                    sp = {'field': field,
-                          'pos': o.pop('pos', 1),
-                          'total': o.pop('total', True),
-                          'gline': o.pop('gline', o.pop('line', True)),
-                          'eject': o.pop('eject', False)}
-                    if 'left' in o:
-                        sp['left'] = max(1, int(o.pop('left')))
-                    sp.update(o)
-                    model = _locate(field)
-                    if model:
-                        # Entity flat ({campo: cfg}): model == field → a própria entrada.
-                        # overrides exclusivamente via Schema/Entity: label/options/calc da Entity vencem
-                        raw_cfg = entity[model] if model == field else entity[model].get(field, {})
-                        sp['label'] = raw_cfg.get('label') or _auto_label(field)
-                        opts = raw_cfg.get('list') or raw_cfg.get('options')
-                        if opts:
-                            sp['options'] = opts
-                        if raw_cfg.get('calc'):
-                            calc = raw_cfg['calc']
-                            if isinstance(calc, (str,)) or callable(calc):
-                                sp['function'] = calc if callable(calc) else _calc_fn(calc)
-                        if raw_cfg.get('type') == 'FK':
-                            sp['fk_path'] = f'{field[:-3] if field.endswith("_id") else field}.nome'
-                        # report não sobrescreve label/options/function da Entity
-                        for _k in ('label', 'options', 'function', 'fk_path'):
-                            if _k in o and _k in sp and sp[_k] != o[_k]:
-                                # mantém Entity, descarta override do report
-                                pass
-                    else:
-                        sp['label'] = o.pop('label', _auto_label(field))
-                    # não re-aplica o dict do report por cima da Entity para label/function
-                    for _k, _v in o.items():
-                        if _k not in ('label', 'options', 'function', 'fk_path'):
-                            sp[_k] = _v
-                    ttxt = sp.get('text')
-                    if ttxt:
-                        fo = {}
-                        for nm in set(re.findall(r'{(\w+)}', ttxt)):
-                            mdl = _locate(nm)
-                            if mdl:
-                                o_ = entity[mdl] if mdl == nm else entity[mdl].get(nm, {})
-                                lst = o_.get('list') or o_.get('options')
-                                if lst:
-                                    fo[nm] = lst
-                        if fo:
-                            sp['_fmt_opts'] = fo
-                    specs.append(sp)
-                table['levels'] = specs
-                table.pop('hierarchy', None)
-            body['table'] = table
+        _ext = []
+        for _ex in table.get('extend') or []:
+            if isinstance(_ex, tuple) and len(_ex) >= 2 and isinstance(_ex[1], str):
+                _fo = _fmt_opts_for(_ex[1], entity)
+                _mo = _mask_opts_for(_ex[1], entity)
+                if _fo or _mo:
+                    _ex = list(_ex)
+                    _pp = dict(_ex[2]) if len(_ex) == 3 else {}
+                    if _fo:
+                        _pp.setdefault('_fmt_opts', _fo)
+                    if _mo:
+                        _pp.setdefault('_mask_opts', _mo)
+                    _ex = tuple([_ex[0], _ex[1], _pp] if len(_ex) == 3 else [_ex[0], _ex[1]])
+            _ext.append(_ex)
+        if _ext:
+            table['extend'] = _ext
+        _synthesize_levels_from_groups(table, out.get('body') or {}, raw.get('label'))
+        hier = table.get('levels', table.get('hierarchy'))
+        if hier:
+            items = (hier.items() if isinstance(hier, dict)
+                     else [(k, v) for h in hier for k, v in (h or {}).items()])
+            specs = []
+            for field, o in items:
+                o = dict(o or {})
+                sp = {'field': field,
+                      'pos': o.pop('pos', 1),
+                      'total': o.pop('total', True),
+                      'gline': o.pop('gline', o.pop('line', True)),
+                      'eject': o.pop('eject', False)}
+                if 'left' in o:
+                    sp['left'] = max(1, int(o.pop('left')))
+                sp.update(o)
+                model = _locate(field)
+                if model:
+                    # Entity flat ({campo: cfg}): model == field → a própria entrada.
+                    # overrides exclusivamente via Schema/Entity: label/options/calc da Entity vencem
+                    raw_cfg = entity[model] if model == field else entity[model].get(field, {})
+                    sp['label'] = raw_cfg.get('label') or _auto_label(field)
+                    opts = raw_cfg.get('list') or raw_cfg.get('options')
+                    if opts:
+                        sp['options'] = opts
+                    if raw_cfg.get('calc'):
+                        calc = raw_cfg['calc']
+                        if isinstance(calc, (str,)) or callable(calc):
+                            sp['function'] = calc if callable(calc) else _calc_fn(calc)
+                    if raw_cfg.get('type') == 'FK':
+                        sp['fk_path'] = f'{field[:-3] if field.endswith("_id") else field}.nome'
+                    # report não sobrescreve label/options/function da Entity
+                    for _k in ('label', 'options', 'function', 'fk_path'):
+                        if _k in o and _k in sp and sp[_k] != o[_k]:
+                            # mantém Entity, descarta override do report
+                            pass
+                else:
+                    sp['label'] = o.pop('label', _auto_label(field))
+                # não re-aplica o dict do report por cima da Entity para label/function
+                for _k, _v in o.items():
+                    if _k not in ('label', 'options', 'function', 'fk_path'):
+                        sp[_k] = _v
+                ttxt = sp.get('text')
+                if ttxt:
+                    fo = {}
+                    for nm in set(re.findall(r'{(\w+)}', ttxt)):
+                        mdl = _locate(nm)
+                        if mdl:
+                            o_ = entity[mdl] if mdl == nm else entity[mdl].get(nm, {})
+                            lst = o_.get('list') or o_.get('options')
+                            if lst:
+                                fo[nm] = lst
+                    if fo:
+                        sp['_fmt_opts'] = fo
+                specs.append(sp)
+            table['levels'] = specs
+            table.pop('hierarchy', None)
+        body['table'] = table
 
-        source = body.get('source')
-        if isinstance(source, str):
-            src_model = _locate(source)
-            if src_model is None and source in entity:
-                src_model = source
-        if isinstance(body.get('items'), list):
-            body['items'] = _expande_tabs(body['items'], entity, raw.get('label'), _pname)
-            body['items'] = _expand_fields_list(body['items'], entity, raw.get('label'), _pname, _pmodel)
-            body['items'] = _resolve_fields(body['items'])
-            body['items'] = _attach_field_mask(body['items'], entity, raw.get('label'))
-        _attach_text_opts(body.get('items'), entity, raw.get('label'), _pname)
-        # `before` e `after` do corpo resolvem igual a `items`/`table.after`.
-        # Sem isso o item do preâmbulo chegava cru ao renderizador: um FIELD de
-        # LIST saía com o código em vez do rótulo, e o catálogo declarado no
-        # report (`options`) era ignorado. Callable NÃO entra aqui — ela é
-        # chamada por instância no meio da renderização (ver o fail-fast em
-        # `gerar_pdf_relatorio`), então um item devolvido por ela não tem como
-        # ser resolvido contra a Entity.
-        for _k in ('before', 'after'):
-            _v = body.get(_k)
-            if isinstance(_v, list):
-                body[_k] = _expande_tabs(_v, entity, raw.get('label'), _pname)
-                body[_k] = _expand_fields_list(body[_k], entity, raw.get('label'), _pname, _pmodel)
-                body[_k] = _resolve_fields(body[_k])
-                body[_k] = _attach_field_mask(body[_k], entity, raw.get('label'))
-                _attach_text_opts(body[_k], entity, raw.get('label'), _pname)
-        _tbl = body.get('table') or {}
-        _tbl_after = _tbl.get('after')
-        if isinstance(_tbl_after, list):
-            _tbl['after'] = _expande_tabs(_tbl_after, entity, raw.get('label'), _pname)
-            _tbl['after'] = _expand_fields_list(_tbl['after'], entity, raw.get('label'), _pname, _pmodel)
-            _tbl['after'] = _resolve_fields(_tbl['after'])
-            _tbl['after'] = _attach_field_mask(_tbl['after'], entity, raw.get('label'))
-            _attach_text_opts(_tbl['after'], entity, raw.get('label'), _pname)
-        out['body'] = body
+    source = body.get('source')
+    if isinstance(source, str):
+        src_model = _locate(source)
+        if src_model is None and source in entity:
+            src_model = source
+    if isinstance(body.get('items'), list):
+        body['items'] = _expande_tabs(body['items'], entity, raw.get('label'), _pname)
+        body['items'] = _expand_fields_list(body['items'], entity, raw.get('label'), _pname, _pmodel)
+        body['items'] = _resolve_fields(body['items'])
+        body['items'] = _attach_field_mask(body['items'], entity, raw.get('label'))
+    _attach_text_opts(body.get('items'), entity, raw.get('label'), _pname)
+    # `before` e `after` do corpo resolvem igual a `items`/`table.after`.
+    # Sem isso o item do preâmbulo chegava cru ao renderizador: um FIELD de
+    # LIST saía com o código em vez do rótulo, e o catálogo declarado no
+    # report (`options`) era ignorado. Callable NÃO entra aqui — ela é
+    # chamada por instância no meio da renderização (ver o fail-fast em
+    # `gerar_pdf_relatorio`), então um item devolvido por ela não tem como
+    # ser resolvido contra a Entity.
+    for _k in ('before', 'after'):
+        _v = body.get(_k)
+        if isinstance(_v, list):
+            body[_k] = _expande_tabs(_v, entity, raw.get('label'), _pname)
+            body[_k] = _expand_fields_list(body[_k], entity, raw.get('label'), _pname, _pmodel)
+            body[_k] = _resolve_fields(body[_k])
+            body[_k] = _attach_field_mask(body[_k], entity, raw.get('label'))
+            _attach_text_opts(body[_k], entity, raw.get('label'), _pname)
+    _tbl = body.get('table') or {}
+    _tbl_after = _tbl.get('after')
+    if isinstance(_tbl_after, list):
+        _tbl['after'] = _expande_tabs(_tbl_after, entity, raw.get('label'), _pname)
+        _tbl['after'] = _expand_fields_list(_tbl['after'], entity, raw.get('label'), _pname, _pmodel)
+        _tbl['after'] = _resolve_fields(_tbl['after'])
+        _tbl['after'] = _attach_field_mask(_tbl['after'], entity, raw.get('label'))
+        _attach_text_opts(_tbl['after'], entity, raw.get('label'), _pname)
+    out['body'] = body
 
     return out
 
@@ -1131,42 +1420,73 @@ def _mark_suppress(table, cname):
 
 
 def _translate_legacy_group(g, cname, label):
-    """Shim: {print, place} legado -> eixos {action, print}.
+    """Shim legado: converte {on/action, print, place, total} para o novo modelo.
 
-    print:0/place:0 = coluna normal; print:1/place:0 = abre/suprime;
-    place:1 = antes da tabela; place:2 = na linha; print:2 = fecha/total.
-    Com 'action' presente, 'place' é erro (escolher um vocabulário).
+    Novo modelo de grupo:
+      - text: título do grupo (opcional; se ausente imprime o valor do campo)
+      - on_start: dict com props ao abrir o grupo (ex.: {'text': ..., 'lf': -1})
+      - on_finish: dict com props ao fechar o grupo (ex.: {'lf': 1})
+      - totals: None (não imprime), True (totais nas colunas com agg), dict (sobrescreve)
+
+    Props antigas removidas: on, action, print (numérico), place, total.
     """
+    from ajsystem.defs.constants import (
+        NEVER, START, FINISH, ROW, INLINE,
+        PRINT_TITLE, PRINT_TITLE_CENTER,
+    )
     g = dict(g)
-    if 'action' in g:
-        if 'place' in g:
-            raise ValueError(f"report '{label}': '{cname}' mistura action e place (escolha um)")
+
+    # Se já está no novo modelo, não traduz
+    if 'on_start' in g or 'on_finish' in g:
         return g
-    pr, pl = g.pop('print', 0), g.pop('place', 0)
-    if (pr, pl) == (0, 0):
-        return g  # coluna normal
-    if pr == 1 and pl == 0:
-        g['action'], g['print'] = 1, 1
-    elif pr == 1 and pl == 1:
-        g['action'], g['print'] = 1, 3
-    elif pr == 1 and pl == 2:
-        g['action'], g['print'] = 1, 2
-    elif pr == 2:
-        g['action'], g['print'] = 2, 2
+
+    # Converte on/action para on_start/on_finish
+    on_val = g.pop('on', g.pop('action', None))
+    if on_val in (START, 1, 'START'):
+        g['on_start'] = {}
+    elif on_val in (FINISH, 2, 'FINISH'):
+        g['on_finish'] = {}
+    elif on_val in (NEVER, 0, 'NEVER', None):
+        pass  # sem quebra
     else:
-        raise ValueError(f"report '{label}': print/place de '{cname}' inválido")
+        raise ValueError(f"report '{label}': on/action de '{cname}' inválido")
+
+    # Converte print numérico antigo para on_start.text ou on_start
+    pr = g.pop('print', None)
+    if pr is not None:
+        if pr in (ROW, PRINT_TITLE, PRINT_TITLE_CENTER):
+            if 'text' not in g:
+                g['text'] = cname
+        elif pr == INLINE:
+            pass  # inline não tem título próprio
+        elif pr == 0:
+            pass  # none
+        else:
+            raise ValueError(f"report '{label}': print de '{cname}' inválido")
+
+    # Converte place (ignorado no novo modelo)
+    g.pop('place', None)
+
+    # Converte total antigo para totals
+    total_val = g.pop('total', None)
+    if total_val is not None:
+        g['totals'] = total_val if isinstance(total_val, dict) else True
+
+    # Mantém text, lf se existirem
     return g
 
 
 def _synthesize_levels_from_groups(table, body, label):
     """Deriva table.levels de table.groups (dict {campo: cfg}, ordem aninhada).
 
-    Eixos: action (quando: 1 abre, 2 fecha, ausente = toda linha) x print
-    (onde, relativo ao evento: 0 nunca, 1 na coluna (default), 2 na linha,
-    3 antes/depois da tabela). action:2 + print:2 = linha de total após as
-    linhas; action:2 + print:1/3 e print 2/3 sem action = fail-fast (fase
-    futura). Valida que order abre com as quebras. columns lista só o que
-    imprime.
+    Novo modelo de grupo:
+      - text: título do grupo (opcional; se ausente imprime o valor do campo)
+      - on_start: dict com props ao abrir o grupo (ex.: {'text': ..., 'lf': -1})
+      - on_finish: dict com props ao fechar o grupo (ex.: {'lf': 1})
+      - totals: None (não imprime linha de total), True (totais nas colunas
+        com agg, label padrão 'Subtotal'), dict (sobrescreve padrões)
+
+    Valida que order da fonte abre com as quebras. columns lista só o que imprime.
     """
     groups = table.get('groups')
     if not groups or table.get('levels') or table.get('hierarchy'):
@@ -1196,49 +1516,91 @@ def _synthesize_levels_from_groups(table, body, label):
         if not isinstance(g, dict):
             raise ValueError(f"report '{label}': group de '{cname}' deve ser dict")
         g = _translate_legacy_group(g, cname, label)
-        ac, pr = g.get('action'), g.get('print', 1)
-        if ac not in (None, 1, 2):
-            raise ValueError(f"report '{label}': action de '{cname}' deve ser 1|2")
-        if pr not in (0, 1, 2, 3):
-            raise ValueError(f"report '{label}': print de '{cname}' deve ser 0|1|2|3")
-        if ac is None:
-            if pr != 1:
-                raise ValueError(f"report '{label}': '{cname}' sem action exige print=1")
-            continue  # coluna normal, sem quebra
-        if ac == 1:
-            if pr == 0:
-                raise ValueError(f"report '{label}': '{cname}' com action=1 exige print 1|2|3")
-            if pr == 1:
-                if cname not in col_names:
-                    raise ValueError(f"report '{label}': print=1 exige '{cname}' em columns")
-                _mark_suppress(table, cname)
-                continue
-            grouped.append(cname)
-            _sp = {cname: {'pos': 2 if pr == 3 else 1,
-                           'text': g.get('text', cname),
-                           'total': False, 'gline': True}}
-            if 'lf' in g:
-                _sp[cname]['lf'] = g['lf']
-            if g.get('totals') is not None:
-                if not isinstance(g['totals'], dict):
-                    raise ValueError(f"report '{label}': totals de '{cname}' deve ser dict")
-                _sp[cname]['totals'] = g['totals']
+
+        # on_start -> nível de abertura (título do grupo)
+        on_start = g.get('on_start')
+        if on_start is not None:
+            _sp = {cname: {'pos': 1, 'gline': True}}
+            if 'text' in on_start:
+                _sp[cname]['text'] = on_start['text']
+            elif 'text' in g:
+                _sp[cname]['text'] = g['text']
+            if 'lf' in on_start:
+                _sp[cname]['lf'] = on_start['lf']
+            if 'align' in on_start:
+                _sp[cname]['align'] = on_start['align']
+            if 'style' in on_start:
+                _sp[cname]['style'] = on_start['style']
+            if 'cpi' in on_start:
+                _sp[cname]['cpi'] = on_start['cpi']
+            totals_val = on_start.get('totals', g.get('totals'))
+            if totals_val is not None:
+                _sp[cname]['totals'] = totals_val if isinstance(totals_val, dict) else True
             synth.append(_sp)
-        else:  # ac == 2 fecha
-            if pr == 1:
-                raise ValueError(f"report '{label}': action=2/print=1 não suportado nesta fase")
-            if pr == 3:
-                raise ValueError(f"report '{label}': action=2/print=3 não suportado nesta fase")
+
+        # on_finish -> nível de fechamento (só total, pos=0)
+        on_finish = g.get('on_finish')
+        if on_finish is not None:
+            _sp = {cname: {'pos': 0, 'gline': True}}
+            if 'text' in on_finish:
+                _sp[cname]['footer_text'] = on_finish['text']
+            if 'lf' in on_finish:
+                _sp[cname]['lf'] = on_finish['lf']
+            totals_val = on_finish.get('totals', g.get('totals'))
+            if totals_val is not None:
+                _sp[cname]['totals'] = totals_val if isinstance(totals_val, dict) else True
+            synth.append(_sp)
+
+        # Grupo aparece uma vez no grouped (mesmo com on_start e on_finish)
+        if cname not in grouped:
             grouped.append(cname)
-            synth.append({cname: {'pos': 0, 'total': bool(g.get('total', True)),
-                                  'gline': True, 'footer_text': g.get('text', 'Total')}})
+
     # order da fonte tem que abrir com as colunas de quebra (senão picota)
     src = (body or {}).get('source') if isinstance(body, dict) else None
     if isinstance(src, dict) and src.get('order') and grouped:
-        _ord = [o.split()[0] if isinstance(o, str) else (o.get('field') or '') for o in src['order']]
-        _ord = [o for o in _ord if o]
-        if grouped != _ord[:len(grouped)]:
-            raise ValueError(f"report '{label}': order {src['order']} deve abrir com as quebras {grouped}")
+        select = src.get('select') or []
+        # Mapear nomes de grupo/alias para nomes de campo resolvidos no select
+        _alias_to_field = {}
+        for item in select:
+            if isinstance(item, dict):
+                for alias, cfg in item.items():
+                    if isinstance(cfg, str):
+                        _alias_to_field[alias] = cfg
+                    elif isinstance(cfg, dict):
+                        _alias_to_field[alias] = cfg.get('field', alias)
+            elif isinstance(item, str):
+                _alias_to_field[item] = item
+        _ord = []
+        for o in src['order']:
+            if isinstance(o, int):
+                # índice 1-based sobre o select
+                idx = o - 1
+                if 0 <= idx < len(select):
+                    item = select[idx]
+                    if isinstance(item, str):
+                        name = item
+                    elif isinstance(item, dict):
+                        name = list(item.keys())[0]
+                    else:
+                        name = ''
+                    name = _alias_to_field.get(name, name)
+                else:
+                    name = ''
+            elif isinstance(o, str):
+                name = o.split()[0]
+                name = _alias_to_field.get(name, name)
+            elif isinstance(o, dict):
+                name = o.get('field') or ''
+            else:
+                name = ''
+            if name:
+                _ord.append(name)
+        # Resolver nomes de grupo para campos do select
+        _grouped_resolved = [_alias_to_field.get(g, g) for g in grouped]
+        if _grouped_resolved != _ord[:len(_grouped_resolved)]:
+            raise ValueError(
+                f"report '{label}': order {src['order']} deve abrir com as quebras {grouped}"
+            )
     if synth:
         table['levels'] = synth
 
@@ -1500,41 +1862,35 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
                  _printing=False):
     """Retorna fragmento HTML com iframe do PDF embutido (data URI).
 
-    Contrato para uso em botões (`action`): recebe o dict do relatório,
+    Contrato para uso em botões (action): recebe o dict do relatório,
     os dados já construídos pelo app e retorna o fragmento; string vazia
-    não injeta nada. `filter` usa a gramática literal compartilhada
-    (dict/lista/`OR`/`AND`, sentinelas/operadores) e é combinado com
-    `body.filter` antes da ordenação. Falha → view padrão `print_erro.html`
-    com `msg`.
+    não injeta nada. filter usa a gramática literal compartilhada
+    (dict/lista/OR/AND, sentinelas/operadores) e é combinado com
+    body.filter antes da ordenação. Falha -> view padrão print_erro.html
+    com msg.
 
-    `filter` também aceita o predicado `filter_select(campo)`: sem valor na
+    filter também aceita o predicado filter_select(campo): sem valor na
     request devolve um modal de escolha (render interno) e, após a escolha
-    (`_printing=True`), aplica `WHERE campo = valor` no `source` e gera o PDF.
-    O critério entra como filtro explícito (merge/AND com `body.filter`).
-    O predicado pode ser passado no 2º posicional (`print_report(PLANO, fs)`)
-    ou via `filter=fs` — os dois são normalizados para o argumento filter.
+    (_printing=True), aplica WHERE campo = valor no source e gera o PDF.
+    O critério entra como filtro explícito (merge/AND com body.filter).
+    O predicado pode ser passado no 2º posicional (print_report(PLANO, fs))
+    ou via filter=fs — os dois são normalizados para o argumento filter.
     """
     if isinstance(instance, FilterSelect):
         if filter is not None:
-            raise TypeError('filter_select recebido junto de `filter`')
+            raise TypeError('filter_select recebido junto de filter')
         filter, instance = instance, None
     if isinstance(filter, FilterSelect):
         if not _printing:
             return _print_with_choice(report, filter, msg)
         report = parse_report(_apply_entity(report, _module_entity(report)))
         data = _auto_data(report, data, instance, filter.criteria())
-        try:
-            src = _data_uri(_pdf_bytes(report, data, instance))
-            return render_template(OVERLAY_TEMPLATE, pdf_url=src)
-        except Exception:
-            return _print_erro(msg)
-    report = parse_report(_apply_entity(report, _module_entity(report)))
-    data = _auto_data(report, data, instance, filter)
-    try:
         src = _data_uri(_pdf_bytes(report, data, instance))
         return render_template(OVERLAY_TEMPLATE, pdf_url=src)
-    except Exception:
-        return _print_erro(msg)
+    report = parse_report(_apply_entity(report, _module_entity(report)))
+    data = _auto_data(report, data, instance, filter)
+    src = _data_uri(_pdf_bytes(report, data, instance))
+    return render_template(OVERLAY_TEMPLATE, pdf_url=src)
 
 
 def _field_cfg(entity, field):

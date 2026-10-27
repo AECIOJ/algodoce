@@ -1,6 +1,6 @@
-# AJSYSTEM 1.26.10.23.0001 — Manual do Framework
+# AJSYSTEM 1.26.10.24.0001 — Manual do Framework
 
-> Vinculado a `ajsystem/version` (`1.26.10.23.0001`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
+> Vinculado a `ajsystem/version` (`1.26.10.24.0001`) — formato `ciclo.ano.mes.dia.seq`: ciclo `1`, ano `aa`, mês `mm`, dia `dd` e **seq no dia** `bbbb` (4 dígitos). O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra) — ver **Versionamento** em 5.14.1. O dia vem do calendário e o `seq` reinicia em `0001` a cada dia novo; no mesmo dia, só o `seq` sobe. Histórico na seção 6. A versão do **app hospedeiro** é outra, em `APP['version']` (`app/config.py`), e é o dev que bumpa na mão com o comando `versao` (ver 5.14.1).
 
 ---
 
@@ -649,6 +649,44 @@ Todo campo da grade ganha `<td>` no servidor; quem some é o cliente (classe `co
 
 > `columns` da página (`Page.props.list`) aceita query dict no lugar da entidade (`columns=QPLANO`, ver 5.10.1): os dados vêm do `qrun` e a entrada declara `label`/`width`/`align`/`format`. Com ordem própria, a query entra como item da lista (`columns=[QPLANO, 'id', 'indice', ...]` — no máximo uma query por lista; strings autoritativas, fora do `select` quebra nomeando). Nesse modo `field_id` é exigido para editar (ausente = só-leitura; declarado tem que estar no `select` e ser pk, senão quebra nomeando). Sem query, `edit_id_field` (`'id'`) e o resto seguem como antes. A entrada **não** posiciona campo: quem decide é a página, nos slots.
 
+#### 5.6.2 `report` — a aba Relatórios (PDF por entrada)
+
+A aba `{'Relatórios': {'type': 'Report'}}` existe para **gerar PDFs sem sair da listagem**. Quem a alimenta é `Page.props.report`, irmã de `list`/`filter`, lida por `page_report_cfg` (`defs/data.py`). Só é resolvida quando alguma aba é do tipo `Report`; sem a prop, a aba mostra o vazio (`NO_FILTERS`).
+
+```python
+'report': {
+    'Saldo de Contas a Receber': {
+        'report': SALDO,                  # spec que o print_report já aceita
+        'filter': {
+            'conta_id': '=',
+            'vencimento': '<>',
+            'valor': '>=',
+        },
+    },
+},
+```
+
+Cada entrada exige a chave `report` (o dict/`Report` impresso, como em 5.7) e aceita `filter` opcional, que declara **quais campos viram inputs** e **com que operador**. O título é o rótulo do accordion e também a origem do **slug** usado na URL (`Previsão de Contas a Receber` → `previsao-de-contas-a-receber`); dois títulos que gerem o mesmo slug quebram nomeando.
+
+**Formas de `filter`.** Como no resto do motor, aceita a família fieldspec (`'campo'`, `'Entidade.campo'`, lista, `{'Entidade': [...]}`), tudo com `=` implícito, **ou** o dict `{campo: operador}`. O nome cru segue a regra da §5.6 (entidade de `columns` → único no pool → ambiguidade decide pela entidade de `columns`), então `'vencimento'` e `'Transacao.vencimento'` convivem. Operador fora do vocabulário, campo que não é eixo de filtro e operador incompatível com o tipo do campo **quebram nomeando** o caminho (`Page.props.report['Título'].filter['campo']`).
+
+| Operador | `text` | `number` | `date` | `select`/`checklist` | `boolean` |
+|---|---|---|---|---|---|
+| `=` | igual | igual | **na data** (um dia) | igual / contém | igual |
+| `!=` | diferente | diferente | diferente | diferente / não contém | diferente |
+| `>` | — | maior | **a partir de** (`>=`) | — | — |
+| `>=` | — | maior ou igual | **a partir de** (`>=`) | — | — |
+| `<` | — | menor | **até** (`<=`) | — | — |
+| `<=` | — | menor ou igual | **até** (`<=`) | — | — |
+| `like` | contém (`%v%`) | — | — | — | — |
+| `<>` | — | **entre** (Valor 1/Valor 2) | **período** (De/Até) | — | — |
+
+Dois detalhes fecham a semântica: em `date`, `>`/`<` são **inclusivos** (compilam como `>=`/`<=`, porque "a partir de"/"até" incluem a data); em `number`, o comparador é literal e `<>` vira duas folhas (`>=`/`<=`) montadas só com as pontas preenchidas. `text` recusa `<>` e comparadores de ordem — texto se filtra por igualdade ou `like`.
+
+**Na tela.** Um accordion por entrada; abrir um cartão mostra os inputs daquele relatório (`Alpine`, sem request). O rótulo do campo vem do `Field`, o complemento vem do catálogo (`FILTER_EQ`, `FILTER_FROM`, `FILTER_PERIOD`…), e o widget segue o tipo: texto, número, data, `select` (options do `Field`/lookup), `checklist` (múltiplo, quando `filter.types` da página o declara) ou `boolean`. `date`/`<>` vira De/Até e `number`/`<>` vira Valor 1/Valor 2. **LIMPAR** zera só o cartão; **GERAR** faz o fetch. Nada disso toca `_f`/`_r`/`auto_report` da listagem: o PDF usa o próprio overlay (`report-content`) e o botão voltar não recarrega a página.
+
+**Endpoint.** `GET /ajsystem/report-action?page=<rota>&rp=<slug>` + os inputs do cartão; devolve JSON `{html}` com o fragmento do overlay, exatamente como `list_action`. O motor relê a página pelo slug (regex `[A-Za-z0-9_]+`, módulo `app.routes.sys.<rota>`), resolve a entrada pelo `rp` e converte os args em **spec literal** da gramática compartilhada (`core.filters.compile_conditions`): `select`/`boolean`/`checklist` viram `in`/`not in`, `like` ganha `%...%`, `date` envia ISO e é convertido para `date` antes de compilar, campo vazio ignora a folha e o resultado é um `AND` (as duas folhas, quando `<>`). Essa spec vai como `filter=` para `print_report(..., _printing=True)` e é **combinada** com o `body.filter` do relatório (`_combine_report_filter`), então o relatório mantém o `WHERE` próprio. Erro de impressão volta como fragmento de erro dentro do `html`; parâmetro inválido ou relatório desconhecido devolve 400/404.
+
 ### 5.7 `Report` — `ajsystem/defs/report.py:135` `class Report`
 
 | Prop | Tipo | Default | Valores | Impacto |
@@ -675,7 +713,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 |---|---|---|---|
 | `body.source` | `str\|dict` | `'Tarefa'`, `{'entity':...}` (legado) ou query dict `{select,dist,from,...}` (5.10.1) | `_infer_source` + `_auto_data`; na query, o filtro entra **antes** dos `OVER`s, então a numeração enxerga o recorte |
 | `body.table.columns` | `dict\|list` | `{'titulo':{}}` ou `['indice','nome',{'id':{'width':6}}]` (forma enxuta igual ao `select`) | `_apply_entity` herda `label`/`calc`/**`width`** da `Entity` (Schema vence); coluna computada na query usa o attr direto. **Sem `width`, a coluna mede o field** (mesma conta da listagem, com a máscara como mínimo) e a soma é centralizada na área útil — declarar é exceção, não obrigação |
-| `body.table.groups` | `dict\|list` | `{'tipo':{action:1,print:3,text:'{tipo:d}. {tipo}'}}` | control-break: `action` (quando: 1 abre, 2 fecha, ausente = toda linha) × `print` (onde: 0 nunca, 1 coluna, 2 linha, 3 fora da tabela). Legado `{print,place}` traduzido via shim. `order` da fonte tem que abrir com as quebras (senão quebra nomeando). `totals` no grupo = subtotal (`{'label','align','span','bline'}`; ausente = não totaliza; `bline` = régua antes); fechamento do grupo usa `gline` (legado `line` traduzido); `lf` no grupo respira **ao redor do título/linha visível** (`-n` antes, `n` depois, `[antes, depois]`) |
+| `body.table.groups` | `dict\|list` | `{'cliente':{text:'Cliente: {cliente}',on_start:{'lf':-1},on_finish:{'lf':1},totals:True}}` | control-break por campo: **`text`** (título do grupo, template como `{cliente}`, se ausente imprime o valor do campo), **`on_start`** (dict de props ao abrir o grupo: `label`, `text`, `lf`, `align`, `style`, `cpi`), **`on_finish`** (dict de props ao fechar o grupo: `text`, `lf`, `align`, `style`, `cpi`), **`totals`** (`None` não imprime, `True` imprime totais nas colunas com `agg` com label padrão `'Subtotal'`, `dict` sobrescreve label/align/span/bline). `order` da fonte tem que abrir com as quebras (senão quebra nomeando). `lf` no grupo respira **ao redor do título/linha visível** (`-n` antes, `n` depois, `[antes, depois]`). Os itens de `columns` continuam a declarar seu próprio `print` (`PRINT_ROW` default, `PRINT_INLINE`, `PRINT_TITLE`, `PRINT_TITLE_CENTER`, `PRINT_NONE`) para onde cada coluna aparece. Removidas as props antigas `on`, `action`, `print` numérico, `place` e `total` do grupo — substituídas por `on_start`, `on_finish` e `totals`. |
 | `when` (item) | `str` | `{'TEXT': {'text': '…', 'when': 'evento.tipo'}}` | imprime só se o path (pontilhado ok) for truthy; ausente = sempre |
 | templates | — | `'{total:brl}'`, `'{a.b}'`, `'{?c:…}'`, `'{x\|dflt}'` | `:brl` moeda; path pontilhado com navegação segura; `\|dflt` fallback; labels LIST da Entity |
 | fluxo | — | `FIELD`/`TEXT` seguem na linha | **cada item ESTACIONA na borda do que desenhou** e o próximo desce sozinho se a linha não tem mais lugar — ver **Estacionar**; `PCOL` avança pela largura; `pcol+largura>ncol` envolve; maior que a linha trunca; quebra por `rows_after/before` ou posicionamento; sem âncora, `FIELD`/`TEXT` com `width` herda o cursor da zona (só volta à 1ª coluna se o cursor está fora da zona), `TEXT` avulso sem `width` é linha própria (avanço de linha automático quando o fluxo terminou antes dela; `align` vale na zona) e bloco (`IMAGE`/`LINE`/…) volta ao início; sub-item de `TEXTS` flui apertado inline. O "início" é o da **zona**, não o da margem — ver **Zona do logo** |
@@ -686,7 +724,7 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 
 ### 5.8 `ReportColumn` e amigos — `ajsystem/defs/report.py`
 
-**`ReportColumn`** (`:34`) — 9 props (novas: `text`, `suppress`):
+**`ReportColumn`** (`:34`) — 10 props (novas: `print`, `text`, `suppress`):
 
 | Prop | Tipo | Default | Valores | Impacto |
 |---|---|---|---|---|
@@ -699,10 +737,11 @@ Chaves de `body` e `filter` (usadas no exemplo abaixo) resolvem contra o `Entity
 | `function` | `callable` | `None` | `lambda row:` | usa `Entity.calc` se ausente (coluna computada na query usa o attr) |
 | `text` | `str` | `None` | template `'{campo}'`/`{x:02d}`/`{?cond:…}` (6, `core/text.py`) | monta a célula (ex. código) |
 | `suppress` | `bool` | `False` | repete valor só na 1ª linha do grupo | `place:0` do `groups` |
+| `print` | `int` | `PRINT_ROW` (1) | `PRINT_NONE` (0), `PRINT_ROW` (1), `PRINT_INLINE` (2), `PRINT_TITLE` (3), `PRINT_TITLE_CENTER` (4) | onde a coluna aparece: `PRINT_ROW` = célula na linha da tabela (default), `PRINT_INLINE` = início da linha da tabela + avança para a próxima, `PRINT_TITLE` = título do grupo (alinhado à esquerda), `PRINT_TITLE_CENTER` = título do grupo (centralizado), `PRINT_NONE` = não imprime |
 
 **`ReportField`** (`:13`) — 5 props, spec de campo solto (fora de `columns`): `field`, `label`, `align` (`left`), `format`, `function`.
 
-**`ReportGroup`** (`:66`) — 7 props: `field`, `label`, `position` (`titulo`), `subtotal` (`True`), `total` (`True`), `fecha_tabela` (`False`), `nova_pagina` (`False`). Agrupa linhas por campo; `position` decide se o rótulo entra como título de página (`titulo`) ou como linha da tabela.
+**`ReportGroup`** (`:66`) — 6 props: `field`, `text`, `on_start`, `on_finish`, `totals`. Agrupa linhas por campo; `text` é o título do grupo (template, ex.: `'{cliente}'`), `on_start` é um dict com props ao abrir o grupo (`text`, `lf`, `align`, `style`, `cpi`), `on_finish` é um dict com props ao fechar o grupo (`text`, `lf`, `align`, `style`, `cpi`), `totals` controla a linha de totais (`None` = não imprime, `True` = totais nas colunas com `agg` com label padrão `'Subtotal'`, `dict` = sobrescreve padrões). **Removidas**: `on`, `action`, `print` numérico, `place`, `place`, `total`.
 
 **`ReportText`** (`:78`) — 5 props: `text` (obrigatório), `font_size` (`10`), `font_style` (`''`), `align` (`'L'`), `when` (`end_of_report`; também `start_of_report`/similar). Bloco de texto avulso, usado por `Report.texts`.
 
@@ -1619,6 +1658,20 @@ Um agregado de `totals` (`query`/`table`) recebe o `Field` e sai por `render_val
 ---
 
 ## 6. Histórico de versões
+
+### 1.26.10.24.0002
+- **Novas props de grupo no relatório.** `body.table.groups` agora usa `on_start` (dict ao abrir: `text`, `lf`, `align`, `style`, `cpi`), `on_finish` (dict ao fechar: `text`, `lf`, `align`, `style`, `cpi`) e `totals` (`None`, `True`, ou `dict` com `label`/`align`/`span`/`bline`). Removidas `on`, `action`, `print` numérico, `place` e `total` do grupo. A coluna `print` agora é prop da coluna (`PRINT_ROW` default, `PRINT_INLINE`, `PRINT_TITLE`, `PRINT_TITLE_CENTER`, `PRINT_NONE`) e não mais do grupo.
+- **`order` numérico no `select`.** `order` aceita índices numéricos (1-based) sobre a lista `select`: `[1, 2]` resolve para o `field` da 1ª e 2ª entrada do `select`. Útil quando o `select` declara aliases com caminho pontilhado (ex.: `'cliente': 'conta.nome'`).
+- **`parse_select` aceita string como cfg.** `{'alias': 'caminho.campo'}` é aceito e define `field='caminho.campo'`; antes ignorava o valor da string.
+- **`conta.nome` / `transacao.fatura` resolvidos automaticamente.** O `qrun` aplica `left join` automático nos relationships para campos pontilhados do `select`, `order` e `groups`, removendo a necessidade de declarar `'join'` no report.
+- **`_resolve_path_model` no `qrun`.** Resolve o model alvo de um caminho pontilhado sem aplicar join (usado pelo `order_cols` após o join já aplicado), evitando `ORDER BY` sobre colunas já selecionadas.
+
+### 1.26.10.24.0001
+- **Aba Relatórios (`props.report`).** `Page.props.report` (irmã de `list`/`filter`) alimenta `{'type': 'Report'}`: cada entrada declara o `report` a imprimir e o `filter` com os campos/operadores do formulário. A aba é um accordion por relatório, com inputs derivados do tipo do field e rótulos do catálogo i18n (`FILTER_EQ`, `FILTER_PERIOD`, `FILTER_BETWEEN`…); o slug do título identifica a entrada na URL.
+- **Operadores por tipo.** Vocabulário `=`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `<>`, validado contra o tipo inferido (`text`, `number`, `date`, `boolean`, `select`, `checklist`). Em `date`, `>`/`<` compilam inclusivos (`>=`/`<=`); `<>` abre De/Até (data) ou Valor 1/Valor 2 (número); `text` só aceita `=`, `!=` e `like`.
+- **`/ajsystem/report-action`.** Gêmeo de `list_action`: relê a página pelo slug, acha a entrada por `rp`, converte os args em spec literal (checklist/select → `in`, `like` → `%…%`, datas ISO → `date`, vazio ignora) e chama `print_report(..., _printing=True)`, que combina a spec com o `body.filter`. Devolve `{html}` do overlay; erro de impressão vira fragmento de erro.
+- **Sem tocar na listagem.** `GERAR`/`LIMPAR` do cartão não mexem em `_f`/`_r`/`auto_report`; o PDF reusa `reportRender`/`closeReport`.
+- **Verificado.** Render da página com a aba (accordion, inputs, options de FK resolvidas) e `/report-action` em 200 para `=`, `<>` (date) e filtro vazio; 400/404 para parâmetro inválido e `rp` desconhecido.
 
 ### 1.26.10.23.0001
 - **A prop `filter` saiu de `list` e virou irmã dela em `Page.props`.** O painel de filtros é da página, não da listagem, então `Page.props.list.filter` passou a `Page.props.filter` — o motor lê pelo novo ponto único `page_filter_cfg` (`defs/data.py`), consumido por `do_list_normal`/`do_list_master` e por `list_fixed_conds` (guarda de escopo do form). `list` fica só com os slots (`columns`/`line`/`card`/`hidden`/`order`), sem misturar o painel.

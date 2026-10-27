@@ -1342,15 +1342,23 @@ def _render_group_line(pdf, g, val, xs, tw, row=None):
 
 
 def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
-    """Subtotal do grupo. totals ausente = não totaliza (legado total:True +
-    footer_text traduzido)."""
-    totals = _parse_totals(g.get('totals'), 'groups.totals')
-    if totals is None:
+    """Subtotal do grupo. totals ausente = não totaliza.
+    
+    totals: None → não imprime; True → usa defaults (label 'Subtotal'); dict → sobrescreve.
+    """
+    totals_raw = g.get('totals')
+    if totals_raw is None:
         if g.get('total', True):
             totals = {'label': g.get('footer_text') or 'Sub-Total',
                       'align': 'R', 'span': None}
         else:
             return
+    elif totals_raw is True:
+        totals = {'label': 'Subtotal', 'align': 'R', 'span': None}
+    elif isinstance(totals_raw, dict):
+        totals = totals_raw
+    else:
+        totals = _parse_totals(totals_raw, 'groups.totals')
     if not any(c.agg for c in cols):
         return
     if totals.get('bline'):
@@ -1399,8 +1407,8 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
         g = gs[i]
         if not started:
             return
-        if g.get('totals') is not None or g.get('total', True):
-            _render_group_total(pdf, g, cols, cw, xs, accs[i],
+        if g.get('totals') is not None:
+                _render_group_total(pdf, g, cols, cw, xs, accs[i],
                                 row=last_rows[i])
         if g.get('gline', g.get('line', True)):
             _draw_hline(pdf, xs, tw)
@@ -1413,7 +1421,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
         opened_line = False
         skip_row = False
         if changed is not None:
-            # fecha do nível mais interno até o primeiro alterado
+                # fecha do nível mais interno até o primeiro alterado
             for i in range(len(gs) - 1, changed - 1, -1):
                 close_level(i)
             # abre níveis alterados (e internos herdam abertura)

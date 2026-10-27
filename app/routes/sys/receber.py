@@ -2,6 +2,7 @@ from ajsystem.defs.constants import NOT_EMPTY, OR, TODAY
 from app.extends.masks import MVALOR
 from app.models.transacao import Transacao
 from app.models.previsao import Previsao
+from app.reports.receber import RECEBER
 from app.routes.sys.transacoes import (
     pre_get_transacao, post_save_transacao)
 
@@ -52,6 +53,7 @@ Page = {
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},
+            'Relatórios': {'type': 'Report'},
         },
         'list': {
             'columns': 'Transacao',
@@ -69,6 +71,20 @@ Page = {
                 {'vencimento': {'preset': 'mes_ano'}},
                 {'saldo': {'mode': 'maior_que', 'val1': 0}},
             ),
+        },
+        'report':{
+            'Previsão de Contas a Receber': {
+                'filter':{'conta_id':'=','vencimento':'<>'},
+                'report': RECEBER
+            },
+            'Saldo de Contas a Receber': {
+                'filter':{'conta_id':'=','vencimento':'<'},
+                #'report': RECEBER
+            },
+            'Extrato de Cliente': {
+                'filter':{'conta_id':'=','data':'<>'},
+                #'report': RECEBER
+            },
         },
         'form': {
             'max_width':110,

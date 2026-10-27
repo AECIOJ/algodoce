@@ -9,6 +9,8 @@ E o motor `ajsystem.core.pdf.gerar_pdf_relatorio(report, ...)` os renderiza.
 from dataclasses import dataclass, field as dc_field
 from typing import Any, Optional, Callable, Union
 
+from ajsystem.defs.constants import PRINT_ROW
+
 # Import único nos relatórios do app: `from ajsystem.defs.report import *`
 # entrega SÓ os aliases de declaração; o resto (Report*, parse_*, contrato
 # DOM) é import explícito, como o motor já faz.
@@ -719,6 +721,7 @@ class ReportColumn:
     # table.groups (só o que imprime entra em columns).
     text: Optional[str] = None
     suppress: bool = False
+    print: int = PRINT_ROW
 
     def __post_init__(self):
         if self.label is None:
