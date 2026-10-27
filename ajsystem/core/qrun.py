@@ -543,7 +543,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
             col = getattr(model, e.field or e.name, None)
             if col is not None:
                 select_cols.append(col)
-                select_names.append(e.field or e.name)
+                select_names.append(e.name)
 
     # Se há campos com caminho pontilhado, usar with_entities para selecionar
     # apenas as colunas necessárias (incluindo as de tabelas joined).
