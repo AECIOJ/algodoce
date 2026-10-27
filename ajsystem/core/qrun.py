@@ -600,7 +600,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
                 pass
             rows = []
             for tup in q.all():
-                vals = list(tup) if isinstance(tup, (tuple, list)) else [tup]
+                vals = list(tup)
                 r = _Row()
                 for k, v in zip(_row_names + labels, vals):
                     setattr(r, k, v)
@@ -622,7 +622,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
             pass
         rows = []
         for tup in q.all():
-            vals = list(tup) if isinstance(tup, (tuple, list)) else [tup]
+            vals = list(tup)
             r = _Row()
             for k, v in zip(select_names, vals):
                 setattr(r, k, v)
@@ -1034,7 +1034,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
                 pass
             rows = []
             for tup in q.all():
-                vals = list(tup) if isinstance(tup, (tuple, list)) else [tup]
+                vals = list(tup)
                 r = _Row()
                 for k, v in zip(_row_names + labels, vals):
                     setattr(r, k, v)
@@ -1055,7 +1055,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
             pass
         rows = []
         for tup in q.all():
-            vals = list(tup) if isinstance(tup, (tuple, list)) else [tup]
+            vals = list(tup)
             r = _Row()
             for k, v in zip(select_names, vals):
                 setattr(r, k, v)
