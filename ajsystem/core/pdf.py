@@ -1410,6 +1410,8 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
         if g.get('totals') is not None:
                 _render_group_total(pdf, g, cols, cw, xs, accs[i],
                                 row=last_rows[i])
+                # Reset accumulated values for this group
+                accs[i] = [{c.field: [] for c in cols if c.agg}]
         if g.get('gline', g.get('line', True)):
             _draw_hline(pdf, xs, tw)
 

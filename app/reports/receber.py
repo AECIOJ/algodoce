@@ -1,5 +1,5 @@
 from ajsystem.defs.report import *
-from ajsystem.defs.constants import START, FINISH, NEVER, ROW, INLINE
+from ajsystem.defs.constants import START, FINISH, NEVER, ROW, INLINE, PRINT_INLINE
 QRECEBER = {
     'select': [
         {'cliente': 'conta.nome'},
@@ -25,14 +25,14 @@ RECEBER = {
     'body': {
         'source': QRECEBER,
         'table': {
-            # 'groups': {
-            #     'cliente': {
-            #         'text': 'Cliente: {cliente}',
-            #         'on_start': {'lf': -1},
-            #         'on_finish': {'lf': 1},
-            #         'totals': True,
-            #     },
-            # },
+            'groups': {
+                'cliente': {
+                    'text': '{conta}. {cliente}',
+                    'on_start': { 'print': PRINT_INLINE, 'lf': -1},
+                    'on_finish': {'lf': 1},
+                    'totals': {'align': 'R', 'span': 4},
+                },
+            },
             'columns': {
                 # 'cliente': {},
                 'vencimento': {},

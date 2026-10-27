@@ -1533,7 +1533,7 @@ def _synthesize_levels_from_groups(table, body, label):
                 _sp[cname]['style'] = on_start['style']
             if 'cpi' in on_start:
                 _sp[cname]['cpi'] = on_start['cpi']
-            totals_val = on_start.get('totals', g.get('totals'))
+            totals_val = on_start.get("totais")
             if totals_val is not None:
                 _sp[cname]['totals'] = totals_val if isinstance(totals_val, dict) else True
             synth.append(_sp)
