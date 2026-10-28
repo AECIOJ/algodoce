@@ -16,6 +16,7 @@ from ajsystem.defs.report import (
     Report, ReportField, ReportColumn, ReportColumns, ReportGroup,
     ReportText, parse_header_field,
 )
+from ajsystem.defs.constants import PRINT_NONE
 
 
 _HEADER_DEFAULTS = {
@@ -1403,15 +1404,35 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
     table_open = False   # nada foi desenhado ainda — evita fechar tabela fantasma
     gera_cab = True
 
+    def _reset_acc(i):
+        accs[i] = {c.field: [] for c in cols if c.agg}
+
+    def _add_to_acc(dst_acc, src_acc):
+        if not dst_acc or not src_acc:
+            return
+        for c in cols:
+            if c.agg and c.field in dst_acc:
+                vals = src_acc.get(c.field)
+                if vals:
+                    dst_acc[c.field].extend(vals)
+
     def close_level(i):
         g = gs[i]
         if not started:
             return
-        if g.get('totals') is not None:
-                _render_group_total(pdf, g, cols, cw, xs, accs[i],
+        # Imprimir subtotal SOMENTE no nível de fechamento (on_finish)
+        if g.get('on_finish') and g.get('totals') is not None:
+            _render_group_total(pdf, g, cols, cw, xs, accs[i],
                                 row=last_rows[i])
+        # Propagar acumulador do grupo filho para pai (ou total geral da tabela)
+        if i == 0:
+            # Nível mais alto -> propaga para total geral
+            _add_to_acc(agg_values, accs[i])
+        else:
+            _add_to_acc(accs[i - 1], accs[i])
         if g.get('gline', g.get('line', True)):
             _draw_hline(pdf, xs, tw)
+        _reset_acc(i)
 
     for row in data:
         vals = [_group_value(row, g) for g in gs]
@@ -1427,10 +1448,21 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
             # abre níveis alterados (e internos herdam abertura)
             for i in range(changed, len(gs)):
                 g = gs[i]
+                # Ao iniciar grupo: zerar acumulador deste nível e abaixo
+                _reset_acc(i)
+                for j in range(i + 1, len(gs)):
+                    _reset_acc(j)
                 if g.get('eject'):
                     pdf.add_page()
                 pos = g['pos']
                 _g_label = report.label if report is not None else ''
+                # Respeitar prop 'print' se existir no nível/grupo
+                _print = g.get('print')
+                if _print in (PRINT_NONE, 0, False):
+                    # Não imprime cabeçalho/linha do grupo, mas continua aberto para acumular
+                    prev[i] = vals[i]
+                    last_rows[i] = row
+                    continue
                 if pos == 2:                     # titulo
                     if table_open:
                         _table_close(pdf, xs, tw)
@@ -1479,6 +1511,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
         if show_lines:
             _draw_hline(pdf, xs, tw)
         _render_data_row(pdf, cols, cw, row, xs, agg_values)
+        # Acumular linha em todos os níveis vigentes (somente nos accs dos grupos)
         for acc in accs:
             for c in cols:
                 if c.agg:

@@ -1420,60 +1420,14 @@ def _mark_suppress(table, cname):
 
 
 def _translate_legacy_group(g, cname, label):
-    """Shim legado: converte {on/action, print, place, total} para o novo modelo.
-
-    Novo modelo de grupo:
-      - text: título do grupo (opcional; se ausente imprime o valor do campo)
-      - on_start: dict com props ao abrir o grupo (ex.: {'text': ..., 'lf': -1})
-      - on_finish: dict com props ao fechar o grupo (ex.: {'lf': 1})
-      - totals: None (não imprime), True (totais nas colunas com agg), dict (sobrescreve)
-
-    Props antigas removidas: on, action, print (numérico), place, total.
-    """
-    from ajsystem.defs.constants import (
-        NEVER, START, FINISH, ROW, INLINE,
-        PRINT_TITLE, PRINT_TITLE_CENTER,
-    )
+    """Mantido apenas para compatibilidade mínima. Exige modelo novo (on_start/on_finish)."""
     g = dict(g)
-
-    # Se já está no novo modelo, não traduz
     if 'on_start' in g or 'on_finish' in g:
         return g
-
-    # Converte on/action para on_start/on_finish
-    on_val = g.pop('on', g.pop('action', None))
-    if on_val in (START, 1, 'START'):
-        g['on_start'] = {}
-    elif on_val in (FINISH, 2, 'FINISH'):
-        g['on_finish'] = {}
-    elif on_val in (NEVER, 0, 'NEVER', None):
-        pass  # sem quebra
-    else:
-        raise ValueError(f"report '{label}': on/action de '{cname}' inválido")
-
-    # Converte print numérico antigo para on_start.text ou on_start
-    pr = g.pop('print', None)
-    if pr is not None:
-        if pr in (ROW, PRINT_TITLE, PRINT_TITLE_CENTER):
-            if 'text' not in g:
-                g['text'] = cname
-        elif pr == INLINE:
-            pass  # inline não tem título próprio
-        elif pr == 0:
-            pass  # none
-        else:
-            raise ValueError(f"report '{label}': print de '{cname}' inválido")
-
-    # Converte place (ignorado no novo modelo)
-    g.pop('place', None)
-
-    # Converte total antigo para totals
-    total_val = g.pop('total', None)
-    if total_val is not None:
-        g['totals'] = total_val if isinstance(total_val, dict) else True
-
-    # Mantém text, lf se existirem
-    return g
+    raise ValueError(
+        f"report '{label}': grupo '{cname}' usa formato legado (on/action/print/place/total). "
+        f"Use apenas on_start/on_finish/print/text/lf/totals no modelo novo."
+    )
 
 
 def _synthesize_levels_from_groups(table, body, label):
@@ -1533,15 +1487,17 @@ def _synthesize_levels_from_groups(table, body, label):
                 _sp[cname]['style'] = on_start['style']
             if 'cpi' in on_start:
                 _sp[cname]['cpi'] = on_start['cpi']
-            totals_val = on_start.get('totals', g.get('totals'))
-            if totals_val is not None:
-                _sp[cname]['totals'] = totals_val if isinstance(totals_val, dict) else True
+            if 'print' in on_start:
+                _sp[cname]['print'] = on_start['print']
+            elif 'print' in g:
+                _sp[cname]['print'] = g['print']
+            # Totais só devem ser impressos no fechamento (on_finish)
             synth.append(_sp)
 
         # on_finish -> nível de fechamento (só total, pos=0)
         on_finish = g.get('on_finish')
         if on_finish is not None:
-            _sp = {cname: {'pos': 0, 'gline': True}}
+            _sp = {cname: {'pos': 0, 'gline': True, 'on_finish': True}}
             if 'text' in on_finish:
                 _sp[cname]['footer_text'] = on_finish['text']
             if 'lf' in on_finish:

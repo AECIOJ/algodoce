@@ -1,5 +1,4 @@
 from ajsystem.defs.report import *
-from ajsystem.defs.constants import START, FINISH, NEVER, ROW, INLINE
 QRECEBER = {
     'select': [
         {'cliente': 'conta.nome'},

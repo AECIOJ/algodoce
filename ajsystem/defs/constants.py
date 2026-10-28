@@ -81,21 +81,9 @@ def AND(*itens):
     return _grupo('and', itens)
 
 
-# Group When (substitui 'action')
-NEVER = 0
-START = 1
-FINISH = 2
-
-# Group Print (substitui 'print' numérico)
-# NEVER = 0 já existe (reutilizado de Group When)
-PRINT_NONE = 0      # nunca imprime
+# Group Print
+PRINT_NONE = 0      # não imprime rótulo do grupo / não imprime coluna
 PRINT_ROW = 1       # imprime na célula da coluna, linha atual (default)
 PRINT_INLINE = 2    # imprime no início da linha, avança para próxima
 PRINT_TITLE = 3     # título do grupo, alinhado à esquerda
 PRINT_TITLE_CENTER = 4  # título do grupo, centralizado
-
-# Aliases legados (mantidos por compatibilidade)
-ROW = PRINT_ROW
-INLINE = PRINT_INLINE
-OUT = PRINT_TITLE
-OUT_CENTER = PRINT_TITLE_CENTER

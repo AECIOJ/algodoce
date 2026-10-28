@@ -7,7 +7,6 @@ grade e o PDF bebem a mesma string — sem N+1 e sem duas implementações do me
 índice.
 """
 from ajsystem.defs.report import *
-from ajsystem.defs.constants import START, FINISH, NEVER, ROW, INLINE
 QPLANO = {
     # Ordem de dependência (leitura top-down): a grade declara a sua ordem
     # na rota; avaliação independe daqui (overs antes dos calcs, ver qrun).
