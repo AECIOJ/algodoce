@@ -958,6 +958,13 @@ def _report_filter_pairs(cfg, where):
             default = val.get('default')
             out.extend((ent, name, op, default) for ent, name in
                        slot_spec_items([key], 'filter', where))
+        elif isinstance(val, (list, tuple)) and len(val) == 2 \
+                and isinstance(val[0], str) and val[0] in REPORT_OPS:
+            # Tupla (operador, default): ex. ('<', lastDay(TODAY()))
+            op = val[0]
+            default = val[1]
+            out.extend((ent, name, op, default) for ent, name in
+                       slot_spec_items([key], 'filter', where))
         elif isinstance(val, (list, tuple)):
             # fieldspec agrupado (`{'Entidade': [...]}`) — sem operador, `=`.
             out.extend((ent, name, '=', None) for ent, name in
