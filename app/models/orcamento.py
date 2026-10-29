@@ -1,14 +1,14 @@
 from datetime import datetime, timezone
 from ajsystem.core.extensions import db
 from app.extends.constants import STATUS_ORCAMENTO, FORMINHAS
-from ajsystem.core.utils import add_dias
+from ajsystem.core.utils import adDays
 from app.extends.masks import MVALOR
 
 
 def _validade_data(q):
     if not q:
         return None
-    return add_dias(q.data_renovacao or q.data_pedido, q.validade or 3)
+    return adDays(q.data_renovacao or q.data_pedido, q.validade or 3)
 
 
 class Orcamento(db.Model):

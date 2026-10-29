@@ -258,8 +258,7 @@ def adDays(d, dias):
     return ref + timedelta(days=dias)
 
 
-# Alias em português mantido por compatibilidade com código existente da aplicação.
-add_dias = adDays
+
 
 
 def adMonth(d, meses):
