@@ -371,7 +371,8 @@ function reportRun(btn) {
       });
       return;
     }
-    if (el.value === '') return;
+    // Enviar sempre, mesmo vazio: assim o servidor sabe que o usuário
+    // não quer filtro para esse campo (e não aplica o default).
     params.append(el.name, el.value);
   });
   btn.disabled = true;
