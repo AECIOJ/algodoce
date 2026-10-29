@@ -173,7 +173,7 @@ def report_action():
                 continue  # usuário preencheu pelo menos um lado
         else:
             if name in _args:
-                continue  # usuário preencheu
+                continue  # usuário preencheu (mesmo que vazio: não gera filtro)
         _spec = _default_to_spec(f, default)
         for _d in _spec:
             for _k, _v in _d.items():
