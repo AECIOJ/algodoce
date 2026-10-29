@@ -242,20 +242,63 @@ def divide(a, b):
         return 0
 
 
-def add_dias(dta, dias):
-    """Soma `dias` a uma data/hora, ignorando fuso. Retorna o mesmo tipo:
+def adDays(d, dias):
+    """Soma/subtrai `dias` a uma data/hora, ignorando fuso. Retorna o mesmo tipo:
     `datetime` in → `datetime`, `date` in → `date`. `dias` nulo/0 é tratado
     como 0; `dta` nulo/ausente → `None`."""
-    if dta is None:
+    if d is None:
         return None
     try:
         dias = int(dias or 0)
     except (TypeError, ValueError):
         dias = 0
-    ref = dta
+    ref = d
     if isinstance(ref, datetime) and ref.tzinfo is not None:
         ref = ref.replace(tzinfo=None)
     return ref + timedelta(days=dias)
+
+
+# Alias em português mantido por compatibilidade com código existente da aplicação.
+add_dias = adDays
+
+
+def adMonth(d, meses):
+    """Adiciona/subtrai `meses` a uma data, ajustando o dia se o mês alvo
+    não tiver esse dia (ex.: 31/01 + 1 mês → 28/02). Retorna o mesmo tipo
+    de entrada (`date` in → `date`, `datetime` in → `datetime`). `d` nulo →
+    `None`; `meses` nulo/0 → retorna `d` inalterado."""
+    from calendar import monthrange
+    if d is None:
+        return None
+    try:
+        meses = int(meses or 0)
+    except (TypeError, ValueError):
+        meses = 0
+    if meses == 0:
+        return d
+    ano = d.year
+    mes = d.month + meses
+    ano += (mes - 1) // 12
+    mes = ((mes - 1) % 12) + 1
+    ultimo_dia = monthrange(ano, mes)[1]
+    dia = min(d.day, ultimo_dia)
+    return d.replace(year=ano, month=mes, day=dia)
+
+
+def firstDay(d):
+    """Primeiro dia do mês de `d`. `d` nulo → `None`."""
+    if d is None:
+        return None
+    return d.replace(day=1)
+
+
+def lastDay(d):
+    """Último dia do mês de `d`. `d` nulo → `None`."""
+    from calendar import monthrange
+    if d is None:
+        return None
+    ultimo = monthrange(d.year, d.month)[1]
+    return d.replace(day=ultimo)
 
 
 def _agg_children(item, child_entity):

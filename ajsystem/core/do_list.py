@@ -947,21 +947,25 @@ def _report_filter_pairs(cfg, where):
                 raise ValueError(
                     f"{where}.filter[{key!r}]: operador {val!r} inválido — "
                     f"use {', '.join(REPORT_OPS)}")
-            out.extend((ent, name, val) for ent, name in
+            out.extend((ent, name, val, None) for ent, name in
                        slot_spec_items([key], 'filter', where))
-        elif isinstance(val, (list, tuple, dict)):
-            # fieldspec agrupado (`{'Entidade': [...]}`) — sem operador, `=`.
-            if isinstance(val, dict) and any(isinstance(v, str) and v in REPORT_OPS
-                                             for v in val.values()):
+        elif isinstance(val, dict):
+            op = val.get('op', '=')
+            if op not in REPORT_OPS:
                 raise ValueError(
-                    f"{where}.filter[{key!r}]: dict aninhado mistura operador — "
-                    "declare um campo por operador")
-            out.extend((ent, name, '=') for ent, name in
+                    f"{where}.filter[{key!r}]: operador {op!r} inválido — "
+                    f"use {', '.join(REPORT_OPS)}")
+            default = val.get('default')
+            out.extend((ent, name, op, default) for ent, name in
+                       slot_spec_items([key], 'filter', where))
+        elif isinstance(val, (list, tuple)):
+            # fieldspec agrupado (`{'Entidade': [...]}`) — sem operador, `=`.
+            out.extend((ent, name, '=', None) for ent, name in
                        slot_spec_items({key: val}, 'filter', where))
         else:
             raise TypeError(
-                f"{where}.filter[{key!r}]: esperava operador (str) ou fieldspec; "
-                f"veio {type(val).__name__}")
+                f"{where}.filter[{key!r}]: esperava operador (str) ou dict "
+                f"{{op, default}}; veio {type(val).__name__}")
     return out
 
 
@@ -996,7 +1000,7 @@ def _resolve_report_entries(page, schema, module_name, entity_name):
                              f"{slug!r} de {seen_slugs[slug]!r}")
         seen_slugs[slug] = title
         items = []
-        for ent, name, op in _report_filter_pairs(cfg, where):
+        for ent, name, op, default in _report_filter_pairs(cfg, where):
             hits = _slot_match(pool, entities, ent, name, 'filter', principal,
                                where)
             for f in hits:
@@ -1022,6 +1026,8 @@ def _resolve_report_entries(page, schema, module_name, entity_name):
                     'between': op == '<>',
                     'mode_label': _REPORT_OP_LABEL[ftype][op],
                 }
+                if default is not None:
+                    item['default'] = default
                 if ftype in ('select', 'checklist', 'boolean'):
                     # O pool não resolve `lookup` (só os slots da listagem o
                     # fazem); sem `target` o FK não tem options no form.

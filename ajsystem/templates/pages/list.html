@@ -785,6 +785,7 @@
                         <input type="text" class="input input-bordered input-sm"
                                id="rp-{{ rp.slug }}-{{ f.name }}-1"
                                name="{{ f.name }}{{ '_from' if f.type == 'date' else '_val1' }}"
+                               value="{{ f.default or '' }}"
                                placeholder="dd/mm/aaaa"
                                aria-label="{{ f.label }}">
                         <button type="button" class="btn btn-outline btn-sm ml-1 px-1"
@@ -798,6 +799,7 @@
                         <input type="text" class="input input-bordered input-sm"
                                id="rp-{{ rp.slug }}-{{ f.name }}-2"
                                name="{{ f.name }}{{ '_to' if f.type == 'date' else '_val2' }}"
+                               value="{{ f.default or '' }}"
                                placeholder="dd/mm/aaaa"
                                aria-label="{{ f.label }}">
                         <button type="button" class="btn btn-outline btn-sm ml-1 px-1"
@@ -809,11 +811,15 @@
                       {% else %}
                       <input type="number" class="input input-bordered input-sm" step="any"
                              id="rp-{{ rp.slug }}-{{ f.name }}-1"
-                             name="{{ f.name }}_val1" aria-label="{{ f.label }}">
+                             name="{{ f.name }}_val1"
+                             value="{{ f.default or '' }}"
+                             aria-label="{{ f.label }}">
                       <span class="report-sep">{{ i18n.TO }}</span>
                       <input type="number" class="input input-bordered input-sm" step="any"
                              id="rp-{{ rp.slug }}-{{ f.name }}-2"
-                             name="{{ f.name }}_val2" aria-label="{{ f.label }}">
+                             name="{{ f.name }}_val2"
+                             value="{{ f.default or '' }}"
+                             aria-label="{{ f.label }}">
                       {% endif %}
                     {% elif f.type in ('select', 'boolean', 'checklist') %}
                     <select class="select select-bordered select-sm"
@@ -841,6 +847,7 @@
                       <input type="text" class="input input-bordered input-sm"
                              id="rp-{{ rp.slug }}-{{ f.name }}"
                              name="{{ f.name }}"
+                             value="{{ f.default or '' }}"
                              placeholder="dd/mm/aaaa"
                              aria-label="{{ f.label }}">
                       <button type="button" class="btn btn-outline btn-sm ml-1 px-1"

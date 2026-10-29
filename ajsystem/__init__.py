@@ -157,15 +157,44 @@ def report_action():
     report = dict(entry['report'])
     report['label'] = entry['title']
 
-    # Converte os args do filtro em spec literal (gramática compartilhada)
-    _filter = report_filter_from_args(entry, request.args) or None
+    # Monta args mesclados com defaults para campos não preenchidos pelo usuário.
+    # Assim tanto o spec literal quanto o texto do subtítulo enxergam os valores
+    # prévio.
+    from werkzeug.datastructures import MultiDict
+    _args = MultiDict(request.args)
+    for f in entry.get('fields', []):
+        default = f.get('default')
+        if default is None:
+            continue
+        name = f['name']
+        if f.get('between'):
+            suf = ('_from', '_to') if f['type'] == 'date' else ('_val1', '_val2')
+            if any((name + s) in _args for s in suf):
+                continue  # usuário preencheu pelo menos um lado
+        else:
+            if name in _args:
+                continue  # usuário preencheu
+        _spec = _default_to_spec(f, default)
+        for _d in _spec:
+            for _k, _v in _d.items():
+                if isinstance(_v, tuple):
+                    _op, _val = _v
+                    if _op == '=':
+                        _args[_k] = _val
+                    else:
+                        _args[_k] = _val
+                else:
+                    _args[_k] = _v
+
+    # Converte os args (mesclados com defaults) em spec literal
+    _filter = report_filter_from_args(entry, _args) or []
 
     # Popula titles[] com label + texto do filter (se informado), para o
     # header do PDF imprimir via TITLE() em ordem.
     # O texto do filter usa o formato legível da tela (ex.: "Vencimento até
     # 20/09/2026"), não o spec cru da query.
     _titles = [entry['title']]
-    _filtros = _report_filter_display_text(entry, request.args)
+    _filtros = _report_filter_display_text(entry, _args)
     if _filtros:
         _titles.append(" e ".join(_filtros))
     report['titles'] = _titles
@@ -227,6 +256,51 @@ def _report_filter_display_text(entry, args):
         else:
             out.append(f"{f['label']} {f.get('mode_label', f['op'])} {_fmt_filter_val(f, v)}")
     return out
+
+
+def _fmt_default_val(v):
+    """Converte um valor de default para string p/ exibição no input."""
+    from datetime import date as _date, datetime as _datetime
+    if callable(v):
+        v = v()
+    if isinstance(v, _datetime):
+        return v.strftime('%d/%m/%Y')
+    if isinstance(v, _date):
+        return v.strftime('%d/%m/%Y')
+    return str(v)
+
+
+def _default_to_spec(f, default):
+    """Converte um default de campo em spec literal (gramática compartilhada).
+
+    Retorna lista de dicts no mesmo formato de `report_filter_from_args`:
+    - campo simples com op '=':  {nome: valor}
+    - campo simples com op != '=': {nome: (op, valor)}
+    - between: [{nome_from: ('>=', v1)}, {nome_to: ('<=', v2)}]
+    """
+    from datetime import date as _date, datetime as _datetime
+    op = f.get('op', '=')
+    name = f['name']
+    out = []
+
+    if f.get('between'):
+        suf = ('_from', '_to') if f['type'] == 'date' else ('_val1', '_val2')
+        if isinstance(default, (list, tuple)) and len(default) == 2:
+            v1, v2 = default
+        else:
+            v1 = v2 = default
+        if v1 is not None:
+            s1 = _fmt_default_val(v1)
+            out.append({name + suf[0]: (('>=' if op in ('>', '<>') else '='), s1)})
+        if v2 is not None:
+            s2 = _fmt_default_val(v2)
+            out.append({name + suf[1]: (('<=' if op in ('<', '<>') else '='), s2)})
+        return out
+
+    s = _fmt_default_val(default)
+    if op == '=':
+        return [{name: s}]
+    return [{name: (op, s)}]
 
 
 from ajsystem.init import init_app  # noqa: E402  (wiring do framework)
