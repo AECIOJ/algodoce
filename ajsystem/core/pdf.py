@@ -427,7 +427,18 @@ def _render_header_items(self, h):
             self.set_xy(x + w, y + hh)
             _mark_content(self)
         elif item.kind == 'TITLE':
-            titles = _draw_title(self, cfg, h, label, instance=self._instance, drawn=titles)
+            # TITLE() sem texto explícito e report declara titles[]:
+            # imprime cada título em ordem (cascata: 1º expandido+negrito,
+            # 2º+ normal+negrito). Sem titles[], desenha o único TITLE como
+            # sempre (texto = label do report).
+            _rt = getattr(self._report, 'titles', None) or []
+            if not cfg.get('text') and not cfg.get('label') and _rt:
+                for _t in _rt:
+                    titles = _draw_title(self, {'text': _t}, h, label,
+                                         instance=self._instance, drawn=titles)
+            else:
+                titles = _draw_title(self, cfg, h, label,
+                                     instance=self._instance, drawn=titles)
         elif item.kind == 'TITLES':
             # Vários TITLE numa tacada. Não delega ao `_render_items`: ali não
             # existem a cascata nem os defaults do header, e o `text` de

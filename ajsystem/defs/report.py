@@ -774,6 +774,9 @@ class ReportBody:
       - `form`:  impressão campo/valor posicionado na página (reservado p/ futuro);
       - `table`: tabela com `columns` + `hierarchy` (níveis visuais de quebra).
     `before`/`after` são linhas impressas antes/depois do formato.
+    `order`, quando declarado, sobrescreve o `order` da `source` (query) na
+    hora da impressão, sem mutar o dict original. `filter` sobrescreve o
+    filtro/`where` da source.
     """
     source: Optional[Union[str, dict, object]] = None
     form: Optional[dict] = None
@@ -784,6 +787,10 @@ class ReportBody:
     # ou OR(...)/AND(...), com sentinelas/operadores) ou callable(model). O
     # filtro da request (ex.: filter_select('tipo')) é combinado com ele.
     filter: Optional[Any] = None
+    # Ordem que sobrescreve o `order` declarado na `source` (query). Aceita
+    # lista de nomes de campo, lista de índices numéricos (1-based sobre o
+    # select) ou string (ex.: 'vencimento desc'). Não muta a source original.
+    order: Optional[Any] = None
     # Numeração hierárquica (apresentação, genérica): {using, pk, parent,
     # group, root, child, target, maxdepth}. Ver QPLANO/PLANO no app.
     levels: Optional[dict] = dc_field(default=None)
@@ -807,6 +814,11 @@ class Report:
       - footer: dict do rodapé de página (report_footer, show_*, footer_*)
     """
     label: str
+    titles: list = dc_field(default_factory=list)
+    # Fonte de dados do relatório: pode ser dict query ou entity string
+    source: Optional[Union[str, dict, object]] = None
+    # Filtro padrão do relatório (gramática literal compartilhada)
+    filter: Optional[Any] = None
 
     # Página
     page_size: str = 'A4'

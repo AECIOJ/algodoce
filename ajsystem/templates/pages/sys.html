@@ -358,6 +358,9 @@ function reportRun(btn) {
   var card = btn.closest('[data-report]');
   var host = card ? card.closest('[data-report-page]') : null;
   if (!card || !host) return;
+  // Completa datas parciais (ex.: "10" → "2026-10-10") antes de enviar
+  if (typeof dtAutoComplete === 'function') dtAutoComplete(card);
+  if (typeof dtSyncFilled === 'function') dtSyncFilled(card);
   var params = new URLSearchParams();
   params.set('page', host.dataset.reportPage || '');
   params.set('rp', card.dataset.report || '');
@@ -1451,6 +1454,122 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!t || !t.matches || !t.matches('input[type="date"], input[type="datetime-local"], input[type="time"]')) return;
     dtSyncFilled();
   });
+
+  // Inputs de data da aba Relatórios: preenchimento automático quando o usuário
+  // digita apenas dia (usa mês/ano corrente) ou dia+mês (usa ano corrente).
+  // Sempre mantém o formato brasileiro dd/mm/aaaa.
+  function _dtCompleteOne(el) {
+    var v = el.value.trim();
+    if (!v) return;
+    var now = new Date();
+    var yy = String(now.getFullYear());
+    var mm = String(now.getMonth() + 1).padStart(2, '0');
+    var dd = String(now.getDate()).padStart(2, '0');
+    var m;
+    // YYYY-MM-DD (ISO) — converte para brasileiro dd/mm/aaaa
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      var parts = v.split('-');
+      el.value = parts[2] + '/' + parts[1] + '/' + parts[0];
+      return true;
+    }
+    // Apenas dígitos: DD (dia) ou DDMM (dia+mês)
+    if (m = /^(\d{1,2})$/.exec(v)) {
+      var d = String(parseInt(m[1], 10)).padStart(2, '0');
+      el.value = d + '/' + mm + '/' + yy;
+      return true;
+    }
+    if (m = /^(\d{1,2})(\d{2})$/.exec(v)) {
+      var d = String(parseInt(m[1], 10)).padStart(2, '0');
+      var mo = String(parseInt(m[2], 10)).padStart(2, '0');
+      el.value = d + '/' + mo + '/' + yy;
+      return true;
+    }
+    // DD/MM (com barra)
+    if (m = /^(\d{1,2})\/(\d{1,2})$/.exec(v)) {
+      var d = String(parseInt(m[1], 10)).padStart(2, '0');
+      var mo = String(parseInt(m[2], 10)).padStart(2, '0');
+      el.value = d + '/' + mo + '/' + yy;
+      return true;
+    }
+    // DD/MM/AAAA (completo) — não altera
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return;
+    return false;
+  }
+  function dtAutoComplete(root) {
+    var changed = false;
+    (root || document).querySelectorAll('.report-card input[type="text"]').forEach(function(el) {
+      el.addEventListener('blur', function() {
+        if (_dtCompleteOne(el)) dtSyncFilled();
+      });
+      if (_dtCompleteOne(el)) changed = true;
+    });
+    if (changed) dtSyncFilled();
+  }
+  window.dtAutoComplete = dtAutoComplete;
+  dtAutoComplete();
+
+  // Máscara automática de data (dd/mm/aaaa) enquanto digita no input text
+  // da aba Relatórios. Insere barras após dd e mm.
+  function dtMaskInput(el) {
+    var v = el.value.replace(/\D/g, '');
+    if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
+    if (v.length > 5) v = v.substring(0, 5) + '/' + v.substring(5);
+    if (v.length > 10) v = v.substring(0, 10);
+    if (v !== el.value) el.value = v;
+  }
+
+  // Aplica máscara nos inputs de data da aba Relatórios
+  (document).querySelectorAll('.report-card input[type="text"]').forEach(function(el) {
+    el.addEventListener('input', function() {
+      dtMaskInput(this);
+      dtSyncFilled();
+    });
+  });
+
+  // Abre o calendário nativo para um input[type="text"] de data da aba Relatórios.
+  // Cria um input type="date" oculto, chama o showPicker nativo e, ao selecionar,
+  // copia o valor (YYYY-MM-DD) para o input text original no formato dd/mm/aaaa.
+  function dtOpenPicker(btn) {
+    var input = btn.previousElementSibling;
+    if (!input || input.tagName !== 'INPUT') return;
+    var hidden = document.createElement('input');
+    hidden.type = 'date';
+    hidden.style = 'position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;';
+    document.body.appendChild(hidden);
+    var pickerShown = false;
+    try {
+      hidden.showPicker();
+      pickerShown = true;
+    } catch (e) {
+      // Navegador sem suporte a showPicker: ignora
+    }
+    function onPick() {
+      if (hidden.value) {
+        // Converte YYYY-MM-DD para dd/mm/aaaa
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(hidden.value);
+        if (m) {
+          input.value = m[3] + '/' + m[2] + '/' + m[1];
+        } else {
+          input.value = hidden.value;
+        }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        dtSyncFilled();
+      }
+      hidden.removeEventListener('input', onPick);
+      hidden.removeEventListener('change', onPick);
+      document.body.removeChild(hidden);
+    }
+    hidden.addEventListener('input', onPick);
+    hidden.addEventListener('change', onPick);
+    // Se o navegador não suporta showPicker, remove o hidden após um curto tempo
+    if (!pickerShown) {
+      setTimeout(function() {
+        if (document.body.contains(hidden)) document.body.removeChild(hidden);
+      }, 100);
+    }
+  }
+  window.dtOpenPicker = dtOpenPicker;
   document.querySelectorAll('input[data-mask]').forEach(function(el) {
     _maskEl(el);
     el.addEventListener('input', function() {

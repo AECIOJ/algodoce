@@ -6,7 +6,7 @@ QRECEBER = {
         {'previsao': 'id'},
         {'fatura': 'transacao.fatura'},
         'documento',
-        'recurso_id',
+        {'recurso': 'recurso.nome'},
         'previsto',
         'realizado',
         'variacao',
@@ -14,7 +14,6 @@ QRECEBER = {
         {'conta': 'transacao.conta_id'}
     ],
     'from': 'Previsao',
-    'order': [1, 2],
 }
 
 RECEBER = {
@@ -25,6 +24,7 @@ RECEBER = {
     ],
     'body': {
         'source': QRECEBER,
+        'order': [1, 2],
         'table': {
             'groups': {
                 'cliente': {

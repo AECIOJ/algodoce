@@ -152,13 +152,7 @@ def _module_entity(report=None):
     if report is not None:
         body = _body_of(report)
         src = body.get('source') if isinstance(body, dict) else (getattr(body, 'source', None) if body else None)
-        entity_name = None
-        if isinstance(src, str):
-            entity_name = src
-        elif isinstance(src, dict):
-            entity_name = src.get('entity', src.get('from'))
-            if isinstance(entity_name, (list, tuple)):
-                entity_name = entity_name[0] if entity_name else None
+        entity_name = _source_entity_name(src)
         if entity_name:
             return _entity_for(entity_name)
     return None
@@ -186,6 +180,33 @@ def _body_of(report):
 def _source_of(report):
     body = _body_of(report)
     return getattr(body, 'source', None) if body else None
+
+
+def _source_entity_name(src):
+    """Entidade de uma fonte de report: str, `{entity/from}` ou `PivotSpec`.
+
+    O pivot aninha a origem em `src` (QuerySpec ou nome de entidade); sem
+    descer nele, a entidade principal do report fica `None` e nenhum
+    label/máscara da Entity chega às linhas/colunas geradas.
+    """
+    if isinstance(src, str):
+        return src
+    from ajsystem.defs.qspec import is_pivot_dict
+    if is_pivot_dict(src):
+        inner = getattr(src, 'src', None) if not isinstance(src, dict) else src.get('src')
+        return _source_entity_name(inner)
+    if not isinstance(src, dict):
+        return None
+    nm = src.get('entity') or src.get('from')
+    if isinstance(nm, (list, tuple)):
+        nm = nm[0] if nm else None
+    return nm if isinstance(nm, str) else None
+
+
+def _is_pivot_source(src):
+    """A fonte do report é um PivotSpec?"""
+    from ajsystem.defs.qspec import is_pivot_dict
+    return is_pivot_dict(src)
 
 
 def _pdf_bytes(report, data=None, instance=None):
@@ -852,7 +873,13 @@ def _apply_entity(raw, entity):
         if isinstance(table, dict):
             table = dict(table)
         # ÚNICO caminho onde a `width` sai do field: a coluna da tabela.
-        specs = _resolve_map(table.get('columns'), columns=True)
+        # Com fonte pivot as colunas geradas não existem na Entity (o nome é
+        # `<alias>__<valor>`); quem as resolve é `_apply_pivot_report_columns`,
+        # depois da execução. Aqui só preservamos o declarado.
+        _src_decl = (body.get('source') if isinstance(body, dict)
+                     else getattr(body, 'source', None))
+        specs = (None if _is_pivot_source(_src_decl)
+                 else _resolve_map(table.get('columns'), columns=True))
         if specs is not None:
             from ajsystem.defs.constants import PRINT_ROW
             cols = {}
@@ -1007,14 +1034,15 @@ def _infer_source(report, entity):
     if src is None:
         return {'name': None, 'data_attr': 'items', 'order_mode': None,
                 'sort_fn': None, 'order_field': None}
-    entity_name = src if isinstance(src, str) else None
-    if entity_name is None and isinstance(src, dict):
-        # Legado usa 'entity'; query nova usa 'from' (str ou [entidade, ...]).
-        entity_name = src.get('entity', src.get('from'))
-        if isinstance(entity_name, (list, tuple)):
-            entity_name = entity_name[0] if entity_name else None
+    entity_name = _source_entity_name(src)
     data_attr = src.get('data_attr', 'items') if isinstance(src, dict) else None
-    order = src.get('order') if isinstance(src, dict) else None
+    # body.order (prop do report) sobrescreve source.order (dentro do query dict)
+    if isinstance(body, dict):
+        order = body.get('order')
+    else:
+        order = getattr(body, 'order', None) if body is not None else None
+    if order is None and isinstance(src, dict):
+        order = src.get('order')
     if not entity_name:
         return {'name': None, 'data_attr': data_attr, 'order_mode': None,
                 'sort_fn': None, 'order_field': None}
@@ -1112,14 +1140,9 @@ def _principal_name(out, entity):
     """Entidade principal do report (campos sem prefixo)."""
     body = out.get('body') if isinstance(out.get('body'), dict) else {}
     src = body.get('source')
-    if isinstance(src, str):
-        return src
-    if isinstance(src, dict):
-        nm = src.get('entity') or src.get('from')
-        if isinstance(nm, (list, tuple)):
-            nm = nm[0] if nm else None
-        if nm:
-            return nm
+    nm = _source_entity_name(src)
+    if nm:
+        return nm
     if isinstance(entity, dict):
         for k, v in entity.items():
             if isinstance(v, dict) and k[:1].isupper():
@@ -1707,6 +1730,126 @@ def _report_filter(report, model, extra=None):
     return _combine_report_filter(declared, extra)
 
 
+def _apply_pivot_report_columns(report, result, layer=None):
+    """Preenche `body.table.columns` com as colunas geradas pelo pivot.
+
+    `columns` omitido (ou `'auto'`) vira eixos de linha + medidas × valores.
+    Declarado: valida cada nome contra as linhas/colunas do resultado e
+    completa o que faltar, preservando a ordem e os overrides do report.
+
+    `agg` padrão só para `sum` e `count` (somar subtotais faz sentido); em
+    `avg/min/max` fica `None` — somar médias/mínimos no rodapé seria errado.
+    """
+    body = _body_of(report)
+    if body is None:
+        return
+    table = body.get('table') if isinstance(body, dict) else getattr(body, 'table', None)
+    if not isinstance(table, dict):
+        return
+
+    by_name = {c.name: c for c in result.columns}
+    valid = [ax.name for ax in result.lines] + [c.name for c in result.columns]
+    declared = table.get('columns')
+    items = {}
+    if declared is None or declared == 'auto':
+        order = list(valid)
+    else:
+        if isinstance(declared, dict):
+            raw_items = list(declared.items())
+        elif isinstance(declared, (list, tuple)):
+            raw_items = []
+            for it in declared:
+                if isinstance(it, str):
+                    raw_items.append((it, {}))
+                elif isinstance(it, dict) and len(it) == 1:
+                    (k, v), = it.items()
+                    raw_items.append((k, v if isinstance(v, dict) else {}))
+                else:
+                    raise TypeError(
+                        f"report '{getattr(report, 'label', '?')}': item de "
+                        f"table.columns deve ser str ou dict de 1 chave")
+        else:
+            raise TypeError(
+                f"report '{getattr(report, 'label', '?')}': table.columns "
+                f"deve ser dict ou lista, veio {type(declared).__name__}")
+        order = []
+        for key, cfg in raw_items:
+            cfg = dict(cfg or {})
+            name = cfg.pop('field', None) or key
+            if name not in valid:
+                raise ValueError(
+                    f"report '{getattr(report, 'label', '?')}': coluna "
+                    f"'{name}' não existe no pivot (eixos/colunas: {valid})")
+            items[name] = cfg
+            order.append(name)
+        order += [n for n in valid if n not in items]
+
+    out = {}
+    for name in order:
+        spec = dict(items.get(name, {}))
+        spec.pop('field', None)
+        cfg = (layer or {}).get(name, {}) or {}
+        for k in ('label', 'width', 'align'):
+            if k in cfg:
+                spec.setdefault(k, cfg[k])
+        col = by_name.get(name)
+        if col is not None:
+            spec.setdefault('label', col.label)
+            spec.setdefault('align', 'right')
+            if col.format:
+                spec.setdefault('format', col.format)
+            if col.func in ('sum', 'count'):
+                spec.setdefault('agg', 'sum')
+        spec.setdefault('print', 1)
+        out[name] = spec
+    table['columns'] = out
+
+
+def _get_attr_path(obj, path):
+    """Navega por caminho de atributos (ex.: 'conta.nome')."""
+    for part in str(path).split('.'):
+        if obj is None:
+            return None
+        obj = getattr(obj, part, None)
+    return obj
+
+
+def _sort_python(rows, order):
+    """Ordenação Python-side por lista de nomes de campo.
+
+    Aceita campos diretos ('vencimento') e pontilhados ('conta.nome').
+    None vem primeiro na ordem crescente.
+    """
+    if not rows or not order:
+        return rows
+    import functools
+
+    def _cmp(a, b):
+        for field in order:
+            va = _get_attr_path(a, field)
+            vb = _get_attr_path(b, field)
+            if va is None and vb is None:
+                continue
+            if va is None:
+                return -1
+            if vb is None:
+                return 1
+            try:
+                if va < vb:
+                    return -1
+                if va > vb:
+                    return 1
+            except TypeError:
+                va, vb = str(va), str(vb)
+                if va < vb:
+                    return -1
+                if va > vb:
+                    return 1
+        return 0
+
+    return sorted(rows, key=functools.cmp_to_key(_cmp))
+
+
 def _auto_data(report, data, instance, filter=None):
     """Precedência do datasource: `data` explícito → `instance.<data_attr>` →
     `body.source` (entity/query). Ordenação declarada por `source.order`.
@@ -1715,17 +1858,87 @@ def _auto_data(report, data, instance, filter=None):
     combinado com ele — dicts fazem merge (a request vence) e as demais formas
     viram `AND`. Callable recebe o model e devolve o spec (ou uma Query, quando
     não há combinação).
+
+    `body.order` e `body.filter`, quando declarados, são aplicados sobre o
+    `body.source` (query dict) ANTES da execução, sem mutar o dict original:
+      - `order` substitui `source.order`
+      - `filter` remove `source.where` e passa a ser o filtro vigente
     """
     if data is not None or instance is not None:
         if data is None and instance is not None:
             info = _infer_source(report, _module_entity(report))
             data = getattr(instance, info['data_attr'] or 'items', None)
+            # Aplicar ordenação Python-side quando order é lista (via
+            # body.order ou source.order) e os dados vêm da instância
+            order_field = info.get('order_field')
+            if data and isinstance(order_field, (list, tuple)):
+                # Normalizar índices numéricos (1-based) p/ nomes de campo do
+                # select quando o source é uma query dict
+                _src = _source_of(report)
+                if isinstance(_src, dict) and is_query_dict(_src):
+                    from ajsystem.defs.qspec import parse_select as _ps
+                    _entries = _ps(_src.get('select') or [])
+                    _norm = []
+                    for _item in order_field:
+                        if isinstance(_item, int) \
+                                and 0 <= _item - 1 < len(_entries):
+                            _norm.append(_entries[_item - 1].field
+                                         or _entries[_item - 1].name)
+                        else:
+                            _norm.append(_item)
+                    order_field = _norm
+                data = _sort_python(data, order_field)
         return data
+
+    # Fonte pivot: executa o motor e prepara as colunas da tabela ANTES do
+    # PDF (as colunas geradas não existem na Entity).
+    from ajsystem.defs.qspec import is_query_dict, parse_pivot
+    _src_raw = _source_of(report)
+
+    # --- Aplicar body.order e body.filter sobre o source (query dict) ---
+    # Sem mutar o dict original. body.order substitui source.order; body.filter
+    # remove source.where e passa a ser o filtro vigente.
+    if isinstance(_src_raw, dict) and is_query_dict(_src_raw):
+        _body = _body_of(report)
+        if isinstance(_body, dict):
+            _declared_order = _body.get('order')
+            _declared_filter = _body.get('filter')
+        else:
+            _declared_order = getattr(_body, 'order', None) if _body is not None else None
+            _declared_filter = getattr(_body, 'filter', None) if _body is not None else None
+        if _declared_order is not None or _declared_filter is not None:
+            _src_raw = dict(_src_raw)  # cópia para não mutar o original
+            if _declared_order is not None:
+                _src_raw['order'] = _declared_order
+            if _declared_filter is not None:
+                _src_raw.pop('where', None)
+            # Atualizar source do body para o query dict ajustado, de modo que
+            # _infer_source e _source_entity_name funcionem abaixo.
+            report.body.source = _src_raw
+    # --------------------------------------------------------------------
+
+    if _is_pivot_source(_src_raw):
+        from ajsystem.core.list import _resolve_model as _rm
+        from ajsystem.core.pivot import pivot_layer, run_pivot
+        _ps = parse_pivot(_src_raw)
+        _ename = _source_entity_name(_ps.src)
+        _model = _rm(_ename)
+        if _model is None:
+            raise ValueError(f"pivot: model da entidade '{_ename}' não registrado")
+        _cfg = _entity_cfg_for(_module_entity(report), _ename)
+        if not _cfg:
+            _cfg = _entity_for(_ename) or {}
+        _filter = _report_filter(report, _model, filter)
+        if _is_query_filter(_filter):
+            raise TypeError(
+                "body.filter: callable que devolve Query não é suportado "
+                "quando body.source é um PivotSpec")
+        _res = run_pivot(_model, _ps, entity_cfg=_cfg, extra_where=_filter)
+        _apply_pivot_report_columns(report, _res, pivot_layer(_res, _cfg))
+        return _res.rows
 
     # Fonte nova: query dict {select, dist, from, ...} (QPLANO) -> qrun genérico.
     # O filtro entra antes dos OVERs, então a numeração enxerga o recorte.
-    from ajsystem.defs.qspec import is_query_dict
-    _src_raw = _source_of(report)
     if isinstance(_src_raw, dict) and is_query_dict(_src_raw):
         from ajsystem.core.list import _resolve_model as _rm
         from ajsystem.core.qrun import run_query, build_levels
@@ -1806,10 +2019,46 @@ def print_report_page(report, instance=None, data=None, msg=None, filter=None):
     """Retorna página completa com iframe do PDF embutido (data URI)."""
     report = parse_report(_apply_entity(report, _module_entity(report)))
     data = _auto_data(report, data, instance, filter)
+
+    # --- Extração de source/filter do report ---
+    # Se filter não foi passado explicitamente, usar o do report
+    if filter is None:
+        filter = getattr(report, 'filter', None)
+    # Se source não foi passado explicitamente, usar o do report
+    source = getattr(report, 'source', None)
+    _auto_data_source = source
+    _auto_data_filter = filter
+    # -----------------------------------------
+    # --- Lógica de títulos ---
+    # Se o report tem titles declarados, usa-os; senão, gera automaticamente
+    # com o label principal e o filtro como secundário.
+    if report.titles:
+        # titles já declarados pelo usuário - usa-los diretamente
+        main_title = report.titles[0] if len(report.titles) > 0 else report.label
+        secondary_title = report.titles[1] if len(report.titles) > 1 else None
+    else:
+        # titles não declarados - engine injeta automaticamente
+        main_title = report.label
+        # Extrai o filtro ativo (já foi normalizado na seção anterior)
+        filtros = []
+        if filter:
+            if isinstance(filter, dict):
+                for k, v in filter.items():
+                    if v is None:
+                        filtros.append(f"{k} ausente")
+                    else:
+                        filtros.append(f"{k} = {v}")
+            elif isinstance(filter, str):
+                filtros.append(filter)
+            else:
+                filtros.append(str(filter))
+        secondary_title = " | ".join(filtros) if filtros else None
+    # --------------------------
+
     try:
         from ajsystem.defs.report import PRINT_TEMPLATE
         src = _data_uri(_pdf_bytes(report, data, instance))
-        return render_template(PRINT_TEMPLATE, pdf_url=src)
+        return render_template(PRINT_TEMPLATE, pdf_url=src, main_title=main_title, secondary_title=secondary_title)
     except Exception:
         return _print_erro(msg)
 
@@ -1841,12 +2090,58 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
             return _print_with_choice(report, filter, msg)
         report = parse_report(_apply_entity(report, _module_entity(report)))
         data = _auto_data(report, data, instance, filter.criteria())
+        
+        # --- Lógica de títulos ---
+        # Se o report tem titles declarados, usa-os; senão, gera automaticamente
+        # com o label principal e o filtro como secundário.
+        if report.titles:
+            main_title = report.titles[0] if len(report.titles) > 0 else report.label
+            secondary_title = report.titles[1] if len(report.titles) > 1 else None
+        else:
+            main_title = report.label
+            # Extrai o filtro ativo para usar como subtitulo
+            filtros = []
+            if filter:
+                if isinstance(filter, dict):
+                    for k, v in filter.items():
+                        if v is None:
+                            filtros.append(f"{k} ausente")
+                        else:
+                            filtros.append(f"{k} = {v}")
+                elif isinstance(filter, str):
+                    filtros.append(filter)
+                else:
+                    filtros.append(str(filter))
+            secondary_title = "Filtros: " + " | ".join(filtros) if filtros else None
+        # ----------------------------
+        
         src = _data_uri(_pdf_bytes(report, data, instance))
-        return render_template(OVERLAY_TEMPLATE, pdf_url=src)
+        return render_template(OVERLAY_TEMPLATE, pdf_url=src, main_title=main_title, secondary_title=secondary_title)
     report = parse_report(_apply_entity(report, _module_entity(report)))
     data = _auto_data(report, data, instance, filter)
+    
+    # --- Lógica de títulos (para o fluxo sem FilterSelect) ---
+    if report.titles:
+        main_title = report.titles[0] if len(report.titles) > 0 else report.label
+        secondary_title = report.titles[1] if len(report.titles) > 1 else None
+    else:
+        main_title = report.label
+        filtros = []
+        if filter:
+            if isinstance(filter, dict):
+                for k, v in filter.items():
+                    if v is None:
+                        filtros.append(f"{k} ausente")
+                    else:
+                        filtros.append(f"{k} = {v}")
+            elif isinstance(filter, str):
+                filtros.append(filter)
+            else:
+                filtros.append(str(filter))
+        secondary_title = "Filtros: " + " | ".join(filtros) if filtros else None
+    
     src = _data_uri(_pdf_bytes(report, data, instance))
-    return render_template(OVERLAY_TEMPLATE, pdf_url=src)
+    return render_template(OVERLAY_TEMPLATE, pdf_url=src, main_title=main_title, secondary_title=secondary_title)
 
 
 def _field_cfg(entity, field):

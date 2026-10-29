@@ -270,6 +270,19 @@
 @media (max-width: 640px) {
   .report-field { grid-template-columns: 1fr; }
 }
+
+/* Garante que o texto digitado no input de data da aba Relatórios seja visível */
+.report-card input[type="date"],
+.report-card input[type="datetime-local"],
+.report-card input[type="time"] {
+  color: var(--fallback-bc, oklch(var(--bc)/.85)) !important;
+}
+.report-card input[type="date"]::-webkit-datetime-edit,
+.report-card input[type="date"]::-webkit-datetime-edit-day-field,
+.report-card input[type="date"]::-webkit-datetime-edit-month-field,
+.report-card input[type="date"]::-webkit-datetime-edit-year-field {
+  color: var(--fallback-bc, oklch(var(--bc)/.85)) !important;
+}
 .list-filter-wrap .filter-group { width: 100%; min-width: 0; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
 .list-filter-wrap .filter-grid,
@@ -767,19 +780,41 @@
                     <span class="report-op">{{ f.mode_label }}</span></label>
                   <div class="report-input">
                     {% if f.between %}
-                    <input type="{{ 'date' if f.type == 'date' else 'number' }}"
-                           class="input input-bordered input-sm"
-                           {% if f.type != 'date' %}step="any"{% endif %}
-                           id="rp-{{ rp.slug }}-{{ f.name }}-1"
-                           name="{{ f.name }}{{ '_from' if f.type == 'date' else '_val1' }}"
-                           aria-label="{{ f.label }}">
-                    <span class="report-sep">{{ i18n.TO }}</span>
-                    <input type="{{ 'date' if f.type == 'date' else 'number' }}"
-                           class="input input-bordered input-sm"
-                           {% if f.type != 'date' %}step="any"{% endif %}
-                           id="rp-{{ rp.slug }}-{{ f.name }}-2"
-                           name="{{ f.name }}{{ '_to' if f.type == 'date' else '_val2' }}"
-                           aria-label="{{ f.label }}">
+                      {% if f.type == 'date' %}
+                      <div class="inline-flex items-center it-dtwrap">
+                        <input type="text" class="input input-bordered input-sm"
+                               id="rp-{{ rp.slug }}-{{ f.name }}-1"
+                               name="{{ f.name }}{{ '_from' if f.type == 'date' else '_val1' }}"
+                               placeholder="dd/mm/aaaa"
+                               aria-label="{{ f.label }}">
+                        <button type="button" class="btn btn-outline btn-sm ml-1 px-1"
+                                onclick="dtOpenPicker(this)"
+                                aria-label="{{ i18n.PICK_DATE }}">
+                          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg>
+                        </button>
+                      </div>
+                      <span class="report-sep">{{ i18n.TO }}</span>
+                      <div class="inline-flex items-center it-dtwrap">
+                        <input type="text" class="input input-bordered input-sm"
+                               id="rp-{{ rp.slug }}-{{ f.name }}-2"
+                               name="{{ f.name }}{{ '_to' if f.type == 'date' else '_val2' }}"
+                               placeholder="dd/mm/aaaa"
+                               aria-label="{{ f.label }}">
+                        <button type="button" class="btn btn-outline btn-sm ml-1 px-1"
+                                onclick="dtOpenPicker(this)"
+                                aria-label="{{ i18n.PICK_DATE }}">
+                          <svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg>
+                        </button>
+                      </div>
+                      {% else %}
+                      <input type="number" class="input input-bordered input-sm" step="any"
+                             id="rp-{{ rp.slug }}-{{ f.name }}-1"
+                             name="{{ f.name }}_val1" aria-label="{{ f.label }}">
+                      <span class="report-sep">{{ i18n.TO }}</span>
+                      <input type="number" class="input input-bordered input-sm" step="any"
+                             id="rp-{{ rp.slug }}-{{ f.name }}-2"
+                             name="{{ f.name }}_val2" aria-label="{{ f.label }}">
+                      {% endif %}
                     {% elif f.type in ('select', 'boolean', 'checklist') %}
                     <select class="select select-bordered select-sm"
                             id="rp-{{ rp.slug }}-{{ f.name }}"
@@ -802,9 +837,18 @@
                       {% endif %}
                     </select>
                     {% elif f.type == 'date' %}
-                    <input type="date" class="input input-bordered input-sm"
-                           id="rp-{{ rp.slug }}-{{ f.name }}"
-                           name="{{ f.name }}" aria-label="{{ f.label }}">
+                    <div class="inline-flex items-center it-dtwrap">
+                      <input type="text" class="input input-bordered input-sm"
+                             id="rp-{{ rp.slug }}-{{ f.name }}"
+                             name="{{ f.name }}"
+                             placeholder="dd/mm/aaaa"
+                             aria-label="{{ f.label }}">
+                      <button type="button" class="btn btn-outline btn-sm ml-1 px-1"
+                              onclick="dtOpenPicker(this)"
+                              aria-label="{{ i18n.PICK_DATE }}">
+                        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg>
+                      </button>
+                    </div>
                     {% elif f.type == 'number' %}
                     <input type="number" step="any" class="input input-bordered input-sm"
                            id="rp-{{ rp.slug }}-{{ f.name }}"

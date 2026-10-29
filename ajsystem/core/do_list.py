@@ -301,29 +301,71 @@ def _list_pool(lista, schema, module_name, entity_name):
     que a fonte `query` acrescenta (`is_query`/`colspec`/`colorder`), para o
     chamador não ter que reparsear `columns`.
     """
-    from ajsystem.defs.qspec import is_query_dict as _is_q
+    from ajsystem.defs.qspec import (
+        is_pivot_dict as _is_p, is_query_dict as _is_q,
+    )
     _colspec = lista.get('columns', lista.get('fields', entity_name))
-    # Forma enxuta fonte+ordem: query dict como item da lista; as strings dão
-    # recorte/ordem autoritativos. No máximo uma query por lista.
+    # Forma enxuta fonte+ordem: query/pivot dict como item da lista; as strings
+    # dão recorte/ordem autoritativos. No máximo UMA fonte por lista.
     _colorder = None
+    _is_query = _is_q(_colspec)
+    _is_pivot = _is_p(_colspec)
     if isinstance(_colspec, list):
-        _qs = [it for it in _colspec if _is_q(it)]
-        if len(_qs) > 1:
-            raise ValueError("list: no máximo uma query em columns (multi-fonte é fase futura)")
+        _items = list(_colspec)
+        _qs = [it for it in _items if _is_q(it)]
+        _pv = [it for it in _items if _is_p(it)]
+        if len(_qs) + len(_pv) > 1:
+            raise ValueError("list: no máximo uma fonte em columns (query ou pivot)")
         if _qs:
             _colspec = _qs[0]
+            _is_query = True
             _colorder = []
-            for it in lista.get('columns'):
+            for it in _items:
                 if _is_q(it):
                     continue
                 if not isinstance(it, str):
                     raise ValueError(f"list: com query, item deve ser str (campo), veio {type(it).__name__}")
                 _colorder.append(it)
-    _is_query = _is_q(_colspec)
+        elif _pv:
+            if len(_items) > 1:
+                raise ValueError(
+                    "list: com pivot, columns deve conter só o pivot "
+                    "(recorte de colunas geradas é fase 2; use line/hidden)")
+            _colspec = _pv[0]
+            _is_pivot = True
     if _is_query and isinstance(_colspec.get('from'), str):
         entity_name = _colspec['from']
     inputs = _camadas_inputs(module_name)
     master_name = lista.get('master') or None
+
+    if _is_pivot:
+        if master_name:
+            raise ValueError("list: 'master' não suporta fonte pivot")
+        from ajsystem.defs.qspec import parse_pivot as _pp
+        _pspec = _pp(_colspec)
+        _src = _pspec.src
+        if isinstance(_src, str):
+            entity_name = _src
+        elif isinstance(_src, dict):
+            entity_name = _src.get('from')
+            if isinstance(entity_name, (list, tuple)):
+                entity_name = entity_name[0] if entity_name else None
+        if not isinstance(entity_name, str) or not entity_name:
+            raise ValueError("list: pivot exige uma entidade em 'src' (str ou 'from')")
+        model = _resolve_model(entity_name)
+        merged = resolve_entity_fields(schema, model, entity_name)
+        # O pool devolvido aqui é o da ORIGEM: é ele que o painel de filtro
+        # usa e que serve de fallback de largura. As colunas geradas só
+        # existem depois de executar o pivot (`do_list_normal`).
+        pool = resolve_column_configs(merged, entity_name, principal=merged,
+                                      inputs=inputs)
+        for f in pool:
+            f._entity = entity_name
+        return entity_name, model, merged, pool, {
+            'is_query': False, 'is_pivot': True, 'pivotspec': _pspec,
+            'colspec': _colspec, 'colorder': None, 'base_pool': pool,
+            'pool_entity': entity_name, 'master': None,
+        }
 
     if master_name:
         # Inversão: as linhas são do filho (`master`), a entidade da rota é o
@@ -347,7 +389,8 @@ def _list_pool(lista, schema, module_name, entity_name):
             pool = resolve_column_configs(merged, _colspec, principal=merged,
                                           inputs=inputs)
         return entity_name, model, merged, pool, {
-            'is_query': False, 'colspec': _colspec, 'colorder': None,
+            'is_query': False, 'is_pivot': False, 'colspec': _colspec,
+            'colorder': None, 'base_pool': None,
             'pool_entity': _pool_entity(lista, entity_name), 'master': master_name,
             'parent_model': parent_model,
         }
@@ -376,9 +419,30 @@ def _list_pool(lista, schema, module_name, entity_name):
     for f in pool:
         f._entity = entity_name
     return entity_name, model, merged, pool, {
-        'is_query': _is_query, 'colspec': _colspec, 'colorder': _colorder,
+        'is_query': _is_query, 'is_pivot': False, 'colspec': _colspec,
+        'colorder': _colorder, 'base_pool': None,
         'pool_entity': _pool_entity(lista, entity_name), 'master': None,
     }
+
+
+def _guard_pivot_list(lista, fonte, entity_name):
+    """Restrições da listagem com fonte pivot (v1: somente leitura).
+
+    Não há linha de origem para editar (as linhas são grupos), e a inversão
+    `master`/`detail` pressupõe um registro do model.
+    """
+    if fonte.get('master'):
+        raise ValueError("list: 'master' não suporta fonte pivot")
+    if 'detail' in lista:
+        raise ValueError(
+            f"list '{entity_name}': 'detail' não suporta fonte pivot")
+    if lista.get('field_id') or lista.get('edit_id_field'):
+        raise ValueError(
+            f"list '{entity_name}': pivot é somente leitura "
+            "(sem field_id/edit_id_field)")
+    if lista.get('edit_endpoint'):
+        raise ValueError(
+            f"list '{entity_name}': pivot é somente leitura (sem edit_endpoint)")
 
 
 def _camadas_botoes(module_name):
@@ -443,7 +507,46 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     # POOL (quem existe) → SLOTS (onde cada um vai). Ver `_list_pool`.
     entity_name, model, merged, pool, fonte = _list_pool(lista, schema,
                                                          module_name, entity_name)
-    _is_query, _colspec = fonte['is_query'], fonte['colspec']
+    _is_query, _is_pivot = fonte['is_query'], fonte.get('is_pivot', False)
+    _colspec = fonte['colspec']
+    if _is_pivot:
+        _guard_pivot_list(lista, fonte, entity_name)
+
+    # Campo de impressão com escolha ativo (marcador `_r`): o parâmetro que o
+    # relatório injetou na URL não deve virar filtro da listagem, senão o filtro
+    # de impressão persistiria na lista ao "Voltar". Resolve-se a listagem sem
+    # esse campo.
+    from ajsystem.core import do_report as _drp
+    rid = request.args.get('_r')
+    _print_field = _drp._print_field_of(rid) if rid else None
+    _fargs = {k: v for k, v in request.args.items(multi=True) if k != _print_field}
+
+    # Fonte pivot: o painel filtra a ORIGEM (tipo/data/conta...), não as
+    # colunas geradas — elas só existem depois de executar o pivot. A execução
+    # acontece aqui, antes dos slots, para o pool já conter linhas+colunas.
+    if _is_pivot:
+        from ajsystem.core.pivot import pivot_layer, run_pivot
+        _base_pool = fonte['base_pool']
+        _rf = resolve_filter(
+            page_filter_cfg(page), pool=_base_pool,
+            principal=fonte['pool_entity'], model=model,
+            fields=_base_pool, request_args=_fargs)
+        _extra_conds = list(_rf.fixed)
+        if _rf.filter_cond is not None:
+            _extra_conds.append(_rf.filter_cond)
+        _pres = run_pivot(model, _colspec, entity_cfg=merged,
+                          extra_conditions=_extra_conds)
+        if data is None:
+            data = _pres.rows
+        _layer = pivot_layer(_pres, merged)
+        _shown = ([ax.name for ax in _pres.lines]
+                  + [c.name for c in _pres.columns])
+        pool = resolve_column_configs(
+            _layer, _shown, principal=_layer,
+            inputs=_camadas_inputs(module_name))
+        for f in pool:
+            f._entity = fonte['pool_entity']
+
     slots = resolve_slots(lista, pool, fonte['pool_entity'])
     line_fields, cardonly_fields = slots['line'], slots['card']
 
@@ -453,7 +556,10 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         f.stored = f.name in stored_cols
     fields_master = list(range(1, len(line_fields) + 1))
 
-    if _is_query:
+    if _is_pivot:
+        _fid = None
+        edit_endpoint = None
+    elif _is_query:
         _fid = lista.get('field_id', lista.get('edit_id_field'))
         if 'field_id' not in lista and 'edit_id_field' not in lista:
             edit_endpoint = None
@@ -521,21 +627,19 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
         list_obj.detail_data = detail_data
 
-    # Campo de impressão com escolha ativo (marcador `_r`): o parâmetro que o
-    # relatório injetou na URL não deve virar filtro da listagem, senão o filtro
-    # de impressão persistiria na lista ao "Voltar". Resolve-se a listagem sem
-    # esse campo.
-    from ajsystem.core import do_report as _drp
-    rid = request.args.get('_r')
-    _print_field = _drp._print_field_of(rid) if rid else None
-    _fargs = {k: v for k, v in request.args.items(multi=True) if k != _print_field}
-
-    _rf = resolve_filter(
-        page_filter_cfg(page), pool=pool, principal=fonte['pool_entity'],
-        model=model, fields=list_obj.fields, request_args=_fargs)
-    filter_config = _rf.panel
-    initial_filters, default_filters = _rf.initial, _rf.default_filters
-    active = _rf.active
+    # Campo de impressão com escolha ativo — resolvido antes do pivot/filtro
+    # (ver acima); aqui só resta o filtro do fluxo comum.
+    if _is_pivot:
+        filter_config = _rf.panel
+        initial_filters, default_filters = _rf.initial, _rf.default_filters
+        active = _rf.active
+    else:
+        _rf = resolve_filter(
+            page_filter_cfg(page), pool=pool, principal=fonte['pool_entity'],
+            model=model, fields=list_obj.fields, request_args=_fargs)
+        filter_config = _rf.panel
+        initial_filters, default_filters = _rf.initial, _rf.default_filters
+        active = _rf.active
     page_max_width = _list_page_width(
         lista, list_obj, tabs, _rf.max_width if filter_config else None)
 
@@ -554,7 +658,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             _extra_conds.append(_rf.filter_cond)
         data = _rq(model, _colspec, entity_cfg=merged,
                    extra_conditions=_extra_conds)
-    if data is None:
+    if data is None and not _is_pivot:
         ordering = lista.get('order', []) or lista.get('ordering', [])
         if isinstance(ordering, str):
             ordering = [ordering]
@@ -564,7 +668,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             data = _base_query().all()
 
     calc_field = next((f for f in line_fields if callable(getattr(f, 'calc', None))), None)
-    if calc_field and data and not _is_query:
+    if calc_field and data and not _is_query and not _is_pivot:
         data = sorted(data, key=calc_field.calc)
 
     ctx = build_field_context(list_obj.fields)
@@ -949,10 +1053,19 @@ def report_filter_from_args(entry, args):
 
     def typed(f, v):
         if f['type'] == 'date':
+            s = str(v).strip()
             try:
-                return _date.fromisoformat(str(v).strip())
+                return _date.fromisoformat(s)
             except (TypeError, ValueError):
-                return v
+                pass
+            # Aceita formato brasileiro dd/mm/aaaa
+            try:
+                parts = s.split('/')
+                if len(parts) == 3:
+                    return _date(int(parts[2]), int(parts[1]), int(parts[0]))
+            except (TypeError, ValueError):
+                pass
+            return v
         return v
 
     out = []

@@ -156,13 +156,77 @@ def report_action():
     # Injeta o título da entrada (chave do dicionário) no relatório
     report = dict(entry['report'])
     report['label'] = entry['title']
+
+    # Converte os args do filtro em spec literal (gramática compartilhada)
+    _filter = report_filter_from_args(entry, request.args) or None
+
+    # Popula titles[] com label + texto do filter (se informado), para o
+    # header do PDF imprimir via TITLE() em ordem.
+    # O texto do filter usa o formato legível da tela (ex.: "Vencimento até
+    # 20/09/2026"), não o spec cru da query.
+    _titles = [entry['title']]
+    _filtros = _report_filter_display_text(entry, request.args)
+    if _filtros:
+        _titles.append(" e ".join(_filtros))
+    report['titles'] = _titles
+
     try:
         html = print_report(report,
-                            filter=report_filter_from_args(entry, request.args) or None,
+                            filter=_filter,
                             _printing=True)
     except Exception:
         html = _print_erro()
     return jsonify(html=html)
+
+
+def _fmt_filter_val(f, v):
+    """Formata um valor de filtro para exibição legível."""
+    from datetime import date as _date, datetime as _datetime
+    if isinstance(v, (_date, _datetime)):
+        return v.strftime('%d/%m/%Y')
+    if isinstance(v, str):
+        try:
+            return _date.fromisoformat(v.strip()).strftime('%d/%m/%Y')
+        except (TypeError, ValueError):
+            return v
+    return str(v)
+
+
+def _report_filter_display_text(entry, args):
+    """Textos legíveis dos filtros preenchidos no form da aba Relatórios.
+
+    Exemplo: ['Vencimento até 20/09/2026', 'Conta = 5'].
+    Lê os args brutos da request (não o spec), para exibir labels e valores
+    como aparecem na tela.
+    """
+    out = []
+    for f in entry['fields']:
+        name = f['name']
+        if f.get('between'):
+            suf = ('_from', '_to') if f['type'] == 'date' else ('_val1', '_val2')
+            lo, hi = args.get(name + suf[0]), args.get(name + suf[1])
+            if lo and hi:
+                out.append(f"{f['label']} de {_fmt_filter_val(f, lo)} até {_fmt_filter_val(f, hi)}")
+            elif lo:
+                out.append(f"{f['label']} a partir de {_fmt_filter_val(f, lo)}")
+            elif hi:
+                out.append(f"{f['label']} até {_fmt_filter_val(f, hi)}")
+            continue
+        if f['type'] == 'checklist':
+            vals = [v for v in args.getlist(name) if v]
+            if vals:
+                out.append(f"{f['label']}: {', '.join(_fmt_filter_val(f, v) for v in vals)}")
+            continue
+        v = args.get(name)
+        if not v:
+            continue
+        if f['type'] in ('select', 'boolean'):
+            out.append(f"{f['label']} = {v}")
+        elif f['op'] == '=':
+            out.append(f"{f['label']} = {_fmt_filter_val(f, v)}")
+        else:
+            out.append(f"{f['label']} {f.get('mode_label', f['op'])} {_fmt_filter_val(f, v)}")
+    return out
 
 
 from ajsystem.init import init_app  # noqa: E402  (wiring do framework)

@@ -82,6 +82,9 @@ def is_query_dict(spec) -> bool:
 
 
 def is_pivot_dict(spec) -> bool:
+    """dict (ou PivotSpec) com cara de pivot: tem src+lines."""
+    if isinstance(spec, PivotSpec):
+        return True
     return isinstance(spec, dict) and 'src' in spec and 'lines' in spec
 
 
@@ -219,7 +222,11 @@ def _parse_entry(alias, cfg) -> SelectEntry:
 
 
 def parse_aggs(aggs) -> list:
-    """Dual curto/longo: {'id':'count'} | {'qtd':{'id':'count'}} -> [(alias,field,func)]."""
+    """Dual curto/longo: {'id':'count'} | {'qtd':{'id':'count'}} -> [(alias,field,func)].
+
+    Também aceita a forma explícita ``{'total': {'field': 'valor', 'agg': 'sum'}}``
+    (a mesma leitura do resto do QSpec, sem depender de um único par chave:fn).
+    """
     out = []
     for alias, spec in (aggs or {}).items():
         if isinstance(spec, str):
@@ -227,6 +234,13 @@ def parse_aggs(aggs) -> list:
                 raise ValueError(f"aggs '{alias}': função desconhecida '{spec}'")
             out.append((alias, alias, spec))
         elif isinstance(spec, dict):
+            if 'agg' in spec or 'field' in spec:
+                fld = spec.get('field', alias)
+                fn = spec.get('agg')
+                if fn not in AGG_FUNCS:
+                    raise ValueError(f"aggs '{alias}': função desconhecida '{fn}'")
+                out.append((alias, fld, fn))
+                continue
             if len(spec) != 1:
                 raise ValueError(f"aggs '{alias}': forma longa exige 1 par {{field: func}}")
             (fld, fn), = spec.items()
@@ -278,6 +292,79 @@ def parse_query(spec) -> QuerySpec:
                      levels=spec.get('levels'))
 
 
+AXIS_KEYS = ('field', 'name', 'label', 'width', 'align', 'format', 'values')
+
+
+@dataclass
+class AxisSpec:
+    """Eixo do pivot (linha ou coluna) — dado + apresentação, como o Field.
+
+    `name` é o atributo que a linha resultante assume (o alias); `field` é o
+    caminho no `src`. `values` só vale no eixo de coluna: fixa o conjunto/ordem
+    das colunas geradas (sem ele, os valores são descobertos nos dados).
+    """
+    name: str
+    field: str = ''
+    label: Optional[str] = None
+    width: Optional[float] = None
+    align: Optional[str] = None
+    format: Optional[str] = None
+    values: Optional[list] = None
+
+    def __post_init__(self):
+        if not self.name:
+            raise ValueError("pivot: eixo sem 'name'")
+        if not self.field:
+            self.field = self.name
+        if self.align is not None and self.align not in ('left', 'center', 'right'):
+            raise ValueError(f"pivot '{self.name}': align deve ser left|center|right")
+
+
+def parse_axis(item, where='pivot', allow_values=False) -> AxisSpec:
+    """Normaliza 1 eixo -> AxisSpec.
+
+    Aceita `'campo'`, `{'field': 'campo', ...}` e a forma do select
+    `{'alias': 'campo'}` / `{'alias': {props}}`.
+    """
+    if isinstance(item, AxisSpec):
+        return item
+    if isinstance(item, str):
+        return AxisSpec(name=item, field=item)
+    if not isinstance(item, dict):
+        raise TypeError(f"{where}: eixo deve ser str ou dict, veio {type(item).__name__}")
+    cfg = dict(item)
+    if 'field' in cfg:
+        fld = cfg.pop('field')
+        if not isinstance(fld, str) or not fld:
+            raise ValueError(f"{where}: 'field' deve ser str")
+        name = cfg.pop('name', None) or fld
+    elif len(cfg) == 1:
+        (name, spec), = cfg.items()
+        if isinstance(spec, str):
+            fld, cfg = spec, {}
+        elif isinstance(spec, dict):
+            cfg = dict(spec)
+            fld = cfg.pop('field', name)
+        else:
+            raise TypeError(f"{where} '{name}': cfg deve ser str ou dict")
+    else:
+        raise ValueError(f"{where}: eixo dict inválido {item}")
+    unknown = [k for k in cfg if k not in AXIS_KEYS]
+    if unknown:
+        raise ValueError(f"{where} '{name}': chaves desconhecidas {unknown} (aceitas {list(AXIS_KEYS)})")
+    values = cfg.pop('values', None)
+    if values is not None:
+        if not allow_values:
+            raise ValueError(f"{where} '{name}': 'values' só vale no eixo de coluna")
+        values = _norm_list(values)
+        if len(set(values)) != len(values):
+            raise ValueError(f"{where} '{name}': 'values' tem valor repetido")
+    # path pontilhado sem alias explícito vira atributo seguro
+    if name == fld and '.' in name:
+        name = name.replace('.', '_')
+    return AxisSpec(name=name, field=fld, values=values, **cfg)
+
+
 @dataclass
 class PivotSpec:
     src: Any = None
@@ -287,7 +374,23 @@ class PivotSpec:
     filters: Any = None
 
     def __post_init__(self):
-        self.rows = parse_pivot_aggs(self.aggs)
+        if not self.src:
+            raise ValueError("pivot: 'src' é obrigatório (QuerySpec ou entidade)")
+        self.line_axes = [parse_axis(x, 'pivot.lines') for x in _norm_list(self.lines)]
+        if not self.line_axes:
+            raise ValueError("pivot: 'lines' exige ao menos um eixo")
+        cols = self.columns
+        if isinstance(cols, (list, tuple)):
+            if len(cols) != 1:
+                raise ValueError("pivot: 'columns' aceita um eixo (multi-nível é fase 2)")
+            cols = cols[0]
+        if cols is None:
+            raise ValueError("pivot: 'columns' é obrigatório")
+        self.column_axis = parse_axis(cols, 'pivot.columns', allow_values=True)
+        self.measures = parse_pivot_aggs(self.aggs)
+        if not self.measures:
+            raise ValueError("pivot: 'aggs' exige ao menos uma medida")
+        self.rows = self.measures  # compat: nome anterior dos agregados
 
 
 def parse_pivot_aggs(aggs):

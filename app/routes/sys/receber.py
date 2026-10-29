@@ -73,13 +73,13 @@ Page = {
             ),
         },
         'report':{
-            'Previsão de Contas a Receber': {
-                'filter':{'conta_id':'=','vencimento':'<>'},
-                'report': RECEBER
-            },
             'Saldo de Contas a Receber': {
                 'filter':{'conta_id':'=','vencimento':'<'},
-                #'report': RECEBER
+                'report': RECEBER
+            },
+            'Previsão de Contas a Receber': {
+                'filter':{'conta_id':'=','vencimento':'<>'},
+                # 'report': RECEBER
             },
             'Extrato de Cliente': {
                 'filter':{'conta_id':'=','data':'<>'},
