@@ -68,69 +68,385 @@ Cada dataclass abaixo é o que o desenvolvedor declara no app. Props do motor (c
 
 ### 3.1 `Field` — `ajsystem/defs/data.py` `class Field`
 
-Declara um campo na `Entity`/`Schema`.
+Declara um campo na `Entity`/`Schema`. Cada prop abaixo pode ser declarada isoladamente ou combinada com outras.
 
-| Prop | Tipo | Valores possíveis | Exemplo |
-|------|------|-------------------|---------|
-| `type` | `str` | `TEXT`, `MEMO`, `INT`, `NUM`, `PERCENT`, `PK`, `ID`, `DK`, `FK`, `DATA`, `DATA_HORA`, `HORA`, `BOOL`, `FONE`, `CPF`, `CNPJ`, `LIST`, `MULT10`, `IMAGE` | `{'type': 'NUM', 'mask': MVALOR}` |
-| `label` | `str` | texto ou `None` (usa `_auto_label(name)`) | `{'label': 'Valor (R$)'}` |
-| `width` | `int` | colunas `ch` (ex: `6` ID, `12` NUM) | `{'width': 12}` |
-| `align` | `str` | `left`, `center`, `right` (`NUM` → `right` automático) | `{'align': 'right'}` |
-| `input` | `str` | nome de um `Input` do catálogo (`text`, `number`, `date`, `select`, `textarea`, `email`, `tel`, `checkbox`, `toggle`, `multi`, `image`) | `{'input': 'toggle'}` |
-| `input_props` | `dict` | override parcial do input neste campo | `{'input_props': {'cls': 'x'}}` |
-| `options` | `dict` | `{k: label}` para `LIST`/`MULT10` | `{'options': {0: 'Pagar', 1: 'Receber'}}` |
-| `mask` | `str` | `@R 999.999.999-99`, `dd/mm/aaaa`, `@M(BRL) 999,999.99`, `@T` | `{'mask': MVALOR}` |
-| `placeholder` | `str` | texto | `{'placeholder': 'Digite aqui'}` |
-| `decimals` | `int` | `0` int, `2` moeda | `{'decimals': 2}` |
-| `min`/`max`/`step` | `num` | limites numéricos | `{'min': 0, 'step': 1}` |
-| `percent` | `bool` | `True` → sufixo `%` | `{'percent': True}` |
-| `required` | `bool` | `True` → `*` no label e `required` no input | `{'required': True}` |
-| `disabled` | `bool\|callable` | `True` ou `callable(row)->bool` | `{'disabled': True}` |
-| `readonly` | `bool` | renderiza rótulo + hidden; valor ainda vai no POST | `{'readonly': True}` |
-| `hidden` | `bool` | `<input type=hidden>`, enviado mas não exibido | `{'hidden': True}` |
-| `default` | `any\|callable` | `TODAY` (`date.today`), `lambda: 1` | `{'default': TODAY}` |
-| `rows` | `int` | altura textarea | `{'rows': 4}` |
-| `lookup` | `bool\|dict\|Lookup` | `True` (defaults) ou `{display, fields, value, when, query}` | `{'lookup': {'model': 'Conta', 'display': 'nome'}}` |
-| `validate` | `str` | `cpf`, `cnpj`, `placa` | `{'validate': 'cpf'}` |
-| `help` | `str\|list` | texto de ajuda (botão `?`) | `{'help': 'Informe o CPF'}` |
-| `on_set` | `dict` | `{replaces: {campo: fonte}, disables: [...]}` | `{'on_set': {'disables': ['cnpj']}}` |
-| `calc` | `str\|callable\|dict` | `'qtd*preco'`, `lambda row:`, `{'type':'agg','source':'sum(...)'}`, `{'type':'call','source':'calc_status'}` | `{'calc': 'previsto - (realizado or 0)'}` |
-| `carry` | `str` | nome do campo origem no map do botão | `{'carry': 'conta_id'}` |
-| `memory` | `bool` | `True` → só de tela, não persiste | `{'memory': True}` |
-| `tag` | `dict\|Tag` | `{colors, color, link, size, preset, text_field, outline, cls}` | `{'tag': {'link': 'pedidos.form', 'color': 'info'}}` |
+#### `type` — tipo do campo (obrigatório)
 
-> **Moeda não é prop de `Field`.** Não existe `currency`. A moeda sai da `mask` — comando `@M(id)` (ex: `@M(BRL)`).
+Define o input do catálogo e a máscara padrão. Valores:
+
+| Valor | Input padrão | Máscara padrão | Uso |
+|-------|-------------|----------------|-----|
+| `TEXT` | `text` | — | texto livre |
+| `MEMO` | `textarea` | — | texto multilinha (`rows`) |
+| `INT` | `number` | numérico inteiro | inteiro sem casas |
+| `NUM` | `number` | numérico com `decimals` | número decimal |
+| `PERCENT` | `number` | sufixo `%` | percentual |
+| `PK`/`ID` | oculto | — | chave primária (não exibe) |
+| `DK` | oculto | — | chave derivada (não exibe) |
+| `FK` | `select` ou modal | — | chave estrangeira (`lookup` obrigatório) |
+| `DATA` | `date` | `dd/mm/aaaa` | data |
+| `DATA_HORA` | `datetime` | `dd/mm/aaaa HH:MM` | data e hora |
+| `HORA` | `time` | `HH:MM` | hora |
+| `BOOL` | `checkbox`/`toggle` | — | booleano |
+| `FONE` | `tel` | `@R 999.999.999-99` | telefone |
+| `CPF` | `text` | `@R 999.999.999-99` | CPF |
+| `CNPJ` | `text` | `@R 99.999.999/0001-99` | CNPJ |
+| `LIST` | `select` | — | lista de `options` |
+| `MULT10` | `multi` | — | múltipla seleção |
+| `IMAGE` | `image` | — | upload de imagem |
+
+**Declarações possíveis:**
+```python
+{'type': 'TEXT', 'required': True, 'width': 20}
+{'type': 'NUM', 'mask': MVALOR, 'decimals': 2}
+{'type': 'FK', 'lookup': {'model': 'Conta', 'display': 'nome'}}
+{'type': 'DATA', 'default': TODAY}
+{'type': 'BOOL', 'input': 'toggle'}
+```
+
+#### `label` — rótulo do campo
+
+Texto exibido no cabeçalho da coluna/lista e do form. Se ausente, usa `_auto_label(name)` (converte `snake_case` em Título).
+
+```python
+{'label': 'Valor (R$)'}
+{'label': 'Data de Vencimento'}
+```
+
+#### `width` — largura em colunas `ch`
+
+Define a largura do campo na tela. Valores típicos: `6` (ID), `12` (NUM/DATA), `20` (TEXT), `30` (nome).
+
+```python
+{'width': 12}
+{'width': 20}
+```
+
+#### `align` — alinhamento
+
+| Valor | Efeito |
+|-------|--------|
+| `left` | alinha à esquerda (default) |
+| `center` | centraliza |
+| `right` | alinha à direita (automático para `NUM`) |
+
+```python
+{'align': 'right'}
+```
+
+#### `input` — tipo de input do catálogo
+
+Sobrescreve o input padrão do `type`. Valores: `text`, `number`, `date`, `select`, `textarea`, `email`, `tel`, `password`, `checkbox`, `toggle`, `multi`, `image`.
+
+```python
+{'type': 'BOOL', 'input': 'toggle'}
+{'type': 'TEXT', 'input': 'email'}
+```
+
+#### `input_props` — override parcial do input
+
+Merge raso sobre as props do `Input` resolvido para este campo apenas. Última camada do merge (vence app e rota).
+
+```python
+{'input_props': {'cls': 'meu-campo', 'size': 9}}
+```
+
+#### `options` — catálogo de `LIST`/`MULT10`
+
+Dicionário `{valor: rótulo}`.
+
+```python
+{'type': 'LIST', 'options': {0: 'Pagar', 1: 'Receber', 2: 'Cancelado'}}
+{'type': 'MULT10', 'options': {'A': 'Item A', 'B': 'Item B'}}
+```
+
+#### `mask` — máscara de exibição
+
+**Não existe prop `currency`.** A moeda sai da `mask` via comando `@M(id)`. A máscara é uma string que pode combinar:
+
+- **Comandos de texto:** `@U` (maiúsculo), `@L` (minúsculo), `@C` (capitalizado), `@T` (título case), `@R` (apenas dígitos).
+- **Comando de moeda:** `@M(id)` onde `id` é o identificador da máscara de moeda (ex: `@M(BRL)`).
+- **Padrão numérico:** `0` = dígito obrigatório, `9` = dígito opcional, `,` = milhar, `.` = decimal.
+
+**Declarações possíveis de `mask`:**
+
+| Máscara | Significado | Pode combinar com |
+|---------|-------------|-------------------|
+| `@M(BRL) 999,999.99` | moeda BRL com milhar e 2 decimais | `@U`, `@L`, `@C` (texto antes/ depois) |
+| `@M(BRL) 9,99` | moeda BRL simplificada | `@U`, `@L` |
+| `@M(USD) 999,999.99` | moeda USD | `@U`, `@L` |
+| `dd/mm/aaaa` | data brasileira | — (não combina com `@M`) |
+| `dd/mm/aaaa HH:MM` | data e hora | — (não combina com `@M`) |
+| `HH:MM` | hora | — (não combina com `@M`) |
+| `@R 999.999.999-99` | CPF/CNPJ apenas dígitos | `@U`, `@L` (não tem efeito prático) |
+| `@T` | título case | — (comando de texto isolado) |
+| `999,99` | numérico com 2 decimais, sem símbolo | `@U`, `@L`, `@C` |
+| `@U 999,99` | maiúsculo + numérico | — |
+| `@L nome` | minúsculo | — |
+
+**Exemplos de declaração completa:**
+```python
+{'type': 'NUM', 'mask': MVALOR, 'decimals': 2}          # MVALOR = '@M(BRL) 999,999.99'
+{'type': 'DATA', 'mask': 'dd/mm/aaaa'}
+{'type': 'CPF', 'mask': '@R 999.999.999-99'}
+{'type': 'TEXT', 'mask': '@U'}
+{'type': 'NUM', 'mask': '999,99', 'decimals': 2}
+{'type': 'NUM', 'mask': '@M(BRL) 999,999.99', 'decimals': 2}
+```
+
+> A máscara vence a inferência por `type`. Precedência: `explícita (mask) > catálogo do input > numérico de decimals`. `@M(id)` e comandos de texto (`@U`, `@L`, `@C`, `@T`, `@R`) podem ser combinados na mesma string; `@M` e padrão numérico (ex: `999,99`) não se misturam na mesma máscara.
+
+#### `placeholder` — texto de ajuda no input
+
+```python
+{'placeholder': 'Digite o CPF'}
+{'placeholder': '00/00/0000'}
+```
+
+#### `decimals` — casas decimais
+
+| Valor | Efeito |
+|-------|--------|
+| `0` | número inteiro |
+| `2` | moeda/decimal com 2 casas (default para `NUM`) |
+
+```python
+{'decimals': 2}
+{'decimals': 0}
+```
+
+#### `min` / `max` / `step` — limites numéricos
+
+Valores numéricos. Aplicados ao input `number`.
+
+```python
+{'min': 0, 'max': 100, 'step': 1}
+{'min': 0.01, 'step': 0.01}
+```
+
+#### `percent` — sufixo `%`
+
+| Valor | Efeito |
+|-------|--------|
+| `True` | exibe sufixo `%` |
+
+```python
+{'percent': True}
+```
+
+#### `required` — campo obrigatório
+
+| Valor | Efeito |
+|-------|--------|
+| `True` | exibe `*` no label, atributo `required` no input, bloqueia `POST` vazio |
+
+```python
+{'required': True}
+```
+
+#### `disabled` — desabilita input
+
+Aceita `True` ou `callable(row) -> bool`.
+
+```python
+{'disabled': True}
+{'disabled': lambda row: row.status == 8}
+```
+
+#### `readonly` — somente leitura
+
+Renderiza rótulo + `<input type=hidden>`. O valor **ainda vai no POST** e é gravado.
+
+```python
+{'readonly': True}
+```
+
+#### `hidden` — campo oculto
+
+Renderiza `<input type=hidden>`. Enviado no POST, não exibido na tela. Não entra na expansão automática de listagem/filtro.
+
+```python
+{'hidden': True}
+```
+
+#### `default` — valor inicial
+
+Aceita literal ou callable. Aplicado quando o valor é `None` no `POST`.
+
+```python
+{'default': TODAY}          # date.today()
+{'default': lambda: 1}
+{'default': 'R'}
+```
+
+#### `rows` — altura do textarea (`MEMO`)
+
+```python
+{'rows': 4}
+{'rows': 6}
+```
+
+#### `lookup` — configuração de FK
+
+Para campos `FK`. Define o model alvo, campo de exibição e filtro. **Não existe `Lookup.model`** — o model alvo é inferido do FK.
+
+| Sub-prop | Tipo | Exemplo |
+|----------|------|---------|
+| `display` | `str` | campo exibido (`'nome'`) |
+| `fields` | `str\|list` | campos retornados (`['nome']`) |
+| `value` | `str` | campo gravado (`'id'`) |
+| `when` | `str\|dict\|callable` | filtro das opções (`{'ativo': True}`) |
+| `query` | `str` | nome de busca declarada na rota (`'PREVISOES'`) |
+
+```python
+{'lookup': {'model': 'Conta', 'display': 'nome', 'fields': ['nome']}}
+{'lookup': {'display': 'nome', 'when': {'ativo': True}}}
+{'lookup': True}  # defaults, alvo inferido do FK
+{'lookup': {'query': 'PREVISOES'}}
+```
+
+#### `validate` — validação client/servidor
+
+| Valor | Efeito |
+|-------|--------|
+| `cpf` | valida CPF |
+| `cnpj` | valida CNPJ |
+| `placa` | valida placa de veículo |
+
+```python
+{'validate': 'cpf'}
+{'validate': 'cnpj'}
+```
+
+#### `help` — texto de ajuda
+
+Exibe botão `?` com o texto.
+
+```python
+{'help': 'Informe o CPF do cliente'}
+{'help': ['Linha 1', 'Linha 2']}
+```
+
+#### `on_set` — reações em runtime
+
+Executa quando o campo muda no cliente.
+
+| Sub-prop | Tipo | Exemplo |
+|----------|------|---------|
+| `replaces` | `{campo: fonte}` | copia valor de outro campo |
+| `disables` | `list` | desabilita campos (`['cnpj', 'cnpj']`) |
+
+```python
+{'on_set': {'disables': ['cnpj', 'insc_estadual']}}
+{'on_set': {'replaces': {'documento': 'numero'}}}
+```
+
+#### `calc` — campo calculado
+
+Aceita três formas:
+
+| Forma | Exemplo | Efeito |
+|-------|---------|--------|
+| `str` | `'qtd * preco'` | expressão avaliada no cliente |
+| `callable` | `lambda row: row.valor * 2` | função Python (virtual, não persiste) |
+| `dict` | `{'type': 'agg', 'source': 'sum(Item.valor)'}` | agregado SQL (persiste como coluna real) |
+| `dict` | `{'type': 'call', 'source': 'calc_status'}` | callable do model |
+
+```python
+{'calc': 'previsto - (realizado or 0)'}
+{'calc': lambda row: row.qtd * row.preco}
+{'calc': {'type': 'agg', 'source': 'sum(Previsao.previsto)'}}
+{'calc': {'type': 'call', 'source': 'calc_status'}}
+```
+
+> Um `calc` de tipo `property` do model **não pode ser persistido**. Use `calc` virtual (`str` ou `callable`) ou `memory: True`.
+
+#### `carry` — origem do valor no botão
+
+Nome do campo de origem no map do botão.
+
+```python
+{'carry': 'conta_id'}
+{'carry': 'valor'}
+```
+
+#### `memory` — campo só de tela
+
+| Valor | Efeito |
+|-------|--------|
+| `True` | renderiza/editável, não persiste, não entra na expansão automática |
+
+```python
+{'memory': True}
+```
+
+> O campo `memory` só aparece onde citado explicitamente — `session.fields` ou bloco `MEMORY` do Schema.
+
+#### `tag` — etiqueta visual
+
+Usa a dataclass `Tag` (seção 3.2).
+
+| Sub-prop | Tipo | Exemplo |
+|----------|------|---------|
+| `colors` | `{valor: cor}` | `{True: 'success', False: 'warning'}` |
+| `color` | `str` | `'info'` |
+| `link` | `str\|callable` | `'pedidos.form'` |
+| `size` | `str` | `'sm'` |
+| `outline` | `bool` | `True` |
+| `preset` | `str` | `'boolean'`, `'ativo'`, `'status'` |
+| `text_field` | `str` | `'status_label'` |
+| `cls` | `str` | `'badge-pill'` |
+
+```python
+{'tag': {'colors': {True: 'success'}, 'link': 'receber.form'}}
+{'tag': {'preset': 'ativo', 'color': 'primary'}}
+```
 
 ---
 
 ### 3.2 `Tag` — `ajsystem/defs/tags.py` `class Tag`
 
-Usado na prop `tag` de `Field`.
+Usado na prop `tag` de `Field`. Renderiza um badge/pill ao lado do valor.
 
-| Prop | Tipo | Valores | Exemplo |
-|------|------|---------|---------|
-| `colors` | `dict` | `{valor: cor}` cor `ghost/primary/success/warning/error/info` ou `0-9` | `{'colors': {True: 'success'}}` |
+| Sub-prop | Tipo | Valores possíveis | Exemplo |
+|----------|------|-------------------|---------|
+| `colors` | `dict` | `{valor: cor}` onde cor ∈ `ghost`, `primary`, `success`, `warning`, `error`, `info` ou `0-9` | `{'colors': {True: 'success', False: 'warning'}}` |
 | `color` | `str` | cor fixa | `{'color': 'info'}` |
 | `link` | `str\|callable` | `'pedidos.form'` ou `lambda row: 'pagar.form'` | `{'link': 'receber.form'}` |
 | `size` | `str` | `sm` (default) | `{'size': 'sm'}` |
-| `outline` | `bool` | `True` → outline | `{'outline': True}` |
+| `outline` | `bool` | `True` → estilo outline | `{'outline': True}` |
 | `preset` | `str` | `boolean`, `ativo`, `status` | `{'preset': 'ativo'}` |
-| `text_field` | `str` | campo de onde vem o rótulo | `{'text_field': 'status_label'}` |
-| `cls` | `str` | classe CSS extra | `{'cls': 'badge-pill'}` |
+| `text_field` | `str` | campo de onde vem o rótulo exibido | `{'text_field': 'status_label'}` |
+| `cls` | `str` | classe CSS extra concatenada | `{'cls': 'badge-pill'}` |
+
+**Declarações possíveis:**
+```python
+{'tag': {'colors': {True: 'success', False: 'warning'}, 'link': 'receber.form'}}
+{'tag': {'preset': 'ativo', 'color': 'primary'}}
+{'tag': {'size': 'sm', 'outline': True, 'cls': 'badge-pill'}}
+```
 
 ---
 
 ### 3.3 `Lookup` — `ajsystem/defs/data.py` `class Lookup`
 
-Usado na prop `lookup` de `Field` (FK). **Não existe `Lookup.model`** — o model alvo é inferido do FK.
+Usado na prop `lookup` de `Field` (FK). **Não existe `Lookup.model`** — o model alvo é inferido do FK automaticamente.
 
-| Prop | Tipo | Default | Exemplo |
-|------|------|---------|---------|
-| `fields` | `str\|list` | `[display]` | `{'fields': ['nome']}` |
-| `display` | `str` | 1º campo após `id` do alvo | `{'display': 'nome'}` |
-| `value` | `str` | `'id'` | `{'value': 'id'}` |
-| `when` | `str\|dict\|callable` | `None` | `{'when': {'ativo': True}}` |
-| `query` | `str` | `None` | `{'query': 'PREVISOES'}` |
+| Sub-prop | Tipo | Default | Declarações possíveis | Exemplo |
+|----------|------|---------|----------------------|---------|
+| `display` | `str` | 1º campo após `id` do alvo | nome do campo exibido | `{'display': 'nome'}` |
+| `fields` | `str\|list` | `[display]` | `'nome'` ou `['nome', 'documento']` | `{'fields': ['nome']}` |
+| `value` | `str` | `'id'` | campo gravado no banco | `{'value': 'id'}` |
+| `when` | `str\|dict\|callable` | `None` | filtro das opções | `{'when': {'ativo': True}}` |
+| `query` | `str` | `None` | nome de busca declarada na rota | `{'query': 'PREVISOES'}` |
+
+**Declarações possíveis:**
+```python
+{'lookup': {'model': 'Conta', 'display': 'nome', 'fields': ['nome']}}
+{'lookup': {'display': 'nome', 'when': {'ativo': True}}}
+{'lookup': True}  # defaults, alvo inferido do FK
+{'lookup': {'query': 'PREVISOES'}}
+```
 
 ---
 
@@ -138,62 +454,62 @@ Usado na prop `lookup` de `Field` (FK). **Não existe `Lookup.model`** — o mod
 
 Declara a página na rota.
 
-| Prop | Tipo | Default | Exemplo |
-|------|------|---------|---------|
-| `label` | `str` | `None` | `{'label': 'Contas a Receber'}` |
-| `type` | `str` | `'crud'` | `{'type': 'crud'}` |
-| `props` | `dict` | `{}` | `{'props': {'list': {...}, 'form': {...}}}` |
-| `on_show` | `callable` | `None` | `{'on_show': minha_funcao}` |
-| `upload` | `dict` | `None` | `{'upload': {'max_size': 5}}` |
+| Prop | Tipo | Default | Declarações possíveis | Exemplo |
+|------|------|---------|----------------------|---------|
+| `label` | `str` | `None` | título da página | `{'label': 'Contas a Receber'}` |
+| `type` | `str` | `'crud'` | `crud`, `redirect`, `cart`, `showcase`, `contacts`, `custom` | `{'type': 'crud'}` |
+| `props` | `dict` | `{}` | `{list, form, filter, report, sessions, scripts}` | `{'props': {'list': {...}}}` |
+| `on_show` | `callable` | `None` | hook executado ao renderizar | `{'on_show': minha_funcao}` |
+| `upload` | `dict` | `None` | política de upload | `{'upload': {'max_size': 5}}` |
 
 #### `props.form` — Formulário
 
-| Prop | Tipo | Exemplo |
-|------|------|---------|
-| `fields` | `str\|list\|dict` | `'Transacao'`, `['valor','prazo']`, `{'Transacao': ['valor']}` |
-| `positions` | `dict` | `{'bar': ['status'], 'footer': ['cancelado'], 'hidden': ['tipo']}` |
-| `visible` | `dict` | `{'pedido_id': NOT_EMPTY}` |
-| `sessions` | `dict` | `{'Previsões': {'fields': [...], 'table': {...}}}` |
-| `template` | `str` | `None` |
-| `flash_ok`/`flash_update` | `str` | `{'flash_ok': 'Salvo!'}` |
-| `readonly` | `bool\|callable` | `{'readonly': lambda q: q.pedido_id is not None}` |
-| `delete` | `bool\|dict\|callable` | `{'delete': {'when': [PedidoItem]}}` |
-| `pre_save`/`post_save` | `callable` | `{'pre_save': minha_funcao}` |
-| `buttons` | `str\|Button\|list` | `{'buttons': [BTN_SAVE]}` |
-| `spacing` | `num` | `{'spacing': 2}` |
-| `max_width` | `num` | `{'max_width': 110}` |
+| Sub-prop | Tipo | Declarações possíveis | Exemplo |
+|----------|------|----------------------|---------|
+| `fields` | `str\|list\|dict` | `'Entidade'`, `['c1','c2']`, `{'Ent': ['c1']}` | `'Transacao'`, `['valor','prazo']` |
+| `positions` | `dict` | `{bar, footer, body, hidden}` | `{'bar': ['status'], 'hidden': ['tipo']}` |
+| `visible` | `dict` | `{campo: cond}` | `{'pedido_id': NOT_EMPTY}` |
+| `sessions` | `dict` | `{Nome:{fields,table,...}}` | `{'Previsões': {'fields': [...]}}` |
+| `template` | `str` | `None` | caminho alternativo | `{'template': 'custom.html'}` |
+| `flash_ok`/`flash_update` | `str` | mensagem de sucesso | `{'flash_ok': 'Salvo!'}` |
+| `readonly` | `bool\|callable` | `False` ou callable | `{'readonly': lambda q: q.pedido_id}` |
+| `delete` | `bool\|dict\|callable` | `False`, `{'when': [...]}` | `{'delete': {'when': [PedidoItem]}}` |
+| `pre_save`/`post_save` | `callable` | `None` | `{'pre_save': fn}` | |
+| `buttons` | `str\|Button\|list` | tipos ou instâncias | `{'buttons': [BTN_SAVE]}` |
+| `spacing` | `num` | gap entre campos | `{'spacing': 2}` |
+| `max_width` | `num` | largura máxima | `{'max_width': 110}` |
 
 **Slots do form** (onde cada campo aparece): `bar` (ícones/tags fora do corpo), `footer` (fora do `<form>`, toggles), `body` (corpo, default), `hidden` (não exibe, não grava). Precedência: `hidden > bar > footer > body`.
 
 #### `props.list` — Listagem
 
-| Prop | Tipo | Exemplo |
-|------|------|---------|
-| `columns` | `str\|list\|dict` | `'Transacao'`, `['id','nome']`, `{'Transacao': ['*']}` |
-| `line`/`card`/`hidden` | `list` | `line: ['id']`, `card: 'Transacao'`, `hidden: ['cancelado']` |
-| `order` | `list` | `order: ['vencimento', 'id']` |
-| `master` | `str` | `master: 'Previsao'` (inversão pai/linha) |
+| Sub-prop | Tipo | Declarações possíveis | Exemplo |
+|----------|------|----------------------|---------|
+| `columns` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['*']}` | `'Transacao'`, `['id','nome']` |
+| `line`/`card`/`hidden` | `list` | campos por slot | `line: ['id']`, `card: 'Transacao'` |
+| `order` | `list` | ordem de classificação | `order: ['vencimento', 'id']` |
+| `master` | `str` | entidade pai (inversão) | `master: 'Previsao'` |
 
 **Slots da lista**: `line` (sempre na grade, vence `card`), `card` (linha expansória), `hidden` (fora da grade e card). Precedência: `hidden > line > card`.
 
 #### `props.filter` — Painel de filtros
 
-| Prop | Tipo | Exemplo |
-|------|------|---------|
-| `hidden` | fieldspec | `{'hidden': ['tipo']}` |
-| `fixed` | `{campo: operador}` ou `OR`/`AND` | `{'fixed': {'tipo': 'R'}}` |
-| `default` | `{campo: valor}` ou `OR`/`AND` | `{'default': {'vencimento': {'preset': 'mes_ano'}}}` |
-| `types` | `{tipo: campo\|lista}` | `{'types': {'checklist': 'status'}}` |
-| `max_width` | `int`\|string CSS | `{'max_width': 88}` |
+| Sub-prop | Tipo | Declarações possíveis | Exemplo |
+|----------|------|----------------------|---------|
+| `hidden` | fieldspec | campos ocultos do painel | `{'hidden': ['tipo']}` |
+| `fixed` | `{campo: op}` ou `OR`/`AND` | `WHERE` fixo | `{'fixed': {'tipo': 'R'}}` |
+| `default` | `{campo: val}` ou `OR`/`AND` | filtro inicial editável | `{'default': {'vencimento': {'preset': 'mes_ano'}}}` |
+| `types` | `{tipo: campo\|lista}` | override do tipo de widget | `{'types': {'checklist': 'status'}}` |
+| `max_width` | `int\|string CSS` | cap de largura | `{'max_width': 88}` |
 
 Operadores: `=`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `<>`. Em `date`, `>`/`<` compilam inclusivos (`>=`/`<=`); `<>` abre De/Até.
 
 #### `props.report` — ABA Relatórios (PDF por entrada)
 
-| Prop | Tipo | Exemplo |
-|------|------|---------|
-| `report` | dict | `'Saldo de Contas a Receber': {'report': RECEBER}` |
-| `filter` | `{campo: operador}` | `{'filter': {'conta_id': '=', 'vencimento': '<'}}` |
+| Sub-prop | Tipo | Declarações possíveis | Exemplo |
+|----------|------|----------------------|---------|
+| `report` | dict | spec do relatório | `{'report': RECEBER}` |
+| `filter` | `{campo: operador}` | campos/operadores do formulário | `{'filter': {'conta_id': '=', 'vencimento': '<'}}` |
 
 ---
 
@@ -201,19 +517,19 @@ Operadores: `=`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `<>`. Em `date`, `>`/`<` co
 
 Declara um relatório PDF.
 
-| Prop | Tipo | Default | Exemplo |
-|------|------|---------|---------|
-| `label` | `str` | — | `{'label': 'Contas a Receber'}` |
-| `page_size` | `str` | `'A4'` | `{'page_size': 'A4'}` |
-| `orientation` | `str` | `'portrait'` | `{'orientation': 'portrait'}` |
-| `lpi` | `int` | `6` | `{'lpi': 6}` |
-| `header` | `dict\|list` | `None` | `{'header': [LOGO(), TITLE()]}` |
-| `body` | `dict\|ReportBody` | `None` | ver 3.6 |
-| `footer` | `bool\|dict` | `None` | `{'footer': True}` |
-| `texts` | `dict\|list` | `None` | `{'texts': {...}}` |
-| `margin_*` | `num` | `10`/`20`/`10`/`10` | `{'margin_top': 10}` |
-| `auto_page_break` | `bool` | `True` | `{'auto_page_break': True}` |
-| `show_table_lines` | `bool` | `False` | `{'show_table_lines': True}` |
+| Prop | Tipo | Default | Declarações possíveis | Exemplo |
+|------|------|---------|----------------------|---------|
+| `label` | `str` | — | título | `{'label': 'Contas a Receber'}` |
+| `page_size` | `str` | `'A4'` | `'A4'`, `'Letter'` | `{'page_size': 'A4'}` |
+| `orientation` | `str` | `'portrait'` | `'portrait'`, `'landscape'` | `{'orientation': 'portrait'}` |
+| `lpi` | `int` | `6` | `6` (4,23mm/linha) ou `8` (3,17mm) | `{'lpi': 6}` |
+| `header` | `dict\|list` | `None` | `[LOGO(), TITLE()]` | `{'header': [...]}` |
+| `body` | `dict\|ReportBody` | `None` | ver 3.6 | `{'body': {...}}` |
+| `footer` | `bool\|dict` | `None` | `True` ou `{show_user, ...}` | `{'footer': True}` |
+| `texts` | `dict\|list` | `None` | blocos de texto | `{'texts': {...}}` |
+| `margin_top/bottom/left/right` | `num` | `10`/`20`/`10`/`10` | mm | `{'margin_top': 10}` |
+| `auto_page_break` | `bool` | `True` | quebra automática | `{'auto_page_break': True}` |
+| `show_table_lines` | `bool` | `False` | grade da tabela | `{'show_table_lines': True}` |
 
 ---
 
@@ -221,15 +537,15 @@ Declara um relatório PDF.
 
 Declara o corpo do relatório (`Report.body`).
 
-| Prop | Tipo | Exemplo |
-|------|------|---------|
-| `source` | `str\|dict` | `'Tarefa'` ou `{'select': [...], 'from': 'Tarefa'}` |
-| `form`\|`table` | `dict` | `{'table': {...}}` (mutuamente exclusivos) |
-| `before`\|`after` | `object` | `{'before': [...]}` |
-| `filter` | `dict\|list\|OR\|AND\|callable` | `{'filter': {'tipo': 'R'}}` |
-| `order` | `str\|list\|None` | `['vencimento','id']` ou `[1, 3]` (índices 1-based sobre `table.columns`) |
-| `levels` | `dict` | `{'pk': 'id', 'parent': 'pai_id'}` |
-| `items` | `list` | `['titulo', ('data', {'lf': 1})]` |
+| Prop | Tipo | Declarações possíveis | Exemplo |
+|------|------|----------------------|---------|
+| `source` | `str\|dict` | `'Ent'` ou `{'select': [...], 'from': 'Ent'}` | `'Tarefa'`, `{'select': [...], 'from': 'Tarefa'}` |
+| `form`\|`table` | `dict` | um só dos dois | `{'table': {...}}` (mutuamente exclusivos) |
+| `before`\|`after` | `object` | blocos antes/depois | `{'before': [...]}` |
+| `filter` | `dict\|list\|OR\|AND\|callable` | filtro padrão | `{'filter': {'tipo': 'R'}}` |
+| `order` | `str\|list\|None` | nomes ou índices 1-based | `['vencimento','id']` ou `[1, 3]` |
+| `levels` | `dict` | numeração hierárquica | `{'pk': 'id', 'parent': 'pai_id'}` |
+| `items` | `list` | itens inline antes da tabela | `['titulo', ('data', {'lf': 1})]` |
 
 ---
 
@@ -237,10 +553,10 @@ Declara o corpo do relatório (`Report.body`).
 
 Declara uma coluna de `body.table.columns`.
 
-| Prop | Tipo | Default | Valores possíveis | Exemplo |
-|------|------|---------|-------------------|---------|
+| Prop | Tipo | Default | Declarações possíveis | Exemplo |
+|------|------|---------|----------------------|---------|
 | `field` | `str` | — | nome da coluna | `{'field': 'valor'}` |
-| `label` | `str` | `None` | texto | `{'label': 'Valor'}` |
+| `label` | `str` | `None` | texto do cabeçalho | `{'label': 'Valor'}` |
 | `width` | `float` | `None` | colunas `ch` | `{'width': 12}` |
 | `align` | `str` | `'left'` | `left`, `center`, `right` | `{'align': 'right'}` |
 | `format` | `str` | `None` | formato data/número | `{'format': 'dd/mm/aaaa'}` |
@@ -255,11 +571,14 @@ Declara uma coluna de `body.table.columns`.
 | `totals` | `object` | `None` | `None`, `True`, `dict` | `{'totals': {'align': 'R', 'span': 4}}` |
 
 **`pos` classifica onde o campo aparece no relatório:**
-- `POS_ROW` (1, default): coluna da tabela — entra no cabeçalho, define largura/fonte.
-- `POS_INLINE` (2): não-coluna, imprime no início da linha sem separação de colunas.
-- `POS_TITLE` (3): não-coluna, título do grupo alinhado à esquerda antes do corpo.
-- `POS_TITLE_CENTER` (4): não-coluna, título do grupo centralizado.
-- `POS_NONE` (0): campo de controle, não sai no relatório.
+
+- `POS_ROW` (1, default): **coluna da tabela** — entra no cabeçalho, define largura/fonte. É o único que consome coluna da grade.
+- `POS_INLINE` (2): **não-coluna**, imprime no início da linha da tabela sem separação de colunas.
+- `POS_TITLE` (3): **não-coluna**, título do grupo alinhado à esquerda, antes do corpo da tabela.
+- `POS_TITLE_CENTER` (4): **não-coluna**, título do grupo centralizado, antes do corpo da tabela.
+- `POS_NONE` (0): **campo de controle**, não sai no relatório (não entra na grade, não imprime).
+
+O motor classifica as colunas antes de imprimir: apenas `POS_ROW` entra na grade da tabela. `POS_INLINE`/`POS_TITLE*` são impressos fora da grade (linha/título do grupo). `POS_NONE` não imprime.
 
 Exemplo de report agrupado por cliente:
 
@@ -288,14 +607,14 @@ RECEBER = {
 
 Configuração de agrupamento (control-break) — usada dentro de `table.columns` via `group: '*'` + `on_start`/`on_finish`.
 
-| Prop | Tipo | Exemplo |
-|------|------|---------|
-| `field` | `str` | campo chave do grupo |
-| `text` | `str\|None` | título/template `'{cliente}'` |
-| `on_start` | `dict` | `{'text': ..., 'lf': -1, 'pos': POS_TITLE}` |
-| `on_finish` | `dict` | `{'text': ..., 'totals': True}` |
-| `pos` | `int` | onde o título é impresso ao abrir |
-| `totais` | `None\|True\|dict` | controle de subtotal ao fechar |
+| Prop | Tipo | Declarações possíveis | Exemplo |
+|------|------|----------------------|---------|
+| `field` | `str` | campo chave do grupo | `'cliente'` |
+| `text` | `str\|None` | título/template `'{cliente}'` | `'{conta}. {cliente}'` |
+| `on_start` | `dict` | `{text, lf, align, style, cpi, pos}` | `{'text': ..., 'lf': -1, 'pos': POS_TITLE}` |
+| `on_finish` | `dict` | `{text, footer_text, lf, align, style, cpi, totals}` | `{'text': ..., 'totals': True}` |
+| `pos` | `int` | onde o título é impresso ao abrir | `POS_TITLE`, `POS_TITLE_CENTER` |
+| `totais` | `None\|True\|dict` | controle de subtotal ao fechar | `True`, `{'label': 'Subtotal'}` |
 
 > Formatos legados (`on`, `action`, `pos` numérico, `place`, `total`) não são suportados. Use apenas `on_start`/`on_finish/pos/text/lf/totais`.
 
@@ -305,17 +624,17 @@ Configuração de agrupamento (control-break) — usada dentro de `table.columns
 
 Declara um botão no form.
 
-| Prop | Tipo | Exemplo |
-|------|------|---------|
-| `type` | `str` | `'save'`, `'delete'`, `'print'`, `'send'` |
-| `report` | dict | `{'type': 'print', 'report': REL}` |
-| `filter_field` | `str` | `{'type': 'print', 'report': PLANO, 'filter_field': 'tipo'}` |
-| `label` | `str` | `{'label': 'Imprimir'}` |
-| `icon` | `str` | `{'icon': 'printer'}` |
-| `color` | `str` | `{'color': 'info'}` |
-| `action` | `str\|callable` | `{'action': 'gerarPrevisoes'}` |
-| `enabled` | `dict\|list` | `{'enabled': {'fields': ['valor'], 'mode': 'all_zero'}}` |
-| `position` | `str` | `{'position': 'top_left'}` |
+| Prop | Tipo | Declarações possíveis | Exemplo |
+|------|------|----------------------|---------|
+| `type` | `str` | `'save'`, `'delete'`, `'print'`, `'send'` | `{'type': 'print'}` |
+| `report` | dict | spec do relatório | `{'report': REL}` |
+| `filter_field` | `str` | campo de filtro | `{'filter_field': 'tipo'}` |
+| `label` | `str` | texto do botão | `{'label': 'Imprimir'}` |
+| `icon` | `str` | ícone Bootstrap | `{'icon': 'printer'}` |
+| `color` | `str` | cor do botão | `{'color': 'info'}` |
+| `action` | `str\|callable` | ação JS ou Python | `{'action': 'gerarPrevisoes'}` |
+| `enabled` | `dict\|list` | condição de ativação | `{'enabled': {'fields': ['valor'], 'mode': 'all_zero'}}` |
+| `position` | `str` | posição no form | `{'position': 'top_left'}` |
 
 Factories comuns: `BTN_SAVE`, `BTN_PRINT`, `BTN_SEND`, `BTN_DELETE`, `BTN_ON_OFF`.
 
@@ -325,12 +644,12 @@ Factories comuns: `BTN_SAVE`, `BTN_PRINT`, `BTN_SEND`, `BTN_DELETE`, `BTN_ON_OFF
 
 Declara um tipo de input do catálogo. Usado indiretamente via `Field.input`.
 
-| Prop | Tipo | Exemplo |
-|------|------|---------|
-| `name` | `str` | `'text'`, `'number'`, `'date'`, `'select'`, `'toggle'` |
-| `input_type` | `str` | `'text'`, `'email'`, `'tel'`, `'password'` |
-| `cls` | `str` | classe CSS |
-| `size` | `int` | tamanho do input |
+| Prop | Tipo | Declarações possíveis | Exemplo |
+|------|------|----------------------|---------|
+| `name` | `str` | `'text'`, `'number'`, `'date'`, `'select'`, `'toggle'` | `'text'` |
+| `input_type` | `str` | `'text'`, `'email'`, `'tel'`, `'password'` | `'email'` |
+| `cls` | `str` | classe CSS | `'meu-input'` |
+| `size` | `int` | tamanho do input | `9` |
 
 ---
 
