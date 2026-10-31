@@ -869,6 +869,7 @@ def _apply_entity(raw, entity):
     body = out.get('body')
     if isinstance(body, dict):
         body = dict(body)
+        out['body'] = body
         table = body.get('table')
         if isinstance(table, dict):
             table = dict(table)
@@ -881,21 +882,37 @@ def _apply_entity(raw, entity):
         specs = (None if _is_pivot_source(_src_decl)
                  else _resolve_map(table.get('columns'), columns=True))
         if specs is not None:
-            from ajsystem.defs.constants import PRINT_ROW
+            from ajsystem.defs.constants import POS_NONE, POS_ROW, POS_INLINE, POS_TITLE, POS_TITLE_CENTER
             cols = {}
             for key, spec in specs.items():
                 spec = dict(spec)
-                # print default: PRINT_ROW (1) quando não declarado
-                if 'print' not in spec:
-                    spec['print'] = PRINT_ROW
+                # pos default: POS_ROW (coluna da tabela) quando não declarado
+                if 'pos' not in spec:
+                    spec['pos'] = POS_ROW
+                _pos = spec['pos']
+                if _pos in (POS_NONE, 0, False):
+                    # campo de controle: não sai no relatório (remove da grade)
+                    continue
+                if _pos not in (POS_ROW, POS_INLINE, POS_TITLE, POS_TITLE_CENTER):
+                    raise ValueError(
+                        f"report '{raw.get('label')}': coluna '{key}' tem pos "
+                        f"inválida {_pos} (use POS_ROW/POS_INLINE/POS_TITLE/POS_TITLE_CENTER/POS_NONE)")
                 for _fk in ('font', 'cpi', 'flags', 'lpi', 'font_size'):
                     if _fk in spec:
                         raise ValueError(
                             f"report '{raw.get('label')}': '{_fk}' não vale em "
                             f"tabela (a grade da tabela é dela; a fonte é do report)")
                 data_key = spec.pop('field', None) or key
+                # Todas as colunas declaradas ficam em table.columns (validação
+                # de ordem e grupos). A classificação por pos (só POS_ROW vira
+                # coluna de grade) é feita no motor de PDF antes de imprimir.
                 cols[data_key] = spec
             table['columns'] = cols
+
+        # `body.order` usa a sequência das colunas impressas; `source.order`
+        # usa a do select. Normalizar aqui deixa a validação das quebras
+        # abaixo já sobre a ordem efetiva.
+        _normalize_order_props(out, table)
 
         _ext = []
         for _ex in table.get('extend') or []:
@@ -1448,46 +1465,266 @@ def _translate_legacy_group(g, cname, label):
     if 'on_start' in g or 'on_finish' in g:
         return g
     raise ValueError(
-        f"report '{label}': grupo '{cname}' usa formato legado (on/action/print/place/total). "
-        f"Use apenas on_start/on_finish/print/text/lf/totals no modelo novo."
+        f"report '{label}': grupo '{cname}' usa formato legado (on/action/pos/place/total). "
+        f"Use apenas on_start/on_finish/pos/text/lf/totals no modelo novo."
     )
 
 
-def _synthesize_levels_from_groups(table, body, label):
-    """Deriva table.levels de table.groups (dict {campo: cfg}, ordem aninhada).
+def _order_items(order):
+    """Normaliza `order` em lista de itens.
 
-    Novo modelo de grupo:
+    Aceita lista/tupla ou um único item (string com nome explícito, ex.:
+    'cliente desc' ou 'vencimento', ou inteiro 1-based de posição). Strings
+    não são quebradas por vírgula.
+    """
+    if order is None:
+        return []
+    if isinstance(order, (list, tuple)):
+        return list(order)
+    return [order]
+
+
+def _order_index(item):
+    """Item de `order` que é índice 1-based -> (idx0, False); senão None.
+
+    Apenas inteiros puros são índice. Strings ('cliente desc') e dicts não
+    são índice — passam adiante com o nome explícito.
+    """
+    if isinstance(item, bool):
+        return None
+    if isinstance(item, int):
+        return item - 1, False
+    return None
+
+
+def _order_field(item):
+    """Nome do campo de um item de `order` (str 'x desc' ou dict {field})."""
+    if isinstance(item, str):
+        parts = item.split()
+        return parts[0] if parts else ''
+    if isinstance(item, dict):
+        return item.get('field') or ''
+    return ''
+
+
+def _column_names(cols):
+    """Chaves de `body.table.columns` na ordem declarada (dict ou lista)."""
+    if isinstance(cols, dict):
+        return list(cols)
+    if isinstance(cols, (list, tuple)):
+        names = []
+        for it in cols:
+            if isinstance(it, str):
+                names.append(it)
+            elif isinstance(it, dict) and len(it) == 1:
+                names.extend(it.keys())
+        return names
+    return None
+
+
+def _order_body_attr(body, key, default=None):
+    if isinstance(body, dict):
+        return body.get(key, default)
+    return getattr(body, key, default)
+
+
+def _order_body_set(body, key, value):
+    if isinstance(body, dict):
+        body[key] = value
+    else:
+        setattr(body, key, value)
+
+
+def _normalize_order(order, names, label, where, resolver=None):
+    """Converte índices 1-based de `order` em nomes de `names`.
+
+    `where` nomeia a origem nas mensagens ('source.order' / 'body.order').
+    `resolver` traduz o nome da posição para o campo efetivo do select.
+    Strings/dicts que não sejam índice passam intactos.
+    """
+    out = []
+    for item in _order_items(order):
+        idx = _order_index(item)
+        if idx is None:
+            out.append(item)
+            continue
+        pos, desc = idx
+        if not isinstance(names, (list, tuple)):
+            raise ValueError(
+                f"report '{label}': {where} usa índice {pos + 1}, mas não há "
+                f"sequência de nomes para resolver")
+        if not (0 <= pos < len(names)):
+            raise ValueError(
+                f"report '{label}': {where} índice {pos + 1} fora do range "
+                f"(1..{len(names)})")
+        name = names[pos]
+        if resolver is not None:
+            resolved = resolver(name)
+            if not resolved:
+                raise ValueError(
+                    f"report '{label}': {where} índice {pos + 1} aponta para "
+                    f"'{name}', que não resolve para um campo do select")
+            name = resolved
+        out.append(f'{name} desc' if desc else name)
+    return out
+
+
+def _prefix_groups(order, groups, resolver=None):
+    """Prepende os campos de quebra ausentes, preservando a direção já dada."""
+    def _key(item):
+        name = _order_field(item)
+        if not name:
+            return None
+        return resolver(name) if resolver else name
+
+    have = {_key(it) for it in order}
+    have.discard(None)
+    prefix = []
+    for g in groups:
+        name = resolver(g) if resolver else g
+        if not name or name in have:
+            continue
+        have.add(name)
+        prefix.append(name)
+    return prefix + list(order)
+
+
+def _normalize_order_props(report, table=None):
+    """Traduz índices 1-based de `order` para nomes, por origem.
+
+    - `source.order` → posição no `select` do datasource;
+    - `body.order`   → posição em `body.table.columns`, resolvida para o campo
+      efetivo do select (o mesmo que o `qrun` e o `_sort_python` enxergam).
+
+    Strings/dicts que não sejam índice passam intactos. O `body.order` recebe
+    os campos de quebra como prefixo (sem duplicar) para o control-break não
+    picotar. Não muta os dicts declarados pelo app.
+    """
+    body = _body_of(report)
+    if body is None:
+        return
+    label = (report.get('label') if isinstance(report, dict)
+             else getattr(report, 'label', '?'))
+    src = _order_body_attr(body, 'source')
+    tbl = table if table is not None else _order_body_attr(body, 'table')
+    if not isinstance(tbl, dict):
+        tbl = {}
+
+    entries = []
+    if isinstance(src, dict) and 'select' in src:
+        from ajsystem.defs.qspec import parse_select
+        try:
+            entries = parse_select(src.get('select') or [])
+        except Exception:
+            entries = []
+
+    select_names = [e.field or e.name for e in entries]
+    _select_map = {}
+    for e in entries:
+        key = e.field or e.name
+        _select_map[e.name] = key
+        _select_map[key] = key
+
+    entity_name = _source_entity_name(src)
+    model = None
+    if entity_name:
+        try:
+            from ajsystem.core.list import _resolve_model
+            model = _resolve_model(entity_name)
+        except Exception:
+            model = None
+
+    def _resolve_col(name):
+        if name in _select_map:
+            return _select_map[name]
+        if model is not None:
+            if hasattr(model, name):
+                return name
+            t = getattr(model, '__table__', None)
+            if t is not None and name in t.columns:
+                return name
+        return None
+
+    # source.order: índices 1-based sobre o select
+    if isinstance(src, dict):
+        _src_order = src.get('order')
+        if _src_order is not None and any(
+                _order_index(i) is not None for i in _order_items(_src_order)):
+            src = dict(src)
+            src['order'] = _normalize_order(
+                _src_order, select_names, label, 'source.order')
+            _order_body_set(body, 'source', src)
+
+    # body.order: índices sobre body.table.columns + prefixo das quebras
+    _b_order = _order_body_attr(body, 'order')
+    if _b_order is not None:
+        col_names = _column_names(tbl.get('columns'))
+        _new = _normalize_order(
+            _b_order, col_names, label, 'body.order',
+            resolver=_resolve_col if col_names is not None else None)
+        columns = tbl.get('columns') or {}
+        group_fields = []
+        if isinstance(columns, dict):
+            for key, spec in columns.items():
+                if isinstance(spec, dict) and spec.get('group') == '*':
+                    group_fields.append(key)
+        elif isinstance(columns, list):
+            for it in columns:
+                if isinstance(it, dict) and len(it) == 1:
+                    key, spec = next(iter(it.items()))
+                    if isinstance(spec, dict) and spec.get('group') == '*':
+                        group_fields.append(key)
+        if group_fields:
+            _new = _prefix_groups(
+                _new, group_fields, lambda n: _resolve_col(n) or n)
+        if _new != _order_items(_b_order):
+            _order_body_set(body, 'order', _new)
+
+
+def _synthesize_levels_from_groups(table, body, label):
+    """Deriva table.levels de table.columns com prop group (ordem aninhada).
+
+    Novo modelo de grupo (prop da coluna em table.columns):
+      - group: '*' marca a coluna como grupo/break de controle;
+        group: '<nome>' vincula a coluna a esse grupo (imprime na mudança).
       - text: título do grupo (opcional; se ausente imprime o valor do campo)
       - on_start: dict com props ao abrir o grupo (ex.: {'text': ..., 'lf': -1})
       - on_finish: dict com props ao fechar o grupo (ex.: {'lf': 1})
       - totals: None (não imprime linha de total), True (totais nas colunas
         com agg, label padrão 'Subtotal'), dict (sobrescreve padrões)
 
-    Valida que order da fonte abre com as quebras. columns lista só o que imprime.
+    Colunas-grupo ('group': '*') obrigatoriamente devem ser as primeiras
+    de table.columns.
+    Valida que order da fonte abre com as quebras.
     """
-    groups = table.get('groups')
-    if not groups or table.get('levels') or table.get('hierarchy'):
-        return
-    if isinstance(groups, dict):
-        items = [(k, v if isinstance(v, dict) else {}) for k, v in groups.items()]
-    elif isinstance(groups, list):
-        items = []
-        for g in groups:
-            if not isinstance(g, dict) or 'field' not in g:
-                raise ValueError(f"report '{label}': groups exige {{field, ...}}")
-            items.append((g['field'], {k: v for k, v in g.items() if k != 'field'}))
+    columns = table.get('columns') or {}
+    items = []
+    if isinstance(columns, dict):
+        column_iter = columns.items()
+    elif isinstance(columns, list):
+        column_iter = []
+        for it in columns:
+            if isinstance(it, dict) and len(it) == 1:
+                column_iter.append(next(iter(it.items())))
     else:
-        raise ValueError(f"report '{label}': groups deve ser dict ou lista")
-    cols = table.get('columns') or {}
-    col_names = set()
-    if isinstance(cols, dict):
-        col_names = set(cols.keys())
-    elif isinstance(cols, list):
-        for it in cols:
-            if isinstance(it, str):
-                col_names.add(it)
-            elif isinstance(it, dict) and len(it) == 1:
-                col_names.update(it.keys())
+        column_iter = []
+
+    # Valida que colunas-grupo ('*') são as primeiras
+    seen_non_group = False
+    for key, spec in column_iter:
+        if not isinstance(spec, dict):
+            continue
+        if spec.get('group') == '*':
+            if seen_non_group:
+                raise ValueError(
+                    f"report '{label}': coluna-grupo '{key}' deve ser declarada "
+                    f"antes das colunas não-grupo em table.columns")
+            items.append((key, spec))
+        else:
+            seen_non_group = True
+
+    if not items or table.get('levels') or table.get('hierarchy'):
+        return
     grouped, synth = [], []
     for cname, g in items:
         if not isinstance(g, dict):
@@ -1510,10 +1747,10 @@ def _synthesize_levels_from_groups(table, body, label):
                 _sp[cname]['style'] = on_start['style']
             if 'cpi' in on_start:
                 _sp[cname]['cpi'] = on_start['cpi']
-            if 'print' in on_start:
-                _sp[cname]['print'] = on_start['print']
-            elif 'print' in g:
-                _sp[cname]['print'] = g['print']
+            if 'pos' in on_start:
+                _sp[cname]['pos'] = on_start['pos']
+            elif 'pos' in g:
+                _sp[cname]['pos'] = g['pos']
             # Totais só devem ser impressos no fechamento (on_finish)
             synth.append(_sp)
 
@@ -1534,11 +1771,21 @@ def _synthesize_levels_from_groups(table, body, label):
         if cname not in grouped:
             grouped.append(cname)
 
-    # order da fonte tem que abrir com as colunas de quebra (senão picota)
+    # order da fonte tem que abrir com as colunas de quebra (senão picota).
+    # Quando body.order está declarado, ele já foi normalizado e prefixado com
+    # as quebras em _normalize_order_props, então valida-se somente source.order
+    # (o report não sobrescreve source quando body.order não existe).
     src = (body or {}).get('source') if isinstance(body, dict) else None
+    body_order = _order_body_attr(body, 'order') if isinstance(body, dict) else None
+    if body_order is not None:
+        # body.order já define a ordem efetiva; source.order não participa da
+        # validação de quebras (e seu respectivo _normalize_order_props já
+        # traduziu índices para nomes).
+        if synth:
+            table['levels'] = synth
+        return
     if isinstance(src, dict) and src.get('order') and grouped:
         select = src.get('select') or []
-        # Mapear nomes de grupo/alias para nomes de campo resolvidos no select
         _alias_to_field = {}
         for item in select:
             if isinstance(item, dict):
@@ -1550,12 +1797,12 @@ def _synthesize_levels_from_groups(table, body, label):
             elif isinstance(item, str):
                 _alias_to_field[item] = item
         _ord = []
-        for o in src['order']:
-            if isinstance(o, int):
-                # índice 1-based sobre o select
-                idx = o - 1
-                if 0 <= idx < len(select):
-                    item = select[idx]
+        for o in _order_items(src['order']):
+            idx = _order_index(o)
+            if idx is not None:
+                pos, _desc = idx
+                if 0 <= pos < len(select):
+                    item = select[pos]
                     if isinstance(item, str):
                         name = item
                     elif isinstance(item, dict):
@@ -1565,16 +1812,11 @@ def _synthesize_levels_from_groups(table, body, label):
                     name = _alias_to_field.get(name, name)
                 else:
                     name = ''
-            elif isinstance(o, str):
-                name = o.split()[0]
-                name = _alias_to_field.get(name, name)
-            elif isinstance(o, dict):
-                name = o.get('field') or ''
             else:
-                name = ''
+                name = _order_field(o)
+                name = _alias_to_field.get(name, name)
             if name:
                 _ord.append(name)
-        # Resolver nomes de grupo para campos do select
         _grouped_resolved = [_alias_to_field.get(g, g) for g in grouped]
         if _grouped_resolved != _ord[:len(_grouped_resolved)]:
             raise ValueError(
@@ -1740,6 +1982,7 @@ def _apply_pivot_report_columns(report, result, layer=None):
     `agg` padrão só para `sum` e `count` (somar subtotais faz sentido); em
     `avg/min/max` fica `None` — somar médias/mínimos no rodapé seria errado.
     """
+    from ajsystem.defs.constants import POS_ROW
     body = _body_of(report)
     if body is None:
         return
@@ -1800,7 +2043,7 @@ def _apply_pivot_report_columns(report, result, layer=None):
                 spec.setdefault('format', col.format)
             if col.func in ('sum', 'count'):
                 spec.setdefault('agg', 'sum')
-        spec.setdefault('print', 1)
+        spec.setdefault('pos', POS_ROW)
         out[name] = spec
     table['columns'] = out
 
@@ -1815,36 +2058,46 @@ def _get_attr_path(obj, path):
 
 
 def _sort_python(rows, order):
-    """Ordenação Python-side por lista de nomes de campo.
+    """Ordenação Python-side por lista de nomes/campos de ordem.
 
-    Aceita campos diretos ('vencimento') e pontilhados ('conta.nome').
-    None vem primeiro na ordem crescente.
+    Aceita strings ('vencimento', 'vencimento desc'), dicts
+    ({'field': ..., 'direction': ...}) e itens já normalizados por
+    `normalize_order` -> ('field', nome, desc) | ('expr', ...).
+    None vem primeiro na ordem crescente e último na decrescente.
+    Itens 'expr' são pulados (ordenação apenas nos campos diretos).
     """
     if not rows or not order:
         return rows
     import functools
+    from ajsystem.defs.qspec import normalize_order
+
+    okeys = normalize_order(order)
+    if not okeys:
+        return rows
 
     def _cmp(a, b):
-        for field in order:
-            va = _get_attr_path(a, field)
-            vb = _get_attr_path(b, field)
+        for kind, name, desc in okeys:
+            if kind != 'field':
+                continue
+            va = _get_attr_path(a, name)
+            vb = _get_attr_path(b, name)
             if va is None and vb is None:
                 continue
             if va is None:
-                return -1
+                return 1 if desc else -1  # desc: None por último
             if vb is None:
-                return 1
+                return -1 if desc else 1  # desc: None por último
             try:
                 if va < vb:
-                    return -1
+                    return 1 if desc else -1
                 if va > vb:
-                    return 1
+                    return -1 if desc else 1
             except TypeError:
                 va, vb = str(va), str(vb)
                 if va < vb:
-                    return -1
+                    return 1 if desc else -1
                 if va > vb:
-                    return 1
+                    return -1 if desc else 1
         return 0
 
     return sorted(rows, key=functools.cmp_to_key(_cmp))

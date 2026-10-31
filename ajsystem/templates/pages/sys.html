@@ -1735,6 +1735,14 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 <script>
 {% if qr_enabled %}
+function qrIndisponivel() {
+  var container = document.getElementById('qrcode');
+  var urlEl = document.getElementById('qrUrl');
+  container.innerHTML = '<p style="color:var(--fallback-er, oklch(var(--er)));font-weight:bold;margin:2rem 0;">Túnel indisponível</p>';
+  urlEl.textContent = 'QR indisponível: o túnel público está fora do ar.';
+  document.getElementById('qrModal').showModal();
+}
+
 function abrirQR() {
   const container = document.getElementById('qrcode');
   const urlEl = document.getElementById('qrUrl');
@@ -1744,7 +1752,15 @@ function abrirQR() {
     .then(data => {
       var rawUrl = data.url || '';
       var m = rawUrl.match(/https?:\/\/[^\s]+/);
-      var displayUrl = m ? m[0] : 'http://localhost:5000';
+      var displayUrl = m ? m[0] : '';
+      // Sem túnel: só serve se a página já está num host alcançável pelo celular.
+      if (!displayUrl && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(window.location.origin)) {
+        displayUrl = window.location.origin;
+      }
+      if (!displayUrl) {
+        qrIndisponivel();
+        return;
+      }
       urlEl.textContent = displayUrl;
       var qr = qrcode(0, 'L');
       qr.addData(displayUrl);
@@ -1753,11 +1769,7 @@ function abrirQR() {
       container.innerHTML = qr.createImgTag(5, 20);
       document.getElementById('qrModal').showModal();
     })
-    .catch(function() {
-      container.innerHTML = '<p style="color:var(--fallback-er, oklch(var(--er)));font-weight:bold;margin:2rem 0;">QR indisponível</p>';
-      urlEl.textContent = 'http://localhost:5000';
-      document.getElementById('qrModal').showModal();
-    });
+    .catch(qrIndisponivel);
 }
 {% endif %}
 </script>

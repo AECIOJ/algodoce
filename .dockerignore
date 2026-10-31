@@ -1,7 +1,36 @@
 dados/
+
+# Arquivos e diretórios de instrução e ferramentas de IA
+AGENTS.md
+.opencode/
+.vscode/
+.idea/
+
+# Controle de versão e documentação
 .git/
+.gitignore
+README.md
+*.md
+
+# Ambientes virtuais e caches do Python
+.venv/
+venv/
+ENV/
 __pycache__/
 *.pyc
-.env
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Dependências pesadas e builds do Node / CSS
 node_modules/
-graphify-out/
+npm-debug.log*
+
+# Variáveis de ambiente locais e Docker local
+.env
+docker-compose*.yml
+Dockerfile
+
+# Artefatos do sistema operacional
+.DS_Store
+Thumbs.db

@@ -81,9 +81,9 @@ def AND(*itens):
     return _grupo('and', itens)
 
 
-# Group Print
-PRINT_NONE = 0      # não imprime rótulo do grupo / não imprime coluna
-PRINT_ROW = 1       # imprime na célula da coluna, linha atual (default)
-PRINT_INLINE = 2    # imprime no início da linha, avança para próxima
-PRINT_TITLE = 3     # título do grupo, alinhado à esquerda
-PRINT_TITLE_CENTER = 4  # título do grupo, centralizado
+# Group / column position in report print
+POS_NONE = 0        # campo de controle: não sai no relatório
+POS_ROW = 1         # coluna da tabela: faz parte do cabeçalho (define largura/fonte)
+POS_INLINE = 2      # não é coluna: imprime em linha, sem separação de colunas
+POS_TITLE = 3       # não é coluna: título do grupo, alinhado à esquerda, antes do corpo
+POS_TITLE_CENTER = 4  # não é coluna: título do grupo, centralizado, antes do corpo

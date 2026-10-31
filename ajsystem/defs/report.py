@@ -9,7 +9,7 @@ E o motor `ajsystem.core.pdf.gerar_pdf_relatorio(report, ...)` os renderiza.
 from dataclasses import dataclass, field as dc_field
 from typing import Any, Optional, Callable, Union
 
-from ajsystem.defs.constants import PRINT_ROW
+from ajsystem.defs.constants import POS_ROW
 
 # Import único nos relatórios do app: `from ajsystem.defs.report import *`
 # entrega SÓ os aliases de declaração; o resto (Report*, parse_*, contrato
@@ -721,7 +721,11 @@ class ReportColumn:
     # table.groups (só o que imprime entra em columns).
     text: Optional[str] = None
     suppress: bool = False
-    print: int = PRINT_ROW
+    pos: int = POS_ROW  # POS_ROW = coluna da tabela; POS_INLINE/POS_TITLE* = não-coluna; POS_NONE = não imprime
+    group: Optional[str] = None  # '*' = coluna é grupo/break; '<nome>' = vinculada a grupo
+    on_start: Optional[dict] = None
+    on_finish: Optional[dict] = None
+    totals: Optional[object] = None
 
     def __post_init__(self):
         if self.label is None:
@@ -787,9 +791,11 @@ class ReportBody:
     # ou OR(...)/AND(...), com sentinelas/operadores) ou callable(model). O
     # filtro da request (ex.: filter_select('tipo')) é combinado com ele.
     filter: Optional[Any] = None
-    # Ordem que sobrescreve o `order` declarado na `source` (query). Aceita
-    # lista de nomes de campo, lista de índices numéricos (1-based sobre o
-    # select) ou string (ex.: 'vencimento desc'). Não muta a source original.
+    # Ordem que sobrescreve o `order` da `source` (query) na hora da
+    # impressão. Índices numéricos (1-based) mapeiam para a sequência de
+    # `body.table.columns` (ex.: `[1, 2]` = 1ª e 2ª coluna impressa), não para
+    # o `select` da source. Strings são nomes explícitos de coluna/campo,
+    # ex.: `'cliente desc'` ou `'vencimento'`. Não muta a source original.
     order: Optional[Any] = None
     # Numeração hierárquica (apresentação, genérica): {using, pk, parent,
     # group, root, child, target, maxdepth}. Ver QPLANO/PLANO no app.

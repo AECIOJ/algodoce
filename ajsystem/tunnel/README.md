@@ -17,4 +17,11 @@ Para usar em outro app:
 
 Variáveis do entrypoint (com default = comportamento atual):
   `FORWARD_HOST` (algodoce), `FORWARD_PORT` (5000), `API_PORT` (4040).
+
+Transporte e saúde:
+- `--protocol http2` é forçado: o QUIC (default) cai por timeout de UDP em
+  redes domésticas e o túnel fica "vivo" com a URL morta.
+- A URL só é publicada após `Registered tunnel connection` e é removida
+  quando o túnel reinicia; o `provider.py` ainda faz `HEAD` antes de
+  devolvê-la (túnel caído → `''`, QR mostra "indisponível").
 """

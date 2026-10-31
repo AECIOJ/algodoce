@@ -1,9 +1,10 @@
 from ajsystem.defs.report import *
+from ajsystem.defs.constants import POS_INLINE
 QRECEBER = {
     'select': [
+        {'previsao': 'id'},
         {'cliente': 'conta.nome'},
         'vencimento',
-        {'previsao': 'id'},
         {'fatura': 'transacao.fatura'},
         'documento',
         {'recurso': 'recurso.nome'},
@@ -24,22 +25,22 @@ RECEBER = {
     ],
     'body': {
         'source': QRECEBER,
-        'order': [1, 2],
+        'order': [1, 3],
         'table': {
-            'groups': {
+            'columns': {
                 'cliente': {
+                    'group': '*',
+                    'pos': POS_INLINE,
                     'text': '{conta}. {cliente}',
                     'on_start': {'lf': -1},
                     'on_finish': {'lf': 1},
                     'totals': { 'align': 'R', 'span': 4},
                 },
-            },
-            'columns': {
                 'previsao': {},
                 'vencimento': {},
                 'fatura': {},
                 'documento': {},
-                'recurso_id': {},
+                'recurso': {},
                 'previsto': {'agg': 'sum'},
                 'realizado': {'agg': 'sum'},
                 'variacao': {'agg': 'sum'},

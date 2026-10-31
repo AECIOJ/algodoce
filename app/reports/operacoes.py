@@ -7,6 +7,7 @@ grade e o PDF bebem a mesma string — sem N+1 e sem duas implementações do me
 índice.
 """
 from ajsystem.defs.report import *
+from ajsystem.defs.constants import POS_INLINE
 QPLANO = {
     # Ordem de dependência (leitura top-down): a grade declara a sua ordem
     # na rota; avaliação independe daqui (overs antes dos calcs, ver qrun).
@@ -47,11 +48,9 @@ PLANO = {
     'body': {
         'source': QPLANO,
         'table': {
-            'groups': {
-                'tipo': {'text': '{tipo:d}. {tipo}', 'on_start': {'lf': -1}},
-                'grupo': {'text': '{tipo:d}.{grupo:02d} {nome}', 'on_start': {}},
-            },
             'columns': [
+                {'tipo': {'group': '*', 'pos': POS_INLINE, 'text': '{tipo:d}. {tipo}', 'on_start': {'lf': -1}}},
+                {'grupo': {'group': '*', 'pos': POS_INLINE, 'text': '{tipo:d}.{grupo:02d} {nome}', 'on_start': {}}},
                 'indice',
                 'nome',
                 {'id': {'width': 6, 'label': '#'}},

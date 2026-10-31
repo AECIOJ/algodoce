@@ -10,6 +10,7 @@ Uso no app (3 linhas):
 """
 import json
 import time
+import urllib.error
 import urllib.request
 
 TUNNEL_TTL = 3300
@@ -20,6 +21,18 @@ _cache = {"url": None, "ts": 0}
 def api_url(host="algodoce_cloudflare", port=4040):
     """URL da API do sidecar."""
     return f"http://{host}:{port}/api/tunnels"
+
+
+def is_reachable(url, timeout=3):
+    """A URL pública responde? (status < 500 = a borda alcançou o túnel)."""
+    try:
+        req = urllib.request.Request(url, method="HEAD")
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status < 500
+    except urllib.error.HTTPError as e:
+        return e.code < 500
+    except Exception:
+        return False
 
 
 def fetch_tunnel_url(host="algodoce_cloudflare", port=4040, timeout=2):
@@ -38,8 +51,15 @@ def fetch_tunnel_url(host="algodoce_cloudflare", port=4040, timeout=2):
 
 
 def get_tunnel_url(force=False, host="algodoce_cloudflare", port=4040, ttl=TUNNEL_TTL):
-    """URL em cache (TTL); `force` ou vazio refaz a busca. Nunca levanta."""
+    """URL em cache (TTL); `force` ou vazio refaz a busca. Nunca levanta.
+
+    A URL só é devolvida se responder: túnel caído devolve '' para o QR não
+    apontar para um endereço morto (o sidecar pode manter a última URL).
+    """
     now = time.time()
     if force or _cache["url"] is None or (now - _cache["ts"]) > ttl:
         fetch_tunnel_url(host, port)
+        if _cache["url"] and not is_reachable(_cache["url"]):
+            _cache["url"] = None
+            _cache["ts"] = 0
     return _cache["url"] or ""

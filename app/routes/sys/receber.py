@@ -74,7 +74,7 @@ Page = {
         },
         'report':{
             'Saldo de Contas a Receber': {
-                'filter':{'conta_id':'=','vencimento':'<'},
+                'filter':{'conta_id':'=','vencimento': ('<', TODAY() ) },
                 'report': RECEBER
             },
             'Previsão de Contas a Receber': {

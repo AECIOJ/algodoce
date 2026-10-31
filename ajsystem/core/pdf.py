@@ -16,7 +16,7 @@ from ajsystem.defs.report import (
     Report, ReportField, ReportColumn, ReportColumns, ReportGroup,
     ReportText, parse_header_field,
 )
-from ajsystem.defs.constants import PRINT_NONE
+from ajsystem.defs.constants import POS_NONE, POS_ROW, POS_INLINE, POS_TITLE, POS_TITLE_CENTER
 
 
 _HEADER_DEFAULTS = {
@@ -482,6 +482,10 @@ def _build_table(report: Report) -> '_ReportTable':
     t = _body_table(report)
     columns = t.get('columns')
     if isinstance(columns, dict):
+        # Apenas POS_ROW entra na grade da tabela (define largura/fonte).
+        # POS_INLINE/POS_TITLE* são impressos fora da grade (linha/título do
+        # grupo) e não consomem coluna; POS_NONE não imprime.
+        columns = {k: v for k, v in columns.items() if v.get('pos') == POS_ROW}
         columns = ReportColumns(columns)
     for _c in (list(columns) if columns else []):
         if _c.agg is not None and _c.agg not in TOTALS_FUNCS:
@@ -1318,7 +1322,7 @@ def _group_title(g, val, row=None):
 def _group_space(pdf, g, side, label=''):
     """`lf` do grupo: negativo antes do título/linha, positivo depois.
 
-    O grupo visível (`print` 1|2|3) é o "item" que respira; `pos=0` (grupo
+    O grupo visível (`pos` 1|2|3) é o "item" que respira; `pos=0` (grupo
     oculto, só total) não imprime cabeçalho e portanto não usa o `lf`.
     """
     n = _lf_one_side(g, side, label)
@@ -1467,13 +1471,18 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                     pdf.add_page()
                 pos = g['pos']
                 _g_label = report.label if report is not None else ''
-                # Respeitar prop 'print' se existir no nível/grupo
-                _print = g.get('print')
-                if _print in (PRINT_NONE, 0, False):
+                # Respeitar prop 'pos' se existir no nível/grupo; declara vence sobre pos
+                _pos = g.get('pos', POS_ROW)  # default: POS_ROW quando não declarado
+                if _pos in (POS_NONE, 0, False):
                     # Não imprime cabeçalho/linha do grupo, mas continua aberto para acumular
                     prev[i] = vals[i]
                     last_rows[i] = row
                     continue
+                if _pos in (POS_TITLE, POS_TITLE_CENTER, POS_ROW):
+                    # POS_ROW (default) e títulos => pos=2 (título do grupo)
+                    pos = 2
+                elif _pos == POS_INLINE:
+                    pos = 1
                 if pos == 2:                     # titulo
                     if table_open:
                         _table_close(pdf, xs, tw)
