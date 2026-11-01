@@ -275,8 +275,76 @@ def surface(surface_name):
             f"conhecidas: {', '.join(sorted(SURFACES))}") from None
 
 
-def slot_spec_items(spec, slot, where='list'):
-    """Nomes citados por um slot, normalizados em `[(entidade|None, campo)]`.
+# Props de apresentação que um alias de slot pode declarar. O slot diz POSIÇÃO;
+# o alias só rotula (e, se quiser, ajusta a largura/alinhamento da coluna).
+_SLOT_PROP_KEYS = frozenset(SELECT_PROPS)
+
+
+def _split_field_path(name):
+    """`'Entidade.campo'` → `('Entidade', 'campo')`; nome cru → `(None, nome)`."""
+    ent, sep, campo = name.partition('.')
+    return (ent, campo) if sep else (None, name)
+
+
+def _slot_entry_props(cfg, slot, where):
+    """Props de apresentação de um alias de slot (`label`/`width`/`align`)."""
+    if not isinstance(cfg, dict):
+        raise ValueError(
+            f"{where}.{slot}: alias esperava dict de props, veio "
+            f"{type(cfg).__name__}")
+    for k in cfg:
+        if k not in _SLOT_PROP_KEYS:
+            raise ValueError(
+                f"{where}.{slot}: prop {k!r} não é aceita em alias de slot — "
+                f"use {', '.join(sorted(_SLOT_PROP_KEYS))}")
+    return {k: v for k, v in cfg.items() if v is not None}
+
+
+def _slot_item_entry(item, slot, where):
+    """`(entidade|None, campo, props)` de um item de slot, ou `None`.
+
+    Além das formas de `field_spec_item` aceita os aliases de apresentação da
+    listagem (só na superfície `list`):
+
+      - `{alias: 'Entidade.campo'}` → o rótulo é `alias`, o alvo é o caminho;
+      - `{alias: {'field': 'Entidade.campo', **props}}` → idem, com `label`/
+        `width`/`align` explícitos.
+    """
+    if isinstance(item, dict):
+        if 'field' in item or 'name' in item:
+            found = field_spec_item(item)
+            name, props = found
+            cfg = {k: v for k, v in props.items() if k in _SLOT_PROP_KEYS}
+            ent, campo = _split_field_path(name)
+            return ent, campo, cfg
+        if len(item) == 1:
+            (alias, cfg), = item.items()
+            if isinstance(cfg, str) and where == 'list':
+                ent, campo = _split_field_path(cfg)
+                return ent, campo, {'label': alias}
+            if isinstance(cfg, dict) and ('field' in cfg or 'name' in cfg):
+                if where != 'list':
+                    raise ValueError(
+                        f"{where}.{slot}: alias de apresentação só é aceito "
+                        "na listagem (`list`)")
+                props = _slot_entry_props(
+                    {k: v for k, v in cfg.items() if k not in ('field', 'name')},
+                    slot, where)
+                props.setdefault('label', alias)
+                name = cfg['field'] if 'field' in cfg else cfg['name']
+                ent, campo = _split_field_path(name)
+                return ent, campo, props
+    found = field_spec_item(item)
+    if found is None:
+        return None
+    name, props = found
+    cfg = {k: v for k, v in props.items() if k in _SLOT_PROP_KEYS}
+    ent, campo = _split_field_path(name)
+    return ent, campo, cfg
+
+
+def slot_spec_entries(spec, slot, where='list'):
+    """Itens de um slot normalizados em `[(entidade|None, campo, props)]`.
 
     Aceita a família de `columns` (`normalize_fieldspec`/`field_spec_item`):
       - `'Entidade'` → todos os campos da entidade;
@@ -286,30 +354,48 @@ def slot_spec_items(spec, slot, where='list'):
       - `{'Entidade': ['campo', ...]}` → agrupado por entidade;
       - `{'Entidade': '*'}` → todos os campos da entidade.
 
-    Props inline (`('campo', {props})`, `{alias: {props}}`) são aceitas e
-    **descartadas**: o slot afirma posição, não apresentação — `label`/`width`/
-    `align`/`mask` continuam morando em Entity/Schema.
+    Na superfície `list`, um item de dict com valor string é um **alias de
+    apresentação** (`{alias: 'Entidade.campo'}`): `props` traz o rótulo. Fora da
+    listagem, dicts continuam no idioma agrupado por entidade.
+
+    Props inline (`('campo', {props})`) seguem aceitas; só `label`/`width`/
+    `align` sobrevivem — o slot afirma posição, não apresentação em geral.
     """
     if spec is None or spec is False:
         return []
     if spec is True:
         raise ValueError(f"{where}.{slot}: `True` não nomeia campo — use 'Entidade'")
     if isinstance(spec, str):
-        return [(None, spec)]
+        return [(None, spec, {})]
     if isinstance(spec, dict):
         out = []
         for ent, names in spec.items():
             if names is True or names == '*':
-                out.append((ent, '*'))
+                out.append((ent, '*', {}))
             elif isinstance(names, str):
-                out.append((ent, names))
+                if where == 'list':
+                    campo_ent, campo = _split_field_path(names)
+                    out.append((campo_ent, campo, {'label': ent}))
+                else:
+                    out.append((ent, names, {}))
             elif isinstance(names, (list, tuple)):
                 for n in names:
                     found = field_spec_item(n)
                     if found is None:
                         raise ValueError(
                             f"{where}.{slot}: item {n!r} não nomeia campo")
-                    out.append((ent, found[0]))
+                    name, props = found
+                    cfg = {k: v for k, v in props.items()
+                           if k in _SLOT_PROP_KEYS}
+                    item_ent, campo = _split_field_path(name)
+                    out.append((item_ent or ent, campo, cfg))
+            elif isinstance(names, dict):
+                entry = _slot_item_entry({ent: names}, slot, where)
+                if entry is None:
+                    raise ValueError(
+                        f"{where}.{slot}: entidade {ent!r} com valor {names!r} — "
+                        "esperado '*' ou lista de nomes")
+                out.append(entry)
             else:
                 raise ValueError(
                     f"{where}.{slot}: entidade {ent!r} com valor {names!r} — "
@@ -318,19 +404,23 @@ def slot_spec_items(spec, slot, where='list'):
     if isinstance(spec, (list, tuple)):
         out = []
         for item in spec:
-            found = field_spec_item(item)
-            if found is None:
+            entry = _slot_item_entry(item, slot, where)
+            if entry is None:
                 raise ValueError(f"{where}.{slot}: item {item!r} não nomeia campo")
-            name = found[0]
-            if '.' in name:
-                ent, _, campo = name.partition('.')
-                out.append((ent, campo))
-            else:
-                out.append((None, name))
+            out.append(entry)
         return out
     raise TypeError(
         f"{where}.{slot}: esperava 'Entidade', lista ou dict; veio "
         f"{type(spec).__name__}")
+
+
+def slot_spec_items(spec, slot, where='list'):
+    """Projeção `[(entidade|None, campo)]` de `slot_spec_entries`.
+
+    É a forma que os filtros e relatórios consomem (eles não têm apresentação
+    de coluna): tudo o que nomeia campo vale, os props são descartados.
+    """
+    return [(ent, name) for ent, name, _props in slot_spec_entries(spec, slot, where)]
 
 
 def _pool_entities(pool):
@@ -352,8 +442,8 @@ def _slot_match(pool, entities, ent, name, slot, principal, where='list',
       1. `'Entidade'` → expande os campos dela (é o atalho de `card`);
       2. único na entidade de `columns` → é esse. É o caso comum: o autor
          está olhando o assunto da lista;
-      3. único no **pool** → é esse, seja de onde vier. Com `master` as duas
-         pontas entram no pool, então `hidden: ['previsao_id']` acha o campo
+      3. único no **pool** → é esse, seja de onde vier. Na inversão as duas
+         pontas entram no pool, então `hidden: ['transacao_id']` acha o campo
          do filho sem o autor ter que saber qual entidade é a dele;
       4. ambíguo → a entidade de `columns` decide; sem ela (lista de campos,
          fonte `query`) é **erro** nomeando as candidatas.
@@ -407,7 +497,8 @@ def _slot_match(pool, entities, ent, name, slot, principal, where='list',
                f"qualifique com 'Entidade.campo'")
 
 
-def resolve_slots(spec, pool, principal=None, surface_name='list'):
+def resolve_slots(spec, pool, principal=None, surface_name='list',
+                  default_by_entity=None, declared_order=False):
     """Posiciona os fields do `pool` nos slots declarados por uma superfície.
 
     `spec` é a spec de slots (`Page.props.list`, `Page.props.form.positions`,
@@ -416,12 +507,17 @@ def resolve_slots(spec, pool, principal=None, surface_name='list'):
 
     Devolve `{slot: [Field]}` para cada slot da superfície mais `'pinned'`
     (só na listagem: os campos declarados em `line`, que o cliente não tira
-    quando a tela estreita). Cada lista sai na ordem do pool, e o campo não
-    citado em nenhum slot vai para o `default` da superfície.
+    quando a tela estreita). Sem `declared_order`, cada lista sai na ordem do
+    pool e o campo não citado vai para o `default` da superfície.
 
     `principal` é a entidade que um nome cru resolve — desempata quando duas
     entidades da tela têm o mesmo campo. É contra o `pool` (cada field com
     `_entity`) que todo nome é validado, sempre nomeando o erro.
+
+    `default_by_entity` sobrescreve o slot de um campo **não citado** conforme a
+    entidade dona (na inversão: linha = filho, card = pai). `declared_order`
+    respeita a ordem escrita na spec em `line`/`card`, completando o resto na
+    ordem do pool (a grade é declarativa).
 
     Cada field recebe `f._slot`, que é o que o render e o save leem: a
     posição deixou de ser um inteiro no dataclass e passou a ser um atributo
@@ -432,21 +528,56 @@ def resolve_slots(spec, pool, principal=None, surface_name='list'):
     entities = _pool_entities(pool)
     where = surface_name
     claimed = {}
+    declared = {}
+    props_by_id = {}
     for slot in cfg['precedence']:
         if slot == 'default':
             continue
-        for ent, name in slot_spec_items((spec or {}).get(slot), slot, where):
+        declared.setdefault(slot, [])
+        entries = slot_spec_entries((spec or {}).get(slot), slot, where)
+        for ent, name, props in entries:
             for f in _slot_match(pool, entities, ent, name, slot, principal, where):
                 claimed.setdefault(id(f), slot)
+                if claimed[id(f)] != slot:
+                    continue
+                if id(f) not in declared[slot]:
+                    declared[slot].append(id(f))
+                if props:
+                    props_by_id[id(f)] = props
+    defaults = default_by_entity or {}
     out = {slot: [] for slot in dict.fromkeys(cfg['slots'] + (cfg['default'],))}
-    out['pinned'] = []
-    out['claimed'] = dict(claimed)
+    by_id = {id(f): f for f in pool}
+    slot_of = {id(f): claimed.get(
+        id(f), defaults.get(getattr(f, '_entity', None), cfg['default']))
+        for f in pool}
+    if declared_order:
+        for slot in out:
+            seen = set()
+            for fid in declared.get(slot, ()):
+                if slot_of.get(fid) == slot and fid not in seen:
+                    out[slot].append(by_id[fid])
+                    seen.add(fid)
+            for f in pool:
+                if id(f) not in seen and slot_of[id(f)] == slot:
+                    out[slot].append(f)
+    else:
+        for f in pool:
+            out[slot_of[id(f)]].append(f)
     for f in pool:
-        slot = claimed.get(id(f), cfg['default'])
-        f._slot = slot
-        out[slot].append(f)
-        if surface_name == 'list' and slot == 'line' and id(f) in claimed:
-            out['pinned'].append(f)
+        f._slot = slot_of[id(f)]
+    # Aliases da listagem: o rótulo vence o da Entity/Schema, mas só na coluna
+    # onde foi declarado (`props_by_id` guarda apenas o slot vencedor).
+    if surface_name == 'list':
+        for fid, props in props_by_id.items():
+            f = by_id.get(fid)
+            if f is None:
+                continue
+            for k, v in props.items():
+                setattr(f, k, v)
+    out['pinned'] = ([f for f in out['line']
+                      if id(f) in set(declared.get('line', ()))]
+                     if surface_name == 'list' else [])
+    out['claimed'] = dict(claimed)
     return out
 
 

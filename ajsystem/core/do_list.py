@@ -121,6 +121,42 @@ def _list_page_width(lista: List, list_obj: List, tabs, filter_width) -> str:
     return f'max({list_width}, {filter_width})'
 
 
+def _validate_list_keys(lista: dict, where: str = 'list') -> None:
+    """Regras da inversão sem `master`: `master`/`edit_id_field` são proibidos.
+
+    A inversão agora se infere de `columns` (string = entidade das linhas). A
+    prop `master` e a renomeada `edit_id_field` falham explicitamente —
+    nothing-silencioso é proibido.
+    """
+    if lista.get('master'):
+        raise ValueError(
+            f"{where}: 'master' foi removida. Declare 'columns' com o nome da "
+            "entidade das linhas (filho); a entidade da rota é o pai.")
+    if lista.get('edit_id_field'):
+        raise ValueError(
+            f"{where}: 'edit_id_field' foi renomeada para 'edit_id'.")
+
+
+def _list_slots(lista: dict, pool: list, fonte: dict, parent_entity: str | None = None):
+    """SLOTS — resolve `line`/`card`/`hidden` da listagem com ordem declarada.
+
+    Na inversão, o campo **não citado** vai para a linha se for do filho e para
+    o card se for do pai (`default_by_entity`). `declared_order` respeita a
+    ordem escrita na spec.
+    """
+    defaults = default_by_entity(lista, fonte, parent_entity)
+    return resolve_slots(lista, pool, fonte['pool_entity'],
+                         default_by_entity=defaults, declared_order=True)
+
+
+def default_by_entity(lista: dict, fonte: dict, parent_entity: str | None = None):
+    """Slot padrão por entidade na inversão: filho → `line`, pai → `card`."""
+    master = fonte.get('master')
+    if not master or not parent_entity:
+        return {}
+    return {master: 'line', parent_entity: 'card'}
+
+
 def list_max_width(entity_name: str, module_name: str) -> str:
     """Largura final que a listagem do módulo resolve (max_width explícito ou
     padrão `tot_ch`). O container do meio do form segue essa largura quando
@@ -129,10 +165,11 @@ def list_max_width(entity_name: str, module_name: str) -> str:
     schema = getattr(mod, 'Schema', None) or {}
     page = module_page(mod)
     lista = page_list_cfg(page)
+    _validate_list_keys(lista)
     bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
     _ent, _model, _merged, pool, _fonte = _list_pool(lista, schema, module_name,
                                                      entity_name)
-    line_fields = resolve_slots(lista, pool, _fonte['pool_entity'])['line']
+    line_fields = _list_slots(lista, pool, _fonte, _fonte.get('parent_entity'))['line']
     edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
     return resolve_max_width(lista.get('max_width')) or _total_ch(line_fields, edit_endpoint)
 
@@ -191,11 +228,15 @@ def _resolve_endpoint(lista, key, bp_name):
     return f"{bp_name}.form" if bp_name else None
 
 
-def _inversion_parent_rel_key(lista, merged, child_model):
-    """Nome da relação filho→pai na inversão (`master`), ou `None`.
+def _inversion_parent_rel_key(lista, merged, child_model, edit_id=None):
+    """Nome da relação filho→pai na inversão (`columns`), ou `None`.
 
-    Ex.: no `pagar` invertido (master `Previsao`, entidade `Transacao`), a
+    Ex.: no `pagar` invertido (`columns: 'Transacao'`, rota `Previsao`), a
     `Previsao` alcança o pai pela relação `transacao`.
+
+    Quando o filho tem mais de uma N:1 para o pai (ambígua), o prefixo de
+    `edit_id` qualificado (`transacao.id` → `transacao`) desempata; sem ele, ou
+    sem combinação, levanta `ValueError` nomeando as candidatas.
     """
     if not merged:
         return None
@@ -209,19 +250,32 @@ def _inversion_parent_rel_key(lista, merged, child_model):
     mapper = getattr(child_model, '__mapper__', None)
     if mapper is None:
         return None
-    for rel_key, rel_prop in mapper.relationships.items():
-        if rel_prop.mapper.class_ is parent_model:
-            return rel_key
-    return None
+    candidatas = [rk for rk, rp in mapper.relationships.items()
+                  if rp.mapper.class_ is parent_model]
+    if not candidatas:
+        return None
+    if len(candidatas) == 1:
+        return candidatas[0]
+    # Ambiguidade: desempata pelo prefixo de edit_id qualificado.
+    if edit_id:
+        prefix = str(edit_id).split('.')[0]
+        for cand in candidatas:
+            if cand == prefix or cand.startswith(prefix + '_'):
+                return cand
+    onde = ' e '.join(sorted(candidatas))
+    raise ValueError(
+        f"list: '{child_model.__name__}' tem mais de uma relação para "
+        f"'{parent_model.__name__}' ({onde}) — declare 'edit_id' com o prefixo "
+        f"da relação (ex.: 'edit_id: \"{candidatas[0]}.id\"')")
 
 
-def _inversion_parent_rel(lista, merged, child_model):
-    """Relação filho→pai na inversão (`master`), ou `None`.
+def _inversion_parent_rel(lista, merged, child_model, edit_id=None):
+    """Relação filho→pai na inversão (`columns`), ou `None`.
 
-    Ex.: no `pagar` invertido (master `Previsao`, entidade `Transacao`), a
+    Ex.: no `pagar` invertido (`columns: 'Transacao'`, rota `Previsao`), a
     `Previsao` alcança o pai pela relação `previsao.transacao`.
     """
-    key = _inversion_parent_rel_key(lista, merged, child_model)
+    key = _inversion_parent_rel_key(lista, merged, child_model, edit_id)
     return getattr(child_model, key) if key else None
 
 
@@ -282,20 +336,39 @@ def _pool_entity(lista, entity_name):
     return entity_name if isinstance(lista.get('columns'), str) else None
 
 
+def _inversion_entity(lista: dict, entity_name: str) -> str | None:
+    """A entidade que `columns` nomeia, quando string: é a entidade das linhas.
+
+    `columns` string numa listagem sem `master` significa inversão: o filho é a
+    entidade das linhas, a entidade da rota é o pai. Quando `columns` é o nome
+    da própria entidade da rota, não há inversão — é apenas expansão dos
+    campos dela. Retorna `None` quando não há inversão (`columns` lista/query/
+    pivot, ou string igual a `entity_name`)."""
+    columns = lista.get('columns')
+    if isinstance(columns, str) and columns != entity_name:
+        return columns
+    return None
+
+
 def _list_pool(lista, schema, module_name, entity_name):
     """POOL — os fields que a listagem considera, antes dos slots.
 
     `columns` é quem decide **quem existe** na listagem (entidade = expansão,
-    lista = autoritativa, query dict = fonte do `qrun`; com `master`, as duas
-    entidades da inversão); os slots `line`/`card`/`hidden` só distribuem o que
-    está aqui. Cada field sai com `_entity` preenchido — é contra isso que um nome
-    de slot é resolvido, e é por isso que este é o construtor **único** do pool:
-    `list_max_width` (o `do_form` pede a largura da listagem da rota) monta o
-    mesmo pool que a listagem, master incluído.
+    lista = autoritativa, query dict = fonte do `qrun`; com inversão de `columns`
+    string, as duas entidades da inversão); os slots `line`/`card`/`hidden`
+    só distribuem o que está aqui. Cada field sai com `_entity` preenchido — é
+    contra isso que um nome de slot é resolvido, e é por isso que este é o
+    construtor **único** do pool: `list_max_width` (o `do_form` pede a largura
+    da listagem da rota) monta o mesmo pool que a listagem, inversão incluída.
+
+    Na inversão (`columns` string = entidade das linhas), o pool é
+    `_tagged(filho) + _tagged(pai)`: filho primeiro (ordem das colunas da linha)
+    e o pai depois.
 
     `fonte['pool_entity']` é a entidade que `columns` nomeia (a que um nome cru
     de slot resolve) — `None` quando `columns` é lista ou fonte `query`.
     `fonte['master']` é o nome da entidade da linha na inversão, quando há.
+    `fonte['parent_entity']` é a entidade da rota (o pai) na inversão.
 
     Devolve `(entity_name, model, merged, pool, fonte)`; `fonte` traz também o
     que a fonte `query` acrescenta (`is_query`/`colspec`/`colorder`), para o
@@ -304,6 +377,7 @@ def _list_pool(lista, schema, module_name, entity_name):
     from ajsystem.defs.qspec import (
         is_pivot_dict as _is_p, is_query_dict as _is_q,
     )
+    _validate_list_keys(lista)
     _colspec = lista.get('columns', lista.get('fields', entity_name))
     # Forma enxuta fonte+ordem: query/pivot dict como item da lista; as strings
     # dão recorte/ordem autoritativos. No máximo UMA fonte por lista.
@@ -336,7 +410,7 @@ def _list_pool(lista, schema, module_name, entity_name):
     if _is_query and isinstance(_colspec.get('from'), str):
         entity_name = _colspec['from']
     inputs = _camadas_inputs(module_name)
-    master_name = lista.get('master') or None
+    master_name = None  # `master` foi removida (falha explícita acima)
 
     if _is_pivot:
         if master_name:
@@ -367,33 +441,34 @@ def _list_pool(lista, schema, module_name, entity_name):
             'pool_entity': entity_name, 'master': None,
         }
 
-    if master_name:
-        # Inversão: as linhas são do filho (`master`), a entidade da rota é o
-        # pai. As duas entram no pool, filho primeiro (que é a ordem das colunas).
-        parent_model = _resolve_model(entity_name)
-        model = _resolve_model(master_name)
-        merged = {
-            entity_name: resolve_entity_fields(schema, parent_model, entity_name),
-            master_name: resolve_entity_fields(schema, model, master_name),
-        }
+    if isinstance(_colspec, str):
+        # `columns` string = entidade das linhas (filho na inversão). A entidade
+        # da rota é o pai. Só entra na inversão quando `columns` != entity_name;
+        # quando é igual, é uma listagem comum da própria entidade.
+        if _colspec != entity_name:
+            child_name = _colspec
+            parent_name = entity_name
+            parent_model = _resolve_model(parent_name)
+            model = _resolve_model(child_name)
+            merged = {
+                child_name: resolve_entity_fields(schema, model, child_name),
+                parent_name: resolve_entity_fields(schema, parent_model, parent_name),
+            }
 
-        def _tagged(ent):
-            cfgs = resolve_column_configs(merged, ent, principal=merged, inputs=inputs)
-            for f in cfgs:
-                f._entity = ent
-            return cfgs
+            def _tagged(ent):
+                cfgs = resolve_column_configs(merged, ent, principal=merged,
+                                              inputs=inputs)
+                for f in cfgs:
+                    f._entity = ent
+                return cfgs
 
-        if isinstance(_colspec, str) and _colspec == entity_name:
-            pool = _tagged(master_name) + _tagged(entity_name)
-        else:
-            pool = resolve_column_configs(merged, _colspec, principal=merged,
-                                          inputs=inputs)
-        return entity_name, model, merged, pool, {
-            'is_query': False, 'is_pivot': False, 'colspec': _colspec,
-            'colorder': None, 'base_pool': None,
-            'pool_entity': _pool_entity(lista, entity_name), 'master': master_name,
-            'parent_model': parent_model,
-        }
+            pool = _tagged(child_name) + _tagged(parent_name)
+            return entity_name, model, merged, pool, {
+                'is_query': False, 'is_pivot': False, 'colspec': _colspec,
+                'colorder': None, 'base_pool': None,
+                'pool_entity': child_name, 'master': child_name,
+                'parent_model': parent_model, 'parent_entity': parent_name,
+            }
 
     model = _resolve_model(entity_name)
     # RS/RE — camadas Schema e Entity sobre os fields da entidade, via
@@ -422,6 +497,7 @@ def _list_pool(lista, schema, module_name, entity_name):
         'is_query': _is_query, 'is_pivot': False, 'colspec': _colspec,
         'colorder': _colorder, 'base_pool': None,
         'pool_entity': _pool_entity(lista, entity_name), 'master': None,
+        'parent_entity': None,
     }
 
 
@@ -429,17 +505,17 @@ def _guard_pivot_list(lista, fonte, entity_name):
     """Restrições da listagem com fonte pivot (v1: somente leitura).
 
     Não há linha de origem para editar (as linhas são grupos), e a inversão
-    `master`/`detail` pressupõe um registro do model.
+    `columns`/`detail` pressupõe um registro do model.
     """
     if fonte.get('master'):
         raise ValueError("list: 'master' não suporta fonte pivot")
     if 'detail' in lista:
         raise ValueError(
             f"list '{entity_name}': 'detail' não suporta fonte pivot")
-    if lista.get('field_id') or lista.get('edit_id_field'):
+    if lista.get('field_id') or lista.get('edit_id_field') or lista.get('edit_id'):
         raise ValueError(
             f"list '{entity_name}': pivot é somente leitura "
-            "(sem field_id/edit_id_field)")
+            "(sem field_id/edit_id/edit_id_field)")
     if lista.get('edit_endpoint'):
         raise ValueError(
             f"list '{entity_name}': pivot é somente leitura (sem edit_endpoint)")
@@ -485,12 +561,12 @@ def _camadas_inputs(module_name):
 
 
 def do_list(entity_name: str, module_name: str, data=None, **extra):
-    """Entrada da listagem — roteia para `do_list_normal` (sem inversão) ou
-    `do_list_master` (inversão de relacionamento, prop `master`)."""
+    """Entrada da listagem — roteia para `do_list_master` (linhas de outra
+    entidade via `columns`) ou `do_list_normal` (linhas da própria entidade)."""
     mod = importlib.import_module(module_name)
     page = module_page(mod)
     lista = page_list_cfg(page)
-    if (lista or {}).get('master'):
+    if _inversion_entity(lista, entity_name):
         return do_list_master(entity_name, module_name, data=data, **extra)
     return do_list_normal(entity_name, module_name, data=data, **extra)
 
@@ -502,6 +578,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     page = module_page(mod)
     tabs, active_tab = build_tabs(page)
     lista = page_list_cfg(page)
+    _validate_list_keys(lista)
     bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
 
     # POOL (quem existe) → SLOTS (onde cada um vai). Ver `_list_pool`.
@@ -547,7 +624,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         for f in pool:
             f._entity = fonte['pool_entity']
 
-    slots = resolve_slots(lista, pool, fonte['pool_entity'])
+    slots = _list_slots(lista, pool, fonte)
     line_fields, cardonly_fields = slots['line'], slots['card']
 
     all_fields = line_fields + cardonly_fields
@@ -560,19 +637,19 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         _fid = None
         edit_endpoint = None
     elif _is_query:
-        _fid = lista.get('field_id', lista.get('edit_id_field'))
-        if 'field_id' not in lista and 'edit_id_field' not in lista:
+        _fid = lista.get('edit_id')
+        if 'edit_id' not in lista:
             edit_endpoint = None
             _fid = None
         else:
             from ajsystem.defs.qspec import parse_select as _ps2
             _sel_names = {e.name for e in _ps2(_colspec.get('select'))}
             if _fid not in _sel_names:
-                raise ValueError(f"list: field_id '{_fid}' não está no select da query")
+                raise ValueError(f"list: edit_id '{_fid}' não está no select da query")
             _pkcols = getattr(model, '__table__', None).primary_key.columns if getattr(model, '__table__', None) is not None else []
             _pk = {c.name for c in _pkcols}
             if _fid.split('.')[-1] not in _pk:
-                raise ValueError(f"list: field_id '{_fid}' não é pk do model")
+                raise ValueError(f"list: edit_id '{_fid}' não é pk do model")
             edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
     else:
         _fid = None
@@ -588,7 +665,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         fields=all_fields,
         fields_master=fields_master,
         edit_endpoint=edit_endpoint,
-        edit_id_field=(lista.get('field_id', lista.get('edit_id_field', 'id')) if _is_query and edit_endpoint else lista.get('edit_id_field', 'id')),
+        edit_id=(lista.get('edit_id', 'id') if _is_query and edit_endpoint else 'id'),
         template=lista.get('template'),
         line_idx=([i for i, f in enumerate(line_fields)
                   if id(f) in {id(p) for p in slots['pinned']}]
@@ -721,13 +798,14 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
 
 
 def do_list_master(entity_name: str, module_name: str, data=None, **extra):
-    """Listagem invertida (`master`) — fluxo próprio, separado da listagem comum.
+    """Listagem invertida (`columns`) — fluxo próprio, separado da listagem comum.
 
-    As linhas passam a ser os registros do filho (`master`); a entidade da
-    rota (`entity_name`) é o pai alcançado por relação. Regras da inversão:
-      - colunas: começam pelos campos da entidade `master`, seguidas dos campos
+    As linhas passam a ser os registros do filho (entidade de `columns`);
+    a entidade da rota (`entity_name`) é o pai alcançado por relação. Regras da
+    inversão:
+      - colunas: começam pelos campos da entidade `columns`, seguidas dos campos
         do pai (é o pool que os slots `line`/`card`/`hidden` distribuem);
-      - ordenação: campos da entidade `master` primeiro, depois os do pai
+      - ordenação: campos da entidade `columns` primeiro, depois os do pai
         (requer `JOIN` com o pai para alcançar as colunas dele);
       - filtros continuam pelos fields do pool (resolvendo colunas do pai
         pela relação).
@@ -739,15 +817,16 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     lista = page_list_cfg(page)
     bp_name = module_blueprint(mod).name if module_blueprint(mod) else None
 
-    master_name = lista.get('master') or None
     # POOL (filho primeiro, depois o pai) + merged das duas — mesmo caminho do
     # `do_list_normal`, para que `list_max_width` (que só o pai) e a listagem
     # resolvam exatamente o mesmo conjunto de fields.
     entity_name, model, merged, pool, fonte = _list_pool(lista, schema,
                                                          module_name, entity_name)
     principal_model = fonte['parent_model']
+    parent_entity = fonte.get('parent_entity')
+    edit_id = lista.get('edit_id', 'id')
 
-    slots = resolve_slots(lista, pool, fonte['pool_entity'])
+    slots = _list_slots(lista, pool, fonte, parent_entity)
     line_fields, cardonly_fields = slots['line'], slots['card']
 
     all_fields = line_fields + cardonly_fields
@@ -759,7 +838,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     # Campos do pai (entidade da rota) vivem no registro relacionado da linha:
     # o template resolve o valor por `card_path` (`rel.campo`) e os lookups
     # desses campos também precisam do caminho através da relação (`rel×path`).
-    parent_rel = _inversion_parent_rel_key(lista, merged, model)
+    parent_rel = _inversion_parent_rel_key(lista, merged, model, edit_id)
     for f in line_fields + cardonly_fields:
         if getattr(f, '_entity', None) == entity_name and parent_rel:
             f.card_path = f'{parent_rel}.{f.name}'
@@ -781,7 +860,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         fields=all_fields,
         fields_master=fields_master,
         edit_endpoint=edit_endpoint,
-        edit_id_field=lista.get('edit_id_field', f'{parent_rel}.id' if parent_rel else 'id'),
+        edit_id=edit_id,
         template=lista.get('template'),
         line_idx=([i for i, f in enumerate(line_fields)
                   if id(f) in {id(p) for p in slots['pinned']}]
@@ -839,7 +918,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     active = _rf.active
     page_max_width = _list_page_width(
         lista, list_obj, tabs, _rf.max_width if filter_config else None)
-    _parent_rel = _inversion_parent_rel(lista, merged, model)
+    _parent_rel = _inversion_parent_rel(lista, merged, model, edit_id)
 
     def _base_query():
         q = model.query

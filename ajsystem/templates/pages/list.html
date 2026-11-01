@@ -218,6 +218,23 @@
 {%- endif -%}
 {% endmacro %}
 
+{#
+  Célula de valor de uma coluna — encapsula o `if col.tag ... _value_cell`
+  que se repete na linha principal da grade e na linha de detalhe (overflow).
+  Recebe `item`, `col`, `img_h` e `img_js` e devolve o conteúdo da célula.
+#}
+{% macro _col_value(item, col, img_h=60, img_js=true) %}
+{% set _raw = item|deep_attr(col.card_path or col.field) %}
+{% if col.tag %}
+  {% if _raw is not none %}
+  {% set _opts = col.options if col.options is defined else none %}
+  {% set _tlink = col.tag.resolve_link(item) %}{% if _tlink %}<a href="{{ url_for(_tlink, id=_raw) }}">{% endif %}<span class="{{ col.tag.badge_cls(_raw|tag_color(_opts, col.tag.colors, col.tag.color)) }} tag-pill" style="width:{{ col.width }}ch">{{ _opts.get(_raw, _raw) if _opts else _raw }}</span>{% if _tlink %}</a>{% endif %}
+  {% else %}—
+  {% endif %}
+{% else %}{{ _value_cell(item, col, img_h=img_h, img_js=img_js) }}
+{% endif %}
+{% endmacro %}
+
 {# `_det_cell` é a assinatura que `item_table_display` invoca (item, idx, col).
    Não leva o `onclick` de ampliar: a tabela transposta do `item_table` não o
    tinha, e não é o lugar de ganhar um clique por acidente. #}
@@ -227,7 +244,7 @@
 
 {% set cols = LIST.master_fields | fields_to_columns %}
 {% set edit_endpoint = LIST.edit_endpoint %}
-{% set edit_id_field = LIST.edit_id_field if LIST.edit_id_field is not none else 'id' %}
+{% set edit_id_field = LIST.edit_id if LIST.edit_id is not none else 'id' %}
 {% set act_ch = 16 if edit_endpoint else 0 %}
 {# `has_card` é só "tem o que abrir embaixo da linha": card e/ou detalhe. A
    largura da tela NÃO entra — o ajuste por largura (`fitListColumns`) roda em
@@ -473,15 +490,7 @@
                  do servidor — era aqui que `<th>` e `<td>` saíam em contagens
                  diferentes quando a prop `linha` estava declarada. #}
               <td{% if col.align is defined and col.align != 'left' %} style="text-align:{{ col.align }}"{% endif %}{% if col.nowrap %} class="whitespace-nowrap"{% endif %} data-field="{{ col.field }}">
-                {% set _raw = item|deep_attr(col.card_path or col.field) %}
-                {% if col.tag %}
-                  {% if _raw is not none %}
-                  {% set _opts = col.options if col.options is defined else none %}
-                  {% set _tlink = col.tag.resolve_link(item) %}{% if _tlink %}<a href="{{ url_for(_tlink, id=_raw) }}">{% endif %}<span class="{{ col.tag.badge_cls(_raw|tag_color(_opts, col.tag.colors, col.tag.color)) }} tag-pill" style="width:{{ col.width }}ch">{{ _opts.get(_raw, _raw) if _opts else _raw }}</span>{% if _tlink %}</a>{% endif %}
-                  {% else %}—
-                  {% endif %}
-                {% else %}{{ _value_cell(item, col, img_h=60, img_js=true) }}
-                {% endif %}
+                {{ _col_value(item, col, img_h=60, img_js=true) }}
               </td>
               {% endfor %}
               {% if edit_endpoint %}
@@ -506,19 +515,17 @@
                      nenhuma é pinada e todas ficam candidatas. #}
                   {% for col in cols %}
                   {% if loop.index0 not in _pinned %}
-                  {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field of-dyn{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{{ _value_cell(item, col, img_h=40, img_js=true) }}
+                    <div class="overflow-value">{{ _col_value(item, col, img_h=40, img_js=true) }}
                     </div>
                   </div>
                   {% endif %}
                   {% endfor %}
                   {% for col in cardonly_cols %}
-                  {% set _raw = item|deep_attr(col.card_path or col.field) %}
                   <div data-field="{{ col.field }}" class="overflow-field card-only{% if col.input == 'textarea' %} memo{% endif %}">
                     <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{{ _value_cell(item, col, img_h=40, img_js=true) }}
+                    <div class="overflow-value">{{ _col_value(item, col, img_h=40, img_js=true) }}
                     </div>
                   </div>
                   {% endfor %}

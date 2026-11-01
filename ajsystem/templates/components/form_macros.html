@@ -1,18 +1,20 @@
+{% macro _temporal_input(type_, name, val, icon, label_aria) %}
+{%- set _f = 'calendar' if type_ in ('date','datetime-local') else 'clock' -%}
+{%- set _fmt = '%Y-%m-%d' if type_ == 'date' else ('%Y-%m-%dT%H:%M' if type_ == 'datetime-local' else '%H:%M') -%}
+<div class="inline-flex items-center it-dtwrap"><input type="{{ type_ }}" name="{{ name }}" class="input input-bordered input-sm"
+       value="{{ val.strftime(_fmt) if val else '' }}"
+       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ label_aria }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ _f }}"/></svg></button></div>
+{% endmacro %}
+
 {% macro render_footer_field(field, data=none) %}
 {% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
 {% set ns = field.name %}
 {% if field.input == 'date' %}
-<div class="inline-flex items-center it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
-       value="{{ val.strftime('%Y-%m-%d') if val else '' }}"
-       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_DATE }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+{{ _temporal_input('date', ns, val, 'calendar', i18n.PICK_DATE) }}
 {% elif field.input == 'datetime-local' %}
-<div class="inline-flex items-center it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
-       value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}"
-       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_DATE }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+{{ _temporal_input('datetime-local', ns, val, 'calendar', i18n.PICK_DATE) }}
 {% elif field.input == 'time' %}
-<div class="inline-flex items-center it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
-       value="{{ val.strftime('%H:%M') if val else '' }}"
-       oninput="marcarFormAlterado()" onchange="marcarFormAlterado()"><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_TIME }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
+{{ _temporal_input('time', ns, val, 'clock', i18n.PICK_TIME) }}
 {% elif field.input == 'number' %}
 <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
        {% if field.num_decimals is not none %}data-num-decimals="{{ field.num_decimals }}"{% endif %} value="{{ val|fmt_num(field.decimals) if val is not none else '' }}"
@@ -140,14 +142,11 @@
   <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm{% if field.percent %} input-percent{% endif %}{% if field.step is none %} no-spinner{% endif %}" style="width:{{ _iwidth }}{% if field.align and field.align != 'left' %};text-align:{{ field.align }}{% endif %}{% if field.percent %};padding-right:2rem{% endif %}" step="{{ step_val }}" {% if field.num_decimals is not none %}data-num-decimals="{{ field.num_decimals }}" {% endif %}value="{{ val|fmt_num(field.decimals) if val is not none else '' }}" placeholder="{{ ph }}" {{ req }} {{ dis }}{{ num_str|safe }}{% set _ds = (field.on_set.get('disables') if field.on_set is mapping else none) %}{% if _ds %} data-disables-fk="{{ field.name }}" data-disables="{{ _ds|join(',') if _ds is sequence and _ds is not string else _ds }}"{% endif %}>
   {% if field.percent %}<span class="absolute right-2 text-xs text-base-content/60 pointer-events-none select-none">%</span></div>{% endif %}
 {% elif field.input == 'date' %}
-  {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="date" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%d') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_DATE }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
-{% elif field.input == 'time' %}
-  {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="time" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_TIME }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-clock"/></svg></button></div>
+{{ _temporal_input('date', ns, val, 'calendar', i18n.PICK_DATE) }}
 {% elif field.input == 'datetime-local' %}
-  {% set _iwidth = (field.width + 5) ~ 'ch' %}
-  <div class="inline-flex items-center w-full it-dtwrap"><input type="datetime-local" name="{{ ns }}" class="input input-bordered input-sm" style="width:{{ _iwidth }}" value="{{ val.strftime('%Y-%m-%dT%H:%M') if val else '' }}" {{ req }} {{ dis }}{{ num_str }}><button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="this.previousElementSibling.showPicker()" aria-label="{{ i18n.PICK_DATE }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg></button></div>
+{{ _temporal_input('datetime-local', ns, val, 'calendar', i18n.PICK_DATE) }}
+{% elif field.input == 'time' %}
+{{ _temporal_input('time', ns, val, 'clock', i18n.PICK_TIME) }}
 {% elif field.input == 'image' %}
 {% set _img_has = val %}
 <div class="image-widget" data-ns="{{ ns }}" data-tem-imagem="{{ '1' if _img_has else '0' }}">

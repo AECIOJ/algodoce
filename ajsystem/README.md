@@ -373,9 +373,9 @@ Declara o tipo da página e seus props.
 | `columns` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['*']}` | `'Transacao'`, `['id','nome']` |
 | `line`/`card`/`hidden` | `list` | campos por slot | `line: ['id']`, `card: 'Transacao'` |
 | `order` | `list` | ordem de classificação | `order: ['vencimento', 'id']` |
-| `master` | `str` | entidade pai (inversão) | `master: 'Previsao'` |
+| `edit_id` | `str` | campo que identifica a linha para edição (default `'id'`; declare `'transacao.id'` quando o alvo é o pai na inversão) | `edit_id: 'transacao.id'` |
 
-**Slots da lista**: `line` (sempre na grade, vence `card`), `card` (linha expansória), `hidden` (fora da grade e card). Precedência: `hidden > line > card`.
+**Slots da lista**: `line` (sempre na grade, vence `card`), `card` (linha expansória), `hidden` (fora da grade e card). Precedência: `hidden > line > card`. Na inversão (`columns` nomeia entidade diferente da rota), o campo não citado vai para `line` se for do filho e para `card` se for do pai. Um item de slot pode ser um **alias de apresentação** (`{'Transação': 'Transacao.id'}`): o rótulo é a chave e o alvo é o caminho; aceita também `{'label': ..., 'width': ..., 'align': ...}` via forma longa `{'Transação': {'field': 'Transacao.id', 'label': '...'}}`.
 
 #### `props.filter` — Painel de filtros
 
@@ -582,12 +582,13 @@ Page = {
     'type': 'crud',
     'props': {
         'list': {
-            'columns': 'Transacao',
-            'master': 'Previsao',
-            'line': ['pedido_id'],
-            'hidden': ['cancelado', 'tipo'],
-            'card': 'Transacao',
+            'columns': 'Previsao',
+            'line': ['id', {'Transação': 'Transacao.id'}, {'Conta': 'Transacao.conta_id'},
+                     'Transacao.fatura', 'documento', 'vencimento', 'recurso_id',
+                     'previsto', 'realizado', 'variacao', 'saldo', 'Transacao.pedido_id'],
+            'hidden': ['transacao_id', 'tipo', 'cancelado'],
             'order': ['vencimento', 'id'],
+            'edit_id': 'transacao.id',
         },
         'filter': {
             'fixed': {'tipo': 'R'},

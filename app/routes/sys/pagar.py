@@ -2,40 +2,17 @@ from app.models.transacao import Transacao
 from app.models.previsao import Previsao
 from app.routes.sys.transacoes import (
     pre_get_transacao, post_save_transacao)
-from ajsystem.defs.constants import NOT_EMPTY, OR, TODAY
+from ajsystem.defs.constants import NOT_EMPTY, OR
 from app.extends.masks import MVALOR
 
 Schema = {
     'Transacao': {
-        'data': {'default': TODAY},
         'conta_id': {'label': 'Fornecedor',
                      'lookup': {'display': 'nome', 'fields': ['nome'],
                                 'when': {'ativo': True, 'tipo': [1, 2]}},
                      'carry': 'conta_id'},
-        'operacao_id': {'lookup': {'display': 'nome', 'fields': ['nome'],
-                                'when': 'tipo = 2 AND pai_id IS NOT NULL'}},
-        'cancelado': {'label': 'Cancelado em'},
-        'valor': {'readonly': False, 'carry': 'valor'},
-        'previsto': {'type': 'NUM', 'label': 'Previsto', 'readonly': True,
-                     'memory': True, 'mask': MVALOR,
-                     'calc': {'type': 'agg', 'source': 'sum(Previsao.previsto)'}},
-        'realizado': {'type': 'NUM', 'label': 'Realizado', 'readonly': True,
-                      'memory': True, 'mask': MVALOR,
-                      'calc': {'type': 'agg', 'source': 'sum(Previsao.realizado)'}},
-        'ratear': {'type': 'NUM', 'label': 'Ratear', 'memory': True, 'mask': MVALOR},
-        'prazo': {'readonly': False},
-        'variacao': {'calc': {'type': 'agg', 'source': 'sum(Previsao.variacao)',
-                              'diff': 'Aviso de Inconsistência: Variação difere da soma das variações das previsões atuais.'},
-                     'readonly': True},
-        'saldo': {'calc': {'type': 'agg', 'source': 'sum(Previsao.saldo)',
-                           'diff': 'Aviso de Inconsistência: Saldo difere da soma dos saldos das previsões atuais.'},
-                  'readonly': True},
-        'status': {'calc': {'type': 'call', 'source': 'calc_status',
-                            'diff': 'Aviso de Inconsistência: Status registrado desta conta difere do status calculado.'},
-                   'tag': {'colors': {0: 'warning', 1: 'warning', 2: 'info', 8: 'error', 9: 'success'}}},
+        'operacao_id': {'lookup': {'when': 'tipo = 2 AND pai_id IS NOT NULL'}},
         'tipo': {'default': 'P'},
-        'recurso_id': {'type': 'FK', 'label': 'Recurso', 'memory': True,
-                       'lookup': {'model': 'Recurso', 'display': 'nome', 'fields': ['nome']}},
     },
     'Previsao': {
         'id': {'readonly': True, 'label': 'Previsão', 'mask': '999,999'},
@@ -56,12 +33,13 @@ Page = {
             'Filtros': {'type': 'Filter'},
         },
         'list': {
-            'columns': 'Transacao',
-            'master': 'Previsao',
-            'line': ['compra_id'],
-            'hidden': ['cancelado', 'tipo'],
-            'card': 'Transacao',
-            'order': ['vencimento','id'],
+            'columns': 'Previsao',
+            'line': ['id', {'Transação': 'Transacao.id'}, {'Fornecedor': 'Transacao.conta_id'},
+                     'Transacao.fatura', 'documento', 'vencimento', 'recurso_id',
+                     'previsto', 'realizado', 'variacao', 'saldo', {'Compra': 'Transacao.compra_id'}],
+            'hidden': ['transacao_id', 'tipo', 'cancelado'],
+            'order': ['vencimento', 'id'],
+            'edit_id': 'transacao.id',
         },
         'filter': {
             'fixed': {'tipo': 'P'},

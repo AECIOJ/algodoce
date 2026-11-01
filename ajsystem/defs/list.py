@@ -29,7 +29,7 @@ class List:
     fields: list
     fields_master: Optional[list] = None
     edit_endpoint: Optional[str] = None
-    edit_id_field: str = 'id'
+    edit_id: str = 'id'
     detail_data: Optional[str] = None
     buttons: Optional[list] = None
     template: Optional[str] = None

@@ -47,9 +47,6 @@ class Previsao(db.Model):
 Entity = {
     'id':           {'type': 'ID'},
     'transacao_id': {'type': 'DK'},
-    'conta_id':     {'type': 'FK', 'label': 'Conta', 'readonly': True,
-                     'lookup': {'model': 'Conta', 'display': 'nome', 'fields': ['nome']}}, 
-    'fatura':       {'type': 'TEXT', 'label': 'Fatura', 'readonly': True},
     'documento':    {'type': 'TEXT', 'label': 'Documento'},
     'vencimento':   {'type': 'DATA', 'label': 'Vencimento', 'required': True},
     'recurso_id':   {'type': 'FK', 'label': 'Recurso'},
