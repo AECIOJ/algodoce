@@ -9,7 +9,7 @@ E o motor `ajsystem.core.pdf.gerar_pdf_relatorio(report, ...)` os renderiza.
 from dataclasses import dataclass, field as dc_field
 from typing import Any, Optional, Callable, Union
 
-from ajsystem.defs.constants import POS_ROW
+from ajsystem.defs.constants import POS_ROW, POS_NONE, POS_INLINE, POS_TITLE, POS_TITLE_CENTER
 
 # Import único nos relatórios do app: `from ajsystem.defs.report import *`
 # entrega SÓ os aliases de declaração; o resto (Report*, parse_*, contrato
@@ -716,13 +716,11 @@ class ReportColumn:
     format: Optional[str] = None
     agg: Optional[str] = None
     function: Optional[Callable] = None
-    # Montagem via template '{campo}' (ex. código '1.01.001'); suppress em
-    # branco repetido na célula (place=0 do groups). Quebras vão em
-    # table.groups (só o que imprime entra em columns).
     text: Optional[str] = None
     suppress: bool = False
-    pos: int = POS_ROW  # POS_ROW = coluna da tabela; POS_INLINE/POS_TITLE* = não-coluna; POS_NONE = não imprime
-    group: Optional[str] = None  # '*' = coluna é grupo/break; '<nome>' = vinculada a grupo
+    # Compatibilidade com código legado
+    pos: int = POS_ROW
+    group: Optional[str] = None
     on_start: Optional[dict] = None
     on_finish: Optional[dict] = None
     totals: Optional[object] = None
@@ -746,6 +744,43 @@ class ReportColumns:
 
     def __len__(self):
         return len(self._columns)
+
+
+@dataclass
+class ReportLine:
+    """Elemento em title/pre/post."""
+    field: str
+    cfg: dict = dc_field(default_factory=dict)
+    label: Optional[str] = None
+    text: Optional[str] = None
+    align: Optional[str] = None
+    pos: Optional[int] = None
+    group: Optional[str] = None
+    on_start: Optional[dict] = None
+    on_finish: Optional[dict] = None
+    totals: Optional[object] = None
+    lf: Optional[object] = None
+    function: Optional[Callable] = None
+    transform: Optional[object] = None
+
+    def __post_init__(self):
+        if self.cfg is None:
+            self.cfg = {}
+
+
+@dataclass
+class Layout:
+    title: list = dc_field(default_factory=list)
+    pre: list = dc_field(default_factory=list)
+    cols: list = dc_field(default_factory=list)
+    post: list = dc_field(default_factory=list)
+    order: Optional[object] = None
+    totals: Optional[object] = None
+    lf: Optional[object] = None
+    extend: Optional[object] = None
+    groups: list = dc_field(default_factory=list)
+    # extras
+    raw: dict = dc_field(default_factory=dict)
 
 
 @dataclass
@@ -897,4 +932,340 @@ def parse_report(spec):
         if isinstance(body, dict):
             spec['body'] = ReportBody(**body)
         return Report(**spec)
-    raise TypeError(f"report deve ser dict ou Report, recebeu {type(spec).__name__}: {spec!r}")
+    raise TypeError(f"report deve ser dict ou Report, recebido {type(spec).__name__}: {spec!r}")
+
+
+# ── Layout da tabela (title / pre / cols / post) ──
+#
+# Três formas aceitas em `body.table`:
+#
+#   A) compacta (sem syn nem variantes)
+#      {'title': {...}, 'pre': {...}, 'cols': {...}, 'post': {...},
+#       'order': [...], 'totals': {...}, 'lf': [...]}
+#
+#   B) com sintético explícito
+#      {'det': {<layout A>}, 'syn': {<layout A>}}
+#
+#   C) com variantes (chave numérica = nível; det implícito)
+#      {'0': {<layout A>, 'syn': {<layout A>}}, '1': {<layout A>}}
+#
+# Internamente o motor continua consumindo `columns` (dict de specs) e
+# `levels` (grupos). `normalize_table` traduz a declaração para essa forma.
+
+_SECTIONS = ('title', 'pre', 'cols', 'post')
+_LAYOUT_PROPS = ('order', 'totals', 'lf', 'extend', 'after', 'label',
+                 'footer', 'footer_label')
+_VARIANT_RE = None
+
+
+def _is_variant_key(key):
+    return isinstance(key, int) or (isinstance(key, str) and key.isdigit())
+
+
+def _variant_key(key):
+    """Chaves de variante normalizadas: 0 e '0' são o mesmo nível."""
+    return str(key)
+
+
+def _split_layout(layout, label=''):
+    """Separa um layout em (title, pre, cols, post, props)."""
+    if not isinstance(layout, dict):
+        raise TypeError(f"report '{label}': layout de tabela deve ser dict")
+    secs = {s: {} for s in _SECTIONS}
+    props = {}
+    for key, val in layout.items():
+        if key in _SECTIONS:
+            if val is None:
+                continue
+            if not isinstance(val, dict):
+                raise ValueError(
+                    f"report '{label}': table.{key} deve ser dict de campos")
+            secs[key] = dict(val)
+        elif key in _LAYOUT_PROPS:
+            props[key] = val
+        elif key in ('columns', 'hierarchy', 'levels'):
+            raise ValueError(
+                f"report '{label}': '{key}' saiu da declaração de tabela; "
+                f"use title/pre/cols/post")
+        elif key in ('det', 'syn') or _is_variant_key(key):
+            # tratado pelo chamador
+            continue
+        else:
+            raise ValueError(
+                f"report '{label}': chave desconhecida em table: '{key}'")
+    return secs['title'], secs['pre'], secs['cols'], secs['post'], props
+
+
+def _normalize_field_spec(name, cfg):
+    """Normaliza uma entrada de seção sem impor props de ReportColumn."""
+    if cfg is None:
+        cfg = {}
+    if isinstance(cfg, str):
+        # atalho: 'label'
+        cfg = {'label': cfg}
+    if not isinstance(cfg, dict):
+        raise ValueError(
+            f"table: campo '{name}' deve ser dict ou str, veio {type(cfg).__name__}")
+    return dict(cfg)
+
+
+def _layout_from_sections(sections, props):
+    title, pre, cols, post = sections
+    raw = {}
+    raw.update(props)
+    for sec, data in zip(_SECTIONS, (title, pre, cols, post)):
+        if data:
+            raw[sec] = data
+    return {'sections': dict(zip(_SECTIONS, (title, pre, cols, post))),
+            'props': dict(props), 'raw': raw}
+
+
+def normalize_table(table, variant=None, syn=False, label=''):
+    """Resolve a declaração `table` para o layout ativo.
+
+    Devolve um dict com:
+      - `columns`: dict {campo: cfg} na ordem de impressão, com `pos` interno
+        (POS_TITLE/POS_INLINE/POS_ROW/POS_POST);
+      - `levels`: lista de grupos derivada das flags `group`;
+      - `pre_lines` / `post_lines`: campos fora da grade que não são grupo;
+      - `order`, `totals`, `lf`, `extend`, `after` do nível ativo.
+    """
+    if not isinstance(table, dict) or not table:
+        return None
+
+    has_variants = any(_is_variant_key(k) for k in table)
+    has_sections = any(k in _SECTIONS for k in table)
+    has_det = 'det' in table
+    has_syn = 'syn' in table
+
+    if has_variants:
+        if has_sections or has_syn:
+            raise ValueError(
+                f"report '{label}': table não pode misturar variantes com "
+                f"title/pre/cols/post/syn na raiz")
+        sel = variant
+        if sel is None:
+            sel = min((_variant_key(k) for k in table if _is_variant_key(k)),
+                      key=lambda s: int(s))
+        sel = _variant_key(sel)
+        if sel not in {_variant_key(k) for k in table}:
+            raise ValueError(
+                f"report '{label}': variante {variant!r} não declarada")
+        level = table[next(k for k in table if _variant_key(k) == sel)]
+        if not isinstance(level, dict):
+            raise ValueError(f"report '{label}': variante {sel!r} deve ser dict")
+        inner_has_syn = 'syn' in level
+        if inner_has_syn:
+            det_raw = {k: v for k, v in level.items() if k != 'syn'}
+            syn_raw = level.get('syn')
+        else:
+            det_raw = level
+            syn_raw = None
+        if syn:
+            if syn_raw is None:
+                raise ValueError(
+                    f"report '{label}': variante {sel!r} não declara 'syn'")
+            active = syn_raw
+        else:
+            active = det_raw
+        return _build_normalized(active, label)
+
+    if has_det:
+        raise ValueError(
+            f"report '{label}': 'det' não é mais usado; declare "
+            f"title/pre/cols/post diretamente na raiz de table")
+
+    if syn and has_syn:
+        # Sintético solicitado e declarado: usa o layout de syn.
+        return _build_normalized(table.get('syn') or {}, label)
+
+    if syn:
+        raise ValueError(
+            f"report '{label}': sintético pedido, mas table não declara 'syn'")
+
+    if has_sections:
+        # Detalhado: seções na raiz (ou só props).
+        active = {k: v for k, v in table.items() if k != 'syn'}
+        return _build_normalized(active, label)
+
+    raise ValueError(
+        f"report '{label}': sintético pedido, mas table não declara 'syn'")
+
+    # tabela vazia/vazia de seções: só props, sem layout de colunas
+    # -> relatório em construção (não há o que imprimir)
+    return None
+
+
+def _build_normalized(layout, label=''):
+    title, pre, cols, post, props = _split_layout(layout or {}, label)
+    columns = {}
+    levels = []
+    pre_lines = {}
+    post_lines = {}
+
+    def _add_line(sec, name, cfg, pos):
+        spec = _normalize_field_spec(name, cfg)
+        spec.setdefault('pos', pos)
+        if sec == 'title' and spec.get('pos') == POS_TITLE:
+            if str(spec.get('align', '')).upper() in ('C', 'CENTER', 'CENTRO'):
+                spec['pos'] = POS_TITLE_CENTER
+        # campos de grupo em title/pre viram níveis; a coluna-fonte também
+        # entra em `columns` (o mecanismo de mudança lê o atributo da linha).
+        if spec.get('group') == '*' and sec in ('title', 'pre'):
+            levels.append(_level_from_field(name, spec, sec))
+        elif spec.get('group') == '*' and sec in ('cols', 'post'):
+            levels.append(_level_from_field(name, spec, sec))
+        if sec == 'cols':
+            columns[name] = spec
+        elif sec == 'title':
+            if spec.get('group') != '*':
+                pre_lines[name] = spec
+            else:
+                columns[name] = spec
+        elif sec == 'pre':
+            if spec.get('group') != '*':
+                pre_lines[name] = spec
+            else:
+                columns[name] = spec
+        elif sec == 'post':
+            if spec.get('group') != '*':
+                post_lines[name] = spec
+            else:
+                columns[name] = spec
+
+    for name, cfg in title.items():
+        _add_line('title', name, cfg, POS_TITLE)
+    for name, cfg in pre.items():
+        _add_line('pre', name, cfg, POS_INLINE)
+    for name, cfg in cols.items():
+        _add_line('cols', name, cfg, POS_ROW)
+    for name, cfg in post.items():
+        _add_line('post', name, cfg, POS_POST)
+
+    return {
+        'columns': columns,
+        'levels': levels,
+        'pre_lines': pre_lines,
+        'post_lines': post_lines,
+        'order': props.get('order'),
+        'totals': props.get('totals'),
+        'lf': props.get('lf'),
+        'extend': props.get('extend'),
+        'after': props.get('after'),
+        'footer': props.get('footer'),
+        'footer_label': props.get('footer_label'),
+        'label': props.get('label'),
+    }
+
+
+def _level_from_field(name, spec, sec):
+    """Deriva um nível de grupo a partir de um field com `group: '*'`.
+
+    Retorna lista de dicts no formato {field: spec} (compatível com o
+    código legado de _apply_entity que itera hierarchy/levels).
+    on_start/on_finish geram níveis de abertura/fechamento, como antes.
+    """
+    out = []
+    on_start = spec.get('on_start')
+    if on_start is not None:
+        sp = {'field': name,
+              'pos': POS_TITLE if sec == 'title' else POS_INLINE,
+              'gline': True,
+              'group': '*'}
+        if 'text' in on_start:
+            sp['text'] = on_start['text']
+        elif 'text' in spec:
+            sp['text'] = spec['text']
+        for k in ('lf', 'align', 'style', 'cpi', 'transform', 'bold'):
+            if k in on_start:
+                sp[k] = on_start[k]
+        if 'pos' in on_start:
+            sp['pos'] = on_start['pos']
+        out.append({name: sp})
+    on_finish = spec.get('on_finish')
+    if on_finish is not None:
+        sp = {'field': name, 'pos': POS_NONE, 'gline': True,
+              'on_finish': True, 'group': '*'}
+        if 'text' in on_finish:
+            sp['footer_text'] = on_finish['text']
+        if 'lf' in on_finish:
+            sp['lf'] = on_finish['lf']
+        totals_val = on_finish.get('totals', spec.get('totals'))
+        if totals_val is not None:
+            sp['totals'] = totals_val if isinstance(totals_val, dict) else True
+        out.append({name: sp})
+    if not out:
+        sp = {'field': name,
+              'pos': POS_TITLE if sec == 'title' else POS_INLINE,
+              'gline': True, 'group': '*'}
+        if spec.get('text'):
+            sp['text'] = spec['text']
+        for k in ('lf', 'align', 'style', 'cpi', 'transform', 'bold',
+                  'totals', 'on_finish'):
+            if k in spec:
+                sp[k] = spec[k]
+        out.append({name: sp})
+    return out
+
+
+def _flatten_levels(levels):
+    out = []
+    for lv in levels:
+        if isinstance(lv, list):
+            out.extend(lv)
+        elif lv:
+            out.append(lv)
+    return out
+
+
+def table_has_syn(table, variant=None):
+    """A tabela (ou a variante) declara layout sintético?"""
+    if not isinstance(table, dict):
+        return False
+    has_variants = any(_is_variant_key(k) for k in table)
+    if has_variants:
+        if variant is None:
+            # qualquer variante declara syn?
+            return any(isinstance(v, dict) and 'syn' in v
+                       for k, v in table.items() if _is_variant_key(k))
+        vk = _variant_key(variant)
+        for k, v in table.items():
+            if _is_variant_key(k) and _variant_key(k) == vk:
+                if not isinstance(v, dict):
+                    return False
+                if 'syn' in v:
+                    return True
+                # forma {'det':..., 'syn':...}
+                return False
+        return False
+    return 'syn' in table
+
+
+def normalize_table_to_legacy(table, variant=None, syn=False, label=''):
+    """Normaliza e devolve o dict no formato interno (columns/levels/...)."""
+    norm = normalize_table(table, variant=variant, syn=syn, label=label)
+    if norm is None:
+        return None
+    out = {}
+    # ordem de impressão: title, pre, cols, post
+    columns = {}
+    seen = set()
+    for name in norm['columns']:
+        if name in seen:
+            continue
+        seen.add(name)
+        columns[name] = norm['columns'][name]
+    out['columns'] = columns
+    levels = _flatten_levels(norm['levels'])
+    if levels:
+        out['levels'] = levels
+    if norm.get('pre_lines'):
+        out['_pre_lines'] = norm['pre_lines']
+    if norm.get('post_lines'):
+        out['_post_lines'] = norm['post_lines']
+    out['_syn'] = syn
+    for k in ('order', 'totals', 'lf', 'extend', 'after',
+              'footer', 'footer_label', 'label'):
+        if norm.get(k) is not None:
+            out[k] = norm[k]
+    return out

@@ -1,5 +1,5 @@
 from ajsystem.defs.report import *
-from ajsystem.defs.constants import POS_INLINE
+
 QRECEBER = {
     'select': [
         {'previsao': 'id'},
@@ -25,17 +25,17 @@ RECEBER = {
     ],
     'body': {
         'source': QRECEBER,
-        'order': [1, 3],
         'table': {
-            'columns': {
+            'pre': {
                 'cliente': {
                     'group': '*',
-                    'pos': POS_INLINE,
                     'text': '{conta}. {cliente}',
                     'on_start': {'lf': -1},
                     'on_finish': {'lf': 1},
-                    'totals': { 'align': 'R', 'span': 4},
+                    'totals': {'align': 'R'},
                 },
+            },
+            'cols': {
                 'previsao': {},
                 'vencimento': {},
                 'fatura': {},
@@ -46,7 +46,24 @@ RECEBER = {
                 'variacao': {'agg': 'sum'},
                 'saldo': {'agg': 'sum'},
             },
-            'totals': {'align': 'R', 'span': 4},
+            'totals': {'align': 'R'},
+            'syn': {
+                'title': {},
+                'cols': {
+                    'cliente': {
+                        'group': '*',
+                        'text': '{conta}. {cliente}',
+                        'on_start': {'lf': -1},
+                        'on_finish': {'lf': 1},
+                        'width': 40
+                    },
+                    'previsto': {'agg': 'sum'},
+                    'realizado': {'agg': 'sum'},
+                    'variacao': {'agg': 'sum'},
+                    'saldo': {'agg': 'sum'},
+                },
+                'totals': {'align': 'R'},
+            },
         },
     },
     'footer': True,

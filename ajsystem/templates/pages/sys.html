@@ -373,13 +373,18 @@ function reportRun(btn) {
     }
     // Enviar sempre, mesmo vazio: assim o servidor sabe que o usuário
     // não quer filtro para esse campo (e não aplica o default).
+    // Checkbox não marcado não envia nada (o servidor trata ausência como off).
+    if (el.type === 'checkbox' && !el.checked) return;
     params.append(el.name, el.value);
   });
   btn.disabled = true;
   fetch('{{ url_for("ajsystem.report_action") }}?' + params.toString())
     .then(function (r) { return r.json(); })
-    .then(function (d) { if (d && d.html) reportRender(d.html); })
-    .catch(function () {})
+    .then(function (d) {
+      if (d && d.html) reportRender(d.html);
+      else if (d && d.error) alert('Erro ao gerar relatório: ' + d.error);
+    })
+    .catch(function () { alert('Erro de conexão ao gerar relatório'); })
     .finally(function () { btn.disabled = false; });
 }
 
@@ -1456,8 +1461,8 @@ document.addEventListener('DOMContentLoaded', function() {
     dtSyncFilled();
   });
 
-  // Inputs de data da aba Relatórios: preenchimento automático quando o usuário
-  // digita apenas dia (usa mês/ano corrente) ou dia+mês (usa ano corrente).
+  // Inputs de data (formulários e relatórios): preenchimento automático quando o
+  // usuário digita apenas dia (usa mês/ano corrente) ou dia+mês (usa ano corrente).
   // Sempre mantém o formato brasileiro dd/mm/aaaa.
   function _dtCompleteOne(el) {
     var v = el.value.trim();
@@ -1498,7 +1503,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   function dtAutoComplete(root) {
     var changed = false;
-    (root || document).querySelectorAll('.report-card input[type="text"]').forEach(function(el) {
+    (root || document).querySelectorAll('.it-dtwrap input[type="text"]').forEach(function(el) {
       el.addEventListener('blur', function() {
         if (_dtCompleteOne(el)) dtSyncFilled();
       });
@@ -1509,68 +1514,37 @@ document.addEventListener('DOMContentLoaded', function() {
   window.dtAutoComplete = dtAutoComplete;
   dtAutoComplete();
 
-  // Máscara automática de data (dd/mm/aaaa) enquanto digita no input text
-  // da aba Relatórios. Insere barras após dd e mm.
-  function dtMaskInput(el) {
-    var v = el.value.replace(/\D/g, '');
-    if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
-    if (v.length > 5) v = v.substring(0, 5) + '/' + v.substring(5);
-    if (v.length > 10) v = v.substring(0, 10);
-    if (v !== el.value) el.value = v;
-  }
-
-  // Aplica máscara nos inputs de data da aba Relatórios
-  (document).querySelectorAll('.report-card input[type="text"]').forEach(function(el) {
-    el.addEventListener('input', function() {
-      dtMaskInput(this);
-      dtSyncFilled();
-    });
-  });
-
-  // Abre o calendário nativo para um input[type="text"] de data da aba Relatórios.
-  // Cria um input type="date" oculto, chama o showPicker nativo e, ao selecionar,
-  // copia o valor (YYYY-MM-DD) para o input text original no formato dd/mm/aaaa.
-  function dtOpenPicker(btn) {
-    var input = btn.previousElementSibling;
-    if (!input || input.tagName !== 'INPUT') return;
-    var hidden = document.createElement('input');
-    hidden.type = 'date';
-    hidden.style = 'position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;';
-    document.body.appendChild(hidden);
-    var pickerShown = false;
-    try {
-      hidden.showPicker();
-      pickerShown = true;
-    } catch (e) {
-      // Navegador sem suporte a showPicker: ignora
-    }
-    function onPick() {
-      if (hidden.value) {
-        // Converte YYYY-MM-DD para dd/mm/aaaa
-        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(hidden.value);
-        if (m) {
-          input.value = m[3] + '/' + m[2] + '/' + m[1];
-        } else {
-          input.value = hidden.value;
+  // Flatpickr: inicializa calendário em todos os inputs de data (formulários e relatórios)
+  function initFlatpickr() {
+    document.querySelectorAll('.it-dtwrap input[data-datepicker="1"]').forEach(function(input) {
+      var fmt = input.getAttribute('data-fp-format') || 'd/m/Y';
+      var fp = flatpickr(input, {
+        dateFormat: fmt,
+        altInput: false,
+        allowInput: true,
+        clickOpens: false,
+        onChange: function(selectedDates, dateStr, instance) {
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          if (typeof dtSyncFilled === 'function') dtSyncFilled();
         }
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-        dtSyncFilled();
-      }
-      hidden.removeEventListener('input', onPick);
-      hidden.removeEventListener('change', onPick);
-      document.body.removeChild(hidden);
-    }
-    hidden.addEventListener('input', onPick);
-    hidden.addEventListener('change', onPick);
-    // Se o navegador não suporta showPicker, remove o hidden após um curto tempo
-    if (!pickerShown) {
-      setTimeout(function() {
-        if (document.body.contains(hidden)) document.body.removeChild(hidden);
-      }, 100);
-    }
+      });
+      input._fp = fp;
+    });
   }
-  window.dtOpenPicker = dtOpenPicker;
+  initFlatpickr();
+  window.initFlatpickr = initFlatpickr;
+
+  // Abre o calendário Flatpickr do input texto vizinho ao botão clicado.
+  function openDatePicker(btn) {
+    var wrap = btn.closest('.it-dtwrap');
+    if (!wrap) return;
+    var input = wrap.querySelector('input[data-datepicker="1"]');
+    if (!input || !input._fp) return;
+    input._fp.open();
+    input.focus();
+  }
+  window.openDatePicker = openDatePicker;
   document.querySelectorAll('input[data-mask]').forEach(function(el) {
     _maskEl(el);
     el.addEventListener('input', function() {

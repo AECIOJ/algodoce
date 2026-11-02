@@ -260,7 +260,7 @@ def _calc_fn(expr):
     return fn
 
 
-def _apply_entity(raw, entity):
+def _apply_entity(raw, entity, variant=None, syn=False):
     """Resolve os campos do Report (`header.fields`, `body.table.columns`,
     `body.table.hierarchy`, `body.source`) contra a `Entity` do módulo.
 
@@ -519,7 +519,7 @@ def _apply_entity(raw, entity):
                     spec['width'] = _text_width_ch(extra['text'])
                 resolved[key] = spec
                 continue
-            if not any(k in extra for k in ('label', 'function')):
+            if not any(k in extra for k in ('label', 'function', 'syn', 'variants')):
                 raise KeyError(
                     f"Campo '{key}' não resolvido na Entity (ausente ou "
                     f"ambíguo — use 'Model.campo') e sem 'label'/'function' "
@@ -773,7 +773,7 @@ def _apply_entity(raw, entity):
                     spec['width'] = _text_width_ch(extra['text'])
                 resolved[key] = spec
                 continue
-            if not any(k in extra for k in ('label', 'function')):
+            if not any(k in extra for k in ('label', 'function', 'syn', 'variants')):
                 raise KeyError(
                     f"Campo '{key}' não resolvido na Entity (ausente ou "
                     f"ambíguo — use 'Model.campo') e sem 'label'/'function' "
@@ -879,10 +879,39 @@ def _apply_entity(raw, entity):
         # depois da execução. Aqui só preservamos o declarado.
         _src_decl = (body.get('source') if isinstance(body, dict)
                      else getattr(body, 'source', None))
+
+        # Nova declaração de tabela (title/pre/cols/post, det/syn, variantes):
+        # resolve o layout ativo e o traduz para a forma interna (columns +
+        # levels + linhas estáticas). Fonte pivot mantém o caminho legado.
+        if isinstance(table, dict) and not _is_pivot_source(_src_decl):
+            from ajsystem.defs.report import normalize_table_to_legacy
+            _has_layout = any(k in table for k in
+                              ('title', 'pre', 'cols', 'post', 'det', 'syn'))
+            _has_variants = any(
+                isinstance(k, int) or (isinstance(k, str) and k.isdigit())
+                for k in table)
+            if _has_layout or _has_variants:
+                _norm = normalize_table_to_legacy(
+                    table, variant=variant, syn=syn,
+                    label=raw.get('label'))
+                if isinstance(_norm, dict):
+                    _layout_order = _norm.get('order')
+                    if _layout_order is not None:
+                        # Interno: o motor já lê `body.order`; a declaração
+                        # vive no nível do layout.
+                        body['order'] = _layout_order
+                    table = _norm
+            elif not _has_layout and not _has_variants:
+                # Table declarado mas sem seções de layout: relatório em
+                # construção (não há o que imprimir).
+                table['_em_construcao'] = True
+
         specs = (None if _is_pivot_source(_src_decl)
                  else _resolve_map(table.get('columns'), columns=True))
         if specs is not None:
-            from ajsystem.defs.constants import POS_NONE, POS_ROW, POS_INLINE, POS_TITLE, POS_TITLE_CENTER
+            from ajsystem.defs.constants import (POS_NONE, POS_ROW, POS_INLINE,
+                                                 POS_TITLE, POS_TITLE_CENTER,
+                                                 POS_POST)
             cols = {}
             for key, spec in specs.items():
                 spec = dict(spec)
@@ -893,10 +922,12 @@ def _apply_entity(raw, entity):
                 if _pos in (POS_NONE, 0, False):
                     # campo de controle: não sai no relatório (remove da grade)
                     continue
-                if _pos not in (POS_ROW, POS_INLINE, POS_TITLE, POS_TITLE_CENTER):
+                if _pos not in (POS_ROW, POS_INLINE, POS_TITLE,
+                                POS_TITLE_CENTER, POS_POST):
                     raise ValueError(
                         f"report '{raw.get('label')}': coluna '{key}' tem pos "
-                        f"inválida {_pos} (use POS_ROW/POS_INLINE/POS_TITLE/POS_TITLE_CENTER/POS_NONE)")
+                        f"inválida {_pos} (use POS_ROW/POS_INLINE/POS_TITLE/"
+                        f"POS_TITLE_CENTER/POS_POST/POS_NONE)")
                 for _fk in ('font', 'cpi', 'flags', 'lpi', 'font_size'):
                     if _fk in spec:
                         raise ValueError(
@@ -913,6 +944,27 @@ def _apply_entity(raw, entity):
         # usa a do select. Normalizar aqui deixa a validação das quebras
         # abaixo já sobre a ordem efetiva.
         _normalize_order_props(out, table)
+
+        # Linhas estáticas de title/pre/post: fora da grade e sem flag group.
+        # Resolvem como item (label/máscara/catálogo do template).
+        for _lk in ('_pre_lines', '_post_lines'):
+            _lines = table.get(_lk)
+            if not isinstance(_lines, dict) or not _lines:
+                continue
+            _resolved = _resolve_map(dict(_lines), columns=False) or {}
+            for _nm, _sp in _resolved.items():
+                _t = _sp.get('text')
+                if not _t:
+                    continue
+                _fo = _fmt_opts_for(_t, entity, raw.get('label'),
+                                    _sp.get('options'))
+                _mo = _mask_opts_for(_t, entity, raw.get('label'),
+                                     _sp.get('mask') or _sp.get('format'))
+                if _fo:
+                    _sp['_fmt_opts'] = _fo
+                if _mo:
+                    _sp['_mask_opts'] = _mo
+            table[_lk] = _resolved
 
         _ext = []
         for _ex in table.get('extend') or []:
@@ -2103,7 +2155,65 @@ def _sort_python(rows, order):
     return sorted(rows, key=functools.cmp_to_key(_cmp))
 
 
-def _auto_data(report, data, instance, filter=None):
+def _aggregate_rows(report, rows):
+    """Modo sintético: agrupa as linhas pelas colunas com `group` e agrega as
+    colunas com `agg` (sum/avg/min/max/count).
+
+    O layout ativo já chega normalizado em `body.table` (o `_apply_entity` foi
+    chamado com `syn=True`). Sem grupo, devolve as linhas intactas.
+    """
+    if not rows:
+        return rows
+    body = _body_of(report)
+    table = (body.get('table') if isinstance(body, dict)
+             else getattr(body, 'table', None)) if body is not None else None
+    if not isinstance(table, dict):
+        return rows
+    columns = table.get('columns') or {}
+    if not isinstance(columns, dict):
+        return rows
+    group_fields = [name for name, spec in columns.items()
+                    if isinstance(spec, dict) and spec.get('group') == '*']
+    aggs = [(name, spec.get('agg')) for name, spec in columns.items()
+            if isinstance(spec, dict) and spec.get('agg')]
+    if not group_fields:
+        return rows
+
+    from ajsystem.core.pdf import _agg_apply
+    import copy as _copy
+
+    groups = {}
+    order = []
+    for row in rows:
+        key = tuple(getattr(row, name, None) for name in group_fields)
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(row)
+
+    out = []
+    for key in order:
+        group = groups[key]
+        base = group[0]
+        try:
+            clone = _copy.copy(base)
+        except Exception:
+            clone = base
+        for name, fn in aggs:
+            vals = [getattr(r, name, None) for r in group]
+            if len(group) == 1:
+                val = vals[0]
+            else:
+                val = _agg_apply(fn, vals)
+            try:
+                setattr(clone, name, val)
+            except Exception:
+                pass
+        out.append(clone)
+    return out
+
+
+def _auto_data(report, data, instance, filter=None, syn=False):
     """Precedência do datasource: `data` explícito → `instance.<data_attr>` →
     `body.source` (entity/query). Ordenação declarada por `source.order`.
 
@@ -2141,6 +2251,8 @@ def _auto_data(report, data, instance, filter=None):
                             _norm.append(_item)
                     order_field = _norm
                 data = _sort_python(data, order_field)
+        if syn:
+            data = _aggregate_rows(report, data)
         return data
 
     # Fonte pivot: executa o motor e prepara as colunas da tabela ANTES do
@@ -2222,6 +2334,8 @@ def _auto_data(report, data, instance, filter=None):
                                  child_fmt=_lvl.get('child', '{parent}.{rn:02d}'),
                                  target=_lvl.get('target', 'indice'),
                                  max_depth=int(_lvl.get('maxdepth', 20)))
+        if syn:
+            _rows = _aggregate_rows(report, _rows)
         return _rows
 
     info = _infer_source(report, _module_entity(report))
@@ -2240,6 +2354,8 @@ def _auto_data(report, data, instance, filter=None):
         out = list(query.all())
     if info['order_mode'] == 'calc' and out:
         out = sorted(out, key=info['sort_fn'])
+    if syn:
+        out = _aggregate_rows(report, out)
     return out
 
 
@@ -2268,10 +2384,18 @@ def _apply_report_filter(query, model, filter, report=None):
     return query
 
 
-def print_report_page(report, instance=None, data=None, msg=None, filter=None):
+def print_report_page(report, instance=None, data=None, msg=None, filter=None,
+                      syn=False):
     """Retorna página completa com iframe do PDF embutido (data URI)."""
-    report = parse_report(_apply_entity(report, _module_entity(report)))
-    data = _auto_data(report, data, instance, filter)
+    report = parse_report(_apply_entity(report, _module_entity(report),
+                                        syn=syn))
+
+    # Relatório sem layout de tabela declarado: ainda está em construção.
+    _tbl = getattr(report.body, 'table', None) if report.body else None
+    if isinstance(_tbl, dict) and _tbl.get('_em_construcao'):
+        return _print_erro('Relatório em construção')
+
+    data = _auto_data(report, data, instance, filter, syn=syn)
 
     # --- Extração de source/filter do report ---
     # Se filter não foi passado explicitamente, usar o do report
@@ -2285,10 +2409,13 @@ def print_report_page(report, instance=None, data=None, msg=None, filter=None):
     # --- Lógica de títulos ---
     # Se o report tem titles declarados, usa-os; senão, gera automaticamente
     # com o label principal e o filtro como secundário.
+    # titles[] aceita str ou {'text': ..., 'mask': ...} (mask '' desativa
+    # o uppercase padrão do TITLE, usado pelo sufixo sintético).
     if report.titles:
         # titles já declarados pelo usuário - usa-los diretamente
-        main_title = report.titles[0] if len(report.titles) > 0 else report.label
-        secondary_title = report.titles[1] if len(report.titles) > 1 else None
+        _title_texts = [_title_text(_t) for _t in report.titles]
+        main_title = _title_texts[0] if len(_title_texts) > 0 else report.label
+        secondary_title = _title_texts[1] if len(_title_texts) > 1 else None
     else:
         # titles não declarados - engine injeta automaticamente
         main_title = report.label
@@ -2317,7 +2444,7 @@ def print_report_page(report, instance=None, data=None, msg=None, filter=None):
 
 
 def print_report(report, instance=None, data=None, msg=None, filter=None,
-                 _printing=False):
+                 _printing=False, syn=False):
     """Retorna fragmento HTML com iframe do PDF embutido (data URI).
 
     Contrato para uso em botões (action): recebe o dict do relatório,
@@ -2334,6 +2461,10 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
     O predicado pode ser passado no 2º posicional (print_report(PLANO, fs))
     ou via filter=fs — os dois são normalizados para o argumento filter.
     """
+    # Helper: extrai texto de um título (aceita str ou {'text': ..., 'style': ...})
+    def _title_text(_t):
+        return _t if isinstance(_t, str) else (_t.get('text', '') if isinstance(_t, dict) else str(_t))
+
     if isinstance(instance, FilterSelect):
         if filter is not None:
             raise TypeError('filter_select recebido junto de filter')
@@ -2341,15 +2472,20 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
     if isinstance(filter, FilterSelect):
         if not _printing:
             return _print_with_choice(report, filter, msg)
-        report = parse_report(_apply_entity(report, _module_entity(report)))
-        data = _auto_data(report, data, instance, filter.criteria())
+        report = parse_report(_apply_entity(report, _module_entity(report),
+                                            syn=syn))
+        data = _auto_data(report, data, instance, filter.criteria(), syn=syn)
         
-        # --- Lógica de títulos ---
+        # Relatório sem layout de tabela declarado: ainda está em construção.
+        _tbl = getattr(report.body, 'table', None) if report.body else None
+        if isinstance(_tbl, dict) and _tbl.get('_em_construcao'):
+            return _print_erro('Relatório em construção')
         # Se o report tem titles declarados, usa-os; senão, gera automaticamente
         # com o label principal e o filtro como secundário.
         if report.titles:
-            main_title = report.titles[0] if len(report.titles) > 0 else report.label
-            secondary_title = report.titles[1] if len(report.titles) > 1 else None
+            _title_texts = [_title_text(_t) for _t in report.titles]
+            main_title = _title_texts[0] if len(_title_texts) > 0 else report.label
+            secondary_title = _title_texts[1] if len(_title_texts) > 1 else None
         else:
             main_title = report.label
             # Extrai o filtro ativo para usar como subtitulo
@@ -2370,13 +2506,18 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
         
         src = _data_uri(_pdf_bytes(report, data, instance))
         return render_template(OVERLAY_TEMPLATE, pdf_url=src, main_title=main_title, secondary_title=secondary_title)
-    report = parse_report(_apply_entity(report, _module_entity(report)))
-    data = _auto_data(report, data, instance, filter)
+    report = parse_report(_apply_entity(report, _module_entity(report),
+                                        syn=syn))
+    data = _auto_data(report, data, instance, filter, syn=syn)
     
-    # --- Lógica de títulos (para o fluxo sem FilterSelect) ---
+    # Relatório sem layout de tabela declarado: ainda está em construção.
+    _tbl = getattr(report.body, 'table', None) if report.body else None
+    if isinstance(_tbl, dict) and _tbl.get('_em_construcao'):
+        return _print_erro('Relatório em construção')
     if report.titles:
-        main_title = report.titles[0] if len(report.titles) > 0 else report.label
-        secondary_title = report.titles[1] if len(report.titles) > 1 else None
+        _title_texts = [_title_text(_t) for _t in report.titles]
+        main_title = _title_texts[0] if len(_title_texts) > 0 else report.label
+        secondary_title = _title_texts[1] if len(_title_texts) > 1 else None
     else:
         main_title = report.label
         filtros = []

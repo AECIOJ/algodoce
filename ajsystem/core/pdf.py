@@ -82,25 +82,27 @@ def _agg_apply(fn, values):
 
 
 def _parse_totals(raw, where):
-    """Normaliza totals -> {label, align, span, bline} | None."""
+    """Normaliza totals -> {label, align, bline} | None.
+
+    `span` saiu: eh calculado automaticamente (colunas a esquerda sem 'agg').
+    Se declarado, eh ignorado silenciosamente (retrocompatibilidade).
+    `align` padrao e 'R'.
+    """
     if raw is None:
         return None
     if not isinstance(raw, dict):
         raise ValueError(f"{where}: totals deve ser dict")
     for k in raw:
         if k not in ('label', 'align', 'span', 'bline'):
-            raise ValueError(f"{where}: chave '{k}' inválida em totals")
-    align = raw.get('align', 'C')
+            raise ValueError(f"{where}: chave '{k}' invalida em totals")
+    align = raw.get('align', 'R')
     if align not in ('L', 'C', 'R'):
         raise ValueError(f"{where}: align deve ser L|C|R")
-    span = raw.get('span', 1)
-    if isinstance(span, bool) or not isinstance(span, int) or span < 1:
-        raise ValueError(f"{where}: span deve ser int >= 1")
     bline = raw.get('bline', False)
     if not isinstance(bline, bool):
         raise ValueError(f"{where}: bline deve ser bool")
     return {'label': raw.get('label', TOTALS_DEFAULT_LABEL),
-            'align': align, 'span': span, 'bline': bline}
+            'align': align, 'bline': bline}
 
 
 @dataclass
@@ -308,6 +310,29 @@ def _draw_title(pdf, cfg, h, label='', instance=None, drawn=0):
             f"(catálogo {{codigo: rótulo}}), veio {type(cfg['options']).__name__}")
     # TITLE sempre centralizado por default; outro align só se declarado.
     align = cfg.get('align', 'C')
+    # A face ANTES de qualquer medição: `get_string_width` já conta o
+    # alongamento, e medir antes de esticar daria a largura do glifo cru.
+    _apply_face(pdf, style, cpi=cpi_t)
+    # Auto-fit: se o título não couber na zona/margens, reduz o CPI (fonte
+    # menor) na escada até caber, igual ao que `_fit_table` já faz para a
+    # tabela do relatório.
+    _w_cfg = cfg.get('width')
+    if _w_cfg is None:
+        _zone_x0, _zone_x1 = _flow_zone(pdf)
+        _avail = _zone_x1 - pdf.get_x()
+        _txt_w = pdf.get_string_width(txt or '')
+        if _txt_w + 2 > _avail and _txt_w > 0:
+            from ajsystem.defs.fonts import TABLE_LADDER as _TL
+            _tried = [cpi_t]
+            for _cpi_base in _TL:
+                _cpi_f = _cpi_final(_cpi_base, '')
+                if _cpi_f in _tried:
+                    continue
+                _tried.append(_cpi_f)
+                _apply_face(pdf, style, cpi=_cpi_f)
+                if pdf.get_string_width(txt or '') + 2 <= _avail:
+                    break
+            cpi_t = _tried[-1]
     # A face (família + estilo + corpo + alongamento) ANTES de qualquer
     # medição: `get_string_width` já conta o alongamento, e medir antes de
     # esticar daria a largura do glifo cru e centralizaria errado.
@@ -434,7 +459,8 @@ def _render_header_items(self, h):
             _rt = getattr(self._report, 'titles', None) or []
             if not cfg.get('text') and not cfg.get('label') and _rt:
                 for _t in _rt:
-                    titles = _draw_title(self, {'text': _t}, h, label,
+                    _tcfg = {'text': _t} if isinstance(_t, str) else dict(_t)
+                    titles = _draw_title(self, _tcfg, h, label,
                                          instance=self._instance, drawn=titles)
             else:
                 titles = _draw_title(self, cfg, h, label,
@@ -494,7 +520,7 @@ def _build_table(report: Report) -> '_ReportTable':
     if totals is None and (t.get('footer') or any(getattr(_c, 'agg', None) for _c in (list(columns) if columns else []))):
         # Shim legado: footer:true + agg nas colunas -> totals (span legado).
         totals = {'label': t.get('footer_label', TOTALS_DEFAULT_LABEL),
-                  'align': 'R', 'span': None}
+                  'align': 'R'}
     # `lf` ausente = [1, 1]; declarado, a declaração manda. Resolvido aqui (e
     # não na renderização) para a forma inválida estourar antes de qualquer
     # página sair.
@@ -1245,15 +1271,18 @@ def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, rep
 
 
 def _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total_w, close=True):
-    """Linha de total geral: rótulo nas SPAN primeiras + func por coluna agg."""
-    _draw_hline(pdf, x_start, total_w)  # régua antes (interna, sempre)
+    """Linha de total geral: rotulo nas primeiras colunas sem 'agg' + func por coluna agg."""
+    _draw_hline(pdf, x_start, total_w)  # regua antes (interna, sempre)
     _table_face(pdf, 'B')
-    span = totals.get('span')
-    nspan = len(cols) - 1 if span is None else min(span, len(cols) - 1)
+    # span automatico: qtd de colunas a esquerda sem 'agg'
+    nspan = sum(1 for c in cols if not c.agg)
+    nspan = min(nspan, len(cols) - 1)
     label_w = sum(col_widths[:nspan])
     pdf.set_x(x_start)
-    pdf.cell(label_w, _row_unit(pdf), totals.get('label', TOTALS_DEFAULT_LABEL),
-             border=0, align=totals.get('align', 'C'))
+    # imprime rotulo apenas se houver espaco suficiente para ele
+    label = totals.get('label', TOTALS_DEFAULT_LABEL)
+    if label and pdf.get_string_width(label) + 2 <= label_w:
+        pdf.cell(label_w, _row_unit(pdf), label, border=0, align=totals.get('align', 'R'))
     _positions = [i for i, col in enumerate(cols) if i >= nspan and col.agg]
     if not _positions:
         pdf.set_x(x_start + label_w)
@@ -1357,20 +1386,70 @@ def _render_group_line(pdf, g, val, xs, tw, row=None):
     _mark_content(pdf)
 
 
+def _render_static_lines(pdf, specs, row, xs, tw, label=''):
+    """Linhas estáticas de `title`/`pre`/`post` (fora da grade e sem grupo).
+
+    `specs` é o dict já resolvido por `_apply_entity`; `row` fornece os
+    valores para templates/formatos.
+    """
+    if not specs:
+        return
+    from ajsystem.core.text import (render as _render, eval_when as _ew,
+                                    dotted_get as _dg)
+    for name, spec in specs.items():
+        if not _ew(row, spec.get('when')):
+            continue
+        if spec.get('lf') is not None:
+            _group_space(pdf, spec, 'before', label)
+        tpl = spec.get('text')
+        if tpl:
+            def _get(nm, _row=row):
+                if nm == name:
+                    return getattr(_row, name, None) if _row is not None else None
+                return _dg(_row, nm) if _row is not None else None
+            txt = _render(tpl, _get, spec.get('_fmt_opts'),
+                          spec.get('_mask_opts'))
+        else:
+            v = getattr(row, spec.get('field') or name, None) \
+                if row is not None else None
+            fn = spec.get('function')
+            if fn is not None:
+                try:
+                    v = fn(row)
+                except Exception:
+                    pass
+            txt = _format_cell_value(v, spec.get('format'))
+        txt = apply_transform(txt, spec.get('transform'))
+        align = str(spec.get('align') or 'L').upper()
+        align = {'LEFT': 'L', 'CENTER': 'C', 'CENTRO': 'C',
+                 'RIGHT': 'R'}.get(align, align[:1] or 'L')
+        if align not in ('L', 'C', 'R'):
+            align = 'L'
+        style = 'B' if spec.get('bold') else ''
+        _table_face(pdf, style)
+        _check_page_break(pdf, _row_unit(pdf))
+        pdf.set_x(xs)
+        pdf.cell(tw, _row_unit(pdf), txt, border=0, align=align,
+                 new_x="LMARGIN", new_y="NEXT")
+        _mark_content(pdf)
+        if spec.get('lf') is not None:
+            _group_space(pdf, spec, 'after', label)
+
+
 def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
     """Subtotal do grupo. totals ausente = não totaliza.
-    
+
     totals: None → não imprime; True → usa defaults (label 'Subtotal'); dict → sobrescreve.
     """
     totals_raw = g.get('totals')
     if totals_raw is None:
         if g.get('total', True):
             totals = {'label': g.get('footer_text') or 'Sub-Total',
-                      'align': 'R', 'span': None}
+                      'align': 'R'}
         else:
             return
     elif totals_raw is True:
-        totals = {'label': 'Subtotal', 'align': 'R', 'span': None}
+        totals = {'label': 'Subtotal', 'align': 'R'}
     elif isinstance(totals_raw, dict):
         totals = totals_raw
     else:
@@ -1383,11 +1462,14 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
     label = totals.get('label', 'Sub-Total')
     if label and row is not None and ('{' in label):
         label = _group_title({**g, 'text': label}, None, row=row)
-    span = totals.get('span')
-    nspan = len(cols) - 1 if span is None else min(span, len(cols) - 1)
+    # span automatico: qtd de colunas a esquerda sem 'agg'
+    nspan = sum(1 for c in cols if not c.agg)
+    nspan = min(nspan, len(cols) - 1)
     label_w = sum(cw[:nspan])
     pdf.set_x(xs)
-    pdf.cell(label_w, _row_unit(pdf), label, border=0, align=totals.get('align', 'C'))
+    # imprime rotulo apenas se houver espaco suficiente para ele
+    if label and pdf.get_string_width(label) + 2 <= label_w:
+        pdf.cell(label_w, _row_unit(pdf), label, border=0, align=totals.get('align', 'R'))
     _positions = [i for i, col in enumerate(cols) if i >= nspan and col.agg]
     if not _positions:
         pdf.set_x(xs + label_w)
@@ -1405,11 +1487,15 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
 
 
 def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
-                       agg_values, header_h, report):
+                       agg_values, header_h, report, syn=False):
     """Grupos por mudança de valor do campo (specs normalizadas).
 
     O grupo é parte da TABELA: o `lf` é dela, uma vez antes e uma depois, e não
     se repete por grupo. Quem aplica é `gerar_pdf_relatorio`.
+
+    `syn=True` indica modo sintético: cada grupo já é uma linha agregada (um
+    só registro por grupo), então a linha que ABRE o nível NÃO é consumida como
+    cabeçalho — ela imprime como dado normalmente.
     """
     show_lines = bool(report.show_table_lines) if report else False
     prev = [None] * len(gs)
@@ -1509,9 +1595,13 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                                                draw_top_line=True)
                     _render_group_line(pdf, g, vals[i], xs, tw, row)
                     _group_space(pdf, g, 'after', _g_label)
-                    # a row que ABRE o nível é a própria linha (consumida como
-                    # cabeçalho), não repete como dado na tabela
-                    skip_row = True
+                    # Em modo sintético cada grupo é uma linha agregada única:
+                    # NÃO consumir a linha como cabeçalho — ela imprime como
+                    # dado abaixo do rótulo do grupo.
+                    if not syn:
+                        # a row que ABRE o nível é a própria linha (consumida
+                        # como cabeçalho), não repete como dado na tabela
+                        skip_row = True
                 # pos == 0: oculto — agrupa/totaliza sem imprimir cabeçalho
                 prev[i] = vals[i]
                 last_rows[i] = row
@@ -1591,13 +1681,21 @@ def _render_table_body(pdf, report, cols, col_widths, total_w, x_start,
     agg_values = {c.field: [] for c in cols if c.agg}
     header_h = _row_unit(pdf) + _row_unit(pdf)
     gera_cab = True
-    gs = [g for g in (_body_table(report).get('levels', _body_table(report).get('hierarchy', [])))
+    _tbl = _body_table(report) if report else {}
+    _first_row = data[0] if data else None
+    _label = report.label if report is not None else ''
+    _pre = (_tbl or {}).get('_pre_lines')
+    _post = (_tbl or {}).get('_post_lines')
+    _syn = bool((_tbl or {}).get('_syn'))
+    gs = [g for g in ((_tbl or {}).get('levels', (_tbl or {}).get('hierarchy', [])))
           if isinstance(g, dict) and 'field' in g] \
         if report else []
 
+    if _pre:
+        _render_static_lines(pdf, _pre, _first_row, x_start, total_w, _label)
     if gs:
         _walk_field_groups(pdf, cols, col_widths, total_w, x_start, data,
-                           gs, agg_values, header_h, report)
+                           gs, agg_values, header_h, report, syn=_syn)
     else:
         for row in data:
             page_break = _check_page_break(pdf, header_h)
@@ -1605,6 +1703,9 @@ def _render_table_body(pdf, report, cols, col_widths, total_w, x_start,
                 _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=True)
                 gera_cab = False
             _render_data_row(pdf, cols, col_widths, row, x_start, agg_values)
+
+    if _post:
+        _render_static_lines(pdf, _post, _first_row, x_start, total_w, _label)
 
     # Extend (linhas dentro do quadro, após totais) + fechamento no fim.
     _ext = (_body_table(report).get('extend') or []) if report else []

@@ -1155,3 +1155,38 @@ input[type="datetime-local"]::-moz-calendar-picker-indicator {
   vertical-align: middle;
   min-height: 2rem;
 }
+
+/* Flatpickr — integração com DaisyUI/Tailwind */
+.flatpickr-input {
+  background: var(--fallback-b2, oklch(var(--b2))) !important;
+  border: var(--fallback-b3, oklch(var(--b3))) 1px solid !important;
+  border-radius: var(--rounded-btn, 0.5rem) !important;
+  color: var(--fallback-bc, oklch(var(--bc))) !important;
+  font-size: 0.875rem !important;
+  padding: 0.5rem 1rem !important;
+}
+.flatpickr-calendar {
+  z-index: 9999 !important;
+  background: var(--fallback-b1, oklch(var(--b1))) !important;
+  border: var(--fallback-b3, oklch(var(--b3))) 1px solid !important;
+  border-radius: var(--rounded-box, 0.5rem) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+  font-size: 0.875rem !important;
+}
+.flatpickr-calendar .flatpickr-day {
+  color: var(--fallback-bc, oklch(var(--bc))) !important;
+}
+.flatpickr-calendar .flatpickr-day.selected,
+.flatpickr-calendar .flatpickr-day.startRange,
+.flatpickr-calendar .flatpickr-day.endRange {
+  background: var(--fallback-b, oklch(var(--b))) !important;
+  color: var(--fallback-bc, oklch(var(--bc))) !important;
+}
+.flatpickr-calendar .flatpickr-weekday,
+.flatpickr-calendar .flatpickr-months {
+  color: var(--fallback-bc, oklch(var(--bc))) !important;
+}
+.flatpickr-calendar .flatpickr-month-input {
+  background: var(--fallback-b2, oklch(var(--b2))) !important;
+  color: var(--fallback-bc, oklch(var(--bc))) !important;
+}

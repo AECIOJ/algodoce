@@ -19,7 +19,8 @@ PEDIDO = {
     ],
     'body': {
         'table': {
-            'columns': {
+            'title': {},
+            'cols': {
                 'produto_id':     { 'width':40},
                 'qtd':            {},
                 'preco':          {'label': 'Preço (R$)'},

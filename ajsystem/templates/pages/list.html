@@ -300,6 +300,7 @@
 .report-card input[type="date"]::-webkit-datetime-edit-year-field {
   color: var(--fallback-bc, oklch(var(--bc)/.85)) !important;
 }
+.it-dtwrap { position: relative; }
 .list-filter-wrap .filter-group { width: 100%; min-width: 0; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
 .list-filter-wrap .filter-grid,
@@ -772,7 +773,8 @@
         <div class="flex flex-col gap-2 p-2 min-w-0" data-report-page="{{ request.blueprint }}">
           {% if REPORTS %}
           {% for rp in REPORTS.values() %}
-          <div class="report-card" data-report="{{ rp.slug }}">
+          <div class="report-card" data-report="{{ rp.slug }}"
+               x-data="{ rpVariant: '', rpSynthetic: false }">
             <button type="button" class="report-card-head"
                     @click="rpOpen = (rpOpen === '{{ rp.slug }}' ? null : '{{ rp.slug }}')">
               <span class="report-caret" x-text="rpOpen === '{{ rp.slug }}' ? '▾' : '▸'">▸</span>
@@ -794,9 +796,10 @@
                                name="{{ f.name }}{{ '_from' if f.type == 'date' else '_val1' }}"
                                value="{{ f.default or '' }}"
                                placeholder="dd/mm/aaaa"
+                               data-datepicker="1"
                                aria-label="{{ f.label }}">
                         <button type="button" class="btn btn-outline btn-sm ml-1 px-1"
-                                onclick="dtOpenPicker(this)"
+                                onclick="openDatePicker(this)"
                                 aria-label="{{ i18n.PICK_DATE }}">
                           <svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg>
                         </button>
@@ -808,9 +811,10 @@
                                name="{{ f.name }}{{ '_to' if f.type == 'date' else '_val2' }}"
                                value="{{ f.default or '' }}"
                                placeholder="dd/mm/aaaa"
+                               data-datepicker="1"
                                aria-label="{{ f.label }}">
                         <button type="button" class="btn btn-outline btn-sm ml-1 px-1"
-                                onclick="dtOpenPicker(this)"
+                                onclick="openDatePicker(this)"
                                 aria-label="{{ i18n.PICK_DATE }}">
                           <svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg>
                         </button>
@@ -856,9 +860,10 @@
                              name="{{ f.name }}"
                              value="{{ f.default or '' }}"
                              placeholder="dd/mm/aaaa"
+                             data-datepicker="1"
                              aria-label="{{ f.label }}">
                       <button type="button" class="btn btn-outline btn-sm ml-1 px-1"
-                              onclick="dtOpenPicker(this)"
+                              onclick="openDatePicker(this)"
                               aria-label="{{ i18n.PICK_DATE }}">
                         <svg class="w-4 h-4" aria-hidden="true"><use href="#i-calendar"/></svg>
                       </button>
@@ -877,7 +882,37 @@
                 {% endfor %}
               </div>
               {% endif %}
+              {% if rp.variants %}
+              <div class="report-fields">
+                <div class="report-field">
+                  <label class="report-label">{{ i18n.REPORT_MODE }}</label>
+                  <div class="report-input">
+                    <select class="select select-bordered select-sm"
+                            id="rp-variant-{{ rp.slug }}"
+                            name="rp_variant"
+                            aria-label="{{ i18n.REPORT_MODE }}"
+                            x-on:change="rpVariant = this.value">
+                      <option value="">{{ i18n.SELECT }}</option>
+                      {% for _vkey, _vval in rp.variants.items() %}
+                      <option value="{{ _vkey.split(':')[0] }}">{{ _vkey.split(':', 1)[1] }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
 <div class="report-actions">
+                {% if rp.has_syn %}
+                <div class="report-field">
+                  <label class="report-label flex items-center gap-1">
+                    <input type="checkbox" name="rp_sintetico" value="on"
+                           id="rp-synthetic-check-{{ rp.slug }}"
+                           x-model="rpSynthetic"
+                           class="checkbox checkbox-sm shrink-0">
+                    {{ i18n.REPORT_SYNTHETIC }}
+                  </label>
+                </div>
+                {% endif %}
                 <button type="button" class="btn btn-sm btn-ghost inline-flex items-center gap-1"
                         onclick="reportClear(this)">
                   {{ heroicon(BTN_CLEAR.icon, 'w-4 h-4') }} {{ BTN_CLEAR.text() }}

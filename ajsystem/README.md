@@ -440,9 +440,183 @@ Declara o corpo do relatório (`Report.body`).
 | `levels` | `dict` | numeração hierárquica | `{'pk': 'id', 'parent': 'pai_id'}` |
 | `items` | `list` | itens inline antes da tabela | `['titulo', ('data', {'lf': 1})]` |
 
+### `body.table` — declaração `title`/`pre`/`cols`/`post`
+
+O motor lê `body.table` com **três formas possíveis**. Ordem das chaves = ordem de impressão.
+
+#### Forma A — compacta (sem sintético, sem variantes)
+
+Declara `title`/`pre`/`cols`/`post` direto na raiz de `table`:
+
+```python
+'table': {
+    'title': {},                           # título externo (quebra a tabela)
+    'pre': {                               # linhas antes da linha de dados (dentro da tabela)
+        'cliente': {                       # campo com group: '*' vira nível de grupo
+            'group': '*',
+            'text': '{conta}. {cliente}',
+            'on_start': {'lf': -1},
+            'on_finish': {'lf': 1},
+            'totals': {'align': 'R'},
+        },
+    },
+    'cols': {                              # colunas da grade (ordem = impressão)
+        'previsto': {'agg': 'sum'},
+        'realizado': {'agg': 'sum'},
+        'saldo': {'agg': 'sum'},
+    },
+    'post': {},                            # linhas depois da linha de dados (ex: memo)
+    'order': [...],                        # ordem das colunas/grupos (opcional)
+    'totals': {'align': 'R'},              # totais gerais (opcional)
+    'lf': [1, 1],                          # respiro antes/depois da tabela (opcional)
+    'extend': [...],                       # linhas extras dentro do quadro (opcional)
+}
+```
+
+#### Forma B — com sintético explícito (`syn`)
+
+Mesma forma acima, mais a prop `syn` com layout alternativo:
+
+```python
+'table': {
+    'title': {},
+    'pre': {...},
+    'cols': {...},
+    'post': {},
+    'syn': {                               # layout do modo sintético (não herda de detalhado)
+        'title': {},
+        'pre': {...},
+        'cols': {...},
+        'post': {},
+        'order': [...],
+        'totals': {'align': 'R'},
+    },
+}
+```
+
+Sem `syn` na raiz, o motor **nunca** gera modo sintético para aquele report.
+
+#### Forma C — com variantes (chave numérica)
+
+Chave numérica = nível de impressão (sem detalhado na raiz):
+
+```python
+'table': {
+    '0': {                                 # variante 0 (default se não selecionada)
+        'title': {},
+        'pre': {...},
+        'cols': {...},
+        'post': {},
+        'syn': {...}                       # sintético opcional desta variante
+    },
+    '1': {                                 # variante 1
+        'title': {},
+        'pre': {...},
+        'cols': {...},
+        'post': {},
+        # sem syn -> checkbox de sintético não aparece nesta variante
+    },
+}
+```
+
+**Regras:**
+- Não misture seções raiz (`title`/`pre`/`cols`/`post`) com chaves de variante.
+- `syn` na raiz exige que não haja variantes (e vice-versa).
+- `syn` exige `cols` com `agg` para agregar; sem `agg`, só troca de colunas.
+- `title` quebra a tabela (fecha/abre).
+- `pre`/`post` são linhas dentro da tabela, antes/depois da linha de dados.
+- `group: '*'` é flag de field (não seção). Pode ficar em `title`/`pre`/`cols`/`post`.
+- Props internas do grupo continuam no próprio field: `totals`, `text`, `on_start`, `on_finish`, `lf`.
+- `POS_*` (POS_ROW, POS_INLINE, POS_TITLE, POS_TITLE_CENTER, POS_NONE) **não se declara mais**; é constante interna do renderer.
+- Não existe mais `syn: False`/`syn: True` por coluna nem entrada de props.report.
+- Não existe mais `columns` como alias de `fields`.
+- Não existe mais `body.order` no nível do report; `order` vive dentro de cada nível (`det`/`syn`/variante).
+
+#### Exemplo RECEBER (com sintético)
+
+```python
+RECEBER = {
+    'label': 'Contas a Receber',
+    'header': [LOGO(), TITLE()],
+    'body': {
+        'source': QRECEBER,
+        'table': {
+            'title': {},
+            'pre': {
+                'cliente': {
+                    'group': '*',
+                    'text': '{conta}. {cliente}',
+                    'on_start': {'lf': -1},
+                    'on_finish': {'lf': 1},
+                    'totals': {'align': 'R'},
+                },
+            },
+            'cols': {
+                'previsao': {},
+                'vencimento': {},
+                'fatura': {},
+                'documento': {},
+                'recurso': {},
+                'previsto': {'agg': 'sum'},
+                'realizado': {'agg': 'sum'},
+                'variacao': {'agg': 'sum'},
+                'saldo': {'agg': 'sum'},
+            },
+            'post': {},
+            'totals': {'align': 'R'},
+            'lf': [1, 1],
+            'syn': {
+                'title': {},
+                'pre': {
+                    'cliente': {
+                        'group': '*',
+                        'text': '{conta}. {cliente}',
+                        'on_start': {'lf': -1},
+                        'on_finish': {'lf': 1},
+                        'totals': {'align': 'R'},
+                    },
+                },
+                'cols': {
+                    'previsto': {'agg': 'sum'},
+                    'realizado': {'agg': 'sum'},
+                    'variacao': {'agg': 'sum'},
+                    'saldo': {'agg': 'sum'},
+                },
+                'post': {},
+                'totals': {'align': 'R'},
+            },
+        },
+    },
+    'footer': True,
+}
+```
+
+#### Exemplo COMPRA (sem sintético, compacto)
+
+```python
+COMPRA = {
+    'label': 'Compra',
+    'body': {
+        'table': {
+            'title': {},
+            'cols': {
+                'insumo_id':     {'width': 35},
+                'qtd':           {},
+                'preco':         {'label': 'Preço (R$)'},
+                'CompraItem.valor': {'label': 'Valor (R$)', 'agg': 'sum'},
+            },
+            'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
+            'extend': [...],
+            'after': [...],
+        },
+    },
+    'footer': True,
+}
+```
+
 ### `ReportColumn` — `ajsystem/defs/report.py` `class ReportColumn`
 
-Declara uma coluna de `body.table.columns`.
+Declara uma coluna de `body.table.cols` (ou `syn.cols`).
 
 | Prop | Tipo | Default | Declarações possíveis | Exemplo |
 |------|------|---------|----------------------|---------|
@@ -455,42 +629,26 @@ Declara uma coluna de `body.table.columns`.
 | `function` | `callable` | `None` | `lambda row:` | `{'function': lambda r: r.valor}` |
 | `text` | `str` | `None` | template `'{campo}'`/`{x:02d}` | `{'text': '{tipo:d}. {tipo}'}` |
 | `suppress` | `bool` | `False` | `True` | `{'suppress': True}` |
-| `pos` | `int` | `POS_ROW` (1) | `POS_NONE` (0), `POS_ROW` (1), `POS_INLINE` (2), `POS_TITLE` (3), `POS_TITLE_CENTER` (4) | `{'pos': POS_INLINE}` |
 | `group` | `str` | `None` | `'*'` (grupo/break) ou `'<nome>'` | `{'group': '*'}` |
 | `on_start` | `dict` | `None` | `{text, lf, align, style, cpi, pos}` | `{'on_start': {'lf': -1}}` |
 | `on_finish` | `dict` | `None` | `{text, footer_text, lf, align, style, cpi, totals}` | `{'on_finish': {'totals': True}}` |
 | `totals` | `object` | `None` | `None`, `True`, `dict` | `{'totals': {'align': 'R', 'span': 4}}` |
+| `lf` | `object` | `None` | respiro antes/depois (`n`, `-n`, `[a,b]`) | `{'lf': -1}` |
+| `transform` | `str` | `None` | `'U'`, `'L'`, `'C'` | `{'transform': 'U'}` |
+| `bold` | `bool` | `False` | `True` | `{'bold': True}` |
+| `when` | `str\|dict` | `None` | condição de exibição | `{'when': 'status > 0'}` |
 
-**`pos` classifica onde o campo aparece no relatório:**
+### Modo sintético
 
-- `POS_ROW` (1, default): **coluna da tabela** — entra no cabeçalho, define largura/fonte. É o único que consome coluna da grade.
-- `POS_INLINE` (2): **não-coluna**, imprime no início da linha da tabela sem separação de colunas.
-- `POS_TITLE` (3): **não-coluna**, título do grupo alinhado à esquerda, antes do corpo da tabela.
-- `POS_TITLE_CENTER` (4): **não-coluna**, título do grupo centralizado, antes do corpo da tabela.
-- `POS_NONE` (0): **campo de controle**, não sai no relatório (não entra na grade, não imprime).
+Quando `table.syn` é declarado e o usuário marca o checkbox **"Sintético"** na tela de relatórios:
 
-O motor classifica as colunas antes de imprimir: apenas `POS_ROW` entra na grade da tabela. `POS_INLINE`/`POS_TITLE*` são impressos fora da grade (linha/título do grupo). `POS_NONE` não imprime.
+- O motor agrupa as linhas pelos campos com `group: '*'` (ordem de declaração).
+- Colunas com `agg` (`sum`/`avg`/`min`/`max`/`count`) são agregadas por grupo (uma linha por grupo).
+- Colunas sem `agg` recebem o valor da primeira linha do grupo.
+- `count` no sintético conta grupos (não linhas totais).
+- `avg/min/max` no total geral continuam como antes (não somam médias).
 
-Exemplo de report agrupado por cliente:
-
-```python
-RECEBER = {
-    'label': 'Contas a Receber',
-    'body': {
-        'source': QRECEBER,
-        'order': [1, 3],
-        'table': {
-            'columns': {
-                'cliente': {'group': '*', 'pos': POS_INLINE, 'text': '{conta}. {cliente}',
-                            'on_start': {'lf': -1}, 'on_finish': {'lf': 1},
-                            'totals': {'align': 'R', 'span': 4}},
-                'previsto': {'agg': 'sum'},
-                'realizado': {'agg': 'sum'},
-            },
-        },
-    },
-}
-```
+Se `syn` **não** for declarado no layout ativo, o checkbox de sintético não aparece no form de relatórios.
 
 ---
 

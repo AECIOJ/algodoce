@@ -33,7 +33,8 @@ COMPRA = {
                                      'when': {'status': PREAMBULO}}),
         ],
         'table': {
-            'columns': {
+            'title': {},
+            'cols': {
                 'insumo_id':     {'width':35},
                 'qtd':           {},
                 'preco':         {'label': 'Preço (R$)'},

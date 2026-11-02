@@ -1126,8 +1126,37 @@ def _resolve_report_entries(page, schema, module_name, entity_name):
                     if opts:
                         item['options'] = opts
                 items.append(item)
+        # Variants: {'0:por Cliente': ['conta_id', 'vencimento', 'syn'], ...}
+        variants = {}
+        for _vkey, _vval in (cfg.get('variants') or {}).items():
+            if isinstance(_vkey, str) and ':' in _vkey:
+                _idx_s, _label = _vkey.split(':', 1)
+                try:
+                    _idx = int(_idx_s)
+                except ValueError:
+                    _idx = _label
+            else:
+                _idx, _label = _vkey, _vkey
+            _vlist = list(_vval or [])
+            variants[_idx] = {
+                'label': _label,
+                'fields': [v for v in _vlist if v != 'syn'],
+                'syn': 'syn' in _vlist,
+            }
+        # Sintético só aparece quando o layout da tabela declara 'syn'.
+        _has_syn = False
+        _rep = cfg.get('report')
+        if isinstance(_rep, dict):
+            _body = _rep.get('body')
+            if isinstance(_body, dict):
+                _table = _body.get('table')
+                if isinstance(_table, dict):
+                    from ajsystem.defs.report import table_has_syn
+                    _has_syn = table_has_syn(_table)
         entries[title] = {'slug': slug, 'title': title,
-                          'report': cfg['report'], 'fields': items}
+                          'report': cfg['report'], 'fields': items,
+                          'variants': variants,
+                          'has_syn': _has_syn}
     return entries
 
 

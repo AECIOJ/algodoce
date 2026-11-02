@@ -157,12 +157,46 @@ def report_action():
     report = dict(entry['report'])
     report['label'] = entry['title']
 
+    # --- Variants + Sintético ---
+    from ajsystem import locales as i18n
+    _rp_variant = request.args.get('rp_variant', '') or ''
+    _rp_sintetico = request.args.get('rp_sintetico', '') or ''
+    _variant_idx = None
+    _variant_label = None
+    _variant_fields = None
+    variants = entry.get('variants') or {}
+    if variants and _rp_variant:
+        try:
+            _variant_idx = int(_rp_variant)
+        except ValueError:
+            _variant_idx = _rp_variant
+        _vd = variants.get(_variant_idx)
+        if _vd:
+            _variant_label = _vd['label']
+            _variant_fields = _vd['fields']
+
+    # Monta a sequencia de titulos para o header do PDF:
+    # 1o = titulo da entrada, 2o = variant OU sintético (negrito), 3o = filtros
+    _titles = [{'text': entry['title'], 'style': 'B'}]
+    if _variant_label:
+        _titles.append({'text': _variant_label, 'style': 'B'})
+    elif _rp_sintetico == 'on':
+        _titles.append({'text': i18n.REPORT_SYNTHETIC_TITLE, 'style': 'B'})
+
     # Monta args mesclados com defaults para campos não preenchidos pelo usuário.
     # Assim tanto o spec literal quanto o texto do subtítulo enxergam os valores
     # prévio.
     from werkzeug.datastructures import MultiDict
     _args = MultiDict(request.args)
-    for f in entry.get('fields', []):
+    # Quando há variant com lista de campos, ignora args de campos não listados
+    # (o usuário não viu esses filtros na tela).
+    _entry_for_filter = entry
+    if _variant_fields is not None:
+        _entry_for_filter = dict(entry)
+        _entry_for_filter['fields'] = [
+            f for f in entry.get('fields', [])
+            if f['name'] in _variant_fields]
+    for f in _entry_for_filter.get('fields', []):
         default = f.get('default')
         if default is None:
             continue
@@ -187,24 +221,77 @@ def report_action():
                     _args[_k] = _v
 
     # Converte os args (mesclados com defaults) em spec literal
-    _filter = report_filter_from_args(entry, _args) or []
+    _filter = report_filter_from_args(_entry_for_filter, _args) or []
 
     # Popula titles[] com label + texto do filter (se informado), para o
     # header do PDF imprimir via TITLE() em ordem.
     # O texto do filter usa o formato legível da tela (ex.: "Vencimento até
     # 20/09/2026"), não o spec cru da query.
-    _titles = [entry['title']]
-    _filtros = _report_filter_display_text(entry, _args)
+    _filtros = _report_filter_display_text(_entry_for_filter, _args)
     if _filtros:
         _titles.append(" e ".join(_filtros))
     report['titles'] = _titles
 
+    # Monta a `columns` interna consumida pela impressão: aplica `variants`
+    # (restrição por variante) e `syn` (omissão no sintético) e REMOVE essas
+    # duas chaves de controle. Elas não são props de ReportColumn — se
+    # chegarem intactas, ReportColumns estoura com TypeError e a impressão
+    # inteira falha (inclusive no modo analítico).
+    # Copia body/table: `entry['report']` aponta para o dict do módulo do app;
+    # mutar aqui apagaria `syn`/`variants` da declaração original.
+    _body = report.get('body')
+    if isinstance(_body, dict):
+        _body = dict(_body)
+        report['body'] = _body
+        _table = _body.get('table')
+        if isinstance(_table, dict):
+            _table = dict(_table)
+            _body['table'] = _table
+            _cols = _table.get('columns')
+            if isinstance(_cols, dict):
+                _kept = {}
+                for _name, _cfg in _cols.items():
+                    _cfg = dict(_cfg or {})
+                    _clean = {k: v for k, v in _cfg.items()
+                              if k not in ('syn', 'variants')}
+                    # Variante: sem variant selecionada = todas entram.
+                    # Com variant selecionada, só entram as da lista.
+                    _vs = _cfg.get('variants')
+                    if _vs is not None and (_variant_idx is None or _variant_idx not in _vs):
+                        continue
+                    # Sintético: omite colunas com syn=False
+                    if _rp_sintetico == 'on' and _cfg.get('syn') is False:
+                        continue
+                    _kept[_name] = _clean
+                _table['columns'] = _kept
+
+    # Determine se o layout atual declara sintético (sem herança entre níveis).
+    _syn_layout = False
+    _body = report.get('body')
+    _em_construcao = False
+    if isinstance(_body, dict):
+        _table = _body.get('table')
+        if isinstance(_table, dict):
+            from ajsystem.defs.report import table_has_syn
+            _syn_layout = table_has_syn(_table, variant=_variant_idx)
+            _em_construcao = _table.get('_em_construcao', False)
+    _syn_requested = (_rp_sintetico == 'on') and _syn_layout
+
+    # Relatório sem layout de tabela declarado: ainda está em construção.
+    if _em_construcao:
+        return jsonify(html=_print_erro('Relatório em construção'))
+
     try:
         html = print_report(report,
                             filter=_filter,
-                            _printing=True)
-    except Exception:
-        html = _print_erro()
+                            _printing=True,
+                            syn=_syn_requested)
+    except ValueError as _e:
+        # Erro de declaração (ex: sintético pedido mas sem 'syn'):
+        # exibe como HTML do relatório, não como alerta JS.
+        return jsonify(html=_print_erro(str(_e)))
+    except Exception as _e:
+        return jsonify(error=str(_e)), 500
     return jsonify(html=html)
 
 

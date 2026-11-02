@@ -87,3 +87,4 @@ POS_ROW = 1         # coluna da tabela: faz parte do cabeçalho (define largura/
 POS_INLINE = 2      # não é coluna: imprime em linha, sem separação de colunas
 POS_TITLE = 3       # não é coluna: título do grupo, alinhado à esquerda, antes do corpo
 POS_TITLE_CENTER = 4  # não é coluna: título do grupo, centralizado, antes do corpo
+POS_POST = 5        # não é coluna: linha impressa após as linhas de dados
