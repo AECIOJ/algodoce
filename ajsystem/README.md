@@ -650,7 +650,12 @@ Quando `table.syn` é declarado e o usuário marca o checkbox **"Sintético"** n
 
 Se `syn` **não** for declarado no layout ativo, o checkbox de sintético não aparece no form de relatórios.
 
+#### Calendário de data (Flatpickr)
+
+Campos de `type: 'DATA'` usam o Flatpickr para abrir o calendário nativo, funcionando de forma consistente em mobile e desktop. O input exibe sempre no formato `dd/mm/aaaa`, independentemente do locale do navegador.
+
 ---
+
 
 ## 7. Componentes auxiliares
 
