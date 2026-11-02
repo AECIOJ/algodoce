@@ -48,13 +48,10 @@ RECEBER = {
             },
             'totals': {'align': 'R'},
             'syn': {
-                'title': {},
                 'cols': {
                     'cliente': {
                         'group': '*',
                         'text': '{conta}. {cliente}',
-                        'on_start': {'lf': -1},
-                        'on_finish': {'lf': 1},
                         'width': 40
                     },
                     'previsto': {'agg': 'sum'},

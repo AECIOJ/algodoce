@@ -5,6 +5,7 @@
 2. **PROIBIDO ALTERAR O MOTOR SEM PERMISSÃO:** `ajsystem/` é o motor base. Se um pedido exigir um comportamento que o motor atual não suporta, NUNCA altere a pasta `ajsystem/` diretamente. **Proponha a alteração/evolução necessária no `ajsystem/` no texto e aguarde aprovação explícita** do usuário antes de implementar.
 3. **PROIBIDO PROPS EXTRAS:** NUNCA invente, adicione ou altere propriedades (`props`) em campos, models ou schemas sem aprovação prévia explícita.
 4. **ZERO TESTES AUTÔNOMOS:** NUNCA crie scripts de teste ou execute validações sem solicitação direta. Sempre entregue apenas o código e sugira que o usuário faça os testes e aprove.
+5. **PROIBIDO LOOP DE EXECUÇÃO:** NUNCA repita a mesma operação, leitura de arquivo ou busca mais de 2 vezes consecutivas. Se travar ou não encontrar o que precisa, PARE imediatamente, informe o problema e aguarde nova instrução.
 
 ## 1. Padrão Arquitetural
 - Framework Flask declarativo. Dicionários `Entity`/`Schema`/`Page` montam Blueprints, rotas, telas e menu.
@@ -22,7 +23,7 @@
 5. **Git e Documentação:** Apenas quando solicitado explicitamente, atualize o `README.md` com as novas implementações, execute o commit descritivo e faça o push para o repositório.
 
 ## 3. Diretrizes de Resposta (Modo Caveman / Economia de Tokens)
-- Sem cumprimentos, saudações ou explicações teóricas óbvias.
+- Sem comprimentos, saudações ou explicações teóricas óbvias.
 - Respostas ultra diretas: entregue o código funcional imediatamente.
 - Explicações apenas se estritamente necessárias e em tópicos curtos de 1 linha.
 - Respeite a estrutura:
