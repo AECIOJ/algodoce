@@ -1512,14 +1512,13 @@ def _mark_suppress(table, cname):
 
 
 def _translate_legacy_group(g, cname, label):
-    """Mantido apenas para compatibilidade mínima. Exige modelo novo (on_start/on_finish)."""
+    """Mantido apenas para compatibilidade mínima. Exige modelo novo (on_start/on_finish)
+    apenas quando o grupo imprime nível de quebra. Sem on_start/on_finish o grupo
+    serve somente para agregação (cols), sem criar nível de impressão."""
     g = dict(g)
     if 'on_start' in g or 'on_finish' in g:
         return g
-    raise ValueError(
-        f"report '{label}': grupo '{cname}' usa formato legado (on/action/pos/place/total). "
-        f"Use apenas on_start/on_finish/pos/text/lf/totals no modelo novo."
-    )
+    return g  # grupo sem nível de impressão: usado apenas para agregação
 
 
 def _order_items(order):
