@@ -1109,11 +1109,11 @@ def _build_normalized(layout, label=''):
         if sec == 'title' and spec.get('pos') == POS_TITLE:
             if str(spec.get('align', '')).upper() in ('C', 'CENTER', 'CENTRO'):
                 spec['pos'] = POS_TITLE_CENTER
-        # campos de grupo em title/pre viram níveis; a coluna-fonte também
-        # entra em `columns` (o mecanismo de mudança lê o atributo da linha).
+        # campos de grupo em title/pre viram níveis de quebra;
+        # a coluna-fonte também entra em `columns` para o mecanismo de mudança ler o atributo da linha.
+        # Em cols/post o group: '*' apenas marca o campo como grupo para agregação,
+        # NÃO cria nível de impressão (não vira linha inline).
         if spec.get('group') == '*' and sec in ('title', 'pre'):
-            levels.append(_level_from_field(name, spec, sec))
-        elif spec.get('group') == '*' and sec in ('cols', 'post'):
             levels.append(_level_from_field(name, spec, sec))
         if sec == 'cols':
             columns[name] = spec
