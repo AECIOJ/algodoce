@@ -650,6 +650,8 @@ Quando `table.syn` é declarado e o usuário marca o checkbox **"Sintético"** n
 
 Se `syn` **não** for declarado no layout ativo, o checkbox de sintético não aparece no form de relatórios.
 
+**Botão Limpar (`reportClear`) e checkbox Sintético:** o Limpar desmarca o checkbox sem zerar seu `value` (mantendo `value="on"`). O `reportRun` (Gerar) sempre envia `rp_sintetico=on` quando o checkbox está marcado, independentemente de o usuário ter clicado em Limpar antes. Assim, relatórios sintéticos com filtros em branco continuam impressos no layout sintético (não detalhado).
+
 #### Calendário de data (Flatpickr)
 
 Campos de `type: 'DATA'` usam o Flatpickr para abrir o calendário nativo, funcionando de forma consistente em mobile e desktop. O input exibe sempre no formato `dd/mm/aaaa`, independentemente do locale do navegador.

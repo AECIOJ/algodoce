@@ -374,7 +374,13 @@ function reportRun(btn) {
     // Enviar sempre, mesmo vazio: assim o servidor sabe que o usuário
     // não quer filtro para esse campo (e não aplica o default).
     // Checkbox não marcado não envia nada (o servidor trata ausência como off).
-    if (el.type === 'checkbox' && !el.checked) return;
+    if (el.type === 'checkbox') {
+      if (!el.checked) return;
+      // Checkbox marcado envia sempre 'on': o value pode ter sido zerado
+      // por `reportClear` antes desta correção.
+      params.append(el.name, 'on');
+      return;
+    }
     params.append(el.name, el.value);
   });
   btn.disabled = true;
@@ -397,6 +403,10 @@ function reportClear(btn) {
       Array.prototype.forEach.call(el.options, function (o) { o.selected = false; });
     } else if (el.tagName === 'SELECT') {
       el.selectedIndex = 0;
+    } else if (el.type === 'checkbox') {
+      // Não zerar `value` (ex.: 'on'): apenas desmarcar.
+      el.checked = false;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
     } else {
       el.value = '';
     }
