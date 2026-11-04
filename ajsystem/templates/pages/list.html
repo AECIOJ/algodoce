@@ -527,7 +527,7 @@ tr.detail-row.collapsed { display: none !important; }
                 {% set _sub_items = item|deep_attr(detail_data) %}
                 {% if _sub_items %}
                 <div class="mt-2">
-                {{ itb.item_table_display(_sub_items, det_cols, cell_macro=_det_cell, show_pager=false) }}
+                {{ itb.item_table_display(_sub_items, det_cols, cell_macro=_det_cell, show_pager=false, hide_index=true) }}
                 </div>
                 {% endif %}
                 {% endif %}

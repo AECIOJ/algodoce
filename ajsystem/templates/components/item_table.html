@@ -488,17 +488,17 @@
 </div>
 {% endmacro %}
 
-{% macro item_table_display(items, cols, cell_macro=none, title='', show_pager=true) %}
-<div class="it-display">
+{% macro item_table_display(items, cols, cell_macro=none, title='', show_pager=true, hide_index=false) %}
+<div class="it-display{% if hide_index %} it-hide-index{% endif %}">
   {% if title %}<div class="text-sm font-bold mb-1">{{ title }}</div>{% endif %}
   <div class="itm-scroll">
-    <table class="table table-sm itm-table">
+    <table class="table table-sm itm-table{% if hide_index %} it-no-index{% endif %}">
       <tbody>
         <tr class="itm-head">
-          <th class="itm-label itm-corner">#</th>
+          <th class="itm-label itm-corner{% if hide_index %} itm-hide{% endif %}">#</th>
         {% for item in items %}
         {% set _ref = item|item_ref(items) %}
-        <th class="itm-item" data-crow="{{ loop.index0 }}"><span class="itm-item-num">{{ ('# ' ~ _ref) if _ref is not none else '#' }}</span></th>
+        <th class="itm-item{% if hide_index %} itm-hide{% endif %}" data-crow="{{ loop.index0 }}"><span class="itm-item-num">{{ ('# ' ~ _ref) if _ref is not none else '#' }}</span></th>
         {% endfor %}
         </tr>
         {% for col in cols %}
@@ -546,10 +546,19 @@
   .itm-table th.itm-label {
     position: sticky; left: 0; z-index: 3; background: var(--fallback-b2, oklch(var(--b2)));
     text-align: left; white-space: nowrap; box-shadow: 1px 0 0 var(--fallback-b3, oklch(var(--b3)));
+    /* Largura baseada no maior rótulo, não encolhe ao rolar horizontalmente */
+    width: max-content;
+    min-width: max-content;
+    max-width: 40ch;
   }
   .itm-table th.itm-label.itm-corner { z-index: 4; }
-  .itm-table .itm-head th { background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; }
-  .itm-table th.itm-label.itm-corner { z-index: 3; }
+  .itm-table th.itm-label.itm-hide,
+  .itm-table th.itm-item.itm-hide,
+  .itm-table td.itm-cell.itm-hide { display: none !important; }
+  /* Quando esconde o índice, remove também a coluna do cabeçalho # e as de dados */
+  .it-no-index th.itm-corner,
+  .it-no-index th.itm-item,
+  .it-no-index td.itm-cell { display: none !important; }
   .itm-item-head { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; white-space: nowrap; }
   .itm-item-num { font-weight: 600; }
   .itm-new { animation: itmFlash 1.2s ease-out; }
