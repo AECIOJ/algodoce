@@ -840,6 +840,12 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     slots = _list_slots(lista, pool, fonte, parent_entity)
     line_fields, cardonly_fields = slots['line'], slots['card']
 
+    all_fields = line_fields + cardonly_fields
+    stored_cols = {c.name for c in model.__table__.columns}
+    for f in all_fields:
+        f.stored = f.name in stored_cols
+    fields_master = list(range(1, len(line_fields) + 1))
+
     # `prio`: posição ordinal dos campos da linha (filho e/ou pai).
     # Item pode ser:
     #   - str: 'campo' ou 'Entidade.campo' (vai para line, sem posição fixa)
@@ -906,12 +912,11 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
                     usados.add(id(f))
                     break
         line_fields = [f for f in saida if f is not None]
-
-    all_fields = line_fields + cardonly_fields
-    stored_cols = {c.name for c in model.__table__.columns}
-    for f in all_fields:
-        f.stored = f.name in stored_cols
-    fields_master = list(range(1, len(line_fields) + 1))
+        # Remove de cardonly os campos que prio moveu para a line (evita duplicacao)
+        prio_ids_usados = set(usados)
+        cardonly_fields = [f for f in cardonly_fields if id(f) not in prio_ids_usados]
+        all_fields = line_fields + cardonly_fields
+        fields_master = list(range(1, len(line_fields) + 1))
 
     # Campos do pai (entidade da rota) vivem no registro relacionado da linha:
     # o template resolve o valor por `card_path` (`rel.campo`) e os lookups
