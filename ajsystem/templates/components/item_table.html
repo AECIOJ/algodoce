@@ -541,12 +541,13 @@
   .it-cell:focus-within .it-dtwrap { position: static; opacity: 1; }
 
   .it-mobile { display: none; }
-  .itm-scroll { overflow-x: auto; }
+  .itm-scroll { overflow-x: auto; max-width: 100%; }
   .itm-table { width: max-content; min-width: 100%; border-collapse: separate; }
   .itm-table th.itm-label {
-    position: sticky; left: 0; z-index: 2; background: var(--fallback-b2, oklch(var(--b2)));
+    position: sticky; left: 0; z-index: 3; background: var(--fallback-b2, oklch(var(--b2)));
     text-align: left; white-space: nowrap; box-shadow: 1px 0 0 var(--fallback-b3, oklch(var(--b3)));
   }
+  .itm-table th.itm-label.itm-corner { z-index: 4; }
   .itm-table .itm-head th { background: var(--fallback-b2, oklch(var(--b2))); font-weight: 600; }
   .itm-table th.itm-label.itm-corner { z-index: 3; }
   .itm-item-head { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; white-space: nowrap; }
