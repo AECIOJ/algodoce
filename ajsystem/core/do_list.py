@@ -813,7 +813,6 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         template,
         entity_name=entity_name,
         list_page=True,
-        is_inversion=True,
         TABS=tabs,
         active_tab=active_tab,
         LIST=list_obj,
