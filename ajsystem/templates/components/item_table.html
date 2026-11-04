@@ -548,11 +548,11 @@
   .itm-table th.itm-label {
     position: sticky; left: 0; z-index: 3; background: var(--fallback-b2, oklch(var(--b2)));
     text-align: left; white-space: nowrap; box-shadow: 1px 0 0 var(--fallback-b3, oklch(var(--b3)));
-    /* Largura baseada no conteúdo do maior rótulo. width:1px + sticky
-       faz a célula se ajustar ao maior rótulo sem expandir descontroladamente. */
+    /* Largura baseada no maior rótulo. Com table-layout: auto (padrão),
+       o browser ajusta ao conteúdo da célula. width:1px é apenas dica mínima. */
     width: 1px;
-    min-width: 1px;
-    max-width: none;
+    min-width: 8ch;
+    max-width: 40ch;
   }
   .itm-table th.itm-label.itm-corner { z-index: 4; }
   .itm-table th.itm-label.itm-hide,
