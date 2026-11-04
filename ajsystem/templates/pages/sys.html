@@ -1354,8 +1354,11 @@ function itmPerCount(table) {
   return Math.max(1, Math.floor((avail - labelW - 4) / colW));
 }
 function itmApplyPage(table) {
-  // Quando não há pager (show_pager=false), mostra todas as linhas sem paginação
-  if (table.hasAttribute('data-itm-nopager')) {
+  // Quando não há pager (show_pager=false) ou tabela está dentro de
+  // detail-overflow (linha expansória da listagem), mostra todas as linhas
+  // sem paginação: comportamento de carrossel com rolagem horizontal.
+  if (table.hasAttribute('data-itm-nopager') ||
+      table.closest('.detail-overflow')) {
     table.querySelectorAll('[data-crow]').forEach(function(el) {
       el.classList.remove('itm-hide');
     });
@@ -1428,6 +1431,8 @@ function itmPagerInit() {
   document.querySelectorAll('table.itm-table').forEach(function(table) {
     var host = table.closest('.it-mobile, .it-display');
     if (!host || !host.querySelector('.itm-pager')) return;
+    // Nunca aplica paginação em tabela de detalhamento da listagem
+    if (table.closest('.detail-overflow')) return;
     table.dataset.itmPer = '';
     itmApplyPage(table);
   });
