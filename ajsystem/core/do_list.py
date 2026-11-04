@@ -850,12 +850,13 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     # `prio`: posição ordinal dos campos da linha (filho e/ou pai).
     # Item pode ser:
     #   - str: 'campo' ou 'Entidade.campo' (vai para line, sem posição fixa)
-    #   - tuple: (posicao, campo) — posicao 1-based na linha
+    #   - tuple: (posicao, campo) — posicao 1-based da esquerda (positiva)
+    #            ou da direita (negativa: -1 = ultimo, -2 = penultimo, etc.)
     # Label/width/align continuam vindo da Entity/Schema; prio só posiciona.
     _prio = lista.get('prio')
     if _prio:
         by_id = {id(f): f for f in all_fields}
-        prio_map = {}   # posicao (1-based) -> id do field
+        prio_map = {}   # posicao (int, pode ser negativo) -> id do field
         prio_free = []  # campos de prio sem posicao fixa
         for entry in _prio:
             if isinstance(entry, tuple):
@@ -883,14 +884,20 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
             else:
                 prio_free.append(id(f))
 
-        # Tamanho da linha: o maior entre o tamanho atual e a maior posicao de prio
-        n_line = max(len(line_fields), max(prio_map.keys(), default=0))
+        # Tamanho da linha: o maior entre o tamanho atual, a maior posicao
+        # positiva e a maior distancia negativa do final.
+        max_positivo = max((p for p in prio_map.keys() if p > 0), default=0)
+        max_negativo = max((abs(p) for p in prio_map.keys() if p < 0), default=0)
+        n_line = max(len(line_fields), max_positivo, max_negativo)
         saida = [None] * n_line
         usados = set()
-        # Coloca campos com posicao fixa
+        # Coloca campos com posicao fixa (positiva da esquerda, negativa da direita)
         for pos, fid in prio_map.items():
-            idx = pos - 1
-            if saida[idx] is None:
+            if pos > 0:
+                idx = pos - 1
+            else:
+                idx = n_line + pos  # pos negativo: -1 -> n_line-1 (ultimo)
+            if 0 <= idx < n_line and saida[idx] is None:
                 saida[idx] = by_id.get(fid)
                 usados.add(fid)
         # Campos de prio sem posicao fixa preenchem espacos vagos em ordem

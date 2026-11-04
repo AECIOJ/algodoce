@@ -374,7 +374,7 @@ Declara o tipo da página e seus props.
 | `columns` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['*']}` | `'Transacao'`, `['id','nome']` |
 | `line`/`card`/`hidden` | `list` | campos por slot | `line: ['id']`, `card: 'Transacao'` |
 | `order` | `list` | ordem de classificação | `order: ['vencimento', 'id']` |
-| `prio` | `list` | posição ordinal dos campos da linha (filho e/ou pai). Item: `(posicao, 'campo')`, posicao 1-based. Nome qualificado `Entidade.campo` apenas quando há nomes idênticos entre master e detalhe. Label/width/align vêm da Entity/Schema; `prio` só posiciona. | `prio: [(1, 'id'), (2, 'Transacao.data')]` |
+| `prio` | `list` | posição ordinal dos campos da linha (filho e/ou pai). Item: `(posicao, 'campo')`. Posicao positiva (1-based) conta da esquerda; negativa (-1 = ultimo, -2 = penultimo, etc.) conta da direita. Nome qualificado `Entidade.campo` apenas quando há nomes idênticos entre master e detalhe. Label/width/align vêm da Entity/Schema; `prio` só posiciona. | `prio: [(1, 'id'), (2, 'Transacao.data'), (-1, 'status')]` |
 
 **Slots da lista**: `line` (sempre na grade, vence `card`), `card` (linha expansória), `hidden` (fora da grade e card). Precedência: `hidden > line > card`. Na inversão (`columns` nomeia entidade diferente da rota), o campo não citado vai para `line` se for do filho e para `card` se for do pai. Um item de slot pode ser um **alias de apresentação** (`{'Transação': 'Transacao.id'}`): o rótulo é a chave e o alvo é o caminho; aceita também `{'label': ..., 'width': ..., 'align': ...}` via forma longa `{'Transação': {'field': 'Transacao.id', 'label': '...'}}`.
 

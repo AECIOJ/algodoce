@@ -35,13 +35,14 @@ Page = {
         },
         'list': {
             'columns': 'Previsao',
-            'hidden': ['tipo', 'cancelado'],
+            'hidden': ['Transacao.id','tipo', 'cancelado','compra_id'],
             'order': ['vencimento', 'id'],
             'prio': [
                 (2, 'conta_id'),
                 (3, 'fatura'),
-                (9, 'transacao_id'),
-                (10, 'status'),
+                (-3, 'transacao_id'),
+                (-2, 'pedido_id'),
+                (-1, 'status'),
             ],
         },
         'filter': {
