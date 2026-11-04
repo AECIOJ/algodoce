@@ -208,7 +208,7 @@
 {%- elif col.lookup and col.lookup.path -%}
 {% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}
 {%- elif col.field and col.field.endswith('_id') -%}
-{% if is_inversion or (col._type and col._type == 'REL') %}
+{% if is_inversion %}
 {{ _raw }}
 {% else %}
 {% set _relname = col.field[:-3] %}

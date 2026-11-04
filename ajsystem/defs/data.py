@@ -42,7 +42,6 @@ FIELD_TYPES = {
     'ID':        {'input': 'number', 'label': '#'},
     'DK':        {'input': 'number'},
     'FK':        {'input': 'select'},
-    'REL':       {'input': 'number'},
     'DATA':      {'input': 'date'},
     'DATA_HORA': {'input': 'datetime-local'},
     'HORA':      {'input': 'time'},
