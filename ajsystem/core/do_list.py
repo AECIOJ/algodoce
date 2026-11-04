@@ -883,14 +883,14 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
             else:
                 prio_free.append(id(f))
 
-        # Monta linha final respeitando posições fixas de prio
-        n_line = len(line_fields)
+        # Tamanho da linha: o maior entre o tamanho atual e a maior posicao de prio
+        n_line = max(len(line_fields), max(prio_map.keys(), default=0))
         saida = [None] * n_line
         usados = set()
-        # Coloca campos com posição fixa (ignora posicoes fora do range)
+        # Coloca campos com posicao fixa
         for pos, fid in prio_map.items():
             idx = pos - 1
-            if 0 <= idx < n_line and saida[idx] is None:
+            if saida[idx] is None:
                 saida[idx] = by_id.get(fid)
                 usados.add(fid)
         # Campos de prio sem posicao fixa preenchem espacos vagos em ordem
