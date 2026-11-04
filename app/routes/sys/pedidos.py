@@ -170,9 +170,10 @@ Page = {
         },
         'list': {
             'columns': 'Pedido',
-            'hidden': ['transacao_id', 'movto_id', 'observacao'],
             'card': ['pedido_em', 'faturado_em', 'cancelado_em',
                      'entregue_em'],
+            'detail': 'PedidoItem',
+            'hidden': ['transacao_id', 'movto_id', 'observacao'],
             'order': ['entregue_em'],
         },
         'filter': {'types': {'checklist': 'status'}},
