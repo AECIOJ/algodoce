@@ -1354,6 +1354,15 @@ function itmPerCount(table) {
   return Math.max(1, Math.floor((avail - labelW - 4) / colW));
 }
 function itmApplyPage(table) {
+  // Quando não há pager (show_pager=false), mostra todas as linhas sem paginação
+  if (table.dataset.itmNopager === '1') {
+    table.querySelectorAll('[data-crow]').forEach(function(el) {
+      el.classList.remove('itm-hide');
+    });
+    table.dataset.itmPer = String(table.querySelectorAll('[data-crow]').length);
+    table.dataset.itmPage = '1';
+    return;
+  }
   var crows = itmCrows(table);
   var per = itmPerCount(table);
   table.dataset.itmPer = String(per);

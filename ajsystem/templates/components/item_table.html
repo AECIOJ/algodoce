@@ -492,7 +492,7 @@
 <div class="it-display{% if hide_index %} it-hide-index{% endif %}">
   {% if title %}<div class="text-sm font-bold mb-1">{{ title }}</div>{% endif %}
   <div class="itm-scroll">
-    <table class="table table-sm itm-table{% if hide_index %} it-no-index{% endif %}">
+    <table class="table table-sm itm-table{% if hide_index %} it-no-index{% endif %}{% if not show_pager %} data-itm-nopager{% endif %}">
       <tbody>
         {% if not hide_index %}
         <tr class="itm-head">
