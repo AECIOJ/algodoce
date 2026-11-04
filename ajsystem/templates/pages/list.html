@@ -1518,6 +1518,40 @@ document.addEventListener('DOMContentLoaded', function () {
   // abrir o relatório, para que ao "Voltar" a tabela volte completa e funcional.
   reportRender({{ auto_report | tojson | safe }});
   {% endif %}
+
+  // Garante que todas as linhas da tabela de detalhamento (detail-overflow)
+  // estejam sempre visíveis: carrossel com rolagem horizontal, sem paginação.
+  document.querySelectorAll('.detail-overflow .itm-table tr, .detail-overflow .itm-table td.itm-cell, .detail-overflow .itm-table th.itm-item').forEach(function(el) {
+    el.classList.remove('itm-hide');
+    el.style.display = '';
+  });
+  document.querySelectorAll('.detail-overflow .itm-table tr').forEach(function(tr) {
+    tr.style.display = 'table-row';
+  });
+  document.querySelectorAll('.detail-overflow .itm-table td, .detail-overflow .itm-table th').forEach(function(td) {
+    td.style.display = 'table-cell';
+  });
+
+  // MutationObserver: garante que linhas nunca sejam escondidas por paginação
+  // quando o usuário clica em expandir/colapsar outras linhas.
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      mutation.addedNodes.forEach(function(node) {
+        if (node.nodeType === 1) { // Element node
+          node.querySelectorAll && node.querySelectorAll('.detail-overflow .itm-table tr.itm-hide, .detail-overflow .itm-table td.itm-hide, .detail-overflow .itm-table th.itm-hide').forEach(function(el) {
+            el.classList.remove('itm-hide');
+            el.style.display = '';
+          });
+          node.querySelectorAll && node.querySelectorAll('.detail-overflow .itm-table tr').forEach(function(tr) {
+            tr.style.display = 'table-row';
+          });
+        }
+      });
+    });
+  });
+  document.querySelectorAll('.detail-overflow').forEach(function(overflow) {
+    observer.observe(overflow, { childList: true, subtree: true });
+  });
 });
 
 function fitListColumns() {
