@@ -40,9 +40,9 @@ Page = {
             'prio': [
                 (2, 'conta_id'),
                 (3, 'fatura'),
-                (-3, 'transacao_id'),
-                (-2, 'pedido_id'),
-                (-1, 'status'),
+                (-3, 'pedido_id'),
+                (-2, 'status'),
+                (-1, 'transacao_id'),
             ],
         },
         'filter': {

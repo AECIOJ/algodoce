@@ -683,10 +683,45 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
     detail_data = None
     if 'detail' in lista:
         _dspec = lista['detail']
+        # Formatos suportados:
+        #   - dict: {'fields': [...], 'data': 'relacionamento'}
+        #   - str: 'NomeEntidade' -> resolve model, relacionamento e campos automaticamente
+        #   - tuple: ('NomeEntidade', ['campo1', 'campo2']) -> entidade + campos explicitos
+        _detail_entity = None
         if isinstance(_dspec, dict):
             _dfields, detail_data = _dspec.get('fields', []), _dspec.get('data')
+        elif isinstance(_dspec, tuple) and len(_dspec) == 2:
+            _detail_entity, _dfields = _dspec
+            detail_data = None  # resolvido abaixo
+        elif isinstance(_dspec, str):
+            _detail_entity = _dspec
+            _dfields = None  # inferido do model
+            detail_data = None  # resolvido abaixo
         else:
             _dfields, detail_data = _dspec, entity_name.lower() + '_items'
+
+        # Quando especificada entidade do detalhe, resolve model e relacionamento
+        if _detail_entity is not None:
+            from ajsystem.core.list import _resolve_model
+            _detail_model = _resolve_model(_detail_entity)
+            if _detail_model is None:
+                raise ValueError(
+                    f"list '{entity_name}': detail entidade '{_detail_entity}' não encontrada.")
+            # Tenta encontrar relacionamento do model atual para o detail model
+            _mapper = getattr(model, '__mapper__', None)
+            _rel_name = None
+            if _mapper is not None:
+                for _rk, _rp in _mapper.relationships.items():
+                    if _rp.mapper.class_ is _detail_model:
+                        _rel_name = _rk
+                        break
+            if _rel_name is None:
+                _rel_name = _detail_entity.lower() + '_s'
+            detail_data = _rel_name
+            # Se não informou campos, usa todos do detail model (exceto id PK)
+            if _dfields is None:
+                _dfields = [c.name for c in _detail_model.__table__.columns
+                            if c.name != 'id']
         if detail_data:
             _rel = getattr(model, detail_data, None)
             try:
@@ -968,10 +1003,45 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     detail_data = None
     if 'detail' in lista:
         _dspec = lista['detail']
+        # Formatos suportados:
+        #   - dict: {'fields': [...], 'data': 'relacionamento'}
+        #   - str: 'NomeEntidade' -> resolve model, relacionamento e campos automaticamente
+        #   - tuple: ('NomeEntidade', ['campo1', 'campo2']) -> entidade + campos explicitos
+        _detail_entity = None
         if isinstance(_dspec, dict):
             _dfields, detail_data = _dspec.get('fields', []), _dspec.get('data')
+        elif isinstance(_dspec, tuple) and len(_dspec) == 2:
+            _detail_entity, _dfields = _dspec
+            detail_data = None  # resolvido abaixo
+        elif isinstance(_dspec, str):
+            _detail_entity = _dspec
+            _dfields = None  # inferido do model
+            detail_data = None  # resolvido abaixo
         else:
             _dfields, detail_data = _dspec, entity_name.lower() + '_items'
+
+        # Quando especificada entidade do detalhe, resolve model e relacionamento
+        if _detail_entity is not None:
+            from ajsystem.core.list import _resolve_model
+            _detail_model = _resolve_model(_detail_entity)
+            if _detail_model is None:
+                raise ValueError(
+                    f"list '{entity_name}': detail entidade '{_detail_entity}' não encontrada.")
+            # Tenta encontrar relacionamento do model atual para o detail model
+            _mapper = getattr(model, '__mapper__', None)
+            _rel_name = None
+            if _mapper is not None:
+                for _rk, _rp in _mapper.relationships.items():
+                    if _rp.mapper.class_ is _detail_model:
+                        _rel_name = _rk
+                        break
+            if _rel_name is None:
+                _rel_name = _detail_entity.lower() + '_s'
+            detail_data = _rel_name
+            # Se não informou campos, usa todos do detail model (exceto id PK)
+            if _dfields is None:
+                _dfields = [c.name for c in _detail_model.__table__.columns
+                            if c.name != 'id']
         if detail_data:
             _rel = getattr(model, detail_data, None)
             try:
