@@ -167,6 +167,7 @@ Page = {
     'label': 'Compra',
     'type': 'crud',
     'props': {
+        'master': 'Compra',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

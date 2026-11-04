@@ -163,6 +163,7 @@ Page = {
     'label': 'Pedido',
     'type': 'crud',
     'props': {
+        'master': 'Pedido',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

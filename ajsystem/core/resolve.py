@@ -505,10 +505,9 @@ def resolve_slots(spec, pool, principal=None, surface_name='list',
     ou a chave `hidden` da sessão). `surface_name` diz quais slots aquela tela
     tem e quem vence quando um campo é citado duas vezes.
 
-    Devolve `{slot: [Field]}` para cada slot da superfície mais `'pinned'`
-    (só na listagem: os campos declarados em `line`, que o cliente não tira
-    quando a tela estreita). Sem `declared_order`, cada lista sai na ordem do
-    pool e o campo não citado vai para o `default` da superfície.
+    Devolve `{slot: [Field]}` para cada slot da superfície. Sem `declared_order`,
+    cada lista sai na ordem do pool e o campo não citado vai para o `default` da
+    superfície.
 
     `principal` é a entidade que um nome cru resolve — desempata quando duas
     entidades da tela têm o mesmo campo. É contra o `pool` (cada field com
@@ -574,9 +573,6 @@ def resolve_slots(spec, pool, principal=None, surface_name='list',
                 continue
             for k, v in props.items():
                 setattr(f, k, v)
-    out['pinned'] = ([f for f in out['line']
-                      if id(f) in set(declared.get('line', ()))]
-                     if surface_name == 'list' else [])
     out['claimed'] = dict(claimed)
     return out
 

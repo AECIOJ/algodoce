@@ -6,6 +6,7 @@ Page = {
     'label': 'Recurso',
     'type': 'crud',
     'props': {
+        'master': 'Recurso',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

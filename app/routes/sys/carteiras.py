@@ -9,6 +9,7 @@ Page = {
     'label': 'Carteira',
     'type': 'crud',
     'props': {
+        'master': 'Carteira',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

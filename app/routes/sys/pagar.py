@@ -25,6 +25,7 @@ Page = {
     'label': 'Conta a Pagar',
     'type': 'crud',
     'props': {
+        'master': 'Transacao',
         # JS dos botões de previsão (Gerar/Zerar) — resolvido pelo motor em
         # `static/js/previsoes.js`, com `?v=` automático pelo mtime.
         'scripts': ['previsoes'],
@@ -34,12 +35,8 @@ Page = {
         },
         'list': {
             'columns': 'Previsao',
-            'line': ['id', {'Transação': 'Transacao.id'}, {'Fornecedor': 'Transacao.conta_id'},
-                     'Transacao.fatura', 'documento', 'vencimento', 'recurso_id',
-                     'previsto', 'realizado', 'variacao', 'saldo', {'Compra': 'Transacao.compra_id'}],
             'hidden': ['transacao_id', 'tipo', 'cancelado'],
             'order': ['vencimento', 'id'],
-            'edit_id': 'transacao.id',
         },
         'filter': {
             'fixed': {'tipo': 'P'},

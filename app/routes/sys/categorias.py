@@ -29,6 +29,7 @@ Page = {
     'label': 'Categoria',
     'type': 'crud',
     'props': {
+        'master': 'Categoria',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

@@ -122,16 +122,7 @@ def _list_page_width(lista: List, list_obj: List, tabs, filter_width) -> str:
 
 
 def _validate_list_keys(lista: dict, where: str = 'list') -> None:
-    """Regras da inversão sem `master`: `master`/`edit_id_field` são proibidos.
-
-    A inversão agora se infere de `columns` (string = entidade das linhas). A
-    prop `master` e a renomeada `edit_id_field` falham explicitamente —
-    nothing-silencioso é proibido.
-    """
-    if lista.get('master'):
-        raise ValueError(
-            f"{where}: 'master' foi removida. Declare 'columns' com o nome da "
-            "entidade das linhas (filho); a entidade da rota é o pai.")
+    """Valida chaves de listagem."""
     if lista.get('edit_id_field'):
         raise ValueError(
             f"{where}: 'edit_id_field' foi renomeada para 'edit_id'.")
@@ -226,6 +217,28 @@ def _resolve_endpoint(lista, key, bp_name):
     if key in lista:
         return lista.get(key)
     return f"{bp_name}.form" if bp_name else None
+
+
+
+def _infer_edit_id_from_master(child_model, master_name):
+    """Infer edit_id como '<rel>.id' a partir da relação filho→master.
+
+    Na inversão, o `edit_id` aponta para o id do pai (master) alcançado
+    pela relação do filho. Como `master` já declara a entidade pai, basta
+    localizar a relação filho→pai e devolver '<nome_rel>.id'.
+    """
+    from ajsystem.core.list import _resolve_model
+    parent_model = _resolve_model(master_name)
+    if parent_model is None:
+        return 'id'
+    mapper = getattr(child_model, '__mapper__', None)
+    if mapper is None:
+        return 'id'
+    candidatas = [rk for rk, rp in mapper.relationships.items()
+                  if rp.mapper.class_ is parent_model]
+    if len(candidatas) == 1:
+        return f'{candidatas[0]}.id'
+    return 'id'
 
 
 def _inversion_parent_rel_key(lista, merged, child_model, edit_id=None):
@@ -637,20 +650,8 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         _fid = None
         edit_endpoint = None
     elif _is_query:
-        _fid = lista.get('edit_id')
-        if 'edit_id' not in lista:
-            edit_endpoint = None
-            _fid = None
-        else:
-            from ajsystem.defs.qspec import parse_select as _ps2
-            _sel_names = {e.name for e in _ps2(_colspec.get('select'))}
-            if _fid not in _sel_names:
-                raise ValueError(f"list: edit_id '{_fid}' não está no select da query")
-            _pkcols = getattr(model, '__table__', None).primary_key.columns if getattr(model, '__table__', None) is not None else []
-            _pk = {c.name for c in _pkcols}
-            if _fid.split('.')[-1] not in _pk:
-                raise ValueError(f"list: edit_id '{_fid}' não é pk do model")
-            edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
+        _fid = 'id'
+        edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
     else:
         _fid = None
         edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
@@ -665,11 +666,8 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         fields=all_fields,
         fields_master=fields_master,
         edit_endpoint=edit_endpoint,
-        edit_id=(lista.get('edit_id', 'id') if _is_query and edit_endpoint else 'id'),
+        edit_id='id',
         template=lista.get('template'),
-        line_idx=([i for i, f in enumerate(line_fields)
-                  if id(f) in {id(p) for p in slots['pinned']}]
-                 if slots['pinned'] else None),
         card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1))
                   if len(all_fields) > len(line_fields) else None),
         buttons=lista.get('buttons'),
@@ -824,7 +822,20 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
                                                          module_name, entity_name)
     principal_model = fonte['parent_model']
     parent_entity = fonte.get('parent_entity')
-    edit_id = lista.get('edit_id', 'id')
+
+    # `master` é obrigatório na inversão: declara a entidade pai.
+    props = page.get('props') or {}
+    master = props.get('master') if isinstance(props, dict) else None
+    if not master:
+        raise ValueError(
+            f"list '{entity_name}': inversão detectada "
+            f"(columns='{fonte.get('pool_entity')}' != entity_name='{entity_name}') "
+            f"mas 'master' não declarado em Page.props. "
+            f"Declare 'props.master' com a entidade mestre "
+            f"(ex.: 'props.master': 'Transacao').")
+
+    # Infere edit_id da relação filho→master: '<rel>.id'
+    edit_id = _infer_edit_id_from_master(model, master)
 
     slots = _list_slots(lista, pool, fonte, parent_entity)
     line_fields, cardonly_fields = slots['line'], slots['card']
@@ -862,9 +873,6 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         edit_endpoint=edit_endpoint,
         edit_id=edit_id,
         template=lista.get('template'),
-        line_idx=([i for i, f in enumerate(line_fields)
-                  if id(f) in {id(p) for p in slots['pinned']}]
-                 if slots['pinned'] else None),
         card_idx=(list(range(len(line_fields) + 1, len(all_fields) + 1))
                   if len(all_fields) > len(line_fields) else None),
         buttons=lista.get('buttons'),

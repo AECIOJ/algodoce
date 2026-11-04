@@ -207,6 +207,12 @@
 {{ fm.render_value(calc_value(col.calc, _owner), col) }}
 {%- elif col.lookup and col.lookup.path -%}
 {% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}
+{%- elif col.field and col.field.endswith('_id') -%}
+{% set _relname = col.field[:-3] %}
+{% set _rel = item|deep_attr(_relname) %}
+{% if _rel is not none %}
+{% if _rel.nome is defined and _rel.nome %}{{ _rel.nome }}{% elif _rel.name is defined and _rel.name %}{{ _rel.name }}{% elif _rel.descricao is defined and _rel.descricao %}{{ _rel.descricao }}{% elif _rel.titulo is defined and _rel.titulo %}{{ _rel.titulo }}{% elif _rel.label is defined and _rel.label %}{{ _rel.label }}{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% else %}{{ _rel }}{% endif %}
+{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:{{ img_h }}px;cursor:pointer;"{% if img_js %} onclick="previewImagem(this.src)"{% endif %}>{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{{ 'Sim' if _raw else 'Não' }}{% else %}{{ fm.render_value(_raw, col) }}{% endif %}
 {%- elif col.options and _raw is not none -%}
 {{ col.options.get(_raw, _raw) }}
 {%- elif col.input == 'image' and _raw -%}
@@ -255,18 +261,14 @@
 {% set _mw = max_width if max_width else (tot_ch ~ 'ch') %}
 {% set cardonly_cols = (cardonly_fields | fields_to_columns) if cardonly_fields else [] %}
 {% set det_cols = (detail_fields | fields_to_columns) if detail_fields else [] %}
-{# `LIST.line_idx` são os índices, em `master_fields`, das colunas que a página
-   fixou em `line`. Vai por ÍNDICE e não por nome porque com `master` o mesmo
-   nome existe nas duas pontas (`id`, `historico`) — e o `Movimento.id` e o
-   `Transferencia.id` são dois `data-field="id"" na mesma tabela. #}
-{% set _pinned = LIST.line_idx if LIST.line_idx is not none else [] %}
 
 {% block head_extra %}
 {{ super() }}
 <style>
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
-.list-table-wrap { width: fit-content; min-width: 100%; }
+.list-table-wrap { width: 100%; max-width: 100%; }
+.list-table-wrap.adaptive .list-table { max-width: 100%; }
 .list-filter-wrap {
   --filter-grid-cols: 3.5rem minmax(10ch, 1.6fr) minmax(16ch, 1.2fr) minmax(12ch, 1fr) minmax(12ch, 1fr) auto;
   width: 100%; max-width: 100%; margin-inline: auto;
@@ -412,18 +414,25 @@
   }
 }
 .list-table th.col-hide, .list-table td.col-hide { display: none; }
-@media (max-width: 991.98px) {
-  .list-table .col-actions {
-    position: sticky;
-    right: 0;
-    z-index: 2;
-    min-width: 15ch;
-    white-space: nowrap;
-    background: var(--fallback-b1, oklch(var(--b1)));
-    border-left: 1px solid var(--fallback-bc, oklch(var(--bc)/0.4));
-  }
-  .list-table thead th.col-actions { z-index: 3; }
-}
+.list-table-wrap.adaptive .list-table td,
+.list-table-wrap.adaptive .list-table th { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.list-table-wrap.adaptive .list-table td img,
+.list-table-wrap.adaptive .list-table th img { position: static !important; max-width: 100% !important; max-height: 40px !important; width: auto !important; height: auto !important; display: block; object-fit: contain; z-index: auto !important; }
+.list-table-wrap.adaptive .list-table td:has(img),
+.list-table-wrap.adaptive .list-table th:has(img) { max-width: 60px; width: 60px !important; white-space: nowrap; overflow: hidden; }
+.list-table-wrap.adaptive .list-table td.col-hide,
+.list-table-wrap.adaptive .list-table th.col-hide,
+.list-table-wrap.adaptive .list-table td[style*="display: none"],
+.list-table-wrap.adaptive .list-table th[style*="display: none"] { display: none !important; width: 0 !important; min-width: 0 !important; max-width: 0 !important; overflow: hidden !important; padding: 0 !important; border: none !important; }
+.list-table-wrap.adaptive .list-table td.col-hide img,
+.list-table-wrap.adaptive .list-table th.col-hide img,
+.list-table-wrap.adaptive .list-table td[style*="display: none"] img,
+.list-table-wrap.adaptive .list-table th[style*="display: none"] img { display: none !important; visibility: hidden !important; position: static !important; }
+.list-table-wrap.adaptive .row-expand-col { display: table-cell; }
+.list-table-wrap.adaptive.col-fit .row-expand-col { display: none; }
+.list-table-wrap.adaptive.col-fit.has-cardonly .row-expand-col { display: table-cell; }
+tr.detail-row.collapsed { display: none !important; }
+.detail-overflow .of-dyn { display: none; }
 .list-table-wrap.adaptive.col-fit .row-expand-col { display: none; }
 .list-table-wrap.adaptive.col-fit.has-cardonly .row-expand-col { display: table-cell; }
 .list-table-wrap.adaptive.col-fit tr.detail-row.collapsed { display: none !important; }
@@ -472,7 +481,7 @@
             <tr>
               <th class="row-expand-col" style="width:{{ exp_ch }}ch;"></th>
               {% for col in cols %}
-              <th{% if loop.index0 in _pinned %} data-pinned{% endif %} style="width:{{ col.width }}ch;{% if col.align is defined and col.align != 'left' %}text-align:{{ col.align }};{% endif %}{% if col.nowrap %}white-space:nowrap;{% endif %}" data-field="{{ col.field }}">{{ col.label }}</th>
+              <th style="width:{{ col.width }}ch;{% if col.align is defined and col.align != 'left' %}text-align:{{ col.align }};{% endif %}{% if col.nowrap %}white-space:nowrap;{% endif %}" data-field="{{ col.field }}">{{ col.label }}</th>
               {% endfor %}
               {% if edit_endpoint %}<th class="col-actions" style="width:{{ act_ch }}ch;">{{ i18n.ACTIONS }}</th>{% endif %}
             </tr>
@@ -511,24 +520,13 @@
                   {# Cópia das colunas da grade na linha expansória: o que o
                      `fitListColumns` tira da grade tem que aparecer aqui, senão
                      a coluna simplesmente some. Todas são candidatas —
-                     `of-dyn` é a classe que esconde as que couberam — exceto as
-                     pinadas em `line`, que nunca saem. Sem `line` declarado,
-                     nenhuma é pinada e todas ficam candidatas. #}
+                     `of-dyn` é a classe que esconde as que couberam na grade.
+                     Colunas de `line` também vão para cá quando não couberem. #}
                   {% for col in cols %}
-                  {% if loop.index0 not in _pinned %}
-                  <div data-field="{{ col.field }}" class="overflow-field of-dyn{% if col.input == 'textarea' %} memo{% endif %}">
-                    <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{{ _col_value(item, col, img_h=40, img_js=true) }}
-                    </div>
-                  </div>
-                  {% endif %}
+                  <div data-field="{{ col.field }}" class="overflow-field of-dyn{% if col.input == 'textarea' or col.type == 'MEMO' %} memo{% endif %}"><span class="overflow-label">{{ col.label }}</span><br style="display:block;height:0;line-height:0;"><span class="overflow-value">{% if col.input == 'textarea' or col.type == 'MEMO' %}{{ ((_col_value(item, col, img_h=40, img_js=true)|replace('\r\n', '\n'))|replace('\n\n\n', '\n')|replace('\n\n', '\n'))|trim }}{% else %}{{ _col_value(item, col, img_h=40, img_js=true) }}{% endif %}</span></div>
                   {% endfor %}
                   {% for col in cardonly_cols %}
-                  <div data-field="{{ col.field }}" class="overflow-field card-only{% if col.input == 'textarea' %} memo{% endif %}">
-                    <div class="overflow-label">{{ col.label }}</div>
-                    <div class="overflow-value">{{ _col_value(item, col, img_h=40, img_js=true) }}
-                    </div>
-                  </div>
+                  <div data-field="{{ col.field }}" class="overflow-field card-only{% if col.input == 'textarea' or col.type == 'MEMO' %} memo{% endif %}"><span class="overflow-label">{{ col.label }}</span><br style="display:block;height:0;line-height:0;"><span class="overflow-value">{% if col.input == 'textarea' or col.type == 'MEMO' %}{{ ((_col_value(item, col, img_h=40, img_js=true)|replace('\r\n', '\n'))|replace('\n\n\n', '\n')|replace('\n\n', '\n'))|trim }}{% else %}{{ _col_value(item, col, img_h=40, img_js=true) }}{% endif %}</span></div>
                   {% endfor %}
                 </div>
                 {% if det_cols and detail_data %}
@@ -1479,6 +1477,18 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  // Delegação para toggles renderizados dinamicamente (HTMX)
+  document.body.addEventListener('click', function (e) {
+    var tg = e.target.closest('[data-expand-toggle]');
+    if (!tg) return;
+    e.stopPropagation();
+    var target = document.getElementById(tg.dataset.expandToggle);
+    if (!target) return;
+    target.classList.toggle('collapsed');
+    tg.classList.toggle('expanded');
+    if (window.itmPagerInit) itmPagerInit();
+  });
+
   document.querySelectorAll('table.list-table tbody tr.row-data').forEach(function (tr) {
     tr.addEventListener('click', function (e) {
       if (e.target.closest('a, button, input, select, textarea, img, .col-actions')) return;
@@ -1495,123 +1505,113 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 function fitListColumns() {
-  var isMobile = window.innerWidth <= 991.98;
   document.querySelectorAll('table.list-table').forEach(function (table) {
     var wrap = table.closest('.list-table-wrap');
     if (!wrap || !wrap.classList.contains('adaptive')) return;
-    var ths = Array.prototype.slice.call(table.querySelectorAll('thead th'));
+    var thead = table.querySelector('thead');
+    var tbody = table.querySelector('tbody');
+    if (!thead || !tbody) return;
+
+    var expandIdx = 0;
+    var ths = Array.prototype.slice.call(thead.querySelectorAll('th'));
     if (ths.length < 2) return;
-    var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr.row-data'));
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.row-data'));
     if (rows.length === 0) return;
 
     var hasActions = ths[ths.length - 1].textContent.trim() === 'Ações';
     var actionIdx = hasActions ? ths.length - 1 : -1;
-    var expandIdx = 0;
-
-    // `data-pinned` no `<th>` = a página fixou a coluna em `line`. São as que
-    // NUNCA saem: o `keepIdx` nasce delas, e só o resto disputa a largura que
-    // sobrar. Sem nenhuma pinada, vale a prioridade antiga — a primeira coluna
-    // de dados fica sempre. Vai por atributo e não por nome porque com `master`
-    // a mesma tabela tem dois `data-field="id"`.
-    var pinned = [];
-    ths.forEach(function (th, idx) {
-      if (idx === expandIdx || idx === actionIdx) return;
-      if (th.hasAttribute('data-pinned')) pinned.push(idx);
-    });
-    var idIdx = null;
-    if (!pinned.length) {
-      for (var i = 1; i < ths.length; i++) {
-        if (i === actionIdx) continue;
-        idIdx = i;
-        break;
-      }
-    }
-    // Nunca-sai: as de `line`, mais o trio estrutural (expandir e ações; e a
-    // primeira coluna quando não há `line`). É o que o laço de aperto nunca tira.
-    var fixedIdx = pinned.slice();
-    if (actionIdx >= 0) fixedIdx.push(actionIdx);
-    if (idIdx !== null) fixedIdx.push(idIdx);
-
-    function applyKeep(keepIdx) {
-      var hiddenFields = [];
-      ths.forEach(function (th, idx) {
-        var keep = keepIdx.indexOf(idx) !== -1;
-        th.classList.toggle('col-hide', !keep);
-        if (!keep) hiddenFields.push(th.getAttribute('data-field'));
-      });
-      rows.forEach(function (tr) {
-        Array.prototype.slice.call(tr.cells).forEach(function (td, idx) {
-          td.classList.toggle('col-hide', keepIdx.indexOf(idx) === -1);
-        });
-        var card = tr.nextElementSibling;
-        if (!card || !card.classList.contains('detail-row')) return;
-        var fields = card.querySelectorAll('.detail-overflow [data-field]');
-        fields.forEach(function (f) {
-          if (f.classList.contains('card-only')) return;
-          var show = hiddenFields.indexOf(f.getAttribute('data-field')) !== -1;
-          f.classList.toggle('of-dyn', !show);
-        });
-      });
-    }
 
     var scrollBox = wrap.closest('.overflow-auto') || wrap.parentElement;
     var boxWidth = scrollBox.clientWidth - 8;
 
+    // Primeiro mostra todas as colunas para medir corretamente
+    showAll(table, thead, tbody, rows, expandIdx, actionIdx);
+    // Força reflow para o scrollWidth refletir o estado atual
+    table.offsetHeight;
+
+    // Se cabe tudo, terminou
     if (table.scrollWidth <= boxWidth + 1) {
-      var allIdx = ths.map(function (_, i) { return i; });
-      applyKeep(allIdx);
       wrap.classList.add('col-fit');
+      scrollBox.style.overflowX = '';
+      wrap.style.overflowX = '';
+      applyDetailVisibility(table, tbody, rows, []);
       return;
     }
     wrap.classList.remove('col-fit');
 
-    var avail = boxWidth;
-    var widths = ths.map(function (th) { return th.offsetWidth; });
-    var keepIdx = [expandIdx];
-    var used = (widths[expandIdx] || 0);
-    // As de `line` entram primeiro e por inteiro: são a afirmação da página de
-    // "isto fica visível". Se nem elas cabem, o laço de aperto abaixo é quem
-    // decide — mas nunca com o resto stealing a largura delas.
-    pinned.forEach(function (idx) {
-      if (keepIdx.indexOf(idx) !== -1) return;
-      keepIdx.push(idx);
-      used += widths[idx] || 0;
-    });
-    if (actionIdx >= 0 && keepIdx.indexOf(actionIdx) === -1) { keepIdx.push(actionIdx); used += widths[actionIdx] || 0; }
-    if (idIdx !== null && keepIdx.indexOf(idIdx) === -1) { keepIdx.push(idIdx); used += widths[idIdx] || 0; }
+    // Esconde colunas da direita para a esquerda até caber
+    // Sempre mantém: expansão (idx 0) e Ações (se existir)
+    var hiddenFields = [];
+    var i = ths.length - 1;
+    while (i > expandIdx) {
+      if (i === actionIdx) { i--; continue; } // nunca esconde Ações
+      var th = ths[i];
+      var field = th.getAttribute('data-field');
+      th.style.display = 'none';
+      th.style.width = '0';
+      hiddenFields.push(field);
+      // Esconde as células correspondentes nas linhas
+      rows.forEach(function (tr) {
+        var cells = tr.cells;
+        if (i < cells.length) {
+          cells[i].style.display = 'none';
+          cells[i].style.width = '0';
+        }
+      });
+      i--;
 
-    for (var k = expandIdx + 1; k < ths.length; k++) {
-      if (keepIdx.indexOf(k) !== -1) continue;
-      if (used + (widths[k] || 0) <= avail) {
-        keepIdx.push(k);
-        used += widths[k] || 0;
-      }
+      // Força reflow para o navegador recalcular o scrollWidth
+      table.offsetHeight;
+
+      console.log('Escondeu coluna idx', i+1, 'field', field, 'scrollWidth', table.scrollWidth, 'boxWidth', boxWidth);
+
+      if (table.scrollWidth <= boxWidth + 1) break;
     }
 
-    applyKeep(keepIdx);
+    // Atualiza visibilidade no detalhamento (▶)
+    applyDetailVisibility(table, tbody, rows, hiddenFields);
 
-    var prevSW = table.scrollWidth;
-    var guard = 0;
-    while (table.scrollWidth > boxWidth + 1 && guard < ths.length) {
-      guard++;
-      var drop = -1;
-      for (var j = keepIdx.length - 1; j >= 0; j--) {
-        if (fixedIdx.indexOf(keepIdx[j]) === -1) { drop = j; break; }
-      }
-      if (drop === -1) break;
-      keepIdx.splice(drop, 1);
-      applyKeep(keepIdx);
-      if (table.scrollWidth >= prevSW) break;
-      prevSW = table.scrollWidth;
-    }
+    // Garantia final: nunca permite scroll horizontal
+    scrollBox.style.overflowX = 'hidden';
+    wrap.style.overflowX = '';
   });
 }
+
+function showAll(table, thead, tbody, rows, expandIdx, actionIdx) {
+  var ths = Array.prototype.slice.call(thead.querySelectorAll('th'));
+  ths.forEach(function (th, idx) {
+    th.style.display = '';
+  });
+  rows.forEach(function (tr) {
+    var cells = Array.prototype.slice.call(tr.cells);
+    cells.forEach(function (td, idx) {
+      td.style.display = '';
+    });
+  });
+}
+
+function applyDetailVisibility(table, tbody, rows, hiddenFields) {
+  rows.forEach(function (tr) {
+    var card = tr.nextElementSibling;
+    if (!card || !card.classList.contains('detail-row')) return;
+    var fields = card.querySelectorAll('.detail-overflow [data-field]');
+    fields.forEach(function (f) {
+      if (f.classList.contains('card-only')) return;
+      var field = f.getAttribute('data-field');
+      var show = hiddenFields.indexOf(field) !== -1;
+      f.classList.toggle('of-dyn', !show);
+    });
+  });
+}
+window.fitListColumns = fitListColumns;
+
 document.addEventListener('DOMContentLoaded', function () {
   // Se um relatório sobrepõe a lista no load, a tabela está invisível
   // (display:none) e a largura medida seria 0 — pulamos o cálculo adaptativo
   // para não colapsar as colunas à toa; ele roda ao "Voltar" (closeReport).
   {% if not auto_report %}
   fitListColumns();
+  setTimeout(fitListColumns, 100);
   {% endif %}
   window.addEventListener('resize', function () { clearTimeout(window._fitListT); window._fitListT = setTimeout(fitListColumns, 150); });
 });

@@ -14,6 +14,7 @@ Page = {
     'label': 'Insumo',
     'type': 'crud',
     'props': {
+        'master': 'Insumo',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

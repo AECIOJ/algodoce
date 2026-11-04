@@ -39,6 +39,7 @@ Page = {
     'label': 'Recebimento',
     'type': 'crud',
     'props': {
+        'master': 'Movimento',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

@@ -474,11 +474,13 @@ tr.detail-row > td { padding: 0 !important; }
   display: flex; flex-wrap: wrap; gap: 2px 16px;
   padding: 6px 8px; font-size: .8rem;
 }
-.overflow-field { flex: 0 0 auto; min-width: 80px; max-width: 100%; }
+.overflow-field { flex: 0 0 auto; min-width: 80px; max-width: 100%; margin: 0 !important; padding: 0 !important; }
 .overflow-label { color: color-mix(in srgb, var(--fallback-bc, oklch(var(--bc))) 55%, transparent); font-size: .72rem; font-weight: 600; }
 .overflow-value { color: var(--fallback-bc, oklch(var(--bc))); overflow-wrap: break-word; word-break: break-word; }
-.overflow-field.memo { flex: 1 1 100%; min-width: 0; padding-right: 6px; }
-.overflow-field.memo .overflow-value { white-space: pre-wrap; }
+.overflow-field.memo { flex: 1 1 100%; min-width: 0; padding: 0 !important; margin: 0 !important; }
+.overflow-field.memo .overflow-label { display: inline; margin: 0 !important; padding: 0 !important; line-height: 1; font-size: .72rem; }
+.overflow-field.memo .overflow-value { display: inline; white-space: pre-line; margin: 0 !important; padding: 0 !important; line-height: 1.15; }
+.detail-overflow { gap: 2px 12px !important; align-items: start; }
 .detail-carousel { display: flex; flex-direction: column; }
 
 .carousel-body { display: flex; align-items: stretch; }

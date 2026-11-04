@@ -42,6 +42,7 @@ Page = {
     'label': 'Operação',
     'type': 'crud',
     'props': {
+        'master': 'Operacao',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},
@@ -49,7 +50,6 @@ Page = {
         'list': {
             'columns': [QPLANO, 'id', 'indice', 'nome', 'tipo',
                         'fator', 'ativa', 'pai_id', 'ordem'],
-            'edit_id': 'id',
             'order': ['ordem', 'nome'],
             'buttons': ['imprimir_plano'],
         },

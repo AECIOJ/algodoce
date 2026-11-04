@@ -5,6 +5,7 @@ Page = {
     'label': 'Conta',
     'type': 'crud',
     'props': {
+        'master': 'Conta',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

@@ -40,6 +40,7 @@ Page = {
     'label': 'Pagamento',
     'type': 'crud',
     'props': {
+        'master': 'Movimento',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

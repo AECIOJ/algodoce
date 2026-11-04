@@ -880,11 +880,14 @@ def resolve_lookup(field, source_model):
     if raw is None or raw is False:
         return None
     cfg = {}
-    if raw is not True:
-        if isinstance(raw, Lookup):
-            cfg = {k: v for k, v in vars(raw).items() if v is not None}
-        elif isinstance(raw, dict):
-            cfg = dict(raw)
+    if raw is True:
+        pass
+    elif isinstance(raw, str):
+        cfg = {'display': raw}
+    elif isinstance(raw, Lookup):
+        cfg = {k: v for k, v in vars(raw).items() if v is not None}
+    elif isinstance(raw, dict):
+        cfg = dict(raw)
     _os = getattr(field, 'on_set', None)
     cfg['replaces'] = _os.get('replaces') if isinstance(_os, dict) else None
 

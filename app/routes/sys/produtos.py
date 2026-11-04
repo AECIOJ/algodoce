@@ -12,6 +12,7 @@ Page = {
     'label': 'Produto',
     'type': 'crud',
     'props': {
+        'master': 'Produto',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

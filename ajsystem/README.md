@@ -343,7 +343,8 @@ Declara o tipo da página e seus props.
 |------|------|---------|----------------------|---------|
 | `label` | `str` | `None` | título da página | `{'label': 'Produto'}` |
 | `type` | `str` | `'crud'` | `crud`, `redirect`, `cart`, `showcase`, `contacts`, `custom` | `{'type': 'crud'}` |
-| `props` | `dict` | `{}` | `{list, form, filter, report, sessions, scripts}` | `{'props': {...}}` |
+| `props` | `dict` | `{}` | `{master, list, form, filter, report, sessions, scripts}` | `{'props': {...}}` |
+| `props.master` | `str` | `None` | entidade mestre (pai) — obrigatório em inversões (`columns` nomeia entidade diferente da rota); opcional em listagens comuns | `{'master': 'Transacao'}` |
 | `on_show` | `callable` | `None` | hook ao renderizar | `{'on_show': fn}` |
 | `upload` | `dict` | `None` | política de upload | `{'upload': {'max_size': 5}}` |
 
@@ -373,7 +374,6 @@ Declara o tipo da página e seus props.
 | `columns` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['*']}` | `'Transacao'`, `['id','nome']` |
 | `line`/`card`/`hidden` | `list` | campos por slot | `line: ['id']`, `card: 'Transacao'` |
 | `order` | `list` | ordem de classificação | `order: ['vencimento', 'id']` |
-| `edit_id` | `str` | campo que identifica a linha para edição (default `'id'`; declare `'transacao.id'` quando o alvo é o pai na inversão) | `edit_id: 'transacao.id'` |
 
 **Slots da lista**: `line` (sempre na grade, vence `card`), `card` (linha expansória), `hidden` (fora da grade e card). Precedência: `hidden > line > card`. Na inversão (`columns` nomeia entidade diferente da rota), o campo não citado vai para `line` se for do filho e para `card` se for do pai. Um item de slot pode ser um **alias de apresentação** (`{'Transação': 'Transacao.id'}`): o rótulo é a chave e o alvo é o caminho; aceita também `{'label': ..., 'width': ..., 'align': ...}` via forma longa `{'Transação': {'field': 'Transacao.id', 'label': '...'}}`.
 
@@ -746,6 +746,7 @@ Page = {
     'label': 'Conta a Receber',
     'type': 'crud',
     'props': {
+        'master': 'Transacao',
         'list': {
             'columns': 'Previsao',
             'line': ['id', {'Transação': 'Transacao.id'}, {'Conta': 'Transacao.conta_id'},
@@ -753,7 +754,6 @@ Page = {
                      'previsto', 'realizado', 'variacao', 'saldo', 'Transacao.pedido_id'],
             'hidden': ['transacao_id', 'tipo', 'cancelado'],
             'order': ['vencimento', 'id'],
-            'edit_id': 'transacao.id',
         },
         'filter': {
             'fixed': {'tipo': 'R'},

@@ -61,6 +61,7 @@ Page = {
     'label': 'Orçamento',
     'type': 'crud',
     'props': {
+        'master': 'Orcamento',
         'tabs': {
             'Dados': {'type': 'List'},
             'Filtros': {'type': 'Filter'},

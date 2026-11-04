@@ -78,6 +78,11 @@ def _form_config(mod):
 
 
 def _entidade_principal(mod):
+    page = module_page(mod)
+    props = page.get('props') if isinstance(page, dict) else {}
+    master = props.get('master') if isinstance(props, dict) else None
+    if isinstance(master, str) and master:
+        return master
     form = _form_config(mod)
     if form:
         fields = form.get('fields')

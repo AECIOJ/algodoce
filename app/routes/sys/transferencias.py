@@ -123,6 +123,7 @@ Page = {
     'label': 'Transferência',
     'type': 'crud',
     'props': {
+        'master': 'Transferencia',
         'scripts': ['transferencias'],
         'tabs': {
             'Dados': {'type': 'List'},
@@ -134,7 +135,6 @@ Page = {
             'hidden': ['conta_id', 'previsao_id', 'operacao_id', 'variacao',
                        'pedido_id', 'compra_id', 'Transferencia.documento'],
             'order': ['data', 'id'],
-            'edit_id': 'transferencia.id',
         },
         'filter': {'types': {'checklist': 'status'}, 'hidden': ['conta_id'],
                    'default': {'data': {'preset': 'mes_ano'}}},

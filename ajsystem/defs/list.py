@@ -34,8 +34,6 @@ class List:
     buttons: Optional[list] = None
     template: Optional[str] = None
     master: Optional[str] = None
-    line_idx: Optional[list] = None  # **computado** — índices em `master_fields`
-                                     # das colunas pinadas pela prop `line`
     card_idx: Optional[list] = None  # **computado** — índices de `fields` no card
 
     def resolve_buttons(self, bp_name=None, botoes_tipos=None, botoes_page=None):

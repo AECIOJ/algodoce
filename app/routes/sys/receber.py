@@ -26,6 +26,7 @@ Page = {
     'label': 'Conta a Receber',
     'type': 'crud',
     'props': {
+        'master': 'Transacao',
         'scripts': ['previsoes'],
         'tabs': {
             'Dados': {'type': 'List'},
@@ -34,12 +35,8 @@ Page = {
         },
         'list': {
             'columns': 'Previsao',
-            'line': ['id', {'Transação': 'Transacao.id'}, {'Conta': 'Transacao.conta_id'},
-                     'Transacao.fatura', 'documento', 'vencimento', 'recurso_id',
-                     'previsto', 'realizado', 'variacao', 'saldo', 'Transacao.pedido_id'],
             'hidden': ['transacao_id', 'tipo', 'cancelado'],
             'order': ['vencimento', 'id'],
-            'edit_id': 'transacao.id',
         },
         'filter': {
             'fixed': {'tipo': 'R'},
