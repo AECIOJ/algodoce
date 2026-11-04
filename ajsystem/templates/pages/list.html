@@ -257,7 +257,7 @@
 {% set det_cols = (detail_fields | fields_to_columns) if detail_fields else [] %}
 {# Campos RK (chave pura) não são exibidos na tabela de detalhamento da linha,
    a menos que explicitamente declarados. Camada de segurança no template. #}
-{% set det_cols = det_cols | rejectattr('_type', 'RK') | list if det_cols else [] %}
+{% set det_cols = det_cols | rejectattr('_type', 'eq', 'RK') | list if det_cols else [] %}
 
 {% block head_extra %}
 {{ super() }}
