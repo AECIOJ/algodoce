@@ -208,10 +208,14 @@
 {%- elif col.lookup and col.lookup.path -%}
 {% set _lk = item|deep_attr(col.lookup.path) %}{% if _lk is none %}—{% else %}{{ _lk }}{% endif %}
 {%- elif col.field and col.field.endswith('_id') -%}
+{% if is_inversion %}
+{{ _raw }}
+{% else %}
 {% set _relname = col.field[:-3] %}
 {% set _rel = item|deep_attr(_relname) %}
 {% if _rel is not none %}
 {% if _rel.nome is defined and _rel.nome %}{{ _rel.nome }}{% elif _rel.name is defined and _rel.name %}{{ _rel.name }}{% elif _rel.descricao is defined and _rel.descricao %}{{ _rel.descricao }}{% elif _rel.titulo is defined and _rel.titulo %}{{ _rel.titulo }}{% elif _rel.label is defined and _rel.label %}{{ _rel.label }}{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% else %}{{ _rel }}{% endif %}
+{% endif %}
 {% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:{{ img_h }}px;cursor:pointer;"{% if img_js %} onclick="previewImagem(this.src)"{% endif %}>{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{{ 'Sim' if _raw else 'Não' }}{% else %}{{ fm.render_value(_raw, col) }}{% endif %}
 {%- elif col.options and _raw is not none -%}
 {{ col.options.get(_raw, _raw) }}
