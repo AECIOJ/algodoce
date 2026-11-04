@@ -59,6 +59,6 @@ Entity = {
                             'mask': MVALOR},
     'carteira_id':      {'type': 'FK', 'label': 'Pagamento', 'width': 15},
     'status':           {'type': 'LIST', 'width': 12, 'options': STATUS_ORCAMENTO},
-    'pedido_id':        {'type': 'FK', 'label': 'Pedido', 'width': 9,},
+    'pedido_id':        {'type': 'RK', 'label': 'Pedido', 'width': 9,},
     'observacao':       {'type': 'MEMO', 'width': 40},
 }
