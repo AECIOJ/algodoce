@@ -212,6 +212,8 @@ def field_width_ch(f: Field, *, fit_mask: bool = False) -> int:
 
 def field_to_column(f: Field) -> dict:
     col = {'label': f.label or f.name, 'field': f.name, 'input': f.input}
+    if getattr(f, '_type', None):
+        col['_type'] = f._type
     if getattr(f, 'card_path', None):
         col['card_path'] = f.card_path
     col['width'] = field_width_ch(f)
