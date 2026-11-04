@@ -30,7 +30,7 @@ def infer_filter_type(f: Field):
     tipos; agora o catálogo só declara o `input`, e a decisão de "não filtra"
     é daqui.
     """
-    if getattr(f, '_type', None) == 'DK' or f.inp.multi or f.input == 'image':
+    if getattr(f, '_type', None) in ('DK', 'RK') or f.inp.multi or f.input == 'image':
         return None
     # A ordem importa: `boolean`/`date`/`number` vencem `options` (um booleano
     # com `options` é checklist de filtro, não select), então o `filter_kind` do

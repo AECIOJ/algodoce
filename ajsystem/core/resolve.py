@@ -608,7 +608,7 @@ def apply_positions(fields, positions, visible, surface_name='form',
     pk = set(pk_names or ())
     for f in pool:
         t = getattr(f, '_type', None)
-        if t in ('ID', 'DK'):
+        if t in ('ID', 'DK', 'RK'):
             system.add(f.name)
         elif t is None and f.name in pk:
             system.add(f.name)
