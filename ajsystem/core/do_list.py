@@ -840,6 +840,73 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     slots = _list_slots(lista, pool, fonte, parent_entity)
     line_fields, cardonly_fields = slots['line'], slots['card']
 
+    # `prio`: posição ordinal dos campos da linha (filho e/ou pai).
+    # Item pode ser:
+    #   - str: 'campo' ou 'Entidade.campo' (vai para line, sem posição fixa)
+    #   - tuple: (posicao, campo) — posicao 1-based na linha
+    # Label/width/align continuam vindo da Entity/Schema; prio só posiciona.
+    _prio = lista.get('prio')
+    if _prio:
+        by_id = {id(f): f for f in all_fields}
+        prio_map = {}   # posicao (1-based) -> id do field
+        prio_free = []  # campos de prio sem posicao fixa
+        for entry in _prio:
+            if isinstance(entry, tuple):
+                pos, field_name = entry
+            else:
+                field_name = entry
+                pos = None
+            # Nome pode vir qualificado: 'Entidade.campo' ou cru 'campo'
+            if isinstance(field_name, str) and '.' in field_name:
+                ent_name, field_name = field_name.split('.', 1)
+            else:
+                ent_name = None
+            matches = [f for f in all_fields
+                       if f.name == field_name
+                       and (ent_name is None
+                            or getattr(f, '_entity', None) == ent_name)]
+            if not matches:
+                raise ValueError(
+                    f"list '{entity_name}': 'prio' campo '{field_name}' "
+                    f"não encontrado no pool da listagem.")
+            f = matches[0]
+            f._slot = 'line'
+            if pos is not None:
+                prio_map[int(pos)] = id(f)
+            else:
+                prio_free.append(id(f))
+
+        # Monta linha final respeitando posições fixas de prio
+        n_line = len(line_fields)
+        saida = [None] * n_line
+        usados = set()
+        # Coloca campos com posição fixa (ignora posicoes fora do range)
+        for pos, fid in prio_map.items():
+            idx = pos - 1
+            if 0 <= idx < n_line and saida[idx] is None:
+                saida[idx] = by_id.get(fid)
+                usados.add(fid)
+        # Campos de prio sem posicao fixa preenchem espacos vagos em ordem
+        for fid in prio_free:
+            f = by_id.get(fid)
+            if f is None or id(f) in usados:
+                continue
+            for i in range(n_line):
+                if saida[i] is None:
+                    saida[i] = f
+                    usados.add(id(f))
+                    break
+        # Demais campos da linha preenchem espacos vagos restantes
+        for f in line_fields:
+            if id(f) in usados:
+                continue
+            for i in range(n_line):
+                if saida[i] is None:
+                    saida[i] = f
+                    usados.add(id(f))
+                    break
+        line_fields = [f for f in saida if f is not None]
+
     all_fields = line_fields + cardonly_fields
     stored_cols = {c.name for c in model.__table__.columns}
     for f in all_fields:
