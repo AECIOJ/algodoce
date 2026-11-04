@@ -73,6 +73,7 @@ Page = {
             'hidden': ['validade'],
             'card': ['observacao'],
             'order': ['id'],
+            'detail': 'OrcamentoItem'
         },
         'filter': {'types': {'checklist': 'status'}},
         'form': {

@@ -735,6 +735,15 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             detail_fields = resolve_column_configs(_cmerged, _dfields, principal=_cmerged, inputs=_camadas_inputs(module_name))
         else:
             detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
+        # Campos RK (chave pura) são ocultados automaticamente em tabelas de
+        # detalhamento, a menos que explicitamente declarados.
+        if _dfields is None:
+            detail_fields = [f for f in detail_fields if getattr(f, '_type', None) != 'RK']
+        else:
+            rk_names = {f.name for f in detail_fields if getattr(f, '_type', None) == 'RK'}
+            declared = {name for name in _dfields if isinstance(name, str)}
+            detail_fields = [f for f in detail_fields
+                             if getattr(f, '_type', None) != 'RK' or f.name in declared]
         list_obj.detail_data = detail_data
 
     # Campo de impressão com escolha ativo — resolvido antes do pivot/filtro
@@ -1055,6 +1064,15 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
             detail_fields = resolve_column_configs(_cmerged, _dfields, principal=_cmerged, inputs=_camadas_inputs(module_name))
         else:
             detail_fields = resolve_column_configs(merged, _dfields, principal=merged, inputs=_camadas_inputs(module_name))
+        # Campos RK (chave pura) são ocultados automaticamente em tabelas de
+        # detalhamento, a menos que explicitamente declarados.
+        if _dfields is None:
+            detail_fields = [f for f in detail_fields if getattr(f, '_type', None) != 'RK']
+        else:
+            rk_names = {f.name for f in detail_fields if getattr(f, '_type', None) == 'RK'}
+            declared = {name for name in _dfields if isinstance(name, str)}
+            detail_fields = [f for f in detail_fields
+                             if getattr(f, '_type', None) != 'RK' or f.name in declared]
         list_obj.detail_data = detail_data
 
     # Campo de impressão com escolha ativo (marcador `_r`): o parâmetro que o
