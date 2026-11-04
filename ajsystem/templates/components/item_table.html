@@ -488,7 +488,7 @@
 </div>
 {% endmacro %}
 
-{% macro item_table_display(items, cols, cell_macro=none, title='') %}
+{% macro item_table_display(items, cols, cell_macro=none, title='', show_pager=true) %}
 <div class="it-display">
   {% if title %}<div class="text-sm font-bold mb-1">{{ title }}</div>{% endif %}
   <div class="itm-scroll">
@@ -514,7 +514,7 @@
       </tbody>
     </table>
   </div>
-  {% if items|length > 1 %}<div class="mt-1 flex justify-center"><span class="itm-pager"></span></div>{% endif %}
+  {% if show_pager and items|length > 1 %}<div class="mt-1 flex justify-center"><span class="itm-pager"></span></div>{% endif %}
 </div>
 {% endmacro %}
 
