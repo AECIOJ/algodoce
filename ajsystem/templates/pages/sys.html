@@ -1355,7 +1355,7 @@ function itmPerCount(table) {
 }
 function itmApplyPage(table) {
   // Quando não há pager (show_pager=false), mostra todas as linhas sem paginação
-  if (table.dataset.itmNopager === '1') {
+  if (table.dataset.itmNopager) {
     table.querySelectorAll('[data-crow]').forEach(function(el) {
       el.classList.remove('itm-hide');
     });

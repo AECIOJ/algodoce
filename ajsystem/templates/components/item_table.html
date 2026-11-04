@@ -549,8 +549,8 @@
     position: sticky; left: 0; z-index: 3; background: var(--fallback-b2, oklch(var(--b2)));
     text-align: left; white-space: nowrap; box-shadow: 1px 0 0 var(--fallback-b3, oklch(var(--b3)));
     /* Largura baseada no maior rótulo. Com table-layout: auto (padrão),
-       o browser ajusta ao conteúdo da célula. width:1px é apenas dica mínima. */
-    width: 1px;
+       o browser ajusta ao conteúdo da célula. Não força largura fixa. */
+    width: auto;
     min-width: 8ch;
     max-width: 40ch;
   }
