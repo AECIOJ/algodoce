@@ -313,9 +313,12 @@
 .detail-overflow .itm-table td.itm-cell {
   white-space: nowrap; padding: 3px 4px;
 }
-/* Nunca esconde linhas quando não há pager */
-.detail-overflow .itm-table td.itm-cell.itm-hide,
-.detail-overflow .itm-table th.itm-item.itm-hide { display: table-cell !important; }
+/* Sempre mostra todas as linhas na tabela de detalhamento da lista,
+   independente de qualquer classe itm-hide aplicada por JavaScript */
+.detail-overflow .itm-table tr,
+.detail-overflow .itm-table th.itm-item,
+.detail-overflow .itm-table td.itm-cell { display: table-cell !important; }
+.detail-overflow .itm-table tr { display: table-row !important; }
 .list-filter-wrap .filter-group { width: 100%; min-width: 0; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
 .list-filter-wrap .filter-grid,
