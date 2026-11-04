@@ -28,7 +28,7 @@ class CompraItem(db.Model):
 
 Entity = {
     'id':           {'type': 'ID'},
-    'compra_id':    {'type': 'DK'},
+    'compra_id':    {'type': 'RK'},
     'insumo_id':    {'type': 'FK', 'label': 'Insumo', 'required': True},
     'qtd':          {'type': 'NUM', 'label': 'Qtd', 'required': True},
     'preco':        {'type': 'NUM', 'label': 'Preço', 'required': True,

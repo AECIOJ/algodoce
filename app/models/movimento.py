@@ -59,6 +59,6 @@ Entity = {
     'operacao_id':  {'type': 'FK', 'label': 'Operação', 'width': 15},
     'variacao':     {'type': 'NUM', 'label': 'Variação', 'width': 10},
     'historico':    {'type': 'MEMO', 'label': 'Histórico', 'width': 30},
-    'pedido_id':    {'type': 'FK', 'label': 'Pedido', 'width': 9, 'readonly': True},
-    'compra_id':    {'type': 'FK', 'label': 'Compra', 'width': 9, 'readonly': True},
+    'pedido_id':    {'type': 'RK', 'label': 'Pedido', 'width': 9, 'readonly': True},
+    'compra_id':    {'type': 'RK', 'label': 'Compra', 'width': 9, 'readonly': True},
 }

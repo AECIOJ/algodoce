@@ -29,7 +29,7 @@ class OrcamentoItem(db.Model):
 
 Entity = {
     'id':              {'type': 'ID'},
-    'orcamento_id':        {'type': 'DK'},
+    'orcamento_id':        {'type': 'RK'},
     'produto_id':      {'type': 'FK', 'label': 'Produto', 'required': True},
     'qtd':             {'type': 'INT', 'label': 'Qtd', 'required': True},
     'preco':           {'type': 'NUM', 'label': 'Preço',

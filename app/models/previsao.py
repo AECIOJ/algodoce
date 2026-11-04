@@ -46,7 +46,7 @@ class Previsao(db.Model):
 
 Entity = {
     'id':           {'type': 'ID'},
-    'transacao_id': {'type': 'DK'},
+    'transacao_id': {'type': 'RK'},
     'documento':    {'type': 'TEXT', 'label': 'Documento'},
     'vencimento':   {'type': 'DATA', 'label': 'Vencimento', 'required': True},
     'recurso_id':   {'type': 'FK', 'label': 'Recurso'},

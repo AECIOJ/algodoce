@@ -30,8 +30,8 @@ class Evento(db.Model):
 
 Entity = {
     'id':          {'type': 'ID'},
-    'orcamento_id':    {'type': 'DK'},
-    'pedido_id':    {'type': 'DK'},
+    'orcamento_id':    {'type': 'RK'},
+    'pedido_id':    {'type': 'RK'},
     'tipo':        {'type': 'LIST', 'label': 'Tipo', 'options': TIPO_EVENTO},
     'tema':        {'type': 'TEXT', 'width': 22},
     'data':        {'type': 'DATA', 'label': 'Data'},

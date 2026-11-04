@@ -20,7 +20,7 @@ class InsumoConversao(db.Model):
 
 Entity = {
     'id':            {'type': 'ID'},
-    'insumo_id': {'type': 'DK', 'label': 'Insumo'},
+    'insumo_id': {'type': 'RK', 'label': 'Insumo'},
     'und':         {'type': 'LIST', 'options': UND_INSUMO, 'required': True},
     'fator':         {'type': 'NUM', 'required': True, 'decimals': 6},
 }
