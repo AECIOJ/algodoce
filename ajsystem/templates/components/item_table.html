@@ -548,8 +548,8 @@
   .itm-table th.itm-label {
     position: sticky; left: 0; z-index: 3; background: var(--fallback-b2, oklch(var(--b2)));
     text-align: left; white-space: nowrap; box-shadow: 1px 0 0 var(--fallback-b3, oklch(var(--b3)));
-    /* Largura baseada no maior rótulo. Com table-layout: auto (padrão),
-       o browser ajusta ao conteúdo da célula. Não força largura fixa. */
+    /* Largura baseada no maior rótulo. O browser ajusta ao conteúdo da célula,
+       sem expandir descontroladamente para ocupar toda a tela. */
     width: auto;
     min-width: 8ch;
     max-width: 40ch;
@@ -562,8 +562,9 @@
   .it-no-index th.itm-corner,
   .it-no-index th.itm-item,
   .it-no-index td.itm-cell { display: none !important; }
-  .itm-item-head { display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; white-space: nowrap; }
-  .itm-item-num { font-weight: 600; }
+  /* Carrossel: todas as células com nowrap para não quebrar linha */
+  .itm-table th.itm-item { white-space: nowrap; }
+  .itm-table td.itm-cell { white-space: nowrap; padding: 3px 4px; }
   .itm-new { animation: itmFlash 1.2s ease-out; }
   @keyframes itmFlash { from { background-color: oklch(var(--su) / 0.35); } to { background-color: transparent; } }
   .itm-table .itm-hide { display: none; }
