@@ -489,8 +489,9 @@ tr.detail-row > td { padding: 0 !important; }
 .detail-overflow { gap: 2px 12px !important; align-items: start; }
 /* Host do land_table: overflow-x hidden para forçar o carrossel (pager)
    a gerenciar a visibilidade das colunas em vez de scroll horizontal.
-   Mantém-se como flex item para ocupar 100% da largura do .detail-overflow. */
-.land-scroll-host { overflow-x: hidden; min-width: 0; }
+   width:100% garante que o container tenha largura limitada para o
+   itmPerCount calcular quantas colunas cabem. */
+.land-scroll-host { overflow-x: hidden; width: 100%; min-width: 0; }
 .detail-carousel { display: flex; flex-direction: column; }
 
 .carousel-body { display: flex; align-items: stretch; }
