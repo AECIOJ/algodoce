@@ -264,7 +264,7 @@
 <style>
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
-.list-table-wrap { width: 100%; }
+.list-table-wrap { width: 100%; overflow-x: auto; }
 .list-table-wrap.adaptive .list-table { min-width: 100%; width: max-content; max-width: none; }
 .list-filter-wrap {
   --filter-grid-cols: 3.5rem minmax(10ch, 1.6fr) minmax(16ch, 1.2fr) minmax(12ch, 1fr) minmax(12ch, 1fr) auto;
@@ -412,7 +412,7 @@
 }
 .list-table th.col-hide, .list-table td.col-hide { display: none; }
 .list-table-wrap.adaptive .list-table td,
-.list-table-wrap.adaptive .list-table th { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.list-table-wrap.adaptive .list-table th { overflow: visible; min-width: 0; }
 .list-table-wrap.adaptive .list-table td img,
 .list-table-wrap.adaptive .list-table th img { position: static !important; max-width: 100% !important; max-height: 40px !important; width: auto !important; height: auto !important; display: block; object-fit: contain; z-index: auto !important; }
 .list-table-wrap.adaptive .list-table td:has(img),
