@@ -264,8 +264,8 @@
 <style>
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
-.list-table-wrap { width: 100%; overflow-x: auto; }
-.list-table-wrap.adaptive .list-table { min-width: 100%; width: max-content; max-width: none; }
+.list-table-wrap { width: 100%; max-width: 100%; }
+.list-table-wrap.adaptive .list-table { min-width: 100%; max-width: none; }
 .list-filter-wrap {
   --filter-grid-cols: 3.5rem minmax(10ch, 1.6fr) minmax(16ch, 1.2fr) minmax(12ch, 1fr) minmax(12ch, 1fr) auto;
   width: 100%; max-width: 100%; margin-inline: auto;
@@ -412,7 +412,7 @@
 }
 .list-table th.col-hide, .list-table td.col-hide { display: none; }
 .list-table-wrap.adaptive .list-table td,
-.list-table-wrap.adaptive .list-table th { overflow: visible; min-width: 0; }
+.list-table-wrap.adaptive .list-table th { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .list-table-wrap.adaptive .list-table td img,
 .list-table-wrap.adaptive .list-table th img { position: static !important; max-width: 100% !important; max-height: 40px !important; width: auto !important; height: auto !important; display: block; object-fit: contain; z-index: auto !important; }
 .list-table-wrap.adaptive .list-table td:has(img),
@@ -1555,21 +1555,45 @@ function fitListColumns() {
     // Se cabe tudo, terminou
     if (table.scrollWidth <= boxWidth + 1) {
       wrap.classList.add('col-fit');
-      scrollBox.style.overflowX = '';
+      scrollBox.style.overflowX = 'hidden';
       wrap.style.overflowX = '';
       applyDetailVisibility(table, tbody, rows, []);
       return;
     }
     wrap.classList.remove('col-fit');
 
-    // Não esconde colunas: deixa o overflow-x: auto rolar horizontalmente.
-    // As colunas com largura fixa (col.width em ch) ficam acessíveis via scroll.
+    // Esconde colunas da direita para a esquerda até caber
+    // Sempre mantém: expansão (idx 0) e Ações (se existir)
+    var hiddenFields = [];
+    var i = ths.length - 1;
+    while (i > expandIdx) {
+      if (i === actionIdx) { i--; continue; } // nunca esconde Ações
+      var th = ths[i];
+      var field = th.getAttribute('data-field');
+      th.style.display = 'none';
+      th.style.width = '0';
+      hiddenFields.push(field);
+      // Esconde as células correspondentes nas linhas
+      rows.forEach(function (tr) {
+        var cells = tr.cells;
+        if (i < cells.length) {
+          cells[i].style.display = 'none';
+          cells[i].style.width = '0';
+        }
+      });
+      i--;
+
+      // Força reflow para o navegador recalcular o scrollWidth
+      table.offsetHeight;
+
+      if (table.scrollWidth <= boxWidth + 1) break;
+    }
 
     // Atualiza visibilidade no detalhamento (▶)
-    applyDetailVisibility(table, tbody, rows, []);
+    applyDetailVisibility(table, tbody, rows, hiddenFields);
 
-    // Garantia final: permite scroll horizontal quando as colunas não cabem.
-    scrollBox.style.overflowX = 'auto';
+    // Garantia final: nunca permite scroll horizontal
+    scrollBox.style.overflowX = 'hidden';
     wrap.style.overflowX = '';
   });
 }
