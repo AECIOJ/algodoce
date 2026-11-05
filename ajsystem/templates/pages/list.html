@@ -1,6 +1,6 @@
 {% extends "pages/sys.html" %}
 {% from "pages/macros.html" import heroicon, btn %}
-{% import "components/item_table.html" as itb with context %}
+{% import "components/land_table.html" as ltb with context %}
 {% import "components/form_macros.html" as fm with context %}
 {% import "components/tabs.html" as tb with context %}
 
@@ -213,7 +213,7 @@
 {% else %}
 {% set _relname = col.field[:-3] %}
 {% set _rel = item|deep_attr(_relname) %}
-{% if _rel is not none and _rel.nome is defined and _rel.nome %}{{ _rel.nome }}{% elif _rel is not none and _rel.name is defined and _rel.name %}{{ _rel.name }}{% elif _rel is not none and _rel.descricao is defined and _rel.descricao %}{{ _rel.descricao }}{% elif _rel is not none and _rel.titulo is defined and _rel.titulo %}{{ _rel.titulo }}{% elif _rel is not none and _rel.label is defined and _rel.label %}{{ _rel.label }}{% elif _rel is not none and col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif _rel is not none %}{{ _rel }}{% endif %}
+{% if _rel is not none and _rel.nome is defined and _rel.nome %}{{ _rel.nome }}{% elif _rel is not none and _rel.name is defined and _rel.name %}{{ _rel.name }}{% elif _rel is not none and _rel.descricao is defined and _rel.descricao %}{{ _rel.descricao }}{% elif _rel is not none and _rel.titulo is defined and _rel.titulo %}{{ _rel.titulo }}{% elif _rel is not none and _rel.label is defined and _rel.label %}{{ _rel.label }}{% elif _rel is not none and _rel.display is defined and _rel.display %}{{ _rel.display }}{% elif _rel is not none %}{% set _rs = _rel|string %}{% if _rs[:1] == '<' and col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% else %}{{ _rs }}{% endif %}{% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% else %}{{ _raw }}{% endif %}
 {% endif %}
 {% elif col.options and _raw is not none %}{{ col.options.get(_raw, _raw) }}{% elif col.input == 'image' and _raw %}<img src="{{ url_for(aj_uploads_endpoint(), filename=_raw) }}" class="border rounded" style="max-height:{{ img_h }}px;cursor:pointer;"{% if img_js %} onclick="previewImagem(this.src)"{% endif %}>{% elif col.input in ('boolean', 'checkbox') and _raw is not none %}{{ 'Sim' if _raw else 'Não' }}{% else %}{{ fm.render_value(_raw, col) }}{% endif %}
 {% endmacro %}
@@ -235,9 +235,9 @@
 {% endif %}
 {% endmacro %}
 
-{# `_det_cell` é a assinatura que `item_table_display` invoca (item, idx, col).
-   Não leva o `onclick` de ampliar: a tabela transposta do `item_table` não o
-   tinha, e não é o lugar de ganhar um clique por acidente. #}
+{# `_det_cell` é a assinatura que `land_table_display` invoca (item, idx, col).
+   Não leva o `onclick` de ampliar: a tabela deitada não o tinha, e não é o
+   lugar de ganhar um clique por acidente. #}
 {% macro _det_cell(item, idx, col) %}
 {{- _value_cell(item, col, img_h=40, img_js=false) -}}
 {% endmacro %}
@@ -265,7 +265,7 @@
 .list-page .area-menu nav a { line-height:var(--bar-h); }
 
 .list-table-wrap { width: 100%; max-width: 100%; }
-.list-table-wrap.adaptive .list-table { max-width: 100%; }
+.list-table-wrap.adaptive .list-table { min-width: 100%; }
 .list-filter-wrap {
   --filter-grid-cols: 3.5rem minmax(10ch, 1.6fr) minmax(16ch, 1.2fr) minmax(12ch, 1fr) minmax(12ch, 1fr) auto;
   width: 100%; max-width: 100%; margin-inline: auto;
@@ -300,20 +300,6 @@
   color: var(--fallback-bc, oklch(var(--bc)/.85)) !important;
 }
 .it-dtwrap { position: relative; }
-/* Tabela de detalhamento da linha: carrossel com rolagem horizontal,
-   primeira coluna (rótulos) fixa à esquerda, todos os itens visíveis */
-.detail-overflow .itm-table th.itm-label {
-  position: sticky; left: 0; z-index: 3; background: var(--fallback-b2, oklch(var(--b2)));
-  text-align: left; white-space: nowrap; box-shadow: 1px 0 0 var(--fallback-b3, oklch(var(--b3)));
-  width: auto; min-width: 8ch; max-width: 40ch;
-}
-/* Nunca esconde linhas quando não há pager */
-.detail-overflow .itm-table tr,
-.detail-overflow .itm-table th.itm-item,
-.detail-overflow .itm-table td.itm-cell { display: table-cell !important; }
-.detail-overflow .itm-table tr { display: table-row !important; }
-/* width: 100% na tabela de detalhamento para não esticar a coluna de rótulos */
-.detail-overflow .itm-table { width: 100%; min-width: 100%; border-collapse: separate; }
 .list-filter-wrap .filter-group { width: 100%; min-width: 0; }
 .list-filter-wrap .filter-group input.flex-1 { min-width: 0; }
 .list-filter-wrap .filter-grid,
@@ -449,7 +435,7 @@ tr.detail-row.collapsed { display: none !important; }
 .list-table-wrap.adaptive.col-fit tr.detail-row.collapsed { display: none !important; }
 .detail-overflow .of-dyn { display: none; }
 </style>
-{{ itb.item_table_styles() }}
+{{ ltb.land_table_styles() }}
 {% endblock %}
 
 {% block page_content %}
@@ -544,7 +530,9 @@ tr.detail-row.collapsed { display: none !important; }
                 {% set _sub_items = item|deep_attr(detail_data) %}
                 {% if _sub_items %}
                 <div class="mt-2">
-                {{ itb.item_table_display(_sub_items, det_cols, cell_macro=_det_cell, show_pager=false, hide_index=true) }}
+                <div class="land-scroll-host">
+                {{ ltb.land_table_display(_sub_items, det_cols, cell_macro=_det_cell, show_pager=true, title=detail_title) }}
+                </div>
                 </div>
                 {% endif %}
                 {% endif %}
@@ -1477,14 +1465,42 @@ function listPage() {
   };
 }
 document.addEventListener('DOMContentLoaded', function () {
+  // Ajusta a largura visível do land_table (limitada à área da lista, não à
+  // largura total da tabela principal) e recalcula o carrossel/scroll.
+  function landTableRefresh(table) {
+    // Mostra TODAS as colunas (sem esconder via itm-hide): o scroll horizontal
+    // do .land-scroll-host permite ver as que excederem a largura.
+    table.querySelectorAll('.itm-hide').forEach(function(el) {
+      el.classList.remove('itm-hide');
+    });
+    table.dataset.itmPer = '';
+    table.dataset.itmPage = '1';
+    if (window.itmApplyPage) itmApplyPage(table);
+  }
+
+  function detailInit(detailRow) {
+    if (!detailRow || detailRow.classList.contains('collapsed')) return;
+    // Tabela deitada do detail: inicializa o carrossel após ficar visível
+    // (medidas de largura são 0 enquanto o tr.detail-row está colapsado).
+    function apply() {
+      detailRow.querySelectorAll('.land-table table.itm-table').forEach(landTableRefresh);
+    }
+    requestAnimationFrame(function() { requestAnimationFrame(apply); });
+  }
+
+  function toggleDetail(tg) {
+    if (!tg) return;
+    var target = document.getElementById(tg.dataset.expandToggle);
+    if (!target) return;
+    target.classList.toggle('collapsed');
+    tg.classList.toggle('expanded');
+    if (!target.classList.contains('collapsed')) detailInit(target);
+  }
+
   document.querySelectorAll('[data-expand-toggle]').forEach(function (el) {
     el.addEventListener('click', function (e) {
       e.stopPropagation();
-      var target = document.getElementById(this.dataset.expandToggle);
-      if (!target) return;
-      target.classList.toggle('collapsed');
-      this.classList.toggle('expanded');
-      if (window.itmPagerInit) itmPagerInit();
+      toggleDetail(this);
     });
   });
 
@@ -1493,11 +1509,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var tg = e.target.closest('[data-expand-toggle]');
     if (!tg) return;
     e.stopPropagation();
-    var target = document.getElementById(tg.dataset.expandToggle);
-    if (!target) return;
-    target.classList.toggle('collapsed');
-    tg.classList.toggle('expanded');
-    if (window.itmPagerInit) itmPagerInit();
+    toggleDetail(tg);
   });
 
   document.querySelectorAll('table.list-table tbody tr.row-data').forEach(function (tr) {
@@ -1513,43 +1525,6 @@ document.addEventListener('DOMContentLoaded', function () {
   // abrir o relatório, para que ao "Voltar" a tabela volte completa e funcional.
   reportRender({{ auto_report | tojson | safe }});
   {% endif %}
-
-  // Garante que todas as linhas da tabela de detalhamento (detail-overflow)
-  // estejam sempre visíveis: carrossel com rolagem horizontal, sem paginação.
-  document.querySelectorAll('.detail-overflow .itm-table tr, .detail-overflow .itm-table td.itm-cell, .detail-overflow .itm-table th.itm-item').forEach(function(el) {
-    el.classList.remove('itm-hide');
-    el.style.display = '';
-  });
-  document.querySelectorAll('.detail-overflow .itm-table tr').forEach(function(tr) {
-    tr.style.display = 'table-row';
-  });
-  document.querySelectorAll('.detail-overflow .itm-table td, .detail-overflow .itm-table th').forEach(function(td) {
-    td.style.display = 'table-cell';
-  });
-
-  // MutationObserver global: garante que linhas na tabela de detalhamento
-  // nunca sejam escondidas por paginação, mesmo quando inseridas dinamicamente
-  // após clique em expandir.
-  var obs = new MutationObserver(function(mutations) {
-    mutations.forEach(function(mutation) {
-      mutation.addedNodes.forEach(function(node) {
-        if (node.nodeType !== 1) return;
-        // Se o nó adicionado é ou contém um detail-overflow
-        var overflows = node.classList && node.classList.contains('detail-overflow')
-          ? [node]
-          : node.querySelectorAll ? node.querySelectorAll('.detail-overflow') : [];
-        Array.from(overflows).forEach(function(of) {
-          of.querySelectorAll('tr.itm-hide, td.itm-hide, th.itm-hide').forEach(function(el) {
-            el.classList.remove('itm-hide');
-            el.style.display = '';
-          });
-          of.querySelectorAll('tr').forEach(function(tr) { tr.style.display = 'table-row'; });
-          of.querySelectorAll('td, th').forEach(function(td) { td.style.display = 'table-cell'; });
-        });
-      });
-    });
-  });
-  obs.observe(document.body, { childList: true, subtree: true });
 });
 
 function fitListColumns() {
@@ -1587,40 +1562,14 @@ function fitListColumns() {
     }
     wrap.classList.remove('col-fit');
 
-    // Esconde colunas da direita para a esquerda até caber
-    // Sempre mantém: expansão (idx 0) e Ações (se existir)
-    var hiddenFields = [];
-    var i = ths.length - 1;
-    while (i > expandIdx) {
-      if (i === actionIdx) { i--; continue; } // nunca esconde Ações
-      var th = ths[i];
-      var field = th.getAttribute('data-field');
-      th.style.display = 'none';
-      th.style.width = '0';
-      hiddenFields.push(field);
-      // Esconde as células correspondentes nas linhas
-      rows.forEach(function (tr) {
-        var cells = tr.cells;
-        if (i < cells.length) {
-          cells[i].style.display = 'none';
-          cells[i].style.width = '0';
-        }
-      });
-      i--;
-
-      // Força reflow para o navegador recalcular o scrollWidth
-      table.offsetHeight;
-
-      console.log('Escondeu coluna idx', i+1, 'field', field, 'scrollWidth', table.scrollWidth, 'boxWidth', boxWidth);
-
-      if (table.scrollWidth <= boxWidth + 1) break;
-    }
+    // Não esconde colunas: deixa o overflow-x: auto rolar horizontalmente.
+    // As colunas com largura fixa (col.width em ch) ficam acessíveis via scroll.
 
     // Atualiza visibilidade no detalhamento (▶)
-    applyDetailVisibility(table, tbody, rows, hiddenFields);
+    applyDetailVisibility(table, tbody, rows, []);
 
-    // Garantia final: nunca permite scroll horizontal
-    scrollBox.style.overflowX = 'hidden';
+    // Garantia final: permite scroll horizontal quando as colunas não cabem.
+    scrollBox.style.overflowX = 'auto';
     wrap.style.overflowX = '';
   });
 }
@@ -1661,7 +1610,14 @@ document.addEventListener('DOMContentLoaded', function () {
   fitListColumns();
   setTimeout(fitListColumns, 100);
   {% endif %}
-  window.addEventListener('resize', function () { clearTimeout(window._fitListT); window._fitListT = setTimeout(fitListColumns, 150); });
+  window.addEventListener('resize', function () {
+    clearTimeout(window._fitListT);
+    window._fitListT = setTimeout(function () {
+      fitListColumns();
+      // Recalcula largura e carrossel das tabelas deitada visíveis.
+      document.querySelectorAll('.land-table table.itm-table').forEach(landTableRefresh);
+    }, 150);
+  });
 });
 </script>
 {% endblock %}

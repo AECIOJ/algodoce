@@ -72,7 +72,7 @@ Page = {
             # a validade fica fora e a observação só no card.
             'hidden': ['validade'],
             'card': ['observacao'],
-            'detail': 'OrcamentoItem',
+            'detail': ('OrcamentoItem', 'Itens do Orçamento'),
             'order': ['id'],
         },
         'filter': {'types': {'checklist': 'status'}},

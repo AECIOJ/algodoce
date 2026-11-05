@@ -209,14 +209,19 @@ body {
   top: 0;
   z-index: 2;
 }
-.table th.asc::after {
+.table.sortable th.asc::after {
   content: " ▲";
   font-size: 0.7em;
 }
-.table th.desc::after {
+.table.sortable th.desc::after {
   content: " ▼";
   font-size: 0.7em;
 }
+/* Tabelas de itens (form/detail transposto) não são ordenáveis */
+.itm-table th.asc::after,
+.itm-table th.desc::after,
+.it-table th.asc::after,
+.it-table th.desc::after { content: none !important; }
 
 .table-scroll {
   max-height: calc(100vh - 260px);
@@ -473,6 +478,7 @@ tr.detail-row > td { padding: 0 !important; }
 .detail-overflow {
   display: flex; flex-wrap: wrap; gap: 2px 16px;
   padding: 6px 8px; font-size: .8rem;
+  min-width: 0;
 }
 .overflow-field { flex: 0 0 auto; min-width: 80px; max-width: 100%; margin: 0 !important; padding: 0 !important; }
 .overflow-label { color: color-mix(in srgb, var(--fallback-bc, oklch(var(--bc))) 55%, transparent); font-size: .72rem; font-weight: 600; }
@@ -481,6 +487,10 @@ tr.detail-row > td { padding: 0 !important; }
 .overflow-field.memo .overflow-label { display: inline; margin: 0 !important; padding: 0 !important; line-height: 1; font-size: .72rem; }
 .overflow-field.memo .overflow-value { display: inline; white-space: pre-line; margin: 0 !important; padding: 0 !important; line-height: 1.15; }
 .detail-overflow { gap: 2px 12px !important; align-items: start; }
+/* Host do land_table: overflow-x: auto rola quando as colunas rígidas
+   excedem o espaço. display:block quebra o contexto flex do
+   .detail-overflow para não comprimir o conteúdo. */
+.land-scroll-host { overflow-x: auto; min-width: 0; display: block; }
 .detail-carousel { display: flex; flex-direction: column; }
 
 .carousel-body { display: flex; align-items: stretch; }

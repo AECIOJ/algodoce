@@ -6,6 +6,7 @@ declarativos) do módulo de rota e resolve os campos via `defs.data`
 `pages/list.html`.
 """
 import importlib
+import re
 
 from flask import current_app, render_template, request, url_for
 
@@ -23,6 +24,12 @@ from ajsystem.core.filters import resolve_filter
 from ajsystem.core.utils import module_blueprint, normalizar_slug
 
 TAB_TYPES = ('List', 'Filter', 'Report', 'Custom')
+
+
+def _entity_title(name: str) -> str:
+    """Título automático a partir do nome da entidade: `OrcamentoItem` →
+    `Orcamento Item`."""
+    return re.sub(r'(?<!^)(?=[A-Z])', ' ', name.replace('_', ' ')).strip()
 
 # Aba Relatórios (§5.6.2): operador declarado por campo em `props.report`.
 # O símbolo é o comparador; em `date`, `>`/`<` são inclusivos (a partir de/até).
@@ -681,17 +688,26 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
 
     detail_fields = None
     detail_data = None
+    detail_title = None
     if 'detail' in lista:
         _dspec = lista['detail']
         # Formatos suportados:
-        #   - dict: {'fields': [...], 'data': 'relacionamento'}
-        #   - str: 'NomeEntidade' -> resolve model, relacionamento e campos automaticamente
-        #   - tuple: ('NomeEntidade', ['campo1', 'campo2']) -> entidade + campos explicitos
+        #   - dict: {'fields': [...], 'data': 'relacionamento', 'title': '...'}
+        #   - str: 'NomeEntidade' -> model, relacionamento e campos automáticos;
+        #     título automático (ex.: 'OrcamentoItem' -> 'Orcamento Item')
+        #   - tuple: ('NomeEntidade', ['campo1', 'campo2']) -> entidade + campos
+        #   - tuple: ('NomeEntidade', 'Título') -> entidade + título explícito
         _detail_entity = None
         if isinstance(_dspec, dict):
             _dfields, detail_data = _dspec.get('fields', []), _dspec.get('data')
+            detail_title = _dspec.get('title')
         elif isinstance(_dspec, tuple) and len(_dspec) == 2:
-            _detail_entity, _dfields = _dspec
+            _detail_entity, _second = _dspec
+            if isinstance(_second, str):
+                _dfields = None  # inferido do model
+                detail_title = _second
+            else:
+                _dfields = _second
             detail_data = None  # resolvido abaixo
         elif isinstance(_dspec, str):
             _detail_entity = _dspec
@@ -718,6 +734,9 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
             if _rel_name is None:
                 _rel_name = _detail_entity.lower() + '_s'
             detail_data = _rel_name
+            # Título automático quando não informado explicitamente.
+            if not detail_title:
+                detail_title = _entity_title(_detail_entity)
             # Se não informou campos, usa todos do detail model (exceto id PK)
             if _dfields is None:
                 _dfields = [c.name for c in _detail_model.__table__.columns
@@ -832,6 +851,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         max_width=page_max_width,
         detail_fields=detail_fields,
         detail_data=detail_data,
+        detail_title=detail_title,
         cardonly_fields=cardonly_fields,
         buttons=buttons,
         auto_report=auto_report,
@@ -1009,17 +1029,26 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
 
     detail_fields = None
     detail_data = None
+    detail_title = None
     if 'detail' in lista:
         _dspec = lista['detail']
         # Formatos suportados:
-        #   - dict: {'fields': [...], 'data': 'relacionamento'}
-        #   - str: 'NomeEntidade' -> resolve model, relacionamento e campos automaticamente
-        #   - tuple: ('NomeEntidade', ['campo1', 'campo2']) -> entidade + campos explicitos
+        #   - dict: {'fields': [...], 'data': 'relacionamento', 'title': '...'}
+        #   - str: 'NomeEntidade' -> model, relacionamento e campos automáticos;
+        #     título automático (ex.: 'OrcamentoItem' -> 'Orcamento Item')
+        #   - tuple: ('NomeEntidade', ['campo1', 'campo2']) -> entidade + campos
+        #   - tuple: ('NomeEntidade', 'Título') -> entidade + título explícito
         _detail_entity = None
         if isinstance(_dspec, dict):
             _dfields, detail_data = _dspec.get('fields', []), _dspec.get('data')
+            detail_title = _dspec.get('title')
         elif isinstance(_dspec, tuple) and len(_dspec) == 2:
-            _detail_entity, _dfields = _dspec
+            _detail_entity, _second = _dspec
+            if isinstance(_second, str):
+                _dfields = None  # inferido do model
+                detail_title = _second
+            else:
+                _dfields = _second
             detail_data = None  # resolvido abaixo
         elif isinstance(_dspec, str):
             _detail_entity = _dspec
@@ -1046,6 +1075,9 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
             if _rel_name is None:
                 _rel_name = _detail_entity.lower() + '_s'
             detail_data = _rel_name
+            # Título automático quando não informado explicitamente.
+            if not detail_title:
+                detail_title = _entity_title(_detail_entity)
             # Se não informou campos, usa todos do detail model (exceto id PK)
             if _dfields is None:
                 _dfields = [c.name for c in _detail_model.__table__.columns
@@ -1165,6 +1197,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         max_width=page_max_width,
         detail_fields=detail_fields,
         detail_data=detail_data,
+        detail_title=detail_title,
         cardonly_fields=cardonly_fields,
         buttons=buttons,
         auto_report=auto_report,

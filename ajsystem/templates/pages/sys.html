@@ -1341,24 +1341,27 @@ function itmPerCount(table) {
   var avail = scroll ? scroll.clientWidth : 0;
   var head = table.querySelector('.itm-head');
   var labelW = 90, colW = 60;
+  var lab = head ? head.querySelector('th.itm-label') : table.querySelector('th.itm-label');
+  if (lab && lab.offsetWidth > 0) labelW = lab.offsetWidth;
+  var w = 0;
   if (head) {
-    var lab = head.querySelector('th.itm-label');
-    if (lab) labelW = lab.offsetWidth;
-    var w = 0;
     head.querySelectorAll('th.itm-item').forEach(function(th) {
       if (th.offsetWidth > w) w = th.offsetWidth;
     });
-    if (w > 0) colW = w;
+  } else {
+    // Tabela deitada sem linha de índice: maior largura entre as células.
+    table.querySelectorAll('tbody td.itm-cell').forEach(function(td) {
+      if (td.offsetWidth > w) w = td.offsetWidth;
+    });
   }
+  if (w > 0) colW = w;
   if (avail <= 0 || colW <= 0) return 4;
   return Math.max(1, Math.floor((avail - labelW - 4) / colW));
 }
 function itmApplyPage(table) {
-  // Quando não há pager (show_pager=false) ou tabela está dentro de
-  // detail-overflow (linha expansória da listagem), mostra todas as linhas
-  // sem paginação: comportamento de carrossel com rolagem horizontal.
-  if (table.hasAttribute('data-itm-nopager') ||
-      table.closest('.detail-overflow')) {
+  // Quando não há pager (`show_pager=false`), mostra todas as colunas sem
+  // paginação.
+  if (table.hasAttribute('data-itm-nopager')) {
     table.querySelectorAll('[data-crow]').forEach(function(el) {
       el.classList.remove('itm-hide');
     });
@@ -1379,7 +1382,7 @@ function itmApplyPage(table) {
   table.querySelectorAll('[data-crow]').forEach(function(el) {
     el.classList.toggle('itm-hide', cur.indexOf(el.getAttribute('data-crow')) === -1);
   });
-  var host = table.closest('.it-mobile, .it-display');
+  var host = table.closest('.it-mobile, .it-display, .land-table');
   var pager = host ? host.querySelector('.itm-pager') : null;
   if (pager) itmRenderPager(pager, table, page, pages);
 }
@@ -1429,10 +1432,8 @@ function itmRenderPager(pager, table, page, pages) {
 }
 function itmPagerInit() {
   document.querySelectorAll('table.itm-table').forEach(function(table) {
-    var host = table.closest('.it-mobile, .it-display');
+    var host = table.closest('.it-mobile, .it-display, .land-table');
     if (!host || !host.querySelector('.itm-pager')) return;
-    // Nunca aplica paginação em tabela de detalhamento da listagem
-    if (table.closest('.detail-overflow')) return;
     table.dataset.itmPer = '';
     itmApplyPage(table);
   });

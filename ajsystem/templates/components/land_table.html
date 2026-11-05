@@ -1,0 +1,128 @@
+{#
+  Componente: tabela deitada/transposta (1ª coluna = rótulos, demais = registros).
+  Uso:
+    {% import "components/land_table.html" as ltb with context %}
+    {{ ltb.land_table_display(items, cols, cell_macro=macro, show_pager=true) }}
+    {{ ltb.land_table_styles() }}          // head_extra
+
+  Diferenças em relação ao `item_table_display`:
+    - Não existe coluna/linha de índice por padrão (`show_index=false`).
+    - A largura da 1ª coluna é resolvida só por CSS (`width:1px` + nowrap),
+      sem JS medindo `scrollWidth` de célula já esticada.
+    - As colunas de dados têm largura rígida = maior `col.width` dos fields;
+      o conteúdo excedente é cortado com reticências.
+    - Carrossel reaproveita o motor `itmApplyPage`/`itmPagerInit` de sys.html.
+#}
+
+{% macro land_table_display(items, cols, cell_macro=none, title='', show_pager=true, show_index=false) %}
+{# Cada coluna de registro contém TODOS os fields, então todas usam a maior
+   largura declarada entre eles (`col.width`, em ch). #}
+{% set _item_w = (cols | map(attribute='width') | max) if cols else 15 %}
+<div class="land-table">
+  {% if title or (show_pager and items|length > 1) %}
+  <div class="land-header">
+    {% if title %}<div class="land-title">{{ title }}</div>{% endif %}
+    {% if show_pager and items|length > 1 %}<span class="itm-pager"></span>{% endif %}
+  </div>
+  {% endif %}
+  <div class="itm-scroll">
+    <table class="table table-sm itm-table" style="--land-item-w:{{ _item_w }}ch"{% if not show_pager %} data-itm-nopager{% endif %}>
+      <tbody>
+        {% if show_index %}
+        <tr class="itm-head">
+          <th class="itm-label itm-corner">#</th>
+          {% for item in items %}
+          {% set _ref = item|item_ref(items) %}
+          <th class="itm-item" data-crow="{{ loop.index0 }}"><span class="itm-item-num">{{ ('# ' ~ _ref) if _ref is not none else '#' }}</span></th>
+          {% endfor %}
+        </tr>
+        {% endif %}
+        {% for col in cols %}
+        <tr>
+          <th class="itm-label">{{ col.display_label if col.display_label is defined else col.label }}</th>
+          {% for item in items %}
+          <td class="itm-cell"{% if col.align is defined and col.align and col.align != 'left' %} style="text-align:{{ col.align }}"{% endif %} data-crow="{{ loop.index0 }}">
+            <div class="itm-clip">{% if cell_macro %}{{ cell_macro(item, loop.index0, col) }}{% endif %}</div>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro land_table_styles() %}
+<style>
+  .land-table { width: 100%; }
+  /* Barra superior: título à esquerda, navegação do carrossel à direita. */
+  .land-table .land-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem;
+    width: 100%;
+    background: var(--fallback-b2, oklch(var(--b2)));
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--fallback-b3, oklch(var(--b3)));
+  }
+  .land-table .land-title {
+    flex: 1 1 auto; min-width: 0;
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .land-table .itm-scroll { overflow-x: auto; max-width: 100%; width: 100%; }
+  /* Tabela ocupa apenas o espaço do conteúdo (colunas rígidas); o
+     .itm-scroll (overflow-x:auto) rola quando exceder o container. */
+  .land-table .itm-table {
+    width: max-content;
+    table-layout: auto; border-collapse: separate;
+  }
+  /* Largura do maior rótulo: width:1px encolhe a coluna até o conteúdo. */
+  .land-table .itm-table th.itm-label {
+    position: sticky; left: 0; z-index: 3;
+    width: 1px; max-width: 40ch;
+    text-align: right; white-space: nowrap; cursor: default;
+    background: var(--fallback-b2, oklch(var(--b2)));
+    box-shadow: 1px 0 0 var(--fallback-b3, oklch(var(--b3)));
+  }
+  .land-table .itm-table th.itm-label::after { content: none !important; }
+  .land-table .itm-table th.itm-label.itm-corner { z-index: 4; }
+  .land-table .itm-table th.itm-item,
+  .land-table .itm-table td.itm-cell {
+    width: var(--land-item-w, 15ch);
+    white-space: nowrap;
+  }
+  .land-table .itm-table th.itm-item { padding: 3px 6px; }
+  /* Largura rígida: o conteúdo fica dentro de um bloco de largura fixa;
+     o que não couber é cortado com reticências em vez de alargar a coluna. */
+  .land-table .itm-table td.itm-cell { padding: 0; }
+  .land-table .itm-table td.itm-cell > .itm-clip {
+    width: var(--land-item-w, 15ch);
+    padding: 3px 6px;
+    box-sizing: border-box;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .land-table .itm-table td.itm-cell img {
+    max-width: 100%; height: auto; max-height: 40px; object-fit: contain;
+  }
+  .land-table .itm-table .itm-hide,
+  .land-table .itm-table th.itm-hide,
+  .land-table .itm-table td.itm-hide { display: none !important; }
+  .land-table .itm-item-num { font-weight: 600; }
+  .land-table .itm-pager { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.4rem 0; }
+  .land-table .land-header .itm-pager { flex: none; width: auto; padding: 0; justify-content: flex-end; }
+  .land-table .land-header .itm-pager-arrow { padding: 0.1rem 0.5rem; font-size: 1.25rem; }
+  .land-table .land-header .itm-page-dot { width: 0.55rem; height: 0.55rem; }
+  .land-table .itm-page-dot { width: 0.7rem; height: 0.7rem; border-radius: 9999px; background: var(--fallback-b3, oklch(var(--b3))); padding: 0; border: 0; cursor: pointer; }
+  .land-table .itm-page-dot.itm-active { background: oklch(var(--p)); }
+  .land-table .itm-pager-arrow {
+    border: 0; background: none; cursor: pointer;
+    padding: 0.5rem 0.8rem; border-radius: 0.6rem;
+    font-size: 1.6rem; font-weight: 700; line-height: 1;
+    color: oklch(var(--p));
+  }
+  .land-table .itm-pager-arrow:not([disabled]):hover { background: oklch(var(--p) / 0.12); }
+  .land-table .itm-pager-arrow[disabled] { color: oklch(var(--bc) / 0.4); cursor: default; }
+</style>
+{% endmacro %}

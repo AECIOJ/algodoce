@@ -172,7 +172,7 @@ Page = {
             'columns': 'Pedido',
             'card': ['pedido_em', 'faturado_em', 'cancelado_em',
                      'entregue_em'],
-            'detail': 'PedidoItem',
+            'detail': ('PedidoItem', 'Itens do Pedido'),
             'hidden': ['transacao_id', 'movto_id', 'observacao'],
             'order': ['entregue_em'],
         },
