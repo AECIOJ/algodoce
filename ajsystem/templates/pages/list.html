@@ -1492,10 +1492,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function detailInit(detailRow) {
     if (!detailRow || detailRow.classList.contains('collapsed')) return;
+    console.log('detailInit called, detailRow:', detailRow.id);
     // Tabela deitada do detail: inicializa o carrossel após ficar visível
     // (medidas de largura são 0 enquanto o tr.detail-row está colapsado).
     function apply() {
-      detailRow.querySelectorAll('.land-table table.itm-table').forEach(landTableRefresh);
+      var tables = detailRow.querySelectorAll('.land-table table.itm-table');
+      console.log('detailInit: tabelas encontradas:', tables.length);
+      tables.forEach(landTableRefresh);
     }
     requestAnimationFrame(function() { requestAnimationFrame(apply); });
   }
@@ -1503,7 +1506,8 @@ document.addEventListener('DOMContentLoaded', function () {
   function toggleDetail(tg) {
     if (!tg) return;
     var target = document.getElementById(tg.dataset.expandToggle);
-    if (!target) return;
+    if (!target) { console.log('toggleDetail: target não encontrado'); return; }
+    console.log('toggleDetail: target=', target.id, 'collapsed=', target.classList.contains('collapsed'));
     target.classList.toggle('collapsed');
     tg.classList.toggle('expanded');
     if (!target.classList.contains('collapsed')) detailInit(target);
@@ -1512,6 +1516,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-expand-toggle]').forEach(function (el) {
     el.addEventListener('click', function (e) {
       e.stopPropagation();
+      console.log('toggle click: expandToggle=', this.dataset.expandToggle);
       toggleDetail(this);
     });
   });
