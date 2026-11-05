@@ -72,13 +72,12 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .land-table .itm-scroll { overflow-x: hidden; max-width: 100%; width: 100%; }
-  /* Tabela com table-layout: fixed: as colunas rígidas (--land-item-w) e o
-     rótulo (largura medida via JS) mantêm seus tamanhos. A tabela ocupa
-     max-content e o carrossel (itmApplyPage) pagina os registros que
-     excederem a largura do container. */
+  /* Tabela ocupa 100% do container; quando as colunas rígidas somam mais que
+     100%, o carrossel (itmApplyPage) esconde as colunas excedentes via
+     itm-hide e o pager navega entre elas. */
   .land-table .itm-table {
-    width: max-content;
-    table-layout: fixed; border-collapse: separate;
+    width: 100%;
+    table-layout: auto; border-collapse: separate;
   }
   /* Largura do maior rótulo: width:1px encolhe a coluna até o conteúdo. */
   .land-table .itm-table th.itm-label {
