@@ -1371,8 +1371,10 @@ function itmApplyPage(table) {
   }
   var crows = itmCrows(table);
   var per = itmPerCount(table);
+  console.log('itmApplyPage: crows.length=', crows.length, 'per=', per, 'table=', table);
   table.dataset.itmPer = String(per);
   var pages = Math.max(1, Math.ceil(crows.length / per));
+  console.log('itmApplyPage: pages=', pages);
   var page = parseInt(table.dataset.itmPage || '1', 10) || 1;
   if (page > pages) page = pages;
   if (page < 1) page = 1;
@@ -1384,6 +1386,7 @@ function itmApplyPage(table) {
   });
   var host = table.closest('.it-mobile, .it-display, .land-table');
   var pager = host ? host.querySelector('.itm-pager') : null;
+  console.log('itmApplyPage: host=', host, 'pager=', pager);
   if (pager) itmRenderPager(pager, table, page, pages);
 }
 function itmRenderPager(pager, table, page, pages) {
