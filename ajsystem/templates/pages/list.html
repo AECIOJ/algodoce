@@ -1468,11 +1468,24 @@ document.addEventListener('DOMContentLoaded', function () {
   // Ajusta a largura visível do land_table (limitada à área da lista, não à
   // largura total da tabela principal) e recalcula o carrossel/scroll.
   function landTableRefresh(table) {
-    // Mostra TODAS as colunas (sem esconder via itm-hide): o scroll horizontal
-    // do .land-scroll-host permite ver as que excederem a largura.
+    // Mostra TODAS as colunas (sem esconder via itm-hide) antes de medir.
     table.querySelectorAll('.itm-hide').forEach(function(el) {
       el.classList.remove('itm-hide');
     });
+
+    // Calcula largura da coluna de rótulos: maior texto de rótulo (cap 40ch).
+    var labels = table.querySelectorAll('th.itm-label:not(.itm-corner)');
+    var maxLabelW = 0;
+    labels.forEach(function(th) {
+      th.style.width = '';
+      var w = th.scrollWidth;
+      if (w > maxLabelW) maxLabelW = w;
+    });
+    // Aplica largura fixa a todos os rótulos (coluna fixa à esquerda).
+    labels.forEach(function(th) {
+      th.style.width = Math.min(maxLabelW, 40 * 8) + 'px'; // ~40ch
+    });
+
     table.dataset.itmPer = '';
     table.dataset.itmPage = '1';
     if (window.itmApplyPage) itmApplyPage(table);

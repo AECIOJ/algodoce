@@ -487,10 +487,9 @@ tr.detail-row > td { padding: 0 !important; }
 .overflow-field.memo .overflow-label { display: inline; margin: 0 !important; padding: 0 !important; line-height: 1; font-size: .72rem; }
 .overflow-field.memo .overflow-value { display: inline; white-space: pre-line; margin: 0 !important; padding: 0 !important; line-height: 1.15; }
 .detail-overflow { gap: 2px 12px !important; align-items: start; }
-/* Host do land_table: overflow-x: auto rola quando as colunas rígidas
-   excedem o espaço. display:block quebra o contexto flex do
-   .detail-overflow para não comprimir o conteúdo. */
-.land-scroll-host { overflow-x: auto; min-width: 0; display: block; }
+/* Host do land_table: overflow-x hidden para forçar o carrossel (pager)
+   a gerenciar a visibilidade das colunas em vez de scroll horizontal. */
+.land-scroll-host { overflow-x: hidden; min-width: 0; display: block; }
 .detail-carousel { display: flex; flex-direction: column; }
 
 .carousel-body { display: flex; align-items: stretch; }
