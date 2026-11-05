@@ -1465,10 +1465,7 @@ function listPage() {
   };
 }
 document.addEventListener('DOMContentLoaded', function () {
-  // Ajusta a largura visível do land_table (limitada à área da lista, não à
-  // largura total da tabela principal) e recalcula o carrossel/scroll.
   function landTableRefresh(table) {
-    console.log('landTableRefresh called', table);
     // Mostra TODAS as colunas (sem esconder via itm-hide) antes de medir.
     table.querySelectorAll('.itm-hide').forEach(function(el) {
       el.classList.remove('itm-hide');
@@ -1489,12 +1486,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     table.dataset.itmPer = '';
     table.dataset.itmPage = '1';
-    if (window.itmApplyPage) {
-      console.log('calling itmApplyPage');
-      itmApplyPage(table);
-      console.log('after itmApplyPage, itmPer=', table.dataset.itmPer, 'itmPage=', table.dataset.itmPage);
-    }
+    if (window.itmApplyPage) itmApplyPage(table);
   }
+  window.landTableRefresh = landTableRefresh;
 
   function detailInit(detailRow) {
     if (!detailRow || detailRow.classList.contains('collapsed')) return;
