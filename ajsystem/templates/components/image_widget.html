@@ -1,6 +1,6 @@
 {% if form is defined and form._resolved_fields is defined
    and form._resolved_fields | selectattr('input', 'equalto', 'image') | list %}
-<link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" rel="stylesheet">
+{# O CSS do Cropper entra no build único (`tailwind.src.css`). #}
 
 <dialog id="modalCrop" class="modal">
   <div class="modal-box p-0 overflow-hidden" style="max-width:min(48rem,calc(100vw - 2rem));border:1px solid {{ TEMA.modal.tons.primary.fundo|default('#26A69A', true) }}">
@@ -28,7 +28,7 @@
     <div class="modal-action justify-between items-center" style="margin:0;padding:.5rem 1.5rem">
       <div class="flex gap-2 items-center">
         <button type="button" class="btn btn-error btn-outline btn-sm inline-flex items-center gap-1" id="crop-excluir" style="display:none" onclick="excluirImagem(_iw.ns)">
-          <i class="bi bi-trash"></i> Excluir
+          <svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-trash"/></svg> Excluir
         </button>
         <span id="crop-status" class="text-sm" style="color:color-mix(in srgb, var(--fallback-bc, oklch(var(--bc))) 50%, transparent);"></span>
       </div>
@@ -43,7 +43,7 @@
   </div>
 </dialog>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<script src="{{ url_for('ajsystem.static', filename='lib/cropperjs/cropper.min.js') }}?v=1"></script>
 <script>
 var _iw = { ns: null, cropper: null };
 

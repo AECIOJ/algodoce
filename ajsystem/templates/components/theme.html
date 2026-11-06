@@ -9,6 +9,10 @@
 {% set _menu_tx = _menu.texto %}
 <style>
   :root {
+    /* Tema é sempre claro. Sem isto, o daisyUI herda `color-scheme: dark`
+       do @media (prefers-color-scheme: dark) do CSS compilado e o celular
+       em modo escuro lava controles nativos e o contraste dos botões. */
+    color-scheme: light;
     /* As cores de marca/neutras/feedback/apoio (--p, --b1, --su, etc.) são
        definidas pelo tema DaisyUI compilado ({data-theme}={TEMA.base}) em oklch.
        NÃO as sobrescreva aqui com hex: o DaisyUI usa oklch(var(--su)) e hex quebra

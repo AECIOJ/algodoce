@@ -7,21 +7,12 @@
   <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='icons/favicon.ico') }}">
   <title>{% block title %}ALGODOCE{% endblock %}</title>
   {% block css %}
-  <link href="{{ url_for('ajsystem.static', filename='lib/bootstrap-icons.min.css') }}?v=1" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/tailwind.css') }}?v=4" rel="stylesheet">
-  <link href="{{ url_for('ajsystem.static', filename='lib/flatpickr/flatpickr.min.css') }}?v=1" rel="stylesheet">
-  <style>{% include 'components/motor_style.css' %}</style>
+  <link href="{{ url_for('static', filename='css/tailwind.css') }}?v=5" rel="stylesheet">
   {% endblock %}
   {% include 'components/theme.html' %}
   {% if modulo and modulo.layout %}
-    {% set _fonts = [] %}
-    {% if modulo.layout.header.title.font %}{% set _fonts = _fonts + [modulo.layout.header.title.font] %}{% endif %}
-    {% if modulo.layout.footer.font %}{% set _fonts = _fonts + [modulo.layout.footer.font] %}{% endif %}
-    {% if _fonts %}
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family={{ _fonts|join('&family=') }}&display=swap" rel="stylesheet">
-    {% endif %}
+  {# Fontes de módulo usam a pilha do sistema (`... ,sans-serif`). Sem
+     Google Fonts: nenhuma requisição externa, nenhum bloqueio de renderização. #}
   <style>:root{--logo-rows:{{ modulo.layout.header.logo.rows }}}@media(max-width:575.98px){.brand-logo{height:calc(var(--logo-rows)*.8em) !important}}</style>
   {% endif %}
   {% block head_extra %}{% endblock %}

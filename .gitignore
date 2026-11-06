@@ -52,3 +52,6 @@ Thumbs.db
 
 # Docker (Removido o docker-compose.yml para que a estrutura seja versionada)
 docker-compose.override.yml
+
+# Node.js (dependências — nunca versionar)
+node_modules/

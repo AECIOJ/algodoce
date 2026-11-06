@@ -63,26 +63,26 @@
   {% endif %}
 
   {% if items %}
-    <div class="list-group mb-3">
+    <div class="flex flex-col gap-2 mb-3">
       {% for i in items %}
-        <div class="list-group-item">
+        <div class="bg-base-100 rounded-lg shadow-sm p-3">
           <div class="item-row" data-item-id="{{ i.item_id }}">
             <div class="flex w-full items-center" style="justify-content:space-between;">
               <span class="item-nome">{{ i.produto.nome }}</span>
               <form method="POST" action="{{ base_url }}/remover/{{ i.item_id }}" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-outline-danger px-2 inline-flex items-center" title="{{ i18n.REMOVE }}"><i class="bi bi-trash"></i></button>
+                <button type="submit" class="btn btn-sm btn-outline btn-error px-2 inline-flex items-center" title="{{ i18n.REMOVE }}"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-trash"/></svg></button>
               </form>
             </div>
             <div class="item-obs">
-              <input type="text" class="form-control form-control-sm campo-obs"
+              <input type="text" class="input input-sm input-bordered campo-obs w-full"
                      value="{{ i.observacao or '' }}" placeholder="{{ i18n.NOTE }}">
             </div>
             <div class="item-ctrl">
-              <button type="button" class="btn btn-sm btn-outline-secondary qty-minus px-1">−</button>
-              <input type="number" class="form-control form-control-sm campo-qtd"
+              <button type="button" class="btn btn-sm btn-outline qty-minus px-1">−</button>
+              <input type="number" class="input input-sm input-bordered campo-qtd text-center"
                      value="{{ i.quantidade }}"
                      min="{{ i.qtd_minima }}" step="1">
-              <button type="button" class="btn btn-sm btn-outline-secondary qty-plus px-1">+</button>
+              <button type="button" class="btn btn-sm btn-outline qty-plus px-1">+</button>
             </div>
             <span class="saved-badge">✓</span>
           </div>
@@ -91,7 +91,7 @@
     </div>
 
     <div class="flex flex-col items-center gap-2 mb-3">
-      <a href="{{ more_items_link }}" class="btn btn-verde w-full inline-flex items-center gap-1"><i class="bi bi-plus-lg"></i> {{ i18n.ADD_MORE_ITEMS }}</a>
+      <a href="{{ more_items_link }}" class="btn btn-verde w-full inline-flex items-center gap-1"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-plus"/></svg> {{ i18n.ADD_MORE_ITEMS }}</a>
     </div>
 
     {% if form_sessions %}
@@ -103,28 +103,28 @@
             {% for f in s.fields %}
               <label {% if f.input == 'textarea' %}class="full-width" style="margin-top: 0.25rem;"{% endif %}>{{ f.label }}</label>
               {% if f.input == 'select' and f.options %}
-                <select class="form-select form-select-sm" name="{{ f.input_name }}">
+                <select class="select select-sm select-bordered" name="{{ f.input_name }}">
                   <option value="">{{ i18n.SELECT }}</option>
                   {% for value, text in f.options.items() %}
                     <option value="{{ value }}">{{ text }}</option>
                   {% endfor %}
                 </select>
               {% elif f.input == 'textarea' %}
-                <textarea class="form-control form-control-sm full-width" name="{{ f.input_name }}"></textarea>
+                <textarea class="textarea textarea-sm textarea-bordered full-width" name="{{ f.input_name }}"></textarea>
               {% else %}
-                <input type="{{ f.input }}" class="form-control form-control-sm {% if f.input == 'number' %}full-width{% endif %}" name="{{ f.input_name }}" {% if f.input == 'number' %}min="1" style="max-width:100px;"{% endif %}>
+                <input type="{{ f.input }}" class="input input-sm input-bordered {% if f.input == 'number' %}full-width{% endif %}" name="{{ f.input_name }}" {% if f.input == 'number' %}min="1" style="max-width:100px;"{% endif %}>
               {% endif %}
             {% endfor %}
           </div>
 
-          <button type="submit" class="btn btn-rosa btn-lg w-full mt-3 inline-flex items-center justify-center gap-1"><i class="bi bi-send"></i> {{ i18n.SEND_QUOTE }}</button>
+          <button type="submit" class="btn btn-rosa btn-lg w-full mt-3 inline-flex items-center justify-center gap-1"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-paper-airplane"/></svg> {{ i18n.SEND_QUOTE }}</button>
         </form>
       {% endfor %}
     {% endif %}
   {% else %}
     <div class="text-center py-5">
       <p class="text-gray-500">{{ i18n.EMPTY_BAG }}</p>
-      <a href="{{ more_items_link }}" class="btn btn-rosa inline-flex items-center gap-1"><i class="bi bi-eye"></i> {{ i18n.VIEW_PRODUCTS }}</a>
+      <a href="{{ more_items_link }}" class="btn btn-rosa inline-flex items-center gap-1"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-eye"/></svg> {{ i18n.VIEW_PRODUCTS }}</a>
     </div>
   {% endif %}
 </div>

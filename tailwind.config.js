@@ -6,8 +6,9 @@
 module.exports = {
   content: [
     './app/templates/**/*.html',
-    './app/ajsystem/templates/**/*',
+    './ajsystem/templates/**/*',
     './app/**/*.py',
+    './ajsystem/**/*.py',
   ],
   corePlugins: {
     preflight: false,

@@ -16,16 +16,19 @@
 #   o que quiser fixar/sobrescrever — o resto do tema se completa sozinho.
 
 # ═══ PALETA — fonte única de cores ═══
-_VERDE   = '#26A69A'   # primary       (verde-menta)
-_ROSA    = '#E91E63'   # secondary     (rosa)
+# Tons escolhidos para passar contraste WCAG AA (4.5:1) com texto branco e
+# sobre base-100 (#f5f5f5). Verde-menta/rosa claros originais ficavam em
+# ~3:1 e sumiam em telas de celular — ver `motor_style.css`.
+_VERDE   = '#00796B'   # primary       (verde-menta escuro)
+_ROSA    = '#D81B60'   # secondary     (rosa)
 _FUNDO   = '#f5f5f5'   # base-100      (superfície do app)
 _CREME   = '#F5EEE1'   # chrome/barras (submenu/form/lista)
 _TEXTO   = '#212121'   # base-content  (texto principal)
 _AMARELO = '#FFB300'   # accent        (destaque)
-_OK      = '#43A047'   # success       (semântica — fixa)
+_OK      = '#2E7D32'   # success       (semântica — fixa)
 _AVISO   = '#FB8C00'   # warning
-_ERRO    = '#E53935'   # error
-_INFO    = '#0288D1'   # info
+_ERRO    = '#C62828'   # error
+_INFO    = '#0277BD'   # info
 _BRANCO  = '#FFFFFF'
 _PRETO   = '#000000'
 

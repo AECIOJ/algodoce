@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/*
+  Entrada ÚNICA do CSS do app.
+  Saída: app/static/css/tailwind.css (1 request, cacheado pelo navegador).
+
+  Ordem importa: base → components → utilities → CSS do motor/vendor.
+  O CSS do motor fica sem @layer, depois das utilities, para manter a mesma
+  prioridade que ele tinha quando era injetado inline no <head>.
+*/
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@import "../../../ajsystem/static/css/motor.css";
+@import "../../../ajsystem/static/lib/flatpickr/flatpickr.min.css";
+@import "../../../ajsystem/static/lib/cropperjs/cropper.min.css";
 
 @layer base {
   html {

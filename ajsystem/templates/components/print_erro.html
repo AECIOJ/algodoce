@@ -2,7 +2,7 @@
    Usado por do_report.print_report / print_report_page quando o relatório
    não pode ser gerado. Funciona injetado (#page-content) ou standalone. #}
 <div class="flex-1 flex flex-col items-center justify-center text-center gap-3" style="min-height:40vh;">
-  <i class="bi bi-exclamation-triangle" style="font-size:2.5rem;color:var(--fallback-wa, oklch(var(--wa)));"></i>
+  <svg width="1em" height="1em" fill="currentColor" style="font-size:2.5rem;color:var(--fallback-wa, oklch(var(--wa)));" aria-hidden="true"><use href="#i-exclamation-triangle"/></svg>
   <h3 class="font-bold text-lg">{{ msg }}</h3>
   <button type="button" class="btn btn-outline btn-secondary btn-sm inline-flex items-center gap-1"
           onclick="window.location.reload()">

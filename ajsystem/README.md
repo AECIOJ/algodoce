@@ -57,7 +57,7 @@ Page = {
 }
 
 # app/config.py — dentro de SYS.menus.Cadastro.submenus
-'Tarefas': {'icon': 'bi-check'},
+'Tarefas': {'icon': 'check'},
 ```
 
 ---
@@ -83,7 +83,7 @@ Declara cores para tema DaisyUI compilado pelo motor (`do_themes.py`).
 
 | Grupo | Chaves | Exemplo |
 |-------|--------|---------|
-| `marca` | `primary`, `secondary` | `primary: '#26A69A'`, `secondary: '#E91E63'` |
+| `marca` | `primary`, `secondary` | `primary: '#00796B'`, `secondary: '#D81B60'` |
 | `neutras` | `base-100`, `base-content` | fundo e texto principal |
 | `feedback` | `success`, `warning`, `error`, `info` | estados semânticos fixos |
 | `apoio` | `accent` | destaque complementar |
@@ -109,16 +109,16 @@ SYS = {
     'default_path': 'cadastros/itens',
     'menus': {
         'Cadastros': {
-            'icon': 'bi-journal',
+            'icon': 'journal',
             'submenus': {
-                'Categorias': {'icon': 'bi-tags'},
-                'Itens': {'icon': 'bi-box'},
+                'Categorias': {'icon': 'tags'},
+                'Itens': {'icon': 'box-seam'},
             },
         },
         'Operações': {
-            'icon': 'bi-gear',
+            'icon': 'gear',
             'submenus': {
-                'Entradas': {'icon': 'bi-arrow-down-circle', 'page': 'entradas'},
+                'Entradas': {'icon': 'arrow-down-circle', 'page': 'entradas'},
             },
         },
     },
@@ -561,7 +561,7 @@ Declara um botão no form.
 | `report` | dict | spec do relatório | `{'report': REL}` |
 | `filter_field` | `str` | campo de filtro | `{'filter_field': 'tipo'}` |
 | `label` | `str` | texto do botão | `{'label': 'Imprimir'}` |
-| `icon` | `str` | ícone Bootstrap | `{'icon': 'printer'}` |
+| `icon` | `str` | ícone do sprite SVG (`ajsystem/templates/components/heroicons.svg`, id do `<symbol>` sem o prefixo `bi-`) | `{'icon': 'printer'}` |
 | `color` | `str` | cor do botão | `{'color': 'info'}` |
 | `action` | `str\|callable` | ação JS ou Python | `{'action': 'gerarItens'}` |
 | `enabled` | `dict\|list` | condição de ativação | `{'enabled': {'fields': ['valor'], 'mode': 'all_zero'}}` |

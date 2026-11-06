@@ -22,12 +22,12 @@
          class="flex rounded shadow-sm"
          style="background:#fff; border:1px solid var(--fallback-b2, oklch(var(--b2))); text-decoration:none; color:inherit;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:0.35rem;min-width:0;padding:1rem 0.5rem;overflow:hidden;">
         <span style="color:var(--rosa);font-size:2.4rem;line-height:1;height:2.4rem;display:flex;align-items:center;">
-          {% if c.type == 'whatsapp' %}<i class="bi bi-whatsapp"></i>
-          {% elif c.type == 'email' %}<i class="bi bi-envelope"></i>
-          {% elif c.type == 'instagram' %}<i class="bi bi-instagram"></i>
-          {% elif c.type == 'facebook' %}<i class="bi bi-facebook"></i>
-          {% elif c.type == 'linkedin' %}<i class="bi bi-linkedin"></i>
-          {% elif c.type in ('address', 'endereco') %}<i class="bi bi-geo-alt"></i>{% endif %}
+          {% if c.type == 'whatsapp' %}<svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-whatsapp"/></svg>
+          {% elif c.type == 'email' %}<svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-envelope"/></svg>
+          {% elif c.type == 'instagram' %}<svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-instagram"/></svg>
+          {% elif c.type == 'facebook' %}<svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-facebook"/></svg>
+          {% elif c.type == 'linkedin' %}<svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-linkedin"/></svg>
+          {% elif c.type in ('address', 'endereco') %}<svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-geo-alt"/></svg>{% endif %}
         </span>
         <span style="display:block; font-weight:600; font-size:1.15rem; min-height:1.75rem; color:var(--fallback-bc, oklch(var(--bc)));">{{ titulo }}</span>
         <span style="display:block;font-size:1rem;overflow-wrap:anywhere; color:var(--fallback-bc, oklch(var(--bc)));">{% if c.type in ('address', 'endereco') %}{% for _p in c.value.split(';') %}{{ _p.strip() }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% elif c.type in ('whatsapp', 'phone') %}{{ c.value|mask('(99) 99999-9999') }}{% else %}{{ c.value }}{% endif %}</span>

@@ -21,8 +21,6 @@
 
   .app-bar .btn,
   .app-bar .btn-group .btn,
-  .app-bar .form-control,
-  .app-bar .input-group-text,
   .app-bar .badge {
     font-size: var(--bar-fs);
     padding-top: var(--bar-py);
@@ -33,6 +31,9 @@
   }
   @media (max-width: 991.98px) {
     .submenu-section { display: none !important; }
+    /* Piso de legibilidade: --bar-fs encolhe com 5vh em telas baixas. */
+    .app-bar .btn,
+    .app-bar .btn-group .btn { font-size: max(0.8rem, var(--bar-fs)); }
     /* form: linha 1 com Lista/Nav/tags que couberem; linha 2 overflow centralizado */
     .form-block .app-bar { justify-content: flex-start; }
     .form-block .app-bar-left { flex: 0 0 auto; }
@@ -160,12 +161,12 @@
   {% for label, item in modulo.menus.items() %}
     {% if item.submenus %}
     <a href="#" class="bottom-nav-item" data-admin-nav="{{ label|lower }}">
-      <span class="bottom-nav-icon"><i class="bi {{ item.icon }}"></i></span>
+      <span class="bottom-nav-icon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-{{ item.icon|replace('bi-', '') }}"/></svg></span>
       <span class="bottom-nav-label">{{ label }}</span>
     </a>
     {% else %}
     <a href="{{ menu_url(item, label) }}" class="bottom-nav-item" data-admin-nav="{{ label|lower }}">
-      <span class="bottom-nav-icon"><i class="bi {{ item.icon }}"></i></span>
+      <span class="bottom-nav-icon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-{{ item.icon|replace('bi-', '') }}"/></svg></span>
       <span class="bottom-nav-label">{{ label }}</span>
     </a>
     {% endif %}
@@ -1804,7 +1805,7 @@ window.openSubNav = function(sectionKey) {
   body.innerHTML = data.items.map(function(item) {
     var isActive = matchPath(path, item.url);
     return '<a href="' + item.url + '" class="subnav-item' + (isActive ? ' active' : '') + '">' +
-      '<i class="bi ' + item.icon + ' mr-2"></i><span>' + item.label + '</span></a>';
+      '<svg width="1em" height="1em" fill="currentColor" class="mr-2" aria-hidden="true"><use href="#i-' + item.icon.replace('bi-','') + '"/></svg><span>' + item.label + '</span></a>';
   }).join('');
   var overlay = document.getElementById('subNavOverlay');
   var panel = document.getElementById('subNavPanel');
