@@ -303,30 +303,6 @@
 </div>
 {% endmacro %}
 
-{% macro render_checkbox(field, data=none, ro=false) %}
-{% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
-<div class="flex items-center gap-2">
-  <input type="checkbox" name="{{ field.name }}" class="checkbox checkbox-sm" value="1" {{ 'checked' if val }} {{ 'disabled' if ro }}>
-  <label class="text-sm">{{ field.display_label }}</label>
-</div>
-{% endmacro %}
-
-{% macro render_badge(instance, tag) %}
-{% if tag.type == 'success' %}
-<span class="badge badge-success badge-sm">{{ tag.text }}</span>
-{% elif tag.type == 'warning' %}
-<span class="badge badge-warning badge-sm">{{ tag.text }}</span>
-{% elif tag.type == 'danger' %}
-<span class="badge badge-error badge-sm">{{ tag.text }}</span>
-{% elif tag.type == 'info' %}
-<span class="badge badge-info badge-sm">{{ tag.text }}</span>
-{% elif tag.type == 'primary' %}
-<span class="badge badge-primary badge-sm">{{ tag.text }}</span>
-{% else %}
-<span class="badge badge-ghost badge-sm">{{ tag.text }}</span>
-{% endif %}
-{% endmacro %}
-
 {# ══ Botões ════════════════════════════════════════════════════════════════
    Um renderizador só (`render_button_el`) para os três contextos:
      ctx='form'    botão de form (app bar/rodapé) — pode abrir <form> próprio;
