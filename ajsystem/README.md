@@ -1,6 +1,6 @@
-# AJSYSTEM — Manual do Framework
+# AJSYSTEM — Manual de Configuração
 
-> Vinculado a `ajsystem/version` (`1.26.10.24.0001`) — formato `ciclo.ano.mes.dia.seq`. O bump vem de cada assunto que muda código de `ajsystem/` (não só os dataclasses desta referência; `app/` não entra). A versão do **app hospedeiro** mora em `APP['version']` (`app/config.py`) e quem bumpa é o dev, na mão, com o comando `versao`.
+> Versão do motor em `ajsystem/version` (`ciclo.ano.mes.dia.seq`). A versão do app hospedeiro fica em `APP['version']` (`app/config.py`).
 
 ---
 
@@ -70,10 +70,10 @@ Lido primeiro pelo motor. Declara tema, módulos e menus.
 
 | Chave | Tipo | Exemplo |
 |-------|------|---------|
-| `name` | `str` | `'AlgoDoce'` |
-| `title` | `str` | `'Sistema Gerenciador de Doceria'` |
-| `logo` | `str` | `'icons/Logo.png'` |
-| `tema` | `str` | `'algodoce'` |
+| `name` | `str` | `'MeuApp'` |
+| `title` | `str` | `'Sistema de Gestão'` |
+| `logo` | `str` | `'icons/logo.png'` |
+| `tema` | `str` | `'meutema'` |
 | `version` | `dict` | `{'cycle': 1, 'year': 26, 'month': 10, 'number': 15}` |
 | `modules` | `list` | `[SITE, SYS, ADMIN]` |
 
@@ -106,36 +106,19 @@ Exemplo de menu:
 ```python
 SYS = {
     'type': 'system',
-    'default_path': 'cadastro/categorias',
+    'default_path': 'cadastros/itens',
     'menus': {
-        'Cadastro': {
+        'Cadastros': {
             'icon': 'bi-journal',
             'submenus': {
-                'Categorias': {'icon': 'bi-journal'},
-                'Insumos': {'icon': 'bi-box-seam'},
-                'Produtos': {'icon': 'bi-gift'},
-                'Contas': {'icon': 'bi-people'},
-                'Operações': {'icon': 'bi-tags'},
-                'Carteiras': {'icon': 'bi-wallet2'},
+                'Categorias': {'icon': 'bi-tags'},
+                'Itens': {'icon': 'bi-box'},
             },
         },
-        'Comercial': {
-            'icon': 'bi-cart',
+        'Operações': {
+            'icon': 'bi-gear',
             'submenus': {
-                'Orçamentos': {'icon': 'bi-file-text'},
-                'Pedidos': {'icon': 'bi-cart'},
-                'Compras': {'icon': 'bi-bag'},
-            },
-        },
-        'Financeiro': {
-            'icon': 'bi-cash-stack',
-            'submenus': {
-                'Recursos': {'icon': 'bi-piggy-bank'},
-                'Contas a Receber': {'icon': 'bi-arrow-down-circle', 'page': 'receber'},
-                'Contas a Pagar': {'icon': 'bi-arrow-up-circle', 'page': 'pagar'},
-                'Recebimentos': {'icon': 'bi-cash'},
-                'Pagamentos': {'icon': 'bi-credit-card'},
-                'Transferências': {'icon': 'bi-arrow-left-right'},
+                'Entradas': {'icon': 'bi-arrow-down-circle', 'page': 'entradas'},
             },
         },
     },
@@ -143,6 +126,14 @@ SYS = {
 ```
 
 Cada submenu com `'page'` aponta para uma rota existente; sem `page`, o nome vira o slug da rota (ex: `'Categorias'` → `/categorias/`).
+
+### `SITE` — módulo público
+
+Mesma estrutura de `SYS`, com `type: 'public'` e `default_path` para a área pública.
+
+### `ADMIN` — módulo administrativo
+
+`type: 'admin'`, `default_path: 'seguranca.painel'`, menus vazios (painel gerado pelo motor).
 
 ---
 
@@ -162,7 +153,7 @@ Dicionário `{nome_campo: {config}}`. Cada chave é um campo do model; o valor s
 | `align` | `str` | `left`, `center`, `right` (`NUM` → `right` automático) | `{'align': 'right'}` |
 | `input` | `str` | nome do `Input` do catálogo (`text`, `number`, `date`, `select`, `textarea`, `email`, `tel`, `password`, `checkbox`, `toggle`, `multi`, `image`) | `{'input': 'toggle'}` |
 | `input_props` | `dict` | override parcial do input neste campo | `{'input_props': {'cls': 'x'}}` |
-| `options` | `dict` | `{valor: rótulo}` para `LIST`/`MULT10` | `{'options': {0: 'Pagar', 1: 'Receber'}}` |
+| `options` | `dict` | `{valor: rótulo}` para `LIST`/`MULT10` | `{'options': {0: 'Inativo', 1: 'Ativo'}}` |
 | `mask` | `str` | máscara de exibição (ver abaixo) | `{'mask': MVALOR}` |
 | `placeholder` | `str` | texto de ajuda | `{'placeholder': 'Digite aqui'}` |
 | `decimals` | `int` | `0` int, `2` moeda | `{'decimals': 2}` |
@@ -174,14 +165,14 @@ Dicionário `{nome_campo: {config}}`. Cada chave é um campo do model; o valor s
 | `hidden` | `bool` | `<input type=hidden>`, enviado mas não exibido | `{'hidden': True}` |
 | `default` | `any\|callable` | `TODAY`, `lambda: 1` | `{'default': TODAY}` |
 | `rows` | `int` | altura textarea (`MEMO`) | `{'rows': 4}` |
-| `lookup` | `bool\|dict\|Lookup` | `True` ou `{display, fields, value, when, query}` | `{'lookup': {'model': 'Conta', 'display': 'nome'}}` |
+| `lookup` | `bool\|dict\|Lookup` | `True` ou `{display, fields, value, when, query}` | `{'lookup': {'model': 'Categoria', 'display': 'nome'}}` |
 | `validate` | `str` | `cpf`, `cnpj`, `placa` | `{'validate': 'cpf'}` |
 | `help` | `str\|list` | texto de ajuda | `{'help': 'Informe o CPF'}` |
 | `on_set` | `dict` | `{replaces: {campo: fonte}, disables: [...]}` | `{'on_set': {'disables': ['cnpj']}}` |
-| `calc` | `str\|callable\|dict` | `'qtd*preco'`, `lambda row:`, `{'type':'agg',...}`, `{'type':'call',...}` | `{'calc': 'previsto - (realizado or 0)'}` |
-| `carry` | `str` | campo origem no map do botão | `{'carry': 'conta_id'}` |
+| `calc` | `str\|callable\|dict` | `'qtd*preco'`, `lambda row:`, `{'type':'agg',...}`, `{'type':'call',...}` | `{'calc': 'valor - (desconto or 0)'}` |
+| `carry` | `str` | campo origem no map do botão | `{'carry': 'categoria_id'}` |
 | `memory` | `bool` | `True` → só de tela, não persiste | `{'memory': True}` |
-| `tag` | `dict\|Tag` | `{colors, color, link, size, preset, text_field, outline, cls}` | `{'tag': {'link': 'pedidos.form', 'color': 'info'}}` |
+| `tag` | `dict\|Tag` | `{colors, color, link, size, preset, text_field, outline, cls}` | `{'tag': {'link': 'itens.form', 'color': 'info'}}` |
 
 #### `type` — tipo do campo (obrigatório)
 
@@ -206,15 +197,6 @@ Dicionário `{nome_campo: {config}}`. Cada chave é um campo do model; o valor s
 | `MULT10` | `multi` | — | múltipla seleção |
 | `IMAGE` | `image` | — | upload de imagem |
 
-**Declarações possíveis:**
-```python
-{'type': 'TEXT', 'required': True, 'width': 20}
-{'type': 'NUM', 'mask': MVALOR, 'decimals': 2}
-{'type': 'FK', 'lookup': {'model': 'Conta', 'display': 'nome'}}
-{'type': 'DATA', 'default': TODAY}
-{'type': 'BOOL', 'input': 'toggle'}
-```
-
 #### `mask` — máscara de exibição
 
 **Não existe prop `currency`.** A moeda sai da `mask` via comando `@M(id)`.
@@ -238,15 +220,6 @@ Padrão numérico: `0` = dígito obrigatório, `9` = dígito opcional, `,` = mil
 
 > `@M(id)` e comandos de texto (`@U`, `@L`, `@C`, `@T`, `@R`) podem ser combinados. `@M` e padrão numérico (`999,99`) não se misturam na mesma máscara.
 
-**Exemplos:**
-```python
-{'type': 'NUM', 'mask': MVALOR, 'decimals': 2}          # MVALOR = '@M(BRL) 999,999.99'
-{'type': 'DATA', 'mask': 'dd/mm/aaaa'}
-{'type': 'CPF', 'mask': '@R 999.999.999-99'}
-{'type': 'TEXT', 'mask': '@U'}
-{'type': 'NUM', 'mask': '999,99', 'decimals': 2}
-```
-
 #### `lookup` — configuração de FK
 
 Para campos `FK`. O model alvo é inferido do FK automaticamente (**não existe `Lookup.model`**).
@@ -257,14 +230,9 @@ Para campos `FK`. O model alvo é inferido do FK automaticamente (**não existe 
 | `fields` | `str\|list` | campos retornados (`['nome']`) |
 | `value` | `str` | campo gravado (`'id'`) |
 | `when` | `str\|dict\|callable` | filtro das opções (`{'ativo': True}`) |
-| `query` | `str` | busca declarada na rota (`'PREVISOES'`) |
+| `query` | `str` | busca declarada na rota (`'BUSCA_ITENS'`) |
 
-```python
-{'lookup': {'model': 'Conta', 'display': 'nome', 'fields': ['nome']}}
-{'lookup': {'display': 'nome', 'when': {'ativo': True}}}
-{'lookup': True}  # defaults, alvo inferido do FK
-{'lookup': {'query': 'PREVISOES'}}
-```
+`{'lookup': True}` usa os defaults, com o alvo inferido do FK.
 
 #### `calc` — campo calculado
 
@@ -275,46 +243,20 @@ Para campos `FK`. O model alvo é inferido do FK automaticamente (**não existe 
 | `dict` | `{'type': 'agg', 'source': 'sum(Item.valor)'}` | agregado SQL (coluna real) |
 | `dict` | `{'type': 'call', 'source': 'calc_status'}` | callable do model |
 
-```python
-{'calc': 'previsto - (realizado or 0)'}
-{'calc': lambda row: row.qtd * row.preco}
-{'calc': {'type': 'agg', 'source': 'sum(Previsao.previsto)'}}
-{'calc': {'type': 'call', 'source': 'calc_status'}}
-```
-
 > Um `calc` de tipo `property` do model **não pode ser persistido**. Use `calc` virtual (`str` ou `callable`) ou `memory: True`.
 
-#### `tag` — etiqueta visual (usa dataclass `Tag`, seção 5)
+#### `tag` — etiqueta visual (usa dataclass `Tag`, seção 7)
 
 | Sub-prop | Tipo | Exemplo |
 |----------|------|---------|
 | `colors` | `{valor: cor}` | `{True: 'success', False: 'warning'}` |
 | `color` | `str` | `'info'` |
-| `link` | `str\|callable` | `'pedidos.form'` |
+| `link` | `str\|callable` | `'itens.form'` |
 | `size` | `str` | `'sm'` |
 | `outline` | `bool` | `True` |
 | `preset` | `str` | `'boolean'`, `'ativo'`, `'status'` |
 | `text_field` | `str` | `'status_label'` |
 | `cls` | `str` | `'badge-pill'` |
-
-```python
-{'tag': {'colors': {True: 'success'}, 'link': 'receber.form'}}
-{'tag': {'preset': 'ativo', 'color': 'primary'}}
-```
-
-**Exemplo completo de Entity:**
-```python
-Entity = {
-    'id':           {'type': 'ID', 'width': 6},
-    'nome':         {'type': 'TEXT', 'required': True, 'width': 20, 'mask': '@T'},
-    'valor':        {'type': 'NUM', 'label': 'Valor', 'required': True, 'mask': MVALOR},
-    'preco':        {'type': 'NUM', 'label': 'Preço', 'mask': MVALOR, 'calc': 'divide(valor, qtd_minima)'},
-    'categoria_id': {'type': 'FK', 'label': 'Categoria', 'width': 12},
-    'ativo':        {'type': 'BOOL', 'input': 'toggle'},
-    'imagem':       {'type': 'IMAGE'},
-    'descricao':    {'type': 'MEMO', 'label': 'Descrição', 'rows': 4},
-}
-```
 
 ---
 
@@ -328,7 +270,7 @@ Dicionário `{NomeEntidade: {campo: {overrides}}}`. Schema vence sobre Entity.
 
 ```python
 Schema = {
-    'Produto': {
+    'Item': {
         'valor': {'readonly': True},
         'ativo': {'input': 'toggle'},
     },
@@ -341,10 +283,10 @@ Declara o tipo da página e seus props.
 
 | Prop | Tipo | Default | Declarações possíveis | Exemplo |
 |------|------|---------|----------------------|---------|
-| `label` | `str` | `None` | título da página | `{'label': 'Produto'}` |
+| `label` | `str` | `None` | título da página | `{'label': 'Item'}` |
 | `type` | `str` | `'crud'` | `crud`, `redirect`, `cart`, `showcase`, `contacts`, `custom` | `{'type': 'crud'}` |
 | `props` | `dict` | `{}` | `{master, list, form, filter, report, sessions, scripts}` | `{'props': {...}}` |
-| `props.master` | `str` | `None` | entidade mestre (pai) — obrigatório em inversões (`columns` nomeia entidade diferente da rota); opcional em listagens comuns | `{'master': 'Transacao'}` |
+| `props.master` | `str` | `None` | entidade mestre (pai) — obrigatório em inversões (`columns` nomeia entidade diferente da rota); opcional em listagens comuns | `{'master': 'Entidade'}` |
 | `on_show` | `callable` | `None` | hook ao renderizar | `{'on_show': fn}` |
 | `upload` | `dict` | `None` | política de upload | `{'upload': {'max_size': 5}}` |
 
@@ -352,15 +294,15 @@ Declara o tipo da página e seus props.
 
 | Sub-prop | Tipo | Declarações possíveis | Exemplo |
 |----------|------|----------------------|---------|
-| `fields` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['c1']}` | `'Transacao'`, `['valor','prazo']` |
+| `fields` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['c1']}` | `'Entidade'`, `['nome','valor']` |
 | `positions` | `dict` | `{bar, footer, body, hidden}` | `{'bar': ['status'], 'hidden': ['tipo']}` |
-| `visible` | `dict` | `{campo: cond}` | `{'pedido_id': NOT_EMPTY}` |
-| `sessions` | `dict` | `{Nome:{fields,table,...}}` | `{'Previsões': {'fields': [...]}}` |
+| `visible` | `dict` | `{campo: cond}` | `{'grupo_id': NOT_EMPTY}` |
+| `sessions` | `dict` | `{Nome:{fields,table,...}}` | `{'Itens': {'fields': [...]}}` |
 | `template` | `str` | `None` | caminho alternativo | `{'template': 'custom.html'}` |
 | `flash_ok`/`flash_update` | `str` | mensagem de sucesso | `{'flash_ok': 'Salvo!'}` |
-| `readonly` | `bool\|callable` | `False` ou callable | `{'readonly': lambda q: q.pedido_id}` |
-| `delete` | `bool\|dict\|callable` | `False`, `{'when': [...]}` | `{'delete': {'when': [PedidoItem]}}` |
-| `pre_save`/`post_save` | `callable` | `None` | `{'pre_save': fn}` | |
+| `readonly` | `bool\|callable` | `False` ou callable | `{'readonly': lambda q: q.grupo_id}` |
+| `delete` | `bool\|dict\|callable` | `False`, `{'when': [...]}` | `{'delete': {'when': [Item]}}` |
+| `pre_save`/`post_save` | `callable` | hook antes/depois de salvar | `{'pre_save': fn}` |
 | `buttons` | `str\|Button\|list` | tipos ou instâncias | `{'buttons': [BTN_SAVE]}` |
 | `spacing` | `num` | gap entre campos | `{'spacing': 2}` |
 | `max_width` | `num` | largura máxima | `{'max_width': 110}` |
@@ -371,13 +313,13 @@ Declara o tipo da página e seus props.
 
 | Sub-prop | Tipo | Declarações possíveis | Exemplo |
 |----------|------|----------------------|---------|
-| `columns` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['*']}` | `'Transacao'`, `['id','nome']` |
-| `line`/`card`/`hidden` | `list` | campos por slot | `line: ['id']`, `card: 'Transacao'` |
-| `detail` | `str\|tuple\|dict` | entidade do detalhe (relacionamento inferido), `('Entidade', 'Título')`, `('Entidade', ['campos'])` ou `{'fields': [...], 'data': 'relacionamento', 'title': '...'}` | `detail: ('OrcamentoItem', 'Itens do Orçamento')` |
-| `order` | `list` | ordem de classificação | `order: ['vencimento', 'id']` |
-| `prio` | `list` | posição ordinal dos campos da linha (filho e/ou pai). Item: `(posicao, 'campo')`. Posicao positiva (1-based) conta da esquerda; negativa (-1 = ultimo, -2 = penultimo, etc.) conta da direita. Nome qualificado `Entidade.campo` apenas quando há nomes idênticos entre master e detalhe. Label/width/align vêm da Entity/Schema; `prio` só posiciona. | `prio: [(1, 'id'), (2, 'Transacao.data'), (-1, 'status')]` |
+| `columns` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['*']}` | `'Item'`, `['id','nome']` |
+| `line`/`card`/`hidden` | `list` | campos por slot | `line: ['id']`, `card: 'Categoria'` |
+| `detail` | `str\|tuple\|dict` | entidade do detalhe (relacionamento inferido), `('Entidade', 'Título')`, `('Entidade', ['campos'])` ou `{'fields': [...], 'data': 'relacionamento', 'title': '...'}` | `detail: ('Item', 'Itens')` |
+| `order` | `list` | ordem de classificação | `order: ['data', 'id']` |
+| `prio` | `list` | posição ordinal dos campos da linha (filho e/ou pai). Item: `(posicao, 'campo')`. Posicao positiva (1-based) conta da esquerda; negativa (-1 = ultimo, -2 = penultimo, etc.) conta da direita. Nome qualificado `Entidade.campo` apenas quando há nomes idênticos entre master e detalhe. Label/width/align vêm da Entity/Schema; `prio` só posiciona. | `prio: [(1, 'id'), (2, 'Categoria.data'), (-1, 'status')]` |
 
-**Slots da lista**: `line` (sempre na grade, vence `card`), `card` (linha expansória), `hidden` (fora da grade e card). Precedência: `hidden > line > card`. Na inversão (`columns` nomeia entidade diferente da rota), o campo não citado vai para `line` se for do filho e para `card` se for do pai. Um item de slot pode ser um **alias de apresentação** (`{'Transação': 'Transacao.id'}`): o rótulo é a chave e o alvo é o caminho; aceita também `{'label': ..., 'width': ..., 'align': ...}` via forma longa `{'Transação': {'field': 'Transacao.id', 'label': '...'}}`.
+**Slots da lista**: `line` (sempre na grade, vence `card`), `card` (linha expansória), `hidden` (fora da grade e card). Precedência: `hidden > line > card`. Na inversão (`columns` nomeia entidade diferente da rota), o campo não citado vai para `line` se for do filho e para `card` se for do pai. Um item de slot pode ser um **alias de apresentação** (`{'Categoria': 'Item.categoria_id'}`): o rótulo é a chave e o alvo é o caminho; aceita também `{'label': ..., 'width': ..., 'align': ...}` via forma longa `{'Categoria': {'field': 'Item.categoria_id', 'label': '...'}}`.
 
 **Renderização da lista**: `columns` define as colunas da grade (a ordem vem de `prio`). Quando a largura disponível não comporta todas, as colunas da direita — nunca a de `Ações` — passam para a linha expansória (`▶`), junto com os campos de `card`; nada some. Se `detail` estiver declarado, a linha expansória mostra abaixo do card uma **tabela transposta** com carrossel horizontal: a coluna de rótulos fica fixa com a largura do maior rótulo, cada registro ocupa a largura do maior `width` entre os campos exibidos e o pager aparece à direita do título quando os registros não cabem. Clicar no `<th>` da grade ordena no cliente, mantendo cada linha de detalhe junto do seu registro.
 
@@ -387,7 +329,7 @@ Declara o tipo da página e seus props.
 |----------|------|----------------------|---------|
 | `hidden` | fieldspec | campos ocultos do painel | `{'hidden': ['tipo']}` |
 | `fixed` | `{campo: op}` ou `OR`/`AND` | `WHERE` fixo | `{'fixed': {'tipo': 'R'}}` |
-| `default` | `{campo: val}` ou `OR`/`AND` | filtro inicial editável | `{'default': {'vencimento': {'preset': 'mes_ano'}}}` |
+| `default` | `{campo: val}` ou `OR`/`AND` | filtro inicial editável | `{'default': {'data': {'preset': 'mes_ano'}}}` |
 | `types` | `{tipo: campo\|lista}` | override do tipo de widget | `{'types': {'checklist': 'status'}}` |
 | `max_width` | `int\|string CSS` | cap de largura | `{'max_width': 88}` |
 
@@ -397,15 +339,15 @@ Operadores: `=`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `<>`. Em `date`, `>`/`<` co
 
 | Sub-prop | Tipo | Declarações possíveis | Exemplo |
 |----------|------|----------------------|---------|
-| `report` | dict | spec do relatório | `{'report': RECEBER}` |
-| `filter` | `{campo: operador}` | campos/operadores do formulário | `{'filter': {'conta_id': '=', 'vencimento': '<'}}` |
+| `report` | dict | spec do relatório | `{'report': RELATORIO}` |
+| `filter` | `{campo: operador}` | campos/operadores do formulário | `{'filter': {'grupo_id': '=', 'data': '<'}}` |
 
 #### `props.scripts` — Scripts JS da página
 
 Lista de nomes de arquivos JS estáticos.
 
 ```python
-'scripts': ['previsoes', 'rel/gerar']
+'scripts': ['itens', 'rel/gerar']
 ```
 
 ---
@@ -418,7 +360,7 @@ Lido quando a página tem aba `Report`. Declara `Report`, `ReportBody`, `ReportC
 
 | Prop | Tipo | Default | Declarações possíveis | Exemplo |
 |------|------|---------|----------------------|---------|
-| `label` | `str` | — | título | `{'label': 'Contas a Receber'}` |
+| `label` | `str` | — | título | `{'label': 'Relatório de Itens'}` |
 | `page_size` | `str` | `'A4'` | `'A4'`, `'Letter'` | `{'page_size': 'A4'}` |
 | `orientation` | `str` | `'portrait'` | `'portrait'`, `'landscape'` | `{'orientation': 'portrait'}` |
 | `lpi` | `int` | `6` | `6` (4,23mm/linha) ou `8` (3,17mm) | `{'lpi': 6}` |
@@ -440,7 +382,7 @@ Declara o corpo do relatório (`Report.body`).
 | `form`\|`table` | `dict` | um só dos dois | `{'table': {...}}` (mutuamente exclusivos) |
 | `before`\|`after` | `object` | blocos antes/depois | `{'before': [...]}` |
 | `filter` | `dict\|list\|OR\|AND\|callable` | filtro padrão | `{'filter': {'tipo': 'R'}}` |
-| `order` | `str\|list\|None` | nomes ou índices 1-based | `['vencimento','id']` ou `[1, 3]` |
+| `order` | `str\|list\|None` | nomes ou índices 1-based | `['data','id']` ou `[1, 3]` |
 | `levels` | `dict` | numeração hierárquica | `{'pk': 'id', 'parent': 'pai_id'}` |
 | `items` | `list` | itens inline antes da tabela | `['titulo', ('data', {'lf': 1})]` |
 
@@ -456,18 +398,18 @@ Declara `title`/`pre`/`cols`/`post` direto na raiz de `table`:
 'table': {
     'title': {},                           # título externo (quebra a tabela)
     'pre': {                               # linhas antes da linha de dados (dentro da tabela)
-        'cliente': {                       # campo com group: '*' vira nível de grupo
+        'grupo': {                         # campo com group: '*' vira nível de grupo
             'group': '*',
-            'text': '{conta}. {cliente}',
+            'text': '{grupo}. {nome}',
             'on_start': {'lf': -1},
             'on_finish': {'lf': 1},
             'totals': {'align': 'R'},
         },
     },
     'cols': {                              # colunas da grade (ordem = impressão)
-        'previsto': {'agg': 'sum'},
-        'realizado': {'agg': 'sum'},
-        'saldo': {'agg': 'sum'},
+        'valor': {'agg': 'sum'},
+        'desconto': {'agg': 'sum'},
+        'total': {'agg': 'sum'},
     },
     'post': {},                            # linhas depois da linha de dados (ex: memo)
     'order': [...],                        # ordem das colunas/grupos (opcional)
@@ -536,88 +478,6 @@ Chave numérica = nível de impressão (sem detalhado na raiz):
 - Não existe mais `columns` como alias de `fields`.
 - Não existe mais `body.order` no nível do report; `order` vive dentro de cada nível (`det`/`syn`/variante).
 
-#### Exemplo RECEBER (com sintético)
-
-```python
-RECEBER = {
-    'label': 'Contas a Receber',
-    'header': [LOGO(), TITLE()],
-    'body': {
-        'source': QRECEBER,
-        'table': {
-            'title': {},
-            'pre': {
-                'cliente': {
-                    'group': '*',
-                    'text': '{conta}. {cliente}',
-                    'on_start': {'lf': -1},
-                    'on_finish': {'lf': 1},
-                    'totals': {'align': 'R'},
-                },
-            },
-            'cols': {
-                'previsao': {},
-                'vencimento': {},
-                'fatura': {},
-                'documento': {},
-                'recurso': {},
-                'previsto': {'agg': 'sum'},
-                'realizado': {'agg': 'sum'},
-                'variacao': {'agg': 'sum'},
-                'saldo': {'agg': 'sum'},
-            },
-            'post': {},
-            'totals': {'align': 'R'},
-            'lf': [1, 1],
-            'syn': {
-                'title': {},
-                'pre': {
-                    'cliente': {
-                        'group': '*',
-                        'text': '{conta}. {cliente}',
-                        'on_start': {'lf': -1},
-                        'on_finish': {'lf': 1},
-                        'totals': {'align': 'R'},
-                    },
-                },
-                'cols': {
-                    'previsto': {'agg': 'sum'},
-                    'realizado': {'agg': 'sum'},
-                    'variacao': {'agg': 'sum'},
-                    'saldo': {'agg': 'sum'},
-                },
-                'post': {},
-                'totals': {'align': 'R'},
-            },
-        },
-    },
-    'footer': True,
-}
-```
-
-#### Exemplo COMPRA (sem sintético, compacto)
-
-```python
-COMPRA = {
-    'label': 'Compra',
-    'body': {
-        'table': {
-            'title': {},
-            'cols': {
-                'insumo_id':     {'width': 35},
-                'qtd':           {},
-                'preco':         {'label': 'Preço (R$)'},
-                'CompraItem.valor': {'label': 'Valor (R$)', 'agg': 'sum'},
-            },
-            'totals': {'label': 'Subtotal', 'align': 'R', 'span': 3},
-            'extend': [...],
-            'after': [...],
-        },
-    },
-    'footer': True,
-}
-```
-
 ### `ReportColumn` — `ajsystem/defs/report.py` `class ReportColumn`
 
 Declara uma coluna de `body.table.cols` (ou `syn.cols`).
@@ -654,14 +514,13 @@ Quando `table.syn` é declarado e o usuário marca o checkbox **"Sintético"** n
 
 Se `syn` **não** for declarado no layout ativo, o checkbox de sintético não aparece no form de relatórios.
 
-**Botão Limpar (`reportClear`) e checkbox Sintético:** o Limpar desmarca o checkbox sem zerar seu `value` (mantendo `value="on"`). O `reportRun` (Gerar) sempre envia `rp_sintetico=on` quando o checkbox está marcado, independentemente de o usuário ter clicado em Limpar antes. Assim, relatórios sintéticos com filtros em branco continuam impressos no layout sintético (não detalhado).
+O botão **Limpar** desmarca o checkbox de sintético sem zerar seu `value`; **Gerar** reenvia `rp_sintetico=on` quando marcado, mesmo após limpar os filtros.
 
 #### Calendário de data (Flatpickr)
 
-Campos de `type: 'DATA'` usam o Flatpickr para abrir o calendário nativo, funcionando de forma consistente em mobile e desktop. O input exibe sempre no formato `dd/mm/aaaa`, independentemente do locale do navegador.
+Campos de `type: 'DATA'` usam Flatpickr (calendário nativo consistente em mobile e desktop). O input exibe sempre `dd/mm/aaaa`.
 
 ---
-
 
 ## 7. Componentes auxiliares
 
@@ -673,18 +532,12 @@ Usado na prop `tag` de `Field`. Renderiza um badge/pill ao lado do valor.
 |----------|------|-------------------|---------|
 | `colors` | `dict` | `{valor: cor}` (cor ∈ `ghost`, `primary`, `success`, `warning`, `error`, `info`, `0-9`) | `{'colors': {True: 'success', False: 'warning'}}` |
 | `color` | `str` | cor fixa | `{'color': 'info'}` |
-| `link` | `str\|callable` | `'pedidos.form'` ou `lambda row: 'pagar.form'` | `{'link': 'receber.form'}` |
+| `link` | `str\|callable` | `'itens.form'` ou `lambda row: 'categorias.form'` | `{'link': 'itens.form'}` |
 | `size` | `str` | `sm` (default) | `{'size': 'sm'}` |
 | `outline` | `bool` | `True` → estilo outline | `{'outline': True}` |
 | `preset` | `str` | `boolean`, `ativo`, `status` | `{'preset': 'ativo'}` |
 | `text_field` | `str` | campo de onde vem o rótulo exibido | `{'text_field': 'status_label'}` |
 | `cls` | `str` | classe CSS extra concatenada | `{'cls': 'badge-pill'}` |
-
-```python
-{'tag': {'colors': {True: 'success', False: 'warning'}, 'link': 'receber.form'}}
-{'tag': {'preset': 'ativo', 'color': 'primary'}}
-{'tag': {'size': 'sm', 'outline': True, 'cls': 'badge-pill'}}
-```
 
 ### `Lookup` — `ajsystem/defs/data.py` `class Lookup`
 
@@ -696,14 +549,7 @@ Usado na prop `lookup` de `Field` (FK). **Não existe `Lookup.model`** — o mod
 | `fields` | `str\|list` | `[display]` | `'nome'` ou `['nome', 'documento']` | `{'fields': ['nome']}` |
 | `value` | `str` | `'id'` | campo gravado no banco | `{'value': 'id'}` |
 | `when` | `str\|dict\|callable` | `None` | filtro das opções | `{'when': {'ativo': True}}` |
-| `query` | `str` | `None` | busca declarada na rota | `{'query': 'PREVISOES'}` |
-
-```python
-{'lookup': {'model': 'Conta', 'display': 'nome', 'fields': ['nome']}}
-{'lookup': {'display': 'nome', 'when': {'ativo': True}}}
-{'lookup': True}  # defaults, alvo inferido do FK
-{'lookup': {'query': 'PREVISOES'}}
-```
+| `query` | `str` | `None` | busca declarada na rota | `{'query': 'BUSCA_ITENS'}` |
 
 ### `Button` — `ajsystem/defs/buttons.py` `class Button`
 
@@ -717,7 +563,7 @@ Declara um botão no form.
 | `label` | `str` | texto do botão | `{'label': 'Imprimir'}` |
 | `icon` | `str` | ícone Bootstrap | `{'icon': 'printer'}` |
 | `color` | `str` | cor do botão | `{'color': 'info'}` |
-| `action` | `str\|callable` | ação JS ou Python | `{'action': 'gerarPrevisoes'}` |
+| `action` | `str\|callable` | ação JS ou Python | `{'action': 'gerarItens'}` |
 | `enabled` | `dict\|list` | condição de ativação | `{'enabled': {'fields': ['valor'], 'mode': 'all_zero'}}` |
 | `position` | `str` | posição no form | `{'position': 'top_left'}` |
 
@@ -743,57 +589,4 @@ Declara um tipo de input do catálogo. Usado indiretamente via `Field.input`.
 | `OR(...)`, `AND(...)` | agrupamento de filtros |
 | `POS_NONE`, `POS_ROW`, `POS_INLINE`, `POS_TITLE`, `POS_TITLE_CENTER` | posição de coluna de relatório |
 | `MONEY`, `DEFAULT_MONEY` | máscaras de moeda |
-
-
-```python
-Page = {
-    'label': 'Conta a Receber',
-    'type': 'crud',
-    'props': {
-        'master': 'Transacao',
-        'list': {
-            'columns': 'Previsao',
-            'line': ['id', {'Transação': 'Transacao.id'}, {'Conta': 'Transacao.conta_id'},
-                     'Transacao.fatura', 'documento', 'vencimento', 'recurso_id',
-                     'previsto', 'realizado', 'variacao', 'saldo', 'Transacao.pedido_id'],
-            'hidden': ['transacao_id', 'tipo', 'cancelado'],
-            'order': ['vencimento', 'id'],
-        },
-        'filter': {
-            'fixed': {'tipo': 'R'},
-            'types': {'checklist': 'status'},
-            'default': OR(
-                {'data': {'preset': 'mes_ano'}},
-                {'vencimento': {'preset': 'mes_ano'}},
-                {'saldo': {'mode': 'maior_que', 'val1': 0}},
-            ),
-        },
-        'report': {
-            'Saldo de Contas a Receber': {
-                'filter': {'conta_id': '=', 'vencimento': ('<', TODAY())},
-                'report': RECEBER,
-            },
-        },
-        'form': {
-            'max_width': 110,
-            'fields': 'Transacao',
-            'positions': {
-                'bar': ['status'],
-                'footer': ['cancelado'],
-                'hidden': ['valor', 'prazo', 'variacao', 'saldo', 'tipo', 'compra_id', 'pedido_id'],
-            },
-        },
-    },
-}
-```
-
-
-
-### `SITE` — módulo público
-
-Mesma estrutura de `SYS`, com `type: 'public'` e `default_path` para a loja virtual.
-
-### `ADMIN` — módulo administrativo
-
-`type: 'admin'`, `default_path: 'seguranca.painel'`, menus vazios (painel gerado pelo motor).
 
