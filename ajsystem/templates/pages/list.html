@@ -472,7 +472,10 @@ tr.detail-row.collapsed { display: none !important; }
   {% call tb.render_tab_panel(t) %}
     {% if t.type == 'List' %}
     <div class="page-list-inner">
-      <div class="list-table-wrap adaptive{% if cardonly_cols %} has-cardonly{% endif %}">
+      {# `has_card` (card OU detail) e não só `cardonly_cols`: sem isto o
+         expansor (▶) some quando todas as colunas cabem e a página só tem
+         `detail`, deixando a tabela de detalhamento inacessível. #}
+      <div class="list-table-wrap adaptive{% if has_card %} has-cardonly{% endif %}">
         <table class="table table-sm table-pin-rows sortable list-table" style="background:var(--fallback-b1, oklch(var(--b1)));">
           <thead>
             <tr>
@@ -1471,18 +1474,28 @@ document.addEventListener('DOMContentLoaded', function () {
       el.classList.remove('itm-hide');
     });
 
-    // Calcula largura da coluna de rótulos: maior texto de rótulo (cap 40ch).
+    // Coluna de rótulos = largura do MAIOR rótulo. Mede o texto (Range), não a
+    // célula: `scrollWidth`/`offsetWidth` de um <th> já esticado pela tabela
+    // dava a largura inteira da coluna e inflava o cabeçalho.
     var labels = table.querySelectorAll('th.itm-label:not(.itm-corner)');
     var maxLabelW = 0;
-    labels.forEach(function(th) {
+    labels.forEach(function (th) {
       th.style.width = '';
-      var w = th.scrollWidth;
+      var range = document.createRange();
+      range.selectNodeContents(th);
+      var rect = range.getBoundingClientRect();
+      var cs = window.getComputedStyle(th);
+      var w = rect.width
+            + (parseFloat(cs.paddingLeft) || 0)
+            + (parseFloat(cs.paddingRight) || 0);
+      if (range.detach) range.detach();
       if (w > maxLabelW) maxLabelW = w;
     });
-    // Aplica largura fixa a todos os rótulos (coluna fixa à esquerda).
-    labels.forEach(function(th) {
-      th.style.width = Math.min(maxLabelW, 40 * 8) + 'px'; // ~40ch
-    });
+    if (maxLabelW > 0) {
+      labels.forEach(function (th) {
+        th.style.width = Math.ceil(maxLabelW) + 'px';
+      });
+    }
 
     table.dataset.itmPer = '';
     table.dataset.itmPage = '1';
@@ -1492,12 +1505,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function detailInit(detailRow) {
     if (!detailRow || detailRow.classList.contains('collapsed')) return;
-    console.log('detailInit called, detailRow:', detailRow.id);
     // Tabela deitada do detail: inicializa o carrossel após ficar visível
     // (medidas de largura são 0 enquanto o tr.detail-row está colapsado).
     function apply() {
       var tables = detailRow.querySelectorAll('.land-table table.itm-table');
-      console.log('detailInit: tabelas encontradas:', tables.length);
       tables.forEach(landTableRefresh);
     }
     requestAnimationFrame(function() { requestAnimationFrame(apply); });
@@ -1506,8 +1517,7 @@ document.addEventListener('DOMContentLoaded', function () {
   function toggleDetail(tg) {
     if (!tg) return;
     var target = document.getElementById(tg.dataset.expandToggle);
-    if (!target) { console.log('toggleDetail: target não encontrado'); return; }
-    console.log('toggleDetail: target=', target.id, 'collapsed=', target.classList.contains('collapsed'));
+    if (!target) return;
     target.classList.toggle('collapsed');
     tg.classList.toggle('expanded');
     if (!target.classList.contains('collapsed')) detailInit(target);
@@ -1516,7 +1526,6 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('[data-expand-toggle]').forEach(function (el) {
     el.addEventListener('click', function (e) {
       e.stopPropagation();
-      console.log('toggle click: expandToggle=', this.dataset.expandToggle);
       toggleDetail(this);
     });
   });
@@ -1544,6 +1553,29 @@ document.addEventListener('DOMContentLoaded', function () {
   {% endif %}
 });
 
+/* 1ch em px na fonte da tabela — base para decidir quantas colunas cabem. */
+function listChPx(table) {
+  var probe = document.createElement('span');
+  var cs = window.getComputedStyle(table);
+  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;';
+  probe.style.fontFamily = cs.fontFamily;
+  probe.style.fontSize = cs.fontSize;
+  probe.style.fontWeight = cs.fontWeight;
+  probe.style.letterSpacing = cs.letterSpacing;
+  probe.textContent = '0000000000';
+  table.parentElement.appendChild(probe);
+  var w = probe.getBoundingClientRect().width / 10;
+  probe.remove();
+  return w > 0 ? w : 8;
+}
+
+/* Largura declarada da coluna (`width:Nch` no <th>) em px. */
+function listColPx(th, chPx) {
+  var n = parseFloat(th.style.width);
+  if (isNaN(n)) n = 15;
+  return n * chPx;
+}
+
 function fitListColumns() {
   document.querySelectorAll('table.list-table').forEach(function (table) {
     var wrap = table.closest('.list-table-wrap');
@@ -1552,77 +1584,72 @@ function fitListColumns() {
     var tbody = table.querySelector('tbody');
     if (!thead || !tbody) return;
 
-    var expandIdx = 0;
     var ths = Array.prototype.slice.call(thead.querySelectorAll('th'));
     if (ths.length < 2) return;
     var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.row-data'));
     if (rows.length === 0) return;
 
-    var hasActions = ths[ths.length - 1].textContent.trim() === 'Ações';
-    var actionIdx = hasActions ? ths.length - 1 : -1;
+    // Sempre parte do estado completo. A ÚNICA coisa que esconde é a classe
+    // `col-hide`: os antigos `width:0` inline ficavam grudados ao reexibir no
+    // resize e sumiam com as colunas que voltariam a caber.
+    showAll(table, thead, tbody, rows);
 
+    var boxWidth = wrap.clientWidth;
+    // Aba/página oculta mede 0: não esconde nada agora. `closeReport` e o
+    // resize chamam de novo quando existe largura real.
+    if (boxWidth <= 0) return;
+
+    // Garantia final: a listagem nunca rola na horizontal (o excedente vai
+    // para o card, via `applyDetailVisibility`).
     var scrollBox = wrap.closest('.overflow-auto') || wrap.parentElement;
-    var boxWidth = scrollBox.clientWidth - 8;
+    scrollBox.style.overflowX = 'hidden';
 
-    // Primeiro mostra todas as colunas para medir corretamente
-    showAll(table, thead, tbody, rows, expandIdx, actionIdx);
-    // Força reflow para o scrollWidth refletir o estado atual
-    table.offsetHeight;
+    var expandIdx = ths.indexOf(thead.querySelector('th.row-expand-col'));
+    if (expandIdx < 0) expandIdx = 0;
+    // Por classe, não por texto: o rótulo muda com o locale (`Ações`/`Actions`).
+    var actionIdx = ths.indexOf(thead.querySelector('th.col-actions'));
 
-    // Se cabe tudo, terminou
-    if (table.scrollWidth <= boxWidth + 1) {
+    var chPx = listChPx(table);
+    var need = ths.reduce(function (sum, th) { return sum + listColPx(th, chPx); }, 0);
+
+    // Se cabe tudo, terminou.
+    if (need <= boxWidth + 1) {
       wrap.classList.add('col-fit');
-      scrollBox.style.overflowX = 'hidden';
-      wrap.style.overflowX = '';
       applyDetailVisibility(table, tbody, rows, []);
       return;
     }
     wrap.classList.remove('col-fit');
 
-    // Esconde colunas da direita para a esquerda até caber
-    // Sempre mantém: expansão (idx 0) e Ações (se existir)
+    // Esconde colunas da direita para a esquerda até caber.
+    // Sempre mantém expansão (▶) e Ações (quando existir).
     var hiddenFields = [];
-    var i = ths.length - 1;
-    while (i > expandIdx) {
-      if (i === actionIdx) { i--; continue; } // nunca esconde Ações
+    for (var i = ths.length - 1; i > expandIdx; i--) {
+      if (i === actionIdx) continue; // nunca esconde Ações
       var th = ths[i];
       var field = th.getAttribute('data-field');
-      th.style.display = 'none';
-      th.style.width = '0';
-      hiddenFields.push(field);
-      // Esconde as células correspondentes nas linhas
+      th.classList.add('col-hide');
       rows.forEach(function (tr) {
-        var cells = tr.cells;
-        if (i < cells.length) {
-          cells[i].style.display = 'none';
-          cells[i].style.width = '0';
-        }
+        var td = tr.cells[i];
+        if (td) td.classList.add('col-hide');
       });
-      i--;
-
-      // Força reflow para o navegador recalcular o scrollWidth
-      table.offsetHeight;
-
-      if (table.scrollWidth <= boxWidth + 1) break;
+      hiddenFields.push(field);
+      need -= listColPx(th, chPx);
+      if (need <= boxWidth + 1) break;
     }
 
-    // Atualiza visibilidade no detalhamento (▶)
+    // Atualiza visibilidade no detalhamento (▶).
     applyDetailVisibility(table, tbody, rows, hiddenFields);
-
-    // Garantia final: nunca permite scroll horizontal
-    scrollBox.style.overflowX = 'hidden';
-    wrap.style.overflowX = '';
   });
 }
 
-function showAll(table, thead, tbody, rows, expandIdx, actionIdx) {
-  var ths = Array.prototype.slice.call(thead.querySelectorAll('th'));
-  ths.forEach(function (th, idx) {
+function showAll(table, thead, tbody, rows) {
+  thead.querySelectorAll('th').forEach(function (th) {
+    th.classList.remove('col-hide');
     th.style.display = '';
   });
   rows.forEach(function (tr) {
-    var cells = Array.prototype.slice.call(tr.cells);
-    cells.forEach(function (td, idx) {
+    Array.prototype.forEach.call(tr.cells, function (td) {
+      td.classList.remove('col-hide');
       td.style.display = '';
     });
   });

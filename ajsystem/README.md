@@ -373,10 +373,13 @@ Declara o tipo da página e seus props.
 |----------|------|----------------------|---------|
 | `columns` | `str\|list\|dict` | `'Ent'`, `['c1','c2']`, `{'Ent': ['*']}` | `'Transacao'`, `['id','nome']` |
 | `line`/`card`/`hidden` | `list` | campos por slot | `line: ['id']`, `card: 'Transacao'` |
+| `detail` | `str\|tuple\|dict` | entidade do detalhe (relacionamento inferido), `('Entidade', 'Título')`, `('Entidade', ['campos'])` ou `{'fields': [...], 'data': 'relacionamento', 'title': '...'}` | `detail: ('OrcamentoItem', 'Itens do Orçamento')` |
 | `order` | `list` | ordem de classificação | `order: ['vencimento', 'id']` |
 | `prio` | `list` | posição ordinal dos campos da linha (filho e/ou pai). Item: `(posicao, 'campo')`. Posicao positiva (1-based) conta da esquerda; negativa (-1 = ultimo, -2 = penultimo, etc.) conta da direita. Nome qualificado `Entidade.campo` apenas quando há nomes idênticos entre master e detalhe. Label/width/align vêm da Entity/Schema; `prio` só posiciona. | `prio: [(1, 'id'), (2, 'Transacao.data'), (-1, 'status')]` |
 
 **Slots da lista**: `line` (sempre na grade, vence `card`), `card` (linha expansória), `hidden` (fora da grade e card). Precedência: `hidden > line > card`. Na inversão (`columns` nomeia entidade diferente da rota), o campo não citado vai para `line` se for do filho e para `card` se for do pai. Um item de slot pode ser um **alias de apresentação** (`{'Transação': 'Transacao.id'}`): o rótulo é a chave e o alvo é o caminho; aceita também `{'label': ..., 'width': ..., 'align': ...}` via forma longa `{'Transação': {'field': 'Transacao.id', 'label': '...'}}`.
+
+**Renderização da lista**: `columns` define as colunas da grade (a ordem vem de `prio`). Quando a largura disponível não comporta todas, as colunas da direita — nunca a de `Ações` — passam para a linha expansória (`▶`), junto com os campos de `card`; nada some. Se `detail` estiver declarado, a linha expansória mostra abaixo do card uma **tabela transposta** com carrossel horizontal: a coluna de rótulos fica fixa com a largura do maior rótulo, cada registro ocupa a largura do maior `width` entre os campos exibidos e o pager aparece à direita do título quando os registros não cabem. Clicar no `<th>` da grade ordena no cliente, mantendo cada linha de detalhe junto do seu registro.
 
 #### `props.filter` — Painel de filtros
 

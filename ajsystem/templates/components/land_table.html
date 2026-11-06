@@ -72,11 +72,13 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .land-table .itm-scroll { overflow-x: hidden; max-width: 100%; width: 100%; }
-  /* Tabela ocupa 100% do container; quando as colunas rígidas somam mais que
-     100%, o carrossel (itmApplyPage) esconde as colunas excedentes via
-     itm-hide e o pager navega entre elas. */
+  /* Largura natural: a coluna de rótulos fica com o maior rótulo (nowrap) e
+     cada coluna de dados com a sua largura rígida (`--land-item-w`). Quando
+     as colunas somam mais que o container, o carrossel (itmApplyPage) esconde
+     as excedentes via itm-hide e o pager navega entre elas. `width:100%` fazia
+     o navegador esticar rótulo e células, quebrando essas duas larguras. */
   .land-table .itm-table {
-    width: 100%;
+    width: max-content;
     table-layout: auto; border-collapse: separate;
   }
   /* Largura do maior rótulo: width:1px encolhe a coluna até o conteúdo. */
@@ -112,7 +114,7 @@
   .land-table .itm-table td.itm-hide { display: none !important; }
   .land-table .itm-item-num { font-weight: 600; }
   .land-table .itm-pager { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.4rem 0; }
-  .land-table .land-header .itm-pager { flex: none; width: auto; padding: 0; justify-content: flex-end; }
+  .land-table .land-header .itm-pager { flex: none; width: auto; margin-left: auto; padding: 0; justify-content: flex-end; }
   .land-table .land-header .itm-pager-arrow { padding: 0.1rem 0.5rem; font-size: 1.25rem; }
   .land-table .land-header .itm-page-dot { width: 0.55rem; height: 0.55rem; }
   .land-table .itm-page-dot { width: 0.7rem; height: 0.7rem; border-radius: 9999px; background: var(--fallback-b3, oklch(var(--b3))); padding: 0; border: 0; cursor: pointer; }

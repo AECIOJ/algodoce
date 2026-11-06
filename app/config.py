@@ -165,6 +165,6 @@ APP = {
     'title': 'Sistema Gerenciador de Doceria',
     'logo': 'icons/Logo.png',
     'tema': 'algodoce',
-    'version': {'cycle': 1, 'year': 26, 'month': 11, 'number': 1},
+    'version': {'cycle': 1, 'year': 26, 'month': 11, 'number': 2},
     'modules': [SITE, SYS, ADMIN],
 }
