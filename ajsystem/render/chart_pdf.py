@@ -161,10 +161,19 @@ class MatplotlibRenderer:
                           start, start + sweep, fill=colors[i],
                           outline='white')
             start += sweep
-        # Rótulo de valor por fatia (fora do centro; zero não desenha)
-        if lbl.get('data'):
+        # Rótulo de valor/porcentagem por fatia
+        show_val = lbl.get('val', True)
+        show_perc = lbl.get('perc', True)
+        pos = lbl.get('pos', 'O')  # O=fora da fatia, I=dentro (centralizado)
+
+        if show_val or show_perc:
             f = _font(12)
             import math
+            # 'O' = fora da fatia (fundo branco → texto escuro + conector);
+            # 'I' = dentro da fatia, centralizado (texto na cor de contraste
+            # da própria fatia).
+            outside = (pos == 'O')
+            radius_label = radius * 1.12 if outside else radius * 0.58
             start = -90
             for i, v in enumerate(data):
                 sweep = 360 * float(v or 0) / total
@@ -172,11 +181,33 @@ class MatplotlibRenderer:
                     start += sweep
                     continue
                 mid = start + sweep / 2
-                lx = cx + radius * 0.78 * math.cos(math.radians(mid))
-                ly = cy + radius * 0.78 * math.sin(math.radians(mid))
-                fill = _contrast(colors[i])
-                draw.text((lx, ly), f"{v:,.0f}", fill=fill, font=f,
-                          anchor='mm')
+                cos_m = math.cos(math.radians(mid))
+                sin_m = math.sin(math.radians(mid))
+                lx = cx + radius_label * cos_m
+                ly = cy + radius_label * sin_m
+                if outside:
+                    # Conector: da borda da fatia até um pouco ANTES do
+                    # rótulo (para a linha não cruzar o texto).
+                    lx_edge = cx + radius * 0.98 * cos_m
+                    ly_edge = cy + radius * 0.98 * sin_m
+                    lx_line = cx + radius * 1.02 * cos_m
+                    ly_line = cy + radius * 1.02 * sin_m
+                    draw.line((lx_edge, ly_edge, lx_line, ly_line),
+                              fill='#9ca3af', width=1)
+                    # Fora da fatia o fundo é branco: texto sempre escuro
+                    fill = '#111827'
+                else:
+                    # Dentro da fatia: contraste com a cor da própria fatia
+                    fill = _contrast(colors[i])
+                # Valor e porcentagem empilhados (um sobre o outro).
+                # O bloco desce 6px: o valor fica abaixo da linha, que
+                # termina logo acima dele.
+                if show_val:
+                    draw.text((lx, ly + 6), f"{v:,.0f}", fill=fill, font=f,
+                              anchor='mm')
+                if show_perc:
+                    draw.text((lx, ly - 6), f"{100*v/total:,.1f}%",
+                              fill=fill, font=f, anchor='mm')
                 start += sweep
         # Legenda: uma entrada por fatia, centralizada abaixo do gráfico
         items = []
@@ -246,7 +277,8 @@ class MatplotlibRenderer:
                     draw.rectangle([cx + off - bar_w / 2, min(top, base),
                                     cx + off + bar_w / 2, max(top, base)],
                                    fill=color)
-                if lbl.get('data'):
+                # Rótulo de valor sobre barra (opcional)
+                if lbl.get('val', True):
                     draw.text((cx, min(top, base) - 4), f"{val:,.0f}",
                               fill='#111827', font=_font(10), anchor='mb')
 
@@ -324,7 +356,8 @@ class MatplotlibRenderer:
                     draw.rectangle([min(left, right), cy + off - bar_w / 2,
                                     max(left, right), cy + off + bar_w / 2],
                                    fill=color)
-                if lbl.get('data'):
+                # Rótulo de valor sobre barra horizontal (opcional)
+                if lbl.get('val', True):
                     draw.text((right + 4, cy), f"{val:,.0f}",
                               fill='#111827', font=_font(10), anchor='lm')
 

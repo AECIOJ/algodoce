@@ -178,7 +178,9 @@ def _build_dataset(report, chart, rows):
         'label': {
             'cat': chart.label.cat,
             'value': chart.label.value,
-            'data': chart.label.data,
+            'val': chart.label.val,
+            'perc': chart.label.perc,
+            'pos': chart.label.pos,
         },
         'limit': {
             'value': limit,

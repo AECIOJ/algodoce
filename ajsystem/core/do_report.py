@@ -25,7 +25,7 @@ from io import BytesIO
 from flask import Response, current_app, render_template, request
 
 from ajsystem import locales as i18n
-from ajsystem.core.pdf import gerar_pdf_relatorio
+from ajsystem.core.pdf import gerar_pdf_relatorio, _margin_mm
 from ajsystem.core.resolve import (
     field_display_fn,
     field_presentation,
@@ -209,11 +209,18 @@ def _is_pivot_source(src):
     return is_pivot_dict(src)
 
 
-def _pdf_bytes(report, data=None, instance=None):
+def _pdf_bytes(report, data=None, instance=None, rp_output=None,
+               chart_filter=None, chart_variant=None, chart_syn=False):
     """Gera os bytes do PDF para um report já resolvido.
 
-    `data` omitido + instance presente → extrai `instance.<data_attr>`
-    (o atributo de dados vem do source dict quando informado).
+    `rp_output` controla o que entra no PDF:
+      - 'table'  → apenas tabela (padrão)
+      - 'chart'  → apenas gráfico (o corpo é copiado sem `table`)
+      - 'both'   → tabela + gráfico
+
+    Quando o modo inclui gráfico e `body.chart` está declarado, o PNG é
+    resolvido com os mesmos filtros/variante/sintético do relatório e
+    embutido após a tabela.
     """
     if data is None and instance is not None:
         src = _source_of(report)
@@ -226,11 +233,54 @@ def _pdf_bytes(report, data=None, instance=None):
     except Exception as _e:
         _msg = f"BUG no report '{getattr(report,'label','?') if not isinstance(report,dict) else report.get('label')}': falha ao resolver logo. Detalhe: {_e}\n{''.join(_tb.format_tb(_e.__traceback__))}"
         raise
+    # 'chart' = só o gráfico: gera o documento com o corpo sem `table`
+    # (cópia, para não mutar a declaração do app). Sem `table`, o motor não
+    # imprime a grade; cabeçalho, `before`/`after` e rodapé continuam.
+    table_report = report
+    if rp_output == 'chart':
+        _body = _body_of(report)
+        if _body is not None and getattr(_body, 'table', None) \
+                and hasattr(_body, '__dataclass_fields__'):
+            from dataclasses import replace as _replace
+            table_report = _replace(report, body=_replace(_body, table=None))
+
     try:
-        pdf = gerar_pdf_relatorio(report, data, logo, instance=instance)
+        pdf = gerar_pdf_relatorio(table_report, data, logo, instance=instance)
     except Exception as _e:
         _msg = f"BUG no report '{getattr(report,'label','?') if not isinstance(report,dict) else report.get('label')}': falha ao gerar PDF. Detalhe: {_e}\n{''.join(_tb.format_tb(_e.__traceback__))}"
         raise
+
+    # --- Gráfico no PDF -------------------------------------------------
+    want_chart = rp_output in ('chart', 'both')
+    if want_chart:
+        from ajsystem.defs.report import report_has_chart
+        from ajsystem.core.do_chart import _build_dataset, load_chart
+        from ajsystem.render.chart_pdf import MatplotlibRenderer
+
+        body = _body_of(report)
+        if body and report_has_chart(body):
+            try:
+                parsed = parse_report(report) if not hasattr(report, '__dataclass_fields__') else report
+                chart = load_chart(parsed, variant=chart_variant,
+                                   syn=bool(chart_syn))
+                # Reusa as linhas já resolvidas para o PDF; só consulta a
+                # fonte quando o chamador não forneceu dados (do_report).
+                rows = data
+                if rows is None:
+                    rows = _auto_data(parsed, None, None,
+                                      chart_filter or filter, syn=False) or []
+                ds = _build_dataset(parsed, chart, rows)
+                png = MatplotlibRenderer().render(ds, chart)
+                # Embute após a tabela, largura da página útil (A4 = 210mm)
+                _ml = _margin_mm(getattr(report, 'margin_left', 10), getattr(report, 'label', ''))
+                _mr = _margin_mm(getattr(report, 'margin_right', 10), getattr(report, 'label', ''))
+                w = 210 - _ml - _mr
+                pdf.ln(4)
+                pdf.image(png, x=_ml, w=w)
+            except Exception as _e:
+                # Falha no gráfico não invalida o relatório inteiro
+                current_app.logger.warning('chart no PDF: %s', _e)
+
     try:
         buf = BytesIO()
         pdf.output(buf)
@@ -2443,7 +2493,8 @@ def print_report_page(report, instance=None, data=None, msg=None, filter=None,
 
 
 def print_report(report, instance=None, data=None, msg=None, filter=None,
-                 _printing=False, syn=False):
+                 _printing=False, syn=False, rp_output=None,
+                 rp_variant=None, rp_sintetico=False):
     """Retorna fragmento HTML com iframe do PDF embutido (data URI).
 
     Contrato para uso em botões (action): recebe o dict do relatório,
@@ -2459,6 +2510,10 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
     O critério entra como filtro explícito (merge/AND com body.filter).
     O predicado pode ser passado no 2º posicional (print_report(PLANO, fs))
     ou via filter=fs — os dois são normalizados para o argumento filter.
+
+    `rp_output` ('table'|'chart'|'both') controla se o PDF inclui a tabela,
+    o gráfico ou ambos. `rp_variant`/`rp_sintetico` selecionam o layout do
+    gráfico quando aplicável.
     """
     # Helper: extrai texto de um título (aceita str ou {'text': ..., 'style': ...})
     def _title_text(_t):
@@ -2503,7 +2558,11 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
             secondary_title = "Filtros: " + " | ".join(filtros) if filtros else None
         # ----------------------------
         
-        src = _data_uri(_pdf_bytes(report, data, instance))
+        src = _data_uri(_pdf_bytes(report, data, instance,
+                                   rp_output=rp_output,
+                                   chart_filter=filter.criteria(),
+                                   chart_variant=rp_variant,
+                                   chart_syn=rp_sintetico))
         return render_template(OVERLAY_TEMPLATE, pdf_url=src, main_title=main_title, secondary_title=secondary_title)
     report = parse_report(_apply_entity(report, _module_entity(report),
                                         syn=syn))
@@ -2533,7 +2592,11 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
                 filtros.append(str(filter))
         secondary_title = "Filtros: " + " | ".join(filtros) if filtros else None
     
-    src = _data_uri(_pdf_bytes(report, data, instance))
+    src = _data_uri(_pdf_bytes(report, data, instance,
+                               rp_output=rp_output,
+                               chart_filter=filter,
+                               chart_variant=rp_variant,
+                               chart_syn=rp_sintetico))
     return render_template(OVERLAY_TEMPLATE, pdf_url=src, main_title=main_title, secondary_title=secondary_title)
 
 

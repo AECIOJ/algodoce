@@ -11,7 +11,7 @@ O framework lê o app nesta ordem:
 1. **`app/config.py`** — configuração geral, tema e menus (`SYS`, `SITE`, `ADMIN`).
 2. **`app/models/*.py`** — model SQLAlchemy + `Entity` (declara campos).
 3. **`app/routes/sys/*.py`** — `Schema` (overrides por página) + `Page` (tipo e props: `list`, `form`, `filter`, `report`, `sessions`).
-4. **Relatórios** — `Report`, `ReportBody`, `ReportColumn` (PDF).
+4. **Relatórios** — `Report`, `ReportBody` (`table`/`chart`), `ReportColumn` (PDF).
 5. **Auxiliares** — `Tag`, `Lookup`, `Button`, `Input`, constantes.
 
 Fluxo: `config.py:menus → auto.py:registrar_modulos → Page/Schema → resolve_entity_fields → Field → form/list/report`.
@@ -341,6 +341,15 @@ Operadores: `=`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `<>`. Em `date`, `>`/`<` co
 |----------|------|----------------------|---------|
 | `report` | dict | spec do relatório | `{'report': RELATORIO}` |
 | `filter` | `{campo: operador}` | campos/operadores do formulário | `{'filter': {'grupo_id': '=', 'data': '<'}}` |
+| `variants` | `dict` | `{'<nível>:<rótulo>': [campos]}` — modos do relatório | `{'0:Por Cliente': ['cliente_id'], '1:Por Mês': ['data']}` |
+
+**`variants`** monta o select **Modo** na aba Relatórios (`rp_variant`) e:
+
+- a chave é `'<nível>:<rótulo>'` (`0` é o default); o nível seleciona o layout de `body.table` e `body.chart` com a mesma chave numérica;
+- a lista restringe **quais filtros do formulário aparecem** naquele modo (os demais são ignorados, mesmo que enviados);
+- o rótulo depois de `:` vira o 2º título do PDF.
+
+O sintético é controlado pelo layout (`table.syn`/`chart.syn`) do nível selecionado, não por `variants`.
 
 #### `props.scripts` — Scripts JS da página
 
@@ -380,6 +389,7 @@ Declara o corpo do relatório (`Report.body`).
 |------|------|----------------------|---------|
 | `source` | `str\|dict` | `'Ent'` ou `{'select': [...], 'from': 'Ent'}` | `'Tarefa'`, `{'select': [...], 'from': 'Tarefa'}` |
 | `form`\|`table` | `dict` | um só dos dois | `{'table': {...}}` (mutuamente exclusivos) |
+| `chart` | `dict` | gráfico como saída (aditivo ao `table`) | `{'chart': {'type': 'bar', 'cat': {...}, 'value': {...}}}` |
 | `before`\|`after` | `object` | blocos antes/depois | `{'before': [...]}` |
 | `filter` | `dict\|list\|OR\|AND\|callable` | filtro padrão | `{'filter': {'tipo': 'R'}}` |
 | `order` | `str\|list\|None` | nomes ou índices 1-based | `['data','id']` ou `[1, 3]` |
@@ -502,15 +512,161 @@ Declara uma coluna de `body.table.cols` (ou `syn.cols`).
 | `bold` | `bool` | `False` | `True` | `{'bold': True}` |
 | `when` | `str\|dict` | `None` | condição de exibição | `{'when': 'status > 0'}` |
 
+### `body.chart` — gráfico como saída do relatório (PDF)
+
+O gráfico é declarado no próprio report e impresso como **PNG dentro do PDF** (renderizado no servidor com Pillow — sem navegador, sem Chart.js). É **aditivo** ao `table`: não entra no XOR `form`/`table` e pode coexistir com ele.
+
+`source`, `filter`, `titles`, `variants` e o sintético vêm do `Report`; o `chart` não declara fonte nem filtro próprios.
+
+#### `Chart` — props de raiz
+
+| Prop | Tipo | Default | Declarações possíveis | Exemplo |
+|------|------|---------|----------------------|---------|
+| `title` | `str` | `None` | título acima do plot; se omitido, o gráfico sai sem título (o título do report já está no cabeçalho) | `{'title': 'Saldo por Cliente'}` |
+| `type` | `str` | `'col'` | `col` (colunas verticais), `bar` (barras horizontais), `pie`, `donut`; `line`, `area` e `scatter` são aceitos e, no PDF atual, caem no renderizador de colunas | `{'type': 'bar'}` |
+| `cat` | `dict` | `{}` | **um** campo de categoria `{campo: ChartField}`; é o eixo de agrupamento | `{'cat': {'cliente': {'order': 'desc', 'limit': 10}}}` |
+| `value` | `dict` | `{}` | uma ou mais séries `{campo: ChartField}` | `{'value': {'saldo': {'color': '#dc3545'}}}` |
+| `stack` | `dict` | `{}` | `{grupo: [campos]}` — campos do mesmo grupo são empilhados; fora de `stack`, ficam lado a lado | `{'stack': {'total': ['previsto', 'realizado']}}` |
+| `label` | `dict` | `{}` | rótulos de eixo/dados (ver `ChartLabel`) | `{'label': {'cat': 'Cliente', 'value': 'Saldo (R$)'}}` |
+| `options` | `dict` | `{}` | opções de renderização; no PDF só `legend` é usado (fallback de `chart.legend`) | `{'options': {'legend': 'right'}}` |
+| `legend` | `str` | `'bottom'` | `top`, `bottom`, `left`, `right`, `none` | `{'legend': 'bottom'}` |
+| `limit` | `int` | `None` | top N após a ordenação (também aceito em `cat.<campo>.limit`) | `{'limit': 10}` |
+| `syn` | `dict` | `None` | layout alternativo do modo sintético (mesmas props de raiz) | `{'syn': {'type': 'pie', ...}}` |
+
+`cat` aceita só o **primeiro** campo declarado. `type`, `cat`, `value`, `stack`, `label` e `legend` são da raiz — não existe `chart.options.stacked` (use `stack`).
+
+#### `ChartField` — props de um campo de `cat`/`value`
+
+| Prop | Tipo | Default | Declarações possíveis | Exemplo |
+|------|------|---------|----------------------|---------|
+| `agg` | `str` | `'sum'` | `sum`, `avg`, `min`, `max`, `count` (só em `value`) | `{'agg': 'avg'}` |
+| `color` | `str` | paleta | cor hex da série | `{'color': '#0d6efd'}` |
+| `bucket` | `str` | `None` | `day`, `month`, `year` (só em `cat`, para campos de data) | `{'cat': {'vencimento': {'bucket': 'month'}}}` |
+| `order` | `str` | `None` | `asc`, `desc` (só em `cat`) | `{'cat': {'cliente': {'order': 'desc'}}}` |
+| `limit` | `int` | `None` | top N da categoria (só em `cat`) | `{'cat': {'cliente': {'limit': 10}}}` |
+| `variants` | `list` | `None` | níveis de variante em que o campo entra | `{'variants': [0, 1]}` |
+| `syn` | `bool` | `None` | `False` omite o campo no sintético | `{'syn': False}` |
+| `axis`/`format` | — | — | aceitos na declaração, mas o renderer PDF usa eixo único e formatação numérica padrão | — |
+
+#### `ChartLabel` — rótulos
+
+| Prop | Tipo | Default | Declarações possíveis | Exemplo |
+|------|------|---------|----------------------|---------|
+| `cat` | `str` | `None` | rótulo do eixo de categoria | `{'cat': 'Cliente'}` |
+| `value` | `str` | `None` | rótulo do eixo de valor | `{'value': 'Saldo (R$)'}` |
+| `val` | `bool` | `True` | mostra o valor absoluto (sobre a barra/fatia) | `{'val': True}` |
+| `perc` | `bool` | `True` | mostra a porcentagem (sobre a barra/fatia) | `{'perc': True}` |
+| `pos` | `str` | `'O'` | posição do rótulo de dados: `O`=fora da fatia (com conector até a borda), `I`=dentro da fatia, centralizado | `{'pos': 'O'}` |
+| `limit` | `bool\|str` | `None` | `True` → `"Top N"`; `str` → texto livre; `None` → sem texto | `{'limit': '10 maiores clientes'}` |
+
+**Rótulo de dados** (`val`/`perc`/`pos`):
+- `val` e `perc` saem **empilhados** (valor embaixo, porcentagem acima);
+- `pos='O'` desenha o rótulo **fora** da fatia, com um conector cinza até a borda (texto escuro sobre fundo branco);
+- `pos='I'` desenha o rótulo **dentro** da fatia, centralizado, com texto na cor de contraste da própria fatia;
+- nas barras (`col`/`bar`), `val` escreve o valor sobre a barra.
+
+> `data` saiu: use `val` (valor) e/ou `perc` (porcentagem).
+
+#### Formas de declaração (espelho de `body.table`)
+
+**Forma A — layout único (sem sintético, sem variantes):**
+
+```python
+'chart': {
+    'title': 'Saldo por Cliente',
+    'type': 'bar',
+    'cat': {'cliente': {'order': 'desc', 'limit': 10}},
+    'value': {
+        'previsto':  {'color': '#0d6efd'},
+        'realizado': {'color': '#198754'},
+        'saldo':     {'color': '#dc3545'},
+    },
+    'stack': {'total': ['previsto', 'realizado', 'saldo']},
+    'label': {'cat': 'Cliente', 'value': 'Saldo (R$)', 'val': True},
+    'legend': 'bottom',
+}
+```
+
+**Forma B — com sintético explícito (`syn`):**
+
+```python
+'chart': {
+    'type': 'bar',
+    'cat': {...},
+    'value': {...},
+    'syn': {                               # layout da visão sintética
+        'title': 'Composição por Recurso',
+        'type': 'pie',
+        'cat': {'recurso': {}},
+        'value': {'saldo': {}},
+        'label': {
+            'val': True,      # valor absoluto
+            'perc': True,     # porcentagem
+            'pos': 'O',       # fora da fatia (O) ou dentro, centralizado (I)
+        },
+    },
+}
+```
+
+**Forma C — com variantes (chave numérica compartilhada com `table`):**
+
+```python
+'chart': {
+    '0': {                                 # variante 0 (default)
+        'type': 'bar',
+        'cat': {...},
+        'value': {...},
+        'syn': {...},                      # sintético opcional desta variante
+    },
+    '1': {                                 # variante 1
+        'type': 'line',
+        'cat': {'vencimento': {'bucket': 'month'}},
+        'value': {'saldo': {}},
+    },
+}
+```
+
+**Regras:**
+- Não misture props de raiz com chaves de variante no mesmo `chart`.
+- `syn` não é herdado entre variantes: cada nível declara o seu.
+- `variants`/`syn` por campo são aplicados **antes** da resolução dos dados (mesma lógica de `table.columns`).
+- `stack` referencia apenas campos de `value`; campo repetido em dois grupos ou inexistente em `value` é erro de declaração.
+- O `chart` usa o mesmo `rp_variant` da tabela (as duas declarações devem usar a mesma chave numérica).
+- O `cat` é obrigatório; sem ele o motor tenta inferir a primeira coluna que não seja série.
+
+#### Saída do PDF (`rp_output`)
+
+Quando `body` declara `table` **e** `chart`, a aba Relatórios mostra o select **Saída** (`rp_output`):
+
+| Valor | Conteúdo do PDF |
+|-------|-----------------|
+| `both` | tabela + gráfico (default) |
+| `table` | somente a tabela |
+| `chart` | somente o gráfico (cabeçalho/rodapé do report continuam) |
+
+Com apenas um dos dois declarado, o select não aparece e a saída é sempre a disponível. O checkbox **Sintético** aparece quando `table.syn` **ou** `chart.syn` existe no layout ativo.
+
+Falha ao montar o gráfico não invalida o relatório: o PDF sai sem o gráfico e o erro vai para o log (`warning`).
+
+#### Fontes embutidas
+
+O gráfico usa DejaVu Sans (normal/negrito) embutida em `ajsystem/static/fonts/`. A imagem `python:*-slim` não traz fontes TTF; sem os arquivos, o Pillow cai num bitmap fixo de 11px e todo o texto do gráfico sai minúsculo.
+
+| Arquivo | Uso |
+|---------|-----|
+| `ajsystem/static/fonts/DejaVuSans.ttf` | eixos, legenda, rótulos |
+| `ajsystem/static/fonts/DejaVuSans-Bold.ttf` | título do gráfico |
+
 ### Modo sintético
 
-Quando `table.syn` é declarado e o usuário marca o checkbox **"Sintético"** na tela de relatórios:
+Quando `table.syn` (ou `chart.syn`) é declarado e o usuário marca o checkbox **"Sintético"** na tela de relatórios:
 
 - O motor agrupa as linhas pelos campos com `group: '*'` (ordem de declaração).
 - Colunas com `agg` (`sum`/`avg`/`min`/`max`/`count`) são agregadas por grupo (uma linha por grupo).
 - Colunas sem `agg` recebem o valor da primeira linha do grupo.
 - `count` no sintético conta grupos (não linhas totais).
 - `avg/min/max` no total geral continuam como antes (não somam médias).
+- No gráfico, `chart.syn` troca o layout (ex.: barras → pizza) e campos com `syn: False` são omitidos.
 
 Se `syn` **não** for declarado no layout ativo, o checkbox de sintético não aparece no form de relatórios.
 

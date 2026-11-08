@@ -18,6 +18,7 @@ _AXIS_TYPES = ('y', 'y2')
 _BUCKETS = ('day', 'month', 'year')
 _ORDERS = ('asc', 'desc', 'decl')
 _LEGEND_POS = ('top', 'bottom', 'left', 'right', 'none')
+_LABEL_POS = ('O', 'I')
 
 
 def _is_variant_key(key):
@@ -64,8 +65,16 @@ class ChartLabel:
     """Rótulos de eixo e dados do gráfico."""
     cat: Optional[str] = None       # rótulo do eixo X
     value: Optional[str] = None     # rótulo do eixo Y (resolvido pelo motor se omitido)
-    data: bool = False              # rótulo sobre barras/pontos
+    val: bool = True                # mostrar valor absoluto (antes: data)
+    perc: bool = True               # mostrar porcentagem
+    pos: str = 'O'                  # posição: O=fora da fatia, I=dentro (centralizado)
     limit: bool | str | None = None # texto explicativo do limite (True = automático)
+
+    def __post_init__(self):
+        if self.pos not in _LABEL_POS:
+            raise ValueError(
+                f"chart.label.pos {self.pos!r} inválido — use "
+                f"{', '.join(_LABEL_POS)}")
 
 
 @dataclass

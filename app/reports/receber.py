@@ -62,6 +62,34 @@ RECEBER = {
                 'totals': {'align': 'R'},
             },
         },
+        'chart': {
+            'title': 'Saldo por Cliente',
+            'type': 'bar',
+            'cat': {'cliente': {'order': 'desc', 'limit': 10}},
+            'value': {
+                'previsto':  {'color': '#0d6efd'},
+                'realizado': {'color': '#198754'},
+                'saldo':     {'color': '#dc3545'},
+            },
+            'stack': {'total': ['previsto', 'realizado', 'saldo']},
+            'label': {
+                'cat': 'Cliente',
+                'value': 'Saldo (R$)',
+                'val': True,
+            },
+            'legend': 'bottom',
+            'syn': {
+                'title': 'Composição por Recurso',
+                'type': 'pie',
+                'cat': {'recurso': {}},
+                'value': {'saldo': {}},
+                'label': {
+                    'val': True,
+                    'perc': True,
+                    'pos': 'O',
+                },
+            },
+        },
     },
     'footer': True,
 }

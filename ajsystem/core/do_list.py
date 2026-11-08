@@ -1352,20 +1352,35 @@ def _resolve_report_entries(page, schema, module_name, entity_name):
                 'fields': [v for v in _vlist if v != 'syn'],
                 'syn': 'syn' in _vlist,
             }
-        # Sintético só aparece quando o layout da tabela declara 'syn'.
+        # Sintético da tabela e saídas do report (tabela/gráfico).
+        from ajsystem.defs.report import (report_has_chart, report_has_table,
+                                          report_outputs, table_has_syn)
         _has_syn = False
+        _has_table = False
+        _has_chart = False
+        _has_chart_syn = False
+        _outputs = []
         _rep = cfg.get('report')
         if isinstance(_rep, dict):
             _body = _rep.get('body')
             if isinstance(_body, dict):
                 _table = _body.get('table')
                 if isinstance(_table, dict):
-                    from ajsystem.defs.report import table_has_syn
                     _has_syn = table_has_syn(_table)
+                _has_table = report_has_table(_body)
+                _has_chart = report_has_chart(_body)
+                _outputs = report_outputs(_body)
+                if _has_chart:
+                    from ajsystem.defs.chart import chart_has_syn
+                    _has_chart_syn = chart_has_syn(_body.get('chart'))
         entries[title] = {'slug': slug, 'title': title,
                           'report': cfg['report'], 'fields': items,
                           'variants': variants,
-                          'has_syn': _has_syn}
+                          'has_syn': _has_syn,
+                          'has_table': _has_table,
+                          'has_chart': _has_chart,
+                          'has_chart_syn': _has_chart_syn,
+                          'outputs': _outputs}
     return entries
 
 

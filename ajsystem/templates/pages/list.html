@@ -901,8 +901,29 @@ tr.detail-row.collapsed { display: none !important; }
                 </div>
               </div>
               {% endif %}
+              {% if rp.outputs and rp.outputs | length > 1 %}
+              <div class="report-fields">
+                <div class="report-field">
+                  <label class="report-label" for="rp-output-{{ rp.slug }}">{{ i18n.REPORT_OUTPUT }}</label>
+                  <div class="report-input">
+                    <select class="select select-bordered select-sm"
+                            id="rp-output-{{ rp.slug }}"
+                            name="rp_output"
+                            aria-label="{{ i18n.REPORT_OUTPUT }}">
+                      {% for _out in rp.outputs %}
+                      <option value="{{ _out }}">
+                        {%- if _out == 'both' %}{{ i18n.REPORT_OUTPUT_BOTH }}
+                        {%- elif _out == 'table' %}{{ i18n.REPORT_OUTPUT_TABLE }}
+                        {%- else %}{{ i18n.REPORT_OUTPUT_CHART }}{% endif -%}
+                      </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              {% endif %}
 <div class="report-actions">
-                {% if rp.has_syn %}
+                {% if rp.has_syn or rp.has_chart_syn %}
                 <div class="report-field">
                   <label class="report-label flex items-center gap-1">
                     <input type="checkbox" name="rp_sintetico" value="on"

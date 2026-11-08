@@ -161,6 +161,7 @@ def report_action():
     from ajsystem import locales as i18n
     _rp_variant = request.args.get('rp_variant', '') or ''
     _rp_sintetico = request.args.get('rp_sintetico', '') or ''
+    _rp_output = request.args.get('rp_output', '') or ''
     _variant_idx = None
     _variant_label = None
     _variant_fields = None
@@ -281,11 +282,21 @@ def report_action():
     if _em_construcao:
         return jsonify(html=_print_erro('Relatório em construção'))
 
+    # --- modo de saída (tabela/gráfico/ambos) ---
+    _outputs = entry.get('outputs') or []
+    if not _rp_output and _outputs:
+        _rp_output = 'both' if 'both' in _outputs else _outputs[0]
+    elif _rp_output and _rp_output not in _outputs:
+        _rp_output = _outputs[0] if _outputs else 'table'
+
     try:
         html = print_report(report,
                             filter=_filter,
                             _printing=True,
-                            syn=_syn_requested)
+                            syn=_syn_requested,
+                            rp_output=_rp_output or None,
+                            rp_variant=_variant_idx,
+                            rp_sintetico=(_rp_sintetico == 'on'))
     except ValueError as _e:
         # Erro de declaração (ex: sintético pedido mas sem 'syn'):
         # exibe como HTML do relatório, não como alerta JS.

@@ -820,6 +820,9 @@ class ReportBody:
     source: Optional[Union[str, dict, object]] = None
     form: Optional[dict] = None
     table: Optional[dict] = None
+    # Gráfico como formato de saída do report (aditivo ao `table`, fora do
+    # XOR `form`/`table`). Reusa `source`/`filter`/`titles`/`variants`/`syn`.
+    chart: Optional[dict] = None
     before: Optional[object] = None
     after: Optional[object] = None
     # Filtro padrão do source na gramática literal compartilhada (dict/lista
@@ -933,6 +936,42 @@ def parse_report(spec):
             spec['body'] = ReportBody(**body)
         return Report(**spec)
     raise TypeError(f"report deve ser dict ou Report, recebido {type(spec).__name__}: {spec!r}")
+
+
+# ── Saídas do report (tabela / gráfico) ──
+#
+# `table` e `chart` são formatos de saída do `ReportBody`. O `form` continua
+# mutuamente exclusivo com `table`; o `chart` é ADITIVO e pode coexistir com
+# qualquer um deles.
+
+def _body_get(body, key, default=None):
+    if isinstance(body, dict):
+        return body.get(key, default)
+    return getattr(body, key, default) if body is not None else default
+
+
+def report_has_table(body) -> bool:
+    return bool(_body_get(body, 'table'))
+
+
+def report_has_chart(body) -> bool:
+    return bool(_body_get(body, 'chart'))
+
+
+def report_outputs(body) -> list:
+    """Opções válidas para o select de saída do report.
+
+    `['both', 'table', 'chart']` quando há os dois; senão o subconjunto
+    disponível (ou lista vazia).
+    """
+    out = []
+    if report_has_table(body):
+        out.append('table')
+    if report_has_chart(body):
+        out.append('chart')
+    if len(out) == 2:
+        return ['both', 'table', 'chart']
+    return out
 
 
 # ── Layout da tabela (title / pre / cols / post) ──

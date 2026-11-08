@@ -21,6 +21,7 @@
 3. **Moeda:** Não existe prop `currency` em `Field`. O formato de moeda sai da `mask` (`@M(BRL)` ou `MVALOR`).
 4. **Bloco MEMORY:** Chaves em MAIÚSCULAS no `Schema` representam grupos de memória (`memory=True` automático).
 5. **Git e Documentação:** Apenas quando solicitado explicitamente, atualize o `README.md` com as novas implementações, execute o commit descritivo e faça o push para o repositório.
+6. **Nomes e Propriedades em Inglês:** Todos os nomes de atributos, colunas, models, campos e propriedades (`props`) no código do framework devem ser SEMPRE em inglês, mesmo que a descrição do pedido pelo usuário seja em português.
 
 ## 3. Diretrizes de Resposta (Modo Caveman / Economia de Tokens)
 - Sem comprimentos, saudações ou explicações teóricas óbvias.
