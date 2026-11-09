@@ -77,17 +77,22 @@ RECEBER = {
                 'value': 'Saldo (R$)',
                 'val': True,
             },
-            'legend': 'bottom',
+            'options': {'legend': 'bottom'},
             'syn': {
-                'title': 'Composição por Recurso',
                 'type': 'pie',
-                'cat': {'recurso': {}},
-                'value': {'saldo': {}},
+                'value': {
+                    'previsto': {},
+                    'realizado': {},
+                    'variacao': {},
+                    'saldo': {}
+                    },
                 'label': {
+                    'cat': True,
                     'val': True,
                     'perc': True,
                     'pos': 'O',
                 },
+                'options': {'legend': False, 'explode': 'saldo'},
             },
         },
     },

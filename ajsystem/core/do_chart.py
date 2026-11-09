@@ -28,18 +28,6 @@ def _row_get(row, field):
     return getattr(row, field, None)
 
 
-def _row_keys(row):
-    if isinstance(row, dict):
-        return list(row.keys())
-    table = getattr(row, '__table__', None)
-    if table is not None:
-        return [c.name for c in table.columns]
-    mapping = getattr(row, '_mapping', None)
-    if mapping is not None:
-        return list(mapping.keys())
-    return [k for k in dir(row) if not k.startswith('_')]
-
-
 def _bucket(value, bucket):
     """Agrupa datas por dia/mês/ano; devolve o valor original fora de data."""
     if bucket is None or value is None:
@@ -71,6 +59,27 @@ def _stack_of(chart, field):
         if field in fields:
             return group
     return None
+
+
+def _field_labels(report, names):
+    """Rótulo de exibição de cada campo (Entity do report; fallback auto)."""
+    from ajsystem.defs.data import _auto_label
+    labels = {name: _auto_label(name) for name in names}
+    try:
+        from ajsystem.core.do_report import (_body_of, _entity_cfg_for,
+                                             _module_entity,
+                                             _source_entity_name)
+        body = _body_of(report)
+        src = _get(body, 'source')
+        cfg = _entity_cfg_for(_module_entity(report),
+                              _source_entity_name(src))
+    except Exception:
+        return labels
+    for name in names:
+        item = cfg.get(name) or {}
+        if isinstance(item, dict) and item.get('label'):
+            labels[name] = item['label']
+    return labels
 
 
 def _subtitle(report):
@@ -110,63 +119,95 @@ def resolve_chart(report, *, filter=None, variant=None, syn=False,
     return _build_dataset(report, chart, rows)
 
 
+def _explode_flags(chart, cat_name, labels):
+    """Flags por ponto de `options.explode` (pie/donut).
+
+    Sem `cat`, casa com as chaves de `value`; com `cat`, com o valor da
+    categoria. Nome inexistente é ignorado em silêncio.
+    """
+    spec = getattr(chart.options, 'explode', None)
+    if not spec:
+        return None
+    wanted = {spec} if isinstance(spec, str) else set(spec)
+    if cat_name is None:
+        return [name in wanted for name in chart.value]
+    return [str(label) in wanted for label in labels]
+
+
 def _build_dataset(report, chart, rows):
     from ajsystem.core.pdf import _agg_apply
 
     cat_name = next(iter(chart.cat), None)
-    cat_cfg = chart.cat.get(cat_name) if cat_name else ChartField()
+    field_labels = _field_labels(report, list(chart.value))
 
-    if cat_name is None and rows:
-        # Sem `cat` declarado: primeira coluna que não é série.
-        for key in _row_keys(rows[0]):
-            if key not in chart.value:
-                cat_name = key
-                cat_cfg = ChartField()
-                break
     if cat_name is None:
-        raise ValueError(
-            "chart: 'cat' não declarado e não foi possível inferir da fonte")
-
-    groups = {}
-    order = []
-    for row in rows:
-        key = _bucket(_row_get(row, cat_name), cat_cfg.bucket)
-        if key not in groups:
-            groups[key] = []
-            order.append(key)
-        groups[key].append(row)
-
-    labels = list(order)
-    series = []
-    for field_name, cfg in chart.value.items():
-        data = [
-            _agg_apply(cfg.agg, [_row_get(r, field_name) for r in groups[k]])
-            for k in labels
-        ]
-        series.append({
-            'name': field_name,
-            'data': data,
+        # Sem `cat`: os rótulos são os campos declarados em `value` e cada um
+        # entra como uma categoria, com o próprio valor agregado. É o formato
+        # de "comparar totais" (ex.: pizza com uma fatia por campo de `value`).
+        labels = [field_labels[name] for name in chart.value]
+        series = [{
+            'name': chart.label.value or chart.title or '',
+            'data': [
+                _agg_apply(cfg.agg, [_row_get(r, name) for r in rows])
+                for name, cfg in chart.value.items()
+            ],
             'type': None,
-            'axis': cfg.axis,
-            'color': cfg.color,
-            'stack': _stack_of(chart, field_name),
-            'format': cfg.format,
-        })
+            'axis': 'y',
+            'color': None,
+            'colors': [cfg.color for cfg in chart.value.values()],
+            'stack': None,
+            'format': None,
+        }]
+        limit = None
+    else:
+        cat_cfg = chart.cat.get(cat_name) or ChartField()
+        groups = {}
+        order = []
+        for row in rows:
+            key = _bucket(_row_get(row, cat_name), cat_cfg.bucket)
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(row)
 
-    # Ordenação pela primeira série (top N costuma olhar o valor).
-    if cat_cfg.order in ('asc', 'desc') and series:
-        base = series[0]['data']
-        idx = sorted(range(len(labels)), key=lambda i: _sort_key(base[i]),
-                     reverse=(cat_cfg.order == 'desc'))
-        labels = [labels[i] for i in idx]
-        for s in series:
-            s['data'] = [s['data'][i] for i in idx]
+        labels = list(order)
+        series = []
+        for field_name, cfg in chart.value.items():
+            data = [
+                _agg_apply(cfg.agg,
+                           [_row_get(r, field_name) for r in groups[k]])
+                for k in labels
+            ]
+            series.append({
+                'name': field_labels[field_name],
+                'data': data,
+                'type': None,
+                'axis': cfg.axis,
+                'color': cfg.color,
+                'stack': _stack_of(chart, field_name),
+                'format': cfg.format,
+            })
 
-    limit = cat_cfg.limit or chart.limit
-    if limit:
-        labels = labels[:limit]
-        for s in series:
-            s['data'] = s['data'][:limit]
+        # Ordenação pela primeira série (top N costuma olhar o valor).
+        if cat_cfg.order in ('asc', 'desc') and series:
+            base = series[0]['data']
+            idx = sorted(range(len(labels)),
+                         key=lambda i: _sort_key(base[i]),
+                         reverse=(cat_cfg.order == 'desc'))
+            labels = [labels[i] for i in idx]
+            for s in series:
+                s['data'] = [s['data'][i] for i in idx]
+
+        limit = cat_cfg.limit or chart.limit
+        if limit:
+            labels = labels[:limit]
+            for s in series:
+                s['data'] = s['data'][:limit]
+
+    # Destaca fatias só no desenho: flags já reordenadas/cortadas.
+    flags = _explode_flags(chart, cat_name, labels)
+    if flags and series:
+        series[0]['explode'] = flags
 
     meta = {
         'title': chart.title or (_get(report, 'label', '') or ''),

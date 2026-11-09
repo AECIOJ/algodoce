@@ -524,16 +524,20 @@ O gráfico é declarado no próprio report e impresso como **PNG dentro do PDF**
 |------|------|---------|----------------------|---------|
 | `title` | `str` | `None` | título acima do plot; se omitido, o gráfico sai sem título (o título do report já está no cabeçalho) | `{'title': 'Saldo por Cliente'}` |
 | `type` | `str` | `'col'` | `col` (colunas verticais), `bar` (barras horizontais), `pie`, `donut`; `line`, `area` e `scatter` são aceitos e, no PDF atual, caem no renderizador de colunas | `{'type': 'bar'}` |
-| `cat` | `dict` | `{}` | **um** campo de categoria `{campo: ChartField}`; é o eixo de agrupamento | `{'cat': {'cliente': {'order': 'desc', 'limit': 10}}}` |
+| `cat` | `dict` | `{}` | **um** campo de categoria `{campo: ChartField}`; é o eixo de agrupamento. Omitido, cada campo de `value` vira uma categoria | `{'cat': {'cliente': {'order': 'desc', 'limit': 10}}}` |
 | `value` | `dict` | `{}` | uma ou mais séries `{campo: ChartField}` | `{'value': {'saldo': {'color': '#dc3545'}}}` |
 | `stack` | `dict` | `{}` | `{grupo: [campos]}` — campos do mesmo grupo são empilhados; fora de `stack`, ficam lado a lado | `{'stack': {'total': ['previsto', 'realizado']}}` |
 | `label` | `dict` | `{}` | rótulos de eixo/dados (ver `ChartLabel`) | `{'label': {'cat': 'Cliente', 'value': 'Saldo (R$)'}}` |
-| `options` | `dict` | `{}` | opções de renderização; no PDF só `legend` é usado (fallback de `chart.legend`) | `{'options': {'legend': 'right'}}` |
-| `legend` | `str` | `'bottom'` | `top`, `bottom`, `left`, `right`, `none` | `{'legend': 'bottom'}` |
+| `options` | `dict` | `{}` | opções de renderização; `legend` (posição/`False` desliga), `shadow` (`True` padrão), `explode` (fatia destacada em `pie`/`donut`) | `{'options': {'legend': False, 'shadow': True, 'explode': 'saldo'}}` |
 | `limit` | `int` | `None` | top N após a ordenação (também aceito em `cat.<campo>.limit`) | `{'limit': 10}` |
-| `syn` | `dict` | `None` | layout alternativo do modo sintético (mesmas props de raiz) | `{'syn': {'type': 'pie', ...}}` |
+| `syn` | `dict` | `None` | layout alternativo do modo sintético (mesmas props de raiz; seu `options` é independente da raiz) | `{'syn': {'type': 'pie', ...}}` |
 
-`cat` aceita só o **primeiro** campo declarado. `type`, `cat`, `value`, `stack`, `label` e `legend` são da raiz — não existe `chart.options.stacked` (use `stack`).
+`cat` aceita só o **primeiro** campo declarado. `type`, `cat`, `value`, `stack`, `label` e `title` são da raiz — não existe `chart.options.stacked` (use `stack`). `legend`, `shadow` e `explode` vivem só em `options`; `legend` na raiz ainda é aceito como fallback depreciado.
+
+- `shadow: bool` (`True` padrão): desenha uma cópia deslocada em cinza claro (`#d1d5db`, offset `3,3`) atrás de cada fatia (`pie`/`donut`) ou barra (`col`/`bar`), dando sensação de relevo. Declara apenas para desligar: `{'options': {'shadow': False}}`.
+- `explode: str | list[str]`: destaca a fatia(ões) nomeada(s) deslizando-a para fora do centro da pizza (`radius * 0.12`). Sombra e rótulos acompanham o deslocamento. Ignorado em `col`/`bar` e em nome inexistente.
+
+Sem `cat`, os rótulos das categorias são os próprios campos de `value`: cada campo entra como uma categoria com o seu valor agregado (formato de "comparar totais", ex.: pizza com uma fatia por campo). O rótulo exibido vem do `label` do campo na Entity (fallback `_auto_label`) e é o mesmo usado na legenda.
 
 #### `ChartField` — props de um campo de `cat`/`value`
 
@@ -552,18 +556,19 @@ O gráfico é declarado no próprio report e impresso como **PNG dentro do PDF**
 
 | Prop | Tipo | Default | Declarações possíveis | Exemplo |
 |------|------|---------|----------------------|---------|
-| `cat` | `str` | `None` | rótulo do eixo de categoria | `{'cat': 'Cliente'}` |
+| `cat` | `bool\|str\|None` | `False` | `True` imprime a categoria na fatia (`pie`/`donut`); `str` é o rótulo do eixo de categoria (`col`/`bar`) | `{'cat': True}` |
 | `value` | `str` | `None` | rótulo do eixo de valor | `{'value': 'Saldo (R$)'}` |
 | `val` | `bool` | `True` | mostra o valor absoluto (sobre a barra/fatia) | `{'val': True}` |
 | `perc` | `bool` | `True` | mostra a porcentagem (sobre a barra/fatia) | `{'perc': True}` |
 | `pos` | `str` | `'O'` | posição do rótulo de dados: `O`=fora da fatia (com conector até a borda), `I`=dentro da fatia, centralizado | `{'pos': 'O'}` |
 | `limit` | `bool\|str` | `None` | `True` → `"Top N"`; `str` → texto livre; `None` → sem texto | `{'limit': '10 maiores clientes'}` |
 
-**Rótulo de dados** (`val`/`perc`/`pos`):
+**Rótulo de dados** (`cat`/`val`/`perc`/`pos`):
+- `cat=True` (só `pie`/`donut`) imprime o nome da categoria no topo do bloco de texto da fatia; `pos` (`O` fora, `I` dentro) se aplica ao bloco todo;
 - `val` e `perc` saem **empilhados** (valor embaixo, porcentagem acima);
 - `pos='O'` desenha o rótulo **fora** da fatia, com um conector cinza até a borda (texto escuro sobre fundo branco);
 - `pos='I'` desenha o rótulo **dentro** da fatia, centralizado, com texto na cor de contraste da própria fatia;
-- nas barras (`col`/`bar`), `val` escreve o valor sobre a barra.
+- nas barras (`col`/`bar`), `val` escreve o valor sobre a barra e `cat` só vale se for `str` (título do eixo).
 
 > `data` saiu: use `val` (valor) e/ou `perc` (porcentagem).
 
@@ -583,7 +588,7 @@ O gráfico é declarado no próprio report e impresso como **PNG dentro do PDF**
     },
     'stack': {'total': ['previsto', 'realizado', 'saldo']},
     'label': {'cat': 'Cliente', 'value': 'Saldo (R$)', 'val': True},
-    'legend': 'bottom',
+    'options': {'legend': 'bottom'},
 }
 ```
 

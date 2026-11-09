@@ -21,6 +21,23 @@ _LEGEND_POS = ('top', 'bottom', 'left', 'right', 'none')
 _LABEL_POS = ('O', 'I')
 
 
+def _normalize_legend(value, label='chart.legend'):
+    """Normaliza a legenda: `False` desliga; `'none'` segue como alias."""
+    if value is None:
+        return 'bottom'
+    if value is False:
+        return 'none'
+    if value is True:
+        raise ValueError(
+            f"{label}: use False para desligar ou uma posição "
+            f"({', '.join(_LEGEND_POS)})")
+    if value not in _LEGEND_POS:
+        raise ValueError(
+            f"{label} {value!r} inválido — use False ou "
+            f"{', '.join(_LEGEND_POS)}")
+    return value
+
+
 def _is_variant_key(key):
     return isinstance(key, int) or (isinstance(key, str) and key.isdigit())
 
@@ -63,7 +80,7 @@ class ChartField:
 @dataclass
 class ChartLabel:
     """Rótulos de eixo e dados do gráfico."""
-    cat: Optional[str] = None       # rótulo do eixo X
+    cat: bool | str | None = False  # True=categoria na fatia; str=título do eixo
     value: Optional[str] = None     # rótulo do eixo Y (resolvido pelo motor se omitido)
     val: bool = True                # mostrar valor absoluto (antes: data)
     perc: bool = True               # mostrar porcentagem
@@ -71,6 +88,10 @@ class ChartLabel:
     limit: bool | str | None = None # texto explicativo do limite (True = automático)
 
     def __post_init__(self):
+        if not (self.cat is None or isinstance(self.cat, (bool, str))):
+            raise ValueError(
+                "chart.label.cat deve ser bool (categoria na fatia) ou str "
+                "(título do eixo)")
         if self.pos not in _LABEL_POS:
             raise ValueError(
                 f"chart.label.pos {self.pos!r} inválido — use "
@@ -81,7 +102,9 @@ class ChartLabel:
 class ChartOptions:
     """Opções gerais de renderização (não pertencem aos dados)."""
     horizontal: bool = False
-    legend: str = 'bottom'          # top|bottom|left|right|none
+    legend: bool | str = 'bottom'   # False desliga; top|bottom|left|right
+    shadow: bool = True             # relevo no desenho (pizza/barras)
+    explode: str | list[str] | None = None  # fatia(s) destacada(s) em pie/donut
     tooltip: bool = True
     grid: bool = True
     palette: Optional[str] = None
@@ -89,10 +112,19 @@ class ChartOptions:
     responsive: bool = True
 
     def __post_init__(self):
-        if self.legend not in _LEGEND_POS:
+        self.legend = _normalize_legend(self.legend, 'chart.options.legend')
+        if not isinstance(self.shadow, bool):
+            raise ValueError("chart.options.shadow deve ser bool")
+        if isinstance(self.explode, str):
+            pass
+        elif isinstance(self.explode, (list, tuple)):
+            if not all(isinstance(v, str) for v in self.explode):
+                raise ValueError(
+                    "chart.options.explode: lista deve conter apenas str")
+            self.explode = list(self.explode)
+        elif self.explode is not None:
             raise ValueError(
-                f"chart.options.legend {self.legend!r} inválido — use "
-                f"{', '.join(_LEGEND_POS)}")
+                "chart.options.explode deve ser str, lista de str ou None")
 
 
 @dataclass
@@ -109,17 +141,14 @@ class Chart:
     label: ChartLabel = field(default_factory=ChartLabel)
     options: ChartOptions = field(default_factory=ChartOptions)
     limit: Optional[int] = None  # top N (após ordenação)
-    legend: str = 'bottom'       # top|bottom|left|right|none
+    legend: str = 'bottom'       # resolvido (interno): top|bottom|left|right|none
 
     def __post_init__(self):
         if self.type not in _CHART_TYPES:
             raise ValueError(
                 f"chart: type {self.type!r} inválido — use "
                 f"{', '.join(_CHART_TYPES)}")
-        if self.legend not in _LEGEND_POS:
-            raise ValueError(
-                f"chart.legend {self.legend!r} inválido — use "
-                f"{', '.join(_LEGEND_POS)}")
+        self.legend = _normalize_legend(self.legend, 'chart.legend')
         seen = {}
         for group, fields in (self.stack or {}).items():
             if not isinstance(fields, (list, tuple)):
@@ -298,6 +327,10 @@ def parse_chart(spec):
             raise TypeError(f"chart.options: prop inválida — {e}") from e
     elif not isinstance(options, ChartOptions):
         raise TypeError("chart.options deve ser dict ou ChartOptions")
+    # `legend` na raiz é fallback depreciado; a fonte principal é `options`.
+    legend = spec.get('legend')
+    if legend is None:
+        legend = options.legend
     chart = Chart(
         title=spec.get('title'),
         type=spec.get('type') or 'col',
@@ -307,6 +340,6 @@ def parse_chart(spec):
         label=_parse_label(spec.get('label')),
         options=options,
         limit=spec.get('limit'),
-        legend=spec.get('legend') or options.legend,
+        legend=legend,
     )
     return chart

@@ -6,6 +6,7 @@ Fontes: as DejaVu ficam embutidas em `ajsystem/static/fonts/` para não
 depender das fontes do sistema (a imagem `python:*-slim` não traz nenhuma;
 sem elas o Pillow cai no bitmap de 11px e todo texto sai minúsculo).
 """
+import math
 import os
 from io import BytesIO
 
@@ -17,6 +18,10 @@ _PALETTE = (
     '#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1',
     '#0dcaf0', '#fd7e14', '#20c997', '#d63384', '#6c757d',
 )
+
+# Relevo: cópia deslocada em cinza claro atrás do desenho (sem alpha).
+_SHADOW_OFFSET = (3, 3)
+_SHADOW_COLOR = '#d1d5db'
 
 _FONT_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -150,30 +155,85 @@ class MatplotlibRenderer:
         total = sum(v or 0 for v in data)
         if total <= 0:
             return
-        cx, cy = x0 + w // 2, y0 + h // 2
-        radius = max(10, min(w, h) // 2 - 10)
-        colors = [_PALETTE[i % len(_PALETTE)] for i in range(len(data))]
-        start = -90
-        for i, v in enumerate(data):
-            sweep = 360 * float(v or 0) / total
-            draw.pieslice([cx - radius, cy - radius,
-                           cx + radius, cy + radius],
-                          start, start + sweep, fill=colors[i],
-                          outline='white')
-            start += sweep
-        # Rótulo de valor/porcentagem por fatia
+
+        # Rótulo da fatia: categoria (label.cat=True), valor e porcentagem
+        show_cat = lbl.get('cat') is True
         show_val = lbl.get('val', True)
         show_perc = lbl.get('perc', True)
         pos = lbl.get('pos', 'O')  # O=fora da fatia, I=dentro (centralizado)
+        outside = (pos == 'O')
+        has_text = show_cat or show_val or show_perc
+        n_lines = (int(bool(show_cat)) + int(bool(show_val))
+                   + int(bool(show_perc)))
 
-        if show_val or show_perc:
-            f = _font(12)
-            import math
+        line_h = 12
+        f = _font(12)
+        font_h = _text_size(draw, '0', f)[1] if has_text else 12
+        half_h = ((n_lines - 1) * line_h + font_h) / 2 if n_lines else 0
+
+        # Respiro entre a pizza e os rótulos externos: encolhe a pizza para
+        # a faixa do texto. A metade de baixo (`half_h`) cai na margem
+        # inferior e é compensada no gap da legenda.
+        label_gap = 22 if (outside and has_text) else 0
+        label_band = (label_gap + half_h) if label_gap else 10
+
+        cx, cy = x0 + w // 2, y0 + h // 2
+        radius = max(10, min(w, h) // 2 - label_band)
+        radius_label = radius * 0.58
+
+        fixed = list(series.get('colors') or [])
+        colors = [fixed[i] if i < len(fixed) and fixed[i]
+                  else _PALETTE[i % len(_PALETTE)] for i in range(len(data))]
+        explode = list(series.get('explode') or [])
+        explode_r = radius * 0.12
+
+        # Sombra por fatia, desenhada primeiro: cada fatia projeta sua
+        # própria sombra deslocada, o que dá a sensação de relevo.
+        # Fatia explodida leva a sombra junto no deslocamento.
+        if getattr(chart.options, 'shadow', True):
+            start = -90
+            for i, v in enumerate(data):
+                sweep = 360 * float(v or 0) / total
+                if not v:
+                    start += sweep
+                    continue
+                mid = start + sweep / 2
+                ox = oy = 0
+                if i < len(explode) and explode[i]:
+                    ox = explode_r * math.cos(math.radians(mid))
+                    oy = explode_r * math.sin(math.radians(mid))
+                dx, dy = _SHADOW_OFFSET
+                draw.pieslice([cx - radius + ox + dx, cy - radius + oy + dy,
+                               cx + radius + ox + dx, cy + radius + oy + dy],
+                              start, start + sweep, fill=_SHADOW_COLOR)
+                start += sweep
+
+        start = -90
+        for i, v in enumerate(data):
+            sweep = 360 * float(v or 0) / total
+            mid = start + sweep / 2
+            ox = oy = 0
+            if i < len(explode) and explode[i] and v:
+                ox = explode_r * math.cos(math.radians(mid))
+                oy = explode_r * math.sin(math.radians(mid))
+
+            # Limpa a área interna da separação da fatia destacada antes
+            # de desenhar a fatia real no novo lugar.
+            if i < len(explode) and explode[i] and v:
+                draw.pieslice([cx - radius, cy - radius,
+                               cx + radius, cy + radius],
+                              start, start + sweep, fill='white',
+                              outline='white')
+
+            draw.pieslice([cx - radius + ox, cy - radius + oy,
+                           cx + radius + ox, cy + radius + oy],
+                          start, start + sweep, fill=colors[i],
+                          outline='white')
+            start += sweep
+        if has_text:
             # 'O' = fora da fatia (fundo branco → texto escuro + conector);
             # 'I' = dentro da fatia, centralizado (texto na cor de contraste
             # da própria fatia).
-            outside = (pos == 'O')
-            radius_label = radius * 1.12 if outside else radius * 0.58
             start = -90
             for i, v in enumerate(data):
                 sweep = 360 * float(v or 0) / total
@@ -183,42 +243,74 @@ class MatplotlibRenderer:
                 mid = start + sweep / 2
                 cos_m = math.cos(math.radians(mid))
                 sin_m = math.sin(math.radians(mid))
-                lx = cx + radius_label * cos_m
-                ly = cy + radius_label * sin_m
+                ox = oy = 0
+                if i < len(explode) and explode[i]:
+                    ox = explode_r * math.cos(math.radians(mid))
+                    oy = explode_r * math.sin(math.radians(mid))
+                scx, scy = cx + ox, cy + oy
+
+                # Bloco empilhado: categoria (topo), valor (meio) e
+                # porcentagem (base). Só entra o que está ativo.
+                lines = []
+                if show_cat:
+                    name = labels[i] if i < len(labels) else f'Cat {i + 1}'
+                    lines.append(str(name)[:16])
+                if show_val:
+                    lines.append(f"{v:,.0f}")
+                if show_perc:
+                    lines.append(f"{100*v/total:,.1f}%")
+
                 if outside:
+                    # Empurra o centro do bloco para fora da fatia somando
+                    # a meia-largura/meia-altura do texto projetada no
+                    # sentido radial. Sem isso, rótulos laterais invadem a
+                    # pizza (texto é mais largo que alto).
+                    half_w = max(_text_size(draw, t, f)[0]
+                                 for t in lines) / 2
+                    push = (label_gap + half_w * abs(cos_m)
+                            + half_h * abs(sin_m))
+                    lx = scx + (radius + push) * cos_m
+                    ly = scy + (radius + push) * sin_m
                     # Conector: da borda da fatia até um pouco ANTES do
                     # rótulo (para a linha não cruzar o texto).
-                    lx_edge = cx + radius * 0.98 * cos_m
-                    ly_edge = cy + radius * 0.98 * sin_m
-                    lx_line = cx + radius * 1.02 * cos_m
-                    ly_line = cy + radius * 1.02 * sin_m
+                    lx_edge = scx + radius * 0.98 * cos_m
+                    ly_edge = scy + radius * 0.98 * sin_m
+                    line_end = radius + max(label_gap - 8, 4)
+                    lx_line = scx + line_end * cos_m
+                    ly_line = scy + line_end * sin_m
                     draw.line((lx_edge, ly_edge, lx_line, ly_line),
                               fill='#9ca3af', width=1)
                     # Fora da fatia o fundo é branco: texto sempre escuro
                     fill = '#111827'
                 else:
+                    lx = scx + radius_label * cos_m
+                    ly = scy + radius_label * sin_m
                     # Dentro da fatia: contraste com a cor da própria fatia
                     fill = _contrast(colors[i])
-                # Valor e porcentagem empilhados (um sobre o outro).
-                # O bloco desce 6px: o valor fica abaixo da linha, que
-                # termina logo acima dele.
-                if show_val:
-                    draw.text((lx, ly + 6), f"{v:,.0f}", fill=fill, font=f,
+
+                top = ly - (len(lines) - 1) * line_h / 2
+                for j, text in enumerate(lines):
+                    draw.text((lx, top + j * line_h), text, fill=fill, font=f,
                               anchor='mm')
-                if show_perc:
-                    draw.text((lx, ly - 6), f"{100*v/total:,.1f}%",
-                              fill=fill, font=f, anchor='mm')
                 start += sweep
         # Legenda: uma entrada por fatia, centralizada abaixo do gráfico
         items = []
         for i, _v in enumerate(data):
             name = labels[i] if i < len(labels) else f'Cat {i + 1}'
             items.append({'name': name, 'color': colors[i]})
+        # Rótulos externos invadem a margem inferior; a legenda desce o
+        # mesmo tanto para preservar o respiro entre texto e legenda.
+        legend_gap = 28 + (half_h if (outside and has_text) else 0)
         self._draw_legend(draw, plot, items,
                           chart.legend,
-                          bottom_gap=16)
+                          bottom_gap=legend_gap)
         if limit_info.get('text'):
-            draw.text((x0, y0 + h + 44), limit_info['text'],
+            # Abaixo da legenda quando ela existe; senão, sob os rótulos.
+            if chart.legend != 'none':
+                below = legend_gap + 28
+            else:
+                below = (half_h + 8) if (outside and has_text) else 8
+            draw.text((x0, y0 + h + below), limit_info['text'],
                       fill='#6b7280', font=_font(11))
 
     # ------------------------------------------------- barras verticais ('col')
@@ -257,30 +349,45 @@ class MatplotlibRenderer:
         stacked = any(s.get('stack') for s in series)
         bottoms = [0] * n if stacked else None
 
+        # Coleta as barras para desenhar todas as sombras antes: a sombra
+        # de um segmento não pode cair por cima do segmento vizinho.
+        rects = []
         for si, s in enumerate(series):
             data = list(s.get('data') or [])
-            color = _hex(s.get('color'), _PALETTE[si % len(_PALETTE)])
+            base_color = _hex(s.get('color'), _PALETTE[si % len(_PALETTE)])
+            point_colors = list(s.get('colors') or [])
             for i, val in enumerate(data):
                 if val is None or val == 0:
                     continue
+                color = _hex(point_colors[i] if i < len(point_colors) else None,
+                             base_color)
                 cx = x0 + (i + 0.5) * step
                 top = y_px(val or 0)
                 base = y_px(0)
                 if stacked:
                     base = y_px(bottoms[i] or 0)
-                    draw.rectangle([cx - bar_w / 2, min(top, base),
-                                    cx + bar_w / 2, max(top, base)],
-                                   fill=color)
+                    rect = [cx - bar_w / 2, min(top, base),
+                            cx + bar_w / 2, max(top, base)]
                     bottoms[i] = (bottoms[i] or 0) + (val or 0)
                 else:
                     off = (si - len(series) / 2) * bar_w + bar_w / 2
-                    draw.rectangle([cx + off - bar_w / 2, min(top, base),
-                                    cx + off + bar_w / 2, max(top, base)],
-                                   fill=color)
-                # Rótulo de valor sobre barra (opcional)
-                if lbl.get('val', True):
-                    draw.text((cx, min(top, base) - 4), f"{val:,.0f}",
-                              fill='#111827', font=_font(10), anchor='mb')
+                    rect = [cx + off - bar_w / 2, min(top, base),
+                            cx + off + bar_w / 2, max(top, base)]
+                rects.append((rect, color, cx, min(top, base), val))
+
+        if getattr(chart.options, 'shadow', True):
+            dx, dy = _SHADOW_OFFSET
+            for rect, *_rest in rects:
+                draw.rectangle([rect[0] + dx, rect[1] + dy,
+                                rect[2] + dx, rect[3] + dy],
+                               fill=_SHADOW_COLOR)
+
+        for rect, color, lx, top_y, val in rects:
+            draw.rectangle(rect, fill=color)
+            # Rótulo de valor sobre barra (opcional)
+            if lbl.get('val', True):
+                draw.text((lx, top_y - 4), f"{val:,.0f}",
+                          fill='#111827', font=_font(10), anchor='mb')
 
         # Rótulos do eixo X
         fx = _font(10)
@@ -288,7 +395,7 @@ class MatplotlibRenderer:
             cx = x0 + (i + 0.5) * step
             draw.text((cx, y0 + h + 6), str(name)[:16], fill='#111827',
                       font=fx, anchor='ma')
-        if lbl.get('cat'):
+        if isinstance(lbl.get('cat'), str):
             draw.text((x0 + w, y0 + h + 26), lbl['cat'], fill='#111827',
                       font=_font(13), anchor='ra')
 
@@ -336,30 +443,44 @@ class MatplotlibRenderer:
         stacked = any(s.get('stack') for s in series)
         bottoms = [0] * n if stacked else None
 
+        # Coleta as barras para desenhar todas as sombras antes (idem 'col').
+        rects = []
         for si, s in enumerate(series):
             data = list(s.get('data') or [])
-            color = _hex(s.get('color'), _PALETTE[si % len(_PALETTE)])
+            base_color = _hex(s.get('color'), _PALETTE[si % len(_PALETTE)])
+            point_colors = list(s.get('colors') or [])
             for i, val in enumerate(data):
                 if val is None or val == 0:
                     continue
+                color = _hex(point_colors[i] if i < len(point_colors) else None,
+                             base_color)
                 cy = y0 + (i + 0.5) * step
                 right = x_px(val or 0)
                 left = x0
                 if stacked:
                     left = x_px(bottoms[i] or 0)
-                    draw.rectangle([min(left, right), cy - bar_w / 2,
-                                    max(left, right), cy + bar_w / 2],
-                                   fill=color)
+                    rect = [min(left, right), cy - bar_w / 2,
+                            max(left, right), cy + bar_w / 2]
                     bottoms[i] = (bottoms[i] or 0) + (val or 0)
                 else:
                     off = (si - len(series) / 2) * bar_w + bar_w / 2
-                    draw.rectangle([min(left, right), cy + off - bar_w / 2,
-                                    max(left, right), cy + off + bar_w / 2],
-                                   fill=color)
-                # Rótulo de valor sobre barra horizontal (opcional)
-                if lbl.get('val', True):
-                    draw.text((right + 4, cy), f"{val:,.0f}",
-                              fill='#111827', font=_font(10), anchor='lm')
+                    rect = [min(left, right), cy + off - bar_w / 2,
+                            max(left, right), cy + off + bar_w / 2]
+                rects.append((rect, color, right, cy, val))
+
+        if getattr(chart.options, 'shadow', True):
+            dx, dy = _SHADOW_OFFSET
+            for rect, *_rest in rects:
+                draw.rectangle([rect[0] + dx, rect[1] + dy,
+                                rect[2] + dx, rect[3] + dy],
+                               fill=_SHADOW_COLOR)
+
+        for rect, color, right, cy, val in rects:
+            draw.rectangle(rect, fill=color)
+            # Rótulo de valor sobre barra horizontal (opcional)
+            if lbl.get('val', True):
+                draw.text((right + 4, cy), f"{val:,.0f}",
+                          fill='#111827', font=_font(10), anchor='lm')
 
         # Rótulos do eixo Y
         fy = _font(10)
@@ -367,7 +488,7 @@ class MatplotlibRenderer:
             cy = y0 + (i + 0.5) * step
             draw.text((x0 - 6, cy), str(name)[:16], fill='#111827', font=fy,
                       anchor='rm')
-        if lbl.get('cat'):
+        if isinstance(lbl.get('cat'), str):
             draw.text((x0 - 6, y0 - 12), lbl['cat'], fill='#111827',
                       font=_font(13), anchor='rs')
 
