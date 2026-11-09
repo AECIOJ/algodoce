@@ -26,8 +26,11 @@ _SHADOW_COLOR = '#d1d5db'
 def _shadow_offset(chart) -> tuple[int, int] | None:
     """Resolve o deslocamento da sombra (dx, dy) em px.
 
+    Convenção de plano cartesiano: dx positivo vai para a direita,
+    dy positivo vai para cima; negativos invertem. Internamente o eixo y
+    do Pillow cresce para baixo, então o sinal de dy é invertido ao desenhar.
+
     True -> (3, 3); tupla (dx, dy) customizada; False/None -> sem sombra.
-    Aceita valores positivos e negativos.
     """
     shadow = getattr(chart.options, 'shadow', True)
     if shadow is False or shadow is None:
@@ -215,7 +218,7 @@ class MatplotlibRenderer:
                 if i < len(explode) and explode[i]:
                     ox = explode_r * math.cos(math.radians(mid))
                     oy = explode_r * math.sin(math.radians(mid))
-                dx, dy = shadow_off
+                dx, dy = shadow_off[0], -shadow_off[1]
                 draw.pieslice([cx - radius + ox + dx, cy - radius + oy + dy,
                                cx + radius + ox + dx, cy + radius + oy + dy],
                               start, start + sweep, fill=_SHADOW_COLOR)
@@ -389,7 +392,7 @@ class MatplotlibRenderer:
                 rects.append((rect, color, cx, min(top, base), val))
 
         if shadow_off := _shadow_offset(chart):
-            dx, dy = shadow_off
+            dx, dy = shadow_off[0], -shadow_off[1]
             for rect, *_rest in rects:
                 draw.rectangle([rect[0] + dx, rect[1] + dy,
                                 rect[2] + dx, rect[3] + dy],
@@ -482,7 +485,7 @@ class MatplotlibRenderer:
                 rects.append((rect, color, right, cy, val))
 
         if shadow_off := _shadow_offset(chart):
-            dx, dy = shadow_off
+            dx, dy = shadow_off[0], -shadow_off[1]
             for rect, *_rest in rects:
                 draw.rectangle([rect[0] + dx, rect[1] + dy,
                                 rect[2] + dx, rect[3] + dy],

@@ -528,13 +528,13 @@ O gráfico é declarado no próprio report e impresso como **PNG dentro do PDF**
 | `value` | `dict` | `{}` | uma ou mais séries `{campo: ChartField}` | `{'value': {'saldo': {'color': '#dc3545'}}}` |
 | `stack` | `dict` | `{}` | `{grupo: [campos]}` — campos do mesmo grupo são empilhados; fora de `stack`, ficam lado a lado | `{'stack': {'total': ['previsto', 'realizado']}}` |
 | `label` | `dict` | `{}` | rótulos de eixo/dados (ver `ChartLabel`) | `{'label': {'cat': 'Cliente', 'value': 'Saldo (R$)'}}` |
-| `options` | `dict` | `{}` | opções de renderização; `legend` (posição/`False` desliga), `shadow` (`True`→`(3,3)` ou tupla `(dx,dy)`), `explode` (fatia destacada em `pie`/`donut`) | `{'options': {'legend': False, 'shadow': (5, 5), 'explode': 'saldo'}}` |
+| `options` | `dict` | `{}` | opções de renderização; `legend` (posição/`False` desliga), `shadow` (`True`→`(3,3)` ou tupla `(dx,dy)` cartesiana), `explode` (fatia destacada em `pie`/`donut`) | `{'options': {'legend': False, 'shadow': (5, -5), 'explode': 'saldo'}}` |
 | `limit` | `int` | `None` | top N após a ordenação (também aceito em `cat.<campo>.limit`) | `{'limit': 10}` |
 | `syn` | `dict` | `None` | layout alternativo do modo sintético (mesmas props de raiz; seu `options` é independente da raiz) | `{'syn': {'type': 'pie', ...}}` |
 
 `cat` aceita só o **primeiro** campo declarado. `type`, `cat`, `value`, `stack`, `label` e `title` são da raiz — não existe `chart.options.stacked` (use `stack`). `legend`, `shadow` e `explode` vivem só em `options`; `legend` na raiz ainda é aceito como fallback depreciado.
 
-- `shadow: bool | tuple[int, int]` (`True` padrão → offset `3,3`): desenha uma cópia deslocada em cinza claro (`#d1d5db`) atrás de cada fatia (`pie`/`donut`) ou barra (`col`/`bar`), dando sensação de relevo. `True` usa `(3, 3)`; uma tupla `(dx, dy)` define o deslocamento customizado em pixels (positivo para baixo/direita, negativo para cima/esquerda). Declara apenas para desligar: `{'options': {'shadow': False}}`.
+- `shadow: bool | tuple[int, int]` (`True` padrão → offset `3,3`): desenha uma cópia deslocada em cinza claro (`#d1d5db`) atrás de cada fatia (`pie`/`donut`) ou barra (`col`/`bar`), dando sensação de relevo. `True` usa `(3, 3)`; uma tupla `(dx, dy)` segue o plano cartesiano: `dx` positivo à direita, `dy` positivo para cima; negativos invertem. Declara apenas para desligar: `{'options': {'shadow': False}}`.
 - `explode: str | list[str]`: destaca a fatia(ões) nomeada(s) deslizando-a para fora do centro da pizza (`radius * 0.12`). Sombra e rótulos acompanham o deslocamento. Ignorado em `col`/`bar` e em nome inexistente.
 
 Sem `cat`, os rótulos das categorias são os próprios campos de `value`: cada campo entra como uma categoria com o seu valor agregado (formato de "comparar totais", ex.: pizza com uma fatia por campo). O rótulo exibido vem do `label` do campo na Entity (fallback `_auto_label`) e é o mesmo usado na legenda.
