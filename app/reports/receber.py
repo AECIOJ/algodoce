@@ -92,7 +92,11 @@ RECEBER = {
                     'perc': True,
                     'pos': 'O',
                 },
-                'options': {'legend': False, 'explode': 'saldo'},
+                'options': {
+                    'legend': False,
+                    'shadow': (5,3), 
+                    # 'explode': 'saldo'
+                },
             },
         },
     },

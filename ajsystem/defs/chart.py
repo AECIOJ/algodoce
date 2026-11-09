@@ -103,7 +103,7 @@ class ChartOptions:
     """Opções gerais de renderização (não pertencem aos dados)."""
     horizontal: bool = False
     legend: bool | str = 'bottom'   # False desliga; top|bottom|left|right
-    shadow: bool = True             # relevo no desenho (pizza/barras)
+    shadow: bool | tuple[int, int] = True   # True=(3,3); tupla (dx,dy) em px (positivo ou negativo)
     explode: str | list[str] | None = None  # fatia(s) destacada(s) em pie/donut
     tooltip: bool = True
     grid: bool = True
@@ -113,8 +113,16 @@ class ChartOptions:
 
     def __post_init__(self):
         self.legend = _normalize_legend(self.legend, 'chart.options.legend')
-        if not isinstance(self.shadow, bool):
-            raise ValueError("chart.options.shadow deve ser bool")
+        if isinstance(self.shadow, bool):
+            pass
+        elif isinstance(self.shadow, (tuple, list)) and len(self.shadow) == 2:
+            if not all(isinstance(v, (int, float)) for v in self.shadow):
+                raise ValueError(
+                    "chart.options.shadow deve ser bool ou tupla de 2 números")
+            self.shadow = (int(self.shadow[0]), int(self.shadow[1]))
+        else:
+            raise ValueError(
+                "chart.options.shadow deve ser bool ou tupla de 2 números")
         if isinstance(self.explode, str):
             pass
         elif isinstance(self.explode, (list, tuple)):

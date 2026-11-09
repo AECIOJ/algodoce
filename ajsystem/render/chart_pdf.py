@@ -20,8 +20,21 @@ _PALETTE = (
 )
 
 # Relevo: cópia deslocada em cinza claro atrás do desenho (sem alpha).
-_SHADOW_OFFSET = (3, 3)
 _SHADOW_COLOR = '#d1d5db'
+
+
+def _shadow_offset(chart) -> tuple[int, int] | None:
+    """Resolve o deslocamento da sombra (dx, dy) em px.
+
+    True -> (3, 3); tupla (dx, dy) customizada; False/None -> sem sombra.
+    Aceita valores positivos e negativos.
+    """
+    shadow = getattr(chart.options, 'shadow', True)
+    if shadow is False or shadow is None:
+        return None
+    if shadow is True:
+        return (3, 3)
+    return shadow  # ja validado como tupla de 2 inteiros em ChartOptions
 
 _FONT_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -190,7 +203,7 @@ class MatplotlibRenderer:
         # Sombra por fatia, desenhada primeiro: cada fatia projeta sua
         # própria sombra deslocada, o que dá a sensação de relevo.
         # Fatia explodida leva a sombra junto no deslocamento.
-        if getattr(chart.options, 'shadow', True):
+        if shadow_off := _shadow_offset(chart):
             start = -90
             for i, v in enumerate(data):
                 sweep = 360 * float(v or 0) / total
@@ -202,7 +215,7 @@ class MatplotlibRenderer:
                 if i < len(explode) and explode[i]:
                     ox = explode_r * math.cos(math.radians(mid))
                     oy = explode_r * math.sin(math.radians(mid))
-                dx, dy = _SHADOW_OFFSET
+                dx, dy = shadow_off
                 draw.pieslice([cx - radius + ox + dx, cy - radius + oy + dy,
                                cx + radius + ox + dx, cy + radius + oy + dy],
                               start, start + sweep, fill=_SHADOW_COLOR)
@@ -375,8 +388,8 @@ class MatplotlibRenderer:
                             cx + off + bar_w / 2, max(top, base)]
                 rects.append((rect, color, cx, min(top, base), val))
 
-        if getattr(chart.options, 'shadow', True):
-            dx, dy = _SHADOW_OFFSET
+        if shadow_off := _shadow_offset(chart):
+            dx, dy = shadow_off
             for rect, *_rest in rects:
                 draw.rectangle([rect[0] + dx, rect[1] + dy,
                                 rect[2] + dx, rect[3] + dy],
@@ -468,8 +481,8 @@ class MatplotlibRenderer:
                             max(left, right), cy + off + bar_w / 2]
                 rects.append((rect, color, right, cy, val))
 
-        if getattr(chart.options, 'shadow', True):
-            dx, dy = _SHADOW_OFFSET
+        if shadow_off := _shadow_offset(chart):
+            dx, dy = shadow_off
             for rect, *_rest in rects:
                 draw.rectangle([rect[0] + dx, rect[1] + dy,
                                 rect[2] + dx, rect[3] + dy],
