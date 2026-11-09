@@ -490,6 +490,7 @@ class MatplotlibRenderer:
                 cy = y0 + (i + 0.5) * step
                 right = x_px(val or 0)
                 left = x0
+                off = 0
                 if stacked:
                     left = x_px(bottoms[i] or 0)
                     rect = [min(left, right), cy - bar_w / 2,
@@ -499,7 +500,7 @@ class MatplotlibRenderer:
                     off = (si - len(series) / 2) * bar_w + bar_w / 2
                     rect = [min(left, right), cy + off - bar_w / 2,
                             max(left, right), cy + off + bar_w / 2]
-                rects.append((rect, color, right, cy, val))
+                rects.append((rect, color, right, cy + off, val))
 
         if shadow_off := _shadow_offset(chart):
             dx, dy = shadow_off[0], -shadow_off[1]
