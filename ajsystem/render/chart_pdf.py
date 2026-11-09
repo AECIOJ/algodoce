@@ -361,9 +361,17 @@ class MatplotlibRenderer:
 
         n = len(labels)
         step = w / max(n, 1)
-        bar_w = max(8, min(42, step * 0.6))
         stacked = any(s.get('stack') for s in series)
         bottoms = [0] * n if stacked else None
+
+        if stacked:
+            bar_w = max(8, min(42, step * 0.6))
+        else:
+            # Largura total do grupo cabe em 80% do slot da categoria,
+            # dividindo igualmente entre as séries (sobra 20% de gap entre grupos).
+            n_series = len(series)
+            group_w = step * 0.8
+            bar_w = max(4, min(42, group_w / max(n_series, 1)))
 
         # Coleta as barras para desenhar todas as sombras antes: a sombra
         # de um segmento não pode cair por cima do segmento vizinho.
@@ -455,9 +463,17 @@ class MatplotlibRenderer:
 
         n = len(labels)
         step = h / max(n, 1)
-        bar_w = max(8, min(32, step * 0.6))
         stacked = any(s.get('stack') for s in series)
         bottoms = [0] * n if stacked else None
+
+        if stacked:
+            bar_w = max(8, min(32, step * 0.6))
+        else:
+            # Largura total do grupo cabe em 80% do slot da categoria,
+            # dividindo igualmente entre as séries (sobra 20% de gap entre grupos).
+            n_series = len(series)
+            group_w = step * 0.8
+            bar_w = max(4, min(32, group_w / max(n_series, 1)))
 
         # Coleta as barras para desenhar todas as sombras antes (idem 'col').
         rects = []
