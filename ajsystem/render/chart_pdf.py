@@ -499,7 +499,7 @@ class MatplotlibRenderer:
                     off = (si - len(series) / 2) * bar_w + bar_w / 2
                     rect = [min(left, right), cy + off - bar_w / 2,
                             max(left, right), cy + off + bar_w / 2]
-                rects.append((rect, color, (left + right) / 2, cy, val))
+                rects.append((rect, color, right, cy, val))
 
         if shadow_off := _shadow_offset(chart):
             dx, dy = shadow_off[0], -shadow_off[1]
@@ -508,12 +508,12 @@ class MatplotlibRenderer:
                                 rect[2] + dx, rect[3] + dy],
                                fill=_SHADOW_COLOR)
 
-        for rect, color, lx, cy, val in rects:
+        for rect, color, right, cy, val in rects:
             draw.rectangle(rect, fill=color)
-            # Rótulo de valor sobre barra horizontal (opcional) — centralizado na barra.
+            # Rótulo de valor sobre barra horizontal (opcional) — na extremidade da barra.
             if lbl.get('val', True):
-                draw.text((lx, cy), f"{val:,.0f}",
-                          fill='#111827', font=_font(10), anchor='mm')
+                draw.text((right + 4, cy), f"{val:,.0f}",
+                          fill='#111827', font=_font(10), anchor='lm')
 
         # Rótulos do eixo Y
         fy = _font(10)
