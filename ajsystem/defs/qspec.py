@@ -134,6 +134,7 @@ class SelectEntry:
     func: Optional[str] = None
     over: Optional[OverSpec] = None
     calc: Optional[str] = None
+    expr: Optional[str] = None   # expressão SQL crua (ex.: TO_CHAR(...))
     label: Optional[str] = None
     width: Optional[float] = None
     align: Optional[str] = None
@@ -144,6 +145,8 @@ class SelectEntry:
             raise ValueError(f"select '{self.name}': agg desconhecida '{self.agg}'")
         if self.func and self.func not in OVER_FUNCS:
             raise ValueError(f"select '{self.name}': func desconhecida '{self.func}'")
+        if self.expr and self.field:
+            raise ValueError(f"select '{self.name}': expr e field são mutuamente exclusivos")
         if self.align is not None and self.align not in ('left', 'center', 'right'):
             raise ValueError(f"select '{self.name}': align deve ser left|center|right")
 
@@ -175,7 +178,7 @@ def parse_select(select) -> list:
     raise TypeError(f"select deve ser list ou dict, veio {type(select).__name__}")
 
 
-ENTRY_KEYS = ('field', 'agg', 'func', 'over', 'calc',
+ENTRY_KEYS = ('field', 'agg', 'func', 'over', 'calc', 'expr',
               'label', 'width', 'align', 'format')
 
 
@@ -191,7 +194,10 @@ def _parse_entry(alias, cfg) -> SelectEntry:
     over = cfg.pop('over', None)
     agg = cfg.pop('agg', None)
     func = cfg.pop('func', None)
-    fld = cfg.pop('field', alias)
+    expr = cfg.pop('expr', None)
+    fld = cfg.pop('field', None)
+    if fld is None:
+        fld = '' if expr else alias
     over_spec = None
     if over is not None:
         if not isinstance(over, dict):
@@ -216,7 +222,7 @@ def _parse_entry(alias, cfg) -> SelectEntry:
         agg = agg or None
         func = None
     return SelectEntry(name=alias, field=fld, agg=agg, func=func,
-                       over=over_spec, calc=cfg.get('calc'),
+                       over=over_spec, calc=cfg.get('calc'), expr=expr,
                        label=cfg.get('label'), width=cfg.get('width'),
                        align=cfg.get('align'), format=cfg.get('format'))
 

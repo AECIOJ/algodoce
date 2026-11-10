@@ -47,6 +47,7 @@ RECEBER = {
                 'saldo': {'agg': 'sum'},
             },
             'totals': {'align': 'R'},
+            'order': ['vencimento', 'id'],
             'syn': {
                 'cols': {
                     'cliente': {
@@ -63,17 +64,16 @@ RECEBER = {
             },
         },
         'chart': {
-            'title': 'Saldo por Cliente',
-            'type': 'bar',
-            'cat': {'cliente': {'order': 'desc', 'limit': 10}},
+            'title': 'Saldo por Vencimento',
+            'type': 'col',
+            'cat': {'vencimento': {'bin': 'month', 'format': 'mmm/yyyy'}},
             'value': {
                 'previsto':  {'color': '#0d6efd'},
                 'realizado': {'color': '#198754'},
                 'saldo':     {'color': '#dc3545'},
             },
-            'stack': {'total': ['previsto', 'realizado', 'saldo']},
             'label': {
-                'cat': 'Cliente',
+                'cat': 'Mes/Ano',
                 'value': 'Saldo (R$)',
                 'val': True,
             },

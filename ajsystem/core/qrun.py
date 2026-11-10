@@ -514,7 +514,7 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     aplica antes dos OVERs, para que janelas e `calc` enxerguem o recorte.
     """
     qs = parse_query(spec)
-    from sqlalchemy import func as _fn
+    from sqlalchemy import func as _fn, literal_column as _literal
     extra_conditions = [c for c in (extra_conditions or []) if c is not None]
     query = model.query
 
@@ -562,7 +562,11 @@ def run_query(model, spec, entity_cfg=None, extra_where=None,
     select_cols = []
     select_names = []
     for e in qs.entries or []:
-        if e.field and '.' in e.field:
+        if e.expr:
+            cols.append(_literal(e.expr).label(e.name))
+            select_cols.append(_literal(e.expr).label(e.name))
+            select_names.append(e.name)
+        elif e.field and '.' in e.field:
             _m, _fname = _resolve_path_model(model, e.field)
             col = getattr(_m, _fname, None)
             if col is not None:

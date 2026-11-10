@@ -15,7 +15,7 @@ from typing import Any, Optional
 _CHART_TYPES = ('col', 'bar', 'line', 'area', 'pie', 'donut', 'scatter')
 _AGG_TYPES = ('sum', 'avg', 'min', 'max', 'count')
 _AXIS_TYPES = ('y', 'y2')
-_BUCKETS = ('day', 'month', 'year')
+_BINS = ('day', 'month', 'year')
 _ORDERS = ('asc', 'desc', 'decl')
 _LEGEND_POS = ('top', 'bottom', 'left', 'right', 'none')
 _LABEL_POS = ('O', 'I')
@@ -54,8 +54,8 @@ class ChartField:
     color: Optional[str] = None       # cor do campo
     axis: str = 'y'                   # y | y2
     format: Optional[str] = None      # máscara de exibição (não afeta o dado)
-    bucket: Optional[str] = None      # day|month|year
-    order: Optional[str] = None       # asc|desc|decl
+    bin: Optional[str] = None         # day|month|year (só em cat, campos de data)
+    order: Optional[str] = None       # asc|desc|decl (só em cat)
     limit: Optional[int] = None       # top N
     variants: Optional[list] = None   # níveis de variante em que o campo entra
     syn: Optional[bool] = None        # False = omite no sintético
@@ -67,10 +67,10 @@ class ChartField:
         if self.axis not in _AXIS_TYPES:
             raise ValueError(
                 f"chart: axis {self.axis!r} inválido — use y ou y2")
-        if self.bucket is not None and self.bucket not in _BUCKETS:
+        if self.bin is not None and self.bin not in _BINS:
             raise ValueError(
-                f"chart: bucket {self.bucket!r} inválido — use "
-                f"{', '.join(_BUCKETS)}")
+                f"chart: bin {self.bin!r} inválido — use "
+                f"{', '.join(_BINS)}")
         if self.order is not None and self.order not in _ORDERS:
             raise ValueError(
                 f"chart: order {self.order!r} inválido — use "
@@ -110,6 +110,7 @@ class ChartOptions:
     palette: Optional[str] = None
     height: int = 320
     responsive: bool = True
+    title_font: Optional[dict] = None  # {size: int, bold: bool, family: str}
 
     def __post_init__(self):
         self.legend = _normalize_legend(self.legend, 'chart.options.legend')
@@ -133,6 +134,21 @@ class ChartOptions:
         elif self.explode is not None:
             raise ValueError(
                 "chart.options.explode deve ser str, lista de str ou None")
+        # Validar title_font
+        if self.title_font is not None:
+            if not isinstance(self.title_font, dict):
+                raise ValueError("chart.options.title_font deve ser dict")
+            for key in self.title_font:
+                if key not in ('size', 'bold', 'family'):
+                    raise ValueError(
+                        f"chart.options.title_font: chave {key!r} inválida — "
+                        f"use 'size', 'bold' ou 'family'")
+            if 'size' in self.title_font and not isinstance(self.title_font['size'], int):
+                raise ValueError("chart.options.title_font.size deve ser int")
+            if 'bold' in self.title_font and not isinstance(self.title_font['bold'], bool):
+                raise ValueError("chart.options.title_font.bold deve ser bool")
+            if 'family' in self.title_font and not isinstance(self.title_font['family'], str):
+                raise ValueError("chart.options.title_font.family deve ser str")
 
 
 @dataclass
@@ -149,6 +165,7 @@ class Chart:
     label: ChartLabel = field(default_factory=ChartLabel)
     options: ChartOptions = field(default_factory=ChartOptions)
     limit: Optional[int] = None  # top N (após ordenação)
+    order: Any = None            # ordem da consulta: igual ReportBody.order (str|list[str]|list[int])
     legend: str = 'bottom'       # resolvido (interno): top|bottom|left|right|none
 
     def __post_init__(self):
@@ -185,8 +202,11 @@ class ChartDataset:
 def _parse_fields(fields, label=''):
     if fields is None:
         return {}
+    if isinstance(fields, str):
+        # Atalho: 'nome_campo' equivale a {'nome_campo': {}}
+        return {fields: ChartField()}
     if not isinstance(fields, dict):
-        raise TypeError(f"chart{label}: campos devem ser dict de campos")
+        raise TypeError(f"chart{label}: campos devem ser dict ou str")
     out = {}
     for name, cfg in fields.items():
         if isinstance(cfg, ChartField):
@@ -201,7 +221,7 @@ def _parse_fields(fields, label=''):
                     f"chart{label}[{name!r}]: prop inválida — {e}") from e
         else:
             raise TypeError(
-                f"chart{label}[{name!r}]: deve ser dict ou ChartField")
+                f"chart{label}[{name!r}]: deve ser dict ou str")
     return out
 
 
@@ -348,6 +368,7 @@ def parse_chart(spec):
         label=_parse_label(spec.get('label')),
         options=options,
         limit=spec.get('limit'),
+        order=spec.get('order'),
         legend=legend,
     )
     return chart

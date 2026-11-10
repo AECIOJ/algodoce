@@ -55,9 +55,9 @@ _FONT_NAMES = {
 _FONT_CACHE = {}
 
 
-def _font(size: int, bold: bool = False):
+def _font(size: int, bold: bool = False, family: str | None = None):
     """Carrega a fonte no tamanho pedido (embutida → sistema → default)."""
-    key = (int(size), bool(bold))
+    key = (int(size), bool(bold), family)
     cached = _FONT_CACHE.get(key)
     if cached is not None:
         return cached
@@ -135,7 +135,11 @@ class MatplotlibRenderer:
         # `anchor='ma'`: o y informado é o TOPO do texto — por isso 16px,
         # dentro da margem superior (pad_t=90), sem invadir a área de plot.
         if chart.title:
-            f_title = _font(34, bold=True)
+            tf = chart.options.title_font or {}
+            size = tf.get('size', 24)
+            bold = tf.get('bold', True)
+            family = tf.get('family', None)
+            f_title = _font(size, bold=bold, family=family)
             draw.text((plot_x + plot_w // 2, 16), chart.title,
                       fill='#111827', font=f_title, anchor='ma')
 
@@ -388,17 +392,17 @@ class MatplotlibRenderer:
                 cx = x0 + (i + 0.5) * step
                 top = y_px(val or 0)
                 base = y_px(0)
-        off = 0
-        if stacked:
-            base = y_px(bottoms[i] or 0)
-            rect = [cx - bar_w / 2, min(top, base),
-                    cx + bar_w / 2, max(top, base)]
-            bottoms[i] = (bottoms[i] or 0) + (val or 0)
-        else:
-            off = (si - len(series) / 2) * bar_w + bar_w / 2
-            rect = [cx + off - bar_w / 2, min(top, base),
-                    cx + off + bar_w / 2, max(top, base)]
-        rects.append((rect, color, cx + off, min(top, base), val))
+                off = 0
+                if stacked:
+                    base = y_px(bottoms[i] or 0)
+                    rect = [cx - bar_w / 2, min(top, base),
+                            cx + bar_w / 2, max(top, base)]
+                    bottoms[i] = (bottoms[i] or 0) + (val or 0)
+                else:
+                    off = (si - len(series) / 2) * bar_w + bar_w / 2
+                    rect = [cx + off - bar_w / 2, min(top, base),
+                            cx + off + bar_w / 2, max(top, base)]
+                rects.append((rect, color, cx + off, min(top, base), val))
 
         if shadow_off := _shadow_offset(chart):
             dx, dy = shadow_off[0], -shadow_off[1]

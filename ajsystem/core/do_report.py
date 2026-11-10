@@ -268,7 +268,7 @@ def _pdf_bytes(report, data=None, instance=None, rp_output=None,
                 rows = data
                 if rows is None:
                     rows = _auto_data(parsed, None, None,
-                                      chart_filter or filter, syn=False) or []
+                                      chart_filter or filter, syn=bool(chart_syn)) or []
                 ds = _build_dataset(parsed, chart, rows)
                 png = MatplotlibRenderer().render(ds, chart)
                 # Embute após a tabela, largura da página útil (A4 = 210mm)
@@ -2262,7 +2262,8 @@ def _aggregate_rows(report, rows):
     return out
 
 
-def _auto_data(report, data, instance, filter=None, syn=False):
+def _auto_data(report, data, instance, filter=None, syn=False,
+               chart_order=None, extra_conditions=None):
     """Precedência do datasource: `data` explícito → `instance.<data_attr>` →
     `body.source` (entity/query). Ordenação declarada por `source.order`.
 
@@ -2326,6 +2327,10 @@ def _auto_data(report, data, instance, filter=None, syn=False):
                 _src_raw['order'] = _declared_order
             if _declared_filter is not None:
                 _src_raw.pop('where', None)
+            # chart.order injetado pelo resolve_chart tem precedência sobre
+            # body.order para ordenar a consulta de origem do gráfico.
+            if chart_order is not None:
+                _src_raw['order'] = chart_order
             # Atualizar source do body para o query dict ajustado, de modo que
             # _infer_source e _source_entity_name funcionem abaixo.
             report.body.source = _src_raw
@@ -2347,7 +2352,8 @@ def _auto_data(report, data, instance, filter=None, syn=False):
             raise TypeError(
                 "body.filter: callable que devolve Query não é suportado "
                 "quando body.source é um PivotSpec")
-        _res = run_pivot(_model, _ps, entity_cfg=_cfg, extra_where=_filter)
+        _res = run_pivot(_model, _ps, entity_cfg=_cfg, extra_where=_filter,
+                         extra_conditions=extra_conditions)
         _apply_pivot_report_columns(report, _res, pivot_layer(_res, _cfg))
         return _res.rows
 
@@ -2365,7 +2371,8 @@ def _auto_data(report, data, instance, filter=None, syn=False):
             raise TypeError(
                 "body.filter: callable que devolve Query não é suportado "
                 "quando body.source é um QuerySpec")
-        _rows = run_query(_model, _src_raw, entity_cfg=_cfg, extra_where=_filter)
+        _rows = run_query(_model, _src_raw, entity_cfg=_cfg, extra_where=_filter,
+                          extra_conditions=extra_conditions)
         _body = _body_of(report)
         _lvl = None
         if isinstance(_body, dict):
@@ -2397,6 +2404,9 @@ def _auto_data(report, data, instance, filter=None, syn=False):
     _filter = _report_filter(report, model, filter)
     if _filter is not None:
         query = _apply_report_filter(query, model, _filter, report)
+    if extra_conditions:
+        for cond in extra_conditions:
+            query = query.filter(cond)
     if info['order_mode'] == 'sql':
         out = list(query.order_by(info['order_field']).all())
     else:
@@ -2434,7 +2444,7 @@ def _apply_report_filter(query, model, filter, report=None):
 
 
 def print_report_page(report, instance=None, data=None, msg=None, filter=None,
-                      syn=False):
+                      syn=False, extra_conditions=None):
     """Retorna página completa com iframe do PDF embutido (data URI)."""
     report = parse_report(_apply_entity(report, _module_entity(report),
                                         syn=syn))
@@ -2444,7 +2454,8 @@ def print_report_page(report, instance=None, data=None, msg=None, filter=None,
     if isinstance(_tbl, dict) and _tbl.get('_em_construcao'):
         return _print_erro('Relatório em construção')
 
-    data = _auto_data(report, data, instance, filter, syn=syn)
+    data = _auto_data(report, data, instance, filter, syn=syn,
+                      extra_conditions=extra_conditions)
 
     # --- Extração de source/filter do report ---
     # Se filter não foi passado explicitamente, usar o do report
@@ -2494,7 +2505,7 @@ def print_report_page(report, instance=None, data=None, msg=None, filter=None,
 
 def print_report(report, instance=None, data=None, msg=None, filter=None,
                  _printing=False, syn=False, rp_output=None,
-                 rp_variant=None, rp_sintetico=False):
+                 rp_variant=None, rp_sintetico=False, extra_conditions=None):
     """Retorna fragmento HTML com iframe do PDF embutido (data URI).
 
     Contrato para uso em botões (action): recebe o dict do relatório,
@@ -2514,6 +2525,9 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
     `rp_output` ('table'|'chart'|'both') controla se o PDF inclui a tabela,
     o gráfico ou ambos. `rp_variant`/`rp_sintetico` selecionam o layout do
     gráfico quando aplicável.
+
+    `extra_conditions` — condições SQLAlchemy já compiladas (ex.: `filter.fixed`
+    da página) aplicadas antes dos OVERs.
     """
     # Helper: extrai texto de um título (aceita str ou {'text': ..., 'style': ...})
     def _title_text(_t):
@@ -2528,7 +2542,8 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
             return _print_with_choice(report, filter, msg)
         report = parse_report(_apply_entity(report, _module_entity(report),
                                             syn=syn))
-        data = _auto_data(report, data, instance, filter.criteria(), syn=syn)
+        data = _auto_data(report, data, instance, filter.criteria(), syn=syn,
+                          extra_conditions=extra_conditions)
         
         # Relatório sem layout de tabela declarado: ainda está em construção.
         _tbl = getattr(report.body, 'table', None) if report.body else None
@@ -2566,7 +2581,8 @@ def print_report(report, instance=None, data=None, msg=None, filter=None,
         return render_template(OVERLAY_TEMPLATE, pdf_url=src, main_title=main_title, secondary_title=secondary_title)
     report = parse_report(_apply_entity(report, _module_entity(report),
                                         syn=syn))
-    data = _auto_data(report, data, instance, filter, syn=syn)
+    data = _auto_data(report, data, instance, filter, syn=syn,
+                      extra_conditions=extra_conditions)
     
     # Relatório sem layout de tabela declarado: ainda está em construção.
     _tbl = getattr(report.body, 'table', None) if report.body else None

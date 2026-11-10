@@ -351,6 +351,8 @@ Operadores: `=`, `!=`, `>`, `>=`, `<`, `<=`, `like`, `<>`. Em `date`, `>`/`<` co
 
 O sintético é controlado pelo layout (`table.syn`/`chart.syn`) do nível selecionado, não por `variants`.
 
+> O `Page.props.filter.fixed` (ex.: `{'tipo': 'R'}` em Contas a Receber) é **automaticamente herdado** pelo relatório — combinado via `AND` com `body.filter` e os filtros do formulário. Não é necessário repetir o filtro fixo no relatório.
+
 #### `props.scripts` — Scripts JS da página
 
 Lista de nomes de arquivos JS estáticos.
@@ -391,7 +393,7 @@ Declara o corpo do relatório (`Report.body`).
 | `form`\|`table` | `dict` | um só dos dois | `{'table': {...}}` (mutuamente exclusivos) |
 | `chart` | `dict` | gráfico como saída (aditivo ao `table`) | `{'chart': {'type': 'bar', 'cat': {...}, 'value': {...}}}` |
 | `before`\|`after` | `object` | blocos antes/depois | `{'before': [...]}` |
-| `filter` | `dict\|list\|OR\|AND\|callable` | filtro padrão | `{'filter': {'tipo': 'R'}}` |
+| `filter` | `dict\|list\|OR\|AND\|callable` | filtro padrão; combinado com `Page.props.filter.fixed` da página (se houver) e com o filtro do formulário de relatório | `{'filter': {'tipo': 'R'}}` |
 | `order` | `str\|list\|None` | nomes ou índices 1-based | `['data','id']` ou `[1, 3]` |
 | `levels` | `dict` | numeração hierárquica | `{'pk': 'id', 'parent': 'pai_id'}` |
 | `items` | `list` | itens inline antes da tabela | `['titulo', ('data', {'lf': 1})]` |
@@ -528,14 +530,16 @@ O gráfico é declarado no próprio report e impresso como **PNG dentro do PDF**
 | `value` | `dict` | `{}` | uma ou mais séries `{campo: ChartField}` | `{'value': {'saldo': {'color': '#dc3545'}}}` |
 | `stack` | `dict` | `{}` | `{grupo: [campos]}` — campos do mesmo grupo são empilhados; fora de `stack`, ficam lado a lado | `{'stack': {'total': ['previsto', 'realizado']}}` |
 | `label` | `dict` | `{}` | rótulos de eixo/dados (ver `ChartLabel`) | `{'label': {'cat': 'Cliente', 'value': 'Saldo (R$)'}}` |
-| `options` | `dict` | `{}` | opções de renderização; `legend` (posição/`False` desliga), `shadow` (`True`→`(3,3)` ou tupla `(dx,dy)` cartesiana), `explode` (fatia destacada em `pie`/`donut`) | `{'options': {'legend': False, 'shadow': (5, -5), 'explode': 'saldo'}}` |
+| `options` | `dict` | `{}` | opções de renderização; `legend` (posição/`False` desliga), `shadow` (`True`→`(3,3)` ou tupla `(dx,dy)` cartesiana), `explode` (fatia destacada em `pie`/`donut`), `title_font` (`{size: int, bold: bool, family: str}`) | `{'options': {'legend': False, 'shadow': (5, -5), 'explode': 'saldo', 'title_font': {'size': 18, 'bold': False}}}` |
 | `limit` | `int` | `None` | top N após a ordenação (também aceito em `cat.<campo>.limit`) | `{'limit': 10}` |
+| `order` | `str\|list` | `None` | ordem da consulta: injeta `ORDER BY` na query de origem (igual `report.order`). Aceita campo (`'mes_ordem'`), lista (`['mes_ordem']`) ou índices 1-based (`[1, 2]`) | `{'order': 'mes_ordem'}` |
 | `syn` | `dict` | `None` | layout alternativo do modo sintético (mesmas props de raiz; seu `options` é independente da raiz) | `{'syn': {'type': 'pie', ...}}` |
 
 `cat` aceita só o **primeiro** campo declarado. `type`, `cat`, `value`, `stack`, `label` e `title` são da raiz — não existe `chart.options.stacked` (use `stack`). `legend`, `shadow` e `explode` vivem só em `options`; `legend` na raiz ainda é aceito como fallback depreciado.
 
 - `shadow: bool | tuple[int, int]` (`True` padrão → offset `3,3`): desenha uma cópia deslocada em cinza claro (`#d1d5db`) atrás de cada fatia (`pie`/`donut`) ou barra (`col`/`bar`), dando sensação de relevo. `True` usa `(3, 3)`; uma tupla `(dx, dy)` segue o plano cartesiano: `dx` positivo à direita, `dy` positivo para cima; negativos invertem. Declara apenas para desligar: `{'options': {'shadow': False}}`.
 - `explode: str | list[str]`: destaca a fatia(ões) nomeada(s) deslizando-a para fora do centro da pizza (`radius * 0.12`). Sombra e rótulos acompanham o deslocamento. Ignorado em `col`/`bar` e em nome inexistente.
+- `title_font: dict` (`{size: int, bold: bool, family: str}`): configura a fonte do título do gráfico. Default: `size=24, bold=True`. Ex.: `{'options': {'title_font': {'size': 18, 'bold': False, 'family': 'Arial'}}}`.
 
 Sem `cat`, os rótulos das categorias são os próprios campos de `value`: cada campo entra como uma categoria com o seu valor agregado (formato de "comparar totais", ex.: pizza com uma fatia por campo). O rótulo exibido vem do `label` do campo na Entity (fallback `_auto_label`) e é o mesmo usado na legenda.
 
@@ -545,12 +549,12 @@ Sem `cat`, os rótulos das categorias são os próprios campos de `value`: cada 
 |------|------|---------|----------------------|---------|
 | `agg` | `str` | `'sum'` | `sum`, `avg`, `min`, `max`, `count` (só em `value`) | `{'agg': 'avg'}` |
 | `color` | `str` | paleta | cor hex da série | `{'color': '#0d6efd'}` |
-| `bucket` | `str` | `None` | `day`, `month`, `year` (só em `cat`, para campos de data) | `{'cat': {'vencimento': {'bucket': 'month'}}}` |
+| `bin` | `str` | `None` | `day`, `month`, `year` (só em `cat`, para campos de data) | `{'cat': {'vencimento': {'bin': 'month'}}}` |
 | `order` | `str` | `None` | `asc`, `desc` (só em `cat`) | `{'cat': {'cliente': {'order': 'desc'}}}` |
 | `limit` | `int` | `None` | top N da categoria (só em `cat`) | `{'cat': {'cliente': {'limit': 10}}}` |
 | `variants` | `list` | `None` | níveis de variante em que o campo entra | `{'variants': [0, 1]}` |
 | `syn` | `bool` | `None` | `False` omite o campo no sintético | `{'syn': False}` |
-| `axis`/`format` | — | — | aceitos na declaração, mas o renderer PDF usa eixo único e formatação numérica padrão | — |
+| `axis`/`format` | — | — | `format` em `cat` com `bin` formata a label da categoria (ex.: `'mmm/yyyy'` → `'Mai/2026'`); `axis` aceito mas sem efeito no PDF atual | `{'cat': {'vencimento': {'bin': 'month', 'format': 'mmm/yyyy'}}}` |
 
 #### `ChartLabel` — rótulos
 
@@ -625,7 +629,7 @@ Sem `cat`, os rótulos das categorias são os próprios campos de `value`: cada 
     },
     '1': {                                 # variante 1
         'type': 'line',
-        'cat': {'vencimento': {'bucket': 'month'}},
+        'cat': {'vencimento': {'bin': 'month'}},
         'value': {'saldo': {}},
     },
 }

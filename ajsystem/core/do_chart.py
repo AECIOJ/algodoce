@@ -4,10 +4,76 @@ Reusa o pipeline de dados do relatório (`_auto_data`): a mesma `source`
 (entity/query/pivot), o mesmo `body.filter` e a mesma gramática de filtros.
 A agregação é feita sobre as linhas resolvidas, agrupando pela categoria.
 """
+import locale
 from datetime import date, datetime
 
 from ajsystem.defs.chart import (Chart, ChartField, ChartDataset,
                                  normalize_chart, parse_chart)
+
+# Alias de máscara de data/hora para strftime.
+_LABEL_FORMATS = {
+    'mmm/yyyy': '%b/%Y',
+    'mmm/yy': '%b/%y',
+    'mm/yyyy': '%m/%Y',
+    'mm/yy': '%m/%y',
+    'dd/mm/yyyy': '%d/%m/%Y',
+    'dd/mm/yy': '%d/%m/%y',
+    'yyyy-mm': '%Y-%m',
+    'yyyy-mm-dd': '%Y-%m-%d',
+    'yyyy': '%Y',
+}
+
+# Nomes curtos de mês em português (fallback quando o locale pt-BR
+# não está instalado no sistema, ex.: imagem python:*-slim).
+_MES_PT = {
+    '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
+    '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago',
+    '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez',
+}
+
+
+def _set_pt_locale():
+    """Tenta definir locale pt-BR para %b renderizar 'Mai', 'Jun', etc."""
+    for cand in ('pt_BR.UTF-8', 'pt_BR.utf8', 'pt_BR', 'ptb', 'Portuguese_Brazil.1252'):
+        try:
+            locale.setlocale(locale.LC_TIME, cand)
+            return True
+        except locale.Error:
+            continue
+    return False
+
+
+_set_pt_locale()
+
+
+def _fmt_label(value, fmt):
+    """Formata uma label de categoria já agrupada por `bin`.
+
+    `value` vem como string crua do bin ('YYYY-MM' / 'YYYY' / 'YYYY-MM-DD').
+    `fmt` pode ser um strftime direto ou um alias de `_LABEL_FORMATS`.
+    """
+    if not value or not fmt:
+        return value
+    # Resolve alias.
+    pyfmt = _LABEL_FORMATS.get(fmt, fmt)
+    try:
+        if isinstance(value, str):
+            # Chaves de bin: 'YYYY-MM' / 'YYYY' / 'YYYY-MM-DD'.
+            for cand in ('%Y-%m-%d', '%Y-%m', '%Y'):
+                try:
+                    dt = datetime.strptime(value, cand)
+                    resultado = dt.strftime(pyfmt)
+                    # %b depende do locale pt-BR, que pode não estar
+                    # instalado (imagem python:*-slim). Usa mapeamento manual.
+                    if '%b' in pyfmt:
+                        mes_pt = _MES_PT.get(dt.strftime('%m'), dt.strftime('%m'))
+                        resultado = resultado.replace(dt.strftime('%b'), mes_pt)
+                    return resultado
+                except ValueError:
+                    continue
+        return value
+    except (ValueError, TypeError):
+        return value
 
 
 def _get(obj, key, default=None):
@@ -28,9 +94,9 @@ def _row_get(row, field):
     return getattr(row, field, None)
 
 
-def _bucket(value, bucket):
+def _bin(value, bin_):
     """Agrupa datas por dia/mês/ano; devolve o valor original fora de data."""
-    if bucket is None or value is None:
+    if bin_ is None or value is None:
         return value
     if isinstance(value, str):
         try:
@@ -38,27 +104,13 @@ def _bucket(value, bucket):
         except ValueError:
             return value
     if isinstance(value, (datetime, date)):
-        if bucket == 'day':
+        if bin_ == 'day':
             return value.strftime('%Y-%m-%d')
-        if bucket == 'month':
+        if bin_ == 'month':
             return value.strftime('%Y-%m')
-        if bucket == 'year':
+        if bin_ == 'year':
             return value.strftime('%Y')
     return value
-
-
-def _sort_key(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _stack_of(chart, field):
-    for group, fields in (chart.stack or {}).items():
-        if field in fields:
-            return group
-    return None
 
 
 def _field_labels(report, names):
@@ -111,12 +163,31 @@ def resolve_chart(report, *, filter=None, variant=None, syn=False,
     `report` é o `Report`/dict já resolvido (mesma fonte usada pelo PDF).
     `filter` é o spec literal vindo da request; é combinado com
     `body.filter` pelo próprio `_auto_data`.
+
+    `chart.order`, quando declarado, injeta `ORDER BY` na query de origem
+    antes da execução (igual `ReportBody.order`).
     """
-    from ajsystem.core.do_report import _auto_data
+    from ajsystem.core.do_report import _auto_data, _body_of
     if chart is None:
         chart = load_chart(report, variant=variant, syn=syn)
-    rows = _auto_data(report, None, None, filter, syn=False) or []
+
+    rows = _auto_data(report, None, None, filter, syn=False,
+                      chart_order=chart.order) or []
     return _build_dataset(report, chart, rows)
+
+
+def _sort_key(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _stack_of(chart, field):
+    for group, fields in (chart.stack or {}).items():
+        if field in fields:
+            return group
+    return None
 
 
 def _explode_flags(chart, cat_name, labels):
@@ -145,6 +216,7 @@ def _build_dataset(report, chart, rows):
         # entra como uma categoria, com o próprio valor agregado. É o formato
         # de "comparar totais" (ex.: pizza com uma fatia por campo de `value`).
         labels = [field_labels[name] for name in chart.value]
+        display_labels = labels
         series = [{
             'name': chart.label.value or chart.title or '',
             'data': [
@@ -164,13 +236,25 @@ def _build_dataset(report, chart, rows):
         groups = {}
         order = []
         for row in rows:
-            key = _bucket(_row_get(row, cat_name), cat_cfg.bucket)
+            key = _bin(_row_get(row, cat_name), cat_cfg.bin)
             if key not in groups:
                 groups[key] = []
                 order.append(key)
             groups[key].append(row)
 
         labels = list(order)
+        # Com bin (agrupamento de data), as chaves são strings 'YYYY-MM' /
+        # 'YYYY', que ordenam corretamente como texto. Ordena cronologicamente
+        # por padrão, a menos que order seja 'asc'/'desc' (ordena por valor).
+        if cat_cfg.bin and cat_cfg.order not in ('asc', 'desc'):
+            labels = sorted(labels)
+        # `labels` segue sendo a chave crua (usada para buscar em `groups`).
+        # `display_labels` recebe a versão formatada (ex.: 'mmm/yyyy' -> 'Mai/2026')
+        # quando há `format` em `cat` com `bin`.
+        if cat_cfg.bin and cat_cfg.format:
+            display_labels = [_fmt_label(k, cat_cfg.format) for k in labels]
+        else:
+            display_labels = labels
         series = []
         for field_name, cfg in chart.value.items():
             data = [
@@ -195,17 +279,19 @@ def _build_dataset(report, chart, rows):
                          key=lambda i: _sort_key(base[i]),
                          reverse=(cat_cfg.order == 'desc'))
             labels = [labels[i] for i in idx]
+            display_labels = [display_labels[i] for i in idx]
             for s in series:
                 s['data'] = [s['data'][i] for i in idx]
 
         limit = cat_cfg.limit or chart.limit
         if limit:
             labels = labels[:limit]
+            display_labels = display_labels[:limit]
             for s in series:
                 s['data'] = s['data'][:limit]
 
     # Destaca fatias só no desenho: flags já reordenadas/cortadas.
-    flags = _explode_flags(chart, cat_name, labels)
+    flags = _explode_flags(chart, cat_name, display_labels)
     if flags and series:
         series[0]['explode'] = flags
 
@@ -236,4 +322,4 @@ def _build_dataset(report, chart, rows):
             meta['limit']['text'] = chart.label.limit
         else:
             meta['limit']['text'] = f"Top {limit}"
-    return ChartDataset(labels=labels, series=series, meta=meta)
+    return ChartDataset(labels=display_labels, series=series, meta=meta)

@@ -136,7 +136,12 @@ def report_action():
     from ajsystem.core.adapter import ROUTES_BASE
     from ajsystem.core.auto import _entidade_principal
     from ajsystem.core.do_list import (_resolve_report_entries,
-                                       report_filter_from_args)
+                                       report_filter_from_args, _list_pool,
+                                       page_list_cfg)
+    from ajsystem.defs.data import page_filter_cfg
+    from ajsystem.core.filters import compile_fixed
+    from ajsystem.core.list import _resolve_model
+    from ajsystem.defs.qspec import is_query_dict
     from ajsystem.core.do_report import print_report, _print_erro
     from ajsystem.defs.data import module_page
     page = request.args.get('page', '') or ''
@@ -156,6 +161,37 @@ def report_action():
     # Injeta o título da entrada (chave do dicionário) no relatório
     report = dict(entry['report'])
     report['label'] = entry['title']
+
+    # --- Aplicar Page.props.filter.fixed ao relatório ---
+    # O filtro fixo da página (ex.: tipo='R' em receber, tipo='P' em pagar)
+    # é declarado contra a entidade principal (Transacao), mas o relatório
+    # roda sobre a entidade filha (Previsao). Usamos o mesmo resolver da
+    # listagem invertida (_inversion_order_attr) para achar a coluna no
+    # model do relatório ou no model do pai.
+    _fixed_conditions = []
+    try:
+        page_obj = module_page(mod)
+        schema = getattr(mod, 'Schema', None) or {}
+        lista_cfg = page_list_cfg(page_obj)
+        _ent, _model, _merged, _pool, _fonte = _list_pool(
+            lista_cfg, schema, mod.__name__, _entidade_principal(mod))
+        _parent_model = _fonte.get('parent_model')
+        if _parent_model is not None:
+            # Resolver que tenta no model do relatório (_model) e cai
+            # para o model do pai (_parent_model) — igual à listagem invertida.
+            def _report_attr_resolver(m, name):
+                attr = getattr(m, name, None)
+                if attr is not None and hasattr(attr, '__clause_element__'):
+                    return attr
+                return getattr(_parent_model, name, None)
+            fixed_spec = page_filter_cfg(page_obj).get('fixed') or {}
+            if fixed_spec:
+                _fixed_conditions = compile_fixed(
+                    fixed_spec, _model, attr_resolver=_report_attr_resolver,
+                    where='Page.props.filter.fixed') or []
+    except Exception:
+        # Se falhar (página sem inversão, etc.), segue sem filtro fixo
+        _fixed_conditions = []
 
     # --- Variants + Sintético ---
     from ajsystem import locales as i18n
@@ -296,7 +332,8 @@ def report_action():
                             syn=_syn_requested,
                             rp_output=_rp_output or None,
                             rp_variant=_variant_idx,
-                            rp_sintetico=(_rp_sintetico == 'on'))
+                            rp_sintetico=(_rp_sintetico == 'on'),
+                            extra_conditions=_fixed_conditions)
     except ValueError as _e:
         # Erro de declaração (ex: sintético pedido mas sem 'syn'):
         # exibe como HTML do relatório, não como alerta JS.
