@@ -158,11 +158,16 @@ class MatplotlibRenderer:
         elif chart.type == 'line':
             self._lines(draw, plot, labels, series, chart, lbl,
                         limit_info)
+        elif chart.type == 'area':
+            self._area(draw, plot, labels, series, chart, lbl, limit_info)
+        elif chart.type == 'scatter':
+            self._scatter(draw, plot, labels, series, chart, lbl,
+                          limit_info)
         elif chart.type == 'bar':
             self._bars_horizontal(draw, plot, labels, series, chart, lbl,
                                   limit_info)
         else:
-            # 'col' e demais: colunas verticais
+            # 'col': colunas verticais
             self._bars_vertical(draw, plot, labels, series, chart, lbl,
                                 limit_info)
 
@@ -424,6 +429,194 @@ class MatplotlibRenderer:
             # Linha principal.
             for i in range(len(pts) - 1):
                 draw.line([pts[i], pts[i + 1]], fill=color, width=3)
+
+            # Pontos nos vértices.
+            for cx, cy_ in pts:
+                draw.ellipse([cx - 4, cy_ - 4, cx + 4, cy_ + 4], fill=color,
+                             outline='white')
+
+            # Rótulos de valor acima de cada ponto (só se houver uma série).
+            if lbl.get('val', True) and len(series) == 1:
+                for i, (cx, cy_) in enumerate(pts):
+                    draw.text((cx, cy_ - 10), f"{data[i]:,.0f}",
+                              fill='#111827', font=_font(10), anchor='mm')
+
+        # Rótulos do eixo X.
+        fx = _font(10)
+        for i, name in enumerate(labels):
+            cx = x0 + (i + 0.5) * step
+            draw.text((cx, y0 + h + 6), str(name)[:16], fill='#111827',
+                      font=fx, anchor='ma')
+        if isinstance(lbl.get('cat'), str):
+            draw.text((x0 + w, y0 + h + 26), lbl['cat'], fill='#111827',
+                      font=_font(13), anchor='ra')
+
+        self._draw_legend(draw, plot, series,
+                          chart.legend,
+                          bottom_gap=48)
+        if limit_info.get('text'):
+            draw.text((x0, y0 + h + 48 + 26), limit_info['text'],
+                      fill='#6b7280', font=_font(11))
+
+    # ----------------------------------------------------------- área
+    def _area(self, draw, plot, labels, series, chart, lbl, limit_info):
+        """Gráfico de área: linha com preenchimento abaixo até o eixo X.
+
+        Uma área por série de `value`; com `cat` cada ponto é uma categoria.
+        Sem `cat`, cada campo de `value` é um ponto e o rótulo é o nome do
+        campo.
+        """
+        x0, y0, w, h = plot
+
+        all_vals = []
+        for s in series:
+            all_vals.extend([v for v in (s.get('data') or []) if v is not None])
+        if not all_vals:
+            return
+        vmin, vmax = min(0, min(all_vals)), max(0, max(all_vals))
+        if vmax == vmin:
+            vmax = vmin + 1
+
+        def y_px(val):
+            return y0 + h - (val - vmin) / (vmax - vmin) * h
+
+        # Eixos
+        f = _font(11)
+        draw.line([x0, y0, x0, y0 + h], fill='#374151')
+        draw.line([x0, y0 + h, x0 + w, y0 + h], fill='#374151')
+
+        if lbl.get('value'):
+            draw.text((x0 - 5, y0 - 12), lbl['value'], fill='#111827',
+                      font=_font(13), anchor='rs')
+        for i in range(5):
+            val = vmin + (vmax - vmin) * i / 4
+            py = y_px(val)
+            draw.line([x0 - 4, py, x0, py], fill='#e5e7eb')
+            draw.text((x0 - 8, py), f"{val:,.0f}", fill='#6b7280', font=f,
+                      anchor='rm')
+
+        n = len(labels) if labels else max(len(s.get('data') or [])
+                                           for s in series)
+        step = w / max(n, 1)
+
+        for si, s in enumerate(series):
+            data = list(s.get('data') or [])
+            color = _hex(s.get('color'), _PALETTE[si % len(_PALETTE)])
+
+            pts = []
+            for i, val in enumerate(data):
+                cx = x0 + (i + 0.5) * step
+                pts.append((cx, y_px(val or 0)))
+
+            if len(pts) < 2:
+                continue
+
+            # Polígono de preenchimento: pontos da linha + base no eixo X
+            # (vmin), fechando de volta ao primeiro ponto.
+            base_y = y_px(0 if vmin <= 0 else vmin)
+            poly = []
+            for cx, cy_ in pts:
+                poly.append((cx, cy_))
+            for cx, cy_ in reversed(pts):
+                poly.append((cx, base_y))
+
+            # Sombra: mesmo polígono deslocado.
+            if shadow_off := _shadow_offset(chart):
+                dx, dy = shadow_off[0], -shadow_off[1]
+                shadow_poly = [(px_ + dx, py_ + dy) for px_, py_ in poly]
+                draw.polygon(shadow_poly, fill=_SHADOW_COLOR)
+
+            # Preenchimento com alpha (cor + opacidade reduzida).
+            draw.polygon(poly, fill=color)
+            # Linha de contorno sobre o preenchimento.
+            for i in range(len(pts) - 1):
+                draw.line([pts[i], pts[i + 1]], fill=color, width=2)
+
+            # Pontos nos vértices.
+            for cx, cy_ in pts:
+                draw.ellipse([cx - 4, cy_ - 4, cx + 4, cy_ + 4], fill=color,
+                             outline='white')
+
+            # Rótulos de valor acima de cada ponto (só se houver uma série).
+            if lbl.get('val', True) and len(series) == 1:
+                for i, (cx, cy_) in enumerate(pts):
+                    draw.text((cx, cy_ - 10), f"{data[i]:,.0f}",
+                              fill='#111827', font=_font(10), anchor='mm')
+
+        # Rótulos do eixo X.
+        fx = _font(10)
+        for i, name in enumerate(labels):
+            cx = x0 + (i + 0.5) * step
+            draw.text((cx, y0 + h + 6), str(name)[:16], fill='#111827',
+                      font=fx, anchor='ma')
+        if isinstance(lbl.get('cat'), str):
+            draw.text((x0 + w, y0 + h + 26), lbl['cat'], fill='#111827',
+                      font=_font(13), anchor='ra')
+
+        self._draw_legend(draw, plot, series,
+                          chart.legend,
+                          bottom_gap=48)
+        if limit_info.get('text'):
+            draw.text((x0, y0 + h + 48 + 26), limit_info['text'],
+                      fill='#6b7280', font=_font(11))
+
+    # --------------------------------------------------------- dispersão
+    def _scatter(self, draw, plot, labels, series, chart, lbl, limit_info):
+        """Gráfico de dispersão: apenas pontos, sem linhas conectando.
+
+        Uma série por campo de `value`; com `cat` cada ponto é uma categoria.
+        Sem `cat`, cada campo de `value` é um ponto e o rótulo é o nome do
+        campo.
+        """
+        x0, y0, w, h = plot
+
+        all_vals = []
+        for s in series:
+            all_vals.extend([v for v in (s.get('data') or []) if v is not None])
+        if not all_vals:
+            return
+        vmin, vmax = min(0, min(all_vals)), max(0, max(all_vals))
+        if vmax == vmin:
+            vmax = vmin + 1
+
+        def y_px(val):
+            return y0 + h - (val - vmin) / (vmax - vmin) * h
+
+        # Eixos
+        f = _font(11)
+        draw.line([x0, y0, x0, y0 + h], fill='#374151')
+        draw.line([x0, y0 + h, x0 + w, y0 + h], fill='#374151')
+
+        if lbl.get('value'):
+            draw.text((x0 - 5, y0 - 12), lbl['value'], fill='#111827',
+                      font=_font(13), anchor='rs')
+        for i in range(5):
+            val = vmin + (vmax - vmin) * i / 4
+            py = y_px(val)
+            draw.line([x0 - 4, py, x0, py], fill='#e5e7eb')
+            draw.text((x0 - 8, py), f"{val:,.0f}", fill='#6b7280', font=f,
+                      anchor='rm')
+
+        n = len(labels) if labels else max(len(s.get('data') or [])
+                                           for s in series)
+        step = w / max(n, 1)
+
+        for si, s in enumerate(series):
+            data = list(s.get('data') or [])
+            color = _hex(s.get('color'), _PALETTE[si % len(_PALETTE)])
+
+            pts = []
+            for i, val in enumerate(data):
+                cx = x0 + (i + 0.5) * step
+                pts.append((cx, y_px(val or 0)))
+
+            # Sombra por ponto.
+            if shadow_off := _shadow_offset(chart):
+                dx, dy = shadow_off[0], -shadow_off[1]
+                for cx, cy_ in pts:
+                    draw.ellipse([cx - 4 + dx, cy_ - 4 + dy,
+                                  cx + 4 + dx, cy_ + 4 + dy],
+                                 fill=_SHADOW_COLOR)
 
             # Pontos nos vértices.
             for cx, cy_ in pts:

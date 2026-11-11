@@ -556,7 +556,7 @@ O gráfico é declarado no próprio report e impresso como **PNG dentro do PDF**
 | Prop | Tipo | Default | Declarações possíveis | Exemplo |
 |------|------|---------|----------------------|---------|
 | `title` | `str` | `None` | título acima do plot; se omitido, o gráfico sai sem título (o título do report já está no cabeçalho) | `{'title': 'Saldo por Cliente'}` |
-| `type` | `str` | `'col'` | `col` (colunas verticais), `bar` (barras horizontais), `pie` (pizza), `donut` (pizza com buraco), `line` (linhas); `area` e `scatter` são aceitos e, no PDF atual, caem no renderizador de colunas | `{'type': 'bar'}` |
+| `type` | `str` | `'col'` | `col` (colunas verticais), `bar` (barras horizontais), `pie` (pizza), `donut` (pizza com buraco), `line` (linhas), `area` (área preenchida), `scatter` (dispersão) | `{'type': 'bar'}` |
 | `cat` | `dict` | `{}` | **um** campo de categoria `{campo: ChartField}`; é o eixo de agrupamento. Omitido, cada campo de `value` vira uma categoria | `{'cat': {'cliente': {'order': 'desc', 'limit': 10}}}` |
 | `value` | `dict` | `{}` | uma ou mais séries `{campo: ChartField}` | `{'value': {'saldo': {'color': '#dc3545'}}}` |
 | `stack` | `dict` | `{}` | `{grupo: [campos]}` — campos do mesmo grupo são empilhados; fora de `stack`, ficam lado a lado | `{'stack': {'total': ['previsto', 'realizado']}}` |
