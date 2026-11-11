@@ -712,12 +712,14 @@ class ReportColumn:
     field: str
     label: Optional[str] = None
     width: Optional[float] = None
-    align: str = 'left'
+    align: Optional[str] = None
     format: Optional[str] = None
+    mask: Optional[str] = None  # alias de format para compatibilidade
     agg: Optional[str] = None
     function: Optional[Callable] = None
     text: Optional[str] = None
     suppress: bool = False
+    calc: Optional[str] = None  # '%T', '+T', '%A', '#N' (ver pdf.py _calc_col)
     # Compatibilidade com código legado
     pos: int = POS_ROW
     group: Optional[str] = None
@@ -728,6 +730,12 @@ class ReportColumn:
     def __post_init__(self):
         if self.label is None:
             self.label = self.field
+        if self.mask is not None and self.format is None:
+            self.format = self.mask
+        # Coluna calculada (%T, +T, %A, #N) é sempre numérica: alinha à direita
+        # por padrão. `align` explícito (inclusive 'left') vence.
+        if self.align is None:
+            self.align = 'right' if self.calc else 'left'
 
 
 class ReportColumns:
@@ -1220,6 +1228,12 @@ def _level_from_field(name, spec, sec):
                 sp[k] = on_start[k]
         if 'pos' in on_start:
             sp['pos'] = on_start['pos']
+        # `consume` decide se a linha que abre o nível vira a própria linha do
+        # grupo (default) ou se o `text` é só cabeçalho e a linha é impressa.
+        if on_start.get('consume') is not None:
+            sp['consume'] = on_start['consume']
+        elif spec.get('consume') is not None:
+            sp['consume'] = spec['consume']
         out.append({name: sp})
     on_finish = spec.get('on_finish')
     if on_finish is not None:
@@ -1240,7 +1254,7 @@ def _level_from_field(name, spec, sec):
         if spec.get('text'):
             sp['text'] = spec['text']
         for k in ('lf', 'align', 'style', 'cpi', 'transform', 'bold',
-                  'totals', 'on_finish'):
+                  'totals', 'on_finish', 'consume'):
             if k in spec:
                 sp[k] = spec[k]
         out.append({name: sp})

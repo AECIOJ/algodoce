@@ -490,6 +490,34 @@ Chave numérica = nível de impressão (sem detalhado na raiz):
 - Não existe mais `columns` como alias de `fields`.
 - Não existe mais `body.order` no nível do report; `order` vive dentro de cada nível (`det`/`syn`/variante).
 
+### Colunas calculadas (`calc`)
+
+Além de `agg` (agregação), uma coluna pode ser **calculada a partir de outra coluna** usando a prop `calc` com símbolos:
+
+| Símbolo | Significado | Exemplo |
+|---------|-------------|---------|
+| `%T` | % do total da coluna base | `{'calc': '%T', 'mask': '999.99'}` → 15,25% |
+| `+T` | Soma acumulada (running total) | `{'calc': '+T', 'mask': MVALOR}` |
+| `%A` | % acumulado (running % do total) | `{'calc': '%A', 'mask': '999.99'}` |
+| `#N` | Rank/posição (1, 2, 3...) | `{'calc': '#N', 'width': 6}` |
+
+- Referência **implícita**: a coluna base é a **anterior** na declaração
+- Referência **explícita**: `'calc': '%T:saldo'` usa coluna `saldo` como base
+- `mask` (ou `format`) define a formatação do resultado
+- Funciona nos modos **analítico** e **sintético** (usa totais já calculados)
+
+**Exemplo:**
+
+```python
+'cols': {
+    'previsto': {'agg': 'sum', 'width': 20},
+    'realizado': {'agg': 'sum', 'width': 20},
+    'saldo': {'agg': 'sum', 'width': 20},
+    'saldo_pct': {'calc': '%T', 'mask': '999.99', 'label': '%', 'width': 12},
+    'saldo_acum': {'calc': '+T', 'mask': MVALOR, 'label': 'Acumulado', 'width': 20},
+}
+```
+
 ### `ReportColumn` — `ajsystem/defs/report.py` `class ReportColumn`
 
 Declara uma coluna de `body.table.cols` (ou `syn.cols`).
@@ -506,13 +534,16 @@ Declara uma coluna de `body.table.cols` (ou `syn.cols`).
 | `text` | `str` | `None` | template `'{campo}'`/`{x:02d}` | `{'text': '{tipo:d}. {tipo}'}` |
 | `suppress` | `bool` | `False` | `True` | `{'suppress': True}` |
 | `group` | `str` | `None` | `'*'` (grupo/break) ou `'<nome>'` | `{'group': '*'}` |
-| `on_start` | `dict` | `None` | `{text, lf, align, style, cpi, pos}` | `{'on_start': {'lf': -1}}` |
+| `consume` | `bool` | `True` | `True`: a linha que ABRE o grupo é a própria linha do grupo (não se repete como dado); `False`: o `text`/`on_start` é só cabeçalho e a linha é impressa normalmente | `{'group': '*', 'consume': False}` |
+| `on_start` | `dict` | `None` | `{text, lf, align, style, cpi, pos, consume}` | `{'on_start': {'lf': -1}}` |
 | `on_finish` | `dict` | `None` | `{text, footer_text, lf, align, style, cpi, totals}` | `{'on_finish': {'totals': True}}` |
 | `totals` | `object` | `None` | `None`, `True`, `dict` | `{'totals': {'align': 'R', 'span': 4}}` |
 | `lf` | `object` | `None` | respiro antes/depois (`n`, `-n`, `[a,b]`) | `{'lf': -1}` |
 | `transform` | `str` | `None` | `'U'`, `'L'`, `'C'` | `{'transform': 'U'}` |
 | `bold` | `bool` | `False` | `True` | `{'bold': True}` |
 | `when` | `str\|dict` | `None` | condição de exibição | `{'when': 'status > 0'}` |
+| `calc` | `str` | `None` | coluna calculada simbólica: `%T` (% do total), `+T` (soma acumulada), `%A` (% acumulado), `#N` (rank). Referência implícita à coluna anterior ou explícita `%T:campo` | `{'calc': '%T'}` |
+| `mask` | `str` | `None` | alias de `format`; máscara de exibição (ex.: `'999.99'`, `MVALOR`) | `{'mask': '999.99'}` |
 
 ### `body.chart` — gráfico como saída do relatório (PDF)
 

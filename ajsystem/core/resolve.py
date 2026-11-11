@@ -153,24 +153,35 @@ def field_display_fn(cfg, name, i18n=None):
 def field_presentation(cfg):
     """`(format, align)` inferidos da cfg de um campo, ou `None` se não houver.
 
-    A ordem é a precedência de exibição do motor: a `mask` manda (moeda via
-    `@M(id)`, alinhado à direita), depois o `type`/`input` do campo, e o tipo
-    semalignamento próprio fica sem `format` (o chamador decide o texto).
+    A ordem é a precedência de exibição do motor: `align` declarado vence;
+    depois a `mask` manda (moeda via `@M(id)`, alinhado à direita), depois o
+    `type`/`input` do campo, e o tipo sem alinhamento próprio fica sem
+    `format` (o chamador decide o texto). Tipos numéricos — inclusive as
+    chaves `PK`/`ID`/`DK`/`FK`/`RK` — alinham à direita por padrão.
     """
     from ajsystem.core.formats import mask_money_id
     from ajsystem.core.utils import normalize_currency
     cfg = cfg or {}
     cur = mask_money_id(cfg.get('mask'))
     if cur:
-        return normalize_currency(cur), 'right'
-    t, inp = cfg.get('type'), cfg.get('input')
-    if t == 'NUM':
-        return 'brl', 'right'
-    if t == 'DATA' or inp == 'date':
-        return 'datetime', 'right'
-    if t == 'INT':
-        return None, 'center'
-    return None, None
+        fmt, align = normalize_currency(cur), 'right'
+    else:
+        t, inp = cfg.get('type'), cfg.get('input')
+        if t == 'NUM':
+            fmt, align = 'brl', 'right'
+        elif t in ('INT', 'PK', 'ID', 'DK', 'FK', 'RK'):
+            fmt, align = None, 'right'
+        elif inp == 'number':
+            fmt, align = None, 'right'
+        elif t == 'DATA' or inp == 'date':
+            fmt, align = 'datetime', 'right'
+        else:
+            fmt, align = None, None
+    # `align` explícito (Entity/Schema/Query) vence o default do tipo.
+    explicit = cfg.get('align')
+    if explicit is not None:
+        align = explicit
+    return fmt, align
 
 
 def apply_field_layers(field_names, layers):

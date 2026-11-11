@@ -38,11 +38,11 @@ FIELD_TYPES = {
     'INT':       {'input': 'number', 'align': 'right', 'width': 5, 'decimals': 0},
     'NUM':       {'input': 'number', 'align': 'right', 'width': 10, 'decimals': 2},
     'PERCENT':   {'input': 'number', 'align': 'right', 'width': 6, 'decimals': 1, 'min': 0, 'max': 100, 'percent': True},
-    'PK':        {'input': 'number', 'label': '#'},
-    'ID':        {'input': 'number', 'label': '#'},
-    'DK':        {'input': 'number'},
-    'FK':        {'input': 'select'},
-    'RK':        {'input': 'number'},
+    'PK':        {'input': 'number', 'label': '#', 'align': 'right'},
+    'ID':        {'input': 'number', 'label': '#', 'align': 'right'},
+    'DK':        {'input': 'number', 'align': 'right'},
+    'FK':        {'input': 'select', 'align': 'right'},
+    'RK':        {'input': 'number', 'align': 'right'},
     'DATA':      {'input': 'date'},
     'DATA_HORA': {'input': 'datetime-local'},
     'HORA':      {'input': 'time'},
@@ -159,7 +159,7 @@ class Field:
     name: str
     label: Optional[str] = None
     width: Optional[int] = None
-    align: str = 'left'
+    align: Optional[str] = None
     input: str = 'text'        # NOME de um tipo do catálogo `defs/inputs`
     input_props: dict = field(default_factory=dict)  # overrides do editor no ponto de uso
     options: Optional[dict] = None
@@ -237,8 +237,10 @@ class Field:
                 self.width += 1
         if self.width is None:
             self.width = self._input_def.size or 18
-        if self._input_def.align == 'right' and self.align == 'left':
-            self.align = 'right'
+        # Alinhamento: explícito (Entity/Schema/Query) vence; sem declaração,
+        # herda do editor (número → direita). Não sobrescreve 'left' explícito.
+        if self.align is None:
+            self.align = self._input_def.align
 
     @property
     def inp(self) -> Input:

@@ -19,6 +19,7 @@ QRECEBER = {
 
 RECEBER = {
     'label': 'Contas a Receber',
+    'orientation': 'landscape',  
     'header': [
         LOGO(),
         TITLE(),
@@ -30,6 +31,7 @@ RECEBER = {
                 'cliente': {
                     'group': '*',
                     'text': '{conta}. {cliente}',
+                    'consume': False,
                     'on_start': {'lf': -1},
                     'on_finish': {'lf': 1},
                     'totals': {'align': 'R'},
@@ -45,6 +47,7 @@ RECEBER = {
                 'realizado': {'agg': 'sum'},
                 'variacao': {'agg': 'sum'},
                 'saldo': {'agg': 'sum'},
+                'saldo_p': {'calc': '%T:saldo', 'mask': ' 999.9', 'label': '%', 'agg': 'sum'}
             },
             'totals': {'align': 'R'},
             'order': ['vencimento', 'id'],

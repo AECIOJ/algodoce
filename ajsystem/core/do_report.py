@@ -21,6 +21,7 @@ import os
 import re
 import uuid
 from io import BytesIO
+import traceback as _tb
 
 from flask import Response, current_app, render_template, request
 
@@ -271,12 +272,15 @@ def _pdf_bytes(report, data=None, instance=None, rp_output=None,
                                       chart_filter or filter, syn=bool(chart_syn)) or []
                 ds = _build_dataset(parsed, chart, rows)
                 png = MatplotlibRenderer().render(ds, chart)
-                # Embute após a tabela, largura da página útil (A4 = 210mm)
+                # Embute após a tabela, centralizado na largura útil da página.
+                # `pdf.w` já considera a orientação (retrato/paisagem); não usar
+                # 210 fixo, que deixava o gráfico à esquerda em paisagem.
                 _ml = _margin_mm(getattr(report, 'margin_left', 10), getattr(report, 'label', ''))
                 _mr = _margin_mm(getattr(report, 'margin_right', 10), getattr(report, 'label', ''))
-                w = 210 - _ml - _mr
+                avail = pdf.w - _ml - _mr
+                w = avail
                 pdf.ln(4)
-                pdf.image(png, x=_ml, w=w)
+                pdf.image(png, x=_ml + (avail - w) / 2, w=w)
             except Exception as _e:
                 # Falha no gráfico não invalida o relatório inteiro
                 current_app.logger.warning('chart no PDF: %s', _e)
@@ -433,11 +437,26 @@ def _apply_entity(raw, entity, variant=None, syn=False):
         """
         if spec.get('width'):
             return
+        # 1) Máscara (mask/format) → largura do valor formatado
+        fmt = spec.get('mask') or spec.get('format')
+        if fmt:
+            try:
+                from ajsystem.core.list import field_width_ch
+                from ajsystem.defs.data import build_field
+                f = build_field(str(key), {'mask': fmt, 'label': spec.get('label')})
+                w = field_width_ch(f, fit_mask=True)
+                if w:
+                    spec['width'] = w
+                    return
+            except Exception:
+                pass
+        # 2) Chave pontada → campo alvo
         if '.' in str(key):
             w = _col_width_ch(str(key).split('.')[-1], {}, None)
             if w:
                 spec['width'] = w
                 return
+        # 3) Rótulo
         if spec.get('label'):
             spec['width'] = len(str(spec['label'])) + 1
 
@@ -552,6 +571,16 @@ def _apply_entity(raw, entity, variant=None, syn=False):
                 spec = {**_disp_map[key], **extra}
                 if 'label' not in spec:
                     spec['label'] = _auto_label(key)
+                # Apresentação (format/align) do campo-fonte da query quando a
+                # entrada não declara: alias `previsao` -> `Previsao.id` alinha
+                # à direita como qualquer número. `align` explícito vence.
+                _src_name = _field_map.get(key, key)
+                _pres = _infer_presentation(
+                    _field_base_cfg(entity, _pname, _src_name))
+                if 'format' not in spec:
+                    spec['format'] = _pres.get('format')
+                if 'align' not in spec:
+                    spec['align'] = _pres.get('align')
                 # O `field` deve ser o nome da chave (ex: 'cliente'), que é o
                 # atributo definido no _Row pelo run_query. O caminho SQL
                 # (ex: 'conta.nome') já está em _field_map e é usado pelo qrun.
@@ -679,21 +708,37 @@ def _apply_entity(raw, entity, variant=None, syn=False):
         return len(lit) + fields * 8 + 1
 
     def _fallback_width_ch(spec, key):
-        """Largura de uma coluna que NÃO resolveu na Entity.
+        """Largura de uma coluna que NAO resolveu na Entity.
 
-        Chave pontada (`Entidade.campo`) nomeia o campo exibido, e é dele que
-        a largura sai — `insumo.nome` é um nome (texto), não as 7 colunas que o
-        rótulo 'Insumo' sugeriria. Sem pista além do rótulo, o rótulo manda.
-    """
-        if spec.get('width'):
+        Chave pontada (Entidade.campo) nomeia o campo exibido, e e dele que
+        a largura sai - insumo.nome e um nome (texto), nao as 7 colunas que o
+        rotulo Insumo sugeriria. Sem pista alem do rotulo, o rotulo manda.
+        """
+        if spec.get("width"):
             return
-        if '.' in str(key):
-            w = _col_width_ch(str(key).split('.')[-1], {}, None)
+        # 1) Mascara (mask/format) -> largura do valor formatado
+        fmt = spec.get("mask") or spec.get("format")
+        if fmt:
+            try:
+                from ajsystem.core.list import field_width_ch
+                from ajsystem.defs.data import build_field
+                f = build_field(str(key), {"mask": fmt, "label": spec.get("label")})
+                w = field_width_ch(f, fit_mask=True)
+                if w:
+                    spec["width"] = w
+                    return
+            except Exception:
+                pass
+        # 2) Chave pontada -> campo alvo
+        if "." in str(key):
+            w = _col_width_ch(str(key).split(".")[-1], {}, None)
             if w:
-                spec['width'] = w
+                spec["width"] = w
                 return
-        if spec.get('label'):
-            spec['width'] = len(str(spec['label'])) + 1
+        # 3) Rotulo
+        if spec.get("label"):
+            spec["width"] = len(str(spec["label"])) + 1
+
 
     def _resolve_map(items, *, columns=False):
         # `colunas=True` só para `body.table.columns`. A MESMA rotina resolve
@@ -806,6 +851,16 @@ def _apply_entity(raw, entity, variant=None, syn=False):
                 spec = {**_disp_map[key], **extra}
                 if 'label' not in spec:
                     spec['label'] = _auto_label(key)
+                # Apresentação (format/align) do campo-fonte da query quando a
+                # entrada não declara: alias `previsao` -> `Previsao.id` alinha
+                # à direita como qualquer número. `align` explícito vence.
+                _src_name = _field_map.get(key, key)
+                _pres = _infer_presentation(
+                    _field_base_cfg(entity, _pname, _src_name))
+                if 'format' not in spec:
+                    spec['format'] = _pres.get('format')
+                if 'align' not in spec:
+                    spec['align'] = _pres.get('align')
                 # O `field` deve ser o nome da chave (ex: 'cliente'), que é o
                 # atributo definido no _Row pelo run_query. O caminho SQL
                 # (ex: 'conta.nome') já está em _field_map e é usado pelo qrun.
@@ -1852,6 +1907,9 @@ def _synthesize_levels_from_groups(table, body, label):
                 _sp[cname]['pos'] = on_start['pos']
             elif 'pos' in g:
                 _sp[cname]['pos'] = g['pos']
+            # Cabeçalho de grupo não consome a linha? Repassa a decisão.
+            if 'consume' in g:
+                _sp[cname]['consume'] = g['consume']
             # Totais só devem ser impressos no fechamento (on_finish)
             synth.append(_sp)
 
@@ -2371,6 +2429,10 @@ def _auto_data(report, data, instance, filter=None, syn=False,
             raise TypeError(
                 "body.filter: callable que devolve Query não é suportado "
                 "quando body.source é um QuerySpec")
+        
+        # Cálculo de colunas derivadas (%T, +T, etc.) é feito em Python
+        # no _render_table_body (mais robusto para colunas compostas)
+        
         _rows = run_query(_model, _src_raw, entity_cfg=_cfg, extra_where=_filter,
                           extra_conditions=extra_conditions)
         _body = _body_of(report)

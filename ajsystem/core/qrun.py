@@ -31,30 +31,35 @@ def _cast_value(cfg, value):
 
 def _resolve_column(model, field_name):
     """Resolve um campo, tentando também através de relationships (join).
-    
-    Para campos de models relacionados (join), retorna a coluna através
-    do relationship: model.relacionamento.campo.
+
+    Para campos de models relacionados, devolve a coluna do model alvo
+    (ex.: `conta_id` da `Previsao` -> `Transacao.conta_id`).
+
+    Relacionamentos **um-para-muitos** (`uselist=True`) são ignorados: o nome
+    da coluna no alvo não identifica uma linha do model (ex.: `conta_id` do
+    `Movimento` via `Previsao.movtos`) e usá-lo em `WHERE` sem join próprio
+    gera produto cartesiano — filtro na tabela errada e linhas duplicadas.
+    Alvo de relação to-many entra por caminho pontilhado no `select`/`where`,
+    que já monta o join (`_resolve_join_path_for_query`).
     """
     # Tentar diretamente no model
     col = getattr(model, field_name, None)
     if col is not None and hasattr(col, 'type'):
         return col
-    
-    # Tentar através de relationships (join)
+
+    # Tentar através de relationships um-para-um/muitos-para-um
     # Ex: 'conta_id' pode estar em 'transacao.conta_id'
     if hasattr(model, '__mapper__'):
-        for rel_name in model.__mapper__.relationships.keys():
-            rel = getattr(model, rel_name, None)
-            if rel is not None:
-                try:
-                    mapper_cls = rel.property.mapper.class_
-                    col = getattr(mapper_cls, field_name, None)
-                    if col is not None and hasattr(col, 'type'):
-                        # Retornar a coluna através do relationship
-                        return getattr(rel, field_name, None) or col
-                except Exception:
-                    pass
-    
+        for _, prop in model.__mapper__.relationships.items():
+            if prop.uselist:
+                continue
+            try:
+                col = getattr(prop.mapper.class_, field_name, None)
+            except Exception:
+                continue
+            if col is not None and hasattr(col, 'type'):
+                return col
+
     return None
 
 
@@ -503,6 +508,20 @@ def build_levels(rows, pk='id', parent='pai_id', rn_attr='rn',
 
 build_hierarchy = build_levels  # alias legado
 
+
+def _inject_calc_window_functions(spec, calc_columns):
+    """Injeta window functions no SELECT para colunas calculadas (%T, +T, %A, #N).
+    
+    NOTA: Esta função foi desabilitada - a abordagem de window functions diretas
+    causa ambiguidades em colunas computadas. O cálculo é feito em Python
+    (em _render_table_body) que é mais robusto para colunas compostas.
+    
+    `calc_columns` = lista de dicts {field, calc, ref_field} vindos do report.
+    Retorna spec original sem modificações.
+    """
+    # Desabilitado: window functions causam ambiguidades em colunas computadas
+    # O cálculo em Python (_render_table_body) é mais robusto
+    return spec
 
 
 def run_query(model, spec, entity_cfg=None, extra_where=None,

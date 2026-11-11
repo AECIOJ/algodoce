@@ -1142,14 +1142,42 @@ def _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_lin
     _draw_hline(pdf, x_start, total_w)
 
 
-def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
+def _calc_value(row, cols, cinfo):
+    """Valor de uma coluna calculada (%T, +T, %A, #N) para a linha."""
+    ref_val = _get_cell_value(row, next(c for c in cols if c.field == cinfo['ref']))
+    if ref_val is None:
+        ref_val = 0
+    op = cinfo['op']
+    total = cinfo['total']
+    running = cinfo['running']
+    if op == '%T':
+        return (ref_val / total * 100) if total else 0
+    if op == '+T':
+        running += ref_val
+        cinfo['running'] = running
+        return running
+    if op == '%A':
+        running += ref_val
+        cinfo['running'] = running
+        return (running / total * 100) if total else 0
+    if op == '#N':
+        running += 1
+        cinfo['running'] = running
+        return running
+    return None
+
+
+def _render_data_row(pdf, cols, col_widths, row, x_start, calc_values=None):
     """Renderiza uma linha de dados."""
     _table_face(pdf)
     row_h = _row_unit(pdf)
     if not hasattr(pdf, '_sup_prev'):
         pdf._sup_prev = {}
     for i, col in enumerate(cols):
-        val = _get_cell_value(row, col)
+        if calc_values and col.field in calc_values:
+            val = calc_values[col.field]
+        else:
+            val = _get_cell_value(row, col)
         _blank = False
         if getattr(col, 'suppress', False):
             if pdf._sup_prev.get(col.field, _MISSING) == val:
@@ -1166,11 +1194,37 @@ def _render_data_row(pdf, cols, col_widths, row, x_start, agg_values):
         ny = "NEXT" if i == len(cols) - 1 else "TOP"
         pdf.set_x(x_start + sum(col_widths[:i]))
         pdf.cell(col_widths[i], row_h, txt, border=0, align=align, new_x=nx, new_y=ny)
-        if col.agg and val is not None:
-            agg_values[col.field].append(val)
     _mark_content(pdf)
     if pdf._report.show_table_lines:
         _draw_hline(pdf, x_start, sum(col_widths))
+
+
+def _accumulate_row(accs, cols, row, calc_values=None):
+    """Acumula os valores `agg` da linha no acumulador do nível MAIS INTERNO.
+
+    Só o nível mais interno recebe a linha: os níveis externos recebem o total
+    do filho quando ele fecha (`_add_to_acc` em `close_level`). Acumular a
+    linha também nos externos contava o MESMO registro duas vezes — e um grupo
+    que declara `on_start` + `on_finish` produz DOIS níveis para o MESMO
+    campo, então o total geral saía dobrado (com dois grupos aninhados, o
+    subtotal externo saía dobrado e o total geral, quadruplicado).
+
+    Colunas calculadas não existem na linha: usam o valor pré-calculado, para
+    que subtotais e total geral somem a mesma porcentagem que foi impressa.
+    """
+    if not accs:
+        return
+    acc = accs[-1]
+    for c in cols:
+        if not c.agg:
+            continue
+        if calc_values is not None and c.field in calc_values:
+            v = calc_values[c.field]
+        else:
+            v = _get_cell_value(row, c)
+            if v is None and not c.function:
+                v = getattr(row, c.field, None)
+        acc[c.field].append(v)
 
 
 def _render_extend(pdf, cols, col_widths, x_start, total_w, items, instance, report):
@@ -1274,9 +1328,11 @@ def _render_footer_row(pdf, cols, col_widths, totals, agg_values, x_start, total
     """Linha de total geral: rotulo nas primeiras colunas sem 'agg' + func por coluna agg."""
     _draw_hline(pdf, x_start, total_w)  # regua antes (interna, sempre)
     _table_face(pdf, 'B')
-    # span automatico: qtd de colunas a esquerda sem 'agg'
-    nspan = sum(1 for c in cols if not c.agg)
-    nspan = min(nspan, len(cols) - 1)
+    # Área do rótulo: colunas à esquerda da PRIMEIRA coluna com total (`agg`).
+    # Assim colunas com total não são cobertas pelo rótulo mesmo quando há
+    # colunas sem agg intercaladas ou à direita delas.
+    first_agg = next((i for i, c in enumerate(cols) if c.agg), None)
+    nspan = first_agg if first_agg is not None else max(len(cols) - 1, 0)
     label_w = sum(col_widths[:nspan])
     pdf.set_x(x_start)
     # imprime rotulo apenas se houver espaco suficiente para ele
@@ -1462,9 +1518,9 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
     label = totals.get('label', 'Sub-Total')
     if label and row is not None and ('{' in label):
         label = _group_title({**g, 'text': label}, None, row=row)
-    # span automatico: qtd de colunas a esquerda sem 'agg'
-    nspan = sum(1 for c in cols if not c.agg)
-    nspan = min(nspan, len(cols) - 1)
+    # Área do rótulo: colunas à esquerda da PRIMEIRA coluna com total (`agg`).
+    first_agg = next((i for i, c in enumerate(cols) if c.agg), None)
+    nspan = first_agg if first_agg is not None else max(len(cols) - 1, 0)
     label_w = sum(cw[:nspan])
     pdf.set_x(xs)
     # imprime rotulo apenas se houver espaco suficiente para ele
@@ -1487,7 +1543,7 @@ def _render_group_total(pdf, g, cols, cw, xs, acc, row=None):
 
 
 def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
-                       agg_values, header_h, report, syn=False):
+                       agg_values, header_h, report, syn=False, calc_values=None):
     """Grupos por mudança de valor do campo (specs normalizadas).
 
     O grupo é parte da TABELA: o `lf` é dela, uma vez antes e uma depois, e não
@@ -1535,7 +1591,7 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
             _draw_hline(pdf, xs, tw)
         _reset_acc(i)
 
-    for row in data:
+    for idx, row in enumerate(data):
         vals = [_group_value(row, g) for g in gs]
         changed = 0 if not started else \
             next((i for i in range(len(gs)) if vals[i] != prev[i]), None)
@@ -1598,9 +1654,16 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
                     # Em modo sintético cada grupo é uma linha agregada única:
                     # NÃO consumir a linha como cabeçalho — ela imprime como
                     # dado abaixo do rótulo do grupo.
-                    if not syn:
-                        # a row que ABRE o nível é a própria linha (consumida
-                        # como cabeçalho), não repete como dado na tabela
+                    #
+                    # No detalhado, quem decide é a prop `consume` do grupo:
+                    #   True  (default) — a linha que ABRE o nível é a própria
+                    #         linha do grupo (o `text` já a representa, ex. o
+                    #         nó de uma hierarquia) e NÃO repete como dado;
+                    #   False — o `text` é só um cabeçalho (ex. nome do
+                    #         cliente) e a linha continua sendo impressa.
+                    # Sem isso o subtotal/total incluía uma linha que não saía
+                    # na tabela e o valor parecia contado em dobro.
+                    if not syn and g.get('consume', True):
                         skip_row = True
                 # pos == 0: oculto — agrupa/totaliza sem imprimir cabeçalho
                 prev[i] = vals[i]
@@ -1608,6 +1671,12 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
             started = True
             for i in range(len(gs)):
                 last_rows[i] = row
+
+        # Toda linha pertence ao grupo, inclusive a que abre o nível e é
+        # consumida como cabeçalho (não impressa). Sem isso o subtotal e o
+        # total geral perdiam justamente a primeira linha de cada grupo.
+        _accumulate_row(accs, cols, row,
+                        calc_values[idx] if calc_values else None)
 
         if skip_row:
             continue
@@ -1620,15 +1689,8 @@ def _walk_field_groups(pdf, cols, cw, tw, xs, data, gs,
             gera_cab = False
         if show_lines:
             _draw_hline(pdf, xs, tw)
-        _render_data_row(pdf, cols, cw, row, xs, agg_values)
-        # Acumular linha em todos os níveis vigentes (somente nos accs dos grupos)
-        for acc in accs:
-            for c in cols:
-                if c.agg:
-                    v = _get_cell_value(row, c)
-                    if v is None and not c.function:
-                        v = getattr(row, c.field, None)
-                    acc[c.field].append(v)
+        _render_data_row(pdf, cols, cw, row, xs,
+                         calc_values[idx] if calc_values else None)
 
     # fecha grupos remanescentes
     for i in range(len(gs) - 1, -1, -1):
@@ -1679,6 +1741,64 @@ def _render_table_body(pdf, report, cols, col_widths, total_w, x_start,
     """
     # Dados — grupos por mudança de valor (specs normalizadas em _apply_entity)
     agg_values = {c.field: [] for c in cols if c.agg}
+    
+    # --- Colunas calculadas (%T, +T, etc.) ---
+    # Pré-calcular totais das colunas base para uso nas colunas calculadas
+    # Precisamos dos totais ANTES de renderizar as linhas, então varremos os
+    # dados uma vez para coletar os valores das colunas de referência.
+    _calc_cols = {}  # {col_field: {ref_field, op, total, running}}
+    _prev_field = None
+    
+    # Primeiro, identifica quais campos são referenciados por colunas calculadas
+    _ref_fields = set()
+    for c in cols:
+        if c.calc:
+            calc_spec = c.calc
+            ref_field = _prev_field
+            if isinstance(calc_spec, str) and ':' in calc_spec:
+                _, ref_field = calc_spec.split(':', 1)
+            if ref_field:
+                _ref_fields.add(ref_field)
+        _prev_field = c.field
+    
+    # Pré-coletar valores das colunas de referência
+    _ref_totals = {rf: 0 for rf in _ref_fields}
+    if _ref_fields and data:
+        for row in data:
+            for rf in _ref_fields:
+                ref_col = next((c for c in cols if c.field == rf), None)
+                if ref_col:
+                    val = _get_cell_value(row, ref_col)
+                    if val is not None:
+                        _ref_totals[rf] += val
+    
+    # Agora monta _calc_cols com os totais já calculados
+    _prev_field = None
+    for c in cols:
+        if c.calc:
+            calc_spec = c.calc
+            ref_field = _prev_field
+            op = calc_spec
+            if isinstance(calc_spec, str) and ':' in calc_spec:
+                op, ref_field = calc_spec.split(':', 1)
+            if ref_field is None:
+                raise ValueError(f"report: coluna '{c.field}' com calc '{calc_spec}' sem coluna de referência")
+            total_ref = _ref_totals.get(ref_field, 0)
+            _calc_cols[c.field] = {'ref': ref_field, 'op': op, 'total': total_ref, 'running': 0}
+        _prev_field = c.field
+    # -----------------------------------------
+
+    # Valores calculados por linha, na ordem dos dados. A mesma lista alimenta
+    # a impressão, os subtotais e o total geral — inclusive as linhas que viram
+    # cabeçalho de grupo e não são impressas, mas pertencem ao total.
+    _calc_values = [None] * len(data)
+    if _calc_cols and data:
+        for _i, _row in enumerate(data):
+            _calc_values[_i] = {
+                _f: _calc_value(_row, cols, _ci)
+                for _f, _ci in _calc_cols.items()
+            }
+
     header_h = _row_unit(pdf) + _row_unit(pdf)
     gera_cab = True
     _tbl = _body_table(report) if report else {}
@@ -1695,14 +1815,21 @@ def _render_table_body(pdf, report, cols, col_widths, total_w, x_start,
         _render_static_lines(pdf, _pre, _first_row, x_start, total_w, _label)
     if gs:
         _walk_field_groups(pdf, cols, col_widths, total_w, x_start, data,
-                           gs, agg_values, header_h, report, syn=_syn)
+                           gs, agg_values, header_h, report, syn=_syn,
+                           calc_values=_calc_values)
     else:
-        for row in data:
+        for _i, row in enumerate(data):
             page_break = _check_page_break(pdf, header_h)
             if gera_cab or page_break:
                 _render_column_headers(pdf, cols, col_widths, x_start, total_w, draw_top_line=True)
                 gera_cab = False
-            _render_data_row(pdf, cols, col_widths, row, x_start, agg_values)
+            _render_data_row(pdf, cols, col_widths, row, x_start,
+                             _calc_values[_i] if _calc_values else None)
+            # Acumular em agg_values para totals e footer (caminho sem grupos).
+            # Mesma rotina do caminho com grupo: um só jeito de acumular, e sem
+            # o `in None` que quebrava quando a tabela não tem coluna calc.
+            _accumulate_row([agg_values], cols, row,
+                            _calc_values[_i] if _calc_values else None)
 
     if _post:
         _render_static_lines(pdf, _post, _first_row, x_start, total_w, _label)
