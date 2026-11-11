@@ -561,14 +561,14 @@ O gráfico é declarado no próprio report e impresso como **PNG dentro do PDF**
 | `value` | `dict` | `{}` | uma ou mais séries `{campo: ChartField}` | `{'value': {'saldo': {'color': '#dc3545'}}}` |
 | `stack` | `dict` | `{}` | `{grupo: [campos]}` — campos do mesmo grupo são empilhados; fora de `stack`, ficam lado a lado | `{'stack': {'total': ['previsto', 'realizado']}}` |
 | `label` | `dict` | `{}` | rótulos de eixo/dados (ver `ChartLabel`) | `{'label': {'cat': 'Cliente', 'value': 'Saldo (R$)'}}` |
-| `options` | `dict` | `{}` | opções de renderização; `legend` (posição/`False` desliga), `shadow` (`True`→`(3,3)` ou tupla `(dx,dy)` cartesiana), `explode` (fatia destacada em `pie`/`donut`), `title_font` (`{size: int, bold: bool, family: str}`) | `{'options': {'legend': False, 'shadow': (5, -5), 'explode': 'saldo', 'title_font': {'size': 18, 'bold': False}}}` |
+| `options` | `dict` | `{}` | opções de renderização; `legend` (posição/`False` desliga), `shadow` (`False` sem sombra; `True`→`(3,3)` ou tupla `(dx,dy)` cartesiana), `explode` (fatia destacada em `pie`/`donut`), `title_font` (`{size: int, bold: bool, family: str}`) | `{'options': {'legend': False, 'shadow': (5, -5), 'explode': 'saldo', 'title_font': {'size': 18, 'bold': False}}}` |
 | `limit` | `int` | `None` | top N após a ordenação (também aceito em `cat.<campo>.limit`) | `{'limit': 10}` |
 | `order` | `str\|list` | `None` | ordem da consulta: injeta `ORDER BY` na query de origem (igual `report.order`). Aceita campo (`'mes_ordem'`), lista (`['mes_ordem']`) ou índices 1-based (`[1, 2]`) | `{'order': 'mes_ordem'}` |
 | `syn` | `dict` | `None` | layout alternativo do modo sintético (mesmas props de raiz; seu `options` é independente da raiz) | `{'syn': {'type': 'pie', ...}}` |
 
 `cat` aceita só o **primeiro** campo declarado. `type`, `cat`, `value`, `stack`, `label` e `title` são da raiz — não existe `chart.options.stacked` (use `stack`). `legend`, `shadow` e `explode` vivem só em `options`; `legend` na raiz ainda é aceito como fallback depreciado.
 
-- `shadow: bool | tuple[int, int]` (`True` padrão → offset `3,3`): desenha uma cópia deslocada em cinza claro (`#d1d5db`) atrás de cada fatia (`pie`/`donut`) ou barra (`col`/`bar`), dando sensação de relevo. `True` usa `(3, 3)`; uma tupla `(dx, dy)` segue o plano cartesiano: `dx` positivo à direita, `dy` positivo para cima; negativos invertem. Declara apenas para desligar: `{'options': {'shadow': False}}`.
+- `shadow: bool | tuple[int, int]` (`False` padrão = sem sombra; `True` → offset `3,3`): desenha uma cópia deslocada em cinza claro (`#d1d5db`) atrás de cada fatia (`pie`/`donut`) ou barra (`col`/`bar`), dando sensação de relevo. `True` usa `(3, 3)`; uma tupla `(dx, dy)` segue o plano cartesiano: `dx` positivo à direita, `dy` positivo para cima; negativos invertem.
 - `explode: str | list[str]`: destaca a fatia(ões) nomeada(s) deslizando-a para fora do centro da pizza (`radius * 0.12`). Sombra e rótulos acompanham o deslocamento. Ignorado em `col`/`bar` e em nome inexistente.
 - `title_font: dict` (`{size: int, bold: bool, family: str}`): configura a fonte do título do gráfico. Default: `size=24, bold=True`. Ex.: `{'options': {'title_font': {'size': 18, 'bold': False, 'family': 'Arial'}}}`.
 

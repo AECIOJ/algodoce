@@ -103,7 +103,7 @@ class ChartOptions:
     """Opções gerais de renderização (não pertencem aos dados)."""
     horizontal: bool = False
     legend: bool | str = 'bottom'   # False desliga; top|bottom|left|right
-    shadow: bool | tuple[int, int] = True   # True=(3,3); tupla (dx,dy) em px, plano cartesiano: dx+=direita, dy+=acima; negativo inverte
+    shadow: bool | tuple[int, int] = False   # False sem sombra; True=(3,3); tupla (dx,dy) em px, plano cartesiano: dx+=direita, dy+=acima; negativo inverte
     explode: str | list[str] | None = None  # fatia(s) destacada(s) em pie/donut
     tooltip: bool = True
     grid: bool = True

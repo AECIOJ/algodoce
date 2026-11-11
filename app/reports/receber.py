@@ -97,7 +97,6 @@ RECEBER = {
                 },
                 'options': {
                     'legend': False,
-                    'shadow': (5, -3), 
                     'explode': 'realizado'
                 },
             },
