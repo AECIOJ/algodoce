@@ -68,7 +68,7 @@ RECEBER = {
         },
         'chart': {
             'title': 'Saldo por Vencimento',
-            'type': 'col',
+            'type': 'line',
             'cat': {'vencimento': {'bin': 'month', 'format': 'mmm/yyyy'}},
             'value': {
                 'previsto':  {'color': '#0d6efd'},
@@ -82,7 +82,7 @@ RECEBER = {
             },
             'options': {'legend': 'bottom'},
             'syn': {
-                'type': 'pie',
+                'type': 'donut',
                 'value': {
                     'previsto': {},
                     'realizado': {},
