@@ -13,12 +13,7 @@ window.dtSyncFilled = dtSyncFilled;
 function _dtCompleteOne(el) {
   var v = el.value.trim();
   if (!v) return;
-  var now;
-  if (window.AJ_HOJE) {
-    now = new Date(window.AJ_HOJE.ano, window.AJ_HOJE.mes - 1, window.AJ_HOJE.dia);
-  } else {
-    now = new Date();
-  }
+  var now = new Date();
   var yy = String(now.getFullYear());
   var mm = String(now.getMonth() + 1).padStart(2, '0');
   var dd = String(now.getDate()).padStart(2, '0');

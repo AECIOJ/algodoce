@@ -2,7 +2,6 @@
 auth e módulos CRUD a partir do menu. Ponto único de inicialização."""
 import os
 import jinja2
-from datetime import datetime
 
 from ajsystem import ajsystem, heroicon_filter
 from ajsystem import locales
@@ -184,8 +183,5 @@ def init_app(app):
             # Callables (custo só quando a template chama):
             'menu_breadcrumb': caminho_atual,
             'menu_home_url': home_page,
-            # Data corrente do servidor para preenchimento automático
-            # de datas no cliente (evita diferença de fuso horário).
-            'HOJE': {'ano': datetime.now().year, 'mes': datetime.now().month, 'dia': datetime.now().day},
         }
 
