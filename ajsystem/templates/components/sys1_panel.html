@@ -1,0 +1,25 @@
+{# ── Painel (6) do layout 1 — caminho do menu no topo esquerdo + boas-vindas ──
+   Estado inicial: no módulo home, sem ativação explícita → card centralizado
+   orientando a seleção de um menu. Comportamento vive em
+   `components/sys1_scripts.html`. #}
+<div id="l1-pathbar" class="l1-pathbar">
+  {% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
+  {% set _bc = menu_breadcrumb() %}
+  {# Estado inicial (home, nada clicado): caminho vazio — a entrada só
+     aparece com seleção explícita de menu. #}
+  {% set _is_home = request.path.rstrip('/') == ((menu_home_url(modulo) if modulo else '/')|string).rstrip('/') %}
+  <span class="l1-title-path" id="l1-breadcrumb"
+        style="{% if _title and _title.font %}font-family:'{{ _title.font }}',sans-serif;{% endif %}"
+        data-home="{{ menu_home_url(modulo) if modulo else '/' }}"
+        data-trail="{{ _bc|join(' ➔ ') }}">{{ '' if _is_home else (_bc|join(' ➔ ')) }}</span>
+</div>
+<div id="l1-welcome" class="l1-welcome">
+  <div class="card bg-base-100 shadow-md" style="max-width:26rem;">
+    <div class="card-body items-center text-center gap-2">
+      <svg class="w-10 h-10 opacity-60" aria-hidden="true"><use href="#i-home"/></svg>
+      <h2 class="card-title text-base">Bem-vindo!</h2>
+      <p class="text-sm opacity-80 mb-0">Selecione um menu na barra lateral para abrir
+        uma página.</p>
+    </div>
+  </div>
+</div>

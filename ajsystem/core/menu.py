@@ -160,3 +160,38 @@ def home_page(mod=None):
             if url and not url.startswith('/ajsystem/construcao'):
                 return url
     return '/'
+
+
+def caminho_atual(path=None):
+    """Caminho completo do menu ativo (lista de rótulos, do nível 1 ao folha).
+
+    Resolve `request.path` (ou `path` dado) contra a árvore de menus do módulo
+    atual com a MESMA regra de `item_ativo` (igualdade ou prefixo de rota —
+    páginas filhas de um módulo, ex.: form sob o list, herdam o trail do
+    folha). Vence o trail mais profundo que casa. Ex.: `Financeiro ➔ Contas
+    a Receber`. Sem casamento (rota fora do menu, ex.: painel admin) → `[]`.
+    """
+    if path is None:
+        path = request.path
+    p = (path or '').rstrip('/') or '/'
+    mod = modulo_atual()
+    if mod is None:
+        return []
+    best = []
+
+    def walk(items, acc):
+        nonlocal best
+        for label, item in items.items():
+            trail = acc + [label]
+            try:
+                href = url_do_item(item, label).rstrip('/')
+            except Exception:
+                href = None
+            if href and (p == href or (href != '/' and p.startswith(href + '/'))
+                         ) and len(trail) > len(best):
+                best = trail
+            if item.submenus:
+                walk(item.submenus, trail)
+
+    walk(mod.menus, [])
+    return best

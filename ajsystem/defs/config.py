@@ -153,11 +153,15 @@ class App:
       `INPUTS` na resolução do `Field`. Gêmeo de `botoes`: é aqui que `cpf`,
       `cnpj` e a máscara do telefone ganham forma, e é o que `FIELD_TYPES`
       referencia. Ausente (`None`) = só o catálogo do framework.
+    - `layout`: chrome do sistema. `0` (default, ausente) = shell atual
+      (header + app-bar horizontal). `1` = shell de barras (top bar + sidebar
+      de navegação + painel de abas; ver `components/sys1_*.html`).
     """
     name: str
     logo: str
     tema: str
     title: Optional[str] = None
+    layout: int = 0
     version: Optional[Version] = None
     upload: Optional[dict] = None
     botoes: Optional[dict] = None
@@ -248,12 +252,18 @@ def build_app(cfg, botoes=None, inputs=None) -> App:
         dup = {t for t in tipos if tipos.count(t) > 1}
         raise ValueError(f"APP['modules'] com tipos duplicados: {sorted(dup)}")
     versao = build_version(cfg.get('version'))
+    layout = cfg.get('layout', 0)
+    if layout not in (0, 1):
+        raise ValueError(
+            f"APP['layout'] deve ser 0 (shell atual) ou 1 (shell de barras), "
+            f"veio {layout!r}. Edite APP['layout'] em app/config.py.")
     return App(
         name=cfg['name'],
         title=cfg.get('title'),
         logo=cfg['logo'],
         version=versao,
         tema=cfg['tema'],
+        layout=layout,
         upload=cfg.get('upload'),
         botoes=botoes,
         inputs=inputs,

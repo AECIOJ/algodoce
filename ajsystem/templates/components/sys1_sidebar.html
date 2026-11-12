@@ -1,0 +1,58 @@
+{# ── Sidebar (5) do layout 1 — árvore de navegação (accordion JS puro) ──
+   Nível 1: ícone + rótulo do menu. Nível 2: grupo em caixa alta. Nível 3:
+   links finais com indicador `border-l`. Renderiza recursivamente quaisquer
+   profundidades declaradas em `modulo.menus`. Tema: vars `--bar-*` (TEMA).
+   `data-default` marca o grupo que contém a página default do módulo — o JS
+   o expande no estado inicial (boas-vindas, nada clicado ainda). #}
+{% set _home_norm = (menu_home_url(modulo) if modulo else '/')|string %}
+<nav id="l1Sidebar" class="l1-sidebar" aria-label="{{ i18n.MENU if i18n.MENU is defined else 'Menu' }}">
+  <ul>
+    {% for label, item in modulo.menus.items() %}
+    {% set ns = namespace(hit=false) %}
+    {% if item.submenus %}
+      {% for sl, si in item.submenus.items() %}
+        {% if menu_url(si, sl).rstrip('/') == _home_norm.rstrip('/') %}{% set ns.hit = true %}{% endif %}
+        {% for sl2, si2 in (si.submenus or {}).items() %}
+          {% if menu_url(si2, sl2).rstrip('/') == _home_norm.rstrip('/') %}{% set ns.hit = true %}{% endif %}
+        {% endfor %}
+      {% endfor %}
+    <li{% if ns.hit %} data-default{% endif %}>
+      <button type="button" class="l1-acc" data-acc>
+        <svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#i-{{ item.icon|replace('bi-','') if item.icon else 'home' }}"/></svg>
+        <span>{{ label }}</span>
+        <svg class="w-3 h-3 l1-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+      </button>
+      <ul class="l1-sub">
+        {% for sl, si in item.submenus.items() %}
+        <li class="l1-lvl2">
+          {% if si.submenus %}
+          <button type="button" class="l1-acc l1-acc2" data-acc>
+            <span>{{ sl }}</span>
+            <svg class="w-3 h-3 l1-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+          </button>
+          <ul class="l1-sub2">
+            {% for sl2, si2 in si.submenus.items() %}
+            <li><a class="l1-link" href="{{ menu_url(si2, sl2) }}">{{ sl2 }}</a></li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <a class="l1-link" href="{{ menu_url(si, sl) }}">{{ sl }}</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      {% if menu_url(item, label).rstrip('/') == _home_norm.rstrip('/') %}{% set ns.hit = true %}{% endif %}
+      <li{% if ns.hit %} data-default{% endif %}>
+      <a class="l1-link" style="padding:.5rem .75rem;font-size:0.9rem;font-weight:600;" href="{{ menu_url(item, label) }}">
+        <span class="inline-flex items-center gap-2">
+          <svg class="w-4 h-4" style="width:1rem;height:1rem;" aria-hidden="true"><use href="#i-{{ item.icon|replace('bi-','') if item.icon else 'home' }}"/></svg>{{ label }}
+        </span>
+      </a>
+      </li>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+<div class="l1-backdrop" id="l1Backdrop"></div>

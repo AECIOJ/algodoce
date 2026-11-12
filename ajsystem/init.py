@@ -167,8 +167,10 @@ def init_app(app):
     @app.context_processor
     def aj_framework_context():
         import json
-        from ajsystem.core.menu import menus_para_json
+        from ajsystem.core.menu import menus_para_json, caminho_atual, home_page
         tema_nome = tema_atual()
+        # Shell do sistema (layout): `0` = pages/sys.html; `1` = sys1 (barras).
+        sys_base = 'pages/sys1.html' if APP.layout == 1 else 'pages/sys.html'
         return {
             'APP': APP,
             'TEMA': TEMAS[tema_nome],
@@ -176,5 +178,10 @@ def init_app(app):
             'TEMA_NOME': tema_nome,
             'modulo': modulo_atual(),
             'modulo_menus_json': json.dumps(menus_para_json()),
+            'SYS_BASE': sys_base,
+            'APP_LAYOUT': APP.layout,
+            # Callables (custo só quando a template chama):
+            'menu_breadcrumb': caminho_atual,
+            'menu_home_url': home_page,
         }
 

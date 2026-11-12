@@ -115,7 +115,7 @@ SYS = {
             'logo': {'rows': 4, 'align': 'center'},
             'title': {
                 'text': 'app_title',
-                'align': 'center',
+                'align': 'left',
             },
         },
         'footer': {'user': True},
@@ -168,6 +168,7 @@ APP = {
     'title': 'Sistema Gerenciador de Doceria',
     'logo': 'icons/Logo.png',
     'tema': 'algodoce',
+    'layout': 1,
     'version': {'cycle': 1, 'year': 26, 'month': 11, 'number': 2},
     'modules': [SITE, SYS, ADMIN],
 }

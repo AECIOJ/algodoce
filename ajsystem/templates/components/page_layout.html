@@ -29,7 +29,10 @@
       {% block before_content %}{% endblock %}
     </div>
 
-    <main class="w-full flex-1 min-h-0 flex flex-col">
+    <div class="w-full flex flex-1 min-h-0">
+      {# Slot lateral (shell de barras, layout 1). Vazio = shell atual. #}
+      {% block sidebar %}{% endblock %}
+      <main class="w-full flex-1 min-h-0 flex flex-col">
       {% block messages %}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -54,6 +57,7 @@
         {% block content %}{% endblock %}
       </div>
     </main>
+    </div>
 
     <div class="shrink-0">
       {% block after_content %}{% endblock %}

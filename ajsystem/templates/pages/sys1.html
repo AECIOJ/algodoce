@@ -1,0 +1,197 @@
+{# ── SYS LAYOUT 1 — shell de barras ──────────────────────────────────────────
+   Herda TODO o conteúdo e os scripts de `pages/sys.html` (páginas, abas
+   DADOS/FILTRO/RELATÓRIOS, relatórios, helpers JS) e troca só o chrome:
+
+   ┌──────────────┬──────────────────────────────────────────────────┐
+   │ LOGO (1)     │ APP.title + caminho do menu (2)   [☰] (3) [Sair](4)│
+   ├──────────────┼──────────────────────────────────────────────────┤
+   │ SIDEBAR (5)  │ PAINEL (6): abas + conteúdo + relatórios         │
+   ├──────────────┴──────────────────────────────────────────────────┤
+   │ RODAPÉ (7) — idêntico ao layout 0 (bloco herdado)               │
+   └─────────────────────────────────────────────────────────────────┘
+
+   Seleção: `APP['layout'] = 1` em `app/config.py`. O slot `sidebar` do
+   `page_layout.html` fica vazio no layout 0 — nada muda nele. #}
+{% extends "pages/sys.html" %}
+
+{% block head_extra %}
+{{ super() }}
+<style>
+  :root { --l1-side-w: 11rem; --l1-head-h: 3.75rem; }
+  /* ── Head: [ LOGO ][ BARRA ] independentes; empilhados no mobile ── */
+  .l1-head { display: flex; align-items: stretch; flex-shrink: 0; }
+  .l1-logo {
+    width: var(--l1-side-w); flex-shrink: 0; background: #fff;
+    display: flex; align-items: center; justify-content: center; padding: .35rem .5rem;
+    border-bottom: 1px solid var(--fallback-b3, oklch(var(--b3)));
+    height: var(--l1-head-h);
+  }
+  /* Logo cabe na célula: o inline usa `min(rows, teto)`; aqui só a sobra. */
+  .l1-logo img { max-height: calc(var(--l1-head-h) - .7rem); width: auto; }
+  .l1-topbar {
+    flex: 1; min-width: 0; display: flex; align-items: stretch; height: var(--l1-head-h);
+    border-bottom: 1px solid var(--fallback-b3, oklch(var(--b3)));
+    background: var(--bar-bg-menu, var(--fallback-b1, oklch(var(--b1))));
+    color: var(--bar-txt-menu, inherit);
+  }
+  .l1-title { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 1rem; }
+  .l1-title-app { font-size: 0.85rem; font-weight: 600; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    /* Relevo: sombra escura abaixo + brilho claro acima. */
+    text-shadow: 0 1px 1px rgba(0,0,0,.55), 0 -1px 1px rgba(255,255,255,.25); }
+  .l1-title-path { font-size: 0.72rem; color: var(--fallback-bc, oklch(var(--bc))/0.7);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .l1-actions { display: flex; align-items: center; gap: .25rem; padding: 0 .5rem; flex-shrink: 0;
+    /* Rótulo do botão Sair com relevo (ícones SVG não são afetados). */
+    text-shadow: 0 1px 1px rgba(0,0,0,.55), 0 -1px 1px rgba(255,255,255,.25); }
+  .l1-burger { display: none; }
+  .l1-burger-ico { display: inline-flex; flex-direction: column; gap: 4px; }
+  .l1-burger-ico i { display: block; width: 1.15rem; height: 2px; border-radius: 1px; background: currentColor; }
+  @media (max-width: 1023.98px) {
+    .l1-head { flex-direction: column; }
+    .l1-burger { display: inline-flex; }
+    .l1-logo { width: 100%; padding: .35rem .75rem; border-bottom: 0; }
+    .l1-topbar { height: 3.25rem; }
+  }
+
+  /* ── Sidebar (5): fixa no desktop, drawer no mobile (tela toda) ── */
+  .l1-sidebar {
+    width: var(--l1-side-w); flex-shrink: 0; overflow-y: auto; overflow-x: hidden;
+    background: var(--bar-bg-menu); color: var(--bar-txt-menu);
+    padding: .35rem 0 .75rem; z-index: 50;
+  }
+  @media (max-width: 1023.98px) {
+    .l1-sidebar {
+      position: fixed; top: 0; bottom: 0; left: 0; margin: 0;
+      transform: translateX(-100%); transition: transform .2s ease; width: 12.5rem;
+      box-shadow: 0 0 2rem rgba(0,0,0,.35);
+    }
+    .l1-sidebar.open { transform: translateX(0); }
+  }
+  .l1-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; display: none;
+  }
+  .l1-backdrop.show { display: block; }
+
+  .l1-sidebar ul { list-style: none; margin: 0; padding: 0; }
+  .l1-sidebar li { margin: 0; }
+  /* Relevo nos textos do menu (mesma técnica do título da barra). */
+  .l1-sidebar .l1-acc, .l1-sidebar .l1-link {
+    text-shadow: 0 1px 1px rgba(0,0,0,.55), 0 -1px 1px rgba(255,255,255,.25);
+  }
+  .l1-sidebar .l1-acc2 {
+    text-shadow: 0 1px 1px rgba(0,0,0,.35), 0 -1px 1px rgba(255,255,255,.18);
+  }
+  .l1-acc {
+    width: 100%; display: flex; align-items: center; gap: .45rem; text-align: left;
+    background: transparent; border: 0; color: inherit; cursor: pointer;
+    padding: .5rem .75rem; font-size: 0.9rem; font-weight: 600; line-height: 1.35;
+  }
+  .l1-acc svg { width: 1rem; height: 1rem; }
+  .l1-acc:hover { background: rgba(255,255,255,.12); }
+  .l1-acc .l1-chev { margin-left: auto; transition: transform .15s ease; opacity: .8; }
+  .l1-acc.open .l1-chev { transform: rotate(90deg); }
+  .l1-acc2 { font-size: 0.72rem; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; padding: .5rem 1.1rem; opacity: .95; }
+  .l1-sub { display: none; }
+  .l1-acc.open + .l1-sub { display: block; }
+  .l1-sub2 { display: none; }
+  .l1-acc.open + .l1-sub2 { display: block; }
+
+  .l1-link {
+    display: block; text-decoration: none; color: inherit; font-size: 0.85rem;
+    padding: .5rem 1rem .5rem 1.7rem; border-left: 3px solid transparent;
+    line-height: 1.35;
+  }
+  .l1-link:hover { background: rgba(255,255,255,.12); }
+  .l1-link.active { border-left-color: var(--fallback-sc, oklch(var(--sc))); background: rgba(255,255,255,.18); }
+  .l1-lvl2 .l1-link { padding-left: 2.2rem; }
+  /* Touch: alvos maiores no mobile (drawer) — ≥ 44px de altura útil. */
+  @media (max-width: 1023.98px) {
+    .l1-acc { padding: .7rem .75rem; font-size: 0.95rem; }
+    .l1-acc2 { padding: .65rem 1.1rem; font-size: 0.78rem; }
+    .l1-link { padding: .68rem 1rem .68rem 1.7rem; font-size: 0.9rem; }
+  }
+
+  /* ── Painel (6): caminho no topo esquerdo + boas-vindas ── */
+  .l1-pathbar {
+    display: flex; align-items: center; flex-shrink: 0; min-height: 2rem;
+    padding: .3rem .75rem; font-size: 0.85rem; font-weight: 600;
+    background: var(--fallback-b1, oklch(var(--b1)));
+    color: var(--fallback-bc, oklch(var(--bc)));
+    border-bottom: 1px solid var(--fallback-b3, oklch(var(--b3)));
+  }
+  /* Barras internas do painel (abas DADOS/FILTRO/RELATÓRIOS, form) na cor
+     do painel — vence o background inline (`--bar-bg-list`/`--bar-bg-form`). */
+  .l1-shell .app-bar {
+    background: var(--fallback-b1, oklch(var(--b1))) !important;
+    color: var(--fallback-bc, oklch(var(--bc))) !important;
+  }
+  .l1-pathbar .l1-title-path { font-size: inherit; font-weight: inherit; }
+  .l1-welcome { flex: 1; min-height: 0; display: none; align-items: center; justify-content: center; padding: 2rem; }
+</style>
+{% endblock %}
+
+{% block page_header %}
+{% set _logo = modulo.layout.header.logo if modulo and modulo.layout else None %}
+{% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
+{% set _title_text = APP.title if (_title and _title.text == 'app_title') else (_title.text if _title and _title.text else APP.title) %}
+<div class="l1-head">
+  <div class="l1-logo"{% if _logo and _logo.align %} style="justify-content:{{ {'center':'center','left':'flex-start','right':'flex-end'}[_logo.align] or 'center' }};"{% endif %}>
+    <a href="/" title="{{ APP.name }}">
+      <img src="{{ url_for('static', filename=APP.logo) }}" alt="{{ APP.name }}"
+           class="brand-logo" id="brandLogo"
+           style="{% if _logo %}height:min({{ _logo.rows }}em, calc(var(--l1-head-h) - .7rem));{% endif %}">
+    </a>
+  </div>
+  <header class="l1-topbar" id="sistemaHeader">
+    <div class="l1-title">
+      {% if _title_text %}
+      <div class="l1-title-app"
+        style="{% if _title and _title.align %}text-align:{{ _title.align }};{% endif %}
+               {% if _title and _title.font %}font-family:'{{ _title.font }}',sans-serif;{% endif %}
+               {% if _title and _title.color %}color:{{ _title.color }};{% endif %}">
+        {{ _title_text }}
+      </div>
+      {% endif %}
+    </div>
+    <div class="l1-actions">
+      <button type="button" class="btn btn-ghost l1-burger" id="l1Burger"
+              aria-label="{{ i18n.MENU if i18n.MENU is defined else 'Menu' }}">
+        <span class="l1-burger-ico" aria-hidden="true"><i></i><i></i><i></i></span>
+      </button>
+      <a class="btn btn-ghost no-underline px-2 inline-flex items-center gap-1"
+         href="/logout" style="color:inherit;">
+        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-logout"/></svg>
+        <span class="hidden lg:inline" style="font-size:0.7rem;font-weight:600;">{{ i18n.EXIT }}</span>
+      </a>
+    </div>
+  </header>
+</div>
+{% endblock %}
+
+{% block before_content %}{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sys1_sidebar.html' %}
+{% endblock %}
+
+{% block messages %}
+{{ super() }}
+{# Pathbar + boas-vindas FORA da div de conteúdo (`.mw-bound` limita a
+   largura dos dados): aqui a barra do caminho ocupa a largura do painel. #}
+{% include 'components/sys1_panel.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="l1-shell grow flex flex-col min-h-0">
+  {{ super() }}
+</div>
+{% endblock %}
+
+{% block after_content %}{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'components/sys1_scripts.html' %}
+{% endblock %}

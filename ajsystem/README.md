@@ -74,8 +74,20 @@ Lido primeiro pelo motor. Declara tema, módulos e menus.
 | `title` | `str` | `'Sistema de Gestão'` |
 | `logo` | `str` | `'icons/logo.png'` |
 | `tema` | `str` | `'meutema'` |
+| `layout` | `int` | `0` (default) ou `1` |
 | `version` | `dict` | `{'cycle': 1, 'year': 26, 'month': 10, 'number': 15}` |
 | `modules` | `list` | `[SITE, SYS, ADMIN]` |
+
+### `APP['layout']` — shell do sistema
+
+Chrome das páginas do sistema (`pages/sys.html`). O site público e o login não mudam.
+
+| Valor | Shell | Descrição |
+|-------|-------|-----------|
+| `0` | `pages/sys.html` | Header com logo + título centralizados, menu horizontal (app-bar + submenu), bottom-nav no mobile. Padrão quando a chave está ausente. |
+| `1` | `pages/sys1.html` | Shell de barras: top bar (`[ LOGO ][ título + Sair ]`, logo empilhado sobre a barra no mobile), sidebar esquerda fixa no desktop / drawer com backdrop no mobile, árvore de menu em 3 níveis com accordions (JS puro), caminho completo do menu no topo do painel, boas-vindas no estado inicial. |
+
+No layout 1, `Module.layout.header` continua mandando: `logo.rows` (altura, com teto da célula), `logo.align`, `title.text` (`'app_title'` resolve para `APP.title`), `title.align`/`font`/`color`. A sidebar usa os tokens `barras.menu` do tema. Páginas do sistema continuam herdando `pages/sys.html` via `SYS_BASE` (`list.html`, `form.html`, `construcao.html`), então Layout 1 não duplica conteúdo nem scripts.
 
 ### `Temas` — paleta de cores
 

@@ -1,0 +1,93 @@
+{# ── JS do layout 1 (puro, sem framework) ──
+   Drawer/backdrop (5), accordions da árvore, aba ativa na sidebar e
+   boas-vindas (estado inicial vazio, só no home). #}
+<script>
+(function () {
+  var PKEY = 'l1Pending';  /* ativação explícita (clique em folha) */
+  var bc = document.getElementById('l1-breadcrumb');
+  if (!bc) return;
+
+  var home = (bc.getAttribute('data-home') || '/').replace(/\/+$/, '') || '/';
+  var path = location.pathname.replace(/\/+$/, '') || '/';
+
+  function pending(on) { try { if (on) sessionStorage.setItem(PKEY, '1'); else sessionStorage.removeItem(PKEY); } catch (e) {} }
+  function hadPending() { try { return sessionStorage.getItem(PKEY) === '1'; } catch (e) { return false; } }
+
+  /* ── Estado inicial (boas-vindas): home + sem ativação explícita.
+     Pathbar (linha do caminho) some no estado inicial; com seleção
+     explícita, o caminho volta — inclusive o do menu default. ── */
+  var welcome = document.getElementById('l1-welcome');
+  var pathbar = document.getElementById('l1-pathbar');
+  var page = document.getElementById('page-content');
+  var rep = document.getElementById('{{ REPORT_ID }}');
+  var pendingFlag = hadPending();
+  if (pendingFlag) { pending(false); }
+  var showWelcome = path === home && !pendingFlag;
+  var shell = document.querySelector('.l1-shell');
+  var capWrap = shell ? shell.parentElement : null;  /* wrapper `.mw-bound` */
+  if (showWelcome) {
+    if (welcome) welcome.style.display = 'flex';
+    if (pathbar) pathbar.style.display = 'none';
+    if (capWrap) capWrap.style.display = 'none';   /* some a div de dados toda */
+  } else {
+    if (welcome) welcome.style.display = 'none';
+    if (pathbar) pathbar.style.display = '';
+    if (capWrap) capWrap.style.display = '';
+    if (!bc.textContent.trim() && bc.getAttribute('data-trail')) {
+      bc.textContent = bc.getAttribute('data-trail');
+    }
+  }
+
+  /* ── Drawer (mobile) ── */
+  var sidebar = document.getElementById('l1Sidebar');
+  var backdrop = document.getElementById('l1Backdrop');
+  var burger = document.getElementById('l1Burger');
+  function closeDrawer() {
+    if (sidebar) sidebar.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('show');
+  }
+  if (burger && sidebar) burger.addEventListener('click', function () {
+    var open = sidebar.classList.toggle('open');
+    if (backdrop) backdrop.classList.toggle('show', open);
+  });
+  if (backdrop) backdrop.addEventListener('click', closeDrawer);
+
+  /* ── Accordions (2 níveis de grupo) ── */
+  document.querySelectorAll('.l1-acc').forEach(function (btn) {
+    btn.addEventListener('click', function () { btn.classList.toggle('open'); });
+  });
+
+  /* ── Aba ativa na sidebar (mesma regra do servidor: igual ou prefixo).
+     No estado inicial (boas-vindas, nada clicado) não marca ativo: apenas
+     expande o grupo da página default (`data-default`). ── */
+  var best = null, bestLen = -1;
+  if (!showWelcome) {
+    document.querySelectorAll('.l1-link').forEach(function (a) {
+      var href = (a.getAttribute('href') || '').replace(/\/+$/, '');
+      if (!href || href === '/') return;
+      if (path === href || path.indexOf(href + '/') === 0) {
+        if (href.length > bestLen) { bestLen = href.length; best = a; }
+      }
+    });
+  }
+  if (best) {
+    best.classList.add('active');
+    var ul = best.closest('ul');
+    while (ul) {
+      var trigger = ul.previousElementSibling;
+      if (trigger && trigger.classList && trigger.classList.contains('l1-acc')) trigger.classList.add('open');
+      ul = ul.parentElement ? ul.parentElement.closest('ul') : null;
+    }
+  } else {
+    var def = document.querySelector('.l1-sidebar [data-default]');
+    if (def) {
+      var acc = def.querySelector('.l1-acc');
+      if (acc) acc.classList.add('open');
+    }
+  }
+  /* Folha clicada: fecha drawer no mobile e marca ativação explícita. */
+  document.querySelectorAll('.l1-link').forEach(function (a) {
+    a.addEventListener('click', function () { pending(true); closeDrawer(); });
+  });
+})();
+</script>
