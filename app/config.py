@@ -168,6 +168,6 @@ APP = {
     'logo': 'icons/Logo.png',
     'tema': 'algodoce',
     'layout': 1,
-    'version': {'cycle': 1, 'year': 26, 'month': 11, 'number': 2},
+    'version': {'cycle': 1, 'year': 26, 'month': 11, 'number': 3},
     'modules': [SITE, SYS, ADMIN],
 }

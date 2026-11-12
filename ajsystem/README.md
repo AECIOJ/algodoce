@@ -87,7 +87,46 @@ Chrome das páginas do sistema (`pages/sys.html`). O site público e o login nã
 | `0` | `pages/sys.html` | Header com logo + título centralizados, menu horizontal (app-bar + submenu), bottom-nav no mobile. Padrão quando a chave está ausente. |
 | `1` | `pages/sys1.html` | Shell de barras: top bar (`[ LOGO ][ título + Sair ]`, logo empilhado sobre a barra no mobile), sidebar esquerda fixa no desktop / drawer com backdrop no mobile, árvore de menu em 3 níveis com accordions (JS puro), caminho completo do menu no topo do painel, boas-vindas no estado inicial. |
 
+### `APP['layout']` — shell do sistema
+
+Chrome das páginas do sistema (`pages/sys.html`). O site público e o login não mudam.
+
+| Valor | Shell | Descrição |
+|-------|-------|-----------|
+| `0` | `pages/sys.html` | Header com logo + título centralizados, menu horizontal (app-bar + submenu), bottom-nav no mobile. Padrão quando a chave está ausente. |
+| `1` | `pages/sys1.html` | Shell de barras: top bar (`[ LOGO ][ título + Sair ]`, logo empilhado sobre a barra no mobile), sidebar esquerda fixa no desktop / drawer com backdrop no mobile, árvore de menu em 3 níveis com accordions (JS puro), caminho completo do menu no topo do painel, boas-vindas no estado inicial. |
+
 No layout 1, `Module.layout.header` continua mandando: `logo.rows` (altura, com teto da célula), `logo.align`, `title.text` (`'app_title'` resolve para `APP.title`), `title.align`/`font`/`color`. A sidebar usa os tokens `barras.menu` do tema. Páginas do sistema continuam herdando `pages/sys.html` via `SYS_BASE` (`list.html`, `form.html`, `construcao.html`), então Layout 1 não duplica conteúdo nem scripts.
+
+#### `module.layout.min_width` — piso de largura do módulo
+
+Declaração opcional no `layout` de cada módulo (`SYS`, `SITE`, `ADMIN`). Define a largura mínima (`ch`) que todas as páginas do módulo respeitam. Se a página declarar seu próprio `max_width` menor que esse piso, o piso vence. Se nenhuma das duas declarar, o motor aplica o **padrão de 70ch**.
+
+| Chave | Tipo | Exemplo | Descrição |
+|-------|------|---------|-----------|
+| `layout.min_width` | `int` | `{'layout': {'min_width': 90}}` | Piso de largura (ch) para páginas do módulo |
+
+```python
+SYS = {
+    'type': 'system',
+    'layout': {
+        'header': {...},
+        'footer': {...},
+        'min_width': 100,   # páginas do sistema nunca encolhem abaixo de 100ch
+    },
+}
+
+SITE = {
+    'type': 'public',
+    'layout': {
+        'header': {...},
+        'footer': {...},
+        'min_width': 60,    # páginas do site público nunca encolhem abaixo de 60ch
+    },
+}
+```
+
+**Precedência (piso):** `Page.props.form.min_width` (página) > `module.layout.min_width` (módulo) > **70ch** (default do motor).
 
 ### `Temas` — paleta de cores
 
@@ -317,9 +356,33 @@ Declara o tipo da página e seus props.
 | `pre_save`/`post_save` | `callable` | hook antes/depois de salvar | `{'pre_save': fn}` |
 | `buttons` | `str\|Button\|list` | tipos ou instâncias | `{'buttons': [BTN_SAVE]}` |
 | `spacing` | `num` | gap entre campos | `{'spacing': 2}` |
-| `max_width` | `num` | largura máxima | `{'max_width': 110}` |
+| `max_width` | `num` | largura máxima (cap) | `{'max_width': 110}` |
+| `min_width` | `num` | largura mínima (piso) — vence o cálculo automático de colunas | `{'min_width': 70}` |
 
 **Slots do form** (onde cada campo aparece): `bar` (ícones/tags fora do corpo), `footer` (fora do `<form>`, toggles), `body` (corpo, default), `hidden` (não exibe, não grava). Precedência: `hidden > bar > footer > body`.
+
+#### `Page.props.cart_url` — link do carrinho (apenas `showcase`)
+
+Páginas do tipo `showcase` (vitrine) podem declarar `'cart_url'` para o botão **"N no carrinho"** (modo edição, item já adicionado) navegar até a página do carrinho em vez de ser um no-op.
+
+| Chave | Tipo | Exemplo | Descrição |
+|-------|------|---------|-----------|
+| `cart_url` | `str` | `'cart_url': '/orcamento'` | URL da página que exibe o carrinho (clique no "N no carrinho" navega para ela) |
+
+```python
+# app/routes/site/produtos.py
+Page = {
+    'max_width': 100,
+    'props': {
+        'badge_id': 'bnOrcamentoBadge',
+        'cart_url': '/orcamento',   # clique no "N no carrinho" abre o carrinho
+    },
+}
+```
+
+Sem `cart_url`, o comportamento do botão no modo edição é inalterado (sem navegação).
+
+---
 
 #### `props.list` — Listagem
 
@@ -727,6 +790,8 @@ O botão **Limpar** desmarca o checkbox de sintético sem zerar seu `value`; **G
 #### Calendário de data (Flatpickr)
 
 Campos de `type: 'DATA'` usam Flatpickr (calendário nativo consistente em mobile e desktop). O input exibe sempre `dd/mm/aaaa`.
+
+**Auto-complete de dia:** se o usuário digitar apenas o dia (ex: `20`), ao sair do campo o valor é completado com mês/ano atuais (`20/11/2026`). Se digitar dia+mês (`2011` ou `20/11`), completa com o ano atual. Dias inválidos (ex: `31/02`) são rejeitados. Isso é feito via `parseDate` customizado do flatpickr, usando o relógio local do cliente.
 
 ---
 
