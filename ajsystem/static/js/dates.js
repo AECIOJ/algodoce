@@ -90,9 +90,15 @@ function openDatePicker(btn) {
 }
 window.openDatePicker = openDatePicker;
 
-// Inicializa tudo no DOM pronto
-document.addEventListener('DOMContentLoaded', function() {
+// Inicializa quando o DOM estiver pronto
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    initFlatpickr();
+    dtAutoComplete();
+    dtSyncFilled();
+  });
+} else {
   initFlatpickr();
   dtAutoComplete();
   dtSyncFilled();
-});
+}

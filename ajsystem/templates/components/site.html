@@ -106,6 +106,7 @@ main { overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
 {% include 'components/auth_triggers.html' %}
 <script>
 (function(){var p=window.location.pathname;document.querySelectorAll('.nav-site a').forEach(function(l){if(l.getAttribute('href')===p)l.classList.add('active');});if(p.indexOf('/vitrine')===0){var t=document.getElementById('produtosNavLink');if(t)t.classList.add('active');}var m={'/sobre':'bnSobre','/vitrine':'bnProdutos','/orcamento':'bnOrcamento','/contato':'bnContato'};for(var k in m){if(p.indexOf(k)===0){var e=document.getElementById(m[k]);if(e)e.classList.add('active');}}})();
