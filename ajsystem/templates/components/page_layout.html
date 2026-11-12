@@ -72,6 +72,11 @@
   <script src="{{ url_for('ajsystem.static', filename='lib/htmx.min.js') }}?v=1"></script>
   <script src="{{ url_for('ajsystem.static', filename='lib/alpine.min.js') }}?v=1" defer></script>
   <script src="{{ url_for('ajsystem.static', filename='lib/flatpickr/flatpickr.min.js') }}?v=1"></script>
+  <script>
+  /* Data corrente do servidor (injetada pelo Jinja) para consistência
+     de fuso horário entre cliente e servidor no preenchimento de datas. */
+  window.AJ_HOJE = { ano: {{ HOJE.ano }}, mes: {{ HOJE.mes }}, dia: {{ HOJE.dia }} };
+  </script>
   <script src="{{ url_for('ajsystem.static', filename='js/dates.js') }}?v=1"></script>
   <script>
   document.addEventListener('focusin', function(e) {
