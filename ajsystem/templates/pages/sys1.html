@@ -128,6 +128,12 @@
     color: var(--fallback-bc, oklch(var(--bc))) !important;
   }
   .l1-pathbar .l1-title-path { font-size: inherit; font-weight: inherit; }
+  /* Modo da página no caminho (Incluir/Editar) com destaque leve. */
+  .l1-path-mode { margin-left: .35rem; font-weight: 700; opacity: .75; }
+  /* Relevo: caminho no topo do painel + abas (DADOS/FILTRO/RELATÓRIOS). */
+  .l1-pathbar .l1-title-path, .l1-pathbar .l1-path-mode, .l1-shell .tab {
+    text-shadow: 0 1px 1px rgba(0,0,0,.55), 0 -1px 1px rgba(255,255,255,.25);
+  }
   .l1-welcome { flex: 1; min-height: 0; display: none; align-items: center; justify-content: center; padding: 2rem; }
 </style>
 {% endblock %}

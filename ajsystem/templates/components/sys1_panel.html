@@ -6,12 +6,21 @@
   {% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
   {% set _bc = menu_breadcrumb() %}
   {# Estado inicial (home, nada clicado): caminho vazio — a entrada só
-     aparece com seleção explícita de menu. #}
+     aparece com seleção explícita de menu. Em form, sufixo do modo:
+     `is_new` → Incluir; `instance` → Editar (contexto do `do_form`). #}
   {% set _is_home = request.path.rstrip('/') == ((menu_home_url(modulo) if modulo else '/')|string).rstrip('/') %}
+  {% set _ent = entity_label if entity_label is defined else none %}
+  {% if is_new is defined and is_new %}{% set _mode = i18n.NEW %}
+  {% elif instance is defined and instance is not none %}{% set _mode = i18n.EDIT %}
+  {% else %}{% set _mode = none %}{% endif %}
+  {% if _mode and _ent %}{% set _mode = _mode ~ ' ' ~ _ent %}{% endif %}
   <span class="l1-title-path" id="l1-breadcrumb"
         style="{% if _title and _title.font %}font-family:'{{ _title.font }}',sans-serif;{% endif %}"
         data-home="{{ menu_home_url(modulo) if modulo else '/' }}"
         data-trail="{{ _bc|join(' ➔ ') }}">{{ '' if _is_home else (_bc|join(' ➔ ')) }}</span>
+  {% if _mode and not _is_home %}
+  <span class="l1-path-mode">➔ {{ _mode }}</span>
+  {% endif %}
 </div>
 <div id="l1-welcome" class="l1-welcome">
   <div class="card bg-base-100 shadow-md" style="max-width:26rem;">

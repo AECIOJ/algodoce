@@ -3,7 +3,6 @@
 {% import "components/item_table.html" as itb with context %}
 
 {% set entity_label = form._label or form._entity_name or '' %}
-{% set new_title = ('Incluir' if is_new else 'Editar') ~ ' ' ~ entity_label %}
 {% set edit_endpoint = edit_endpoint|default(form._redirect.rsplit('.', 1)[0] + '.form') %}
 {% if instance %}{% set entity_id = instance.id %}{% endif %}
 
@@ -11,6 +10,9 @@
 {{ super() }}
 {{ itb.item_table_styles() }}
 <style>
+  /* Navegação desceu p/ linha 2: direita estica e alinha à borda direita
+     (sem o center flexando, o right não chegaria sozinho à margem). */
+  .app-bar-form.nav-down .app-bar-right { flex: 1 1 auto; justify-content: flex-end; }
   .field-help-btn {
     display: inline-flex; align-items: center; justify-content: center;
     flex: none; width: 1.5rem; height: 1.5rem; padding: 0; border: 0;
@@ -40,8 +42,10 @@
         {% for b in form._nav['anterior'] %}{% if b.on %}{{ btn(b.btn, b.url, text=False) }}{% else %}{{ btn_off(b.btn, text=False) }}{% endif %}{% endfor %}
       </div>
       <div class="flex items-center gap-1 mx-2">
-        <span class="text-sm">{{ entity_label|default('Registro') }}</span>
+        <span class="text-sm font-bold">#</span>
         <input type="number" class="input input-bordered input-sm w-20" min="1" value="{{ entity_id }}"
+               title="{{ entity_label|default('Registro') }} {{ entity_id }}"
+               aria-label="{{ entity_label|default('Registro') }} {{ entity_id }}"
                onchange="if(this.value)window.location=window.location.pathname.replace(/\/\d+/, '/'+this.value)">
       </div>
       <div class="flex gap-0 items-center">
@@ -49,9 +53,9 @@
       </div>
     </div>
     {% else %}
-    <div class="app-bar-center" style="flex:1 1 auto; display:flex; justify-content:center;">
-      <span class="font-bold">{{ new_title }}</span>
-    </div>
+    {# Novo: título central removido (o caminho do shell de barras já mostra
+       `➔ Incluir <entidade>`). Center vazio preserva o alinhamento da barra. #}
+    <div class="app-bar-center" style="flex:1 1 auto; display:flex; justify-content:center;"></div>
     {% endif %}
     <div class="app-bar-right" id="appBarRight" style="flex:0 1 auto; display:flex; align-items:center; justify-content:flex-end; gap:var(--bar-gap); flex-wrap:nowrap; min-width:0;">
       {% for tag in form._resolved_tags %}
@@ -155,7 +159,9 @@ document.addEventListener('DOMContentLoaded', function() {
     f.addEventListener('change', markModified);
     window.marcarFormAlterado = markModified;
   }
-  // Linha 1: Lista | Nav | tags/botões que couberem; Linha 2: overflow centralizado (só o que não couber)
+  // Linha 1: Lista | Nav | tags/botões que couberem; Linha 2: quando a linha 1
+  // não couber, o CONJUNTO de navegação (center) desce centralizado; se a
+  // direita ainda estourar, os itens dela vão um a um para a mesma linha 2.
   function layoutAppBar() {
     var bar = document.querySelector('.app-bar-form');
     var right = document.getElementById('appBarRight');
@@ -163,26 +169,50 @@ document.addEventListener('DOMContentLoaded', function() {
     var left = bar ? bar.querySelector('.app-bar-left') : null;
     var center = bar ? bar.querySelector('.app-bar-center') : null;
     if (!bar || !right || !line2) return;
-    // restaura tudo na linha 1 e mede espaço disponível para right
-    while (line2.firstChild) right.appendChild(line2.firstChild);
+    // restaura: center volta ao meio da barra e right à sua posição original
+    if (center && center.parentNode === line2) bar.insertBefore(center, right);
+    while (line2.firstChild && line2.firstChild !== center) right.appendChild(line2.firstChild);
     line2.style.display = 'none';
-    // calcula overflow de forma precisa (right vs espaço disponível)
+    // calcula overflow de forma precisa (right vs espaço disponível).
+    // O center só desconta do avail quando está na linha 1.
     var checkOverflow = function() {
       var style = window.getComputedStyle(bar);
       var gap = parseFloat(style.gap) || 8;
-      var avail = bar.clientWidth - (left ? left.offsetWidth : 0) - (center ? center.offsetWidth : 0) - gap*2;
+      var c = (center && center.parentNode === bar) ? center.offsetWidth : 0;
+      var avail = bar.clientWidth - (left ? left.offsetWidth : 0) - c - gap*2;
       // right pode ter flex, mede scrollWidth real
       return right.scrollWidth > avail + 1;
     };
-    if (!checkOverflow()) return;
-    line2.style.display = 'flex';
-    // move um a um do fim até caber (ex: 2 elementos, couber 1 → fica 1 e vai 1)
-    while (right.children.length > 0 && checkOverflow()) {
-      var last = right.lastElementChild;
-      if (!last) break;
-      line2.insertBefore(last, line2.firstChild);
+    // Linha 1 inteira (left + center + right) cabe? Considera gaps entre os três blocos.
+    var fitsAll = function() {
+      var style = window.getComputedStyle(bar);
+      var gap = parseFloat(style.gap) || 8;
+      var total = (left ? left.offsetWidth : 0) + (center ? center.offsetWidth : 0) + right.scrollWidth;
+      return total <= bar.clientWidth - gap*2;
+    };
+    if (center && !fitsAll()) {
+      // Navegação desce como conjunto, centralizada na linha 2.
+      line2.appendChild(center);
+      line2.style.display = 'flex';
+      bar.classList.add('nav-down');
+      /* Inline `flex:0 1 auto` vence CSS: sem esticar o right, ele não
+         alcança a margem direita. Alterna via style. */
+      right.style.flex = '1 1 auto';
+    }
+    if (checkOverflow()) {
+      line2.style.display = 'flex';
+      // move um a um do fim até caber (ex: 2 elementos, couber 1 → fica 1 e vai 1)
+      while (right.children.length > 0 && checkOverflow()) {
+        var last = right.lastElementChild;
+        if (!last) break;
+        line2.insertBefore(last, line2.firstChild);
+      }
     }
     if (!line2.children.length) line2.style.display = 'none';
+    if (!(center && center.parentNode === line2)) {
+      bar.classList.remove('nav-down');
+      right.style.flex = '';
+    }
   }
   window.layoutAppBar = layoutAppBar;
   layoutAppBar();
