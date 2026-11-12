@@ -10,61 +10,37 @@ function dtSyncFilled(root) {
 }
 window.dtSyncFilled = dtSyncFilled;
 
-function _dtCompleteOne(el) {
-  var v = el.value.trim();
-  if (!v) return;
-  var now = new Date();
-  var yy = String(now.getFullYear());
-  var mm = String(now.getMonth() + 1).padStart(2, '0');
-  var dd = String(now.getDate()).padStart(2, '0');
-  var m;
-  // YYYY-MM-DD (ISO) — converte para brasileiro dd/mm/aaaa
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-    var parts = v.split('-');
-    el.value = parts[2] + '/' + parts[1] + '/' + parts[0];
-    return true;
+function setDate(inputDate) {
+  let v = String(inputDate).trim();
+  if (!v) return "";
+
+  const ano = new Date().getFullYear();
+  const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
+  let partes = v.split(/[\/\-\.]/);
+
+  if (partes.length === 1) {
+    if (v.length <= 2) {
+      return `${v.padStart(2, '0')}/${mesAtual}/${ano}`;
+    } else if (v.length === 4) {
+      return `${v.slice(0, 2)}/${v.slice(2, 4)}/${ano}`;
+    }
+  } else if (partes.length === 2) {
+    return `${partes[0].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${ano}`;
   }
-  // Apenas dígitos: DD (dia) ou DDMM (dia+mês)
-  if (m = /^(\d{1,2})$/.exec(v)) {
-    var d = String(parseInt(m[1], 10)).padStart(2, '0');
-    el.value = d + '/' + mm + '/' + yy;
-    return true;
-  }
-  if (m = /^(\d{1,2})(\d{2})$/.exec(v)) {
-    var d = String(parseInt(m[1], 10)).padStart(2, '0');
-    var mo = String(parseInt(m[2], 10)).padStart(2, '0');
-    el.value = d + '/' + mo + '/' + yy;
-    return true;
-  }
-  // DD/MM (com barra)
-  if (m = /^(\d{1,2})\/(\d{1,2})$/.exec(v)) {
-    var d = String(parseInt(m[1], 10)).padStart(2, '0');
-    var mo = String(parseInt(m[2], 10)).padStart(2, '0');
-    el.value = d + '/' + mo + '/' + yy;
-    return true;
-  }
-  // DD/MM/AAAA (completo) — não altera
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return;
-  return false;
+
+  return v;
 }
 
 function dtAutoComplete(root) {
-  var timers = {};
-  var changed = false;
   (root || document).querySelectorAll('.it-dtwrap input[type="text"]').forEach(function(el) {
-    el.addEventListener('input', function() {
-      if (timers[el.name || el.id]) clearTimeout(timers[el.name || el.id]);
-      timers[el.name || el.id] = setTimeout(function() {
-        if (_dtCompleteOne(el)) dtSyncFilled();
-      }, 400);
-    });
     el.addEventListener('blur', function() {
-      if (timers[el.name || el.id]) clearTimeout(timers[el.name || el.id]);
-      if (_dtCompleteOne(el)) dtSyncFilled();
+      var novoValor = setDate(el.value.trim());
+      if (novoValor !== el.value.trim()) {
+        el.value = novoValor;
+        dtSyncFilled();
+      }
     });
-    if (_dtCompleteOne(el)) changed = true;
   });
-  if (changed) dtSyncFilled();
 }
 window.dtAutoComplete = dtAutoComplete;
 
