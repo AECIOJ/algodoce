@@ -176,6 +176,15 @@
                 </select>
               {% elif f.input == 'textarea' %}
                 <textarea class="textarea textarea-sm textarea-bordered full-width" name="{{ f.input_name }}"></textarea>
+              {% elif f.input in ('date', 'datetime-local') %}
+                {% set _fmt = '%d/%m/%Y' if f.input == 'date' else '%d/%m/%Y %H:%M' %}
+                {% set _fp_fmt = 'd/m/Y' if f.input == 'date' else 'd/m/Y H:i' %}
+                {% set _ph = 'dd/mm/aaaa' if f.input == 'date' else 'dd/mm/aaaa hh:mm' %}
+                <div class="inline-flex items-center it-dtwrap"><input type="text" name="{{ f.input_name }}" class="input input-bordered input-sm"
+                       placeholder="{{ _ph }}"
+                       data-datepicker="1"
+                       data-fp-format="{{ _fp_fmt }}">
+                  <button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="openDatePicker(this)" aria-label="{{ i18n.PICK_DATE if f.input == 'date' else i18n.PICK_TIME }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ 'calendar' if f.input == 'date' else 'clock' }}"/></svg></button></div>
               {% else %}
                 <input type="{{ f.input }}" class="input input-sm input-bordered {% if f.input == 'number' %}full-width{% endif %}" name="{{ f.input_name }}" {% if f.input == 'number' %}min="1" style="max-width:100px;"{% endif %}>
               {% endif %}
@@ -293,5 +302,36 @@ function fecharImgModal() {
   modal.classList.remove('show');
 }
 document.getElementById('cartImgModal')?.addEventListener('click', fecharImgModal);
+
+// Flatpickr: inicializa calendário em todos os inputs de data (mesmo comportamento dos forms)
+function initFlatpickr() {
+  document.querySelectorAll('.it-dtwrap input[data-datepicker="1"]').forEach(function(input) {
+    var fmt = input.getAttribute('data-fp-format') || 'd/m/Y';
+    var fp = flatpickr(input, {
+      dateFormat: fmt,
+      altInput: false,
+      allowInput: true,
+      clickOpens: false,
+      onChange: function(selectedDates, dateStr, instance) {
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    input._fp = fp;
+  });
+}
+initFlatpickr();
+window.initFlatpickr = initFlatpickr;
+
+// Abre o calendário Flatpickr do input texto vizinho ao botão clicado.
+function openDatePicker(btn) {
+  var wrap = btn.closest('.it-dtwrap');
+  if (!wrap) return;
+  var input = wrap.querySelector('input[data-datepicker="1"]');
+  if (!input || !input._fp) return;
+  input._fp.open();
+  input.focus();
+}
+window.openDatePicker = openDatePicker;
 </script>
 {% endblock %}
