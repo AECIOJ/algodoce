@@ -75,13 +75,13 @@
   {# ── Bind do target baseado nos triggers ── #}
   {% set _click = (modulo.triggers or {}).get('click', {}) %}
   {% set _dbl = (modulo.triggers or {}).get('click_dbl', {}) %}
-  {# Se o módulo atual não tem triggers (ex.: usuário logado no system
-     visitando o site público), tenta o módulo público para o logo do site. #}
-  {% if not _click.action and not _dbl.action and APP %}
+  {# Se o módulo atual não tem trigger 'system' no clique simples (ex.: usuário
+     logado no system visitando o site público tem click: qr do SYS), tenta o
+     módulo público para o bind do logo. #}
+  {% if not (_click.action == 'system') and APP %}
     {% set _pub = APP.module('public') if APP else none %}
-    {% if _pub and _pub.triggers %}
+    {% if _pub and (_pub.triggers or {}).get('click', {}).action == 'system' %}
       {% set _click = (_pub.triggers or {}).get('click', {}) %}
-      {% set _dbl = (_pub.triggers or {}).get('click_dbl', {}) %}
     {% endif %}
   {% endif %}
   {% set _selector = '.brand-logo' if (_click.target or _dbl.target) == 'logo' else '.brand-logo' %}
