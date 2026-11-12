@@ -1,6 +1,6 @@
-{# ── ajsystem/static/js/dates.js ──
+/* ── ajsystem/static/js/dates.js ──
    Funções compartilhadas de data/calendário (flatpickr + auto-complete dd/mm/aaaa).
-   Incluído em page_layout.html → disponível em todas as páginas (sys e site). #}
+   Incluído em page_layout.html → disponível em todas as páginas (sys e site). ── */
 
 function dtSyncFilled(root) {
   (root || document).querySelectorAll('input[type="date"], input[type="datetime-local"], input[type="time"]').forEach(function(el) {
