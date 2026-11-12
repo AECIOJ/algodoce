@@ -9,22 +9,24 @@
 .item-row {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 0.35rem 0.75rem;
-  align-items: start;
+  gap: 0.4rem 0.9rem;
+  align-items: center;
 }
 .cart-item-img {
   grid-column: 1;
   grid-row: 2;
-  width: 48px; height: 48px; object-fit: cover; border-radius: 8px;
+  width: 64px; height: 64px; object-fit: cover; border-radius: 8px;
+  align-self: center;
 }
 .cart-item-img-empty {
   display: flex; align-items: center; justify-content: center;
-  background: var(--fallback-b2, oklch(var(--b2))); font-size: 1.25rem;
+  background: var(--fallback-b2, oklch(var(--b2))); font-size: 1.5rem;
 }
 .item-qtd {
   grid-column: 1;
   grid-row: 1;
-  font-weight: 700; font-size: 1rem; line-height: 1;
+  display: flex; align-items: center; gap: 0.35rem;
+  font-weight: 700; font-size: 0.95rem;
   text-align: center;
 }
 .item-qtd input {
@@ -36,6 +38,10 @@
 .item-qtd input::-webkit-inner-spin-button,
 .item-qtd input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .item-qtd input[type=number] { -moz-appearance: textfield; }
+.item-qtd .item-qtd-unid {
+  font-size: 0.75rem; color: var(--fallback-bc, oklch(var(--bc))); opacity: 0.8;
+  white-space: nowrap;
+}
 .item-nome {
   grid-column: 2;
   grid-row: 1;
@@ -49,16 +55,29 @@
 .item-obs {
   grid-column: 2 / span 2;
   grid-row: 2;
+  align-self: center;
 }
-.item-obs input { width: 100%; }
+.item-obs textarea {
+  width: 100%;
+  height: 64px;
+  min-height: 64px;
+  resize: vertical;
+  padding: 0.5rem;
+  font: inherit;
+  border: 1px solid var(--fallback-b3, oklch(var(--b3)));
+  border-radius: 6px;
+  background: transparent; color: inherit;
+  line-height: 1.4;
+}
 .item-row .saved-badge {
   grid-column: 1 / span 3;
   grid-row: 3;
   align-self: start;
 }
 @media (max-width: 575.98px) {
-  .cart-item-img { width: 40px; height: 40px; }
-  .item-qtd { font-size: 1rem; }
+  .cart-item-img { width: 60px; height: 60px; }
+  .item-row { gap: 0.35rem 0.4rem; }
+  .item-qtd { font-size: 0.9rem; }
 }
 .evento-grid {
   display: grid;
@@ -106,7 +125,7 @@
             {% else %}
             <div class="cart-item-img cart-item-img-empty" aria-hidden="true">📸</div>
             {% endif %}
-            <span class="item-qtd"><input type="number" class="campo-qtd text-center" value="{{ i.quantidade }}" min="{{ i.qtd_minima }}" step="1"></span>
+            <span class="item-qtd"><input type="number" class="campo-qtd text-center" value="{{ i.quantidade }}" min="{{ i.qtd_minima }}" step="1"><span class="item-qtd-unid">und</span></span>
             <span class="item-nome">{{ i.produto.nome }}</span>
             <div class="item-remover">
               <form method="POST" action="{{ base_url }}/remover/{{ i.item_id }}" style="display:inline;">
@@ -114,8 +133,8 @@
               </form>
             </div>
             <div class="item-obs">
-              <input type="text" class="input input-sm input-bordered campo-obs w-full"
-                     value="{{ i.observacao or '' }}" placeholder="{{ i18n.NOTE }}">
+              <textarea class="input input-sm input-bordered campo-obs w-full"
+                        placeholder="{{ i18n.NOTE }}">{{ i.observacao or '' }}</textarea>
             </div>
             <span class="saved-badge">✓</span>
           </div>
