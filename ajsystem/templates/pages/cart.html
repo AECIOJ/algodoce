@@ -104,6 +104,18 @@
   transition: opacity 0.25s, transform 0.25s; max-width: 90vw; text-align: center;
 }
 .cart-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* ── Modal imagem maior ── */
+.cart-img-modal { display: none; position: fixed; inset: 0; z-index: 1100;
+  background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+  padding: 1rem; box-sizing: border-box; }
+.cart-img-modal.show { display: flex; }
+.cart-img-modal img { max-width: 90vw; max-height: 80vh; border-radius: 8px;
+  box-shadow: 0 0 2rem rgba(0,0,0,.5); }
+.cart-img-modal-close { position: absolute; top: 1rem; right: 1rem; z-index: 1101;
+  width: 2.5rem; height: 2.5rem; border-radius: 50%; background: rgba(0,0,0,.6);
+  color: #fff; border: 0; font-size: 1.5rem; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; }
+.cart-img-modal-close:hover { background: rgba(0,0,0,.9); }
 </style>
 {% endblock %}
 
@@ -121,7 +133,8 @@
           <div class="item-row" data-item-id="{{ i.item_id }}">
             {% if i.produto.imagem %}
             <img src="{{ url_for(cart.image_endpoint, filename=i.produto.imagem) }}"
-                 alt="{{ i.produto.nome }}" class="cart-item-img">
+                 alt="{{ i.produto.nome }}" class="cart-item-img"
+                 onclick="abrirImgModal(this.src, this.alt)">
             {% else %}
             <div class="cart-item-img cart-item-img-empty" aria-hidden="true">📸</div>
             {% endif %}
@@ -179,6 +192,11 @@
       <a href="{{ more_items_link }}" class="btn btn-rosa inline-flex items-center gap-1"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-eye"/></svg> {{ i18n.VIEW_PRODUCTS }}</a>
     </div>
   {% endif %}
+</div>
+
+<div class="cart-img-modal" id="cartImgModal">
+  <button type="button" class="cart-img-modal-close" onclick="fecharImgModal()" aria-label="Fechar">&times;</button>
+  <img id="cartImgModalImg" src="" alt="">
 </div>
 {% endblock %}
 
@@ -258,6 +276,24 @@ document.querySelectorAll('.qty-plus').forEach(function(btn) {
     input.value = val + 1;
     input.dispatchEvent(new Event('input', { bubbles: true }));
   });
+});
+
+/* Modal imagem maior */
+function abrirImgModal(src, alt) {
+  var modal = document.getElementById('cartImgModal');
+  var img = document.getElementById('cartImgModalImg');
+  if (!modal || !img) return;
+  img.src = src;
+  img.alt = alt || '';
+  modal.classList.add('show');
+}
+function fecharImgModal() {
+  var modal = document.getElementById('cartImgModal');
+  if (!modal) return;
+  modal.classList.remove('show');
+}
+document.getElementById('cartImgModal')?.addEventListener('click', function(e) {
+  if (e.target === this) fecharImgModal();
 });
 </script>
 {% endblock %}
