@@ -52,7 +52,9 @@ function dtAutoComplete(root) {
   var changed = false;
   (root || document).querySelectorAll('.it-dtwrap input[type="text"]').forEach(function(el) {
     el.addEventListener('blur', function() {
-      if (_dtCompleteOne(el)) dtSyncFilled();
+      setTimeout(function() {
+        if (_dtCompleteOne(el)) dtSyncFilled();
+      }, 0);
     });
     if (_dtCompleteOne(el)) changed = true;
   });
