@@ -108,12 +108,12 @@ window.openDatePicker = openDatePicker;
 // Inicializa quando o DOM estiver pronto
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', function() {
-    initFlatpickr();
-    dtAutoComplete();
-    dtSyncFilled();
+    try { initFlatpickr(); } catch(e) {}
+    try { dtAutoComplete(); } catch(e) {}
+    try { dtSyncFilled(); } catch(e) {}
   });
 } else {
-  initFlatpickr();
-  dtAutoComplete();
-  dtSyncFilled();
+  try { initFlatpickr(); } catch(e) {}
+  try { dtAutoComplete(); } catch(e) {}
+  try { dtSyncFilled(); } catch(e) {}
 }
