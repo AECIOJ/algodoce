@@ -19,7 +19,7 @@ from ajsystem import locales as i18n
 from ajsystem.core.adapter import db, get_uploads_endpoint
 from ajsystem.core.list import _resolve_model
 from ajsystem.core.utils import fk_column_to, model_columns, rel_for_column
-from ajsystem.defs.data import resolve_max_width
+from ajsystem.defs.data import resolve_max_width, resolve_min_width, module_min_width, width_ch
 from ajsystem.defs.showcase import (
     CART_SESSION_KEY,
     CLIENT_SESSION_KEY,
@@ -44,11 +44,21 @@ def get_page_max_width(mod):
 
     A vitrine dimensiona o layout proporcionalmente à largura da página; a
     largura é declarada no `Page`, não na config da showcase.
+
+    Piso: `Page.min_width` (vence) > `modulo.layout.min_width` — a vitrine nunca
+    encolhe abaixo do piso efetivo.
     """
     page = getattr(mod, 'Page', None)
-    if isinstance(page, dict):
-        return resolve_max_width(page.get('max_width'))
-    return None
+    if not isinstance(page, dict):
+        return None
+    max_w = resolve_max_width(page.get('max_width'))
+    min_w = resolve_min_width(page.get('min_width') or module_min_width(mod))
+    if min_w is not None:
+        _min_ch = width_ch(min_w)
+        _w_ch = width_ch(max_w)
+        if _min_ch is not None and (_w_ch is None or _min_ch > _w_ch):
+            max_w = min_w
+    return max_w
 
 
 def _active_field(model):
@@ -92,7 +102,10 @@ def resolve_showcase(mod):
         'layout': cfg.get('layout') or 'carousel',
         'show': resolve_show(cfg),
         'badge_id': cfg.get('badge_id'),
+        'cart_url': cfg.get('cart_url'),
         'max_width': get_page_max_width(mod),
+        'min_width': resolve_min_width(
+            getattr(mod, 'Page', {}).get('min_width') or module_min_width(mod) or 70),
         'active_field': _active_field(model),
         'image_endpoint': get_uploads_endpoint(),
     }

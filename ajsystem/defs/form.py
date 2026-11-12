@@ -109,6 +109,7 @@ class Form:
     buttons: Optional[list] = None
     spacing: float = 2
     max_width: Optional[Union[int, str]] = None
+    min_width: Optional[Union[int, str]] = None
 
     # ── Campos internos (preenchidos pelo motor, não declarados) ──
     def __post_init__(self):

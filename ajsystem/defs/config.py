@@ -61,6 +61,7 @@ class Layout:
     """Layout visual do módulo (header + footer)."""
     header: LayoutHeader = field(default_factory=LayoutHeader)
     footer: LayoutFooter = field(default_factory=LayoutFooter)
+    min_width: Optional[int] = None   # piso de largura (ch) p/ páginas do módulo
 
 
 @dataclass
@@ -213,6 +214,7 @@ def build_layout(cfg) -> Optional[Layout]:
             title=LayoutTitle(**title),
         ),
         footer=LayoutFooter(**footer),
+        min_width=cfg.pop('min_width', None),
     )
 
 

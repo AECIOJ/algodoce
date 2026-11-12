@@ -21,6 +21,24 @@ def _module_page(slug: str, modulo_ini=None):
         return None
 
 
+# Pacote de rotas de cada tipo de módulo: o menu resolve o módulo do item no
+# subpacote do PRÓPRIO módulo (`public` → `site`, `system` → `sys`, `admin` →
+# `admin`). Sem isso, um item do site com slug que também existe no sys
+# (ex.: 'Produtos') cairia no módulo errado, e slugs só existentes no site
+# cairiam em `construcao`.
+_PACOTE_POR_TIPO = {'system': 'sys', 'public': 'site', 'admin': 'admin'}
+
+
+def _pacote_do_modulo(mod):
+    tipo = getattr(mod, 'type', '') if mod else ''
+    pacote = _PACOTE_POR_TIPO.get(tipo)
+    if not pacote:
+        from ajsystem.core.adapter import ROUTES_BASE
+        return ROUTES_BASE + '.sys'
+    from ajsystem.core.adapter import ROUTES_BASE
+    return f'{ROUTES_BASE}.{pacote}'
+
+
 def _endpoint_lista(bp):
     vf = current_app.view_functions
     prefixo = f'{bp.name}.'
@@ -38,10 +56,11 @@ def modulo_atual():
     return APP.module('public')
 
 
-def url_do_item(item, label=None):
+def url_do_item(item, label=None, mod=None):
     """Resolve a URL de um item de menu (endpoint, caminho literal ou módulo).
 
-    Item sem url → módulo `<slug>.py` → URL do blueprint `.list`. Módulo
+    Item sem url → módulo `<slug>.py` no subpacote do módulo dono do menu
+    (`mod`; ausente → módulo atual) → URL do blueprint `.list`. Módulo
     ausente (página não migrada) → `ajsystem.construcao`.
     """
     if item.url:
@@ -52,11 +71,13 @@ def url_do_item(item, label=None):
         except Exception:
             slug = normalizar_slug(item.page or label or '')
             return url_for('ajsystem.construcao', pagina=slug)
-    slug = normalizar_slug(item.page or label or '')
-    mod = _module_page(slug)
     if mod is None:
+        mod = modulo_atual()
+    slug = normalizar_slug(item.page or label or '')
+    m = _module_page(slug, _pacote_do_modulo(mod))
+    if m is None:
         return url_for('ajsystem.construcao', pagina=slug)
-    bp = module_blueprint(mod)
+    bp = module_blueprint(m)
     if bp is None:
         return url_for('ajsystem.construcao', pagina=slug)
     endpoint = _endpoint_lista(bp)
@@ -81,7 +102,7 @@ def menus_para_json():
             result[label.lower()] = {
                 'title': label,
                 'items': [
-                    {'label': sl, 'url': url_do_item(si, sl), 'icon': si.icon or ''}
+                    {'label': sl, 'url': url_do_item(si, sl, mod), 'icon': si.icon or ''}
                     for sl, si in sub.items()
                 ],
             }
@@ -118,7 +139,7 @@ def _resolver_default(mod, value):
             return None
         items = item.submenus
     try:
-        url = url_do_item(item, label)
+        url = url_do_item(item, label, mod)
     except Exception:
         url = None
     if url and not url.startswith('/ajsystem/construcao'):
@@ -126,7 +147,7 @@ def _resolver_default(mod, value):
     if item.submenus:
         for sl, si in item.submenus.items():
             try:
-                u = url_do_item(si, sl)
+                u = url_do_item(si, sl, mod)
             except Exception:
                 continue
             if u and not u.startswith('/ajsystem/construcao'):
@@ -147,14 +168,14 @@ def home_page(mod=None):
         if sub:
             for sl, si in sub.items():
                 try:
-                    url = url_do_item(si, sl)
+                    url = url_do_item(si, sl, mod)
                 except Exception:
                     continue
                 if url and not url.startswith('/ajsystem/construcao'):
                     return url
         else:
             try:
-                url = url_do_item(item, label)
+                url = url_do_item(item, label, mod)
             except Exception:
                 continue
             if url and not url.startswith('/ajsystem/construcao'):
@@ -184,7 +205,7 @@ def caminho_atual(path=None):
         for label, item in items.items():
             trail = acc + [label]
             try:
-                href = url_do_item(item, label).rstrip('/')
+                href = url_do_item(item, label, mod).rstrip('/')
             except Exception:
                 href = None
             if href and (p == href or (href != '/' and p.startswith(href + '/'))

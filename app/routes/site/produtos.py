@@ -25,5 +25,6 @@ Page = {
         },
         'client_fields': ['nome', 'telefone'],
         'badge_id': 'bnOrcamentoBadge',
+        'cart_url': '/orcamento',
     },
 }

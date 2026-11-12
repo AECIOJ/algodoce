@@ -1,0 +1,93 @@
+{# ── Site layout 1 — sidebar: árvore de navegação do módulo público ──
+   Mesmos padrões do sys1 (accordion JS puro, aba ativa por URL, drawer no
+   mobile). Menus do site são geralmente rasos (4 itens) — o render aceita
+   qualquer profundidade declarada. #}
+{# Módulo público SEMPRE (ver site1_topbar.html). #}
+{% set _pub = APP.module('public') if APP else none %}
+{% set _modulo_site = _pub if _pub else modulo %}
+<nav id="l1Sidebar" class="l1-sidebar" aria-label="{{ i18n.MENU if i18n.MENU is defined else 'Menu' }}">
+  <ul>
+    {% for label, item in _modulo_site.menus.items() %}
+    <li>
+      {% if item.submenus %}
+      <button type="button" class="l1-acc" data-acc>
+        <svg class="w-4 h-4 shrink-0" aria-hidden="true"><use href="#i-{{ item.icon|replace('bi-','') if item.icon else 'home' }}"/></svg>
+        <span>{{ label }}</span>
+        <svg class="w-3 h-3 l1-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+      </button>
+      <ul class="l1-sub">
+        {% for sl, si in item.submenus.items() %}
+        <li class="l1-lvl2">
+          {% if si.submenus %}
+          <button type="button" class="l1-acc l1-acc2" data-acc>
+            <span>{{ sl }}</span>
+            <svg class="w-3 h-3 l1-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+          </button>
+          <ul class="l1-sub2">
+            {% for sl2, si2 in si.submenus.items() %}
+            <li><a class="l1-link" href="{{ menu_url(si2, sl2, _modulo_site) }}">{{ sl2 }}</a></li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <a class="l1-link" href="{{ menu_url(si, sl, _modulo_site) }}">{{ sl }}</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <a class="l1-link" style="padding:.5rem .75rem;font-size:0.9rem;font-weight:600;" href="{{ menu_url(item, label, _modulo_site) }}">
+        <span class="inline-flex items-center gap-2">
+          <svg class="w-4 h-4" style="width:1rem;height:1rem;" aria-hidden="true"><use href="#i-{{ item.icon|replace('bi-','') if item.icon else 'home' }}"/></svg>{{ label }}
+        </span>
+      </a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+<div class="l1-backdrop" id="l1Backdrop"></div>
+<script>
+(function () {
+  var sidebar = document.getElementById('l1Sidebar');
+  var backdrop = document.getElementById('l1Backdrop');
+  var burger = document.getElementById('l1Burger');
+  if (!sidebar) return;
+  var path = location.pathname.replace(/\/+$/, '') || '/';
+
+  function closeDrawer() {
+    sidebar.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('show');
+  }
+  if (burger) burger.addEventListener('click', function () {
+    var open = sidebar.classList.toggle('open');
+    if (backdrop) backdrop.classList.toggle('show', open);
+  });
+  if (backdrop) backdrop.addEventListener('click', closeDrawer);
+
+  document.querySelectorAll('.l1-acc').forEach(function (btn) {
+    btn.addEventListener('click', function () { btn.classList.toggle('open'); });
+  });
+
+  /* Aba ativa: igualdade ou prefixo (mesma regra do servidor). */
+  var best = null, bestLen = -1;
+  sidebar.querySelectorAll('.l1-link').forEach(function (a) {
+    var href = (a.getAttribute('href') || '').replace(/\/+$/, '');
+    if (!href || href === '/') return;
+    if (path === href || path.indexOf(href + '/') === 0) {
+      if (href.length > bestLen) { bestLen = href.length; best = a; }
+    }
+  });
+  if (best) {
+    best.classList.add('active');
+    var ul = best.closest('ul');
+    while (ul) {
+      var trigger = ul.previousElementSibling;
+      if (trigger && trigger.classList && trigger.classList.contains('l1-acc')) trigger.classList.add('open');
+      ul = ul.parentElement ? ul.parentElement.closest('ul') : null;
+    }
+  }
+  sidebar.querySelectorAll('.l1-link').forEach(function (a) {
+    a.addEventListener('click', closeDrawer);
+  });
+})();
+</script>

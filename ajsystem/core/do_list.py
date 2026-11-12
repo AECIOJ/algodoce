@@ -14,6 +14,7 @@ from ajsystem import locales as i18n
 from ajsystem.defs.data import (
     _auto_label, build_field, page_filter_cfg, page_list_cfg, page_report_cfg,
     page_scripts, resolve_entity_fields, module_page, resolve_max_width,
+    resolve_min_width, module_min_width, width_ch,
 )
 from ajsystem.core.list import (
     List, build_field_context, resolve_column_configs,
@@ -158,7 +159,12 @@ def default_by_entity(lista: dict, fonte: dict, parent_entity: str | None = None
 def list_max_width(entity_name: str, module_name: str) -> str:
     """Largura final que a listagem do módulo resolve (max_width explícito ou
     padrão `tot_ch`). O container do meio do form segue essa largura quando
-    `form.max_width` não é declarado (consome em `core.do_form`)."""
+    `form.max_width` não é declarado (consome em `core.do_form`).
+
+    Piso: `Page.min_width` (vence) > `modulo.layout.min_width` — a listagem
+    nunca encolhe abaixo do piso efetivo, mesmo quando o cálculo das colunas
+    resulta num valor muito pequeno.
+    """
     mod = importlib.import_module(module_name)
     schema = getattr(mod, 'Schema', None) or {}
     page = module_page(mod)
@@ -169,7 +175,14 @@ def list_max_width(entity_name: str, module_name: str) -> str:
                                                      entity_name)
     line_fields = _list_slots(lista, pool, _fonte, _fonte.get('parent_entity'))['line']
     edit_endpoint = _resolve_endpoint(lista, 'edit_endpoint', bp_name)
-    return resolve_max_width(lista.get('max_width')) or _total_ch(line_fields, edit_endpoint)
+    width = resolve_max_width(lista.get('max_width')) or _total_ch(line_fields, edit_endpoint)
+    min_w = resolve_min_width(page.get('min_width') or module_min_width(mod) or 70)
+    if min_w is not None:
+        min_ch = width_ch(min_w)
+        width_ch_v = width_ch(width)
+        if min_ch is not None and width_ch_v is not None and min_ch > width_ch_v:
+            width = min_w
+    return width
 
 
 def list_fixed_conds(entity_name: str, module_name: str, model=None):
@@ -849,6 +862,7 @@ def do_list_normal(entity_name: str, module_name: str, data=None, **extra):
         new_url=new_url,
         new_label=new_label,
         max_width=page_max_width,
+        min_width=resolve_min_width(page.get('min_width') or module_min_width(mod)),
         detail_fields=detail_fields,
         detail_data=detail_data,
         detail_title=detail_title,
@@ -1195,6 +1209,7 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
         new_url=new_url,
         new_label=new_label,
         max_width=page_max_width,
+        min_width=resolve_min_width(page.get('min_width') or module_min_width(mod)),
         detail_fields=detail_fields,
         detail_data=detail_data,
         detail_title=detail_title,

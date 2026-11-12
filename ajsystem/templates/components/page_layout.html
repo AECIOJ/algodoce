@@ -52,8 +52,8 @@
         {% endif %}
       {% endwith %}
       {% endblock %}
-      <div class="grow min-h-0 flex flex-col{% if max_width is defined and max_width %} mw-bound{% endif %}"
-           {% if max_width is defined and max_width %}style="--mw-cap: {{ max_width }}"{% endif %}>
+      <div class="grow min-h-0 flex flex-col{% if max_width is defined and max_width or min_width is defined and min_width %} mw-bound{% endif %}"
+           {% if max_width is defined and max_width or min_width is defined and min_width %}style="{% if max_width is defined and max_width %}--mw-cap: {{ max_width }}; {% endif %}{% if min_width is defined and min_width %}--mw-floor: {{ min_width }}; {% endif %}"{% endif %}>
         {% block content %}{% endblock %}
       </div>
     </main>

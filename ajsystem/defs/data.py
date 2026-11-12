@@ -92,6 +92,57 @@ def resolve_max_width(value):
     raise ValueError("max_width deve ser int (largura em ch) ou string CSS")
 
 
+def resolve_min_width(value):
+    """`min_width` de list/form: `int` → `<n>ch`; string é CSS pronto.
+
+    Mesma semântica de `resolve_max_width`, mas é um PISO (never shrink
+    below). `None` (prop ausente) → `None`.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError("min_width deve ser int (largura em ch) ou string CSS")
+    if isinstance(value, int):
+        if value <= 0:
+            raise ValueError(f"min_width deve ser positivo (recebido {value})")
+        return f"{value}ch"
+    if isinstance(value, str):
+        return value
+    raise ValueError("min_width deve ser int (largura em ch) ou string CSS")
+
+
+def module_min_width(mod):
+    """`min_width` declarado no `layout` do módulo, ou `None`.
+
+    Lê `mod.layout.min_width` com segurança (layout ausente → None).
+    """
+    layout = getattr(mod, 'layout', None)
+    if layout is None:
+        return None
+    return getattr(layout, 'min_width', None)
+
+
+def module_max_width(mod):
+    """`max_width` declarado no `layout` do módulo, ou `None`."""
+    layout = getattr(mod, 'layout', None)
+    if layout is None:
+        return None
+    return getattr(layout, 'max_width', None)
+
+
+def width_ch(value):
+    """Extrai o valor numérico de uma string CSS width ('67ch' → 67) ou None."""
+    if value is None:
+        return None
+    txt = str(value).strip()
+    if txt.endswith('ch'):
+        try:
+            return float(txt[:-2])
+        except ValueError:
+            return None
+    return None
+
+
 # ── Dataclass Field (runtime resolvido) ──────────────────────────────────────
 @dataclass
 class Query:

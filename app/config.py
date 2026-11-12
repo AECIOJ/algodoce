@@ -88,9 +88,8 @@ SITE = {
         'header': {
             'logo': {'rows': 4, 'align': 'center'},
             'title': {
-                'text': 'O doce sabor do seu evento!',
-                'align': 'center',
-                'color': 'var(--rosa)',
+                'text': 'ALGODOCE - O doce sabor do seu evento!',
+                'align': 'left',
             },
         },
         'footer': {'user': False},

@@ -373,6 +373,7 @@ var SHOWCASE = {{ {
   'layout': showcase.layout,
   'baseUrl': base_url,
   'badgeId': showcase.badge_id or '',
+  'cartUrl': showcase.cart_url or '',
   'identifyUrl': identify_url or '',
   'clientFields': client_fields,
   'totalItens': total_itens,
@@ -671,6 +672,9 @@ document.addEventListener('DOMContentLoaded', function() {
         pendingItem = { id: id, qtd: qtd };
         adicionarItem(id, qtd);
       } else if (mode === 'edit') {
+        /* Item já no carrinho: o botão "N no carrinho" vira atalho para a
+           página do carrinho (exibe o que foi incluído). */
+        if (SHOWCASE.cartUrl) { window.location.href = SHOWCASE.cartUrl; return; }
         var qtdOrc = parseInt(item.dataset.qtdOrcamento) || 0;
         var newQtd = parseInt(ctrlQtdValue.value) || qtdOrc;
         if (newQtd < minima) {

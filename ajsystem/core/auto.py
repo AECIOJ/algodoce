@@ -11,6 +11,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from ajsystem import locales as i18n
 from ajsystem.defs.data import (
     page_list_cfg as _lista_config, module_page, module_page_label, page_scripts,
+    resolve_min_width, module_min_width,
 )
 from ajsystem.defs.form import parse_form
 from ajsystem.defs.buttons import module_buttons as _module_buttons
@@ -145,6 +146,13 @@ def _build_form(mod, entidade, model, slug=None, botoes_tipos=None,
                  inputs_tipos=inputs_tipos, inputs_page=inputs_page)
     if slug:
         form._redirect = f"{slug}.list"
+    # `min_width`: página (Page.min_width) vence sobre o módulo (layout.min_width).
+    _pg = module_page(mod)
+    _mw = _pg.get('min_width') if hasattr(_pg, 'get') else None
+    if _mw is None:
+        _mw = module_min_width(mod)
+    if _mw is not None:
+        form.min_width = _mw
     if hasattr(mod, '_label') and not form._label:
         form._label = getattr(mod, '_label')
     return form
@@ -380,7 +388,18 @@ def _registrar_rotas_automaticas(app):
         def _site_root():
             if current_user.is_authenticated:
                 return flask_redirect('/sistema')
-            return flask_redirect('/sobre')
+            # `/` honra `default_path` do módulo público. Fallback GENÉRICO do
+            # motor: sem resolução (app sem default_path/sem menus), a própria
+            # página `construcao` do motor — nunca uma página prevista do app.
+            from ajsystem.core.menu import home_page
+            from ajsystem.core.adapter import APP
+            try:
+                url = home_page(APP.module('public'))
+            except Exception:
+                url = None
+            if url and url != '/':
+                return flask_redirect(url)
+            return render_template('pages/construcao.html')
 
     has_sistema = any(r.rule == '/sistema' for r in app.url_map.iter_rules())
     if not has_sistema:

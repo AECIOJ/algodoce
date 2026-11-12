@@ -19,7 +19,8 @@ Config:
         },
         'client_fields': ['nome', 'telefone'],   # termos do modal de identificação
         'badge_id': 'bnOrcamentoBadge',          # id no shell p/ o contador do carrinho
-    }
+        'cart_url': '/orcamento',                # página que exibe o carrinho
+    }                                           # (botão "N no carrinho" navega p/ ela)
 """
 
 import re

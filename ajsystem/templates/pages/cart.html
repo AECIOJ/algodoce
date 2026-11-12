@@ -4,28 +4,61 @@
 {{ super() }}
 <style>
 .cart-page { width: 100%; }
+{# Item: imagem à esquerda (72px, placeholder quando sem foto); à direita
+   nome, linha de quantidade + excluir e observação em largura total. #}
 .item-row {
-  display: flex; align-items: center; gap: 0.75rem;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.35rem 0.75rem;
+  align-items: start;
 }
-.item-row .item-nome {
-  font-weight: 600; min-width: 120px; flex-shrink: 0;
+.cart-item-img {
+  grid-column: 1;
+  grid-row: 2;
+  width: 48px; height: 48px; object-fit: cover; border-radius: 8px;
 }
-.item-row .item-obs {
-  flex: 1; min-width: 140px;
+.cart-item-img-empty {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--fallback-b2, oklch(var(--b2))); font-size: 1.25rem;
 }
-.item-row .item-obs input { width: 100%; }
-.item-row .item-ctrl {
-  display: flex; align-items: center; gap: 0.25rem;
-  flex-shrink: 0;
+.item-qtd {
+  grid-column: 1;
+  grid-row: 1;
+  font-weight: 700; font-size: 1rem; line-height: 1;
+  text-align: center;
 }
-.item-row .item-ctrl input[type="number"] {
-  width: 55px; height: 30px; text-align: center; padding: 0;
+.item-qtd input {
+  width: 44px; height: 2rem; text-align: center; font: inherit;
+  border: 1px solid var(--fallback-b3, oklch(var(--b3)));
+  border-radius: 6px; background: transparent; color: inherit;
+  padding: 0 0.25rem;
+}
+.item-qtd input::-webkit-inner-spin-button,
+.item-qtd input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.item-qtd input[type=number] { -moz-appearance: textfield; }
+.item-nome {
+  grid-column: 2;
+  grid-row: 1;
+  font-weight: 600; align-self: center;
+}
+.item-remover {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center; justify-self: end;
+}
+.item-obs {
+  grid-column: 2 / span 2;
+  grid-row: 2;
+}
+.item-obs input { width: 100%; }
+.item-row .saved-badge {
+  grid-column: 1 / span 3;
+  grid-row: 3;
+  align-self: start;
 }
 @media (max-width: 575.98px) {
-  .item-row { flex-direction: column; align-items: stretch; }
-  .item-row .item-nome { min-width: 0; }
-  .item-row .item-ctrl { justify-content: center; }
+  .cart-item-img { width: 40px; height: 40px; }
+  .item-qtd { font-size: 1rem; }
 }
 .evento-grid {
   display: grid;
@@ -67,8 +100,15 @@
       {% for i in items %}
         <div class="bg-base-100 rounded-lg shadow-sm p-3">
           <div class="item-row" data-item-id="{{ i.item_id }}">
-            <div class="flex w-full items-center" style="justify-content:space-between;">
-              <span class="item-nome">{{ i.produto.nome }}</span>
+            {% if i.produto.imagem %}
+            <img src="{{ url_for(cart.image_endpoint, filename=i.produto.imagem) }}"
+                 alt="{{ i.produto.nome }}" class="cart-item-img">
+            {% else %}
+            <div class="cart-item-img cart-item-img-empty" aria-hidden="true">📸</div>
+            {% endif %}
+            <span class="item-qtd"><input type="number" class="campo-qtd text-center" value="{{ i.quantidade }}" min="{{ i.qtd_minima }}" step="1"></span>
+            <span class="item-nome">{{ i.produto.nome }}</span>
+            <div class="item-remover">
               <form method="POST" action="{{ base_url }}/remover/{{ i.item_id }}" style="display:inline;">
                 <button type="submit" class="btn btn-sm btn-outline btn-error px-2 inline-flex items-center" title="{{ i18n.REMOVE }}"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-trash"/></svg></button>
               </form>
@@ -76,13 +116,6 @@
             <div class="item-obs">
               <input type="text" class="input input-sm input-bordered campo-obs w-full"
                      value="{{ i.observacao or '' }}" placeholder="{{ i18n.NOTE }}">
-            </div>
-            <div class="item-ctrl">
-              <button type="button" class="btn btn-sm btn-outline qty-minus px-1">−</button>
-              <input type="number" class="input input-sm input-bordered campo-qtd text-center"
-                     value="{{ i.quantidade }}"
-                     min="{{ i.qtd_minima }}" step="1">
-              <button type="button" class="btn btn-sm btn-outline qty-plus px-1">+</button>
             </div>
             <span class="saved-badge">✓</span>
           </div>

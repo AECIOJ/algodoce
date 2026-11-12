@@ -17,7 +17,7 @@ from ajsystem.core.form import (
 )
 from ajsystem.core.do_upload import process_image_fields as _process_image_fields
 from ajsystem.core.memory import carry_get
-from ajsystem.defs.data import fk_target_model, resolve_max_width
+from ajsystem.defs.data import fk_target_model, resolve_max_width, resolve_min_width, width_ch
 from ajsystem.defs.tags import parse_tag, resolve_tag
 from ajsystem.defs.validators import resolve_validator
 from ajsystem.defs.transformers import apply_field_transforms
@@ -663,7 +663,14 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None,
         form._redirect.rsplit('.', 1)[0] + '.form')
     form._nav = _nav_groups(nav, _edit_endpoint)
     form._back_url = (extra_ctx or {}).get('back_url') or url_for(form._redirect)
-
+    # Piso do form: form.min_width (página > módulo) nunca deixa encolher abaixo.
+    _form_w = resolve_max_width(form.max_width) or list_max_width or '160ch'
+    _min_w = resolve_min_width(form.min_width or 70)
+    if _min_w is not None:
+        _min_ch = width_ch(_min_w)
+        _w_ch = width_ch(_form_w)
+        if _min_ch is not None and _w_ch is not None and _min_ch > _w_ch:
+            _form_w = _min_w
     ctx = dict(
         instance=instance,
         form=form,
@@ -672,17 +679,12 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None,
         is_new=is_new,
         footer_fields=footer_fields,
         _lookup=_build_lookup(form, extra_ctx.get('_lookup') if extra_ctx else None,
-                            instance),
+                              instance),
         can_delete=_can_delete,
         _session_totals={},
-        max_width=resolve_max_width(form.max_width) or list_max_width or '160ch',
+        max_width=_form_w,
+        min_width=_min_w,
     )
-    if extra_ctx:
-        for k, v in extra_ctx.items():
-            if k == '_lookup' and isinstance(v, dict):
-                ctx.setdefault('_lookup', {}).update(v)
-            else:
-                ctx[k] = v
     if is_new and request.args.get('carry'):
         _carry = carry_get(request.args.get('carry')) or {}
         if _carry and ctx.get('instance') is not None:

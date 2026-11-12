@@ -19,7 +19,7 @@ from flask import flash, jsonify, redirect, request, session, url_for
 
 from ajsystem import locales as i18n
 
-from ajsystem.core.adapter import db
+from ajsystem.core.adapter import db, get_uploads_endpoint
 from ajsystem.core.list import _resolve_model
 from ajsystem.core.utils import fk_column_to, fk_target, has_back_rel, model_columns
 from ajsystem.defs.cart import (
@@ -30,7 +30,7 @@ from ajsystem.defs.cart import (
     resolve_sessions,
 )
 from ajsystem.defs.data import build_field_config
-from ajsystem.defs.data import resolve_max_width
+from ajsystem.defs.data import resolve_max_width, resolve_min_width, module_min_width, width_ch
 
 
 def get_cart(mod):
@@ -88,6 +88,7 @@ def resolve_cart(mod):
         'client_session_key': CLIENT_SESSION_KEY,
         'more_items_link': CART_MORE_ITEMS_LINK,
         'title': i18n.CART_TITLE,
+        'image_endpoint': get_uploads_endpoint(),
     }
 
     for s in sessions_raw:
@@ -203,10 +204,18 @@ def cart_context(mod):
     items = _session_items(sc)
     page = getattr(mod, 'Page', {}) or {}
     max_width = resolve_max_width(page.get('max_width'))
+    # Piso do carrinho: Page.min_width > modulo.layout.min_width.
+    _min_w = resolve_min_width(page.get('min_width') or module_min_width(mod) or 70)
+    if _min_w is not None:
+        _min_ch = width_ch(_min_w)
+        _w_ch = width_ch(max_width)
+        if _min_ch is not None and (_w_ch is None or _min_ch > _w_ch):
+            max_width = _min_w
     return {
         'cart': sc,
         'cart_title': sc['title'],
         'max_width': max_width,
+        'min_width': _min_w,
         'cliente': session.get(sc['client_session_key']),
         'items': items,
         'form_sessions': form_sessions,
