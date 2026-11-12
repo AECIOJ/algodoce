@@ -51,14 +51,7 @@ function _dtCompleteOne(el) {
 }
 
 function dtAutoComplete(root) {
-  var changed = false;
-  (root || document).querySelectorAll('.it-dtwrap input[type="text"]').forEach(function(el) {
-    el.addEventListener('blur', function() {
-      if (_dtCompleteOne(el)) dtSyncFilled();
-    });
-    if (_dtCompleteOne(el)) changed = true;
-  });
-  if (changed) dtSyncFilled();
+  // evento blur removido temporariamente para teste
 }
 window.dtAutoComplete = dtAutoComplete;
 
