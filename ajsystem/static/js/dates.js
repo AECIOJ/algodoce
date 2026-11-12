@@ -49,12 +49,18 @@ function _dtCompleteOne(el) {
 }
 
 function dtAutoComplete(root) {
+  var timers = {};
   var changed = false;
   (root || document).querySelectorAll('.it-dtwrap input[type="text"]').forEach(function(el) {
-    el.addEventListener('blur', function() {
-      setTimeout(function() {
+    el.addEventListener('input', function() {
+      if (timers[el.name || el.id]) clearTimeout(timers[el.name || el.id]);
+      timers[el.name || el.id] = setTimeout(function() {
         if (_dtCompleteOne(el)) dtSyncFilled();
-      }, 0);
+      }, 400);
+    });
+    el.addEventListener('blur', function() {
+      if (timers[el.name || el.id]) clearTimeout(timers[el.name || el.id]);
+      if (_dtCompleteOne(el)) dtSyncFilled();
     });
     if (_dtCompleteOne(el)) changed = true;
   });
