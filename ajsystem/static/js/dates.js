@@ -10,48 +10,9 @@ function dtSyncFilled(root) {
 }
 window.dtSyncFilled = dtSyncFilled;
 
-// Inputs de data: preenchimento automático quando o usuário digita apenas dia
-// (usa mês/ano corrente) ou dia+mês (usa ano corrente). Formato dd/mm/aaaa.
-function _dtCompleteOne(el) {
-  var v = el.value.trim();
-  if (!v) return false;
-  var now = new Date();
-  var yy = String(now.getFullYear());
-  var mm = String(now.getMonth() + 1).padStart(2, '0');
-  var dd = String(now.getDate()).padStart(2, '0');
-  var m;
-  // YYYY-MM-DD (ISO) — converte para brasileiro dd/mm/aaaa
-  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-    var parts = v.split('-');
-    el.value = parts[2] + '/' + parts[1] + '/' + parts[0];
-    return true;
-  }
-  // Apenas dígitos: DD (dia) ou DDMM (dia+mês)
-  if (m = /^(\d{1,2})$/.exec(v)) {
-    var d = String(parseInt(m[1], 10)).padStart(2, '0');
-    el.value = d + '/' + mm + '/' + yy;
-    return true;
-  }
-  if (m = /^(\d{1,2})(\d{2})$/.exec(v)) {
-    var d = String(parseInt(m[1], 10)).padStart(2, '0');
-    var mo = String(parseInt(m[2], 10)).padStart(2, '0');
-    el.value = d + '/' + mo + '/' + yy;
-    return true;
-  }
-  // DD/MM (com barra)
-  if (m = /^(\d{1,2})\/(\d{1,2})$/.exec(v)) {
-    var d = String(parseInt(m[1], 10)).padStart(2, '0');
-    var mo = String(parseInt(m[2], 10)).padStart(2, '0');
-    el.value = d + '/' + mo + '/' + yy;
-    return true;
-  }
-  // DD/MM/AAAA (completo) — não altera
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return false;
-  return false;
-}
-
 function dtAutoComplete(root) {
-  // evento blur removido temporariamente para teste
+  // Mantido para compatibilidade (chamado em sys.html linha 363).
+  // O auto-complete de dia agora é feito pelo parseDate customizado do flatpickr.
 }
 window.dtAutoComplete = dtAutoComplete;
 
@@ -63,6 +24,65 @@ function initFlatpickr() {
       altInput: false,
       allowInput: true,
       clickOpens: false,
+      // Auto-complete de data: se o usuário digitar apenas o dia (ex: "20"),
+      // completa com mês/ano atuais. Se digitar dia+mês (ex: "2011" ou "20/11"),
+      // completa com o ano atual. Valida dias inválidos (ex: 31 de fevereiro).
+      parseDate: function(datestr, format) {
+        var valorLimpo = String(datestr || '').trim();
+        if (!valorLimpo) return null;
+
+        // Apenas dígitos: DD (dia) ou DDMM (dia+mês)
+        var m = valorLimpo.match(/^(\d{1,2})$/);
+        if (m) {
+          var dia = parseInt(m[1], 10);
+          if (dia >= 1 && dia <= 31) {
+            var hoje = new Date();
+            var mes = hoje.getMonth();
+            var ano = hoje.getFullYear();
+            var dataCriada = new Date(ano, mes, dia);
+            // Garante que o JS não pulou para o mês seguinte (ex: 31 de fevereiro)
+            if (dataCriada.getMonth() === mes) {
+              return dataCriada;
+            }
+          }
+          return null;
+        }
+
+        // DDMM (dia+mês, 4 dígitos)
+        m = valorLimpo.match(/^(\d{1,2})(\d{2})$/);
+        if (m) {
+          var dia = parseInt(m[1], 10);
+          var mes = parseInt(m[2], 10) - 1;
+          if (dia >= 1 && dia <= 31 && mes >= 0 && mes <= 11) {
+            var hoje = new Date();
+            var ano = hoje.getFullYear();
+            var dataCriada = new Date(ano, mes, dia);
+            if (dataCriada.getMonth() === mes) {
+              return dataCriada;
+            }
+          }
+          return null;
+        }
+
+        // DD/MM (com barra)
+        m = valorLimpo.match(/^(\d{1,2})\/(\d{1,2})$/);
+        if (m) {
+          var dia = parseInt(m[1], 10);
+          var mes = parseInt(m[2], 10) - 1;
+          if (dia >= 1 && dia <= 31 && mes >= 0 && mes <= 11) {
+            var hoje = new Date();
+            var ano = hoje.getFullYear();
+            var dataCriada = new Date(ano, mes, dia);
+            if (dataCriada.getMonth() === mes) {
+              return dataCriada;
+            }
+          }
+          return null;
+        }
+
+        // DD/MM/AAAA completo ou ISO — usa o parser padrão do Flatpickr
+        return flatpickr.parseDate(datestr, format);
+      },
       onChange: function(selectedDates, dateStr, instance) {
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
