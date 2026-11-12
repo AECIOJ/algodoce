@@ -10,37 +10,55 @@ function dtSyncFilled(root) {
 }
 window.dtSyncFilled = dtSyncFilled;
 
-function setDate(inputDate) {
-  let v = String(inputDate).trim();
-  if (!v) return "";
-
-  const ano = new Date().getFullYear();
-  const mesAtual = String(new Date().getMonth() + 1).padStart(2, '0');
-  let partes = v.split(/[\/\-\.]/);
-
-  if (partes.length === 1) {
-    if (v.length <= 2) {
-      return `${v.padStart(2, '0')}/${mesAtual}/${ano}`;
-    } else if (v.length === 4) {
-      return `${v.slice(0, 2)}/${v.slice(2, 4)}/${ano}`;
-    }
-  } else if (partes.length === 2) {
-    return `${partes[0].padStart(2, '0')}/${partes[1].padStart(2, '0')}/${ano}`;
+// Inputs de data: preenchimento automático quando o usuário digita apenas dia
+// (usa mês/ano corrente) ou dia+mês (usa ano corrente). Formato dd/mm/aaaa.
+function _dtCompleteOne(el) {
+  var v = el.value.trim();
+  if (!v) return false;
+  var now = new Date();
+  var yy = String(now.getFullYear());
+  var mm = String(now.getMonth() + 1).padStart(2, '0');
+  var dd = String(now.getDate()).padStart(2, '0');
+  var m;
+  // YYYY-MM-DD (ISO) — converte para brasileiro dd/mm/aaaa
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    var parts = v.split('-');
+    el.value = parts[2] + '/' + parts[1] + '/' + parts[0];
+    return true;
   }
-
-  return v;
+  // Apenas dígitos: DD (dia) ou DDMM (dia+mês)
+  if (m = /^(\d{1,2})$/.exec(v)) {
+    var d = String(parseInt(m[1], 10)).padStart(2, '0');
+    el.value = d + '/' + mm + '/' + yy;
+    return true;
+  }
+  if (m = /^(\d{1,2})(\d{2})$/.exec(v)) {
+    var d = String(parseInt(m[1], 10)).padStart(2, '0');
+    var mo = String(parseInt(m[2], 10)).padStart(2, '0');
+    el.value = d + '/' + mo + '/' + yy;
+    return true;
+  }
+  // DD/MM (com barra)
+  if (m = /^(\d{1,2})\/(\d{1,2})$/.exec(v)) {
+    var d = String(parseInt(m[1], 10)).padStart(2, '0');
+    var mo = String(parseInt(m[2], 10)).padStart(2, '0');
+    el.value = d + '/' + mo + '/' + yy;
+    return true;
+  }
+  // DD/MM/AAAA (completo) — não altera
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(v)) return false;
+  return false;
 }
 
 function dtAutoComplete(root) {
+  var changed = false;
   (root || document).querySelectorAll('.it-dtwrap input[type="text"]').forEach(function(el) {
     el.addEventListener('blur', function() {
-      var novoValor = setDate(el.value.trim());
-      if (novoValor !== el.value.trim()) {
-        el.value = novoValor;
-        dtSyncFilled();
-      }
+      if (_dtCompleteOne(el)) dtSyncFilled();
     });
+    if (_dtCompleteOne(el)) changed = true;
   });
+  if (changed) dtSyncFilled();
 }
 window.dtAutoComplete = dtAutoComplete;
 
