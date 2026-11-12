@@ -106,11 +106,11 @@
 .cart-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 /* ── Modal imagem maior ── */
 .cart-img-modal { display: none; position: fixed; inset: 0; z-index: 1100;
-  background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
-  padding: 1rem; box-sizing: border-box; }
+  align-items: center; justify-content: center; padding: 1rem; box-sizing: border-box;
+  cursor: pointer; }
 .cart-img-modal.show { display: flex; }
 .cart-img-modal img { max-width: 90vw; max-height: 80vh; border-radius: 8px;
-  box-shadow: 0 0 2rem rgba(0,0,0,.5); }
+  box-shadow: 0 0 2rem rgba(0,0,0,.3); cursor: pointer; }
 .cart-img-modal-close { position: absolute; top: 1rem; right: 1rem; z-index: 1101;
   width: 2.5rem; height: 2.5rem; border-radius: 50%; background: rgba(0,0,0,.6);
   color: #fff; border: 0; font-size: 1.5rem; line-height: 1; cursor: pointer;
@@ -292,8 +292,6 @@ function fecharImgModal() {
   if (!modal) return;
   modal.classList.remove('show');
 }
-document.getElementById('cartImgModal')?.addEventListener('click', function(e) {
-  if (e.target === this) fecharImgModal();
-});
+document.getElementById('cartImgModal')?.addEventListener('click', fecharImgModal);
 </script>
 {% endblock %}
