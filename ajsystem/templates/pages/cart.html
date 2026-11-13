@@ -176,15 +176,14 @@
                 </select>
               {% elif f.input == 'textarea' %}
                 <textarea class="textarea textarea-sm textarea-bordered full-width" name="{{ f.input_name }}"></textarea>
-              {% elif f.input in ('date', 'datetime-local') %}
-                {% set _fmt = '%d/%m/%Y' if f.input == 'date' else '%d/%m/%Y %H:%M' %}
-                {% set _fp_fmt = 'd/m/Y' if f.input == 'date' else 'd/m/Y H:i' %}
-                {% set _ph = 'dd/mm/aaaa' if f.input == 'date' else 'dd/mm/aaaa hh:mm' %}
+              {% elif f.input in ('date', 'datetime-local', 'time') %}
+                {% set _fp_fmt = 'd/m/Y' if f.input == 'date' else ('d/m/Y H:i' if f.input == 'datetime-local' else 'H:i') %}
+                {% set _ph = 'dd/mm/aaaa' if f.input == 'date' else ('dd/mm/aaaa hh:mm' if f.input == 'datetime-local' else 'hh:mm') %}
                 <div class="inline-flex items-center it-dtwrap"><input type="text" name="{{ f.input_name }}" class="input input-bordered input-sm"
                        placeholder="{{ _ph }}"
                        data-datepicker="1"
                        data-fp-format="{{ _fp_fmt }}">
-                  <button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="openDatePicker(this)" aria-label="{{ i18n.PICK_DATE if f.input == 'date' else i18n.PICK_TIME }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ 'calendar' if f.input == 'date' else 'clock' }}"/></svg></button></div>
+                  <button type="button" class="btn btn-outline btn-sm ml-1 px-1" onclick="openDatePicker(this)" aria-label="{{ i18n.PICK_DATE if f.input in ('date', 'datetime-local') else i18n.PICK_TIME }}"><svg class="w-4 h-4" aria-hidden="true"><use href="#i-{{ 'calendar' if f.input in ('date', 'datetime-local') else 'clock' }}"/></svg></button></div>
               {% else %}
                 <input type="{{ f.input }}" class="input input-sm input-bordered {% if f.input == 'number' %}full-width{% endif %}" name="{{ f.input_name }}" {% if f.input == 'number' %}min="1" style="max-width:100px;"{% endif %}>
               {% endif %}

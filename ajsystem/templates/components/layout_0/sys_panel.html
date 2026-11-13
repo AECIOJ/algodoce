@@ -1,7 +1,7 @@
 {# ── Painel (6) do layout 1 — caminho do menu no topo esquerdo + boas-vindas ──
    Estado inicial: no módulo home, sem ativação explícita → card centralizado
    orientando a seleção de um menu. Comportamento vive em
-   `components/sys1_scripts.html`. #}
+   `components/layout_0/sys_scripts.html`. #}
 <div id="l1-pathbar" class="l1-pathbar">
   {% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
   {% set _bc = menu_breadcrumb() %}

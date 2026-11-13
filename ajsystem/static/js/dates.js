@@ -31,6 +31,28 @@ function initFlatpickr() {
         var valorLimpo = String(datestr || '').trim();
         if (!valorLimpo) return null;
 
+        // ── HORA ('H:i'): digitação parcial completa no blur.
+        // "10" → 10:00; "930"/"1030" → 09:30/10:30 (H MM); "10:3" → 10:03.
+        if (format === 'H:i') {
+          var m = valorLimpo.match(/^(\d{1,2}):(\d{1,2})$/);
+          var hh, mi;
+          if (m) { hh = parseInt(m[1], 10); mi = parseInt(m[2], 10); }
+          else {
+            m = valorLimpo.match(/^(\d{1,2})$/);
+            if (m) { hh = parseInt(m[1], 10); mi = 0; }
+            else {
+              m = valorLimpo.match(/^(\d{1,2})(\d{2})$/);
+              if (m) { hh = parseInt(m[1], 10); mi = parseInt(m[2], 10); }
+            }
+          }
+          if (hh !== undefined && hh <= 23 && mi <= 59) {
+            var hora = new Date();
+            hora.setHours(hh, mi, 0, 0);
+            return hora;
+          }
+          return flatpickr.parseDate(datestr, format);
+        }
+
         // Apenas dígitos: DD (dia) ou DDMM (dia+mês)
         var m = valorLimpo.match(/^(\d{1,2})$/);
         if (m) {

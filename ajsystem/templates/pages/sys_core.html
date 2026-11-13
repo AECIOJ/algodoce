@@ -1,3 +1,8 @@
+{# ── SYS CORE — conteúdo e scripts compartilhados de todos os layouts ────────
+   Páginas, abas DADOS/FILTRO/RELATÓRIOS, relatórios, helpers JS, modais e
+   CSS de barras internas (`app-bar`). O CHROME (header, menu, navegação)
+   mora em `pages/layout_<N>/sys.html`, escolhido por `SYS_BASE` em
+   `ajsystem/init.py` (`APP['layout']` em `app/config.py`). #}
 {% extends "components/page_layout.html" %}
 
 {% block head_extra %}
@@ -85,68 +90,6 @@
 </style>
 {% endblock %}
 
-{% block page_header %}
-{% set _logo = modulo.layout.header.logo if modulo and modulo.layout else None %}
-{% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
-<header class="shrink-0 sistema-header" id="sistemaHeader">
-  <div class="container mx-auto px-4 text-center py-0">
-    <a href="/">
-      <img src="{{ url_for('static', filename=APP.logo) }}" alt="{{ APP.name }}"
-           class="brand-logo" id="brandLogo"
-           style="{% if _logo %}height:{{ _logo.rows }}em;{% endif %}">
-    </a>
-    {% set _title_text = APP.title if (_title and _title.text == 'app_title') else (_title.text if _title and _title.text else None) %}
-    {% if _title_text %}
-    <div style="font-size:0.85rem;font-weight:600;
-      text-align:{{ _title.align }};
-      {% if _title.font %}font-family:'{{ _title.font }}',sans-serif;{% endif %}
-      {% if _title.color %}color:{{ _title.color }};{% endif %}">
-      {{ _title_text }}
-    </div>
-    {% endif %}
-  </div>
-</header>
-{% endblock %}
-
-{% block before_content %}
-<div class="shrink-0 area-menu">
-  <nav class="app-bar"
-       style="background:var(--bar-bg-menu);color:var(--bar-txt-menu);">
-    <div class="app-bar-left">
-      <span id="mobileMenuTitle" class="font-bold lg:hidden"></span>
-    </div>
-    <div class="app-bar-center">
-      {% for label, item in modulo.menus.items() %}
-      <a {% if item.submenus %}data-menu="{{ label|lower }}"{% endif %}
-         href="{% if item.submenus %}#{% else %}{{ menu_url(item, label) }}{% endif %}"
-         class="no-underline px-2 nav-link-item hidden lg:inline-flex"
-         style="color:inherit;line-height:var(--bar-h);">{{ label }}</a>
-      {% endfor %}
-    </div>
-    <div class="app-bar-right gap-1">
-      <a class="btn btn-ghost no-underline px-2 inline-flex items-center gap-1"
-         href="/logout"
-         style="color:inherit;padding:var(--bar-py) var(--bar-px);border-radius:6px;">
-        <svg class="w-4 h-4" aria-hidden="true"><use href="#i-logout"/></svg>
-        <span class="hidden lg:inline" style="font-size:0.7rem;font-weight:600;">{{ i18n.EXIT }}</span>
-      </a>
-    </div>
-  </nav>
-
-  {% for label, item in modulo.menus.items() if item.submenus %}
-  <div class="submenu-section hidden" id="{{ label|lower }}Section"
-       style="background:var(--bar-bg-submenu);color:var(--bar-txt-submenu);">
-    <div class="app-bar justify-center hidden lg:flex">
-      {% for sm_label, sm_item in item.submenus.items() %}
-      <a href="{{ menu_url(sm_item, sm_label) }}"
-         class="bar-link-lg no-underline">{{ sm_label }}</a>
-      {% endfor %}
-    </div>
-  </div>
-  {% endfor %}
-</div>
-{% endblock %}
-
 {% block content %}
 <div id="page-content" class="flex-1 min-h-0 flex flex-col">
   {% block page_content %}{% endblock %}
@@ -154,24 +97,6 @@
 {# Container padrão (exclusivo) para relatórios — ocupa o meio quando recebe
    conteúdo injetado via reportRender/injectHTML, ocultando a página corrente. #}
 <div id="{{ REPORT_ID }}" class="flex-1 min-h-0 flex flex-col" style="display:none;"></div>
-{% endblock %}
-
-{% block after_content %}
-<nav class="bottom-nav flex lg:hidden" id="adminBottomNav">
-  {% for label, item in modulo.menus.items() %}
-    {% if item.submenus %}
-    <a href="#" class="bottom-nav-item" data-admin-nav="{{ label|lower }}">
-      <span class="bottom-nav-icon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-{{ item.icon|replace('bi-', '') }}"/></svg></span>
-      <span class="bottom-nav-label">{{ label }}</span>
-    </a>
-    {% else %}
-    <a href="{{ menu_url(item, label) }}" class="bottom-nav-item" data-admin-nav="{{ label|lower }}">
-      <span class="bottom-nav-icon"><svg width="1em" height="1em" fill="currentColor" aria-hidden="true"><use href="#i-{{ item.icon|replace('bi-', '') }}"/></svg></span>
-      <span class="bottom-nav-label">{{ label }}</span>
-    </a>
-    {% endif %}
-  {% endfor %}
-</nav>
 {% endblock %}
 
 {% block page_footer %}

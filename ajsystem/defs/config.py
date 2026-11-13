@@ -156,7 +156,7 @@ class App:
       referencia. Ausente (`None`) = só o catálogo do framework.
     - `layout`: chrome do sistema. `0` (default, ausente) = shell atual
       (header + app-bar horizontal). `1` = shell de barras (top bar + sidebar
-      de navegação + painel de abas; ver `components/sys1_*.html`).
+      de navegação + painel de abas; ver `components/layout_0/`).
     """
     name: str
     logo: str

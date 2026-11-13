@@ -31,7 +31,7 @@ from ajsystem.core.resolve import field_spec_item  # noqa: E402
 # que o JS alterna com a página corrente (`reportRender` abre, `closeReport`
 # volta sem recarregar). O nome desse container é contrato de três lados:
 #   Python  — `Button.into` e `Button.target_into` (ver defs/buttons.py)
-#   HTML    — o atributo `id=` em `pages/sys.html`
+#   HTML    — o atributo `id=` em `pages/sys_core.html`
 #   JS      — `getElementById` em `sys.html` e `components/print_overlay.html`
 #
 # Por isso existem duas formas, e uma é derivada da outra: a crua (`report-content`)

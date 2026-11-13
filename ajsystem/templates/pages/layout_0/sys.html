@@ -1,6 +1,6 @@
-{# ── SYS LAYOUT 1 — shell de barras ──────────────────────────────────────────
-   Herda TODO o conteúdo e os scripts de `pages/sys.html` (páginas, abas
-   DADOS/FILTRO/RELATÓRIOS, relatórios, helpers JS) e troca só o chrome:
+{# ── SYS LAYOUT 0 — shell de barras ──────────────────────────────────────────
+   Herda TODO o conteúdo e os scripts de `pages/sys_core.html` e troca só o
+   chrome:
 
    ┌──────────────┬──────────────────────────────────────────────────┐
    │ LOGO (1)     │ APP.title + caminho do menu (2)   [☰] (3) [Sair](4)│
@@ -10,9 +10,10 @@
    │ RODAPÉ (7) — idêntico ao layout 0 (bloco herdado)               │
    └─────────────────────────────────────────────────────────────────┘
 
-   Seleção: `APP['layout'] = 1` em `app/config.py`. O slot `sidebar` do
-   `page_layout.html` fica vazio no layout 0 — nada muda nele. #}
-{% extends "pages/sys.html" %}
+   Seleção: `APP['layout'] = 0` (padrão) em `app/config.py` → `SYS_BASE`
+   aponta `pages/layout_0/sys.html` (ver `ajsystem/init.py`). O slot `sidebar`
+   do `page_layout.html` fica vazio nos outros layouts — nada muda nele. #}
+{% extends "pages/sys_core.html" %}
 
 {% block head_extra %}
 {{ super() }}
@@ -179,14 +180,14 @@
 {% block before_content %}{% endblock %}
 
 {% block sidebar %}
-{% include 'components/sys1_sidebar.html' %}
+{% include 'components/layout_0/sys_sidebar.html' %}
 {% endblock %}
 
 {% block messages %}
 {{ super() }}
 {# Pathbar + boas-vindas FORA da div de conteúdo (`.mw-bound` limita a
    largura dos dados): aqui a barra do caminho ocupa a largura do painel. #}
-{% include 'components/sys1_panel.html' %}
+{% include 'components/layout_0/sys_panel.html' %}
 {% endblock %}
 
 {% block content %}
@@ -199,5 +200,5 @@
 
 {% block scripts %}
 {{ super() }}
-{% include 'components/sys1_scripts.html' %}
+{% include 'components/layout_0/sys_scripts.html' %}
 {% endblock %}

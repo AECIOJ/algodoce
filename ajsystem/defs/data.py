@@ -711,7 +711,7 @@ SCRIPTS_EXT = '.js'
 
 # Helpers internos do framework, na ordem de dependência (formats antes de quem
 # formata, modals no fim porque expõe showConfirm). Substitui a lista que estava
-# hardcoded em `pages/sys.html`.
+# hardcoded em `pages/sys_core.html`.
 INTERNAL_JS = ('formats', 'validators', 'modals')
 
 

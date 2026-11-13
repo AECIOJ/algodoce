@@ -1,0 +1,20 @@
+{# ── Site layout 1 — header clássico (logo centralizado) ── #}
+{% set _logo = modulo.layout.header.logo if modulo and modulo.layout else None %}
+{% set _title = modulo.layout.header.title if modulo and modulo.layout else None %}
+<header class="flex-shrink-0 site-header">
+  <div class="container text-center py-2">
+    <img src="{{ url_for('static', filename=APP.logo) }}"
+         alt="{{ APP.name }}" class="brand-logo" id="siteLogo"
+         title="{{ APP.name }}"
+         style="{% if _logo %}height:{{ _logo.rows }}em;display:block;margin:0 auto;{% endif %}">
+{% set _title_text = APP.title if (_title and _title.text == 'app_title') else (_title.text if _title and _title.text else None) %}
+    {% if _title_text %}
+    <div class="mt-1 site-subtitle" style="font-size:0.85rem;font-weight:500;letter-spacing:0.5px;
+      text-align:{{ _title.align }};
+      {% if _title.font %}font-family:'{{ _title.font }}',sans-serif;{% endif %}
+      {% if _title.color %}color:{{ _title.color }};{% endif %}">
+      {{ _title_text }}
+    </div>
+    {% endif %}
+  </div>
+</header>

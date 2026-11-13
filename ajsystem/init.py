@@ -169,8 +169,8 @@ def init_app(app):
         import json
         from ajsystem.core.menu import menus_para_json, caminho_atual, home_page
         tema_nome = tema_atual()
-        # Shell do sistema (layout): `0` = pages/sys.html; `1` = sys1 (barras).
-        sys_base = 'pages/sys1.html' if APP.layout == 1 else 'pages/sys.html'
+        # Shell do sistema (layout): `pages/layout_<N>/sys.html` (`APP['layout']`).
+        sys_base = f'pages/layout_{APP.layout}/sys.html'
         return {
             'APP': APP,
             'TEMA': TEMAS[tema_nome],

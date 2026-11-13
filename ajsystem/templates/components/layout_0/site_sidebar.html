@@ -2,7 +2,7 @@
    Mesmos padrões do sys1 (accordion JS puro, aba ativa por URL, drawer no
    mobile). Menus do site são geralmente rasos (4 itens) — o render aceita
    qualquer profundidade declarada. #}
-{# Módulo público SEMPRE (ver site1_topbar.html). #}
+{# Módulo público SEMPRE (ver layout_0/site_header.html). #}
 {% set _pub = APP.module('public') if APP else none %}
 {% set _modulo_site = _pub if _pub else modulo %}
 <nav id="l1Sidebar" class="l1-sidebar" aria-label="{{ i18n.MENU if i18n.MENU is defined else 'Menu' }}">
