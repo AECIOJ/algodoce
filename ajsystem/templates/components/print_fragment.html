@@ -8,18 +8,16 @@
       <svg class="w-4 h-4" aria-hidden="true"><use href="#i-arrow-left"/></svg> Voltar
     </a>
   </div>
-  <iframe id="pdf-frame" src="{{ pdf_url }}" class="flex-1 w-full border-0"></iframe>
+  <embed id="pdf-frame" src="{{ pdf_url }}" type="application/pdf" class="w-full border-0 h-screen" allow="fullscreen"></embed>
 </div>
+<style>
+#pdf-frame { touch-action: pinch-zoom; height: 100vh; }
+</style>
 <script>
-function fitFrame(){
+window.addEventListener('load',function(){
   var f=document.getElementById('pdf-frame');
-  if(!f)return;
-  var r=f.getBoundingClientRect();
-  f.style.height=Math.max(200,window.innerHeight-r.top)+'px';
-}
-window.addEventListener('load',fitFrame);
-window.addEventListener('resize',fitFrame);
-fitFrame();
+  if(f) f.style.height=window.innerHeight+'px';
+});
 
 async function shareOrPrint(){
   var f=document.getElementById('pdf-frame');
@@ -35,6 +33,6 @@ async function shareOrPrint(){
       }
     }catch(e){}
   }
-  f.contentWindow.print();
+  window.print();
 }
 </script>

@@ -1339,6 +1339,8 @@ def _resolve_report_entries(page, schema, module_name, entity_name):
                     'mode_label': _REPORT_OP_LABEL[ftype][op],
                 }
                 if default is not None:
+                    if ftype == 'date' and hasattr(default, 'strftime'):
+                        default = default.strftime('%d/%m/%Y')
                     item['default'] = default
                 if ftype in ('select', 'checklist', 'boolean'):
                     # O pool não resolve `lookup` (só os slots da listagem o

@@ -96,7 +96,7 @@
 </div>
 {# Container padrão (exclusivo) para relatórios — ocupa o meio quando recebe
    conteúdo injetado via reportRender/injectHTML, ocultando a página corrente. #}
-<div id="{{ REPORT_ID }}" class="flex-1 min-h-0 flex flex-col" style="display:none;"></div>
+<div id="{{ REPORT_ID }}" class="flex-1 min-h-0 flex flex-col overflow-y-auto touch-scroll" style="display:none;"></div>
 {% endblock %}
 
 {% block page_footer %}

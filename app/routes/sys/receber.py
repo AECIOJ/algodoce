@@ -72,8 +72,6 @@ Page = {
         'form': {
             'max_width':110,
             'fields': 'Transacao',
-            # `tipo` é filtro fixo (`filter.fixed`): some do painel e vira
-            # WHERE, então precisa estar em `hidden` para não virar campo do form.
             'positions': {
                 'bar':    ['status'],
                 'footer': ['cancelado'],
