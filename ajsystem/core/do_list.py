@@ -1018,7 +1018,9 @@ def do_list_master(entity_name: str, module_name: str, data=None, **extra):
     from ajsystem.defs.data import resolve_lookup
     for f in line_fields + cardonly_fields:
         source = principal_model if getattr(f, '_entity', None) == entity_name else model
-        resolved = resolve_lookup(f, source)
+        # `implicit=False`: na inversão o template exibe o id cru (`_raw`)
+        # para `_id` — só lookup declarado exibe texto.
+        resolved = resolve_lookup(f, source, implicit=False)
         if resolved is not None:
             f.lookup = resolved
             if getattr(f, '_entity', None) == entity_name and parent_rel:

@@ -57,6 +57,15 @@ FIELD_TYPES = {
 
 # `required` é sempre opt-in: declarado na Entity/Schema via 'required': True.
 
+# Tipos numéricos — alinham à direita por padrão (`FIELD_TYPES` acima). É a
+# mesma lista que a inferência de apresentação (`core.resolve.field_presentation`)
+# consulta; aqui ela delimita a regra de alinhamento por lookup.
+NUMERIC_FIELD_TYPES = ('PK', 'ID', 'DK', 'FK', 'RK', 'INT', 'NUM', 'PERCENT')
+
+# Tipos cujo valor exibido num lookup é texto: um campo numérico (FK típico)
+# que exibe um destes como `display` alinha à esquerda, não à direita.
+TEXT_DISPLAY_TYPES = ('TEXT', 'MEMO', 'FONE', 'CPF', 'CNPJ', 'LIST')
+
 # Formatação/parse de máscara, número, moeda, data, transforms e validadores
 # centralizados em `core/formats.py` (ver lá). Re-export para compat.
 from ajsystem.core.formats import (  # noqa: F401
@@ -248,6 +257,10 @@ class Field:
     # regra de motor da chave o consulta (`ID`/`DK` = campo de sistema, fora do
     # form). `FIELD_TYPES` aplica os defaults mas descarta o próprio `type`.
     _type: Optional[str] = None
+    # interno: True quando `align` NÃO foi declarado (herdou do tipo em
+    # `FIELD_TYPES`) — é o que autoriza `resolve_lookup` a inferir `left`
+    # para numérico com display de texto.
+    _align_inferred: bool = True
 
     # interno: camadas do host (app, rota) + o `Input` resolvido. Ver `inp`.
     _input_camadas: tuple = ()
@@ -429,6 +442,9 @@ def build_field_config(name: str, cfg: dict) -> dict:
     props = {**defaults, **cfg, 'name': name}
     props.pop('type', None)
     props['_type'] = field_type
+    # `align` herdado do tipo não é declaração: marcar para a regra de lookup
+    # (`resolve_lookup`) poder inferir por cima sem pisar no dev.
+    props['_align_inferred'] = 'align' not in cfg
 
     if 'label' not in props:
         props['label'] = _auto_label(name)
@@ -915,7 +931,42 @@ def _target_first_fields(target_model):
     return keys
 
 
-def resolve_lookup(field, source_model):
+def _lookup_align(field, target, display):
+    """Alinhamento por lookup: campo numérico cujo `display` é texto alinha à
+    esquerda — o que a FK exibe não é número. Só infere quando o `align` não
+    foi declarado (herdou do tipo via `_align_inferred`); declarado, vence."""
+    if not getattr(field, '_align_inferred', True):
+        return
+    if getattr(field, '_type', None) not in NUMERIC_FIELD_TYPES:
+        return
+    tcfg = entity_fields(target).get(display)
+    if tcfg and tcfg.get('type', 'TEXT') in TEXT_DISPLAY_TYPES:
+        field.align = 'left'
+
+
+def _lookup_align_implicit(field, source_model):
+    """FK `_id` SEM `lookup`: a listagem exibe o objeto da relação (o template
+    tenta `rel.nome`/`rel.name`/... e cai no `repr` — sempre texto) e o form
+    exibe `_it.nome` do `_lookup` legado. Se o alvo da relação tem `nome`
+    textual na Entity, o exibido é texto: numérico sem declaração alinha à
+    esquerda. `RK` e a inversão (`master`) exibem o id cru — não inferem."""
+    if not getattr(field, '_align_inferred', True):
+        return
+    if getattr(field, '_type', None) not in NUMERIC_FIELD_TYPES \
+            or field._type == 'RK':
+        return
+    if not field.name.endswith('_id') or source_model is None:
+        return
+    mapper = getattr(source_model, '__mapper__', None)
+    rel = mapper.relationships.get(field.name[:-3]) if mapper else None
+    if rel is None:
+        return
+    tcfg = entity_fields(rel.mapper.class_).get('nome')
+    if tcfg and tcfg.get('type', 'TEXT') in TEXT_DISPLAY_TYPES:
+        field.align = 'left'
+
+
+def resolve_lookup(field, source_model, implicit=True):
     """Resolve a prop `lookup` de um `Field` numa config com defaults.
 
     `lookup` pode ser: `True` (usa defaults), dict, ou um objeto `Lookup`.
@@ -929,9 +980,15 @@ def resolve_lookup(field, source_model):
         Valor str = atributo-fonte do registro (select FK); valor dict =
         mapa por-opção `{valor_opcao: literal}` (p/ LIST); escalar = constante.
     Retorna dict resolvido com `path` (`<relação>.<display>`) ou `None`.
+
+    `implicit=False` desliga a inferência de alinhamento para FK `_id` sem
+    `lookup` (`_lookup_align_implicit`) — a inversão da listagem (`master`)
+    exibe o id cru, não o texto da relação.
     """
     raw = getattr(field, 'lookup', None)
     if raw is None or raw is False:
+        if implicit:
+            _lookup_align_implicit(field, source_model)
         return None
     cfg = {}
     if raw is True:
@@ -964,6 +1021,7 @@ def resolve_lookup(field, source_model):
         fields = [fields]
     relation = (fk_relation_name(source_model, field.name)
                 if source_model else field.name)
+    _lookup_align(field, target, display)
     return {
         'display': display,
         'fields': fields,
