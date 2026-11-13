@@ -41,6 +41,7 @@ BILL = 'Bill'
 CANCEL = 'Cancel'
 CART_SENT = "Quote sent! We'll contact you on WhatsApp."
 CART_TITLE = 'My Quote'
+CATEGORY = 'Categories:'
 CATEGORIES = 'Categories'
 CHOOSE = 'Choose'
 CLEAR = 'Clear'

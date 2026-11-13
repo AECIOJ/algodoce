@@ -3,34 +3,70 @@
 {% block css %}
 {{ super() }}
 <style>
-  .showcase-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(8rem, clamp(9rem, 26%, 14rem)) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 1.5rem; }
-  .showcase-carousel-wrap { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; grid-column: 2; grid-row: 1; }
+  .showcase-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; gap: 1.5rem; }
+  .showcase-cat-dropdown { grid-row: 1; }
+  .showcase-carousel-wrap { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; overflow: hidden; grid-row: 2; }
   .showcase-col { width: 100%; }
 
-  .showcase-cat-badges {
-    grid-column: 1; grid-row: 1 / 3;
-    width: 100%;
-    display: flex; flex-direction: column; gap: 0.25rem;
-    padding: 1.5rem;
-    background: var(--fallback-b1, oklch(var(--b1)));
-    border-radius: var(--bs-border-radius-lg, 0.5rem);
-    box-shadow: var(--bs-box-shadow-sm, 0 0.125rem 0.25rem rgba(0,0,0,0.075));
-    overflow-y: auto;
+  .showcase-cat-dropdown {
+    position: relative;
+    grid-row: 1;
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.5rem; width: 100%; margin: 0 auto 1.5rem auto;
   }
-  .showcase-cat-badges .badge {
-    display: block; width: 100%; height: auto;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.9rem; font-weight: 600; line-height: 1.4;
-    text-align: center;
-    border-radius: 6px !important; cursor: pointer;
-    text-decoration: none;
-    background: transparent; color: var(--rosa, #e91e63);
-    border: 1px solid var(--rosa, #e91e63);
+  .showcase-cat-label {
+    display: inline-block;
+    font-size: 0.8rem; font-weight: 600;
+    color: var(--rosa, #e91e63); letter-spacing: 0.05em;
+    white-space: nowrap;
+    margin-right: 0.5rem; opacity: 0.8;
   }
-  .showcase-cat-badges .badge.is-active {
+  .showcase-cat-display {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; padding: 0.65rem 0;
+    border: none; border-bottom: 1px solid var(--rosa, #e91e63);
+    border-radius: 0;
+    background: transparent;
+    color: var(--rosa, #e91e63);
+    font-size: 0.95rem; font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .showcase-cat-display.is-open {
+    border-color: var(--rosa, #e91e63);
+    box-shadow: none;
+  }
+  .showcase-cat-display .cat-arrow {
+    width: 16px; height: 16px; flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  .showcase-cat-display.is-open .cat-arrow { transform: rotate(180deg); }
+  .showcase-cat-menu {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    max-height: 260px; overflow-y: auto;
+    background: #fff; border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: var(--bs-box-shadow-lg, 0 1rem 3rem rgba(0,0,0,0.175));
+    z-index: 100; display: none;
+  }
+  .showcase-cat-menu.is-open { display: block; }
+  .showcase-cat-menu-item {
+    display: block; width: 100%; padding: 0.55rem 0.9rem;
+    font-size: 0.9rem; color: #333; text-decoration: none;
+    border-bottom: 1px solid #f5f5f5; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .showcase-cat-menu-item:last-child { border-bottom: none; }
+  .showcase-cat-menu-item:hover, .showcase-cat-menu-item.is-active {
     background: var(--rosa, #e91e63); color: #fff;
   }
-  .showcase-cat-select-bar { display: none; }
+  .showcase-cat-menu-item.is-active { font-weight: 600; }
+
+  @media (max-width: 575.98px) {
+    .showcase-cat-badges { display: none; }
+    .showcase-cat-select-bar { display: none; }
+    .showcase-cat-dropdown { width: 100%; }
+  }
 
   .showcase-carousel {
     flex: 1; min-height: 0; display: flex; flex-direction: column;
@@ -42,29 +78,26 @@
   }
   .showcase-item {
     grid-area: 1 / 1; width: 100%; min-width: 0;
-    height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+    height: 420px; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
     opacity: 0; visibility: hidden; transition: opacity 0.35s ease;
   }
   .showcase-item.is-active { opacity: 1; visibility: visible; }
-  .showcase-item .showcase-counter { font-size: 0.8rem; color: var(--fallback-bc, oklch(var(--bc))); opacity: 0.6; text-align: center; margin-bottom: 0; flex-shrink: 0; }
-  .showcase-item h3 { flex-shrink: 0; padding: 0.25rem 0; color: var(--rosa, #e91e63); text-align: center; margin: 0.25rem 0 0.5rem; }
-  .showcase-item .showcase-row { flex: 1; height: auto; margin: 0; min-height: 0; display: flex; justify-content: center; gap: 1rem; }
-  .showcase-col:first-child {
-    width: auto; flex: 0 0 auto; max-width: 60%; height: 100%; min-height: 0;
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden; margin-bottom: 0;
+  .showcase-item .showcase-img-wrapper {
+    width: 100%; height: 220px; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; margin-bottom: 1rem;
   }
-  .showcase-col:first-child img {
-    width: auto; height: auto; max-width: 100%; max-height: 100%;
-    border-radius: 8px; display: block;
+  .showcase-item .showcase-img-wrapper img {
+    height: 100%; width: auto; max-width: 100%;
+    border-radius: 8px; display: block; object-fit: contain;
   }
-  .showcase-col:last-child {
-    width: auto; flex: 1 1 0; min-width: 0;
-    display: flex; flex-direction: column;
-    height: 100%; min-height: 0; justify-content: center;
-    overflow: hidden;
+  .showcase-item .showcase-info {
+    width: 100%; max-width: 400px; margin: 0 auto 1rem auto;
+    text-align: center;
   }
-  .showcase-col:last-child > div:first-child { max-height: 100%; min-height: 0; overflow-y: auto; margin: auto 0; }
+  .showcase-item .showcase-nome { color: var(--rosa, #e91e63); font-size: 1.2rem; font-weight: 600; margin: 0 0 0.75rem 0; }
+  .showcase-item .showcase-desc { font-size: 0.95rem; line-height: 1.6; color: #333; text-align: justify; margin: 0; }
+  .showcase-item .showcase-counter { font-size: 0.85rem; color: var(--fallback-bc, oklch(var(--bc))); opacity: 0.8; text-align: center; margin-bottom: 0; }
+  .showcase-col.text-col > div:first-child { max-height: 100%; min-height: 0; overflow-y: auto; margin: auto 0; }
   .showcase-placeholder {
     width: 100%; min-width: 160px; height: 100%; min-height: 120px; border-radius: 8px;
     background: var(--fallback-b2, oklch(var(--b2)));
@@ -86,30 +119,31 @@
   }
   .showcase-lightbox-close {
     position: absolute; top: 12px; right: 16px;
-    width: 40px; height: 40px; border: none; border-radius: 50%;
+    width: 44px; height: 44px; min-width: 44px; min-height: 44px; border: none; border-radius: 50%;
     background: rgba(255,255,255,0.15); color: #fff;
     font-size: 1.6rem; line-height: 1; cursor: pointer;
   }
 
   .showcase-bottom-bar {
     display: flex; align-items: center;
-    grid-column: 2; grid-row: 2;
+    grid-row: 3;
     padding: 8px 0; background: var(--fallback-b1, oklch(var(--b1)));
-    border-top: 1px solid #eee;
-    flex-shrink: 0; position: relative; min-height: 52px;
+    border-top: 1px solid var(--rosa, #e91e63);
+    flex-shrink: 0; position: relative; min-height: 52px; z-index: 10;
   }
   .showcase-nav {
     position: absolute; top: 50%; transform: translateY(-50%);
-    width: 40px; height: 40px; border: none; border-radius: 50%;
+    width: 38px; height: 38px; min-width: 38px; min-height: 38px; border: none; border-radius: 50%;
     background: var(--rosa, #e91e63); color: #fff;
-    font-size: 1.5rem; font-weight: 700;
+    font-size: 1.3rem; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: opacity 0.2s;
-    flex-shrink: 0;
+    cursor: pointer; transition: transform 0.1s, opacity 0.2s;
+    flex-shrink: 0; touch-action: manipulation;
+    padding: 4px; box-sizing: content-box; z-index: 11;
   }
   .showcase-nav-prev { left: 0; }
   .showcase-nav-next { right: 0; }
-  .showcase-nav:active { opacity: 0.7; }
+  .showcase-nav:active { opacity: 0.85; }
   .showcase-ctrl-center { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
   .showcase-qtd-btn {
     width: 38px; height: 38px; border: 2px solid var(--rosa, #e91e63); border-radius: 50%;
@@ -205,13 +239,13 @@
     }
     .showcase-item h3 { padding: 0.5rem 0; }
     .showcase-item .showcase-row { flex: 1; display: flex; flex-direction: column; margin: 0; gap: 0.5rem; }
-    .showcase-col:first-child {
+    .showcase-col.img-col {
       flex: 0 0 auto; width: 100%; max-width: 100%; max-height: 45%;
       display: flex; align-items: center; justify-content: center;
       overflow: hidden; padding: 0; margin-bottom: 0;
     }
-    .showcase-col:first-child img { max-width: 100%; max-height: 100%; height: auto; width: auto; }
-    .showcase-col:last-child { flex: 1; width: 100%; height: auto; min-height: 0; display: flex; flex-direction: column; padding-left: 0; padding-bottom: 0; }
+    .showcase-col.img-col img { max-width: 100%; max-height: 100%; height: auto; width: auto; }
+    .showcase-col.text-col { flex: 1; width: 100%; height: auto; min-height: 0; display: flex; flex-direction: column; padding-left: 0; padding-bottom: 0; }
     .showcase-bottom-bar { flex-shrink: 0; padding: 6px 32px; }
     .showcase-bottom-bar .showcase-nav { width: 34px; height: 34px; font-size: 1.2rem; }
     .showcase-bottom-bar .showcase-qtd-btn { width: 32px; height: 32px; font-size: 1.1rem; }
@@ -225,21 +259,26 @@
 {% block content %}
 <div class="showcase-layout"{% if showcase.max_width %} style="max-width: min({{ showcase.max_width }}, calc(100% - 2rem)); margin-inline: auto;"{% endif %}>
   {% if categorias %}
-  <div class="showcase-cat-badges">
-    <div class="text-center mb-2" style="font-size:0.95rem; font-weight:600; color:var(--rosa, #e91e63);">{{ i18n.CATEGORIES }}</div>
-    <a href="{{ list_url }}" class="badge mb-1 {% if not categoria_id %}is-active{% endif %}">{{ i18n.ALL }}</a>
-    {% for cat in categorias %}
-    <a href="{{ list_url }}?{{ filter_param }}={{ cat.id }}" class="badge mb-1 {% if categoria_id == cat.id %}is-active{% endif %}">{{ cat.nome }}</a>
-    {% endfor %}
-  </div>
-
-  <div class="showcase-cat-select-bar">
-    <select onchange="window.location.href = this.value">
-      <option value="{{ list_url }}" {% if not categoria_id %}selected{% endif %}>{{ i18n.ALL_CATEGORIES }}</option>
+  <div class="showcase-cat-dropdown">
+    <div class="showcase-cat-display" id="showcase-cat-display" role="button" aria-expanded="false" aria-haspopup="listbox">
+      <span class="showcase-cat-label">{{ i18n.CATEGORY }}</span>
+      <span id="showcase-cat-display-text">
+        {% if categoria_id %}
+          {% for cat in categorias %}
+            {% if cat.id == categoria_id %}{{ cat.nome }}{% endif %}
+          {% endfor %}
+        {% else %}
+          {{ i18n.ALL }}
+        {% endif %}
+      </span>
+      <svg class="cat-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </div>
+    <div class="showcase-cat-menu" id="showcase-cat-menu" role="listbox">
+      <a href="{{ list_url }}" class="showcase-cat-menu-item {% if not categoria_id %}is-active{% endif %}" role="option">{{ i18n.ALL }}</a>
       {% for cat in categorias %}
-      <option value="{{ list_url }}?{{ filter_param }}={{ cat.id }}" {% if categoria_id == cat.id %}selected{% endif %}>{{ cat.nome }}</option>
+      <a href="{{ list_url }}?{{ filter_param }}={{ cat.id }}" class="showcase-cat-menu-item {% if categoria_id == cat.id %}is-active{% endif %}" role="option">{{ cat.nome }}</a>
       {% endfor %}
-    </select>
+    </div>
   </div>
   {% endif %}
 
@@ -254,21 +293,18 @@
              data-id="{{ p.id }}"
              data-qtd-minima="{{ p.qty }}"
              data-qtd-orcamento="{{ p.qtd_orcamento }}">
-          <div class="showcase-counter">{{ loop.index }} / {{ produtos|length }}</div>
-          <h3 class="showcase-nome">{{ p.title }}</h3>
-          <div class="showcase-row flex flex-nowrap justify-center items-stretch">
-            {% for pos in ['left', 'right'] %}
-            <div class="showcase-col">
-              {% if p.image_url and pos == p.image_position %}
-                <img src="{{ p.image_url }}" class="showcase-img rounded shadow-sm" onclick="abrirLightbox(this.src)">
-              {% elif p[pos] %}
-                <div class="showcase-text">{{ p[pos] }}</div>
-              {% else %}
-                <div class="showcase-placeholder">📸</div>
-              {% endif %}
-            </div>
-            {% endfor %}
+          <div class="showcase-img-wrapper">
+            {% if p.image_url %}
+              <img src="{{ p.image_url }}" class="showcase-img rounded shadow-sm" onclick="abrirLightbox(this.src)">
+            {% else %}
+              <div class="showcase-placeholder">📸</div>
+            {% endif %}
           </div>
+          <div class="showcase-info">
+            <h3 class="showcase-nome">{{ p.title }}</h3>
+            {% if p.right %}<div class="showcase-desc">{{ p.right }}</div>{% endif %}
+          </div>
+          <div class="showcase-counter">{{ loop.index }} / {{ produtos|length }}</div>
         </div>
         {% endfor %}
       </div>
@@ -621,87 +657,89 @@ document.addEventListener('DOMContentLoaded', function() {
     var ctrlQtdMinus = document.getElementById('showcase-qtd-minus');
     var ctrlQtdPlus = document.getElementById('showcase-qtd-plus');
     var ctrlAction = document.getElementById('showcase-action');
+    var btnPrev = document.getElementById('showcase-prev');
+    var btnNext = document.getElementById('showcase-next');
 
-    function showItem(index) {
-      allItems.forEach(function(i, idx) {
-        i.classList.toggle('is-active', idx === index);
+    if (allItems.length > 0) {
+      function showItem(index) {
+        allItems.forEach(function(i, idx) {
+          i.classList.toggle('is-active', idx === index);
+        });
+        currentIndex = index;
+        CAROUSEL_INDEX = index;
+        updateBarState(null, null);
+      }
+
+      btnPrev.addEventListener('click', function() {
+        showItem(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1);
       });
-      currentIndex = index;
-      CAROUSEL_INDEX = index;
-      updateBarState(null, null);
+      btnNext.addEventListener('click', function() {
+        showItem(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0);
+      });
+
+      ctrlQtdMinus.addEventListener('click', function() {
+        var item = allItems[currentIndex];
+        if (!item) return;
+        var minima = parseInt(item.dataset.qtdMinima) || 1;
+        var current = parseInt(ctrlQtdValue.value) || minima;
+        if (current > minima) ctrlQtdValue.value = current - 1;
+      });
+
+      ctrlQtdPlus.addEventListener('click', function() {
+        var current = parseInt(ctrlQtdValue.value) || 1;
+        ctrlQtdValue.value = current + 1;
+      });
+
+      ctrlAction.addEventListener('click', function() {
+        var item = allItems[currentIndex];
+        if (!item) return;
+        var id = item.dataset.id;
+        var nome = item.querySelector('.showcase-nome').textContent;
+        var qtd = parseInt(ctrlQtdValue.value) || 0;
+        var minima = parseInt(item.dataset.qtdMinima) || 1;
+        var mode = ctrlAction.dataset.mode;
+
+        if (mode === 'add') {
+          if (qtd <= 0) {
+            showAlert('A quantidade deve ser maior que zero.');
+            return;
+          }
+          if (qtd < minima) {
+            showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
+            return;
+          }
+          pendingItem = { id: id, qtd: qtd };
+          adicionarItem(id, qtd);
+        } else if (mode === 'edit') {
+          if (SHOWCASE.cartUrl) { window.location.href = SHOWCASE.cartUrl; return; }
+          var qtdOrc = parseInt(item.dataset.qtdOrcamento) || 0;
+          var newQtd = parseInt(ctrlQtdValue.value) || qtdOrc;
+          if (newQtd < minima) {
+            showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
+            return;
+          }
+          if (newQtd !== qtdOrc) atualizarItem(id, newQtd);
+        }
+      });
+
+      var touchStartX = 0;
+      var carrossel = document.getElementById('showcase-carrossel');
+      carrossel.addEventListener('touchstart', function(e) {
+        touchStartX = e.changedTouches[0].screenX;
+      }, { passive: true });
+      carrossel.addEventListener('touchend', function(e) {
+        var diff = touchStartX - e.changedTouches[0].screenX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) {
+            showItem(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0);
+          } else {
+            showItem(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1);
+          }
+        }
+      }, { passive: true });
+
+      showItem(0);
     }
-
-    document.getElementById('showcase-prev').addEventListener('click', function() {
-      showItem(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1);
-    });
-    document.getElementById('showcase-next').addEventListener('click', function() {
-      showItem(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0);
-    });
-
-    ctrlQtdMinus.addEventListener('click', function() {
-      var item = allItems[currentIndex];
-      if (!item) return;
-      var minima = parseInt(item.dataset.qtdMinima) || 1;
-      var current = parseInt(ctrlQtdValue.value) || minima;
-      if (current > minima) ctrlQtdValue.value = current - 1;
-    });
-
-    ctrlQtdPlus.addEventListener('click', function() {
-      var current = parseInt(ctrlQtdValue.value) || 1;
-      ctrlQtdValue.value = current + 1;
-    });
-
-    ctrlAction.addEventListener('click', function() {
-      var item = allItems[currentIndex];
-      if (!item) return;
-      var id = item.dataset.id;
-      var nome = item.querySelector('.showcase-nome').textContent;
-      var qtd = parseInt(ctrlQtdValue.value) || 0;
-      var minima = parseInt(item.dataset.qtdMinima) || 1;
-      var mode = ctrlAction.dataset.mode;
-
-      if (mode === 'add') {
-        if (qtd <= 0) {
-          showAlert('A quantidade deve ser maior que zero.');
-          return;
-        }
-        if (qtd < minima) {
-          showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
-          return;
-        }
-        pendingItem = { id: id, qtd: qtd };
-        adicionarItem(id, qtd);
-      } else if (mode === 'edit') {
-        /* Item já no carrinho: o botão "N no carrinho" vira atalho para a
-           página do carrinho (exibe o que foi incluído). */
-        if (SHOWCASE.cartUrl) { window.location.href = SHOWCASE.cartUrl; return; }
-        var qtdOrc = parseInt(item.dataset.qtdOrcamento) || 0;
-        var newQtd = parseInt(ctrlQtdValue.value) || qtdOrc;
-        if (newQtd < minima) {
-          showAlert('A quantidade mínima para ' + nome + ' é ' + minima + ' und.');
-          return;
-        }
-        if (newQtd !== qtdOrc) atualizarItem(id, newQtd);
-      }
-    });
-
-    var touchStartX = 0;
-    var carrossel = document.getElementById('showcase-carrossel');
-    carrossel.addEventListener('touchstart', function(e) {
-      touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-    carrossel.addEventListener('touchend', function(e) {
-      var diff = touchStartX - e.changedTouches[0].screenX;
-      if (Math.abs(diff) > 50) {
-        if (diff > 0) {
-          showItem(currentIndex < allItems.length - 1 ? currentIndex + 1 : 0);
-        } else {
-          showItem(currentIndex > 0 ? currentIndex - 1 : allItems.length - 1);
-        }
-      }
-    }, { passive: true });
-
-    if (allItems.length > 0) showItem(0);
   } else {
     document.querySelectorAll('.showcase-card, .showcase-list-row').forEach(function(card) {
       var btn = card.querySelector('.showcase-add-btn');
@@ -729,6 +767,55 @@ document.addEventListener('DOMContentLoaded', function() {
           }, 1600);
         });
       });
+    });
+  }
+
+  /* Dropdown de categorias */
+  var catDisplay = document.getElementById('showcase-cat-display');
+  var catMenu = document.getElementById('showcase-cat-menu');
+  var catArrow = document.querySelector('.cat-arrow');
+
+  if (catDisplay && catMenu) {
+    catDisplay.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var isOpen = catMenu.classList.contains('is-open');
+      if (isOpen) {
+        closeCatMenu();
+      } else {
+        openCatMenu();
+      }
+    });
+
+    function openCatMenu() {
+      catMenu.classList.add('is-open');
+      catDisplay.classList.add('is-open');
+      catDisplay.setAttribute('aria-expanded', 'true');
+      if (catArrow) catArrow.style.transform = 'rotate(180deg)';
+    }
+
+    function closeCatMenu() {
+      catMenu.classList.remove('is-open');
+      catDisplay.classList.remove('is-open');
+      catDisplay.setAttribute('aria-expanded', 'false');
+      if (catArrow) catArrow.style.transform = '';
+    }
+
+    catMenu.querySelectorAll('.showcase-cat-menu-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        closeCatMenu();
+      });
+    });
+
+    document.addEventListener('click', function(e) {
+      if (catMenu.classList.contains('is-open') && !catDisplay.contains(e.target) && !catMenu.contains(e.target)) {
+        closeCatMenu();
+      }
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && catMenu.classList.contains('is-open')) {
+        closeCatMenu();
+      }
     });
   }
 });
