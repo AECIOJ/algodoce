@@ -465,10 +465,12 @@ class Form:
                                 principal=_sess_ent,
                                 pk_names=_pk_names(child_model))
             # `fields` da sessão: os do filho (sessão 1:1) ou um recorte do pai
-            # (agrupamento ou query sobre campos do próprio mestre). Quando os
-            # campos são do PAI, a posição do mestre vale aqui também — é a
-            # mesma tela para o mesmo campo, e evita repetir o `hidden` do
-            # mestre na sessão. A declaração da sessão vence a do mestre.
+            # (agrupamento ou query sobre campos do próprio mestre). Contrato
+            # igual ao form raiz: `fields` declarado distribui no slot padrão
+            # do corpo; `positions`/`hidden` DA SESSÃO é que difere um campo
+            # específico. O `positions` do mestre NÃO é herdado — as instâncias
+            # dos campos da sessão são novas, e o que o mestre esconde no corpo
+            # pode ser exibido dentro de uma sessão.
             if sess_fields:
                 # `fields` de sessão `table`/`query` vêm do Schema do mestre
                 # (`resolve_column_configs(self._schema, ...)`) → são campos do
@@ -476,14 +478,9 @@ class Form:
                 _parent_fields = (not is_form) or is_parent
                 _tag_entity(sess_fields, self._entity_name if _parent_fields else _sess_ent)
                 if _parent_fields:
-                    # Campos do PAI: a MESMA tela do mestre para o mesmo campo,
-                    # então herda a posição do mestre — recortada pelo que a
-                    # sessão exibe (o `hidden` do mestre cita campos fora do
-                    # recorte). `positions`/`hidden` da sessão NÃO se aplicam
-                    # aqui: são o recorte do filho (as colunas).
                     _pool = {getattr(f, 'name', None) for f in sess_fields}
-                    _pos = _filter_pos(self.positions, _pool)
-                    _vis = {k: v for k, v in (self.visible or {}).items() if k in _pool}
+                    _pos = _pos_with_hidden(spec_positions, spec_hidden)
+                    _vis = spec_visible
                     _pk = ()
                 else:
                     _pos = _sess_pos

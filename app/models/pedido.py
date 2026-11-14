@@ -66,6 +66,10 @@ class Pedido(db.Model):
         if self.data_fatura and (self.transacao or self.movto):
             return 1
         status = self.status or 0
+        # política (a): datas são a verdade — cancelado sem data de cancelamento
+        # não se sustenta como 8; volta ao derivável (0 = Pendente)
+        if status == 8 and not self.data_cancelado:
+            return 0
         return 0 if status == 1 else status
 
 
@@ -75,7 +79,7 @@ Entity = {
     'conta_id':             {'type': 'FK', 'label': 'Cliente', 'width': 20, 'required': True},
     'previsao_entrega':      {'type': 'DATA_HORA', 'label': 'Prev. Entrega', 'mask': 'ddd dd/mm/yyyy hh:ii'},
     'data_entrega':          {'type': 'DATA', 'label': 'Entrega', },
-    'data_fatura':           {'type': 'DATA', 'label': 'Faturamento', },
+    'data_fatura':           {'type': 'DATA', 'label': 'Faturamento', 'readonly': True},
     'data_cancelado':        {'type': 'DATA', 'label': 'Cancelamento', },
     'carteira_id':           {'type': 'FK', 'label': 'Pagamento', 'width': 15},
     'forminhas':             {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12},

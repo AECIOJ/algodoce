@@ -205,6 +205,9 @@ Page = {
                     },
                     'positions': {'hidden': ['valor']},
                 },
+                'Evolução': {
+                    'fields': ['data_fatura', 'data_entrega'],
+                },
                 'Evento': {
                     'fields': ['Evento'],
                 },
