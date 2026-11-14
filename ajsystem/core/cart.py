@@ -279,7 +279,7 @@ def send_cart(mod):
     quote = sc['parent_model'](
         cliente_nome=customer.get('nome'),
         cliente_telefone=customer.get('telefone'),
-        data_pedido=datetime.now(timezone.utc),
+        data=datetime.now(timezone.utc),
     )
     db.session.add(quote)
     db.session.flush()

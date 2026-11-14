@@ -67,7 +67,7 @@ def _filter_pos(pos, names):
     """Recorta um `positions` pelos nomes que o pool da sessão tem.
 
     Necessário na herança do mestre: o `hidden` do mestre cita campos que a
-    sessão não exibe (`pedido_em`, `faturado_em`, ...), e citá-los aqui seria
+    sessão não exibe (`data`, `data_fatura`, ...), e citá-los aqui seria
     erro — a sessão é um recorte, e a regra não pode exigir um campo fora dele.
     """
     out = {}

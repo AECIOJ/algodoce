@@ -105,7 +105,7 @@ def post_save_transacao(instance, changed, old_vals):
         p = Pedido.query.get(pid)
         if p and not p.transacao and not p.movto:
             instance.pedido_id = p.id
-            p.faturado_em = TODAY()
+            p.data_fatura = TODAY()
             if not p.carteira_id and carry.get('carteira_id'):
                 p.carteira_id = int(carry['carteira_id'])
                 p.status = p.calc_status()

@@ -129,6 +129,8 @@ def _save_session_masters(form, instance, old_vals, is_new):
         for f in session.get('fields') or []:
             if _calc_virtual(f):
                 continue
+            if getattr(f, 'readonly', False):
+                continue  # readonly não vem do POST: preserva default/valor gravado
             if getattr(f, 'memory', False):
                 continue  # campo só de memória: não persiste no pai
             if f.inp.upload:
@@ -555,6 +557,8 @@ def do_form(form, id=None, extra_ctx=None, instance=None, list_max_width=None,
                 continue
             if _calc_virtual(f):
                 continue
+            if getattr(f, 'readonly', False):
+                continue  # readonly não vem do POST: preserva default/valor gravado
             if getattr(f, 'memory', False):
                 continue  # campo só de memória: renderiza/editável, não persiste
             if f.inp.upload:

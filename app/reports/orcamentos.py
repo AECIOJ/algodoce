@@ -13,7 +13,7 @@ ORCAMENTO = {
         LF(1),
         CPI(15),
         TABS(1, 40),
-        TABS('{cliente_nome}', '{data_pedido}'),
+        TABS('{cliente_nome}', '{data}'),
         TABS('{cliente_telefone}', '{validade_data}'),
         LF(3)
     ],

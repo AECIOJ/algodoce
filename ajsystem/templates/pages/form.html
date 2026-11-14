@@ -101,10 +101,10 @@
        style="background:var(--bar-bg-form);color:var(--bar-txt-form);">
     <div class="app-bar-left">
       {% if footer_fields %}
-      <div class="inline-flex items-end gap-2 mr-2">
+      <div class="inline-flex items-center gap-2 mr-2">
         {% for f in footer_fields %}
-        <label class="flex flex-col gap-0.5">
-          <span class="text-xs opacity-70">{{ f.display_label }}</span>
+        <label class="inline-flex items-center gap-1" for="{{ 'footer_' + f.name }}">
+          <span class="text-xs opacity-70 whitespace-nowrap">{{ f.display_label }}</span>
           {{ fm.render_footer_field(f, instance) }}
         </label>
         {% endfor %}

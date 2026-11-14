@@ -15,7 +15,7 @@ def _desvincular_origem(instance, message=True):
         pedido = Pedido.query.get(instance.pedido_id)
         instance.pedido_id = None
         if pedido:
-            pedido.faturado_em = None
+            pedido.data_fatura = None
             pedido.status = pedido.calc_status()
             revertido.append(f'Pedido {pedido.id}')
     if instance.compra_id:
@@ -60,7 +60,7 @@ def _pre_get_movto(mod, id):
         pedido = Pedido.query.get(request.args.get('origem_pedido', type=int))
         if pedido is None or pedido.transacao or pedido.movto:
             return None
-        return {'instance': Movimento(data=pedido.pedido_em),
+        return {'instance': Movimento(data=pedido.data),
                 'hidden': ['previsao_id', 'compra_id']}
     from app.models.compra import Compra
     compra = Compra.query.get(request.args.get('origem_compra', type=int))
@@ -82,7 +82,7 @@ def _link_movto_origem(instance):
         p = Pedido.query.get(pid)
         if p and not p.transacao and not p.movto:
             instance.pedido_id = p.id
-            p.faturado_em = TODAY()
+            p.data_fatura = TODAY()
             if not p.carteira_id and carry.get('carteira_id'):
                 p.carteira_id = int(carry['carteira_id'])
                 p.status = p.calc_status()
@@ -165,7 +165,7 @@ def excluir_movto(id, list_endpoint, label='Lançamento'):
         compra.status = compra.calc_status()
         db.session.commit()
     if order:
-        order.faturado_em = None
+        order.data_fatura = None
         order.status = order.calc_status()
         db.session.commit()
     flash(f"{label} excluído!", "success")

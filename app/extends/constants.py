@@ -18,8 +18,8 @@ PRODUCAO_ETAPAS = {0: "Preparação", 1: "Montagem", 2: "Embalagem"}
 STATUS_COMPRA = {0: "Orçamento", 1: "Pedido", 2: "Faturado", 6: "Cancelado",
                  8: "Recebido", 9: "Devolvido"}
 
-STATUS_ORCAMENTO = {0: "Pendente", 1: "Negociação", 6: "Renovado",
-                    7: "Expirado", 8: "Rejeitado", 9: "Aprovado"}
+STATUS_ORCAMENTO = {0: "Pendente", 1: "Negociação", 5: "Expirado",
+                    6: "Renovado", 8: "Rejeitado", 9: "Aprovado"}
 
 STATUS_PEDIDO = {0: "Pendente", 1: "Faturado", 2: "Produzindo", 3: "Pronto",
                  8: "Cancelado", 9: "Entregue"}

@@ -22,9 +22,9 @@ Page = {
             'sessions': {
                 'Pedidos': {
                     'query': {
-                        'columns': {'Pedido': ['id','pedido_em','total','status'] },
+                        'columns': {'Pedido': ['id','data','total','status'] },
                         'groups': 'status',
-                        'order': 'pedido_em desc',
+                        'order': 'data desc',
                         'totals': ['total',],
                     },
                 },

@@ -15,11 +15,11 @@ from app.reports.orcamentos import ORCAMENTO
 # ── Botões deste form (o `Buttons` da rota, mesmo papel do `Schema` dela) ───
 
 def _editavel(q):
-    return q is not None and q.pedido_id is None and q.status < 7
+    return q is not None and q.pedido_id is None and (q.status or 0) in (0, 1, 6)
 
 
 def _expirado(q):
-    return q is not None and q.pedido_id is None and q.status == 7
+    return q is not None and q.pedido_id is None and q.status == 5
 
 
 Buttons = {
@@ -39,7 +39,10 @@ Buttons = {
 
 Schema = {
     'Orcamento': {
-        'status': {'tag': {'colors': {0: 'warning', 1: 'info', 6: 'success'}}},
+        'status': {'calc': {'type': 'call', 'source': 'calc_status',
+                            'diff': 'Aviso de Inconsistência: Status registrado neste orçamento difere do status calculado.'},
+                   'tag': {'colors': {0: 'secondary', 1: 'info', 5: 'warning',
+                                      6: 'accent', 8: 'error', 9: 'success'}}},
         'total': {'calc': {'type': 'agg', 'source': 'sum(OrcamentoItem.valor)'},
                   'mask': MVALOR},
         'validade_data': {'readonly': True},
@@ -56,6 +59,19 @@ Schema = {
         'valor': {},
     },
 }
+
+def _pre_save(instance, request, is_new):
+    # Primeira alteração no sistema → Negociação (exceto se já derivar outro).
+    if not is_new and (instance.status or 0) == 0:
+        instance.status = 1
+    instance.status = instance.calc_status()
+
+
+def _post_save(instance, changed, old_vals):
+    from ajsystem.core.extensions import db
+    instance.status = instance.calc_status()
+    db.session.commit()
+
 
 Page = {
     'label': 'Orçamento',
@@ -81,10 +97,13 @@ Page = {
             'fields': 'Orcamento',
             'positions': {
                 'bar':    ['status'],
+                'footer': ['data_rejeicao'],
                 'hidden': ['total', 'carteira_id', 'pedido_id'],
             },
             'visible': {'pedido_id': NOT_EMPTY},
             'readonly': lambda q: q is not None and q.pedido_id is not None,
+            'pre_save': _pre_save,
+            'post_save': _post_save,
             'delete': {
                 'when': lambda q: q.pedido_id is None,
                 'msg_ok': 'Orçamento excluído!',
@@ -149,8 +168,8 @@ def aprovar(id):
     if quote.pedido_id:
         flash("Orçamento já foi convertido!", "warning")
         return redirect(url_for("orcamentos.list"))
-    if quote.status >= 7:
-        flash("Orçamento não pode ser convertido — expirado ou rejeitado.", "warning")
+    if quote.status >= 5:
+        flash("Orçamento não pode ser convertido — expirado, rejeitado ou aprovado.", "warning")
         return redirect(url_for("orcamentos.list"))
     if _sem_total(quote):
         # Espelha o `enabled=['total']` do botão: um orçamento sem itens
@@ -195,7 +214,7 @@ def aprovar(id):
 
     order = Pedido(
         conta_id=conta.id,
-        entregue_em=None,
+        data_entrega=None,
         observacao=quote.observacao,
         carteira_id=quote.carteira_id,
         forminhas=quote.forminhas,
@@ -220,8 +239,8 @@ def aprovar(id):
     )
     if quote.evento:
         order.evento = quote.evento
-    quote.status = 9
     quote.pedido_id = order.id
+    quote.status = quote.calc_status()
     order.orcamento_id = quote.id
 
     db.session.commit()
@@ -231,7 +250,7 @@ def aprovar(id):
 
 def renovar(id):
     quote = Orcamento.query.get_or_404(id)
-    if quote.status != 7:
+    if quote.status != 5:
         flash("Apenas orçamentos expirados podem ser renovados.", "warning")
         return redirect(url_for("orcamentos.list"))
     quote.data_renovacao = datetime.now(timezone.utc)

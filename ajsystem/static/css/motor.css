@@ -780,6 +780,10 @@ html.edit-form #page-content {
   flex-shrink: 0;
   background: var(--fallback-b2, oklch(var(--b2)));
   border-top: 1px solid var(--fallback-b3, oklch(var(--b3)));
+  /* Respiro vertical da barra de salvar: inputs/labels não encostam nas
+     bordas da barra (altura cresce automaticamente). */
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 .rodape {
   height: 26px;

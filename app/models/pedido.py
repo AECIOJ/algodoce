@@ -11,14 +11,14 @@ class Pedido(db.Model):
     conta_id = db.Column(
         db.Integer, db.ForeignKey("conta.id"), nullable=False
     )
-    pedido_em = db.Column(
-        db.Date, nullable=False,
-        default=lambda: datetime.now(timezone.utc).date()
+    data = db.Column(
+        db.DateTime, nullable=False,
+        default=lambda: datetime.now(timezone.utc)
     )
-    data_previsao_entrega = db.Column(db.DateTime, nullable=True)
-    faturado_em = db.Column(db.Date, nullable=True)
-    cancelado_em = db.Column(db.Date, nullable=True)
-    entregue_em = db.Column(db.Date, nullable=True)
+    previsao_entrega = db.Column(db.DateTime, nullable=True)
+    data_fatura = db.Column(db.Date, nullable=True)
+    data_cancelado = db.Column(db.Date, nullable=True)
+    data_entrega = db.Column(db.Date, nullable=True)
     observacao = db.Column(db.Text)
     valor = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     acrescimo = db.Column(db.Numeric(10, 2), nullable=False, default=0)
@@ -59,11 +59,11 @@ class Pedido(db.Model):
         return self.movto.id if self.movto else None
 
     def calc_status(self):
-        if self.entregue_em:
+        if self.data_entrega:
             return 9
-        if self.cancelado_em:
+        if self.data_cancelado:
             return 8
-        if self.faturado_em and (self.transacao or self.movto):
+        if self.data_fatura and (self.transacao or self.movto):
             return 1
         status = self.status or 0
         return 0 if status == 1 else status
@@ -71,12 +71,12 @@ class Pedido(db.Model):
 
 Entity = {
     'id':                    {'type': 'ID', 'width': 6},
+    'data':                  {'type': 'DATA_HORA', 'label': 'Data', 'readonly': True},
     'conta_id':             {'type': 'FK', 'label': 'Cliente', 'width': 20, 'required': True},
-    'pedido_em':             {'type': 'DATA', 'label': 'Pedido em',},
-    'data_previsao_entrega': {'type': 'DATA_HORA', 'label': 'Prev. Entrega', 'mask': 'ddd dd/mm/yyyy hh:ii'},
-    'entregue_em':           {'type': 'DATA', 'label': 'Entregue em', },
-    'faturado_em':           {'type': 'DATA', 'label': 'Faturado em', },
-    'cancelado_em':          {'type': 'DATA', 'label': 'Cancelado em', },
+    'previsao_entrega':      {'type': 'DATA_HORA', 'label': 'Prev. Entrega', 'mask': 'ddd dd/mm/yyyy hh:ii'},
+    'data_entrega':          {'type': 'DATA', 'label': 'Entrega', },
+    'data_fatura':           {'type': 'DATA', 'label': 'Faturamento', },
+    'data_cancelado':        {'type': 'DATA', 'label': 'Cancelamento', },
     'carteira_id':           {'type': 'FK', 'label': 'Pagamento', 'width': 15},
     'forminhas':             {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12},
     'valor':                 {'type': 'NUM', 'width': 10, 'required': True,

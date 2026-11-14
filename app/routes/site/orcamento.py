@@ -19,7 +19,7 @@ Entity = {
     'Orcamento': {
         'cliente_nome': {'label': 'Cliente', 'required': True},
         'cliente_telefone': {'label': 'Telefone', 'required': True},
-        'data_pedido': {'type': 'DATA_HORA'},
+        'data': {'type': 'DATA_HORA', 'readonly': True},
         'status': {'type': 'LIST', 'options': STATUS_ORCAMENTO},
         'validade': {'type': 'INT', 'default': 3},
         'carteira_id': {'type': 'FK'},

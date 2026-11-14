@@ -1,7 +1,7 @@
-{% macro _temporal_input(type_, name, val, icon, label_aria) %}
+{% macro _temporal_input(type_, name, val, icon, label_aria, width=none, chars=none) %}
 {%- set _f = 'calendar' if type_ in ('date','datetime-local') else 'clock' -%}
 {%- set _fmt = '%d/%m/%Y' if type_ == 'date' else ('%d/%m/%Y %H:%M' if type_ == 'datetime-local' else '%H:%M') -%}
-<div class="inline-flex items-center it-dtwrap"><input type="text" name="{{ name }}" class="input input-bordered input-sm"
+<div class="inline-flex items-center it-dtwrap"><input type="text" name="{{ name }}" form="main-form" class="input input-bordered input-sm"{% if width %} style="width: max({{ width }}ch, calc({{ chars }}ch + 0.5rem)); padding: 0 0.25rem !important; border: 0 !important; background: transparent !important; box-shadow: none; height: 1.5rem"{% endif %}
        value="{{ val.strftime(_fmt) if val else '' }}"
        placeholder="{{ 'dd/mm/aaaa' if type_ == 'date' else ('dd/mm/aaaa hh:mm' if type_ == 'datetime-local' else 'hh:mm') }}"
        data-datepicker="1"
@@ -13,17 +13,19 @@
 {% set val = data|deep_attr(field.name) if data is not none else (field.default() if field.default is callable else field.default) %}
 {% set ns = field.name %}
 {% if field.input == 'date' %}
-{{ _temporal_input('date', ns, val, 'calendar', i18n.PICK_DATE) }}
+{{ _temporal_input('date', ns, val, 'calendar', i18n.PICK_DATE, field.width, field.mask_display|length) }}
 {% elif field.input == 'datetime-local' %}
-{{ _temporal_input('datetime-local', ns, val, 'calendar', i18n.PICK_DATE) }}
+{{ _temporal_input('datetime-local', ns, val, 'calendar', i18n.PICK_DATE, field.width, field.mask_display|length) }}
 {% elif field.input == 'time' %}
-{{ _temporal_input('time', ns, val, 'clock', i18n.PICK_TIME) }}
+{{ _temporal_input('time', ns, val, 'clock', i18n.PICK_TIME, field.width, field.mask_display|length) }}
 {% elif field.input == 'number' %}
 <input type="text" inputmode="decimal" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
+       style="border: 0 !important; background: transparent !important; box-shadow: none; height: 1.5rem; padding: 0 0.25rem;"
        {% if field.num_decimals is not none %}data-num-decimals="{{ field.num_decimals }}"{% endif %} value="{{ val|fmt_num(field.decimals) if val is not none else '' }}"
        oninput="marcarFormAlterado()" onchange="marcarFormAlterado()">
 {% else %}
 <input type="text" name="{{ ns }}" class="input input-bordered input-sm" form="main-form"
+       style="border: 0 !important; background: transparent !important; box-shadow: none; height: 1.5rem; padding: 0 0.25rem;"
        value="{{ val or '' }}"
        oninput="marcarFormAlterado()" onchange="marcarFormAlterado()">
 {% endif %}

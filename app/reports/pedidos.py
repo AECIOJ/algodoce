@@ -13,8 +13,8 @@ PEDIDO = {
         LF(1),
         CPI(15),
         TABS(1, 40),
-        TABS('{conta_id}', '{pedido_em}'),
-        TABS('{Conta.telefone}', '{data_previsao_entrega}'),
+        TABS('{conta_id}', '{data}'),
+        TABS('{Conta.telefone}', '{previsao_entrega}'),
         LF(3)
     ],
     'body': {

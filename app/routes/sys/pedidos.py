@@ -57,7 +57,7 @@ def _post_save(instance, changed, old_vals):
 
 
 def _faturado(instance):
-    return (instance is not None and instance.faturado_em is not None
+    return (instance is not None and instance.data_fatura is not None
             and bool(instance.transacao or instance.movto))
 
 
@@ -66,10 +66,10 @@ def _pre_get(mod, id):
     if id is None or request.method != 'GET':
         return None
     pedido = Pedido.query.get(id)
-    if pedido is None or not pedido.faturado_em:
+    if pedido is None or not pedido.data_fatura:
         return None
     if not (pedido.transacao or pedido.movto):
-        pedido.faturado_em = None
+        pedido.data_fatura = None
         pedido.status = pedido.calc_status()
         try:
             from ajsystem.core.extensions import db
@@ -130,10 +130,10 @@ Schema = {
         'carteira_id': {'label': 'Pagamento',
                         'lookup': {'display': 'nome'},
                         'disabled': _financeiro_gerado},
-        'pedido_em': {},
-        'faturado_em': {},
-        'cancelado_em': {},
-        'entregue_em': {},
+        'data': {},
+        'data_fatura': {},
+        'data_cancelado': {},
+        'data_entrega': {},
         'valor': {'calc': {'type': 'agg', 'source': 'sum(PedidoItem.valor)',
                            'diff': 'Aviso de Inconsistência: Valor registrado neste pedido difere da soma dos itens atuais.'}},
         'acrescimo': {},
@@ -141,7 +141,8 @@ Schema = {
         'total': {'calc': 'valor + acrescimo - desconto'},
         'status': {'calc': {'type': 'call', 'source': 'calc_status',
                             'diff': 'Aviso de Inconsistência: Status registrado deste pedido difere do status calculado.'},
-                   'tag': {'colors': {0: 'warning', 1: 'success', 2: 'info', 3: 'info', 8: 'error', 9: 'success'}}},
+                   'tag': {'colors': {0: 'warning', 1: 'info', 2: 'accent', 3: 'secondary',
+                                      8: 'error', 9: 'success'}}},
         'transacao_id': {'tag': {'link': 'receber.form', 'color': 'info'}},
         'movto_id': {'tag': {'link': 'recebimentos.form', 'color': 'info'}},
     },
@@ -170,11 +171,11 @@ Page = {
         },
         'list': {
             'columns': 'Pedido',
-            'card': ['pedido_em', 'faturado_em', 'cancelado_em',
-                     'entregue_em'],
+            'card': ['data_fatura', 'data_cancelado',
+                     'data_entrega'],
             'detail': ('PedidoItem', 'Itens do Pedido'),
             'hidden': ['transacao_id', 'movto_id', 'observacao'],
-            'order': ['entregue_em'],
+            'order': ['data_entrega'],
         },
         'filter': {'types': {'checklist': 'status'}},
         'form': {
@@ -182,10 +183,10 @@ Page = {
             'fields': 'Pedido',
             'positions': {
                 'bar':    ['status'],
-                'footer': ['cancelado_em'],
+                'footer': ['data_cancelado'],
                 'hidden': ['transacao_id', 'movto_id', 'carteira_id', 'valor',
-                           'acrescimo', 'desconto', 'total', 'pedido_em',
-                           'faturado_em', 'entregue_em'],
+                           'acrescimo', 'desconto', 'total',
+                           'data_fatura', 'data_entrega'],
             },
             'visible': {'transacao_id': NOT_EMPTY,
                         'movto_id': NOT_EMPTY},

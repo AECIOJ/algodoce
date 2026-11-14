@@ -8,14 +8,14 @@ from app.extends.masks import MVALOR
 def _validade_data(q):
     if not q:
         return None
-    return adDays(q.data_renovacao or q.data_pedido, q.validade or 3)
+    return adDays(q.data_renovacao or q.data, q.validade or 3)
 
 
 class Orcamento(db.Model):
     __tablename__ = "orcamentos"
 
     id = db.Column(db.Integer, primary_key=True)
-    data_pedido = db.Column(
+    data = db.Column(
         db.DateTime, nullable=False,
         default=lambda: datetime.now(timezone.utc)
     )
@@ -27,6 +27,7 @@ class Orcamento(db.Model):
     validade = db.Column(db.Integer, nullable=False, default=3)
     carteira_id = db.Column(db.Integer, db.ForeignKey("carteira.id"), nullable=True)
     data_renovacao = db.Column(db.DateTime, nullable=True)
+    data_rejeicao = db.Column(db.Date, nullable=True)
     forminhas = db.Column(db.Integer, nullable=False, default=0)
 
     carteira = db.relationship("Carteira", uselist=False)
@@ -45,15 +46,29 @@ class Orcamento(db.Model):
     def total(self):
         return sum((item.valor or 0) for item in self.items)
 
+    def calc_status(self):
+        if self.pedido_id:
+            return 9
+        if self.data_rejeicao:
+            return 8
+        s = self.status or 0
+        if s <= 6:
+            validade_data = _validade_data(self)
+            # Valores do Postgres são naive (UTC); compara em UTC naive.
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            if validade_data and validade_data < now:
+                return 5
+        return s
+
 
 Entity = {
     'id':               {'type': 'ID', 'width': 6},
+    'data':             {'type': 'DATA_HORA', 'label': 'Data', 'readonly': True},
     'cliente_nome':     {'type': 'TEXT', 'label': 'Cliente', 'required': True, 'width': 20},
     'cliente_telefone': {'type': 'FONE', 'label': 'Telefone', 'required': True},
-    'data_pedido':      {'type': 'DATA_HORA', 'label': 'Data',},
     'validade':         {'type': 'INT', 'label': 'Validade (dias)', 'min': 1},
     'validade_data':    {'type': 'DATA_HORA', 'label': 'Válido até', 'calc': _validade_data, 
-                            'mask':'dd/mm/yyyy ddd','width': 14},
+                            'mask':'dd/mm/yyyy ddd','width': 13},
     'forminhas':        {'type': 'LIST', 'label': 'Forminhas', 'options': FORMINHAS, 'width': 12},
     'total':            {'type': 'NUM', 'width': 12, 'readonly': True,
                             'mask': MVALOR},
@@ -61,4 +76,5 @@ Entity = {
     'status':           {'type': 'LIST', 'width': 12, 'options': STATUS_ORCAMENTO},
     'pedido_id':        {'type': 'RK', 'label': 'Pedido', 'width': 9,},
     'observacao':       {'type': 'MEMO', 'width': 40},
+    'data_rejeicao':    {'type': 'DATA', 'label': 'Rejeição'},
 }
