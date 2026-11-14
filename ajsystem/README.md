@@ -2,7 +2,6 @@
 
 > Versão do motor em `ajsystem/version` (`ciclo.ano.mes.dia.seq`). A versão do app hospedeiro fica em `APP['version']` (`app/config.py`).
 
----
 
 ## 1. Ordem de leitura do motor
 
@@ -21,7 +20,6 @@ Merge de props (cada camada sobrescreve a anterior):
 
 > Posição/visibilidade são props da **página** (`Page.props`), nunca do `Field` nem do `Schema`. Slots do form: `bar`, `footer`, `body`, `hidden`. Slots da lista: `line`, `card`, `hidden`.
 
----
 
 ## 2. Instalação e primeiro CRUD
 
@@ -60,7 +58,6 @@ Page = {
 'Tarefas': {'icon': 'check'},
 ```
 
----
 
 ## 3. Configuração geral — `app/config.py`
 
@@ -186,7 +183,6 @@ Mesma estrutura de `SYS`, com `type: 'public'` e `default_path` para a área pú
 
 `type: 'admin'`, `default_path: 'seguranca.painel'`, menus vazios (painel gerado pelo motor).
 
----
 
 ## 4. Model + Entity — `app/models/*.py`
 
@@ -309,7 +305,6 @@ Para campos `FK`. O model alvo é inferido do FK automaticamente (**não existe 
 | `text_field` | `str` | `'status_label'` |
 | `cls` | `str` | `'badge-pill'` |
 
----
 
 ## 5. Rota + Schema + Page — `app/routes/sys/*.py`
 
@@ -382,7 +377,6 @@ Page = {
 
 Sem `cart_url`, o comportamento do botão no modo edição é inalterado (sem navegação).
 
----
 
 #### `props.list` — Listagem
 
@@ -436,7 +430,6 @@ Lista de nomes de arquivos JS estáticos.
 'scripts': ['itens', 'rel/gerar']
 ```
 
----
 
 ## 6. Relatório — `app/reports/*.py`
 
@@ -793,37 +786,27 @@ Campos de `type: 'DATA'` usam Flatpickr (calendário nativo consistente em mobil
 
 **Auto-complete de dia:** se o usuário digitar apenas o dia (ex: `20`), ao sair do campo o valor é completado com mês/ano atuais (`20/11/2026`). Se digitar dia+mês (`2011` ou `20/11`), completa com o ano atual. Dias inválidos (ex: `31/02`) são rejeitados. Isso é feito via `parseDate` customizado do flatpickr, usando o relógio local do cliente.
 
----
 
-## 8. Novidades (últimas alterações)
+/---
+------
 
-### Status de orçamento
-- Vocabulário `STATUS_ORCAMENTO` renumerado: `0` Pendente, `1` Negociação, `5` Expirado, `6` Renovado, `8` Rejeitado, `9` Aprovado.
-- `7` Expirado foi Eliminado.
-- `calc_status()` automático: `pedido_id` → 9, `data_rejeicao` → 8, vencido (validade_passada) → 5.
-- Primeira alteração no sistema → status 1 (Negociação).
-- `data_rejeicao` no footer do form; limpar a data volta o status ao derivável.
-- Barra de salvar (`footer`) com respiro `0.25rem` e inputs sem borda/fundo (altura `1.5rem`).
+## 8. Novidades (framework)
 
-### Status de pedido
-- `STATUS_PEDIDO`: `0` Pendente, `1` Faturado, `2` Produzindo, `3` Pronto, `8` Cancelado, `9` Entregue.
-- `calc_status()` derivado: `data_entrega`→9, `data_cancelado`→8, `data_fatura`+financeiro→1.
-- Política (a): status `8` sem `data_cancelado` volta a `0` (Pendente) — datas são a verdade.
-- Backfill `f3a4b5c6d7e8`: corrige registros existentes com status 8 e data nula.
-- `pre_save`/`post_save` regravam o status a cada save; Schema tem `call/diff` de inconsistência.
-
-### Renomeação de campos em pedido
-- `data_previsao_entrega` → `previsao_entrega` (label "Prev. Entrega")
-- `entregue_em` → `data_entrega` (label "Entrega")
-- `faturado_em` → `data_fatura` (label "Faturamento")
-- `cancelado_em` → `data_cancelado` (label "Cancelamento")
-- Migração `e2f3a4b5c6d7` aplicada.
-
-### Motor — contrato de sessões
+### Contrato de sessões
 - `fields` declarado na sessão distribui no slot padrão do corpo (`body`).
-- `positions`/`hidden` **da própria sessão** difere um campo; o `positions` do mestre **não é herdado**.
-- Sessão Evolução (`fields` sem `positions`) exibe seus campos no corpo; sessão Financeiro também.
-- Se quiser esconder campos do corpo, declare `positions: {'hidden': [...]}` na sessão.
+- `positions`/`hidden` **da própria sessão** difere um campo específico.
+- O `positions` do mestre **não é herdado** — as instâncias dos campos da sessão são novas, e o que o mestre esconde no corpo pode ser exibido dentro de uma sessão.
+- `_pos_with_hidden` passou a ser usado em vez de `_filter_pos` na resolução de sessões de campos do pai.
+
+### Padrão de width para tipos de data
+- No catálogo `ajsystem/defs/data.py`, `DATA` passou a ter `width: 11` e `DATA_HORA` width `14`.
+- Esses valores garantem que o placeholder `dd/mm/aaaa` (ou com hora) caiba inteiramente no input, respeitando o padding interno do Flatpickr.
+
+### Inputs do rodapé do form
+- Campos de data/hora, número e texto no footer agora compartilham o mesmo visual:
+  - `height: 1.5rem`, sem borda (`border: 0`), sem fundo (`background: transparent`).
+  - Padding lateral `0.25rem` apenas.
+  - O respiro vertical da barra (`form-footer`) vem do CSS do motor (`padding: 0.25rem`).
 
 ### Migrações adicionadas (head)
 - `a8c9d0e1f2b3_orcamento_data_pedido_to_data.py`
@@ -833,7 +816,7 @@ Campos de `type: 'DATA'` usam Flatpickr (calendário nativo consistente em mobil
 - `e2f3a4b5c6d7_pedido_rename_dates.py`
 - `f3a4b5c6d7e8_pedido_backfill_status_8.py`
 
-### `Tag` — `ajsystem/defs/tags.py` `class Tag`
+---### `Tag` — `ajsystem/defs/tags.py` `class Tag`
 
 Usado na prop `tag` de `Field`. Renderiza um badge/pill ao lado do valor.
 
