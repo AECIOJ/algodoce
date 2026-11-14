@@ -795,7 +795,43 @@ Campos de `type: 'DATA'` usam Flatpickr (calendário nativo consistente em mobil
 
 ---
 
-## 7. Componentes auxiliares
+## 8. Novidades (últimas alterações)
+
+### Status de orçamento
+- Vocabulário `STATUS_ORCAMENTO` renumerado: `0` Pendente, `1` Negociação, `5` Expirado, `6` Renovado, `8` Rejeitado, `9` Aprovado.
+- `7` Expirado foi Eliminado.
+- `calc_status()` automático: `pedido_id` → 9, `data_rejeicao` → 8, vencido (validade_passada) → 5.
+- Primeira alteração no sistema → status 1 (Negociação).
+- `data_rejeicao` no footer do form; limpar a data volta o status ao derivável.
+- Barra de salvar (`footer`) com respiro `0.25rem` e inputs sem borda/fundo (altura `1.5rem`).
+
+### Status de pedido
+- `STATUS_PEDIDO`: `0` Pendente, `1` Faturado, `2` Produzindo, `3` Pronto, `8` Cancelado, `9` Entregue.
+- `calc_status()` derivado: `data_entrega`→9, `data_cancelado`→8, `data_fatura`+financeiro→1.
+- Política (a): status `8` sem `data_cancelado` volta a `0` (Pendente) — datas são a verdade.
+- Backfill `f3a4b5c6d7e8`: corrige registros existentes com status 8 e data nula.
+- `pre_save`/`post_save` regravam o status a cada save; Schema tem `call/diff` de inconsistência.
+
+### Renomeação de campos em pedido
+- `data_previsao_entrega` → `previsao_entrega` (label "Prev. Entrega")
+- `entregue_em` → `data_entrega` (label "Entrega")
+- `faturado_em` → `data_fatura` (label "Faturamento")
+- `cancelado_em` → `data_cancelado` (label "Cancelamento")
+- Migração `e2f3a4b5c6d7` aplicada.
+
+### Motor — contrato de sessões
+- `fields` declarado na sessão distribui no slot padrão do corpo (`body`).
+- `positions`/`hidden` **da própria sessão** difere um campo; o `positions` do mestre **não é herdado**.
+- Sessão Evolução (`fields` sem `positions`) exibe seus campos no corpo; sessão Financeiro também.
+- Se quiser esconder campos do corpo, declare `positions: {'hidden': [...]}` na sessão.
+
+### Migrações adicionadas (head)
+- `a8c9d0e1f2b3_orcamento_data_pedido_to_data.py`
+- `b9d0e1f2a3c4_pedido_pedido_em_to_data.py`
+- `c0e1f2a3b4d5_pedido_data_date_to_datetime.py`
+- `d1f2a3b4c5e6_orcamento_status_reforma.py`
+- `e2f3a4b5c6d7_pedido_rename_dates.py`
+- `f3a4b5c6d7e8_pedido_backfill_status_8.py`
 
 ### `Tag` — `ajsystem/defs/tags.py` `class Tag`
 
