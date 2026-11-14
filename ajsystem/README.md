@@ -790,48 +790,6 @@ Campos de `type: 'DATA'` usam Flatpickr (calendário nativo consistente em mobil
 /---
 ------
 
-## 8. Novidades (framework)
-
-### Contrato de sessões
-- `fields` declarado na sessão distribui no slot padrão do corpo (`body`).
-- `positions`/`hidden` **da própria sessão** difere um campo específico.
-- O `positions` do mestre **não é herdado** — as instâncias dos campos da sessão são novas, e o que o mestre esconde no corpo pode ser exibido dentro de uma sessão.
-- `_pos_with_hidden` passou a ser usado em vez de `_filter_pos` na resolução de sessões de campos do pai.
-
-### Padrão de width para tipos de data
-- No catálogo `ajsystem/defs/data.py`, `DATA` passou a ter `width: 11` e `DATA_HORA` width `14`.
-- Esses valores garantem que o placeholder `dd/mm/aaaa` (ou com hora) caiba inteiramente no input, respeitando o padding interno do Flatpickr.
-
-### Inputs do rodapé do form
-- Campos de data/hora, número e texto no footer agora compartilham o mesmo visual:
-  - `height: 1.5rem`, sem borda (`border: 0`), sem fundo (`background: transparent`).
-  - Padding lateral `0.25rem` apenas.
-  - O respiro vertical da barra (`form-footer`) vem do CSS do motor (`padding: 0.25rem`).
-
-### Migrações adicionadas (head)
-- `a8c9d0e1f2b3_orcamento_data_pedido_to_data.py`
-- `b9d0e1f2a3c4_pedido_pedido_em_to_data.py`
-- `c0e1f2a3b4d5_pedido_data_date_to_datetime.py`
-- `d1f2a3b4c5e6_orcamento_status_reforma.py`
-- `e2f3a4b5c6d7_pedido_rename_dates.py`
-- `f3a4b5c6d7e8_pedido_backfill_status_8.py`
-
----### `Tag` — `ajsystem/defs/tags.py` `class Tag`
-
-Usado na prop `tag` de `Field`. Renderiza um badge/pill ao lado do valor.
-
-| Sub-prop | Tipo | Valores possíveis | Exemplo |
-|----------|------|-------------------|---------|
-| `colors` | `dict` | `{valor: cor}` (cor ∈ `ghost`, `primary`, `success`, `warning`, `error`, `info`, `0-9`) | `{'colors': {True: 'success', False: 'warning'}}` |
-| `color` | `str` | cor fixa | `{'color': 'info'}` |
-| `link` | `str\|callable` | `'itens.form'` ou `lambda row: 'categorias.form'` | `{'link': 'itens.form'}` |
-| `size` | `str` | `sm` (default) | `{'size': 'sm'}` |
-| `outline` | `bool` | `True` → estilo outline | `{'outline': True}` |
-| `preset` | `str` | `boolean`, `ativo`, `status` | `{'preset': 'ativo'}` |
-| `text_field` | `str` | campo de onde vem o rótulo exibido | `{'text_field': 'status_label'}` |
-| `cls` | `str` | classe CSS extra concatenada | `{'cls': 'badge-pill'}` |
-
-### `Lookup` — `ajsystem/defs/data.py` `class Lookup`
 
 Usado na prop `lookup` de `Field` (FK). **Não existe `Lookup.model`** — o model alvo é inferido do FK automaticamente.
 
